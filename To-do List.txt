@@ -1,0 +1,57 @@
+Next:
+- Update Claude with latest changes
+- Refactor FlighData.ts to remove separate structure for lead and lead fuel and unify with flight members, -1 as lead initially
+- Add pilot callsign to FlightData.ts
+- Sort enroute/tasking and recovery vertical divisions with highest altitudes at the top
+- Launch times sorted from bottom to top in order of earliest to latest, removing a lower flight cascades all the others down
+- Recovery tanker at lowest slot, empty space between recovery tanker and mission tankers
+
+Essential:
+- User editable launch times (Add/Remove/Edit slot)
+- User editable tasking and block altitudes (Add/Remove/Edit slot)
+	- Altitude block and tasking type
+	- Full ATO info
+- User editable tankers (Add/Remove/Edit slot)
+- Flight card interaction
+- Flight creation interface
+- Flight card storage area
+
+
+High Priority:
+- State saving
+- Mission saving
+
+
+Medium Priority:
+- Signal Charlie and Spin vertical divisions
+- Case  II/III toggle that adds
+	- DME distances to holding altitudes and shifts lowest marshal stack altitude to Angels 6
+	- Editable Expected Approach Times
+	- Next available level calculates expected approach time automatically
+- Multiple flights at the same Angels or on the same tanker
+
+
+QOL:
+- Mouse-over board number for pilot callsign
+- Fuel state estimate or last update timer
+- BRC/Weather Display
+- Comms Info
+- Altitudes, positions, TACAN, comms for tankers
+
+Cosmetic:
+- Second digit of fuel state in smaller font (36 > 32 for low state, 12 > 10 for flight members)
+
+Nice to have:
+- Multiple carrier support
+- Ability split and merge individual aircraft into and out of flights
+- Mission roles
+	- Mission commander
+	- Marshall
+	- Tower
+	- LSO
+
+Triage:
+- Roster, attendance and flight assignments
+- Handle out of action aircraft
+- Flag emergency aircraft
+- Alibis
