@@ -1,5 +1,9 @@
 Next:
-- Unify add/edit dialog presentations
+- Unify add/edit dialog presentations (in progress)
+	- Fix edit dialogue popup location (center of browser instead of center of section)
+- Fix sorting after updating/editing a vertical division
+- Fix edit and delete buttons not fading out after the dialog appears
+- Add confirmation for delete button
 
 
 Essential:
@@ -7,28 +11,34 @@ Essential:
 - Flight creation interface
 - Flight card storage area
 
+
 High Priority:
 - State saving
 - Mission saving
 
+
 Medium Priority:
-- Signal Charlie and Spin vertical divisions
 - Case  II/III toggle that adds
 	- DME distances to holding altitudes and shifts lowest marshal stack altitude to Angels 6
 	- Editable Expected Approach Times
 	- Next available level calculates expected approach time automatically
-- Multiple flights at the same Angels or on the same tanker
+
 
 QOL:
-- Mouse-over board number for pilot callsign
 - Fuel state estimate or last update timer
 - BRC/Weather Display
 - Comms Info
 - Altitudes, positions, TACAN, comms for tankers
 - Full ATO info in En Route/Tasking section
+- Implement light/dark mode
+
 
 Cosmetic:
 - Background colour for entire page
+- Fix drop shadow shading other cards when not being dragged
+- Fix spacing between cards in same vertical division, and between different divisions
+- Fix alignment of division labels so that cards don't overlap them
+
 
 Nice to have:
 - Multiple carrier support
@@ -38,6 +48,7 @@ Nice to have:
 	- Marshall
 	- Tower
 	- LSO
+
 
 To prioritize:
 - Roster, attendance and flight assignments
@@ -62,3 +73,6 @@ Complete
 - Fix disappearing flight cards for spin and Charlie buckets
 - Hide Edit/Delete/Add buttons from Recovery column for now
 - Make edit/delete buttons only appear on moused-over division, left align with container
+- Signal Charlie and Spin vertical divisions
+- Multiple flights at the same Angels or on the same tanker
+- Mouse-over board number for pilot callsign
