@@ -71,7 +71,6 @@ export const LaunchDivisionButton: React.FC<{
           <LaunchDivisionDialog
             onSave={handleSave}
             onCancel={() => setIsDialogOpen(false)}
-            sectionRef={buttonRef}
           />
         </>
       )}
