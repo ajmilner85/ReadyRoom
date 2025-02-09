@@ -1,42 +1,18 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState } from 'react';
 
 interface LaunchDivisionDialogProps {
   onSave: (stepTime: number) => void;
   onCancel: () => void;
   initialStepTime?: number;
-  sectionRef?: React.RefObject<HTMLElement>;
 }
 
 export const LaunchDivisionDialog: React.FC<LaunchDivisionDialogProps> = ({
   onSave,
   onCancel,
-  initialStepTime,
-  sectionRef
+  initialStepTime
 }) => {
   const [stepTime, setStepTime] = useState(initialStepTime?.toString() || '');
   const [error, setError] = useState('');
-  const [dialogLeft, setDialogLeft] = useState<number | string>('50%');
-  const dialogRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const calculatePosition = () => {
-      if (sectionRef?.current && dialogRef.current) {
-        const sectionRect = sectionRef.current.closest('[style*="width: 550px"]')?.getBoundingClientRect();
-        const dialogWidth = dialogRef.current.offsetWidth;
-
-        if (sectionRect) {
-          // Calculate the left position to center within the section
-          const left = sectionRect.left + (sectionRect.width / 2);
-          setDialogLeft(left - (dialogWidth / 2));
-        }
-      }
-    };
-
-    calculatePosition();
-    // Recheck position on window resize
-    window.addEventListener('resize', calculatePosition);
-    return () => window.removeEventListener('resize', calculatePosition);
-  }, [sectionRef]);
 
   const handleAltitudeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
@@ -71,21 +47,18 @@ export const LaunchDivisionDialog: React.FC<LaunchDivisionDialogProps> = ({
   };
 
   return (
-    <div 
-      ref={dialogRef}
-      style={{
-        position: 'fixed',
-        bottom: '200px',
-        left: dialogLeft,
-        transform: typeof dialogLeft === 'string' ? 'translateX(-50%)' : 'none',
-        backgroundColor: 'white',
-        padding: '20px',
-        borderRadius: '8px',
-        boxShadow: '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)',
-        width: '300px',
-        zIndex: 1000
-      }}
-    >
+    <div style={{
+      position: 'absolute',
+      top: '200px', 
+      left: '50%',
+      transform: 'translateX(-50%)',
+      backgroundColor: 'white',
+      padding: '20px',
+      borderRadius: '8px',
+      boxShadow: '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)',
+      width: '300px',
+      zIndex: 1000
+    }}>
       <div style={{
         marginBottom: '16px'
       }}>
