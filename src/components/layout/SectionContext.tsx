@@ -198,30 +198,41 @@ export const SectionProvider: React.FC<{ children: React.ReactNode }> = ({ child
             ...section,
             divisions: section.divisions.map(div => {
               if (div.id === divisionId) {
-                if (section.type === 'launch' && 'stepTime' in (additionalData ?? {})) {
-                  return {
+                if (section.type === 'launch' && additionalData && 'stepTime' in additionalData) {
+                  const updatedDiv = {
                     ...div,
                     label: newLabel,
                     stepTime: (additionalData as { stepTime: number }).stepTime
                   };
+
+                  // Remove the current division from the list
+                  const otherDivisions = section.divisions.filter(d => d.id !== div.id);
+
+                  // Insert the updated division in the correct sorted position
+                  const sortedDivisions = [...otherDivisions, updatedDiv]
+                    .sort((a, b) => (a.stepTime ?? 0) - (b.stepTime ?? 0));
+
+                  // Return the division in its new sorted position
+                  return sortedDivisions.find(d => d.id === div.id) || updatedDiv;
                 } else if (section.title === "En Route/Tasking" && additionalData) {
-                  const data = additionalData as EnRouteDivisionData;
+                  const enRouteData = additionalData as EnRouteDivisionData;
                   return {
                     ...div,
                     label: newLabel,
-                    blockFloor: data.blockFloor,
-                    blockCeiling: data.blockCeiling,
-                    missionType: data.missionType
+                    blockFloor: enRouteData.blockFloor,
+                    blockCeiling: enRouteData.blockCeiling,
+                    missionType: enRouteData.missionType
                   };
                 } else if (section.type === 'tanker' && additionalData) {
+                  const tankerData = additionalData as TankerDivisionData;
                   // First update the current division
                   const updatedDiv = {
                     ...div,
                     label: newLabel,
-                    callsign: data.callsign,
-                    altitude: data.altitude,
-                    aircraftType: data.aircraftType,
-                    groupType: data.role
+                    callsign: tankerData.callsign,
+                    altitude: tankerData.altitude,
+                    aircraftType: tankerData.aircraftType,
+                    groupType: tankerData.role
                   };
 
                   // Get all divisions except the current one
@@ -240,9 +251,11 @@ export const SectionProvider: React.FC<{ children: React.ReactNode }> = ({ child
                   missionTankers.sort((a, b) => (a.altitude || 0) - (b.altitude || 0));
                   recoveryTankers.sort((a, b) => (a.altitude || 0) - (b.altitude || 0));
 
-                  // Return the sorted division for the section update
+                  // Combine the groups, ensuring the updated division is in the correct group
                   const sortedDivisions = [...missionTankers, ...recoveryTankers];
-                  return sortedDivisions.find(d => d.id === div.id)!;
+                  
+                  // Return the state with the sorted divisions
+                  return sortedDivisions.find(d => d.id === div.id) || div;
                 }
                 return { ...div, label: newLabel };
               }

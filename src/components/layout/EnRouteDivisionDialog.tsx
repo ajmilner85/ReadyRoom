@@ -67,9 +67,9 @@ export const EnRouteDivisionDialog: React.FC<EnRouteDivisionDialogProps> = ({
   return (
     <div style={{
       position: 'absolute',
-      top: '50%',
+      top: '200px', 
       left: '50%',
-      transform: 'translate(-50%, -50%)',
+      transform: 'translateX(-50%)',
       backgroundColor: 'white',
       padding: '20px',
       borderRadius: '8px',
@@ -184,5 +184,3 @@ export const EnRouteDivisionDialog: React.FC<EnRouteDivisionDialogProps> = ({
     </div>
   );
 };
-
-export type { EnRouteDivisionData };
