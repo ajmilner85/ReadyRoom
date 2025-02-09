@@ -2,7 +2,7 @@ import React from 'react';
 import { useDraggable } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
 import type { Flight, FlightMember } from '../../types/FlightData';
-import FuelDisplay from './FuelDisplay.tsx';
+import FuelDisplay from './FuelDisplay';
 
 interface FlightCardProps extends Flight {
   isDragging?: boolean;
@@ -33,6 +33,7 @@ const FlightCard: React.FC<FlightCardProps> = ({
   const cardStyle: React.CSSProperties = {
     ...transform ? {
       transform: CSS.Translate.toString(transform),
+      zIndex: 1000 // High z-index while dragging
     } : {},
     opacity: isDragging ? 0.5 : 1,
     boxSizing: 'border-box',
@@ -44,7 +45,8 @@ const FlightCard: React.FC<FlightCardProps> = ({
     borderRadius: '8px',
     fontFamily: 'Inter, sans-serif',
     cursor: 'grab',
-    userSelect: 'none'
+    userSelect: 'none',
+    position: 'relative', // Ensure z-index works
   };
 
   const handleUpdateMemberFuel = (member: FlightMember, newFuel: number) => {

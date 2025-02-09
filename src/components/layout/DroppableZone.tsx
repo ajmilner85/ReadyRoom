@@ -46,7 +46,7 @@ const DroppableZone: React.FC<DroppableZoneProps> = ({
         style={{
           height: '100%',
           position: 'relative',
-          backgroundColor: isOver ? 'rgba(100, 116, 139, 0.1)' : '#FFFFFF',
+          backgroundColor: isOver ? 'rgba(100, 116, 139, 0.1)' : 'transparent',
           transition: 'background-color 0.2s',
           padding: '4px',
         }}
