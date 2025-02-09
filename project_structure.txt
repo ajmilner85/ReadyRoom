@@ -1,0 +1,40 @@
+pri-fly
+├── README.md
+├── To-do List.txt
+├── eslint.config.js
+├── index.html
+├── package-lock.json
+├── package.json
+├── postcss.config.cjs
+├── project_structure.txt
+├── public
+│   └── vite.svg
+├── src
+│   ├── App.css
+│   ├── App.tsx
+│   ├── assets
+│   │   └── react.svg
+│   ├── components
+│   │   ├── flight
+│   │   │   ├── FlightCard.tsx
+│   │   │   └── FuelDisplay.tsx
+│   │   ├── layout
+│   │   │   ├── DivisionEditor.tsx
+│   │   │   ├── DroppableZone.tsx
+│   │   │   ├── EnRouteDivisionButton.tsx
+│   │   │   ├── EnRouteDivisionDialog.tsx
+│   │   │   ├── GridLayout.tsx
+│   │   │   ├── LaunchDivisionButton.tsx
+│   │   │   └── SectionContext.tsx
+│   │   └── ui
+│   ├── index.css
+│   ├── main.tsx
+│   ├── types
+│   │   ├── EnRouteTypes.ts
+│   │   └── FlightData.ts
+│   └── vite-env.d.ts
+├── tailwind.config.cjs
+├── tsconfig.app.json
+├── tsconfig.json
+├── tsconfig.node.json
+└── vite.config.ts

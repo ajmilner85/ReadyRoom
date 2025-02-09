@@ -66,12 +66,15 @@ const DroppableZone: React.FC<DroppableZoneProps> = ({
               style={{
                 width: '442px',
                 marginBottom: index === flights.length - 1 ? 0 : sameDivisionSpacing,
-                zIndex: 10,
+                // Base z-index for stationary cards
+                zIndex: 1,
                 position: 'absolute',
                 right: '4px',
                 top: index === 0 
                   ? 0 
                   : `${index * (flightCardHeight - sameDivisionSpacing)}px`,
+                // Re-enable pointer events for the flight card
+                pointerEvents: 'auto'
               }}
             >
               <FlightCard

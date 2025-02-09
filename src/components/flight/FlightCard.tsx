@@ -31,11 +31,7 @@ const FlightCard: React.FC<FlightCardProps> = ({
   const wingmen = members.filter(m => m.dashNumber !== "1");
 
   const cardStyle: React.CSSProperties = {
-    ...transform ? {
-      transform: CSS.Translate.toString(transform),
-      zIndex: 1000 // High z-index while dragging
-    } : {},
-    opacity: isDragging ? 0.5 : 1,
+    position: 'relative',
     boxSizing: 'border-box',
     width: '442px',
     height: '100px',
@@ -46,7 +42,17 @@ const FlightCard: React.FC<FlightCardProps> = ({
     fontFamily: 'Inter, sans-serif',
     cursor: 'grab',
     userSelect: 'none',
-    position: 'relative', // Ensure z-index works
+    // Enhance shadow and opacity when dragging
+    ...(isDragging ? {
+      boxShadow: '0px 20px 25px -5px rgba(0, 0, 0, 0.3), 0px 10px 10px -5px rgba(0, 0, 0, 0.2)',
+      opacity: 0.9,
+    } : {
+      opacity: 1,
+    }),
+    // Apply transform only when dragging
+    ...(transform ? {
+      transform: CSS.Translate.toString(transform)
+    } : {})
   };
 
   const handleUpdateMemberFuel = (member: FlightMember, newFuel: number) => {
@@ -55,7 +61,6 @@ const FlightCard: React.FC<FlightCardProps> = ({
     }
   };
 
-  // Prevent drag events from interfering with fuel editing
   const preventDragEvents = (e: React.MouseEvent) => {
     e.stopPropagation();
   };
