@@ -1,10 +1,6 @@
 Next:
-- Fix dragged card going below stationary cards
-- User editable tankers (Add/Remove/Edit slot)
-- Fix tanker sorting and labels
-- Hide Edit/Delete/Add buttons from Recovery column for now
-- Remove add buttons from top of interface, fix add buttons for tanker column
-- Fix disappearing flight cards for spin and Charlie buckets
+- Make edit/delete buttons only appear on moused-over division, left align with container
+
 
 Essential:
 - Flight card interaction
@@ -59,3 +55,9 @@ Complete
 - User editable launch times (Add/Remove/Edit slot)
 - User editable tasking and block altitudes (Add/Remove/Edit slot)
 	- Altitude block and tasking type
+- Fix dragged card going below stationary cards
+- User editable tankers (Add/Remove/Edit slot)
+- Fix tanker sorting and labels
+- Remove add buttons from top of interface, fix add buttons for tanker column
+- Fix disappearing flight cards for spin and Charlie buckets
+- Hide Edit/Delete/Add buttons from Recovery column for now
