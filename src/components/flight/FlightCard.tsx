@@ -37,7 +37,6 @@ const FlightCard: React.FC<FlightCardProps> = ({
     height: '100px',
     padding: '6px',
     backgroundColor: '#FFFFFF',
-    boxShadow: '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)',
     borderRadius: '8px',
     fontFamily: 'Inter, sans-serif',
     cursor: 'grab',
@@ -47,6 +46,7 @@ const FlightCard: React.FC<FlightCardProps> = ({
       boxShadow: '0px 20px 25px -5px rgba(0, 0, 0, 0.3), 0px 10px 10px -5px rgba(0, 0, 0, 0.2)',
       opacity: 0.9,
     } : {
+      boxShadow: '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)',
       opacity: 1,
     }),
     // Apply transform only when dragging

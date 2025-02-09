@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useSections } from './SectionContext';
-import { EnRouteDivisionDialog, EnRouteDivisionData } from './EnRouteDivisionDialog';
+import type { EnRouteDivisionData } from '../../types/EnRouteTypes';
+import { EnRouteDivisionDialog } from './EnRouteDivisionDialog';
 
 export const EnRouteDivisionButton: React.FC<{
   sectionTitle: string;

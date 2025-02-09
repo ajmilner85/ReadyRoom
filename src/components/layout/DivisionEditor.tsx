@@ -47,11 +47,11 @@ const DivisionEditor: React.FC<DivisionEditorProps> = ({ sectionTitle, division 
     } else if (sectionTitle === "En Route/Tasking") {
       const enRouteData = data as Omit<EnRouteDivisionData, 'label'>;
       label = `Angels ${enRouteData.blockFloor}-${enRouteData.blockCeiling} ${enRouteData.missionType}`;
-      additionalData = enRouteData;
+      additionalData = { ...enRouteData, label };
     } else if (sectionTitle === "Tanker") {
       const tankerData = data as Omit<TankerDivisionData, 'label'>;
       label = `${tankerData.callsign} - Angels ${tankerData.altitude}`;
-      additionalData = tankerData;
+      additionalData = { ...tankerData, label };
     }
 
     updateDivisionLabel(sectionTitle, division.id, label, additionalData);
