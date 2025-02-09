@@ -1,71 +1,33 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useSections } from './SectionContext';
+import { LaunchDivisionDialog } from './LaunchDivisionDialog';
 
 export const LaunchDivisionButton: React.FC<{
   sectionTitle: string;
   position: 'top' | 'bottom';
 }> = ({ sectionTitle, position }) => {
   const { addDivision } = useSections();
-  const [isAdding, setIsAdding] = useState(false);
-  const [stepTime, setStepTime] = useState('');
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const buttonRef = useRef<HTMLButtonElement>(null);
 
-  const handleAdd = () => {
-    const timeValue = parseInt(stepTime);
-    if (!isNaN(timeValue) && timeValue >= 0) {
-      addDivision(sectionTitle, timeValue, position);
-      setStepTime('');
-    }
-    setIsAdding(false);
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
-      handleAdd();
-    } else if (e.key === 'Escape') {
-      setIsAdding(false);
-      setStepTime('');
-    }
-  };
-
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    // Only allow positive integers
-    if (value === '' || /^\d+$/.test(value)) {
-      setStepTime(value);
-    }
+  const handleSave = (stepTime: number) => {
+    addDivision(sectionTitle, stepTime, position);
+    setIsDialogOpen(false);
   };
 
   return (
-    <div style={{
-      display: 'flex',
-      justifyContent: 'center',
-      alignItems: 'center',
-      padding: '18px',
-      position: 'relative',
-      zIndex: 5
-    }}>
-      {isAdding ? (
-        <input
-          type="text"
-          value={stepTime}
-          onChange={handleInputChange}
-          onBlur={handleAdd}
-          onKeyDown={handleKeyDown}
-          placeholder="Enter step time"
-          style={{
-            width: '119px',
-            height: '30px',
-            padding: '4px 8px',
-            border: '1px solid #CBD5E1',
-            borderRadius: '8px',
-            fontSize: '14px',
-            textAlign: 'center'
-          }}
-          autoFocus
-        />
-      ) : (
+    <>
+      <div style={{
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: '18px',
+        position: 'relative',
+        zIndex: 5
+      }}>
         <button
-          onClick={() => setIsAdding(true)}
+          ref={buttonRef}
+          onClick={() => setIsDialogOpen(true)}
           style={{
             position: 'absolute',
             width: '119px',
@@ -83,8 +45,7 @@ export const LaunchDivisionButton: React.FC<{
             color: '#64748B',
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 5
+            justifyContent: 'center'
           }}
           onMouseEnter={e => {
             e.currentTarget.style.boxShadow = '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)';
@@ -95,7 +56,25 @@ export const LaunchDivisionButton: React.FC<{
         >
           +
         </button>
+      </div>
+      {isDialogOpen && (
+        <>
+          <div style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            zIndex: 999
+          }} onClick={() => setIsDialogOpen(false)} />
+          <LaunchDivisionDialog
+            onSave={handleSave}
+            onCancel={() => setIsDialogOpen(false)}
+            sectionRef={buttonRef}
+          />
+        </>
       )}
-    </div>
+    </>
   );
 };

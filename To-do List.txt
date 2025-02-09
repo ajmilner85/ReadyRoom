@@ -1,5 +1,5 @@
 Next:
-- Make edit/delete buttons only appear on moused-over division, left align with container
+- Unify add/edit dialog presentations
 
 
 Essential:
@@ -61,3 +61,4 @@ Complete
 - Remove add buttons from top of interface, fix add buttons for tanker column
 - Fix disappearing flight cards for spin and Charlie buckets
 - Hide Edit/Delete/Add buttons from Recovery column for now
+- Make edit/delete buttons only appear on moused-over division, left align with container
