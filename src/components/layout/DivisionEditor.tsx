@@ -1,5 +1,5 @@
-import React, { useState, useRef } from 'react';
-import { createPortal } from 'react-dom';
+import React, { useState, useRef, useEffect } from 'react';
+import ReactDOM from 'react-dom';
 import { Edit2, Trash2 } from 'lucide-react';
 import { useSections, Division } from './SectionContext';
 import { LaunchDivisionDialog } from './LaunchDivisionDialog';
@@ -7,13 +7,6 @@ import { EnRouteDivisionDialog } from './EnRouteDivisionDialog';
 import { TankerDivisionDialog } from './TankerDivisionDialog';
 import type { EnRouteDivisionData } from '../../types/EnRouteTypes';
 import type { TankerDivisionData } from '../../types/TankerTypes';
-
-const MISSION_TYPES = [
-  'SEAD', 'DEAD', 'BARCAP', 'DCA', 'FIGHTER SWEEP', 'STRIKE', 'INTERDICTION',
-  'RECONNAISSANCE', 'CAS', 'SCAR', 'OCA', 'FAC(A)', 'HVAAE', 'TASMO', 'CSAR',
-  'SSC', 'SSSC', 'MIW', 'EW', 'QRA', 'SHOW OF FORCE', 'MARITIME ESCORT',
-  'AIR INTERDICTION'
-].sort();
 
 interface DivisionEditorProps {
   sectionTitle: string;
@@ -30,6 +23,17 @@ const DivisionEditor: React.FC<DivisionEditorProps> = ({ sectionTitle, division 
   const [isEditing, setIsEditing] = useState(false);
   const [isHovering, setIsHovering] = useState(false);
   const editButtonRef = useRef<HTMLButtonElement>(null);
+  const [parentSection, setParentSection] = useState<HTMLElement | null>(null);
+
+  useEffect(() => {
+    if (editButtonRef.current) {
+      // Find the closest section container
+      const section = editButtonRef.current.closest('[style*="flex: 0 0 550px"]');
+      if (section instanceof HTMLElement) {
+        setParentSection(section);
+      }
+    }
+  }, [editButtonRef.current]);
 
   const handleRemove = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -59,123 +63,145 @@ const DivisionEditor: React.FC<DivisionEditorProps> = ({ sectionTitle, division 
   };
 
   const renderDialog = () => {
+    // Create a portal target relative to the parent section
+    if (!parentSection) return null;
+
+    const portalStyle: React.CSSProperties = {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      pointerEvents: 'none',
+      zIndex: 1001
+    };
+
     if (sectionTitle === "Launch") {
       return (
-        <LaunchDivisionDialog
-          initialStepTime={division.stepTime}
-          onSave={(stepTime) => handleSave(stepTime)}
-          onCancel={() => setIsEditing(false)}
-          sectionRef={editButtonRef}
-        />
+        <div style={portalStyle}>
+          <LaunchDivisionDialog
+            initialStepTime={division.stepTime}
+            onSave={(stepTime) => handleSave(stepTime)}
+            onCancel={() => setIsEditing(false)}
+          />
+        </div>
       );
     } else if (sectionTitle === "En Route/Tasking") {
       return (
-        <EnRouteDivisionDialog
-          initialData={{
-            blockFloor: division.blockFloor,
-            blockCeiling: division.blockCeiling,
-            missionType: division.missionType
-          }}
-          onSave={(data) => handleSave(data)}
-          onCancel={() => setIsEditing(false)}
-          sectionRef={editButtonRef}
-        />
+        <div style={portalStyle}>
+          <EnRouteDivisionDialog
+            onSave={(data) => handleSave(data)}
+            onCancel={() => setIsEditing(false)}
+            initialData={{
+              blockFloor: division.blockFloor || 0,
+              blockCeiling: division.blockCeiling || 0,
+              missionType: division.missionType || ''
+            }}
+          />
+        </div>
       );
     } else if (sectionTitle === "Tanker") {
       return (
-        <TankerDivisionDialog
-          initialData={{
-            callsign: division.callsign,
-            altitude: division.altitude,
-            aircraftType: division.aircraftType,
-            role: division.groupType
-          }}
-          onSave={(data) => handleSave(data)}
-          onCancel={() => setIsEditing(false)}
-          sectionRef={editButtonRef}
-        />
+        <div style={portalStyle}>
+          <TankerDivisionDialog
+            onSave={(data) => handleSave(data)}
+            onCancel={() => setIsEditing(false)}
+            initialData={{
+              callsign: division.callsign || '',
+              altitude: division.altitude || 0,
+              aircraftType: division.aircraftType as any || 'S-3B',
+              role: division.groupType as any || 'mission-tankers'
+            }}
+          />
+        </div>
       );
     }
+    
     return null;
   };
 
   return (
-    <div 
-      style={{
-        position: 'absolute',
-        left: 0,
-        top: '50%',
-        transform: 'translateY(-50%)',
-        zIndex: 5,
-        width: '40px', 
-        height: '100%', 
-      }}
-      onMouseEnter={() => setIsHovering(true)}
-      onMouseLeave={() => setIsHovering(false)}
-    >
-      <div style={{
-        position: 'absolute',
-        left: '8px',
-        top: '50%',
-        transform: 'translateY(-50%)',
-        zIndex: 5,
-        opacity: isHovering ? 1 : 0,
-        transition: 'opacity 0.2s ease-in-out',
-        pointerEvents: isHovering ? 'auto' : 'none',
-      }}>
+    <>
+      <div 
+        style={{ 
+          position: 'absolute',
+          left: 0,
+          top: '50%',
+          transform: 'translateY(-50%)',
+          zIndex: 5,
+          width: '40px', 
+          height: '100%',
+        }}
+        onMouseEnter={() => setIsHovering(true)}
+        onMouseLeave={() => setIsHovering(false)}
+      >
         <div style={{
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '8px',
+          position: 'absolute',
+          left: '8px',
+          top: '50%',
+          transform: 'translateY(-50%)',
+          zIndex: 5,
+          opacity: isHovering ? 1 : 0,
+          transition: 'opacity 0.2s ease-in-out',
+          pointerEvents: isHovering ? 'auto' : 'none',
         }}>
-          <button
-            ref={editButtonRef}
-            onClick={(e) => {
-              e.stopPropagation();
-              setIsEditing(true);
-            }}
-            style={{
-              padding: '4px',
-              borderRadius: '4px',
-              cursor: 'pointer',
-              background: 'white',
-              boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-              transition: 'box-shadow 0.1s ease',
-            }}
-            title="Edit division"
-            onMouseEnter={(e) => {
-              e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.15)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
-            }}
-          >
-            <Edit2 size={16} />
-          </button>
-          <button
-            onClick={handleRemove}
-            style={{
-              padding: '4px',
-              borderRadius: '4px',
-              cursor: 'pointer',
-              background: 'white',
-              boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-              transition: 'box-shadow 0.1s ease',
-            }}
-            title="Remove division"
-            onMouseEnter={(e) => {
-              e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.15)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
-            }}
-          >
-            <Trash2 size={16} />
-          </button>
+          <div style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '8px',
+          }}>
+            <button
+              ref={editButtonRef}
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsEditing(true);
+              }}
+              style={{
+                padding: '4px',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                background: 'white',
+                boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                transition: 'box-shadow 0.1s ease',
+              }}
+              title="Edit division"
+              onMouseEnter={(e) => {
+                e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.15)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
+              }}
+            >
+              <Edit2 size={16} />
+            </button>
+            <button
+              onClick={handleRemove}
+              style={{
+                padding: '4px',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                background: 'white',
+                boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                transition: 'box-shadow 0.1s ease',
+              }}
+              title="Remove division"
+              onMouseEnter={(e) => {
+                e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.15)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
+              }}
+            >
+              <Trash2 size={16} />
+            </button>
+          </div>
         </div>
       </div>
 
-      {isEditing && createPortal(
+      {isEditing && (
         <>
           <div style={{
             position: 'fixed',
@@ -186,15 +212,17 @@ const DivisionEditor: React.FC<DivisionEditorProps> = ({ sectionTitle, division 
             backgroundColor: 'rgba(0, 0, 0, 0.5)',
             zIndex: 1000
           }} onClick={() => setIsEditing(false)} />
-          {renderDialog()}
-        </>,
-        document.body
+          {parentSection && ReactDOM.createPortal(
+            renderDialog(),
+            parentSection
+          )}
+        </>
       )}
-    </div>
+    </>
   );
 };
 
-export const AddDivisionButton: React.FC<{
+const AddDivisionButton: React.FC<{
   sectionTitle: string;
   position: 'top' | 'bottom';
 }> = ({ sectionTitle, position }) => {
@@ -283,4 +311,4 @@ export const AddDivisionButton: React.FC<{
   );
 };
 
-export default DivisionEditor;
+export { DivisionEditor as default, AddDivisionButton };

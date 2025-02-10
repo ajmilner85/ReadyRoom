@@ -1,9 +1,8 @@
 Next:
-- Unify add/edit dialog presentations (in progress)
-	- Fix edit dialogue popup location (center of browser instead of center of section)
 - Fix sorting after updating/editing a vertical division
 - Fix edit and delete buttons not fading out after the dialog appears
 - Add confirmation for delete button
+- Remove add button from Recovery section
 
 
 Essential:
@@ -76,3 +75,5 @@ Complete
 - Signal Charlie and Spin vertical divisions
 - Multiple flights at the same Angels or on the same tanker
 - Mouse-over board number for pilot callsign
+- Unify add/edit dialog presentations (in progress)
+	- Fix edit dialogue popup location (center of browser instead of center of section)

@@ -5,7 +5,7 @@ const AIRCRAFT_TYPES: TankerType[] = ['S-3B', 'KC-135 MPRS'];
 const TANKER_ROLES: TankerRole[] = ['mission-tankers', 'recovery-tankers'];
 
 interface TankerDivisionDialogProps {
-  initialData?: TankerDivisionData;
+  initialData?: Omit<TankerDivisionData, 'label'>;
   onSave: (data: Omit<TankerDivisionData, 'label'>) => void;
   onCancel: () => void;
 }
@@ -58,12 +58,10 @@ export const TankerDivisionDialog: React.FC<TankerDivisionDialogProps> = ({
   };
 
   const handleSubmit = (e?: React.FormEvent) => {
-    // Prevent default form submission behavior
     if (e) {
       e.preventDefault();
       e.stopPropagation();
     }
-
     validateAndSave();
   };
 
@@ -79,40 +77,21 @@ export const TankerDivisionDialog: React.FC<TankerDivisionDialogProps> = ({
     }
   };
 
-  // Debugging log
-  console.log('Tanker Dialog Rendering', { 
-    callsign, 
-    altitude, 
-    aircraftType, 
-    role, 
-    error 
-  });
-
   return (
-    <div 
-      style={{
-        position: 'absolute',
-        top: '200px', // Position relative to top of column
-        left: '50%',
-        transform: 'translateX(-50%)',
-        backgroundColor: 'white',
-        padding: '20px',
-        borderRadius: '8px',
-        boxShadow: '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)',
-        width: '300px',
-        zIndex: 1000
-      }}
-    >
-      {/* Prevent browser default form submission */}
-      <form 
-        onSubmit={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          validateAndSave();
-          return false;
-        }}
-      >
-        {/* Callsign Input */}
+    <div style={{
+      position: 'absolute',
+      top: '50%',
+      left: '50%',
+      transform: 'translate(-50%, -50%)',
+      backgroundColor: 'white',
+      padding: '20px',
+      borderRadius: '8px',
+      boxShadow: '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)',
+      width: '300px',
+      zIndex: 1001,
+      pointerEvents: 'auto'
+    }}>
+      <form onSubmit={handleSubmit}>
         <div style={{ marginBottom: '16px' }}>
           <label style={{
             display: 'block',
@@ -140,7 +119,6 @@ export const TankerDivisionDialog: React.FC<TankerDivisionDialogProps> = ({
           />
         </div>
 
-        {/* Altitude Input */}
         <div style={{ marginBottom: '16px' }}>
           <label style={{
             display: 'block',
@@ -167,7 +145,6 @@ export const TankerDivisionDialog: React.FC<TankerDivisionDialogProps> = ({
           />
         </div>
 
-        {/* Aircraft Type Dropdown */}
         <div style={{ marginBottom: '16px' }}>
           <label style={{
             display: 'block',
@@ -199,7 +176,6 @@ export const TankerDivisionDialog: React.FC<TankerDivisionDialogProps> = ({
           </select>
         </div>
 
-        {/* Tanker Role Dropdown */}
         <div style={{ marginBottom: '16px' }}>
           <label style={{
             display: 'block',
@@ -238,7 +214,6 @@ export const TankerDivisionDialog: React.FC<TankerDivisionDialogProps> = ({
           </div>
         )}
 
-        {/* Action Buttons */}
         <div style={{
           display: 'flex',
           justifyContent: 'flex-end',
@@ -277,5 +252,3 @@ export const TankerDivisionDialog: React.FC<TankerDivisionDialogProps> = ({
     </div>
   );
 };
-
-export type { TankerDivisionData };
