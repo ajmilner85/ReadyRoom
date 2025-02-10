@@ -11,14 +11,18 @@ const MISSION_TYPES = [
 interface EnRouteDivisionDialogProps {
   onSave: (data: Omit<EnRouteDivisionData, 'label'>) => void;
   onCancel: () => void;
+  initialData?: Omit<EnRouteDivisionData, 'label'>;
 }
 
 export const EnRouteDivisionDialog: React.FC<EnRouteDivisionDialogProps> = ({
   onSave,
-  onCancel
+  onCancel,
+  initialData
 }) => {
-  const [altitudeBlock, setAltitudeBlock] = useState('');
-  const [missionType, setMissionType] = useState(MISSION_TYPES[0]);
+  const [altitudeBlock, setAltitudeBlock] = useState(
+    initialData ? `${initialData.blockFloor}-${initialData.blockCeiling}` : ''
+  );
+  const [missionType, setMissionType] = useState(initialData?.missionType || MISSION_TYPES[0]);
   const [error, setError] = useState('');
 
   const handleAltitudeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -67,15 +71,16 @@ export const EnRouteDivisionDialog: React.FC<EnRouteDivisionDialogProps> = ({
   return (
     <div style={{
       position: 'absolute',
-      top: '200px', 
+      top: '50%',
       left: '50%',
-      transform: 'translateX(-50%)',
+      transform: 'translate(-50%, -50%)',
       backgroundColor: 'white',
       padding: '20px',
       borderRadius: '8px',
       boxShadow: '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)',
       width: '300px',
-      zIndex: 1000
+      zIndex: 1001,
+      pointerEvents: 'auto'
     }}>
       <div style={{
         marginBottom: '16px'
@@ -178,7 +183,7 @@ export const EnRouteDivisionDialog: React.FC<EnRouteDivisionDialogProps> = ({
             cursor: !altitudeBlock || !!error ? 'not-allowed' : 'pointer'
           }}
         >
-          Add
+          {initialData ? 'Update' : 'Add'}
         </button>
       </div>
     </div>
