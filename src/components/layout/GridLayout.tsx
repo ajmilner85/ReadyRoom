@@ -21,7 +21,6 @@ const GridLayout: React.FC<GridLayoutProps> = ({ flights = [], onUpdateMemberFue
       const [, ...divisionParts] = divisionId.split('-');
       const divisionIdPart = divisionParts.join('-');
       
-      // Get the expected division number based on the ID
       let expectedDivisionNumber: number;
       if (divisionIdPart === 'spin') {
         expectedDivisionNumber = -1;
@@ -39,42 +38,51 @@ const GridLayout: React.FC<GridLayoutProps> = ({ flights = [], onUpdateMemberFue
 
   const renderSectionDivisions = (section: typeof sections[0]) => {
     if (section.type === 'tanker') {
-      // Mission tankers first
+      // Filter mission and recovery tankers
       const missionTankers = section.divisions.filter(d => d.groupType === 'mission-tankers');
       const recoveryTankers = section.divisions.filter(d => d.groupType === 'recovery-tankers');
 
       return (
-        <div style={{ display: 'flex', flexDirection: 'column-reverse' }}>
-          <TankerDivisionButton sectionTitle={section.title} position="bottom" />
-          {[...recoveryTankers].reverse().map((division) => (
-            <div key={division.id} style={{ position: 'relative' }}>
-              <DroppableZone
-                id={division.id}
-                label={division.label}
-                flights={getFlightsForDivision(section.title, division.id)}
-                onUpdateMemberFuel={onUpdateMemberFuel}
-              />
-              <DivisionEditor 
-                sectionTitle={section.title}
-                division={division}
-              />
-            </div>
-          ))}
+        <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+          {/* Mission tankers at the top */}
+          <div style={{ display: 'flex', flexDirection: 'column-reverse' }}>
+            {[...missionTankers].reverse().map((division) => (
+              <div key={division.id} style={{ position: 'relative' }}>
+                <DroppableZone
+                  id={division.id}
+                  label={division.label}
+                  flights={getFlightsForDivision(section.title, division.id)}
+                  onUpdateMemberFuel={onUpdateMemberFuel}
+                />
+                <DivisionEditor 
+                  sectionTitle={section.title}
+                  division={division}
+                />
+              </div>
+            ))}
+          </div>
+
+          {/* Empty space in the middle */}
           <div style={{ flex: 1 }} />
-          {[...missionTankers].reverse().map((division) => (
-            <div key={division.id} style={{ position: 'relative' }}>
-              <DroppableZone
-                id={division.id}
-                label={division.label}
-                flights={getFlightsForDivision(section.title, division.id)}
-                onUpdateMemberFuel={onUpdateMemberFuel}
-              />
-              <DivisionEditor 
-                sectionTitle={section.title}
-                division={division}
-              />
-            </div>
-          ))}
+
+          {/* Recovery tankers at the bottom */}
+          <div style={{ display: 'flex', flexDirection: 'column-reverse' }}>
+            <TankerDivisionButton sectionTitle={section.title} position="bottom" />
+            {[...recoveryTankers].reverse().map((division) => (
+              <div key={division.id} style={{ position: 'relative' }}>
+                <DroppableZone
+                  id={division.id}
+                  label={division.label}
+                  flights={getFlightsForDivision(section.title, division.id)}
+                  onUpdateMemberFuel={onUpdateMemberFuel}
+                />
+                <DivisionEditor 
+                  sectionTitle={section.title}
+                  division={division}
+                />
+              </div>
+            ))}
+          </div>
         </div>
       );
     }
@@ -140,7 +148,7 @@ const GridLayout: React.FC<GridLayoutProps> = ({ flights = [], onUpdateMemberFue
             <div style={{
               flex: 1,
               display: 'flex',
-              flexDirection: 'column-reverse',
+              flexDirection: 'column',
               position: 'relative',
               height: 'fit-content',
             }}>
