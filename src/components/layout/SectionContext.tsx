@@ -144,9 +144,9 @@ export const SectionProvider: React.FC<{ children: React.ReactNode }> = ({ child
               recoveryTankers.push(newDivision);
             }
 
-            // Sort each group by altitude (ascending - lower altitudes at bottom)
-            missionTankers.sort((a, b) => (a.altitude || 0) - (b.altitude || 0));
-            recoveryTankers.sort((a, b) => (a.altitude || 0) - (b.altitude || 0));
+            // Sort each group by altitude (descending - lower altitudes at bottom)
+            missionTankers.sort((a, b) => (b.altitude ?? 0) - (a.altitude ?? 0));
+            recoveryTankers.sort((a, b) => (b.altitude ?? 0) - (a.altitude ?? 0));
 
             // Combine the groups with mission tankers on top
             return { ...section, divisions: [...missionTankers, ...recoveryTankers] };
@@ -194,74 +194,41 @@ export const SectionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setSections(prevSections => {
       return prevSections.map(section => {
         if (section.title === sectionTitle) {
-          return {
-            ...section,
-            divisions: section.divisions.map(div => {
-              if (div.id === divisionId) {
-                if (section.type === 'launch' && additionalData && 'stepTime' in additionalData) {
-                  const updatedDiv = {
-                    ...div,
-                    label: newLabel,
-                    stepTime: (additionalData as { stepTime: number }).stepTime
-                  };
-
-                  // Remove the current division from the list
-                  const otherDivisions = section.divisions.filter(d => d.id !== div.id);
-
-                  // Insert the updated division in the correct sorted position
-                  const sortedDivisions = [...otherDivisions, updatedDiv]
-                    .sort((a, b) => (a.stepTime ?? 0) - (b.stepTime ?? 0));
-
-                  // Return the division in its new sorted position
-                  return sortedDivisions.find(d => d.id === div.id) || updatedDiv;
-                } else if (section.title === "En Route/Tasking" && additionalData) {
-                  const enRouteData = additionalData as EnRouteDivisionData;
-                  return {
-                    ...div,
-                    label: newLabel,
-                    blockFloor: enRouteData.blockFloor,
-                    blockCeiling: enRouteData.blockCeiling,
-                    missionType: enRouteData.missionType
-                  };
-                } else if (section.type === 'tanker' && additionalData) {
-                  const tankerData = additionalData as TankerDivisionData;
-                  // First update the current division
-                  const updatedDiv = {
-                    ...div,
-                    label: newLabel,
-                    callsign: tankerData.callsign,
-                    altitude: tankerData.altitude,
-                    aircraftType: tankerData.aircraftType,
-                    groupType: tankerData.role
-                  };
-
-                  // Get all divisions except the current one
-                  const otherDivisions = section.divisions.filter(d => d.id !== div.id);
-                  
-                  // Split by role and add updated division to appropriate group
-                  const missionTankers = otherDivisions
-                    .filter(d => d.groupType === 'mission-tankers')
-                    .concat(updatedDiv.groupType === 'mission-tankers' ? [updatedDiv] : []);
-                  
-                  const recoveryTankers = otherDivisions
-                    .filter(d => d.groupType === 'recovery-tankers')
-                    .concat(updatedDiv.groupType === 'recovery-tankers' ? [updatedDiv] : []);
-
-                  // Sort each group by altitude (ascending - lower altitudes at bottom)
-                  missionTankers.sort((a, b) => (a.altitude || 0) - (b.altitude || 0));
-                  recoveryTankers.sort((a, b) => (a.altitude || 0) - (b.altitude || 0));
-
-                  // Combine the groups, ensuring the updated division is in the correct group
-                  const sortedDivisions = [...missionTankers, ...recoveryTankers];
-                  
-                  // Return the state with the sorted divisions
-                  return sortedDivisions.find(d => d.id === div.id) || div;
-                }
-                return { ...div, label: newLabel };
+          const updatedDivisions = section.divisions.map(div => {
+            if (div.id === divisionId) {
+              const updatedDiv = { ...div, label: newLabel };
+              if (additionalData) {
+                Object.assign(updatedDiv, additionalData);
               }
-              return div;
-            })
-          };
+              return updatedDiv;
+            }
+            return div;
+          });
+
+          // Sort launches by step time
+          if (section.type === 'launch') {
+            updatedDivisions.sort((a, b) => (b.stepTime ?? 0) - (a.stepTime ?? 0));
+          }
+          // Sort En Route divisions by block ceiling
+          else if (section.title === "En Route/Tasking") {
+            updatedDivisions.sort((a, b) => (b.blockCeiling ?? 0) - (a.blockCeiling ?? 0));
+          }
+          // Sort and group tanker divisions
+          else if (section.type === 'tanker') {
+            // Split tankers by role
+            const missionTankers = updatedDivisions
+              .filter(d => d.groupType === 'mission-tankers')
+              .sort((a, b) => (b.altitude ?? 0) - (a.altitude ?? 0)); // Descending order - lower altitudes at bottom
+
+            const recoveryTankers = updatedDivisions
+              .filter(d => d.groupType === 'recovery-tankers')
+              .sort((a, b) => (b.altitude ?? 0) - (a.altitude ?? 0)); // Descending order - lower altitudes at bottom
+
+            // Return sorted divisions with mission tankers at top, recovery at bottom
+            return { ...section, divisions: [...missionTankers, ...recoveryTankers] };
+          }
+
+          return { ...section, divisions: updatedDivisions };
         }
         return section;
       });
