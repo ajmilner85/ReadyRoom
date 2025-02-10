@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState } from 'react';
 import ReactDOM from 'react-dom';
 import { Edit2, Trash2 } from 'lucide-react';
 import { useSections, Division } from './SectionContext';
@@ -11,9 +11,80 @@ import type { TankerDivisionData } from '../../types/TankerTypes';
 interface DivisionEditorProps {
   sectionTitle: string;
   division: Division;
+  sectionRef?: { current: HTMLDivElement | null };
 }
 
-const DivisionEditor: React.FC<DivisionEditorProps> = ({ sectionTitle, division }) => {
+const ConfirmDeleteDialog: React.FC<{
+  onConfirm: () => void;
+  onCancel: () => void;
+  sectionTitle: string;
+  divisionLabel: string;
+}> = ({ onConfirm, onCancel, sectionTitle, divisionLabel }) => {
+  return (
+    <div style={{
+      position: 'absolute',
+      top: '50%',
+      left: '50%',
+      transform: 'translate(-50%, -50%)',
+      backgroundColor: 'white',
+      padding: '20px',
+      borderRadius: '8px',
+      boxShadow: '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)',
+      width: '300px',
+      zIndex: 1001,
+      pointerEvents: 'auto'
+    }}>
+      <div style={{
+        marginBottom: '16px',
+        fontFamily: 'Inter',
+        fontSize: '14px',
+        color: '#64748B',
+        textAlign: 'center'
+      }}>
+        Are you sure you want to delete the {sectionTitle} division "{divisionLabel}"?
+      </div>
+
+      <div style={{
+        display: 'flex',
+        justifyContent: 'flex-end',
+        gap: '8px'
+      }}>
+        <button
+          onClick={onCancel}
+          style={{
+            padding: '8px 16px',
+            border: '1px solid #CBD5E1',
+            borderRadius: '4px',
+            backgroundColor: 'white',
+            color: '#64748B',
+            cursor: 'pointer'
+          }}
+        >
+          Cancel
+        </button>
+        <button
+          onClick={onConfirm}
+          style={{
+            padding: '8px 16px',
+            border: 'none',
+            borderRadius: '4px',
+            backgroundColor: '#EF4444',
+            color: 'white',
+            cursor: 'pointer'
+          }}
+        >
+          Delete
+        </button>
+      </div>
+    </div>
+  );
+};
+
+const DivisionEditor: React.FC<DivisionEditorProps> = ({ 
+  sectionTitle, 
+  division, 
+  sectionRef 
+}) => {
   // Disable editing for Recovery section
   if (sectionTitle === "Recovery") {
     return null;
@@ -21,77 +92,105 @@ const DivisionEditor: React.FC<DivisionEditorProps> = ({ sectionTitle, division 
 
   const { updateDivisionLabel, removeDivision } = useSections();
   const [isEditing, setIsEditing] = useState(false);
+  const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
   const [isHovering, setIsHovering] = useState(false);
-  const editButtonRef = useRef<HTMLButtonElement>(null);
-  const [parentSection, setParentSection] = useState<HTMLElement | null>(null);
-
-  useEffect(() => {
-    if (editButtonRef.current) {
-      // Find the closest section container
-      const section = editButtonRef.current.closest('[style*="flex: 0 0 550px"]');
-      if (section instanceof HTMLElement) {
-        setParentSection(section);
-      }
-    }
-  }, [editButtonRef.current]);
 
   const handleRemove = (e: React.MouseEvent) => {
     e.stopPropagation();
-    removeDivision(sectionTitle, division.id);
+    setIsConfirmingDelete(true);
+  };
+
+  const confirmRemove = () => {
+    try {
+      removeDivision(sectionTitle, division.id);
+    } catch (error) {
+      console.error('Error removing division:', error);
+    }
+    setIsConfirmingDelete(false);
   };
 
   const handleSave = (data: number | Omit<EnRouteDivisionData, 'label'> | Omit<TankerDivisionData, 'label'>) => {
     let label = '';
     let additionalData;
 
-    if (sectionTitle === "Launch") {
-      const stepTime = data as number;
-      label = `STEP +${stepTime}min`;
-      additionalData = { stepTime };
-    } else if (sectionTitle === "En Route/Tasking") {
-      const enRouteData = data as Omit<EnRouteDivisionData, 'label'>;
-      label = `Angels ${enRouteData.blockFloor}-${enRouteData.blockCeiling} ${enRouteData.missionType}`;
-      additionalData = { ...enRouteData, label };
-    } else if (sectionTitle === "Tanker") {
-      const tankerData = data as Omit<TankerDivisionData, 'label'>;
-      label = `${tankerData.callsign} - Angels ${tankerData.altitude}`;
-      additionalData = { ...tankerData, label };
-    }
+    try {
+      if (sectionTitle === "Launch") {
+        const stepTime = data as number;
+        label = `STEP +${stepTime}min`;
+        additionalData = { stepTime };
+      } else if (sectionTitle === "En Route/Tasking") {
+        const enRouteData = data as Omit<EnRouteDivisionData, 'label'>;
+        label = `Angels ${enRouteData.blockFloor}-${enRouteData.blockCeiling} ${enRouteData.missionType}`;
+        additionalData = { ...enRouteData, label };
+      } else if (sectionTitle === "Tanker") {
+        const tankerData = data as Omit<TankerDivisionData, 'label'>;
+        label = `${tankerData.callsign} - Angels ${tankerData.altitude}`;
+        additionalData = { ...tankerData, label };
+      }
 
-    updateDivisionLabel(sectionTitle, division.id, label, additionalData);
+      updateDivisionLabel(sectionTitle, division.id, label, additionalData);
+    } catch (error) {
+      console.error('Error updating division label:', error);
+    }
+    
     setIsEditing(false);
   };
 
-  const renderDialog = () => {
-    // Create a portal target relative to the parent section
-    if (!parentSection) return null;
+  const renderDialogPortal = (dialogComponent: React.ReactNode) => {
+    const targetElement = sectionRef?.current || document.body;
 
-    const portalStyle: React.CSSProperties = {
-      position: 'absolute',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      pointerEvents: 'none',
-      zIndex: 1001
-    };
+    return ReactDOM.createPortal(
+      <>
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          zIndex: 9999,
+          pointerEvents: 'auto'
+        }} onClick={() => {
+          setIsEditing(false);
+          setIsConfirmingDelete(false);
+        }} />
+        <div style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          pointerEvents: 'none',
+          zIndex: 10000
+        }}>
+          <div style={{
+            pointerEvents: 'auto',
+            zIndex: 10001
+          }}>
+            {dialogComponent}
+          </div>
+        </div>
+      </>,
+      targetElement
+    );
+  };
 
-    if (sectionTitle === "Launch") {
-      return (
-        <div style={portalStyle}>
+  const renderEditDialog = () => {
+    try {
+      let dialogComponent = null;
+      if (sectionTitle === "Launch") {
+        dialogComponent = (
           <LaunchDivisionDialog
             initialStepTime={division.stepTime}
             onSave={(stepTime) => handleSave(stepTime)}
             onCancel={() => setIsEditing(false)}
           />
-        </div>
-      );
-    } else if (sectionTitle === "En Route/Tasking") {
-      return (
-        <div style={portalStyle}>
+        );
+      } else if (sectionTitle === "En Route/Tasking") {
+        dialogComponent = (
           <EnRouteDivisionDialog
             onSave={(data) => handleSave(data)}
             onCancel={() => setIsEditing(false)}
@@ -101,11 +200,9 @@ const DivisionEditor: React.FC<DivisionEditorProps> = ({ sectionTitle, division 
               missionType: division.missionType || ''
             }}
           />
-        </div>
-      );
-    } else if (sectionTitle === "Tanker") {
-      return (
-        <div style={portalStyle}>
+        );
+      } else if (sectionTitle === "Tanker") {
+        dialogComponent = (
           <TankerDivisionDialog
             onSave={(data) => handleSave(data)}
             onCancel={() => setIsEditing(false)}
@@ -116,11 +213,25 @@ const DivisionEditor: React.FC<DivisionEditorProps> = ({ sectionTitle, division 
               role: division.groupType as any || 'mission-tankers'
             }}
           />
-        </div>
-      );
+        );
+      }
+
+      return renderDialogPortal(dialogComponent);
+    } catch (error) {
+      console.error('Error rendering edit dialog:', error);
+      return null;
     }
-    
-    return null;
+  };
+
+  const renderConfirmDeleteDialog = () => {
+    return renderDialogPortal(
+      <ConfirmDeleteDialog
+        onConfirm={confirmRemove}
+        onCancel={() => setIsConfirmingDelete(false)}
+        sectionTitle={sectionTitle}
+        divisionLabel={division.label}
+      />
+    );
   };
 
   return (
@@ -154,7 +265,6 @@ const DivisionEditor: React.FC<DivisionEditorProps> = ({ sectionTitle, division 
             gap: '8px',
           }}>
             <button
-              ref={editButtonRef}
               onClick={(e) => {
                 e.stopPropagation();
                 setIsEditing(true);
@@ -201,23 +311,8 @@ const DivisionEditor: React.FC<DivisionEditorProps> = ({ sectionTitle, division 
         </div>
       </div>
 
-      {isEditing && (
-        <>
-          <div style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: 'rgba(0, 0, 0, 0.5)',
-            zIndex: 1000
-          }} onClick={() => setIsEditing(false)} />
-          {parentSection && ReactDOM.createPortal(
-            renderDialog(),
-            parentSection
-          )}
-        </>
-      )}
+      {isConfirmingDelete && renderConfirmDeleteDialog()}
+      {isEditing && renderEditDialog()}
     </>
   );
 };
@@ -311,4 +406,4 @@ const AddDivisionButton: React.FC<{
   );
 };
 
-export { DivisionEditor as default, AddDivisionButton };
+export { DivisionEditor as default, AddDivisionButton, ConfirmDeleteDialog };
