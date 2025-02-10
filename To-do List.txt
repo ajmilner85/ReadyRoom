@@ -1,5 +1,5 @@
 Next:
-- Add confirmation for delete button
+- Handle vertical division deletions when they contain flight cards
 - Altitude block OR altitude for En Route/Tasking
 
 
@@ -80,3 +80,4 @@ Complete
 - Fix sorting after updating/editing a vertical division
 - Fix edit and delete buttons not fading out after the dialog appears
 - Remove add button from Recovery section
+- Add confirmation for delete button

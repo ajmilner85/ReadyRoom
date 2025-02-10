@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import DroppableZone from './DroppableZone';
 import DivisionEditor, { AddDivisionButton } from './DivisionEditor';
 import { LaunchDivisionButton } from './LaunchDivisionButton';
@@ -15,6 +15,7 @@ interface GridLayoutProps {
 
 const GridLayout: React.FC<GridLayoutProps> = ({ flights = [], onUpdateMemberFuel }) => {
   const { sections } = useSections();
+  const sectionRefs = useRef<(HTMLDivElement | null)[]>([]);
 
   const getFlightsForDivision = (sectionTitle: string, divisionId: string): Flight[] => {
     return flights.filter(flight => {
@@ -36,7 +37,7 @@ const GridLayout: React.FC<GridLayoutProps> = ({ flights = [], onUpdateMemberFue
 
   const unassignedFlights = flights.filter(flight => !flight.currentSection);
 
-  const renderSectionDivisions = (section: typeof sections[0]) => {
+  const renderSectionDivisions = (section: typeof sections[0], sectionIndex: number) => {
     if (section.type === 'tanker') {
       // Filter mission and recovery tankers
       const missionTankers = section.divisions.filter(d => d.groupType === 'mission-tankers');
@@ -57,6 +58,7 @@ const GridLayout: React.FC<GridLayoutProps> = ({ flights = [], onUpdateMemberFue
                 <DivisionEditor 
                   sectionTitle={section.title}
                   division={division}
+                  sectionRef={sectionRefs.current[sectionIndex] ? { current: sectionRefs.current[sectionIndex] } : undefined}
                 />
               </div>
             ))}
@@ -79,6 +81,7 @@ const GridLayout: React.FC<GridLayoutProps> = ({ flights = [], onUpdateMemberFue
                 <DivisionEditor 
                   sectionTitle={section.title}
                   division={division}
+                  sectionRef={sectionRefs.current[sectionIndex] ? { current: sectionRefs.current[sectionIndex] } : undefined}
                 />
               </div>
             ))}
@@ -111,6 +114,7 @@ const GridLayout: React.FC<GridLayoutProps> = ({ flights = [], onUpdateMemberFue
             <DivisionEditor 
               sectionTitle={section.title}
               division={division}
+              sectionRef={sectionRefs.current[sectionIndex] ? { current: sectionRefs.current[sectionIndex] } : undefined}
             />
           </div>
         ))}
@@ -134,9 +138,10 @@ const GridLayout: React.FC<GridLayoutProps> = ({ flights = [], onUpdateMemberFue
         position: 'relative',
         zIndex: 1,
       }}>
-        {sections.map((section) => (
+        {sections.map((section, index) => (
           <div
             key={section.title}
+            ref={el => sectionRefs.current[index] = el}
             style={{
               flex: '0 0 550px',
               width: '550px',
@@ -158,7 +163,7 @@ const GridLayout: React.FC<GridLayoutProps> = ({ flights = [], onUpdateMemberFue
               minHeight: 0,
               paddingBottom: '8px'
             }}>
-              {renderSectionDivisions(section)}
+              {renderSectionDivisions(section, index)}
             </div>
 
             <div style={{
