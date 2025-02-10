@@ -89,7 +89,11 @@ const GridLayout: React.FC<GridLayoutProps> = ({ flights = [], onUpdateMemberFue
 
     return (
       <div style={{ display: 'flex', flexDirection: 'column-reverse' }}>
-        {section.type === 'launch' ? (
+        {section.title === "Recovery" ? (
+          <div style={{
+            height: '54px', // Matches total height of add button area (18px padding top + 18px bottom + 18px content)
+          }} />
+        ) : section.type === 'launch' ? (
           <LaunchDivisionButton sectionTitle={section.title} position="bottom" />
         ) : section.title === "En Route/Tasking" ? (
           <EnRouteDivisionButton sectionTitle={section.title} position="bottom" />
@@ -149,8 +153,10 @@ const GridLayout: React.FC<GridLayoutProps> = ({ flights = [], onUpdateMemberFue
               flex: 1,
               display: 'flex',
               flexDirection: 'column',
+              justifyContent: 'flex-end',
               position: 'relative',
-              height: 'fit-content',
+              minHeight: 0,
+              paddingBottom: '8px'
             }}>
               {renderSectionDivisions(section)}
             </div>
@@ -163,7 +169,6 @@ const GridLayout: React.FC<GridLayoutProps> = ({ flights = [], onUpdateMemberFue
               lineHeight: '24px',
               color: '#64748B',
               textAlign: 'center',
-              marginTop: '16px',
               padding: '8px',
               borderTop: '1px solid #E2E8F0',
               position: 'relative',

@@ -1,8 +1,6 @@
 Next:
-- Fix sorting after updating/editing a vertical division
-- Fix edit and delete buttons not fading out after the dialog appears
 - Add confirmation for delete button
-- Remove add button from Recovery section
+- Altitude block OR altitude for En Route/Tasking
 
 
 Essential:
@@ -21,6 +19,7 @@ Medium Priority:
 	- DME distances to holding altitudes and shifts lowest marshal stack altitude to Angels 6
 	- Editable Expected Approach Times
 	- Next available level calculates expected approach time automatically
+- Roster, attendance and flight assignments
 
 
 QOL:
@@ -37,6 +36,7 @@ Cosmetic:
 - Fix drop shadow shading other cards when not being dragged
 - Fix spacing between cards in same vertical division, and between different divisions
 - Fix alignment of division labels so that cards don't overlap them
+- Add padding between division label and divider line
 
 
 Nice to have:
@@ -47,10 +47,10 @@ Nice to have:
 	- Marshall
 	- Tower
 	- LSO
+- Push, IP, Get Well points for En Route/Tasking Section
 
 
 To prioritize:
-- Roster, attendance and flight assignments
 - Handle out of action aircraft
 - Flag emergency aircraft
 - Tagging aircraft with Alibis
@@ -77,3 +77,6 @@ Complete
 - Mouse-over board number for pilot callsign
 - Unify add/edit dialog presentations (in progress)
 	- Fix edit dialogue popup location (center of browser instead of center of section)
+- Fix sorting after updating/editing a vertical division
+- Fix edit and delete buttons not fading out after the dialog appears
+- Remove add button from Recovery section
