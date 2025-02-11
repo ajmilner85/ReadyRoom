@@ -23,7 +23,7 @@ const DroppableZone: React.FC<DroppableZoneProps> = ({
   if (!label) return null;
 
   // Base height for an empty zone
-  const baseHeight = 103;
+  const baseHeight = 117; // Increased from 115 to 117
   // Height of each flight card with margin
   const flightCardHeight = 110;
   // Reduced spacing between cards in the same division
@@ -97,7 +97,8 @@ const DroppableZone: React.FC<DroppableZoneProps> = ({
           fontWeight: 300,
           color: '#64748B',
           pointerEvents: 'none',
-          zIndex: 1
+          zIndex: 1,
+          paddingBottom: '4px' // Increased from 2px to 4px
         }}>
           {label.toUpperCase()}
         </div>

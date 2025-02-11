@@ -1,9 +1,10 @@
 Next:
-- Flight card interaction
-
+- Add padding between division label and divider line
+- Fix alignment of division labels so that cards don't overlap them
+- Center align grid layout and storage areas on page
+- Background colour for entire page
 
 Essential:
-
 - Flight creation interface
 - Flight card storage area
 
@@ -31,13 +32,12 @@ QOL:
 
 
 Cosmetic:
-- Add padding between division label and divider line
-- Center align grid layout and storage areas on page
+
+
 - Make storage area into a popup tray
-- Background colour for entire page
 - Fix drop shadow shading other cards when not being dragged
 - Fix spacing between cards in same vertical division, and between different divisions
-- Fix alignment of division labels so that cards don't overlap them
+
 
 
 
@@ -86,3 +86,4 @@ Complete
 - Handle vertical division deletions when they contain flight cards (prevent deleting divisions with flights in them)
 - Altitude block OR altitude for En Route/Tasking
 - Add a default recovery tanker
+- Basic flight card interaction (updating fuel states)

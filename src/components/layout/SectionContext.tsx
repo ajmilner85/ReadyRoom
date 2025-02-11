@@ -57,7 +57,6 @@ const defaultSections: Section[] = [
     title: "Recovery",
     type: 'altitude',
     divisions: [
-      { id: 'recovery-7', label: "Angels 16" },
       { id: 'recovery-6', label: "Angels 14" },
       { id: 'recovery-5', label: "Angels 12" },
       { id: 'recovery-4', label: "Angels 10" },
@@ -90,6 +89,7 @@ const SectionContext = createContext<SectionContextType | undefined>(undefined);
 export const SectionProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [sections, setSections] = useState<Section[]>(defaultSections);
 
+  // Rest of the component remains the same as in the previous version
   const addDivision = (sectionTitle: string, labelOrData: string | number | EnRouteDivisionData | TankerDivisionData, position: 'top' | 'bottom') => {
     setSections(prevSections => {
       return prevSections.map(section => {
@@ -182,6 +182,7 @@ export const SectionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     });
   };
 
+  // Rest of the component remains the same as in the previous version
   const removeDivision = (sectionTitle: string, divisionId: string) => {
     setSections(prevSections => {
       return prevSections.map(section => {
