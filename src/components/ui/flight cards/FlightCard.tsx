@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useDraggable } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
 import type { Flight, FlightMember } from '../../../types/FlightData';
@@ -19,12 +19,15 @@ const FlightCard: React.FC<FlightCardProps> = ({
   isDragging,
   onUpdateMemberFuel
 }) => {
+  const [isEditingFuel, setIsEditingFuel] = useState(false);
+  
   const { attributes, listeners, setNodeRef, transform } = useDraggable({
     id: id,
     data: {
       type: 'FlightCard',
       flight: { id, flightNumber, callsign, members, position, lowState }
-    }
+    },
+    disabled: isEditingFuel
   });
 
   const lead = members.find(m => m.dashNumber === "1");
@@ -39,9 +42,8 @@ const FlightCard: React.FC<FlightCardProps> = ({
     backgroundColor: '#FFFFFF',
     borderRadius: '8px',
     fontFamily: 'Inter, sans-serif',
-    cursor: 'grab',
+    cursor: isEditingFuel ? 'default' : 'grab',
     userSelect: 'none',
-    // Enhance shadow and opacity when dragging
     ...(isDragging ? {
       boxShadow: '0px 20px 25px -5px rgba(0, 0, 0, 0.3), 0px 10px 10px -5px rgba(0, 0, 0, 0.2)',
       opacity: 0.9,
@@ -49,7 +51,6 @@ const FlightCard: React.FC<FlightCardProps> = ({
       boxShadow: '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)',
       opacity: 1,
     }),
-    // Apply transform only when dragging
     ...(transform ? {
       transform: CSS.Translate.toString(transform)
     } : {})
@@ -61,20 +62,13 @@ const FlightCard: React.FC<FlightCardProps> = ({
     }
   };
 
-  const preventDragEvents = (e: React.MouseEvent) => {
-    e.stopPropagation();
-  };
-
   if (!lead) return null;
 
   return (
     <div 
       ref={setNodeRef}
-      {...attributes}
-      {...listeners}
+      {...(isEditingFuel ? {} : { ...attributes, ...listeners })}
       style={cardStyle}
-      onMouseDown={preventDragEvents}
-      onDoubleClick={preventDragEvents}
     >
       <div style={{
         display: 'flex',
@@ -94,6 +88,7 @@ const FlightCard: React.FC<FlightCardProps> = ({
           <div 
             style={{ fontSize: '36px', fontWeight: 700, lineHeight: '44px', color: '#1E1E1E' }}
             title={`${lead.pilotCallsign}`}
+            data-board-number={lead.boardNumber}
           >
             {lead.boardNumber}
           </div>
@@ -105,6 +100,7 @@ const FlightCard: React.FC<FlightCardProps> = ({
               fuel={lead.fuel} 
               size="small" 
               onUpdateFuel={(newFuel) => handleUpdateMemberFuel(lead, newFuel)}
+              onEditStateChange={setIsEditingFuel}
             />
           </div>
         </div>
@@ -132,6 +128,7 @@ const FlightCard: React.FC<FlightCardProps> = ({
               <span 
                 style={{ fontSize: '20px', fontWeight: 700, marginLeft: '29px', color: '#000000' }}
                 title={`${member.pilotCallsign}`}
+                data-board-number={member.boardNumber}
               >
                 {member.boardNumber}
               </span>
@@ -140,6 +137,7 @@ const FlightCard: React.FC<FlightCardProps> = ({
                   fuel={member.fuel} 
                   size="small" 
                   onUpdateFuel={(newFuel) => handleUpdateMemberFuel(member, newFuel)}
+                  onEditStateChange={setIsEditingFuel}
                 />
               </span>
             </div>

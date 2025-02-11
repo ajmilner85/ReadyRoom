@@ -72,7 +72,16 @@ const defaultSections: Section[] = [
   {
     title: "Tanker",
     type: 'tanker',
-    divisions: []  // Start with empty tanker section
+    divisions: [
+      {
+        id: 'tanker-0',
+        label: 'BLOODHOUND - ANGELS 6',
+        callsign: 'BLOODHOUND',
+        altitude: 6,
+        aircraftType: 'S-3B',
+        groupType: 'recovery-tankers'
+      }
+    ]
   }
 ];
 

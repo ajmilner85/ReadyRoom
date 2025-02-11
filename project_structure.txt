@@ -15,23 +15,29 @@ pri-fly
 │   ├── assets
 │   │   └── react.svg
 │   ├── components
-│   │   ├── flight
-│   │   │   ├── FlightCard.tsx
-│   │   │   └── FuelDisplay.tsx
 │   │   ├── layout
-│   │   │   ├── DivisionEditor.tsx
 │   │   │   ├── DroppableZone.tsx
-│   │   │   ├── EnRouteDivisionButton.tsx
-│   │   │   ├── EnRouteDivisionDialog.tsx
 │   │   │   ├── GridLayout.tsx
-│   │   │   ├── LaunchDivisionButton.tsx
-│   │   │   ├── LaunchDivisionDialog.tsx
-│   │   │   ├── SectionContext.tsx
-│   │   │   ├── TankerDivisionButton.tsx
-│   │   │   └── TankerDivisionDialog.tsx
+│   │   │   └── SectionContext.tsx
 │   │   └── ui
+│   │       ├── DivisionEditor.tsx
+│   │       ├── buttons
+│   │       │   ├── AddDivisionButton.tsx
+│   │       │   ├── EnRouteDivisionButton.tsx
+│   │       │   ├── LaunchDivisionButton.tsx
+│   │       │   └── TankerDivisionButton.tsx
+│   │       ├── dialogs
+│   │       │   ├── DeleteDivisionDialog.tsx
+│   │       │   ├── EnRouteDivisionDialog.tsx
+│   │       │   ├── LaunchDivisionDialog.tsx
+│   │       │   └── TankerDivisionDialog.tsx
+│   │       └── flight cards
+│   │           ├── FlightCard.tsx
+│   │           └── FuelDisplay.tsx
 │   ├── index.css
 │   ├── main.tsx
+│   ├── styles
+│   │   └── DivisionEditor.ts
 │   ├── types
 │   │   ├── EnRouteTypes.ts
 │   │   ├── FlightData.ts

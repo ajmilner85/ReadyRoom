@@ -1,9 +1,9 @@
 Next:
-
+- Flight card interaction
 
 
 Essential:
-- Flight card interaction
+
 - Flight creation interface
 - Flight card storage area
 
@@ -85,3 +85,4 @@ Complete
 - Add confirmation for delete button
 - Handle vertical division deletions when they contain flight cards (prevent deleting divisions with flights in them)
 - Altitude block OR altitude for En Route/Tasking
+- Add a default recovery tanker
