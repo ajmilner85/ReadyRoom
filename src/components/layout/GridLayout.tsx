@@ -128,9 +128,13 @@ const GridLayout: React.FC<GridLayoutProps> = ({ flights = [], onUpdateMemberFue
 
   return (
     <div style={{ 
-      backgroundColor: '#F8FAFC', 
-      padding: '20px',
-      position: 'relative',
+      backgroundColor: '#F0F4F8', 
+      minHeight: '100vh',
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      padding: '0 20px', // Removed top padding
+      boxSizing: 'border-box'
     }}>
       <div style={{
         display: 'flex',
@@ -141,14 +145,17 @@ const GridLayout: React.FC<GridLayoutProps> = ({ flights = [], onUpdateMemberFue
         overflowY: 'auto',
         position: 'relative',
         zIndex: 1,
+        justifyContent: 'center',
+        width: '100%',
       }}>
         {sections.map((section, index) => (
           <div
             key={section.title}
             ref={el => sectionRefs.current[index] = el}
             style={{
-              flex: '0 0 550px',
-              width: '550px',
+              flex: '1 0 550px', 
+              minWidth: '550px', 
+              maxWidth: '550px',
               display: 'flex',
               flexDirection: 'column',
               position: 'relative',
@@ -198,6 +205,9 @@ const GridLayout: React.FC<GridLayoutProps> = ({ flights = [], onUpdateMemberFue
         flexWrap: 'wrap',
         gap: '10px',
         position: 'relative',
+        justifyContent: 'center',
+        width: '100%',
+        boxSizing: 'border-box'
       }}>
         {unassignedFlights.map((flight) => (
           <FlightCard
