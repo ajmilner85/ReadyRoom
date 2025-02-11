@@ -1,22 +1,17 @@
-import React, { useState } from 'react';
-import { useSections } from './SectionContext';
-import { TankerDivisionDialog } from './TankerDivisionDialog';
-import type { TankerDivisionData } from '../../types/TankerTypes';
+import React, { useState, useRef } from 'react';
+import { useSections } from '../../layout/SectionContext';
+import { LaunchDivisionDialog } from '../dialogs/LaunchDivisionDialog';
 
-export const TankerDivisionButton: React.FC<{
+export const LaunchDivisionButton: React.FC<{
   sectionTitle: string;
   position: 'top' | 'bottom';
 }> = ({ sectionTitle, position }) => {
   const { addDivision } = useSections();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const buttonRef = useRef<HTMLButtonElement>(null);
 
-  const handleSave = (dialogData: Omit<TankerDivisionData, 'label'>) => {
-    const label = `${dialogData.callsign} - Angels ${dialogData.altitude}`;
-    const fullData: TankerDivisionData = {
-      ...dialogData,
-      label
-    };
-    addDivision(sectionTitle, fullData, position);
+  const handleSave = (stepTime: number) => {
+    addDivision(sectionTitle, stepTime, position);
     setIsDialogOpen(false);
   };
 
@@ -31,6 +26,7 @@ export const TankerDivisionButton: React.FC<{
         zIndex: 5
       }}>
         <button
+          ref={buttonRef}
           onClick={() => setIsDialogOpen(true)}
           style={{
             position: 'absolute',
@@ -72,7 +68,7 @@ export const TankerDivisionButton: React.FC<{
             backgroundColor: 'rgba(0, 0, 0, 0.5)',
             zIndex: 999
           }} onClick={() => setIsDialogOpen(false)} />
-          <TankerDivisionDialog
+          <LaunchDivisionDialog
             onSave={handleSave}
             onCancel={() => setIsDialogOpen(false)}
           />

@@ -1,5 +1,5 @@
 Next:
-- Altitude block OR altitude for En Route/Tasking
+
 
 
 Essential:
@@ -31,13 +31,14 @@ QOL:
 
 
 Cosmetic:
+- Add padding between division label and divider line
 - Center align grid layout and storage areas on page
 - Make storage area into a popup tray
 - Background colour for entire page
 - Fix drop shadow shading other cards when not being dragged
 - Fix spacing between cards in same vertical division, and between different divisions
 - Fix alignment of division labels so that cards don't overlap them
-- Add padding between division label and divider line
+
 
 
 Nice to have:
@@ -83,3 +84,4 @@ Complete
 - Remove add button from Recovery section
 - Add confirmation for delete button
 - Handle vertical division deletions when they contain flight cards (prevent deleting divisions with flights in them)
+- Altitude block OR altitude for En Route/Tasking

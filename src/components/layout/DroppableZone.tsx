@@ -1,6 +1,6 @@
 import React from 'react';
 import { useDroppable } from '@dnd-kit/core';
-import FlightCard from '../flight/FlightCard';
+import FlightCard from '../ui/flight cards/FlightCard';
 import type { Flight } from '../../types/FlightData';
 
 interface DroppableZoneProps {

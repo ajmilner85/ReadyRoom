@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import type { EnRouteDivisionData } from '../../types/EnRouteTypes';
+import type { EnRouteDivisionData } from '../../../types/EnRouteTypes';
 
 const MISSION_TYPES = [
   'SEAD', 'DEAD', 'BARCAP', 'DCA', 'FIGHTER SWEEP', 'STRIKE', 'INTERDICTION',

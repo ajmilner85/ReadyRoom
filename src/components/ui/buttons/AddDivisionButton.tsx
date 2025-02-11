@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useSections } from '../layout/SectionContext';
+import { useSections } from '../../layout/SectionContext';
 
 export const AddDivisionButton: React.FC<{
   sectionTitle: string;

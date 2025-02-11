@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import type { TankerDivisionData, TankerType, TankerRole } from '../../types/TankerTypes';
+import type { TankerDivisionData, TankerType, TankerRole } from '../../../types/TankerTypes';
 
 const AIRCRAFT_TYPES: TankerType[] = ['S-3B', 'KC-135 MPRS'];
 const TANKER_ROLES: TankerRole[] = ['mission-tankers', 'recovery-tankers'];
