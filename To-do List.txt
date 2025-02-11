@@ -1,5 +1,4 @@
 Next:
-- Handle vertical division deletions when they contain flight cards
 - Altitude block OR altitude for En Route/Tasking
 
 
@@ -32,6 +31,8 @@ QOL:
 
 
 Cosmetic:
+- Center align grid layout and storage areas on page
+- Make storage area into a popup tray
 - Background colour for entire page
 - Fix drop shadow shading other cards when not being dragged
 - Fix spacing between cards in same vertical division, and between different divisions
@@ -81,3 +82,4 @@ Complete
 - Fix edit and delete buttons not fading out after the dialog appears
 - Remove add button from Recovery section
 - Add confirmation for delete button
+- Handle vertical division deletions when they contain flight cards (prevent deleting divisions with flights in them)
