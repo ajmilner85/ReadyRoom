@@ -45,7 +45,7 @@ export const sampleFlights: Flight[] = [
     "members": [
       { "dashNumber": "1", "boardNumber": "755", "fuel": 6.2, "pilotCallsign": "JOLT" },
       { "dashNumber": "2", "boardNumber": "622", "fuel": 5.9, "pilotCallsign": "SPARK" },
-      { "dashNumber": "3", "boardNumber": "637", "fuel": 6.0, "pilotCallsign": "SURGE" },
+      { "dashNumber": "3", "boardNumber": "608", "fuel": 6.0, "pilotCallsign": "SURGE" },
       { "dashNumber": "4", "boardNumber": "711", "fuel": 6.3, "pilotCallsign": "VOLT" }
     ],
     "position": { "bearing": "125/15", "altitude": "13,500'", "status": "INBOUND" },
@@ -58,7 +58,7 @@ export const sampleFlights: Flight[] = [
     "flightNumber": "3",
     "callsign": "STING",
     "members": [
-      { "dashNumber": "1", "boardNumber": "727", "fuel": 6.0, "pilotCallsign": "BROADWAY" },
+      { "dashNumber": "1", "boardNumber": "725", "fuel": 6.0, "pilotCallsign": "BROADWAY" },
       { "dashNumber": "2", "boardNumber": "623", "fuel": 5.0, "pilotCallsign": "MUSIC" },
       { "dashNumber": "3", "boardNumber": "611", "fuel": 6.7, "pilotCallsign": "HORN" }
     ],
@@ -72,9 +72,9 @@ export const sampleFlights: Flight[] = [
     "flightNumber": "4",
     "callsign": "DODGE",
     "members": [
-      { "dashNumber": "1", "boardNumber": "711", "fuel": 4.8, "pilotCallsign": "TORQUE" },
+      { "dashNumber": "1", "boardNumber": "733", "fuel": 4.8, "pilotCallsign": "TORQUE" },
       { "dashNumber": "2", "boardNumber": "722", "fuel": 5.2, "pilotCallsign": "CRANK" },
-      { "dashNumber": "3", "boardNumber": "744", "fuel": 5.0, "pilotCallsign": "SHIFT" }
+      { "dashNumber": "3", "boardNumber": "655", "fuel": 5.0, "pilotCallsign": "SHIFT" }
     ],
     "position": { "bearing": "300/35", "altitude": "12,000'", "status": "INBOUND" },
     "lowState": 4.8,
@@ -87,7 +87,7 @@ export const sampleFlights: Flight[] = [
     "callsign": "DODGE",
     "members": [
       { "dashNumber": "1", "boardNumber": "633", "fuel": 7.1, "pilotCallsign": "HAMMER" },
-      { "dashNumber": "2", "boardNumber": "637", "fuel": 6.9, "pilotCallsign": "ANVIL" },
+      { "dashNumber": "2", "boardNumber": "766", "fuel": 6.9, "pilotCallsign": "ANVIL" },
       { "dashNumber": "3", "boardNumber": "644", "fuel": 7.3, "pilotCallsign": "TONGS" }
     ],
     "position": { "bearing": "310/40", "altitude": "14,500'", "status": "INBOUND" },
@@ -100,9 +100,9 @@ export const sampleFlights: Flight[] = [
     "flightNumber": "6",
     "callsign": "STING",
     "members": [
-      { "dashNumber": "1", "boardNumber": "725", "fuel": 5.5, "pilotCallsign": "BLADE" },
-      { "dashNumber": "2", "boardNumber": "655", "fuel": 5.3, "pilotCallsign": "EDGE" },
-      { "dashNumber": "3", "boardNumber": "677", "fuel": 5.6, "pilotCallsign": "CUTTER" }
+      { "dashNumber": "1", "boardNumber": "677", "fuel": 5.5, "pilotCallsign": "BLADE" },
+      { "dashNumber": "2", "boardNumber": "644", "fuel": 5.3, "pilotCallsign": "EDGE" },
+      { "dashNumber": "3", "boardNumber": "666", "fuel": 5.6, "pilotCallsign": "CUTTER" }
     ],
     "position": { "bearing": "045/25", "altitude": "13,000'", "status": "INBOUND" },
     "lowState": 5.3,
@@ -114,9 +114,9 @@ export const sampleFlights: Flight[] = [
     "flightNumber": "7",
     "callsign": "DODGE",
     "members": [
-      { "dashNumber": "1", "boardNumber": "755", "fuel": 7.9, "pilotCallsign": "BRICK" },
-      { "dashNumber": "2", "boardNumber": "766", "fuel": 7.5, "pilotCallsign": "CEMENT" },
-      { "dashNumber": "3", "boardNumber": "744", "fuel": 7.7, "pilotCallsign": "REBAR" }
+      { "dashNumber": "1", "boardNumber": "766", "fuel": 7.9, "pilotCallsign": "BRICK" },
+      { "dashNumber": "2", "boardNumber": "600", "fuel": 7.5, "pilotCallsign": "CEMENT" },
+      { "dashNumber": "3", "boardNumber": "654", "fuel": 7.7, "pilotCallsign": "REBAR" }
     ],
     "position": { "bearing": "120/30", "altitude": "11,500'", "status": "INBOUND" },
     "lowState": 7.5,
@@ -128,9 +128,9 @@ export const sampleFlights: Flight[] = [
     "flightNumber": "8",
     "callsign": "STING",
     "members": [
-      { "dashNumber": "1", "boardNumber": "622", "fuel": 4.2, "pilotCallsign": "FLASH" },
-      { "dashNumber": "2", "boardNumber": "677", "fuel": 4.5, "pilotCallsign": "ZAP" },
-      { "dashNumber": "3", "boardNumber": "655", "fuel": 4.3, "pilotCallsign": "SPARK" }
+      { "dashNumber": "1", "boardNumber": "602", "fuel": 4.2, "pilotCallsign": "FLASH" },
+      { "dashNumber": "2", "boardNumber": "688", "fuel": 4.5, "pilotCallsign": "ZAP" },
+      { "dashNumber": "3", "boardNumber": "612", "fuel": 4.3, "pilotCallsign": "SPARK" }
     ],
     "position": { "bearing": "090/10", "altitude": "12,500'", "status": "INBOUND" },
     "lowState": 4.2,
@@ -142,9 +142,9 @@ export const sampleFlights: Flight[] = [
     "flightNumber": "9",
     "callsign": "DODGE",
     "members": [
-      { "dashNumber": "1", "boardNumber": "733", "fuel": 10.5, "pilotCallsign": "TITAN" },
-      { "dashNumber": "2", "boardNumber": "744", "fuel": 10.2, "pilotCallsign": "ATLAS" },
-      { "dashNumber": "3", "boardNumber": "711", "fuel": 10.8, "pilotCallsign": "PROMETHEUS" }
+      { "dashNumber": "1", "boardNumber": "654", "fuel": 10.5, "pilotCallsign": "TITAN" },
+      { "dashNumber": "2", "boardNumber": "666", "fuel": 10.2, "pilotCallsign": "ATLAS" },
+      { "dashNumber": "3", "boardNumber": "601", "fuel": 10.8, "pilotCallsign": "PROMETHEUS" }
     ],
     "position": { "bearing": "210/45", "altitude": "14,000'", "status": "INBOUND" },
     "lowState": 10.2,
@@ -156,9 +156,9 @@ export const sampleFlights: Flight[] = [
     "flightNumber": "10",
     "callsign": "STING",
     "members": [
-      { "dashNumber": "1", "boardNumber": "655", "fuel": 3.8, "pilotCallsign": "GHOST" },
-      { "dashNumber": "2", "boardNumber": "622", "fuel": 4.0, "pilotCallsign": "WRAITH" },
-      { "dashNumber": "3", "boardNumber": "644", "fuel": 3.9, "pilotCallsign": "SPECTER" }
+      { "dashNumber": "1", "boardNumber": "600", "fuel": 3.8, "pilotCallsign": "GHOST" },
+      { "dashNumber": "2", "boardNumber": "610", "fuel": 4.0, "pilotCallsign": "WRAITH" },
+      { "dashNumber": "3", "boardNumber": "609", "fuel": 3.9, "pilotCallsign": "SPECTER" }
     ],
     "position": { "bearing": "180/50", "altitude": "12,000'", "status": "INBOUND" },
     "lowState": 3.8,
