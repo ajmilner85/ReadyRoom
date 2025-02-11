@@ -9,6 +9,8 @@ interface FlightCardProps extends Flight {
   onUpdateMemberFuel?: (dashNumber: string, newFuel: number) => void;
 }
 
+const BINGO_FUEL = 3.0;
+
 const FlightCard: React.FC<FlightCardProps> = ({
   id,
   flightNumber,
@@ -95,7 +97,10 @@ const FlightCard: React.FC<FlightCardProps> = ({
           <div style={{ fontSize: '12px', fontWeight: 300, lineHeight: '15px', color: '#000000' }}>
             {callsign} {flightNumber}-1
           </div>
-          <div style={{ color: '#FF3B30' }}>
+          <div style={{ 
+            color: lead.fuel < BINGO_FUEL ? '#FF3B30' : '#FF3B30',
+            animation: lead.fuel < BINGO_FUEL ? 'pulse-red 1.5s ease-in-out infinite' : 'none'
+          }}>
             <FuelDisplay 
               fuel={lead.fuel} 
               size="small" 
@@ -126,13 +131,17 @@ const FlightCard: React.FC<FlightCardProps> = ({
                 {flightNumber}-{member.dashNumber}
               </span>
               <span 
-                style={{ fontSize: '20px', fontWeight: 700, marginLeft: '29px', color: '#000000' }}
+                style={{ fontSize: '20px', fontWeight: 700, marginLeft: '29px', color: '#1E1E1E' }}
                 title={`${member.pilotCallsign}`}
                 data-board-number={member.boardNumber}
               >
                 {member.boardNumber}
               </span>
-              <span style={{ marginLeft: 'auto', color: '#FF3B30' }}>
+              <span style={{ 
+                marginLeft: 'auto', 
+                color: member.fuel < BINGO_FUEL ? '#FF3B30' : '#FF3B30',
+                animation: member.fuel < BINGO_FUEL ? 'pulse-red 1.5s ease-in-out infinite' : 'none'
+              }}>
                 <FuelDisplay 
                   fuel={member.fuel} 
                   size="small" 
@@ -174,7 +183,14 @@ const FlightCard: React.FC<FlightCardProps> = ({
           alignItems: 'center',
           justifyContent: 'center',
         }}>
-          <FuelDisplay fuel={lowState} size="large" />
+          <div style={{
+            animation: lowState < BINGO_FUEL ? 'pulse-red 1.5s ease-in-out infinite' : 'none'
+          }}>
+            <FuelDisplay 
+              fuel={lowState} 
+              size="large"
+            />
+          </div>
         </div>
       </div>
     </div>

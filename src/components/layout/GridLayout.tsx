@@ -5,6 +5,7 @@ import { AddDivisionButton } from '../ui/buttons/AddDivisionButton';
 import { LaunchDivisionButton } from '../ui/buttons/LaunchDivisionButton';
 import { EnRouteDivisionButton } from '../ui/buttons/EnRouteDivisionButton';
 import { TankerDivisionButton } from '../ui/buttons/TankerDivisionButton';
+import { RecoveryToggleSwitch } from '../ui/buttons/RecoveryToggleSwitch';
 import { useSections } from './SectionContext';
 import type { Flight } from '../../types/FlightData';
 import FlightCard from '../ui/flight cards/FlightCard';
@@ -96,9 +97,7 @@ const GridLayout: React.FC<GridLayoutProps> = ({ flights = [], onUpdateMemberFue
     return (
       <div style={{ display: 'flex', flexDirection: 'column-reverse' }}>
         {section.title === "Recovery" ? (
-          <div style={{
-            height: '54px',
-          }} />
+          <RecoveryToggleSwitch />
         ) : section.type === 'launch' ? (
           <LaunchDivisionButton sectionTitle={section.title} position="bottom" />
         ) : section.title === "En Route/Tasking" ? (
@@ -133,7 +132,7 @@ const GridLayout: React.FC<GridLayoutProps> = ({ flights = [], onUpdateMemberFue
       display: 'flex',
       flexDirection: 'column',
       alignItems: 'center',
-      padding: '0 20px', // Removed top padding
+      padding: '0 20px', 
       boxSizing: 'border-box'
     }}>
       <div style={{
