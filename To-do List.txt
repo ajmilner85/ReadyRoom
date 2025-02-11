@@ -1,5 +1,6 @@
 Next:
-- Dragging a flight into an empty area of the En Route/Tasking section brings up an add mission dialog, entering a mission drops the card into that mission division, hitting cancel returns the card to where it was last
+- Refactor CASE I/II/III button to be a three position sliding toggle
+
 
 Essential:
 - Flight creation interface
@@ -7,8 +8,9 @@ Essential:
 	- Provide a list of recently used flight callsigns
 	- Automatically sequence flight numbers within each callsign
 
-High Priority:
 
+High Priority:
+- Dragging a flight into an empty area of the En Route/Tasking section brings up an add mission dialog, entering a mission drops the card into that mission division, hitting cancel returns the card to where it was last
 - State saving
 - Mission saving
 
@@ -19,7 +21,7 @@ Medium Priority:
 	- Editable Expected Approach Times
 	- Next available level calculates expected approach time automatically
 - Roster, attendance and flight assignments
-- Export flight assignments
+- Import/Export flight assignments
 - Assign MIDS and encryption channels
 
 
@@ -34,13 +36,7 @@ QOL:
 
 
 Cosmetic:
-
-
 - Make storage area into a popup tray
-- Fix drop shadow shading other cards when not being dragged
-- Fix spacing between cards in same vertical division, and between different divisions
-
-
 
 
 Nice to have:
@@ -93,3 +89,7 @@ Complete
 - Fix alignment of division labels so that cards don't overlap them
 - Center align grid layout and storage areas on page
 - Background colour for entire page
+- Fix drop shadow shading other cards when not being dragged
+- Fix spacing between cards in same vertical division, and between different divisions
+- Make low fuel states pulse
+- Add placeholder three-way toggle for CASE I/II/III

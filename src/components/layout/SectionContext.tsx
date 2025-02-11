@@ -20,6 +20,7 @@ export interface Section {
   title: string;
   type: 'launch' | 'altitude' | 'tanker';
   divisions: Division[];
+  mode?: 0 | 1 | 2; // For Recovery section
 }
 
 interface SectionContextType {
@@ -33,6 +34,7 @@ interface SectionContextType {
     additionalData?: { stepTime?: number } | EnRouteDivisionData | TankerDivisionData
   ) => void;
   reorderDivisions: (sectionTitle: string, startIndex: number, endIndex: number) => void;
+  updateSectionProperty: (sectionTitle: string, property: string, value: any) => void;
 }
 
 const defaultSections: Section[] = [
@@ -56,8 +58,8 @@ const defaultSections: Section[] = [
   {
     title: "Recovery",
     type: 'altitude',
+    mode: 0, // Normal mode
     divisions: [
-      { id: 'recovery-6', label: "Angels 14" },
       { id: 'recovery-5', label: "Angels 12" },
       { id: 'recovery-4', label: "Angels 10" },
       { id: 'recovery-3', label: "Angels 8" },
@@ -89,7 +91,80 @@ const SectionContext = createContext<SectionContextType | undefined>(undefined);
 export const SectionProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [sections, setSections] = useState<Section[]>(defaultSections);
 
-  // Rest of the component remains the same as in the previous version
+  const updateSectionProperty = (sectionTitle: string, property: string, value: any) => {
+    setSections(prevSections => 
+      prevSections.map(section => 
+        section.title === sectionTitle 
+          ? { ...section, [property]: value } 
+          : section
+      )
+    );
+  };
+
+  const removeDivision = (sectionTitle: string, divisionId: string) => {
+    setSections(prevSections => {
+      return prevSections.map(section => {
+        if (section.title === sectionTitle) {
+          return {
+            ...section,
+            divisions: section.divisions.filter(div => div.id !== divisionId)
+          };
+        }
+        return section;
+      });
+    });
+  };
+
+  const updateDivisionLabel = (
+    sectionTitle: string, 
+    divisionId: string, 
+    newLabel: string,
+    additionalData?: { stepTime?: number } | EnRouteDivisionData | TankerDivisionData
+  ) => {
+    setSections(prevSections => {
+      return prevSections.map(section => {
+        if (section.title === sectionTitle) {
+          const updatedDivisions = section.divisions.map(div => {
+            if (div.id === divisionId) {
+              const updatedDiv = { ...div, label: newLabel };
+              if (additionalData) {
+                Object.assign(updatedDiv, additionalData);
+              }
+              return updatedDiv;
+            }
+            return div;
+          });
+
+          // Sort launches by step time
+          if (section.type === 'launch') {
+            updatedDivisions.sort((a, b) => (b.stepTime ?? 0) - (a.stepTime ?? 0));
+          }
+          // Sort En Route divisions by block ceiling
+          else if (section.title === "En Route/Tasking") {
+            updatedDivisions.sort((a, b) => (b.blockCeiling ?? 0) - (a.blockCeiling ?? 0));
+          }
+          // Sort and group tanker divisions
+          else if (section.type === 'tanker') {
+            // Split tankers by role
+            const missionTankers = updatedDivisions
+              .filter(d => d.groupType === 'mission-tankers')
+              .sort((a, b) => (b.altitude ?? 0) - (a.altitude ?? 0)); // Descending order - lower altitudes at bottom
+
+            const recoveryTankers = updatedDivisions
+              .filter(d => d.groupType === 'recovery-tankers')
+              .sort((a, b) => (b.altitude ?? 0) - (a.altitude ?? 0)); // Descending order - lower altitudes at bottom
+
+            // Return sorted divisions with mission tankers at top, recovery at bottom
+            return { ...section, divisions: [...missionTankers, ...recoveryTankers] };
+          }
+
+          return { ...section, divisions: updatedDivisions };
+        }
+        return section;
+      });
+    });
+  };
+
   const addDivision = (sectionTitle: string, labelOrData: string | number | EnRouteDivisionData | TankerDivisionData, position: 'top' | 'bottom') => {
     setSections(prevSections => {
       return prevSections.map(section => {
@@ -182,71 +257,6 @@ export const SectionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     });
   };
 
-  // Rest of the component remains the same as in the previous version
-  const removeDivision = (sectionTitle: string, divisionId: string) => {
-    setSections(prevSections => {
-      return prevSections.map(section => {
-        if (section.title === sectionTitle) {
-          return {
-            ...section,
-            divisions: section.divisions.filter(div => div.id !== divisionId)
-          };
-        }
-        return section;
-      });
-    });
-  };
-
-  const updateDivisionLabel = (
-    sectionTitle: string, 
-    divisionId: string, 
-    newLabel: string,
-    additionalData?: { stepTime?: number } | EnRouteDivisionData | TankerDivisionData
-  ) => {
-    setSections(prevSections => {
-      return prevSections.map(section => {
-        if (section.title === sectionTitle) {
-          const updatedDivisions = section.divisions.map(div => {
-            if (div.id === divisionId) {
-              const updatedDiv = { ...div, label: newLabel };
-              if (additionalData) {
-                Object.assign(updatedDiv, additionalData);
-              }
-              return updatedDiv;
-            }
-            return div;
-          });
-
-          // Sort launches by step time
-          if (section.type === 'launch') {
-            updatedDivisions.sort((a, b) => (b.stepTime ?? 0) - (a.stepTime ?? 0));
-          }
-          // Sort En Route divisions by block ceiling
-          else if (section.title === "En Route/Tasking") {
-            updatedDivisions.sort((a, b) => (b.blockCeiling ?? 0) - (a.blockCeiling ?? 0));
-          }
-          // Sort and group tanker divisions
-          else if (section.type === 'tanker') {
-            // Split tankers by role
-            const missionTankers = updatedDivisions
-              .filter(d => d.groupType === 'mission-tankers')
-              .sort((a, b) => (b.altitude ?? 0) - (a.altitude ?? 0)); // Descending order - lower altitudes at bottom
-
-            const recoveryTankers = updatedDivisions
-              .filter(d => d.groupType === 'recovery-tankers')
-              .sort((a, b) => (b.altitude ?? 0) - (a.altitude ?? 0)); // Descending order - lower altitudes at bottom
-
-            // Return sorted divisions with mission tankers at top, recovery at bottom
-            return { ...section, divisions: [...missionTankers, ...recoveryTankers] };
-          }
-
-          return { ...section, divisions: updatedDivisions };
-        }
-        return section;
-      });
-    });
-  };
-
   const reorderDivisions = (sectionTitle: string, startIndex: number, endIndex: number) => {
     setSections(prevSections => {
       return prevSections.map(section => {
@@ -267,7 +277,8 @@ export const SectionProvider: React.FC<{ children: React.ReactNode }> = ({ child
       addDivision,
       removeDivision,
       updateDivisionLabel,
-      reorderDivisions
+      reorderDivisions,
+      updateSectionProperty
     }}>
       {children}
     </SectionContext.Provider>
