@@ -1,15 +1,14 @@
 Next:
-- Add padding between division label and divider line
-- Fix alignment of division labels so that cards don't overlap them
-- Center align grid layout and storage areas on page
-- Background colour for entire page
+- Dragging a flight into an empty area of the En Route/Tasking section brings up an add mission dialog, entering a mission drops the card into that mission division, hitting cancel returns the card to where it was last
 
 Essential:
 - Flight creation interface
-- Flight card storage area
-
+	- Prevent duplication of board numbers
+	- Provide a list of recently used flight callsigns
+	- Automatically sequence flight numbers within each callsign
 
 High Priority:
+
 - State saving
 - Mission saving
 
@@ -20,6 +19,8 @@ Medium Priority:
 	- Editable Expected Approach Times
 	- Next available level calculates expected approach time automatically
 - Roster, attendance and flight assignments
+- Export flight assignments
+- Assign MIDS and encryption channels
 
 
 QOL:
@@ -29,6 +30,7 @@ QOL:
 - Altitudes, positions, TACAN, comms for tankers
 - Full ATO info in En Route/Tasking section
 - Implement light/dark mode
+- Refactor light card storage area
 
 
 Cosmetic:
@@ -87,3 +89,7 @@ Complete
 - Altitude block OR altitude for En Route/Tasking
 - Add a default recovery tanker
 - Basic flight card interaction (updating fuel states)
+- Add padding between division label and divider line
+- Fix alignment of division labels so that cards don't overlap them
+- Center align grid layout and storage areas on page
+- Background colour for entire page
