@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
 import ReactDOM from 'react-dom';
 import { Edit2, Trash2 } from 'lucide-react';
-import { useSections } from './SectionContext';
-import { LaunchDivisionDialog } from './LaunchDivisionDialog';
-import { EnRouteDivisionDialog } from './EnRouteDivisionDialog';
-import { TankerDivisionDialog } from './TankerDivisionDialog';
+import { useSections } from '../layout/SectionContext';
+import { LaunchDivisionDialog } from './dialogs/LaunchDivisionDialog';
+import { EnRouteDivisionDialog } from './dialogs/EnRouteDivisionDialog';
+import { TankerDivisionDialog } from '../ui/dialogs/TankerDivisionDialog';
 import { DeleteDivisionDialog } from './dialogs/DeleteDivisionDialog';
 import { styles } from '../../styles/DivisionEditor';
-import type { Division } from './SectionContext';
+import type { Division } from '../layout/SectionContext';
 import type { Flight } from '../../types/FlightData';
 import type { EnRouteDivisionData } from '../../types/EnRouteTypes';
 import type { TankerDivisionData } from '../../types/TankerTypes';

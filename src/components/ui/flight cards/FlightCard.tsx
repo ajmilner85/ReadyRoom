@@ -1,7 +1,7 @@
 import React from 'react';
 import { useDraggable } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
-import type { Flight, FlightMember } from '../../types/FlightData';
+import type { Flight, FlightMember } from '../../../types/FlightData';
 import FuelDisplay from './FuelDisplay';
 
 interface FlightCardProps extends Flight {

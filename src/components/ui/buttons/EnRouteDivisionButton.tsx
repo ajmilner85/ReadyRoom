@@ -1,17 +1,22 @@
-import React, { useState, useRef } from 'react';
-import { useSections } from './SectionContext';
-import { LaunchDivisionDialog } from './LaunchDivisionDialog';
+import React, { useState } from 'react';
+import { useSections } from '../../layout/SectionContext';
+import type { EnRouteDivisionData } from '../../../types/EnRouteTypes';
+import { EnRouteDivisionDialog } from '../dialogs/EnRouteDivisionDialog';
 
-export const LaunchDivisionButton: React.FC<{
+export const EnRouteDivisionButton: React.FC<{
   sectionTitle: string;
   position: 'top' | 'bottom';
 }> = ({ sectionTitle, position }) => {
   const { addDivision } = useSections();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const buttonRef = useRef<HTMLButtonElement>(null);
 
-  const handleSave = (stepTime: number) => {
-    addDivision(sectionTitle, stepTime, position);
+  const handleSave = (dialogData: Omit<EnRouteDivisionData, 'label'>) => {
+    const label = `Angels ${dialogData.blockFloor}-${dialogData.blockCeiling} ${dialogData.missionType}`;
+    const fullData: EnRouteDivisionData = {
+      ...dialogData,
+      label
+    };
+    addDivision(sectionTitle, fullData, position);
     setIsDialogOpen(false);
   };
 
@@ -26,7 +31,6 @@ export const LaunchDivisionButton: React.FC<{
         zIndex: 5
       }}>
         <button
-          ref={buttonRef}
           onClick={() => setIsDialogOpen(true)}
           style={{
             position: 'absolute',
@@ -57,6 +61,7 @@ export const LaunchDivisionButton: React.FC<{
           +
         </button>
       </div>
+
       {isDialogOpen && (
         <>
           <div style={{
@@ -68,7 +73,7 @@ export const LaunchDivisionButton: React.FC<{
             backgroundColor: 'rgba(0, 0, 0, 0.5)',
             zIndex: 999
           }} onClick={() => setIsDialogOpen(false)} />
-          <LaunchDivisionDialog
+          <EnRouteDivisionDialog
             onSave={handleSave}
             onCancel={() => setIsDialogOpen(false)}
           />

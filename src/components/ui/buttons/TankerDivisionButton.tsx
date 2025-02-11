@@ -1,18 +1,18 @@
 import React, { useState } from 'react';
-import { useSections } from './SectionContext';
-import type { EnRouteDivisionData } from '../../types/EnRouteTypes';
-import { EnRouteDivisionDialog } from './EnRouteDivisionDialog';
+import { useSections } from '../../layout/SectionContext';
+import { TankerDivisionDialog } from '../dialogs/TankerDivisionDialog';
+import type { TankerDivisionData } from '../../../types/TankerTypes';
 
-export const EnRouteDivisionButton: React.FC<{
+export const TankerDivisionButton: React.FC<{
   sectionTitle: string;
   position: 'top' | 'bottom';
 }> = ({ sectionTitle, position }) => {
   const { addDivision } = useSections();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
-  const handleSave = (dialogData: Omit<EnRouteDivisionData, 'label'>) => {
-    const label = `Angels ${dialogData.blockFloor}-${dialogData.blockCeiling} ${dialogData.missionType}`;
-    const fullData: EnRouteDivisionData = {
+  const handleSave = (dialogData: Omit<TankerDivisionData, 'label'>) => {
+    const label = `${dialogData.callsign} - Angels ${dialogData.altitude}`;
+    const fullData: TankerDivisionData = {
       ...dialogData,
       label
     };
@@ -61,7 +61,6 @@ export const EnRouteDivisionButton: React.FC<{
           +
         </button>
       </div>
-
       {isDialogOpen && (
         <>
           <div style={{
@@ -73,7 +72,7 @@ export const EnRouteDivisionButton: React.FC<{
             backgroundColor: 'rgba(0, 0, 0, 0.5)',
             zIndex: 999
           }} onClick={() => setIsDialogOpen(false)} />
-          <EnRouteDivisionDialog
+          <TankerDivisionDialog
             onSave={handleSave}
             onCancel={() => setIsDialogOpen(false)}
           />

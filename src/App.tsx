@@ -4,7 +4,7 @@ import GridLayout from './components/layout/GridLayout';
 import { SectionProvider } from './components/layout/SectionContext';
 import { sampleFlights } from './types/FlightData';
 import type { Flight } from './types/FlightData';
-import FlightCard from './components/flight/FlightCard';
+import FlightCard from './components/ui/flight cards/FlightCard';
 
 const App: React.FC = () => {
   const [flights, setFlights] = useState<Flight[]>(sampleFlights);

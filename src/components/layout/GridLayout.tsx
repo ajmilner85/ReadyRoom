@@ -1,13 +1,13 @@
 import React, { useRef } from 'react';
 import DroppableZone from './DroppableZone';
-import DivisionEditor from './DivisionEditor';
-import { AddDivisionButton } from '../buttons/AddDivisionButton';
-import { LaunchDivisionButton } from './LaunchDivisionButton';
-import { EnRouteDivisionButton } from './EnRouteDivisionButton';
-import { TankerDivisionButton } from './TankerDivisionButton';
+import DivisionEditor from '../ui/DivisionEditor';
+import { AddDivisionButton } from '../ui/buttons/AddDivisionButton';
+import { LaunchDivisionButton } from '../ui/buttons/LaunchDivisionButton';
+import { EnRouteDivisionButton } from '../ui/buttons/EnRouteDivisionButton';
+import { TankerDivisionButton } from '../ui/buttons/TankerDivisionButton';
 import { useSections } from './SectionContext';
 import type { Flight } from '../../types/FlightData';
-import FlightCard from '../flight/FlightCard';
+import FlightCard from '../ui/flight cards/FlightCard';
 
 interface GridLayoutProps {
   flights?: Flight[];

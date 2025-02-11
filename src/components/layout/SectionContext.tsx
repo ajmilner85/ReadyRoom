@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState } from 'react';
 import type { EnRouteDivisionData } from '../../types/EnRouteTypes';
-import type { TankerDivisionData } from './TankerDivisionDialog';
+import type { TankerDivisionData } from '../ui/dialogs/TankerDivisionDialog';
 
 export interface Division {
   id: string;
