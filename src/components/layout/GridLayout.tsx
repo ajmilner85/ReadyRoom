@@ -1,6 +1,7 @@
 import React, { useRef } from 'react';
 import DroppableZone from './DroppableZone';
-import DivisionEditor, { AddDivisionButton } from './DivisionEditor';
+import DivisionEditor from './DivisionEditor';
+import { AddDivisionButton } from '../buttons/AddDivisionButton';
 import { LaunchDivisionButton } from './LaunchDivisionButton';
 import { EnRouteDivisionButton } from './EnRouteDivisionButton';
 import { TankerDivisionButton } from './TankerDivisionButton';

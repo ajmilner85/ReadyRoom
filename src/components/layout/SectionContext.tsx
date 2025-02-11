@@ -108,7 +108,9 @@ export const SectionProvider: React.FC<{ children: React.ReactNode }> = ({ child
             const data = labelOrData as EnRouteDivisionData;
             newDivision = {
               id: `enroute-${newDivisions.length}`,
-              label: data.label,
+              label: data.blockFloor === data.blockCeiling 
+                ? `ANGELS ${data.blockFloor}`
+                : `ANGELS ${data.blockFloor}-${data.blockCeiling} ${data.missionType}`,
               blockFloor: data.blockFloor,
               blockCeiling: data.blockCeiling,
               missionType: data.missionType

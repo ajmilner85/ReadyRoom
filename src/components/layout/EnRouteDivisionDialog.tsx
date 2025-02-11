@@ -19,49 +19,65 @@ export const EnRouteDivisionDialog: React.FC<EnRouteDivisionDialogProps> = ({
   onCancel,
   initialData
 }) => {
-  const [altitudeBlock, setAltitudeBlock] = useState(
-    initialData ? `${initialData.blockFloor}-${initialData.blockCeiling}` : ''
+  const [altitude, setAltitude] = useState(
+    initialData ? (initialData.blockCeiling ? `${initialData.blockFloor}-${initialData.blockCeiling}` : `${initialData.blockFloor}`) : ''
   );
   const [missionType, setMissionType] = useState(initialData?.missionType || MISSION_TYPES[0]);
   const [error, setError] = useState('');
 
   const handleAltitudeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
-    // Allow empty string or format like "10-13"
+    // Allow empty string, single numbers, or format like "10-13"
     if (value === '' || /^\d*-?\d*$/.test(value)) {
-      setAltitudeBlock(value);
+      setAltitude(value);
       setError('');
     }
   };
 
   const handleSubmit = () => {
-    // Parse altitude block
-    const [floor, ceiling] = altitudeBlock.split('-').map(num => parseInt(num));
+    const isAltitudeBlock = altitude.includes('-');
     
-    if (!floor || !ceiling) {
-      setError('Please enter valid altitude block (e.g., 10-13)');
-      return;
-    }
+    if (isAltitudeBlock) {
+      const [floor, ceiling] = altitude.split('-').map(num => parseInt(num));
+      
+      if (!floor || !ceiling) {
+        setError('Please enter valid altitude block (e.g., 10-13)');
+        return;
+      }
 
-    if (floor >= ceiling) {
-      setError('Block ceiling must be higher than floor');
-      return;
-    }
+      if (floor >= ceiling) {
+        setError('Block ceiling must be higher than floor');
+        return;
+      }
 
-    if (floor < 1 || ceiling > 99) {
-      setError('Altitude must be between 1 and 99');
-      return;
-    }
+      if (floor < 1 || ceiling > 99) {
+        setError('Altitude must be between 1 and 99');
+        return;
+      }
 
-    onSave({
-      blockFloor: floor,
-      blockCeiling: ceiling,
-      missionType
-    });
+      onSave({
+        blockFloor: floor,
+        blockCeiling: ceiling,
+        missionType
+      });
+    } else {
+      const specificAltitude = parseInt(altitude);
+      
+      if (!specificAltitude || specificAltitude < 1 || specificAltitude > 99) {
+        setError('Altitude must be between 1 and 99');
+        return;
+      }
+
+      onSave({
+        blockFloor: specificAltitude,
+        blockCeiling: specificAltitude,
+        missionType: '',  // Don't include mission type for single altitudes
+      });
+    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !error && altitudeBlock) {
+    if (e.key === 'Enter' && !error && altitude) {
       handleSubmit();
     } else if (e.key === 'Escape') {
       onCancel();
@@ -92,14 +108,14 @@ export const EnRouteDivisionDialog: React.FC<EnRouteDivisionDialogProps> = ({
           fontSize: '14px',
           color: '#64748B'
         }}>
-          Altitude Block (e.g., 10-13)
+          Altitude (e.g., 15 or 10-13)
         </label>
         <input
           type="text"
-          value={altitudeBlock}
+          value={altitude}
           onChange={handleAltitudeChange}
           onKeyDown={handleKeyDown}
-          placeholder="Enter altitude block"
+          placeholder="Enter altitude"
           style={{
             width: '100%',
             padding: '8px',
@@ -173,14 +189,14 @@ export const EnRouteDivisionDialog: React.FC<EnRouteDivisionDialogProps> = ({
         </button>
         <button
           onClick={handleSubmit}
-          disabled={!altitudeBlock || !!error}
+          disabled={!altitude || !!error}
           style={{
             padding: '8px 16px',
             border: 'none',
             borderRadius: '4px',
-            backgroundColor: !altitudeBlock || !!error ? '#CBD5E1' : '#2563EB',
+            backgroundColor: !altitude || !!error ? '#CBD5E1' : '#2563EB',
             color: 'white',
-            cursor: !altitudeBlock || !!error ? 'not-allowed' : 'pointer'
+            cursor: !altitude || !!error ? 'not-allowed' : 'pointer'
           }}
         >
           {initialData ? 'Update' : 'Add'}
