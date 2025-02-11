@@ -59,6 +59,7 @@ const GridLayout: React.FC<GridLayoutProps> = ({ flights = [], onUpdateMemberFue
                   sectionTitle={section.title}
                   division={division}
                   sectionRef={sectionRefs.current[sectionIndex] ? { current: sectionRefs.current[sectionIndex] } : undefined}
+                  flights={flights}
                 />
               </div>
             ))}
@@ -82,6 +83,7 @@ const GridLayout: React.FC<GridLayoutProps> = ({ flights = [], onUpdateMemberFue
                   sectionTitle={section.title}
                   division={division}
                   sectionRef={sectionRefs.current[sectionIndex] ? { current: sectionRefs.current[sectionIndex] } : undefined}
+                  flights={flights}
                 />
               </div>
             ))}
@@ -94,7 +96,7 @@ const GridLayout: React.FC<GridLayoutProps> = ({ flights = [], onUpdateMemberFue
       <div style={{ display: 'flex', flexDirection: 'column-reverse' }}>
         {section.title === "Recovery" ? (
           <div style={{
-            height: '54px', // Matches total height of add button area (18px padding top + 18px bottom + 18px content)
+            height: '54px',
           }} />
         ) : section.type === 'launch' ? (
           <LaunchDivisionButton sectionTitle={section.title} position="bottom" />
@@ -115,6 +117,7 @@ const GridLayout: React.FC<GridLayoutProps> = ({ flights = [], onUpdateMemberFue
               sectionTitle={section.title}
               division={division}
               sectionRef={sectionRefs.current[sectionIndex] ? { current: sectionRefs.current[sectionIndex] } : undefined}
+              flights={flights}
             />
           </div>
         ))}
