@@ -3,15 +3,24 @@ import React, { useState, useRef, useEffect } from 'react';
 interface FuelDisplayProps {
     fuel: number;
     size?: 'small' | 'large';
-    color?: string;
     onUpdateFuel?: (newFuel: number) => void;
+    onEditStateChange?: (isEditing: boolean) => void;
 }
+
+const getFuelColor = (fuel: number): string => {
+    const JOKER = 5.0;
+    const BINGO = 3.0;
+
+    if (fuel >= JOKER) return '#32ADE6';
+    if (fuel >= BINGO && fuel < JOKER) return '#FF9500';
+    return '#FF3B30';
+};
 
 const FuelDisplay: React.FC<FuelDisplayProps> = ({ 
     fuel, 
     size = 'small', 
-    color = '#FF3B30',
-    onUpdateFuel
+    onUpdateFuel,
+    onEditStateChange
 }) => {
     const [isEditing, setIsEditing] = useState(false);
     const [editValue, setEditValue] = useState(fuel.toFixed(1));
@@ -19,19 +28,29 @@ const FuelDisplay: React.FC<FuelDisplayProps> = ({
 
     const mainSize = size === 'large' ? '36px' : '12px';
     const decimalSize = size === 'large' ? '32px' : '10px';
+    const fuelColor = getFuelColor(fuel);
 
-    const handleDoubleClick = () => {
+    const handleDoubleClick = (e: React.MouseEvent) => {
+        if (!onUpdateFuel) return;
+        e.preventDefault();
+        e.stopPropagation();
         setIsEditing(true);
         setEditValue(fuel.toFixed(1));
+        if (onEditStateChange) {
+            onEditStateChange(true);
+        }
     };
 
     const handleBlur = () => {
         setIsEditing(false);
+        if (onEditStateChange) {
+            onEditStateChange(false);
+        }
     };
 
     const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+        e.stopPropagation();
         if (e.key === 'Enter') {
-            // Validate input (ensure it's a valid fuel number)
             const parsedValue = parseFloat(editValue);
             
             if (!isNaN(parsedValue) && parsedValue >= 0) {
@@ -41,14 +60,22 @@ const FuelDisplay: React.FC<FuelDisplayProps> = ({
                     onUpdateFuel(formattedValue);
                 }
                 setIsEditing(false);
+                if (onEditStateChange) {
+                    onEditStateChange(false);
+                }
             } else {
-                // Revert to original value if invalid
                 setEditValue(fuel.toFixed(1));
                 setIsEditing(false);
+                if (onEditStateChange) {
+                    onEditStateChange(false);
+                }
             }
         } else if (e.key === 'Escape') {
             setEditValue(fuel.toFixed(1));
             setIsEditing(false);
+            if (onEditStateChange) {
+                onEditStateChange(false);
+            }
         }
     };
 
@@ -61,23 +88,30 @@ const FuelDisplay: React.FC<FuelDisplayProps> = ({
 
     if (isEditing) {
         return (
-            <input
-                ref={inputRef}
-                type="text"
-                value={editValue}
-                onChange={(e) => setEditValue(e.target.value)}
-                onBlur={handleBlur}
-                onKeyDown={handleKeyDown}
-                style={{
-                    width: '50px',
-                    textAlign: 'center',
-                    fontSize: mainSize,
-                    color: color,
-                    fontWeight: 700,
-                    border: '1px solid #CBD5E1',
-                    borderRadius: '4px',
-                }}
-            />
+            <div 
+                onClick={e => e.stopPropagation()} 
+                onMouseDown={e => e.stopPropagation()}
+            >
+                <input
+                    ref={inputRef}
+                    type="text"
+                    value={editValue}
+                    onChange={(e) => setEditValue(e.target.value)}
+                    onBlur={handleBlur}
+                    onKeyDown={handleKeyDown}
+                    onClick={e => e.stopPropagation()}
+                    onMouseDown={e => e.stopPropagation()}
+                    style={{
+                        width: '50px',
+                        textAlign: 'center',
+                        fontSize: mainSize,
+                        color: fuelColor,
+                        fontWeight: 700,
+                        border: '1px solid #CBD5E1',
+                        borderRadius: '4px',
+                    }}
+                />
+            </div>
         );
     }
 
@@ -88,11 +122,13 @@ const FuelDisplay: React.FC<FuelDisplayProps> = ({
             style={{ 
                 display: 'flex', 
                 alignItems: 'baseline',
-                color: color,
+                color: fuelColor,
                 fontWeight: 700,
-                cursor: 'text'
+                cursor: onUpdateFuel ? 'text' : 'default'
             }}
             onDoubleClick={handleDoubleClick}
+            onClick={e => e.stopPropagation()}
+            onMouseDown={e => e.stopPropagation()}
         >
             <span style={{ fontSize: mainSize, lineHeight: mainSize }}>
                 {whole}
