@@ -9,6 +9,7 @@ import { RecoveryToggleSwitch } from '../ui/buttons/RecoveryToggleSwitch';
 import { useSections } from './SectionContext';
 import type { Flight } from '../../types/FlightData';
 import FlightCard from '../ui/flight cards/FlightCard';
+import SingleFlightCard from '../ui/flight cards/SingleFlightCard';
 
 interface GridLayoutProps {
   flights?: Flight[];
@@ -37,6 +38,19 @@ const GridLayout: React.FC<GridLayoutProps> = ({ flights = [], onUpdateMemberFue
     });
   };
 
+  const renderFlightCard = (flight: Flight) => {
+    const commonProps = {
+      ...flight,
+      onUpdateMemberFuel: (dashNumber: string, newFuel: number) => 
+        onUpdateMemberFuel?.(flight.id, dashNumber, newFuel)
+    };
+
+    if (flight.formation === 'single') {
+      return <SingleFlightCard key={flight.id} {...commonProps} />;
+    }
+    return <FlightCard key={flight.id} {...commonProps} />;
+  };
+
   const unassignedFlights = flights.filter(flight => !flight.currentSection);
 
   const renderSectionDivisions = (section: typeof sections[0], sectionIndex: number) => {
@@ -56,6 +70,7 @@ const GridLayout: React.FC<GridLayoutProps> = ({ flights = [], onUpdateMemberFue
                   label={division.label}
                   flights={getFlightsForDivision(section.title, division.id)}
                   onUpdateMemberFuel={onUpdateMemberFuel}
+                  renderFlightCard={renderFlightCard}
                 />
                 <DivisionEditor 
                   sectionTitle={section.title}
@@ -80,6 +95,7 @@ const GridLayout: React.FC<GridLayoutProps> = ({ flights = [], onUpdateMemberFue
                   label={division.label}
                   flights={getFlightsForDivision(section.title, division.id)}
                   onUpdateMemberFuel={onUpdateMemberFuel}
+                  renderFlightCard={renderFlightCard}
                 />
                 <DivisionEditor 
                   sectionTitle={section.title}
@@ -112,6 +128,7 @@ const GridLayout: React.FC<GridLayoutProps> = ({ flights = [], onUpdateMemberFue
               label={division.label}
               flights={getFlightsForDivision(section.title, division.id)}
               onUpdateMemberFuel={onUpdateMemberFuel}
+              renderFlightCard={renderFlightCard}
             />
             <DivisionEditor 
               sectionTitle={section.title}
@@ -209,15 +226,7 @@ const GridLayout: React.FC<GridLayoutProps> = ({ flights = [], onUpdateMemberFue
         boxSizing: 'border-box',
         padding: '20px 0'
       }}>
-        {unassignedFlights.map((flight) => (
-          <FlightCard
-            key={flight.id}
-            {...flight}
-            onUpdateMemberFuel={(dashNumber, newFuel) => 
-              onUpdateMemberFuel && onUpdateMemberFuel(flight.id, dashNumber, newFuel)
-            }
-          />
-        ))}
+        {unassignedFlights.map(renderFlightCard)}
       </div>
     </div>
   );

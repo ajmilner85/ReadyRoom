@@ -11,6 +11,8 @@ export interface Position {
   status: string;
 }
 
+export type FlightFormation = 'group' | 'section' | 'single';
+
 export interface Flight {
   id: string;
   flightNumber: string;
@@ -20,8 +22,133 @@ export interface Flight {
   lowState: number;
   currentSection: string;
   currentDivision: number;
+  // New properties for split/divide functionality
+  formation: FlightFormation;
+  parentFlightId?: string; // Reference to original flight when split/divided
+  sectionNumber?: number;  // For divided flights, 1 = lead section, 2 = trailing section
 }
 
+// Helper functions for flight manipulation
+export const splitFlight = (flight: Flight): Flight[] => {
+  return flight.members.map((member, index) => ({
+    id: `${flight.id}-split-${member.dashNumber}`,
+    flightNumber: flight.flightNumber,
+    callsign: flight.callsign,
+    members: [member],
+    position: flight.position,
+    lowState: member.fuel,
+    currentSection: flight.currentSection,
+    currentDivision: flight.currentDivision,
+    formation: 'single',
+    parentFlightId: flight.id
+  }));
+};
+
+export const divideFlight = (flight: Flight): Flight[] => {
+  if (flight.members.length <= 2) {
+    return splitFlight(flight);
+  }
+
+  const leadSection = flight.members.filter(m => ['1', '2'].includes(m.dashNumber));
+  const trailSection = flight.members.filter(m => ['3', '4'].includes(m.dashNumber));
+
+  const sections: Flight[] = [];
+
+  if (leadSection.length > 0) {
+    sections.push({
+      id: `${flight.id}-section-1`,
+      flightNumber: flight.flightNumber,
+      callsign: flight.callsign,
+      members: leadSection,
+      position: flight.position,
+      lowState: Math.min(...leadSection.map(m => m.fuel)),
+      currentSection: flight.currentSection,
+      currentDivision: flight.currentDivision,
+      formation: 'section',
+      parentFlightId: flight.id,
+      sectionNumber: 1
+    });
+  }
+
+  if (trailSection.length > 0) {
+    sections.push({
+      id: `${flight.id}-section-2`,
+      flightNumber: flight.flightNumber,
+      callsign: flight.callsign,
+      members: trailSection,
+      position: flight.position,
+      lowState: Math.min(...trailSection.map(m => m.fuel)),
+      currentSection: flight.currentSection,
+      currentDivision: flight.currentDivision,
+      formation: 'section',
+      parentFlightId: flight.id,
+      sectionNumber: 2
+    });
+  }
+
+  return sections;
+};
+
+export const mergeSections = (sections: Flight[]): Flight | null => {
+  if (!sections.every(s => s.formation === 'section' && s.parentFlightId === sections[0].parentFlightId)) {
+    return null;
+  }
+
+  const allMembers = sections.flatMap(s => s.members)
+    .sort((a, b) => parseInt(a.dashNumber) - parseInt(b.dashNumber));
+
+  return {
+    id: sections[0].parentFlightId!,
+    flightNumber: sections[0].flightNumber,
+    callsign: sections[0].callsign,
+    members: allMembers,
+    position: sections[0].position,
+    lowState: Math.min(...allMembers.map(m => m.fuel)),
+    currentSection: sections[0].currentSection,
+    currentDivision: sections[0].currentDivision,
+    formation: 'group'
+  };
+};
+
+export const mergeSingles = (singles: Flight[]): Flight | null => {
+  if (!singles.every(s => 
+    s.formation === 'single' && 
+    s.parentFlightId === singles[0].parentFlightId
+  )) {
+    return null;
+  }
+
+  const allMembers = singles.flatMap(s => s.members)
+    .sort((a, b) => parseInt(a.dashNumber) - parseInt(b.dashNumber));
+
+  if (allMembers.length <= 2) {
+    return {
+      id: singles[0].parentFlightId!,
+      flightNumber: singles[0].flightNumber,
+      callsign: singles[0].callsign,
+      members: allMembers,
+      position: singles[0].position,
+      lowState: Math.min(...allMembers.map(m => m.fuel)),
+      currentSection: singles[0].currentSection,
+      currentDivision: singles[0].currentDivision,
+      formation: 'section'
+    };
+  }
+
+  return {
+    id: singles[0].parentFlightId!,
+    flightNumber: singles[0].flightNumber,
+    callsign: singles[0].callsign,
+    members: allMembers,
+    position: singles[0].position,
+    lowState: Math.min(...allMembers.map(m => m.fuel)),
+    currentSection: singles[0].currentSection,
+    currentDivision: singles[0].currentDivision,
+    formation: 'group'
+  };
+};
+
+// Update sample data to include formation property
 export const sampleFlights: Flight[] = [
   {
     "id": "1",
@@ -36,7 +163,8 @@ export const sampleFlights: Flight[] = [
     "position": { "bearing": "290/50", "altitude": "14,000'", "status": "INBOUND" },
     "lowState": 5.6,
     "currentSection": "",
-    "currentDivision": 0
+    "currentDivision": 0,
+    "formation": "group"
   },
   {
     "id": "2",
@@ -51,7 +179,8 @@ export const sampleFlights: Flight[] = [
     "position": { "bearing": "125/15", "altitude": "13,500'", "status": "INBOUND" },
     "lowState": 5.9,
     "currentSection": "",
-    "currentDivision": 0
+    "currentDivision": 0,
+    "formation": "group"
   },
   {
     "id": "3",
@@ -65,7 +194,8 @@ export const sampleFlights: Flight[] = [
     "position": { "bearing": "150/20", "altitude": "15,000'", "status": "INBOUND" },
     "lowState": 5.0,
     "currentSection": "",
-    "currentDivision": 0
+    "currentDivision": 0,
+    "formation": "group"
   },
   {
     "id": "4",
@@ -79,7 +209,8 @@ export const sampleFlights: Flight[] = [
     "position": { "bearing": "300/35", "altitude": "12,000'", "status": "INBOUND" },
     "lowState": 4.8,
     "currentSection": "",
-    "currentDivision": 0
+    "currentDivision": 0,
+    "formation": "group"
   },
   {
     "id": "5",
@@ -93,7 +224,8 @@ export const sampleFlights: Flight[] = [
     "position": { "bearing": "310/40", "altitude": "14,500'", "status": "INBOUND" },
     "lowState": 6.9,
     "currentSection": "",
-    "currentDivision": 0
+    "currentDivision": 0,
+    "formation": "group"
   },
   {
     "id": "6",
@@ -107,7 +239,8 @@ export const sampleFlights: Flight[] = [
     "position": { "bearing": "045/25", "altitude": "13,000'", "status": "INBOUND" },
     "lowState": 5.3,
     "currentSection": "",
-    "currentDivision": 0
+    "currentDivision": 0,
+    "formation": "group"
   },
   {
     "id": "7",
@@ -121,7 +254,8 @@ export const sampleFlights: Flight[] = [
     "position": { "bearing": "120/30", "altitude": "11,500'", "status": "INBOUND" },
     "lowState": 7.5,
     "currentSection": "",
-    "currentDivision": 0
+    "currentDivision": 0,
+    "formation": "group"
   },
   {
     "id": "8",
@@ -135,7 +269,8 @@ export const sampleFlights: Flight[] = [
     "position": { "bearing": "090/10", "altitude": "12,500'", "status": "INBOUND" },
     "lowState": 4.2,
     "currentSection": "",
-    "currentDivision": 0
+    "currentDivision": 0,
+    "formation": "group"
   },
   {
     "id": "9",
@@ -149,7 +284,8 @@ export const sampleFlights: Flight[] = [
     "position": { "bearing": "210/45", "altitude": "14,000'", "status": "INBOUND" },
     "lowState": 10.2,
     "currentSection": "",
-    "currentDivision": 0
+    "currentDivision": 0,
+    "formation": "group"
   },
   {
     "id": "10",
@@ -163,6 +299,7 @@ export const sampleFlights: Flight[] = [
     "position": { "bearing": "180/50", "altitude": "12,000'", "status": "INBOUND" },
     "lowState": 3.8,
     "currentSection": "",
-    "currentDivision": 0
+    "currentDivision": 0,
+    "formation": "group"
   }
 ];

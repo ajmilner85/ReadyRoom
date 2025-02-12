@@ -19,6 +19,7 @@ const FlightCard: React.FC<FlightCardProps> = ({
   position,
   lowState,
   isDragging,
+  formation,
   onUpdateMemberFuel
 }) => {
   const [isEditingFuel, setIsEditingFuel] = useState(false);
@@ -27,7 +28,7 @@ const FlightCard: React.FC<FlightCardProps> = ({
     id: id,
     data: {
       type: 'FlightCard',
-      flight: { id, flightNumber, callsign, members, position, lowState }
+      flight: { id, flightNumber, callsign, members, position, lowState, formation }
     },
     disabled: isEditingFuel
   });
@@ -71,6 +72,7 @@ const FlightCard: React.FC<FlightCardProps> = ({
       ref={setNodeRef}
       {...(isEditingFuel ? {} : { ...attributes, ...listeners })}
       style={cardStyle}
+      data-flight-id={id} // Added for hover detection
     >
       <div style={{
         display: 'flex',
