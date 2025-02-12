@@ -21,24 +21,34 @@ const GridLayout: React.FC<GridLayoutProps> = ({ flights = [], onUpdateMemberFue
   const sectionRefs = useRef<(HTMLDivElement | null)[]>([]);
 
   const getFlightsForDivision = (sectionTitle: string, divisionId: string): Flight[] => {
-    return flights.filter(flight => {
-      const [, ...divisionParts] = divisionId.split('-');
-      const divisionIdPart = divisionParts.join('-');
-      
-      let expectedDivisionNumber: number;
-      if (divisionIdPart === 'spin') {
-        expectedDivisionNumber = -1;
-      } else if (divisionIdPart === 'charlie') {
-        expectedDivisionNumber = -2;
-      } else {
-        expectedDivisionNumber = parseInt(divisionIdPart);
-      }
+    const [sectionType, divisionNum] = divisionId.split('-');
+    
+    let expectedDivisionNumber: number;
+    if (divisionNum === 'spin') {
+      expectedDivisionNumber = -1;
+    } else if (divisionNum === 'charlie') {
+      expectedDivisionNumber = -2;
+    } else {
+      expectedDivisionNumber = parseInt(divisionNum);
+    }
+    
+    const matchingFlights = flights.filter(flight => {
+      // Debug log for each flight being checked
+      console.log(`Checking flight ${flight.id} for section ${sectionTitle}, division ${expectedDivisionNumber}:`, {
+        flightSection: flight.currentSection,
+        flightDivision: flight.currentDivision,
+        matches: flight.currentSection === sectionTitle && flight.currentDivision === expectedDivisionNumber
+      });
       
       return flight.currentSection === sectionTitle && flight.currentDivision === expectedDivisionNumber;
     });
+
+    console.log(`Found ${matchingFlights.length} flights for ${sectionTitle}, division ${divisionId}:`, matchingFlights);
+    return matchingFlights;
   };
 
   const renderFlightCard = (flight: Flight) => {
+    console.log('Rendering flight card for:', flight.id, flight.formation);
     const commonProps = {
       ...flight,
       onUpdateMemberFuel: (dashNumber: string, newFuel: number) => 
@@ -52,8 +62,11 @@ const GridLayout: React.FC<GridLayoutProps> = ({ flights = [], onUpdateMemberFue
   };
 
   const unassignedFlights = flights.filter(flight => !flight.currentSection);
+  console.log('Unassigned flights:', unassignedFlights);
 
   const renderSectionDivisions = (section: typeof sections[0], sectionIndex: number) => {
+    console.log(`Rendering section ${section.title} divisions`);
+    
     if (section.type === 'tanker') {
       // Filter mission and recovery tankers
       const missionTankers = section.divisions.filter(d => d.groupType === 'mission-tankers');
@@ -121,23 +134,28 @@ const GridLayout: React.FC<GridLayoutProps> = ({ flights = [], onUpdateMemberFue
         ) : (
           <AddDivisionButton sectionTitle={section.title} position="bottom" />
         )}
-        {[...section.divisions].reverse().map((division) => (
-          <div key={division.id} style={{ position: 'relative' }}>
-            <DroppableZone
-              id={division.id}
-              label={division.label}
-              flights={getFlightsForDivision(section.title, division.id)}
-              onUpdateMemberFuel={onUpdateMemberFuel}
-              renderFlightCard={renderFlightCard}
-            />
-            <DivisionEditor 
-              sectionTitle={section.title}
-              division={division}
-              sectionRef={sectionRefs.current[sectionIndex] ? { current: sectionRefs.current[sectionIndex] } : undefined}
-              flights={flights}
-            />
-          </div>
-        ))}
+        {[...section.divisions].reverse().map((division) => {
+          const divisionFlights = getFlightsForDivision(section.title, division.id);
+          console.log(`Division ${division.id} has ${divisionFlights.length} flights:`, divisionFlights);
+          
+          return (
+            <div key={division.id} style={{ position: 'relative' }}>
+              <DroppableZone
+                id={division.id}
+                label={division.label}
+                flights={divisionFlights}
+                onUpdateMemberFuel={onUpdateMemberFuel}
+                renderFlightCard={renderFlightCard}
+              />
+              <DivisionEditor 
+                sectionTitle={section.title}
+                division={division}
+                sectionRef={sectionRefs.current[sectionIndex] ? { current: sectionRefs.current[sectionIndex] } : undefined}
+                flights={flights}
+              />
+            </div>
+          );
+        })}
       </div>
     );
   };

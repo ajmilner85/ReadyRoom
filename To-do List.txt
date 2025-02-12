@@ -1,32 +1,36 @@
+
+In Progress:
+
+
 Next:
-
-
+- Refactor storage area to sort flights by size (Single > 4-ship)
+- Enable dragging-and-dropping to storage area
+- Sort storage area flights by callsign then flight number then dash number in ascending order
 
 
 Essential:
-- Flight creation interface
-	- Prevent duplication of board numbers
-	- Provide a list of recently used flight callsigns
-	- Automatically sequence flight numbers within each callsign
-
-
-High Priority:
-- Roster
-- State saving
-- Mission saving
-- Position updates
-
-
-Medium Priority:
 - Case  II/III toggle that adds
 	- DME distances to holding altitudes and shifts lowest marshal stack altitude to Angels 6
 	- Editable Expected Approach Times
 	- Next available level calculates expected approach time automatically
 	- Refactor CASE I/II/III button to be a three position sliding toggle
+
+
+High Priority:
+- Flight/aircraft creation interface
+	- Prevent duplication of board numbers
+	- Provide a list of recently used flight callsigns
+	- Automatically sequence flight numbers within each callsign
+- State saving
+- Mission saving
+- Position update flight card interaction
+
+
+Medium Priority:
+- Roster
 - Attendance and flight assignments
 - Import/Export flight assignments
-- Assign MIDS and encryption channels
-
+- Assign/import MIDS and encryption channels
 
 
 QOL:
@@ -37,18 +41,18 @@ QOL:
 - Altitudes, positions, TACAN, comms for tankers
 - Full ATO info in En Route/Tasking section
 - Implement light/dark mode
-- Refactor light card storage area
 - Sort En Route/Tasking to top of page by default
 	- Divide by AA and AG taskings?
 
 
 Cosmetic:
-- Make storage area into a popup tray
+- Make storage area into a popup tray?
 - Add aircraft icons
+- Clean up flight card layout
 
 Nice to have:
 - Multiple carrier support
-- Ability split and merge individual aircraft into and out of flights
+
 - Mission roles
 	- Mission commander
 	- Marshall
@@ -62,11 +66,11 @@ To prioritize:
 - Flag emergency aircraft
 - Tagging aircraft with Alibis
 - Keybinds, e.g.
-	- S - split flight
 	- C - combine flight or check-in
 	- R - recover or RTB
 	- A - alibis
 	- W - winchester
+	- X - Out of action? Position update?
 
 Complete
 - Second digit of fuel state in smaller font (36 > 32 for low state, 12 > 10 for flight members)
@@ -108,3 +112,10 @@ Complete
 - Add inbound division to top of recovery section
 - Vertical navigation bar and placeholder buttons
 - Squadron logo
+- Keybinds, e.g.
+	- S - split flight
+	- D - divide flight into sections
+- Ability split and merge individual aircraft into and out of flights
+	- Issues:
+		- Individual flight cards are not the same width as group flight cards
+		- Dividing a flight causes the 2nd section to disappear

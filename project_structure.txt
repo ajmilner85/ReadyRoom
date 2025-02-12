@@ -37,7 +37,8 @@ pri-fly
 │   │       │   └── TankerDivisionDialog.tsx
 │   │       └── flight cards
 │   │           ├── FlightCard.tsx
-│   │           └── FuelDisplay.tsx
+│   │           ├── FuelDisplay.tsx
+│   │           └── SingleFlightCard.tsx
 │   ├── index.css
 │   ├── main.tsx
 │   ├── styles
