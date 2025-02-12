@@ -1,4 +1,4 @@
-export type TankerType = 'S-3B' | 'KC-135 MPRS';
+export type TankerType = 'S-3B' | 'KC-135 MPRS' | 'KC-130';
 export type TankerRole = 'mission-tankers' | 'recovery-tankers';
 
 export interface TankerDivisionData {

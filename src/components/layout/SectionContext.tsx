@@ -37,6 +37,8 @@ interface SectionContextType {
   updateSectionProperty: (sectionTitle: string, property: string, value: any) => void;
 }
 
+// In SectionContext.tsx, update the recovery section in defaultSections:
+
 const defaultSections: Section[] = [
   {
     title: "Launch",
@@ -53,14 +55,14 @@ const defaultSections: Section[] = [
   {
     title: "En Route/Tasking",
     type: 'altitude',
-    divisions: []  // Start empty
+    divisions: []
   },
   {
     title: "Recovery",
     type: 'altitude',
-    mode: 0, // Normal mode
+    mode: 0,
     divisions: [
-      { id: 'recovery-5', label: "Angels 12" },
+      { id: 'recovery-6', label: "INBOUND" },
       { id: 'recovery-4', label: "Angels 10" },
       { id: 'recovery-3', label: "Angels 8" },
       { id: 'recovery-2', label: "Angels 6" },
