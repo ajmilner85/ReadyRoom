@@ -6,6 +6,7 @@ import { sampleFlights } from './types/FlightData';
 import type { Flight } from './types/FlightData';
 import FlightCard from './components/ui/flight cards/FlightCard';
 import FuelStateDialog from './components/ui/dialogs/FuelStateDialog';
+import NavigationBar from './components/ui/NavigationBar';
 
 const App: React.FC = () => {
   const [flights, setFlights] = useState<Flight[]>(sampleFlights);
@@ -120,44 +121,47 @@ const App: React.FC = () => {
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
       >
-        <div 
-          className="min-h-screen bg-slate-50 p-4"
-          onMouseMove={(e) => {
-            const target = e.target as HTMLElement;
-            const boardNumber = target.getAttribute('data-board-number');
-            if (boardNumber) {
-              setHoveredBoardNumber(boardNumber);
-              setIsHoveringBoardNumber(true);
-            } else {
+        <div style={{ display: 'grid', gridTemplateColumns: '100px 1fr' }} className="min-h-screen">
+          <NavigationBar />
+          <div 
+            onMouseMove={(e) => {
+              const target = e.target as HTMLElement;
+              const boardNumber = target.getAttribute('data-board-number');
+              if (boardNumber) {
+                setHoveredBoardNumber(boardNumber);
+                setIsHoveringBoardNumber(true);
+              } else {
+                setIsHoveringBoardNumber(false);
+              }
+            }}
+            onMouseLeave={() => {
               setIsHoveringBoardNumber(false);
-            }
-          }}
-          onMouseLeave={() => {
-            setIsHoveringBoardNumber(false);
-          }}
-        >
-          <GridLayout 
-            flights={flights}
-            onUpdateMemberFuel={handleUpdateMemberFuel}
-          />
-          <DragOverlay>
-            {activeFlight ? (
-              <FlightCard 
-                {...activeFlight}
-                isDragging={true}
-              />
-            ) : null}
-          </DragOverlay>
-          {showFuelDialog && (
-            <FuelStateDialog
-              initialBoardNumber={initialBoardNumber}
-              onClose={() => {
-                setShowFuelDialog(false);
-                setInitialBoardNumber('');
-              }}
-              onUpdateFuel={handleUpdateMemberFuel}
+            }}
+            className="bg-slate-50"
+          >
+            <GridLayout 
+              flights={flights}
+              onUpdateMemberFuel={handleUpdateMemberFuel}
             />
-          )}
+            <DragOverlay>
+              {activeFlight ? (
+                <FlightCard 
+                  {...activeFlight}
+                  isDragging={true}
+                />
+              ) : null}
+            </DragOverlay>
+            {showFuelDialog && (
+              <FuelStateDialog
+                initialBoardNumber={initialBoardNumber}
+                onClose={() => {
+                  setShowFuelDialog(false);
+                  setInitialBoardNumber('');
+                }}
+                onUpdateFuel={handleUpdateMemberFuel}
+              />
+            )}
+          </div>
         </div>
       </DndContext>
     </SectionProvider>

@@ -1,5 +1,6 @@
 Next:
-- Refactor CASE I/II/III button to be a three position sliding toggle
+
+
 
 
 Essential:
@@ -10,9 +11,10 @@ Essential:
 
 
 High Priority:
-- Dragging a flight into an empty area of the En Route/Tasking section brings up an add mission dialog, entering a mission drops the card into that mission division, hitting cancel returns the card to where it was last
+- Roster
 - State saving
 - Mission saving
+- Position updates
 
 
 Medium Priority:
@@ -20,12 +22,15 @@ Medium Priority:
 	- DME distances to holding altitudes and shifts lowest marshal stack altitude to Angels 6
 	- Editable Expected Approach Times
 	- Next available level calculates expected approach time automatically
-- Roster, attendance and flight assignments
+	- Refactor CASE I/II/III button to be a three position sliding toggle
+- Attendance and flight assignments
 - Import/Export flight assignments
 - Assign MIDS and encryption channels
 
 
+
 QOL:
+- Dragging a flight into an empty area of the En Route/Tasking section brings up an add mission dialog, entering a mission drops the card into that mission division, hitting cancel returns the card to where it was last
 - Fuel state estimate or last update timer
 - BRC/Weather Display
 - Comms Info
@@ -33,11 +38,13 @@ QOL:
 - Full ATO info in En Route/Tasking section
 - Implement light/dark mode
 - Refactor light card storage area
+- Sort En Route/Tasking to top of page by default
+	- Divide by AA and AG taskings?
 
 
 Cosmetic:
 - Make storage area into a popup tray
-
+- Add aircraft icons
 
 Nice to have:
 - Multiple carrier support
@@ -54,7 +61,12 @@ To prioritize:
 - Handle out of action aircraft
 - Flag emergency aircraft
 - Tagging aircraft with Alibis
-
+- Keybinds, e.g.
+	- S - split flight
+	- C - combine flight or check-in
+	- R - recover or RTB
+	- A - alibis
+	- W - winchester
 
 Complete
 - Second digit of fuel state in smaller font (36 > 32 for low state, 12 > 10 for flight members)
@@ -93,3 +105,6 @@ Complete
 - Fix spacing between cards in same vertical division, and between different divisions
 - Make low fuel states pulse
 - Add placeholder three-way toggle for CASE I/II/III
+- Add inbound division to top of recovery section
+- Vertical navigation bar and placeholder buttons
+- Squadron logo

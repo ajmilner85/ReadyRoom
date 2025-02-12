@@ -132,7 +132,8 @@ const GridLayout: React.FC<GridLayoutProps> = ({ flights = [], onUpdateMemberFue
       display: 'flex',
       flexDirection: 'column',
       alignItems: 'center',
-      padding: '0 20px', 
+      paddingTop: '20px',
+      paddingBottom: '20px',
       boxSizing: 'border-box'
     }}>
       <div style={{
@@ -197,7 +198,6 @@ const GridLayout: React.FC<GridLayoutProps> = ({ flights = [], onUpdateMemberFue
       {/* Unassigned flights area */}
       <div style={{
         marginTop: '20px',
-        padding: '20px',
         backgroundColor: '#F8FAFC',
         borderTop: '1px solid #E2E8F0',
         display: 'flex',
@@ -206,7 +206,8 @@ const GridLayout: React.FC<GridLayoutProps> = ({ flights = [], onUpdateMemberFue
         position: 'relative',
         justifyContent: 'center',
         width: '100%',
-        boxSizing: 'border-box'
+        boxSizing: 'border-box',
+        padding: '20px 0'
       }}>
         {unassignedFlights.map((flight) => (
           <FlightCard

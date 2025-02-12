@@ -13,6 +13,7 @@ pri-fly
 │   ├── App.css
 │   ├── App.tsx
 │   ├── assets
+│   │   ├── Stingrays Logo 80x80.png
 │   │   └── react.svg
 │   ├── components
 │   │   ├── layout
@@ -25,10 +26,12 @@ pri-fly
 │   │       │   ├── AddDivisionButton.tsx
 │   │       │   ├── EnRouteDivisionButton.tsx
 │   │       │   ├── LaunchDivisionButton.tsx
+│   │       │   ├── RecoveryToggleSwitch.tsx
 │   │       │   └── TankerDivisionButton.tsx
 │   │       ├── dialogs
 │   │       │   ├── DeleteDivisionDialog.tsx
 │   │       │   ├── EnRouteDivisionDialog.tsx
+│   │       │   ├── FuelStateDialog.tsx
 │   │       │   ├── LaunchDivisionDialog.tsx
 │   │       │   └── TankerDivisionDialog.tsx
 │   │       └── flight cards
