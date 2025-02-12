@@ -2,9 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { DndContext, DragEndEvent, DragOverlay, DragStartEvent } from '@dnd-kit/core';
 import GridLayout from './components/layout/GridLayout';
 import { SectionProvider } from './components/layout/SectionContext';
-import { sampleFlights } from './types/FlightData';
-import type { Flight } from './types/FlightData';
+import { sampleFlights, splitFlight, divideFlight, type Flight } from './types/FlightData';
 import FlightCard from './components/ui/flight cards/FlightCard';
+import SingleFlightCard from './components/ui/flight cards/SingleFlightCard';
 import FuelStateDialog from './components/ui/dialogs/FuelStateDialog';
 import NavigationBar from './components/ui/NavigationBar';
 
@@ -15,38 +15,60 @@ const App: React.FC = () => {
   const [hoveredBoardNumber, setHoveredBoardNumber] = useState<string | null>(null);
   const [isHoveringBoardNumber, setIsHoveringBoardNumber] = useState(false);
   const [initialBoardNumber, setInitialBoardNumber] = useState<string>('');
+  const [hoveredFlightId, setHoveredFlightId] = useState<string | null>(null);
 
   useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
-      console.log('F key pressed', {
-        showFuelDialog,
-        hoveredBoardNumber,
-        isHoveringBoardNumber,
-        initialBoardNumber
-      });
-
+      // Handle fuel dialog
       if (e.key.toLowerCase() === 'f') {
         if (showFuelDialog) {
-          // Second press of 'f' closes the dialog
-          console.log('Closing dialog');
           setShowFuelDialog(false);
           setInitialBoardNumber('');
         } else {
-          // First press of 'f' opens the dialog
-          console.log('Opening dialog');
           setShowFuelDialog(true);
-          
-          // Only use hovered board number if actually hovering
           const newInitialBoardNumber = isHoveringBoardNumber ? hoveredBoardNumber : '';
-          console.log('Setting initial board number:', newInitialBoardNumber);
           setInitialBoardNumber(newInitialBoardNumber || '');
+        }
+        return;
+      }
+
+      // Handle split/divide when a flight is being hovered
+      if (!hoveredFlightId) return;
+
+      const hoveredFlight = flights.find(f => f.id === hoveredFlightId);
+      if (!hoveredFlight) return;
+
+      if (e.key.toLowerCase() === 's') {
+        // Split the flight into individual aircraft
+        if (hoveredFlight.formation === 'group' || hoveredFlight.formation === 'section') {
+          const splitFlights = splitFlight(hoveredFlight);
+          setFlights(prev => [
+            ...prev.filter(f => f.id !== hoveredFlightId),
+            ...splitFlights
+          ]);
+        }
+      } else if (e.key.toLowerCase() === 'd') {
+        // Divide the flight into sections
+        if (hoveredFlight.formation === 'group') {
+          const dividedFlights = divideFlight(hoveredFlight);
+          setFlights(prev => [
+            ...prev.filter(f => f.id !== hoveredFlightId),
+            ...dividedFlights
+          ]);
+        } else if (hoveredFlight.formation === 'section' && hoveredFlight.members.length === 2) {
+          // If it's already a section with 2 aircraft, split it into singles
+          const splitFlights = splitFlight(hoveredFlight);
+          setFlights(prev => [
+            ...prev.filter(f => f.id !== hoveredFlightId),
+            ...splitFlights
+          ]);
         }
       }
     };
 
     window.addEventListener('keydown', handleKeyPress);
     return () => window.removeEventListener('keydown', handleKeyPress);
-  }, [hoveredBoardNumber, showFuelDialog, isHoveringBoardNumber]);
+  }, [hoveredFlightId, flights, showFuelDialog, hoveredBoardNumber, isHoveringBoardNumber]);
 
   const handleDragStart = (event: DragStartEvent) => {
     setActiveId(event.active.id as string);
@@ -90,18 +112,31 @@ const App: React.FC = () => {
     }
   };
 
-  const handleUpdateMemberFuel = (boardNumber: string, newFuel: number) => {
+  const findFlightByBoardNumber = (boardNumber: string): { flight: Flight; dashNumber: string } | null => {
+    for (const flight of flights) {
+      const member = flight.members.find(m => m.boardNumber === boardNumber);
+      if (member) {
+        return { flight, dashNumber: member.dashNumber };
+      }
+    }
+    return null;
+  };
+
+  const handleUpdateMemberFuel = (flightId: string, dashNumber: string, newFuel: number) => {
     setFlights(prevFlights => {
       return prevFlights.map(flight => {
-        const updatedMembers = flight.members.map(member => {
-          if (member.boardNumber === boardNumber) {
-            return { ...member, fuel: newFuel };
-          }
-          return member;
-        });
+        if (flight.id === flightId) {
+          // Update the specific member's fuel
+          const updatedMembers = flight.members.map(member => {
+            if (member.dashNumber === dashNumber) {
+              return { ...member, fuel: newFuel };
+            }
+            return member;
+          });
 
-        if (updatedMembers.some(m => m.boardNumber === boardNumber)) {
+          // Calculate new low state based on all members
           const newLowState = Math.min(...updatedMembers.map(m => m.fuel));
+
           return {
             ...flight,
             members: updatedMembers,
@@ -111,6 +146,14 @@ const App: React.FC = () => {
         return flight;
       });
     });
+  };
+
+  // Handle fuel updates from the dialog
+  const handleFuelDialogUpdate = (boardNumber: string, newFuel: number) => {
+    const flightInfo = findFlightByBoardNumber(boardNumber);
+    if (flightInfo) {
+      handleUpdateMemberFuel(flightInfo.flight.id, flightInfo.dashNumber, newFuel);
+    }
   };
 
   const activeFlight = flights.find(f => f.id === activeId);
@@ -133,9 +176,19 @@ const App: React.FC = () => {
               } else {
                 setIsHoveringBoardNumber(false);
               }
+
+              // Find the closest parent with a data-flight-id attribute
+              let currentElement: HTMLElement | null = target;
+              while (currentElement && !currentElement.getAttribute('data-flight-id')) {
+                currentElement = currentElement.parentElement;
+              }
+              
+              const flightId = currentElement?.getAttribute('data-flight-id') || null;
+              setHoveredFlightId(flightId);
             }}
             onMouseLeave={() => {
               setIsHoveringBoardNumber(false);
+              setHoveredFlightId(null);
             }}
             className="bg-slate-50"
           >
@@ -144,12 +197,19 @@ const App: React.FC = () => {
               onUpdateMemberFuel={handleUpdateMemberFuel}
             />
             <DragOverlay>
-              {activeFlight ? (
-                <FlightCard 
-                  {...activeFlight}
-                  isDragging={true}
-                />
-              ) : null}
+              {activeFlight && (
+                activeFlight.formation === 'single' ? (
+                  <SingleFlightCard 
+                    {...activeFlight}
+                    isDragging={true}
+                  />
+                ) : (
+                  <FlightCard 
+                    {...activeFlight}
+                    isDragging={true}
+                  />
+                )
+              )}
             </DragOverlay>
             {showFuelDialog && (
               <FuelStateDialog
@@ -158,7 +218,7 @@ const App: React.FC = () => {
                   setShowFuelDialog(false);
                   setInitialBoardNumber('');
                 }}
-                onUpdateFuel={handleUpdateMemberFuel}
+                onUpdateFuel={handleFuelDialogUpdate}
               />
             )}
           </div>

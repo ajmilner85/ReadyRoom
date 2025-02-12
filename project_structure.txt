@@ -22,6 +22,7 @@ pri-fly
 │   │   │   └── SectionContext.tsx
 │   │   └── ui
 │   │       ├── DivisionEditor.tsx
+│   │       ├── NavigationBar.tsx
 │   │       ├── buttons
 │   │       │   ├── AddDivisionButton.tsx
 │   │       │   ├── EnRouteDivisionButton.tsx
