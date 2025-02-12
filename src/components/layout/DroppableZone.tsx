@@ -14,7 +14,6 @@ const DroppableZone: React.FC<DroppableZoneProps> = ({
   id, 
   label, 
   flights, 
-  onUpdateMemberFuel,
   renderFlightCard
 }) => {
   const { isOver, setNodeRef } = useDroppable({
@@ -23,88 +22,45 @@ const DroppableZone: React.FC<DroppableZoneProps> = ({
 
   if (!label) return null;
 
-  // Calculate dynamic height based on card types
-  const getCardHeight = (flight: Flight) => {
-    if (flight.formation === 'single') {
-      return 43; // Height of a single aircraft card
-    }
-    return 110; // Height of a regular flight card
-  };
-
-  const getCardWidth = (flight: Flight) => {
-    return flight.formation === 'single' ? 436 : 442;
-  };
-
-  // Base height for an empty zone
-  const baseHeight = 117;
-  // Reduced spacing between cards in the same division
-  const sameDivisionSpacing = 3;
-  
-  // Calculate total height needed for all cards
-  const totalCardsHeight = flights.reduce((acc, flight, index) => {
-    const cardHeight = getCardHeight(flight);
-    // Add spacing for all cards except the last one
-    const spacing = index < flights.length - 1 ? sameDivisionSpacing : 0;
-    return acc + cardHeight + spacing;
-  }, 0);
-
-  // Use either base height or calculated height, whichever is larger
-  const dynamicHeight = Math.max(baseHeight, totalCardsHeight + 8); // 8px for padding
+  console.log(`DroppableZone ${id} rendering with ${flights.length} flights:`, flights);
 
   return (
     <div style={{
       position: 'relative',
       width: '100%',
-      height: dynamicHeight,
+      minHeight: '117px',
       borderBottom: '1px dotted #CBD5E1',
     }}>
       <div
         ref={setNodeRef}
         style={{
-          height: '100%',
-          position: 'relative',
+          minHeight: '117px',
           backgroundColor: isOver ? 'rgba(100, 116, 139, 0.1)' : 'transparent',
           transition: 'background-color 0.2s',
-          padding: '4px',
+          padding: '8px',
         }}
       >
-        {/* Container for flight cards */}
-        <div style={{
-          position: 'relative', // Changed from absolute
-          width: '100%',
-          height: '100%',
-        }}>
-          {flights.map((flight, index) => {
-            // Calculate vertical position based on all previous cards
-            const previousCardsHeight = flights
-              .slice(0, index)
-              .reduce((acc, prevFlight) => {
-                return acc + getCardHeight(prevFlight) + sameDivisionSpacing;
-              }, 0);
+        {flights.map((flight, index) => (
+          <div 
+            key={flight.id}
+            style={{
+              position: 'relative',
+              marginBottom: index === flights.length - 1 ? 0 : '8px',
+              display: 'block',
+              width: '442px',
+              marginLeft: 'auto',
+              marginRight: '4px',
+            }}
+          >
+            {console.log(`Rendering flight card for ${flight.id} in ${id}`)}
+            {renderFlightCard(flight)}
+          </div>
+        ))}
 
-            return (
-              <div 
-                key={flight.id} 
-                style={{
-                  width: getCardWidth(flight),
-                  marginBottom: index === flights.length - 1 ? 0 : sameDivisionSpacing,
-                  position: 'absolute',
-                  right: '4px',
-                  top: `${previousCardsHeight}px`,
-                  zIndex: 10 + index, // Ensure higher cards are always on top
-                }}
-              >
-                {renderFlightCard(flight)}
-              </div>
-            );
-          })}
-        </div>
-
-        {/* Division Label */}
         <div style={{
           position: 'absolute',
-          bottom: '4px',
-          left: '4px',
+          bottom: '8px',
+          left: '8px',
           fontSize: '12px',
           fontFamily: 'Inter, sans-serif',
           fontWeight: 300,

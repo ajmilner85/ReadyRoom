@@ -37,7 +37,7 @@ const SingleFlightCard: React.FC<SingleFlightCardProps> = ({
 
   const cardStyle: React.CSSProperties = {
     position: 'relative',
-    width: '436px',
+    width: '442px',
     height: '43px',
     backgroundColor: '#FFFFFF',
     boxShadow: isDragging 

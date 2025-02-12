@@ -22,13 +22,10 @@ export interface Flight {
   lowState: number;
   currentSection: string;
   currentDivision: number;
-  // New properties for split/divide functionality
   formation: FlightFormation;
-  parentFlightId?: string; // Reference to original flight when split/divided
-  sectionNumber?: number;  // For divided flights, 1 = lead section, 2 = trailing section
+  parentFlightId?: string;
 }
 
-// Helper functions for flight manipulation
 export const splitFlight = (flight: Flight): Flight[] => {
   return flight.members.map((member, index) => ({
     id: `${flight.id}-split-${member.dashNumber}`,
@@ -45,48 +42,27 @@ export const splitFlight = (flight: Flight): Flight[] => {
 };
 
 export const divideFlight = (flight: Flight): Flight[] => {
-  if (flight.members.length <= 2) {
-    return splitFlight(flight);
-  }
-
+  // Simply split into pairs and preserve division number
+  const pairs: FlightMember[][] = [];
   const leadSection = flight.members.filter(m => ['1', '2'].includes(m.dashNumber));
   const trailSection = flight.members.filter(m => ['3', '4'].includes(m.dashNumber));
+  
+  if (leadSection.length > 0) pairs.push(leadSection);
+  if (trailSection.length > 0) pairs.push(trailSection);
 
-  const sections: Flight[] = [];
-
-  if (leadSection.length > 0) {
-    sections.push({
-      id: `${flight.id}-section-1`,
-      flightNumber: flight.flightNumber,
-      callsign: flight.callsign,
-      members: leadSection,
-      position: flight.position,
-      lowState: Math.min(...leadSection.map(m => m.fuel)),
-      currentSection: flight.currentSection,
-      currentDivision: flight.currentDivision,
-      formation: 'section',
-      parentFlightId: flight.id,
-      sectionNumber: 1
-    });
-  }
-
-  if (trailSection.length > 0) {
-    sections.push({
-      id: `${flight.id}-section-2`,
-      flightNumber: flight.flightNumber,
-      callsign: flight.callsign,
-      members: trailSection,
-      position: flight.position,
-      lowState: Math.min(...trailSection.map(m => m.fuel)),
-      currentSection: flight.currentSection,
-      currentDivision: flight.currentDivision,
-      formation: 'section',
-      parentFlightId: flight.id,
-      sectionNumber: 2
-    });
-  }
-
-  return sections;
+  return pairs.map((memberPair, index) => ({
+    id: `${flight.id}-section-${index + 1}`,
+    flightNumber: flight.flightNumber,
+    callsign: flight.callsign,
+    members: memberPair,
+    position: flight.position,
+    lowState: Math.min(...memberPair.map(m => m.fuel)),
+    currentSection: flight.currentSection,
+    // Keep the same division number for both sections
+    currentDivision: flight.currentDivision,
+    formation: 'section',
+    parentFlightId: flight.id
+  }));
 };
 
 export const mergeSections = (sections: Flight[]): Flight | null => {
@@ -148,7 +124,6 @@ export const mergeSingles = (singles: Flight[]): Flight | null => {
   };
 };
 
-// Update sample data to include formation property
 export const sampleFlights: Flight[] = [
   {
     "id": "1",

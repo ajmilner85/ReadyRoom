@@ -42,26 +42,27 @@ const App: React.FC = () => {
         // Split the flight into individual aircraft
         if (hoveredFlight.formation === 'group' || hoveredFlight.formation === 'section') {
           const splitFlights = splitFlight(hoveredFlight);
-          setFlights(prev => [
-            ...prev.filter(f => f.id !== hoveredFlightId),
-            ...splitFlights
-          ]);
+          setFlights(prev => {
+            const updatedFlights = prev.filter(f => f.id !== hoveredFlightId);
+            return [...updatedFlights, ...splitFlights];
+          });
         }
       } else if (e.key.toLowerCase() === 'd') {
         // Divide the flight into sections
         if (hoveredFlight.formation === 'group') {
           const dividedFlights = divideFlight(hoveredFlight);
-          setFlights(prev => [
-            ...prev.filter(f => f.id !== hoveredFlightId),
-            ...dividedFlights
-          ]);
+          console.log('Divided flights:', dividedFlights);
+          setFlights(prev => {
+            const updatedFlights = prev.filter(f => f.id !== hoveredFlightId);
+            return [...updatedFlights, ...dividedFlights];
+          });
         } else if (hoveredFlight.formation === 'section' && hoveredFlight.members.length === 2) {
           // If it's already a section with 2 aircraft, split it into singles
           const splitFlights = splitFlight(hoveredFlight);
-          setFlights(prev => [
-            ...prev.filter(f => f.id !== hoveredFlightId),
-            ...splitFlights
-          ]);
+          setFlights(prev => {
+            const updatedFlights = prev.filter(f => f.id !== hoveredFlightId);
+            return [...updatedFlights, ...splitFlights];
+          });
         }
       }
     };
