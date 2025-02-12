@@ -31,7 +31,6 @@ const SingleFlightCard: React.FC<SingleFlightCardProps> = ({
     disabled: isEditingFuel
   });
 
-  // Since this is a single aircraft card, we know there's only one member
   const aircraft = members[0];
   if (!aircraft) return null;
 
@@ -52,25 +51,22 @@ const SingleFlightCard: React.FC<SingleFlightCardProps> = ({
     } : {})
   };
 
-  const blockStyle: React.CSSProperties = {
-    position: 'absolute',
-    height: '35px',
-    top: '4px',
-    backgroundColor: '#F8FAFC',
-    borderRadius: '8px'
-  };
-
   return (
     <div 
       ref={setNodeRef}
       {...(isEditingFuel ? {} : { ...attributes, ...listeners })}
       style={cardStyle}
+      data-flight-id={id}
     >
-      {/* Board Number Block */}
+      {/* Block 1 - Board Number */}
       <div style={{
-        ...blockStyle,
+        position: 'absolute',
         width: '67px',
-        left: '4px'
+        height: '35px',
+        left: '4px',
+        top: '4px',
+        backgroundColor: '#F8FAFC',
+        borderRadius: '8px'
       }}>
         <div 
           style={{
@@ -78,14 +74,14 @@ const SingleFlightCard: React.FC<SingleFlightCardProps> = ({
             width: '43.7px',
             height: '24px',
             left: '15.65px',
-            top: '10px',
+            top: '6px',
             fontFamily: 'Inter',
             fontStyle: 'normal',
             fontWeight: 700,
             fontSize: '20px',
             lineHeight: '24px',
             display: 'flex',
-            alignItems: 'flex-end',
+            alignItems: 'center',
             textAlign: 'center',
             color: '#000000'
           }}
@@ -96,25 +92,28 @@ const SingleFlightCard: React.FC<SingleFlightCardProps> = ({
         </div>
       </div>
 
-      {/* Flight Affiliation Block */}
+      {/* Block 2 - Flight Affiliation */}
       <div style={{
-        ...blockStyle,
-        width: '88px',
-        left: '75px'
+        position: 'absolute',
+        width: '108px',
+        height: '35px',
+        left: '75px',
+        top: '4px',
+        backgroundColor: '#F8FAFC',
+        borderRadius: '8px'
       }}>
         <div style={{
           position: 'absolute',
-          width: '88px',
-          height: '22px',
+          width: '108px',
+          height: '35px',
           left: '0px',
-          top: '10px',
           fontFamily: 'Inter',
           fontStyle: 'normal',
           fontWeight: 300,
           fontSize: '12px',
           lineHeight: '15px',
           display: 'flex',
-          alignItems: 'flex-end',
+          alignItems: 'center',
           justifyContent: 'center',
           color: '#000000'
         }}>
@@ -122,25 +121,28 @@ const SingleFlightCard: React.FC<SingleFlightCardProps> = ({
         </div>
       </div>
 
-      {/* Position Block */}
+      {/* Block 3 - Position */}
       <div style={{
-        ...blockStyle,
-        width: '168px',
-        left: '167px'
+        position: 'absolute',
+        width: '181px',
+        height: '35px',
+        left: '187px',
+        top: '4px',
+        backgroundColor: '#F8FAFC',
+        borderRadius: '8px'
       }}>
         <div style={{
           position: 'absolute',
-          width: '157.04px',
-          height: '26px',
+          width: '171px',
+          height: '35px',
           left: '5.48px',
-          top: '4.5px',
           fontFamily: 'Inter',
           fontStyle: 'normal',
           fontWeight: 500,
           fontSize: '20px',
           lineHeight: '24px',
           display: 'flex',
-          alignItems: 'flex-end',
+          alignItems: 'center',
           justifyContent: 'center',
           color: '#1E1E1E'
         }}>
@@ -148,19 +150,22 @@ const SingleFlightCard: React.FC<SingleFlightCardProps> = ({
         </div>
       </div>
 
-      {/* Fuel State Block */}
+      {/* Block 4 - Fuel State */}
       <div style={{
-        ...blockStyle,
-        width: '92px',
-        left: '339px'
+        position: 'absolute',
+        width: '66px',
+        height: '35px',
+        left: '372px',
+        top: '4px',
+        backgroundColor: '#F8FAFC',
+        borderRadius: '8px'
       }}>
         <div style={{
           position: 'absolute',
-          width: '73px',
-          height: '23px',
-          left: '9.5px',
-          top: '6px',
+          width: '70px',
+          height: '35px',
           display: 'flex',
+          alignItems: 'center',
           justifyContent: 'center',
           color: aircraft.fuel < BINGO_FUEL ? '#FF3B30' : '#FF3B30',
           animation: aircraft.fuel < BINGO_FUEL ? 'pulse-red 1.5s ease-in-out infinite' : 'none'
