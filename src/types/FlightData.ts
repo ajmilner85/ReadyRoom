@@ -42,7 +42,49 @@ export const splitFlight = (flight: Flight): Flight[] => {
 };
 
 export const divideFlight = (flight: Flight): Flight[] => {
-  // Simply split into pairs and preserve division number
+  if (flight.members.length === 3) {
+    // For 3-ship flights, create a 2-ship section and a single
+    const leadSection = flight.members.filter(m => ['1', '2'].includes(m.dashNumber));
+    const thirdMember = flight.members.find(m => m.dashNumber === '3');
+    
+    const result: Flight[] = [];
+    
+    // Add the lead section (2-ship)
+    if (leadSection.length > 0) {
+      result.push({
+        id: `${flight.id}-section-1`,
+        flightNumber: flight.flightNumber,
+        callsign: flight.callsign,
+        members: leadSection,
+        position: flight.position,
+        lowState: Math.min(...leadSection.map(m => m.fuel)),
+        currentSection: flight.currentSection,
+        currentDivision: flight.currentDivision,
+        formation: 'section',
+        parentFlightId: flight.id
+      });
+    }
+    
+    // Add the third aircraft as a single
+    if (thirdMember) {
+      result.push({
+        id: `${flight.id}-single-3`,
+        flightNumber: flight.flightNumber,
+        callsign: flight.callsign,
+        members: [thirdMember],
+        position: flight.position,
+        lowState: thirdMember.fuel,
+        currentSection: flight.currentSection,
+        currentDivision: flight.currentDivision,
+        formation: 'single',
+        parentFlightId: flight.id
+      });
+    }
+    
+    return result;
+  }
+  
+  // Original logic for 4-ship and 2-ship flights
   const pairs: FlightMember[][] = [];
   const leadSection = flight.members.filter(m => ['1', '2'].includes(m.dashNumber));
   const trailSection = flight.members.filter(m => ['3', '4'].includes(m.dashNumber));
@@ -58,7 +100,6 @@ export const divideFlight = (flight: Flight): Flight[] => {
     position: flight.position,
     lowState: Math.min(...memberPair.map(m => m.fuel)),
     currentSection: flight.currentSection,
-    // Keep the same division number for both sections
     currentDivision: flight.currentDivision,
     formation: 'section',
     parentFlightId: flight.id

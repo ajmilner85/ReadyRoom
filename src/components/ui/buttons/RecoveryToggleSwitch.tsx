@@ -22,8 +22,8 @@ const generateCaseIIIIIDivisions = (): RecoveryDivision[] => {
     { id: 'recovery-inbound', label: 'INBOUND' }
   ];
   
-  // Add divisions from Angels 16 down to Angels 6
-  for (let altitude = 16; altitude >= 6; altitude--) {
+  // Add divisions from Angels 17 down to Angels 6
+  for (let altitude = 17; altitude >= 6; altitude--) {
     const dme = altitude + 15; // DME = ANGELS + 15
     divisions.push({
       id: `recovery-${altitude}`,

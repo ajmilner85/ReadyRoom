@@ -10,7 +10,6 @@ Next:
 
 Essential:
 - Case  II/III toggle that adds
-	- DME distances to holding altitudes and shifts lowest marshal stack altitude to Angels 6
 	- Editable Expected Approach Times
 	- Next available level calculates expected approach time automatically
 	- Refactor CASE I/II/III button to be a three position sliding toggle
@@ -53,6 +52,7 @@ Cosmetic:
 
 Nice to have:
 - Multiple carrier support
+- Multiple marshal radials
 
 - Mission roles
 	- Mission commander
@@ -120,3 +120,5 @@ Complete
 	- Issues:
 		- Individual flight cards are not the same width as group flight cards
 		- Dividing a flight causes the 2nd section to disappear
+- Case  II/III toggle that adds
+	- DME distances to holding altitudes and shifts lowest marshal stack altitude to Angels 6
