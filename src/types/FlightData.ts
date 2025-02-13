@@ -1,14 +1,16 @@
+export interface Position {
+  bearing: string;
+  distance: string;
+  altitude: string;
+  lastUpdate?: number; // timestamp
+}
+
 export interface FlightMember {
   dashNumber: string;
   boardNumber: string;
   fuel: number;
   pilotCallsign: string;
-}
-
-export interface Position {
-  bearing: string;
-  altitude: string;
-  status: string;
+  position?: Position; // Individual position tracking
 }
 
 export type FlightFormation = 'group' | 'section' | 'single';
@@ -18,7 +20,7 @@ export interface Flight {
   flightNumber: string;
   callsign: string;
   members: FlightMember[];
-  position: Position;
+  position?: Position; // Group position (used when all members are in same position)
   lowState: number;
   currentSection: string;
   currentDivision: number;
@@ -26,13 +28,81 @@ export interface Flight {
   parentFlightId?: string;
 }
 
+const isInSameFormation = (member1: FlightMember, member2: FlightMember, flight: Flight): boolean => {
+  if (flight.formation === 'single') {
+    return member1.boardNumber === member2.boardNumber;
+  }
+  if (flight.formation === 'section') {
+    // Check if both members are in the same section (1-2 or 3-4)
+    const section1 = parseInt(member1.dashNumber) <= 2 ? 'lead' : 'trail';
+    const section2 = parseInt(member2.dashNumber) <= 2 ? 'lead' : 'trail';
+    return section1 === section2;
+  }
+  // For group formation, all members are together
+  return true;
+};
+
+export const updateFlightPosition = (
+  flight: Flight,
+  boardNumber: string,
+  bearing: string,
+  distance: string,
+  altitude: string,
+  lowState?: number
+): Flight => {
+  const newPosition: Position = {
+    bearing,
+    distance,
+    altitude,
+    lastUpdate: Date.now()
+  };
+
+  const updatedMembers = flight.members.map(member => {
+    // If updating a specific member
+    if (member.boardNumber === boardNumber) {
+      return {
+        ...member,
+        position: newPosition,
+        ...(lowState !== undefined && { fuel: lowState })
+      };
+    }
+    // If this is a group position update
+    if (flight.formation !== 'single') {
+      // Only update position and fuel if member is part of the same formation
+      const targetMember = flight.members.find(m => m.boardNumber === boardNumber);
+      if (targetMember && isInSameFormation(member, targetMember, flight)) {
+        return {
+          ...member,
+          position: newPosition,
+          ...(lowState !== undefined && { fuel: lowState })
+        };
+      }
+    }
+    return member;
+  });
+
+  // Update group position if all members are at the same position
+  const allSamePosition = updatedMembers.every(
+    member => member.position?.bearing === bearing &&
+              member.position?.distance === distance &&
+              member.position?.altitude === altitude
+  );
+
+  return {
+    ...flight,
+    members: updatedMembers,
+    position: allSamePosition ? newPosition : undefined,
+    lowState: Math.min(...updatedMembers.map(m => m.fuel))
+  };
+};
+
 export const splitFlight = (flight: Flight): Flight[] => {
   return flight.members.map((member, index) => ({
     id: `${flight.id}-split-${member.dashNumber}`,
     flightNumber: flight.flightNumber,
     callsign: flight.callsign,
     members: [member],
-    position: flight.position,
+    position: member.position || flight.position,
     lowState: member.fuel,
     currentSection: flight.currentSection,
     currentDivision: flight.currentDivision,
@@ -56,7 +126,7 @@ export const divideFlight = (flight: Flight): Flight[] => {
         flightNumber: flight.flightNumber,
         callsign: flight.callsign,
         members: leadSection,
-        position: flight.position,
+        position: leadSection[0].position || flight.position,
         lowState: Math.min(...leadSection.map(m => m.fuel)),
         currentSection: flight.currentSection,
         currentDivision: flight.currentDivision,
@@ -72,7 +142,7 @@ export const divideFlight = (flight: Flight): Flight[] => {
         flightNumber: flight.flightNumber,
         callsign: flight.callsign,
         members: [thirdMember],
-        position: flight.position,
+        position: thirdMember.position || flight.position,
         lowState: thirdMember.fuel,
         currentSection: flight.currentSection,
         currentDivision: flight.currentDivision,
@@ -97,7 +167,7 @@ export const divideFlight = (flight: Flight): Flight[] => {
     flightNumber: flight.flightNumber,
     callsign: flight.callsign,
     members: memberPair,
-    position: flight.position,
+    position: memberPair[0].position || flight.position,
     lowState: Math.min(...memberPair.map(m => m.fuel)),
     currentSection: flight.currentSection,
     currentDivision: flight.currentDivision,
@@ -106,65 +176,7 @@ export const divideFlight = (flight: Flight): Flight[] => {
   }));
 };
 
-export const mergeSections = (sections: Flight[]): Flight | null => {
-  if (!sections.every(s => s.formation === 'section' && s.parentFlightId === sections[0].parentFlightId)) {
-    return null;
-  }
-
-  const allMembers = sections.flatMap(s => s.members)
-    .sort((a, b) => parseInt(a.dashNumber) - parseInt(b.dashNumber));
-
-  return {
-    id: sections[0].parentFlightId!,
-    flightNumber: sections[0].flightNumber,
-    callsign: sections[0].callsign,
-    members: allMembers,
-    position: sections[0].position,
-    lowState: Math.min(...allMembers.map(m => m.fuel)),
-    currentSection: sections[0].currentSection,
-    currentDivision: sections[0].currentDivision,
-    formation: 'group'
-  };
-};
-
-export const mergeSingles = (singles: Flight[]): Flight | null => {
-  if (!singles.every(s => 
-    s.formation === 'single' && 
-    s.parentFlightId === singles[0].parentFlightId
-  )) {
-    return null;
-  }
-
-  const allMembers = singles.flatMap(s => s.members)
-    .sort((a, b) => parseInt(a.dashNumber) - parseInt(b.dashNumber));
-
-  if (allMembers.length <= 2) {
-    return {
-      id: singles[0].parentFlightId!,
-      flightNumber: singles[0].flightNumber,
-      callsign: singles[0].callsign,
-      members: allMembers,
-      position: singles[0].position,
-      lowState: Math.min(...allMembers.map(m => m.fuel)),
-      currentSection: singles[0].currentSection,
-      currentDivision: singles[0].currentDivision,
-      formation: 'section'
-    };
-  }
-
-  return {
-    id: singles[0].parentFlightId!,
-    flightNumber: singles[0].flightNumber,
-    callsign: singles[0].callsign,
-    members: allMembers,
-    position: singles[0].position,
-    lowState: Math.min(...allMembers.map(m => m.fuel)),
-    currentSection: singles[0].currentSection,
-    currentDivision: singles[0].currentDivision,
-    formation: 'group'
-  };
-};
-
+// Sample flights with empty positions
 export const sampleFlights: Flight[] = [
   {
     "id": "1",
@@ -176,7 +188,6 @@ export const sampleFlights: Flight[] = [
       { "dashNumber": "3", "boardNumber": "727", "fuel": 5.7, "pilotCallsign": "KNIGHT" },
       { "dashNumber": "4", "boardNumber": "555", "fuel": 6.1, "pilotCallsign": "DASH" }
     ],
-    "position": { "bearing": "290/50", "altitude": "14,000'", "status": "INBOUND" },
     "lowState": 5.6,
     "currentSection": "",
     "currentDivision": 0,
@@ -192,7 +203,6 @@ export const sampleFlights: Flight[] = [
       { "dashNumber": "3", "boardNumber": "608", "fuel": 6.0, "pilotCallsign": "SURGE" },
       { "dashNumber": "4", "boardNumber": "711", "fuel": 6.3, "pilotCallsign": "VOLT" }
     ],
-    "position": { "bearing": "125/15", "altitude": "13,500'", "status": "INBOUND" },
     "lowState": 5.9,
     "currentSection": "",
     "currentDivision": 0,
@@ -207,7 +217,6 @@ export const sampleFlights: Flight[] = [
       { "dashNumber": "2", "boardNumber": "623", "fuel": 5.0, "pilotCallsign": "MUSIC" },
       { "dashNumber": "3", "boardNumber": "611", "fuel": 6.7, "pilotCallsign": "HORN" }
     ],
-    "position": { "bearing": "150/20", "altitude": "15,000'", "status": "INBOUND" },
     "lowState": 5.0,
     "currentSection": "",
     "currentDivision": 0,
@@ -222,7 +231,6 @@ export const sampleFlights: Flight[] = [
       { "dashNumber": "2", "boardNumber": "722", "fuel": 5.2, "pilotCallsign": "CRANK" },
       { "dashNumber": "3", "boardNumber": "655", "fuel": 5.0, "pilotCallsign": "SHIFT" }
     ],
-    "position": { "bearing": "300/35", "altitude": "12,000'", "status": "INBOUND" },
     "lowState": 4.8,
     "currentSection": "",
     "currentDivision": 0,
@@ -237,7 +245,6 @@ export const sampleFlights: Flight[] = [
       { "dashNumber": "2", "boardNumber": "766", "fuel": 6.9, "pilotCallsign": "ANVIL" },
       { "dashNumber": "3", "boardNumber": "644", "fuel": 7.3, "pilotCallsign": "TONGS" }
     ],
-    "position": { "bearing": "310/40", "altitude": "14,500'", "status": "INBOUND" },
     "lowState": 6.9,
     "currentSection": "",
     "currentDivision": 0,
@@ -252,7 +259,6 @@ export const sampleFlights: Flight[] = [
       { "dashNumber": "2", "boardNumber": "644", "fuel": 5.3, "pilotCallsign": "EDGE" },
       { "dashNumber": "3", "boardNumber": "666", "fuel": 5.6, "pilotCallsign": "CUTTER" }
     ],
-    "position": { "bearing": "045/25", "altitude": "13,000'", "status": "INBOUND" },
     "lowState": 5.3,
     "currentSection": "",
     "currentDivision": 0,
@@ -267,7 +273,6 @@ export const sampleFlights: Flight[] = [
       { "dashNumber": "2", "boardNumber": "600", "fuel": 7.5, "pilotCallsign": "CEMENT" },
       { "dashNumber": "3", "boardNumber": "654", "fuel": 7.7, "pilotCallsign": "REBAR" }
     ],
-    "position": { "bearing": "120/30", "altitude": "11,500'", "status": "INBOUND" },
     "lowState": 7.5,
     "currentSection": "",
     "currentDivision": 0,
@@ -282,7 +287,6 @@ export const sampleFlights: Flight[] = [
       { "dashNumber": "2", "boardNumber": "688", "fuel": 4.5, "pilotCallsign": "ZAP" },
       { "dashNumber": "3", "boardNumber": "612", "fuel": 4.3, "pilotCallsign": "SPARK" }
     ],
-    "position": { "bearing": "090/10", "altitude": "12,500'", "status": "INBOUND" },
     "lowState": 4.2,
     "currentSection": "",
     "currentDivision": 0,
@@ -297,7 +301,6 @@ export const sampleFlights: Flight[] = [
       { "dashNumber": "2", "boardNumber": "666", "fuel": 10.2, "pilotCallsign": "ATLAS" },
       { "dashNumber": "3", "boardNumber": "601", "fuel": 10.8, "pilotCallsign": "PROMETHEUS" }
     ],
-    "position": { "bearing": "210/45", "altitude": "14,000'", "status": "INBOUND" },
     "lowState": 10.2,
     "currentSection": "",
     "currentDivision": 0,
@@ -312,7 +315,6 @@ export const sampleFlights: Flight[] = [
       { "dashNumber": "2", "boardNumber": "610", "fuel": 4.0, "pilotCallsign": "WRAITH" },
       { "dashNumber": "3", "boardNumber": "609", "fuel": 3.9, "pilotCallsign": "SPECTER" }
     ],
-    "position": { "bearing": "180/50", "altitude": "12,000'", "status": "INBOUND" },
     "lowState": 3.8,
     "currentSection": "",
     "currentDivision": 0,

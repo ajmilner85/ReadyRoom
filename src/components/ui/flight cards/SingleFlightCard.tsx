@@ -3,6 +3,7 @@ import { useDraggable } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
 import type { Flight } from '../../../types/FlightData';
 import FuelDisplay from './FuelDisplay';
+import { formatAltitude } from '../../../utils/positionUtils';
 
 interface SingleFlightCardProps extends Flight {
   isDragging?: boolean;
@@ -33,6 +34,14 @@ const SingleFlightCard: React.FC<SingleFlightCardProps> = ({
 
   const aircraft = members[0];
   if (!aircraft) return null;
+
+  // Determine the position to display (individual aircraft position takes precedence)
+  const displayPosition = aircraft.position || position;
+
+  const formatPosition = (pos?: { bearing: string; distance: string; altitude: string }) => {
+    if (!pos) return '';
+    return `${pos.bearing}/${pos.distance}`;
+  };
 
   const cardStyle: React.CSSProperties = {
     position: 'relative',
@@ -142,11 +151,19 @@ const SingleFlightCard: React.FC<SingleFlightCardProps> = ({
           fontSize: '20px',
           lineHeight: '24px',
           display: 'flex',
+          flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
           color: '#1E1E1E'
         }}>
-          {`${position.bearing} ${position.altitude}`}
+          {displayPosition ? (
+            <>
+              <div>{formatPosition(displayPosition)}</div>
+              <div style={{ fontSize: '14px' }}>{formatAltitude(displayPosition.altitude)}</div>
+            </>
+          ) : (
+            <div style={{ fontSize: '14px', color: '#64748B' }}>NO POS</div>
+          )}
         </div>
       </div>
 

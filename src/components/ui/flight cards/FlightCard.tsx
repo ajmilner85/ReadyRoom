@@ -3,6 +3,7 @@ import { useDraggable } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
 import type { Flight, FlightMember } from '../../../types/FlightData';
 import FuelDisplay from './FuelDisplay';
+import { formatAltitude } from '../../../utils/positionUtils';
 
 interface FlightCardProps extends Flight {
   isDragging?: boolean;
@@ -33,19 +34,23 @@ const FlightCard: React.FC<FlightCardProps> = ({
     disabled: isEditingFuel
   });
 
-  // THIS IS THE PROBLEM - when dividing flights, the second section doesn't have a lead 
-  // because we're filtering based on dashNumber "1"
-  const lead = members.find(m => m.dashNumber === "1");
-  const wingmen = members.filter(m => m.dashNumber !== "1");
+  const formatPosition = (pos?: { bearing: string; distance: string; altitude: string }) => {
+    if (!pos) return '';
+    return `${pos.bearing}/${pos.distance}`;
+  };
 
-  // In sections, we should treat the first member as lead regardless of dashNumber
+  // In sections, we treat the first member as lead regardless of dashNumber
   const useFirstMemberAsLead = formation === 'section';
-  const actualLead = useFirstMemberAsLead ? members[0] : lead;
+  const leadMember = useFirstMemberAsLead ? members[0] : members.find(m => m.dashNumber === "1");
+  const wingmen = useFirstMemberAsLead ? members.slice(1) : members.filter(m => m.dashNumber !== "1");
 
-  if (!actualLead) {
+  if (!leadMember) {
     console.warn('FlightCard missing lead:', id, members.map(m => m.dashNumber));
     return null;
   }
+
+  // Determine display position - individual positions take precedence over group position
+  const leadPosition = leadMember.position || position;
 
   const cardStyle: React.CSSProperties = {
     position: 'relative',
@@ -100,22 +105,22 @@ const FlightCard: React.FC<FlightCardProps> = ({
         }}>
           <div 
             style={{ fontSize: '36px', fontWeight: 700, lineHeight: '44px', color: '#1E1E1E' }}
-            title={`${actualLead.pilotCallsign}`}
-            data-board-number={actualLead.boardNumber}
+            title={`${leadMember.pilotCallsign}`}
+            data-board-number={leadMember.boardNumber}
           >
-            {actualLead.boardNumber}
+            {leadMember.boardNumber}
           </div>
           <div style={{ fontSize: '12px', fontWeight: 300, lineHeight: '15px', color: '#000000' }}>
-            {callsign} {flightNumber}-{actualLead.dashNumber}
+            {callsign} {flightNumber}-{leadMember.dashNumber}
           </div>
           <div style={{ 
-            color: actualLead.fuel < BINGO_FUEL ? '#FF3B30' : '#FF3B30',
-            animation: actualLead.fuel < BINGO_FUEL ? 'pulse-red 1.5s ease-in-out infinite' : 'none'
+            color: leadMember.fuel < BINGO_FUEL ? '#FF3B30' : '#FF3B30',
+            animation: leadMember.fuel < BINGO_FUEL ? 'pulse-red 1.5s ease-in-out infinite' : 'none'
           }}>
             <FuelDisplay 
-              fuel={actualLead.fuel} 
+              fuel={leadMember.fuel} 
               size="small" 
-              onUpdateFuel={(newFuel) => handleUpdateMemberFuel(actualLead, newFuel)}
+              onUpdateFuel={(newFuel) => handleUpdateMemberFuel(leadMember, newFuel)}
               onEditStateChange={setIsEditingFuel}
             />
           </div>
@@ -131,69 +136,37 @@ const FlightCard: React.FC<FlightCardProps> = ({
           flexDirection: 'column',
           gap: '4px',
         }}>
-          {useFirstMemberAsLead ? 
-            members.slice(1).map((member) => (
-              <div key={member.boardNumber} 
-                   style={{
-                     display: 'flex',
-                     alignItems: 'center',
-                     height: '24px',
-                   }}>
-                <span style={{ fontSize: '12px', fontWeight: 300, width: '28px', color: '#000000' }}>
-                  {flightNumber}-{member.dashNumber}
-                </span>
-                <span 
-                  style={{ fontSize: '20px', fontWeight: 700, marginLeft: '29px', color: '#1E1E1E' }}
-                  title={`${member.pilotCallsign}`}
-                  data-board-number={member.boardNumber}
-                >
-                  {member.boardNumber}
-                </span>
-                <span style={{ 
-                  marginLeft: 'auto', 
-                  color: member.fuel < BINGO_FUEL ? '#FF3B30' : '#FF3B30',
-                  animation: member.fuel < BINGO_FUEL ? 'pulse-red 1.5s ease-in-out infinite' : 'none'
-                }}>
-                  <FuelDisplay 
-                    fuel={member.fuel} 
-                    size="small" 
-                    onUpdateFuel={(newFuel) => handleUpdateMemberFuel(member, newFuel)}
-                    onEditStateChange={setIsEditingFuel}
-                  />
-                </span>
-              </div>
-            ))
-            : wingmen.map((member) => (
-              <div key={member.boardNumber} 
-                   style={{
-                     display: 'flex',
-                     alignItems: 'center',
-                     height: '24px',
-                   }}>
-                <span style={{ fontSize: '12px', fontWeight: 300, width: '28px', color: '#000000' }}>
-                  {flightNumber}-{member.dashNumber}
-                </span>
-                <span 
-                  style={{ fontSize: '20px', fontWeight: 700, marginLeft: '29px', color: '#1E1E1E' }}
-                  title={`${member.pilotCallsign}`}
-                  data-board-number={member.boardNumber}
-                >
-                  {member.boardNumber}
-                </span>
-                <span style={{ 
-                  marginLeft: 'auto', 
-                  color: member.fuel < BINGO_FUEL ? '#FF3B30' : '#FF3B30',
-                  animation: member.fuel < BINGO_FUEL ? 'pulse-red 1.5s ease-in-out infinite' : 'none'
-                }}>
-                  <FuelDisplay 
-                    fuel={member.fuel} 
-                    size="small" 
-                    onUpdateFuel={(newFuel) => handleUpdateMemberFuel(member, newFuel)}
-                    onEditStateChange={setIsEditingFuel}
-                  />
-                </span>
-              </div>
-            ))}
+          {wingmen.map((member) => (
+            <div key={member.boardNumber} 
+                 style={{
+                   display: 'flex',
+                   alignItems: 'center',
+                   height: '24px',
+                 }}>
+              <span style={{ fontSize: '12px', fontWeight: 300, width: '28px', color: '#000000' }}>
+                {flightNumber}-{member.dashNumber}
+              </span>
+              <span 
+                style={{ fontSize: '20px', fontWeight: 700, marginLeft: '29px', color: '#1E1E1E' }}
+                title={`${member.pilotCallsign}`}
+                data-board-number={member.boardNumber}
+              >
+                {member.boardNumber}
+              </span>
+              <span style={{ 
+                marginLeft: 'auto', 
+                color: member.fuel < BINGO_FUEL ? '#FF3B30' : '#FF3B30',
+                animation: member.fuel < BINGO_FUEL ? 'pulse-red 1.5s ease-in-out infinite' : 'none'
+              }}>
+                <FuelDisplay 
+                  fuel={member.fuel} 
+                  size="small" 
+                  onUpdateFuel={(newFuel) => handleUpdateMemberFuel(member, newFuel)}
+                  onEditStateChange={setIsEditingFuel}
+                />
+              </span>
+            </div>
+          ))}
         </div>
 
         {/* Position */}
@@ -204,17 +177,20 @@ const FlightCard: React.FC<FlightCardProps> = ({
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
-          justifyContent: 'space-evenly',
+          justifyContent: 'center',
         }}>
-          <div style={{ fontSize: '20px', fontWeight: 500, color: '#000000' }}>
-            {position.bearing}
-          </div>
-          <div style={{ fontSize: '20px', fontWeight: 500, color: '#1E1E1E' }}>
-            {position.altitude}
-          </div>
-          <div style={{ fontSize: '12px', fontWeight: 300, color: '#1E1E1E' }}>
-            {position.status}
-          </div>
+          {leadPosition ? (
+            <>
+              <div style={{ fontSize: '20px', fontWeight: 500, color: '#000000' }}>
+                {formatPosition(leadPosition)}
+              </div>
+              <div style={{ fontSize: '20px', fontWeight: 500, color: '#1E1E1E' }}>
+                {formatAltitude(leadPosition.altitude)}
+              </div>
+            </>
+          ) : (
+            <div style={{ fontSize: '14px', color: '#64748B' }}>NO POS</div>
+          )}
         </div>
 
         {/* Low State */}

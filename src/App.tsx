@@ -2,16 +2,18 @@ import React, { useState, useEffect } from 'react';
 import { DndContext, DragEndEvent, DragOverlay, DragStartEvent } from '@dnd-kit/core';
 import GridLayout from './components/layout/GridLayout';
 import { SectionProvider } from './components/layout/SectionContext';
-import { sampleFlights, splitFlight, divideFlight, type Flight } from './types/FlightData';
+import { sampleFlights, splitFlight, divideFlight, updateFlightPosition, type Flight } from './types/FlightData';
 import FlightCard from './components/ui/flight cards/FlightCard';
 import SingleFlightCard from './components/ui/flight cards/SingleFlightCard';
 import FuelStateDialog from './components/ui/dialogs/FuelStateDialog';
+import PositionReportDialog from './components/ui/dialogs/PositionReportDialog';
 import NavigationBar from './components/ui/NavigationBar';
 
 const App: React.FC = () => {
   const [flights, setFlights] = useState<Flight[]>(sampleFlights);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [showFuelDialog, setShowFuelDialog] = useState(false);
+  const [showPositionDialog, setShowPositionDialog] = useState(false);
   const [hoveredBoardNumber, setHoveredBoardNumber] = useState<string | null>(null);
   const [isHoveringBoardNumber, setIsHoveringBoardNumber] = useState(false);
   const [initialBoardNumber, setInitialBoardNumber] = useState<string>('');
@@ -32,6 +34,19 @@ const App: React.FC = () => {
         return;
       }
 
+      // Handle position report dialog
+      if (e.key.toLowerCase() === 't') {
+        if (showPositionDialog) {
+          setShowPositionDialog(false);
+          setInitialBoardNumber('');
+        } else {
+          setShowPositionDialog(true);
+          const newInitialBoardNumber = isHoveringBoardNumber ? hoveredBoardNumber : '';
+          setInitialBoardNumber(newInitialBoardNumber || '');
+        }
+        return;
+      }
+
       // Handle split/divide when a flight is being hovered
       if (!hoveredFlightId) return;
 
@@ -39,7 +54,6 @@ const App: React.FC = () => {
       if (!hoveredFlight) return;
 
       if (e.key.toLowerCase() === 's') {
-        // Split the flight into individual aircraft
         if (hoveredFlight.formation === 'group' || hoveredFlight.formation === 'section') {
           const splitFlights = splitFlight(hoveredFlight);
           setFlights(prev => {
@@ -48,16 +62,13 @@ const App: React.FC = () => {
           });
         }
       } else if (e.key.toLowerCase() === 'd') {
-        // Divide the flight into sections
         if (hoveredFlight.formation === 'group') {
           const dividedFlights = divideFlight(hoveredFlight);
-          console.log('Divided flights:', dividedFlights);
           setFlights(prev => {
             const updatedFlights = prev.filter(f => f.id !== hoveredFlightId);
             return [...updatedFlights, ...dividedFlights];
           });
         } else if (hoveredFlight.formation === 'section' && hoveredFlight.members.length === 2) {
-          // If it's already a section with 2 aircraft, split it into singles
           const splitFlights = splitFlight(hoveredFlight);
           setFlights(prev => {
             const updatedFlights = prev.filter(f => f.id !== hoveredFlightId);
@@ -69,7 +80,7 @@ const App: React.FC = () => {
 
     window.addEventListener('keydown', handleKeyPress);
     return () => window.removeEventListener('keydown', handleKeyPress);
-  }, [hoveredFlightId, flights, showFuelDialog, hoveredBoardNumber, isHoveringBoardNumber]);
+  }, [hoveredFlightId, flights, showFuelDialog, showPositionDialog, hoveredBoardNumber, isHoveringBoardNumber]);
 
   const handleDragStart = (event: DragStartEvent) => {
     setActiveId(event.active.id as string);
@@ -90,29 +101,22 @@ const App: React.FC = () => {
         return prevFlights.map(f => {
           if (f.id === flight.id) {
             let divisionNumber: number;
-            
-            // Handle special division IDs
             if (divisionId === 'spin') {
               divisionNumber = -1;
             } else if (divisionId === 'charlie') {
               divisionNumber = -2;
             } else if (divisionId === 'inbound') {
-              divisionNumber = 99; // Use 99 as a special number for inbound
+              divisionNumber = 99;
             } else {
               divisionNumber = parseInt(divisionId);
             }
 
-            // Map section names
-            const sectionTitle = 
-              section === 'tanker' ? 'Tanker' :
-              section === 'launch' ? 'Launch' :
-              section === 'enroute' ? 'En Route/Tasking' :
-              section === 'recovery' ? 'Recovery' : 
-              f.currentSection;
-
             return {
               ...f,
-              currentSection: sectionTitle,
+              currentSection: section === 'tanker' ? 'Tanker' :
+                            section === 'launch' ? 'Launch' :
+                            section === 'enroute' ? 'En Route/Tasking' :
+                            section === 'recovery' ? 'Recovery' : f.currentSection,
               currentDivision: divisionNumber
             };
           }
@@ -136,7 +140,6 @@ const App: React.FC = () => {
     setFlights(prevFlights => {
       return prevFlights.map(flight => {
         if (flight.id === flightId) {
-          // Update the specific member's fuel
           const updatedMembers = flight.members.map(member => {
             if (member.dashNumber === dashNumber) {
               return { ...member, fuel: newFuel };
@@ -144,7 +147,6 @@ const App: React.FC = () => {
             return member;
           });
 
-          // Calculate new low state based on all members
           const newLowState = Math.min(...updatedMembers.map(m => m.fuel));
 
           return {
@@ -158,12 +160,16 @@ const App: React.FC = () => {
     });
   };
 
-  // Handle fuel updates from the dialog
-  const handleFuelDialogUpdate = (boardNumber: string, newFuel: number) => {
-    const flightInfo = findFlightByBoardNumber(boardNumber);
-    if (flightInfo) {
-      handleUpdateMemberFuel(flightInfo.flight.id, flightInfo.dashNumber, newFuel);
-    }
+  const handleUpdatePosition = (boardNumber: string, bearing: string, distance: string, altitude: string, lowState: number) => {
+    setFlights(prevFlights => {
+      return prevFlights.map(flight => {
+        const member = flight.members.find(m => m.boardNumber === boardNumber);
+        if (member) {
+          return updateFlightPosition(flight, boardNumber, bearing, distance, altitude, lowState);
+        }
+        return flight;
+      });
+    });
   };
 
   const activeFlight = flights.find(f => f.id === activeId);
@@ -187,7 +193,6 @@ const App: React.FC = () => {
                 setIsHoveringBoardNumber(false);
               }
 
-              // Find the closest parent with a data-flight-id attribute
               let currentElement: HTMLElement | null = target;
               while (currentElement && !currentElement.getAttribute('data-flight-id')) {
                 currentElement = currentElement.parentElement;
@@ -228,7 +233,22 @@ const App: React.FC = () => {
                   setShowFuelDialog(false);
                   setInitialBoardNumber('');
                 }}
-                onUpdateFuel={handleFuelDialogUpdate}
+                onUpdateFuel={(boardNumber, newFuel) => {
+                  const flightInfo = findFlightByBoardNumber(boardNumber);
+                  if (flightInfo) {
+                    handleUpdateMemberFuel(flightInfo.flight.id, flightInfo.dashNumber, newFuel);
+                  }
+                }}
+              />
+            )}
+            {showPositionDialog && (
+              <PositionReportDialog
+                initialBoardNumber={initialBoardNumber}
+                onClose={() => {
+                  setShowPositionDialog(false);
+                  setInitialBoardNumber('');
+                }}
+                onUpdatePosition={handleUpdatePosition}
               />
             )}
           </div>
