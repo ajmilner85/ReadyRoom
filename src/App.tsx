@@ -90,20 +90,29 @@ const App: React.FC = () => {
         return prevFlights.map(f => {
           if (f.id === flight.id) {
             let divisionNumber: number;
+            
+            // Handle special division IDs
             if (divisionId === 'spin') {
               divisionNumber = -1;
             } else if (divisionId === 'charlie') {
               divisionNumber = -2;
+            } else if (divisionId === 'inbound') {
+              divisionNumber = 99; // Use 99 as a special number for inbound
             } else {
               divisionNumber = parseInt(divisionId);
             }
 
+            // Map section names
+            const sectionTitle = 
+              section === 'tanker' ? 'Tanker' :
+              section === 'launch' ? 'Launch' :
+              section === 'enroute' ? 'En Route/Tasking' :
+              section === 'recovery' ? 'Recovery' : 
+              f.currentSection;
+
             return {
               ...f,
-              currentSection: section === 'tanker' ? 'Tanker' :
-                            section === 'launch' ? 'Launch' :
-                            section === 'enroute' ? 'En Route/Tasking' :
-                            section === 'recovery' ? 'Recovery' : f.currentSection,
+              currentSection: sectionTitle,
               currentDivision: divisionNumber
             };
           }
