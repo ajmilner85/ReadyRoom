@@ -28,22 +28,17 @@ const GridLayout: React.FC<GridLayoutProps> = ({ flights = [], onUpdateMemberFue
       expectedDivisionNumber = -1;
     } else if (divisionNum === 'charlie') {
       expectedDivisionNumber = -2;
+    } else if (divisionNum === 'inbound') {
+      expectedDivisionNumber = 99;
     } else {
       expectedDivisionNumber = parseInt(divisionNum);
     }
     
     const matchingFlights = flights.filter(flight => {
-      // Debug log for each flight being checked
-      console.log(`Checking flight ${flight.id} for section ${sectionTitle}, division ${expectedDivisionNumber}:`, {
-        flightSection: flight.currentSection,
-        flightDivision: flight.currentDivision,
-        matches: flight.currentSection === sectionTitle && flight.currentDivision === expectedDivisionNumber
-      });
-      
-      return flight.currentSection === sectionTitle && flight.currentDivision === expectedDivisionNumber;
+      return flight.currentSection === sectionTitle && 
+             flight.currentDivision === expectedDivisionNumber;
     });
 
-    console.log(`Found ${matchingFlights.length} flights for ${sectionTitle}, division ${divisionId}:`, matchingFlights);
     return matchingFlights;
   };
 

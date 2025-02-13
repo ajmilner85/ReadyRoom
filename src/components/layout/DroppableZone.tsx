@@ -1,6 +1,7 @@
 import React from 'react';
 import { useDroppable } from '@dnd-kit/core';
 import type { Flight } from '../../types/FlightData';
+import { useSections } from '../layout/SectionContext';
 
 interface DroppableZoneProps {
   id: string;
@@ -20,21 +21,59 @@ const DroppableZone: React.FC<DroppableZoneProps> = ({
     id: id,
   });
 
+  const { sections } = useSections();
+  const recoverySection = sections.find(s => s.title === 'Recovery');
+  const isRecoveryZone = id.startsWith('recovery-');
+  const isCaseIIorIII = isRecoveryZone && (recoverySection?.mode === 1 || recoverySection?.mode === 2);
+
   if (!label) return null;
 
-  console.log(`DroppableZone ${id} rendering with ${flights.length} flights:`, flights);
+  // Calculate minimum height based on section and mode
+  const getMinHeight = () => {
+    if (!isRecoveryZone) return '117px';
+    if (isCaseIIorIII && !id.includes('inbound')) return '65px';
+    return '117px';
+  };
+
+  // Calculate actual height based on content
+  const getContentHeight = () => {
+    const baseHeight = isCaseIIorIII && !id.includes('inbound') ? 65 : 117;
+    const cardSpacing = 8;
+    const numCards = flights.length;
+    
+    if (numCards === 0) return baseHeight;
+
+    // Calculate height needed for cards
+    let totalCardHeight = 0;
+    flights.forEach(flight => {
+      // Single flight cards are 43px, group cards are 100px
+      totalCardHeight += flight.formation === 'single' ? 43 : 100;
+    });
+
+    // Add spacing between cards
+    totalCardHeight += (numCards - 1) * cardSpacing;
+
+    // Add padding (8px top and bottom)
+    totalCardHeight += 16;
+
+    return Math.max(baseHeight, totalCardHeight);
+  };
+
+  const contentHeight = getContentHeight();
 
   return (
     <div style={{
       position: 'relative',
       width: '100%',
-      minHeight: '117px',
+      minHeight: getMinHeight(),
+      height: `${contentHeight}px`,
       borderBottom: '1px dotted #CBD5E1',
+      transition: 'height 0.2s ease-in-out',
     }}>
       <div
         ref={setNodeRef}
         style={{
-          minHeight: '117px',
+          height: '100%',
           backgroundColor: isOver ? 'rgba(100, 116, 139, 0.1)' : 'transparent',
           transition: 'background-color 0.2s',
           padding: '8px',
@@ -52,7 +91,6 @@ const DroppableZone: React.FC<DroppableZoneProps> = ({
               marginRight: '4px',
             }}
           >
-            {console.log(`Rendering flight card for ${flight.id} in ${id}`)}
             {renderFlightCard(flight)}
           </div>
         ))}

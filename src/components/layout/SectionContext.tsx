@@ -20,7 +20,7 @@ export interface Section {
   title: string;
   type: 'launch' | 'altitude' | 'tanker';
   divisions: Division[];
-  mode?: 0 | 1 | 2; // For Recovery section
+  mode?: 0 | 1 | 2; // For Recovery section: 0 = Case I, 1 = Case II, 2 = Case III
 }
 
 interface SectionContextType {
@@ -36,8 +36,6 @@ interface SectionContextType {
   reorderDivisions: (sectionTitle: string, startIndex: number, endIndex: number) => void;
   updateSectionProperty: (sectionTitle: string, property: string, value: any) => void;
 }
-
-// In SectionContext.tsx, update the recovery section in defaultSections:
 
 const defaultSections: Section[] = [
   {
@@ -60,16 +58,16 @@ const defaultSections: Section[] = [
   {
     title: "Recovery",
     type: 'altitude',
-    mode: 0,
+    mode: 0, // Default to Case I
     divisions: [
-      { id: 'recovery-6', label: "INBOUND" },
-      { id: 'recovery-4', label: "Angels 10" },
-      { id: 'recovery-3', label: "Angels 8" },
-      { id: 'recovery-2', label: "Angels 6" },
-      { id: 'recovery-1', label: "Angels 4" },
-      { id: 'recovery-0', label: "Angels 2" },
-      { id: 'recovery-spin', label: "Spin" },
-      { id: 'recovery-charlie', label: "Charlie" }
+      { id: 'recovery-inbound', label: "INBOUND" },
+      { id: 'recovery-6', label: "ANGELS 6" },
+      { id: 'recovery-5', label: "ANGELS 5" },
+      { id: 'recovery-4', label: "ANGELS 4" },
+      { id: 'recovery-3', label: "ANGELS 3" },
+      { id: 'recovery-2', label: "ANGELS 2" },
+      { id: 'recovery-spin', label: "SPIN" },
+      { id: 'recovery-charlie', label: "CHARLIE" }
     ]
   },
   {
@@ -150,13 +148,12 @@ export const SectionProvider: React.FC<{ children: React.ReactNode }> = ({ child
             // Split tankers by role
             const missionTankers = updatedDivisions
               .filter(d => d.groupType === 'mission-tankers')
-              .sort((a, b) => (b.altitude ?? 0) - (a.altitude ?? 0)); // Descending order - lower altitudes at bottom
+              .sort((a, b) => (b.altitude ?? 0) - (a.altitude ?? 0));
 
             const recoveryTankers = updatedDivisions
               .filter(d => d.groupType === 'recovery-tankers')
-              .sort((a, b) => (b.altitude ?? 0) - (a.altitude ?? 0)); // Descending order - lower altitudes at bottom
+              .sort((a, b) => (b.altitude ?? 0) - (a.altitude ?? 0));
 
-            // Return sorted divisions with mission tankers at top, recovery at bottom
             return { ...section, divisions: [...missionTankers, ...recoveryTankers] };
           }
 
@@ -182,7 +179,6 @@ export const SectionProvider: React.FC<{ children: React.ReactNode }> = ({ child
               stepTime
             };
             
-            // Insert the new division in the correct position based on stepTime
             const insertIndex = newDivisions.findIndex(d => (d.stepTime ?? 0) < stepTime);
             if (insertIndex === -1) {
               newDivisions.push(newDivision);
@@ -190,7 +186,6 @@ export const SectionProvider: React.FC<{ children: React.ReactNode }> = ({ child
               newDivisions.splice(insertIndex, 0, newDivision);
             }
           } else if (section.title === "En Route/Tasking") {
-            // Handle En Route division
             const data = labelOrData as EnRouteDivisionData;
             newDivision = {
               id: `enroute-${newDivisions.length}`,
@@ -202,7 +197,6 @@ export const SectionProvider: React.FC<{ children: React.ReactNode }> = ({ child
               missionType: data.missionType
             };
 
-            // Insert the new division in the correct position based on blockCeiling
             const insertIndex = newDivisions.findIndex(d => (d.blockCeiling ?? 0) < data.blockCeiling);
             if (insertIndex === -1) {
               newDivisions.push(newDivision);
@@ -210,7 +204,6 @@ export const SectionProvider: React.FC<{ children: React.ReactNode }> = ({ child
               newDivisions.splice(insertIndex, 0, newDivision);
             }
           } else if (section.type === 'tanker') {
-            // Handle Tanker division
             const data = labelOrData as TankerDivisionData;
             newDivision = {
               id: `tanker-${newDivisions.length}`,
@@ -221,22 +214,18 @@ export const SectionProvider: React.FC<{ children: React.ReactNode }> = ({ child
               groupType: data.role
             };
 
-            // Split existing divisions by role
             const missionTankers = newDivisions.filter(d => d.groupType === 'mission-tankers');
             const recoveryTankers = newDivisions.filter(d => d.groupType === 'recovery-tankers');
 
-            // Add new division to appropriate group
             if (data.role === 'mission-tankers') {
               missionTankers.push(newDivision);
             } else {
               recoveryTankers.push(newDivision);
             }
 
-            // Sort each group by altitude (descending - lower altitudes at bottom)
             missionTankers.sort((a, b) => (b.altitude ?? 0) - (a.altitude ?? 0));
             recoveryTankers.sort((a, b) => (b.altitude ?? 0) - (a.altitude ?? 0));
 
-            // Combine the groups with mission tankers on top
             return { ...section, divisions: [...missionTankers, ...recoveryTankers] };
           } else {
             const label = typeof labelOrData === 'string' ? labelOrData : labelOrData.toString();
