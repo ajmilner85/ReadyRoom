@@ -1,13 +1,15 @@
 import React, { useState, useRef, useEffect } from 'react';
 
 interface FuelDisplayProps {
-    fuel: number;
+    fuel: number | undefined;
     size?: 'small' | 'large';
     onUpdateFuel?: (newFuel: number) => void;
     onEditStateChange?: (isEditing: boolean) => void;
 }
 
-const getFuelColor = (fuel: number): string => {
+const getFuelColor = (fuel: number | undefined): string => {
+    if (fuel === undefined) return '#64748B';  // Default gray color for undefined
+    
     const JOKER = 5.0;
     const BINGO = 3.0;
 
@@ -23,7 +25,7 @@ const FuelDisplay: React.FC<FuelDisplayProps> = ({
     onEditStateChange
 }) => {
     const [isEditing, setIsEditing] = useState(false);
-    const [editValue, setEditValue] = useState(fuel.toFixed(1));
+    const [editValue, setEditValue] = useState(fuel?.toFixed(1) || '');
     const inputRef = useRef<HTMLInputElement>(null);
 
     const mainSize = size === 'large' ? '36px' : '12px';
@@ -35,7 +37,7 @@ const FuelDisplay: React.FC<FuelDisplayProps> = ({
         e.preventDefault();
         e.stopPropagation();
         setIsEditing(true);
-        setEditValue(fuel.toFixed(1));
+        setEditValue(fuel?.toFixed(1) || '');
         if (onEditStateChange) {
             onEditStateChange(true);
         }
@@ -64,14 +66,14 @@ const FuelDisplay: React.FC<FuelDisplayProps> = ({
                     onEditStateChange(false);
                 }
             } else {
-                setEditValue(fuel.toFixed(1));
+                setEditValue(fuel?.toFixed(1) || '');
                 setIsEditing(false);
                 if (onEditStateChange) {
                     onEditStateChange(false);
                 }
             }
         } else if (e.key === 'Escape') {
-            setEditValue(fuel.toFixed(1));
+            setEditValue(fuel?.toFixed(1) || '');
             setIsEditing(false);
             if (onEditStateChange) {
                 onEditStateChange(false);
@@ -111,6 +113,25 @@ const FuelDisplay: React.FC<FuelDisplayProps> = ({
                         borderRadius: '4px',
                     }}
                 />
+            </div>
+        );
+    }
+
+    if (fuel === undefined) {
+        return (
+            <div 
+                style={{ 
+                    display: 'flex', 
+                    alignItems: 'baseline',
+                    color: fuelColor,
+                    fontWeight: 700,
+                    cursor: onUpdateFuel ? 'text' : 'default'
+                }}
+                onDoubleClick={handleDoubleClick}
+                onClick={e => e.stopPropagation()}
+                onMouseDown={e => e.stopPropagation()}
+            >
+                <span style={{ fontSize: mainSize, lineHeight: mainSize }}>-.-</span>
             </div>
         );
     }
