@@ -1,14 +1,22 @@
 
 In Progress:
-- Squadron Roster Management
-	- Implement CRUD functions
-		- Prevent duplicate board numbers
-	- Role Assignment and Qualification Management
-	- Distinguish Site, Discord, and Squadron Roles/Billets
-	- Improve visual appearance of pilot details tile
+- Event management page essential features
+	- Delete and edit events
+	- List dividers for upcoming and past events
 
 Next:
-
+- Mission preparation page
+	- Attendance (Discord/Apollo integration?)
+		- Cruise, Foothold, Other (Accepted, Declined, Tentative)
+		- Training (IP, Trainee, Declined) not needed if IP qualification tracked?
+	- Create flights
+		- Provide a list of recently used flight callsigns
+		- Automatically sequence flight numbers within each callsign
+	- Assign pilots
+	- Assign MIDS/Encryption channels
+	- Create comms card
+	- Export kneeboards
+	- +OpenKneeboard compatible dynamic page
 
 
 Essential:
@@ -19,21 +27,18 @@ Essential:
 
 
 High Priority:
-- Mission preparation page
-	- Attendance (Discord/Apollo integration?)
-	- Create flights
-		- Provide a list of recently used flight callsigns
-		- Automatically sequence flight numbers within each callsign
-	- Assign pilots
-	- Assign MIDS/Encryption channels
-	- Create comms card
-	- Export kneeboards
-	- +OpenKneeboard compatible dynamic page
+
 - Database implementation
 	- Roster
 	- Mission/event saving
 
 Medium Priority:
+- Squadron Roster Management
+	- Implement CRUD functions
+		- Prevent duplicate board numbers
+	- Role Assignment and Qualification Management
+	- Distinguish Site, Discord, and Squadron Roles/Billets
+	- Improve visual appearance of pilot details tile
 - Add signal divert
 	- Split Tanker Column into 2, with divert area at the bottom
 - Refactor storage area to sort flights by size (Single > 4-ship)
@@ -71,6 +76,8 @@ Cosmetic:
 Nice to have:
 - Multiple carrier support
 - Multiple marshal radials
+- Websocket implementation for real-time collaboration
+- Tactical Paddles integration, greenie board
 
 - Mission roles
 	- Mission commander
@@ -146,3 +153,8 @@ Complete
 	- DME distances to holding altitudes and shifts lowest marshal stack altitude to Angels 6
 - Position update flight card interaction
 - Fix single flight card position display
+- Event management page basic implementation
+	- Chronological list of upcoming and past events
+	- Event details
+	- Attendance (expected and actual)
+	- Add events
