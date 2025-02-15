@@ -9,8 +9,9 @@ import FuelStateDialog from './components/ui/dialogs/FuelStateDialog';
 import PositionReportDialog from './components/ui/dialogs/PositionReportDialog';
 import NavigationBar from './components/ui/NavigationBar';
 
-// Lazy load RosterManagement
+// Lazy load components
 const RosterManagement = React.lazy(() => import('./components/ui/RosterManagement'));
+const EventsManagement = React.lazy(() => import('./components/ui/EventsManagement'));
 
 const App: React.FC = () => {
   const [flights, setFlights] = useState<Flight[]>(sampleFlights);
@@ -21,10 +22,10 @@ const App: React.FC = () => {
   const [isHoveringBoardNumber, setIsHoveringBoardNumber] = useState(false);
   const [initialBoardNumber, setInitialBoardNumber] = useState<string>('');
   const [hoveredFlightId, setHoveredFlightId] = useState<string | null>(null);
-  const [currentView, setCurrentView] = useState<'roster' | 'flights'>('flights');
+  const [currentView, setCurrentView] = useState<'roster' | 'flights' | 'events'>('flights');
   const [activeButton, setActiveButton] = useState<string>('flights');
 
-  const handleNavigate = (view: 'roster' | 'flights') => {
+  const handleNavigate = (view: 'roster' | 'flights' | 'events') => {
     setCurrentView(view);
     setActiveButton(view);
   };
@@ -124,8 +125,20 @@ const App: React.FC = () => {
   const renderMainContent = () => {
     if (currentView === 'roster') {
       return (
-        <Suspense fallback={<div>Loading...</div>}>
+        <Suspense fallback={
+          <div className="bg-slate-50" style={{ width: '100%', height: '100%' }} />
+        }>
           <RosterManagement />
+        </Suspense>
+      );
+    }
+
+    if (currentView === 'events') {
+      return (
+        <Suspense fallback={
+          <div className="bg-slate-50" style={{ width: '100%', height: '100%' }} />
+        }>
+          <EventsManagement />
         </Suspense>
       );
     }
