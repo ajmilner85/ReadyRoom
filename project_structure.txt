@@ -13,6 +13,9 @@ pri-fly
 │   ├── App.css
 │   ├── App.tsx
 │   ├── assets
+│   │   ├── Billets.txt
+│   │   ├── CV-NATOPS-JUL09.pdf
+│   │   ├── Qualifications.txt
 │   │   ├── Stingrays Logo 80x80.png
 │   │   └── react.svg
 │   ├── components
@@ -23,17 +26,21 @@ pri-fly
 │   │   └── ui
 │   │       ├── DivisionEditor.tsx
 │   │       ├── NavigationBar.tsx
+│   │       ├── QualificationBadge.tsx
+│   │       ├── RosterManagement.tsx
 │   │       ├── buttons
 │   │       │   ├── AddDivisionButton.tsx
 │   │       │   ├── EnRouteDivisionButton.tsx
 │   │       │   ├── LaunchDivisionButton.tsx
 │   │       │   ├── RecoveryToggleSwitch.tsx
 │   │       │   └── TankerDivisionButton.tsx
+│   │       ├── card.tsx
 │   │       ├── dialogs
 │   │       │   ├── DeleteDivisionDialog.tsx
 │   │       │   ├── EnRouteDivisionDialog.tsx
 │   │       │   ├── FuelStateDialog.tsx
 │   │       │   ├── LaunchDivisionDialog.tsx
+│   │       │   ├── PositionReportDialog.tsx
 │   │       │   └── TankerDivisionDialog.tsx
 │   │       └── flight cards
 │   │           ├── FlightCard.tsx
@@ -46,7 +53,10 @@ pri-fly
 │   ├── types
 │   │   ├── EnRouteTypes.ts
 │   │   ├── FlightData.ts
+│   │   ├── PilotTypes.ts
 │   │   └── TankerTypes.ts
+│   ├── utils
+│   │   └── positionUtils.tsx
 │   └── vite-env.d.ts
 ├── tailwind.config.cjs
 ├── tsconfig.app.json

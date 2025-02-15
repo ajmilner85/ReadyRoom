@@ -1,32 +1,59 @@
 import React from 'react';
+import { Users, Layout } from 'lucide-react';
 
-const NavigationBar = () => {
-  const buttons = [1, 2, 3, 4, 5].map(num => ({
-    id: num,
-    label: num.toString()
-  }));
+interface NavigationButton {
+  id: string;
+  icon: React.ReactNode;
+  label: string;
+  view: 'roster' | 'flights';
+}
 
+const buttons: NavigationButton[] = [
+  {
+    id: 'roster',
+    icon: <Users size={24} />,
+    label: 'Squadron Roster',
+    view: 'roster'
+  },
+  {
+    id: 'flights',
+    icon: <Layout size={24} />,
+    label: 'Flight Management',
+    view: 'flights'
+  },
+  // Other buttons will go here...
+];
+
+interface NavigationBarProps {
+  onNavigate: (view: 'roster' | 'flights') => void;
+  activeButton: string;
+}
+
+const NavigationBar: React.FC<NavigationBarProps> = ({ onNavigate, activeButton }) => {
   const topButtons = buttons.slice(0, 3);
   const bottomButtons = buttons.slice(3);
 
   const buttonStyle = {
-    position: 'relative',
+    position: 'relative' as const,
     width: '50px',
     height: '50px',
+    marginBottom: '32px', // Reduced to 32px as suggested
+    cursor: 'pointer' // Ensure cursor shows it's clickable
   };
 
   const buttonBackgroundStyle = {
-    position: 'absolute',
+    position: 'absolute' as const,
     width: '60px',
     height: '60px',
     left: '-5px',
     top: '-5px',
     background: '#E0E4E9',
-    borderRadius: '8px'
+    borderRadius: '8px',
+    transition: 'background-color 0.2s ease'
   };
 
   const buttonIconStyle = {
-    position: 'absolute',
+    position: 'absolute' as const,
     width: '50px',
     height: '50px',
     left: '0px',
@@ -34,7 +61,9 @@ const NavigationBar = () => {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    color: '#000000'
+    color: '#000000',
+    zIndex: 2, // Ensure icon is above background
+    pointerEvents: 'none' as const // Allow click to pass through to parent
   };
 
   return (
@@ -54,13 +83,35 @@ const NavigationBar = () => {
         <div className="flex-1 flex flex-col">
           {/* Center container for top buttons */}
           <div className="flex-1 flex flex-col justify-center items-center">
-            {topButtons.map((button, index) => (
-              <div key={button.id} className="mb-20 flex justify-center">
-                <div style={buttonStyle}>
-                  <div style={buttonBackgroundStyle}></div>
-                  <div style={buttonIconStyle}>
-                    {button.label}
-                  </div>
+            {topButtons.map((button) => (
+              <div 
+                key={button.id} 
+                style={buttonStyle}
+                onClick={() => onNavigate(button.view)}
+              >
+                <div 
+                  style={{
+                    ...buttonBackgroundStyle,
+                    background: activeButton === button.id ? '#82728C' : '#E0E4E9',
+                  }}
+                  onMouseEnter={(e) => {
+                    if (activeButton !== button.id) {
+                      e.currentTarget.style.background = '#5B4E61';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (activeButton !== button.id) {
+                      e.currentTarget.style.background = '#E0E4E9';
+                    }
+                  }}
+                />
+                <div 
+                  style={{
+                    ...buttonIconStyle,
+                    color: activeButton === button.id ? '#FFFFFF' : '#000000'
+                  }}
+                >
+                  {button.icon}
                 </div>
               </div>
             ))}
@@ -68,13 +119,35 @@ const NavigationBar = () => {
 
           {/* Bottom buttons */}
           <div className="pb-5">
-            {bottomButtons.map((button, index) => (
-              <div key={button.id} className="mb-20 last:mb-0 flex justify-center">
-                <div style={buttonStyle}>
-                  <div style={buttonBackgroundStyle}></div>
-                  <div style={buttonIconStyle}>
-                    {button.label}
-                  </div>
+            {bottomButtons.map((button) => (
+              <div 
+                key={button.id} 
+                style={buttonStyle}
+                onClick={() => onNavigate(button.view)}
+              >
+                <div 
+                  style={{
+                    ...buttonBackgroundStyle,
+                    background: activeButton === button.id ? '#82728C' : '#E0E4E9',
+                  }}
+                  onMouseEnter={(e) => {
+                    if (activeButton !== button.id) {
+                      e.currentTarget.style.background = '#5B4E61';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (activeButton !== button.id) {
+                      e.currentTarget.style.background = '#E0E4E9';
+                    }
+                  }}
+                />
+                <div 
+                  style={{
+                    ...buttonIconStyle,
+                    color: activeButton === button.id ? '#FFFFFF' : '#000000'
+                  }}
+                >
+                  {button.icon}
                 </div>
               </div>
             ))}

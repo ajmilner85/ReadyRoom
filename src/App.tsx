@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, Suspense, useEffect } from 'react';
 import { DndContext, DragEndEvent, DragOverlay, DragStartEvent } from '@dnd-kit/core';
 import GridLayout from './components/layout/GridLayout';
 import { SectionProvider } from './components/layout/SectionContext';
@@ -9,6 +9,9 @@ import FuelStateDialog from './components/ui/dialogs/FuelStateDialog';
 import PositionReportDialog from './components/ui/dialogs/PositionReportDialog';
 import NavigationBar from './components/ui/NavigationBar';
 
+// Lazy load RosterManagement
+const RosterManagement = React.lazy(() => import('./components/ui/RosterManagement'));
+
 const App: React.FC = () => {
   const [flights, setFlights] = useState<Flight[]>(sampleFlights);
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -18,69 +21,13 @@ const App: React.FC = () => {
   const [isHoveringBoardNumber, setIsHoveringBoardNumber] = useState(false);
   const [initialBoardNumber, setInitialBoardNumber] = useState<string>('');
   const [hoveredFlightId, setHoveredFlightId] = useState<string | null>(null);
+  const [currentView, setCurrentView] = useState<'roster' | 'flights'>('flights');
+  const [activeButton, setActiveButton] = useState<string>('flights');
 
-  useEffect(() => {
-    const handleKeyPress = (e: KeyboardEvent) => {
-      // Handle fuel dialog
-      if (e.key.toLowerCase() === 'f') {
-        if (showFuelDialog) {
-          setShowFuelDialog(false);
-          setInitialBoardNumber('');
-        } else {
-          setShowFuelDialog(true);
-          const newInitialBoardNumber = isHoveringBoardNumber ? hoveredBoardNumber : '';
-          setInitialBoardNumber(newInitialBoardNumber || '');
-        }
-        return;
-      }
-
-      // Handle position report dialog
-      if (e.key.toLowerCase() === 't') {
-        if (showPositionDialog) {
-          setShowPositionDialog(false);
-          setInitialBoardNumber('');
-        } else {
-          setShowPositionDialog(true);
-          const newInitialBoardNumber = isHoveringBoardNumber ? hoveredBoardNumber : '';
-          setInitialBoardNumber(newInitialBoardNumber || '');
-        }
-        return;
-      }
-
-      // Handle split/divide when a flight is being hovered
-      if (!hoveredFlightId) return;
-
-      const hoveredFlight = flights.find(f => f.id === hoveredFlightId);
-      if (!hoveredFlight) return;
-
-      if (e.key.toLowerCase() === 's') {
-        if (hoveredFlight.formation === 'group' || hoveredFlight.formation === 'section') {
-          const splitFlights = splitFlight(hoveredFlight);
-          setFlights(prev => {
-            const updatedFlights = prev.filter(f => f.id !== hoveredFlightId);
-            return [...updatedFlights, ...splitFlights];
-          });
-        }
-      } else if (e.key.toLowerCase() === 'd') {
-        if (hoveredFlight.formation === 'group') {
-          const dividedFlights = divideFlight(hoveredFlight);
-          setFlights(prev => {
-            const updatedFlights = prev.filter(f => f.id !== hoveredFlightId);
-            return [...updatedFlights, ...dividedFlights];
-          });
-        } else if (hoveredFlight.formation === 'section' && hoveredFlight.members.length === 2) {
-          const splitFlights = splitFlight(hoveredFlight);
-          setFlights(prev => {
-            const updatedFlights = prev.filter(f => f.id !== hoveredFlightId);
-            return [...updatedFlights, ...splitFlights];
-          });
-        }
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyPress);
-    return () => window.removeEventListener('keydown', handleKeyPress);
-  }, [hoveredFlightId, flights, showFuelDialog, showPositionDialog, hoveredBoardNumber, isHoveringBoardNumber]);
+  const handleNavigate = (view: 'roster' | 'flights') => {
+    setCurrentView(view);
+    setActiveButton(view);
+  };
 
   const handleDragStart = (event: DragStartEvent) => {
     setActiveId(event.active.id as string);
@@ -174,86 +121,166 @@ const App: React.FC = () => {
 
   const activeFlight = flights.find(f => f.id === activeId);
 
-  return (
-    <SectionProvider>
+  const renderMainContent = () => {
+    if (currentView === 'roster') {
+      return (
+        <Suspense fallback={<div>Loading...</div>}>
+          <RosterManagement />
+        </Suspense>
+      );
+    }
+
+    return (
       <DndContext 
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
       >
-        <div style={{ display: 'grid', gridTemplateColumns: '100px 1fr' }} className="min-h-screen">
-          <NavigationBar />
-          <div 
-            onMouseMove={(e) => {
-              const target = e.target as HTMLElement;
-              const boardNumber = target.getAttribute('data-board-number');
-              if (boardNumber) {
-                setHoveredBoardNumber(boardNumber);
-                setIsHoveringBoardNumber(true);
-              } else {
-                setIsHoveringBoardNumber(false);
-              }
-
-              let currentElement: HTMLElement | null = target;
-              while (currentElement && !currentElement.getAttribute('data-flight-id')) {
-                currentElement = currentElement.parentElement;
-              }
-              
-              const flightId = currentElement?.getAttribute('data-flight-id') || null;
-              setHoveredFlightId(flightId);
-            }}
-            onMouseLeave={() => {
+        <div 
+          onMouseMove={(e) => {
+            const target = e.target as HTMLElement;
+            const boardNumber = target.getAttribute('data-board-number');
+            if (boardNumber) {
+              setHoveredBoardNumber(boardNumber);
+              setIsHoveringBoardNumber(true);
+            } else {
               setIsHoveringBoardNumber(false);
-              setHoveredFlightId(null);
-            }}
-            className="bg-slate-50"
-          >
-            <GridLayout 
-              flights={flights}
-              onUpdateMemberFuel={handleUpdateMemberFuel}
+            }
+
+            let currentElement: HTMLElement | null = target;
+            while (currentElement && !currentElement.getAttribute('data-flight-id')) {
+              currentElement = currentElement.parentElement;
+            }
+            
+            const flightId = currentElement?.getAttribute('data-flight-id') || null;
+            setHoveredFlightId(flightId);
+          }}
+          onMouseLeave={() => {
+            setIsHoveringBoardNumber(false);
+            setHoveredFlightId(null);
+          }}
+          className="bg-slate-50"
+        >
+          <GridLayout 
+            flights={flights}
+            onUpdateMemberFuel={handleUpdateMemberFuel}
+          />
+          <DragOverlay>
+            {activeFlight && (
+              activeFlight.formation === 'single' ? (
+                <SingleFlightCard 
+                  {...activeFlight}
+                  isDragging={true}
+                />
+              ) : (
+                <FlightCard 
+                  {...activeFlight}
+                  isDragging={true}
+                />
+              )
+            )}
+          </DragOverlay>
+          {showFuelDialog && (
+            <FuelStateDialog
+              initialBoardNumber={initialBoardNumber}
+              onClose={() => {
+                setShowFuelDialog(false);
+                setInitialBoardNumber('');
+              }}
+              onUpdateFuel={(boardNumber, newFuel) => {
+                const flightInfo = findFlightByBoardNumber(boardNumber);
+                if (flightInfo) {
+                  handleUpdateMemberFuel(flightInfo.flight.id, flightInfo.dashNumber, newFuel);
+                }
+              }}
             />
-            <DragOverlay>
-              {activeFlight && (
-                activeFlight.formation === 'single' ? (
-                  <SingleFlightCard 
-                    {...activeFlight}
-                    isDragging={true}
-                  />
-                ) : (
-                  <FlightCard 
-                    {...activeFlight}
-                    isDragging={true}
-                  />
-                )
-              )}
-            </DragOverlay>
-            {showFuelDialog && (
-              <FuelStateDialog
-                initialBoardNumber={initialBoardNumber}
-                onClose={() => {
-                  setShowFuelDialog(false);
-                  setInitialBoardNumber('');
-                }}
-                onUpdateFuel={(boardNumber, newFuel) => {
-                  const flightInfo = findFlightByBoardNumber(boardNumber);
-                  if (flightInfo) {
-                    handleUpdateMemberFuel(flightInfo.flight.id, flightInfo.dashNumber, newFuel);
-                  }
-                }}
-              />
-            )}
-            {showPositionDialog && (
-              <PositionReportDialog
-                initialBoardNumber={initialBoardNumber}
-                onClose={() => {
-                  setShowPositionDialog(false);
-                  setInitialBoardNumber('');
-                }}
-                onUpdatePosition={handleUpdatePosition}
-              />
-            )}
-          </div>
+          )}
+          {showPositionDialog && (
+            <PositionReportDialog
+              initialBoardNumber={initialBoardNumber}
+              onClose={() => {
+                setShowPositionDialog(false);
+                setInitialBoardNumber('');
+              }}
+              onUpdatePosition={handleUpdatePosition}
+            />
+          )}
         </div>
       </DndContext>
+    );
+  };
+
+  useEffect(() => {
+    const handleKeyPress = (e: KeyboardEvent) => {
+      // Only handle keypresses when in flight management view
+      if (currentView !== 'flights') return;
+
+      // Handle fuel dialog
+      if (e.key.toLowerCase() === 'f') {
+        if (showFuelDialog) {
+          setShowFuelDialog(false);
+          setInitialBoardNumber('');
+        } else {
+          setShowFuelDialog(true);
+          const newInitialBoardNumber = isHoveringBoardNumber ? hoveredBoardNumber : '';
+          setInitialBoardNumber(newInitialBoardNumber || '');
+        }
+        return;
+      }
+
+      // Handle position report dialog
+      if (e.key.toLowerCase() === 't') {
+        if (showPositionDialog) {
+          setShowPositionDialog(false);
+          setInitialBoardNumber('');
+        } else {
+          setShowPositionDialog(true);
+          const newInitialBoardNumber = isHoveringBoardNumber ? hoveredBoardNumber : '';
+          setInitialBoardNumber(newInitialBoardNumber || '');
+        }
+        return;
+      }
+
+      // Handle split/divide when a flight is being hovered
+      if (!hoveredFlightId) return;
+
+      const hoveredFlight = flights.find(f => f.id === hoveredFlightId);
+      if (!hoveredFlight) return;
+
+      if (e.key.toLowerCase() === 's') {
+        if (hoveredFlight.formation === 'group' || hoveredFlight.formation === 'section') {
+          const splitFlights = splitFlight(hoveredFlight);
+          setFlights(prev => {
+            const updatedFlights = prev.filter(f => f.id !== hoveredFlightId);
+            return [...updatedFlights, ...splitFlights];
+          });
+        }
+      } else if (e.key.toLowerCase() === 'd') {
+        if (hoveredFlight.formation === 'group') {
+          const dividedFlights = divideFlight(hoveredFlight);
+          setFlights(prev => {
+            const updatedFlights = prev.filter(f => f.id !== hoveredFlightId);
+            return [...updatedFlights, ...dividedFlights];
+          });
+        } else if (hoveredFlight.formation === 'section' && hoveredFlight.members.length === 2) {
+          const splitFlights = splitFlight(hoveredFlight);
+          setFlights(prev => {
+            const updatedFlights = prev.filter(f => f.id !== hoveredFlightId);
+            return [...updatedFlights, ...splitFlights];
+          });
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyPress);
+    return () => window.removeEventListener('keydown', handleKeyPress);
+  }, [currentView, hoveredFlightId, flights, showFuelDialog, showPositionDialog, hoveredBoardNumber, isHoveringBoardNumber]);
+
+  return (
+    <SectionProvider>
+      <div style={{ display: 'grid', gridTemplateColumns: '100px 1fr' }} className="min-h-screen">
+        <NavigationBar onNavigate={handleNavigate} activeButton={activeButton} />
+        {renderMainContent()}
+      </div>
     </SectionProvider>
   );
 };

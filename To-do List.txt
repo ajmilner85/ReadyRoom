@@ -1,6 +1,11 @@
 
 In Progress:
-- Position update flight card interaction
+- Squadron Roster Management
+	- Implement CRUD functions
+		- Prevent duplicate board numbers
+	- Role Assignment and Qualification Management
+	- Distinguish Site, Discord, and Squadron Roles/Billets
+	- Improve visual appearance of pilot details tile
 
 Next:
 
@@ -14,26 +19,35 @@ Essential:
 
 
 High Priority:
-- Flight/aircraft creation interface
-	- Prevent duplication of board numbers
-	- Provide a list of recently used flight callsigns
-	- Automatically sequence flight numbers within each callsign
-- State saving
-- Mission saving
-
+- Mission preparation page
+	- Attendance (Discord/Apollo integration?)
+	- Create flights
+		- Provide a list of recently used flight callsigns
+		- Automatically sequence flight numbers within each callsign
+	- Assign pilots
+	- Assign MIDS/Encryption channels
+	- Create comms card
+	- Export kneeboards
+	- +OpenKneeboard compatible dynamic page
+- Database implementation
+	- Roster
+	- Mission/event saving
 
 Medium Priority:
-- Roster
-- Attendance and flight assignments
-- Import/Export flight assignments
-- Assign/import MIDS and encryption channels
 - Add signal divert
+	- Split Tanker Column into 2, with divert area at the bottom
 - Refactor storage area to sort flights by size (Single > 4-ship)
 - Enable dragging-and-dropping to storage area
 - Sort storage area flights by callsign then flight number then dash number in ascending order
 
 
 QOL:
+- Admin page
+	- Squadron logo/branding
+	- Color themes
+	- Role Types
+	- Qualification Types
+	- Squadron Statuses
 - Dragging a flight into an empty area of the En Route/Tasking section brings up an add mission dialog, entering a mission drops the card into that mission division, hitting cancel returns the card to where it was last
 - Fuel state estimate or last update timer
 - BRC/Weather Display
@@ -43,6 +57,10 @@ QOL:
 - Implement light/dark mode
 - Sort En Route/Tasking to top of page by default
 	- Divide by AA and AG taskings?
+- Quick references
+	- NATOPs
+	- NAVAIR
+
 
 
 Cosmetic:
@@ -68,7 +86,7 @@ To prioritize:
 - Tagging aircraft with Alibis
 - Keybinds, e.g.
 	- C - combine flight or check-in
-	- R - recover or RTB
+	- R - recover or RTB or Rolex
 	- E - established
 	- A - approach time
 	- W - winchester
@@ -116,11 +134,15 @@ Complete
 - Vertical navigation bar and placeholder buttons
 - Squadron logo
 - Keybinds, e.g.
-	- S - split flight
-	- D - divide flight into sections
+	- S - Split flight
+	- D - Divide flight into sections
+	- F - Fuel State Update
+	- T - Position ReporT
 - Ability split and merge individual aircraft into and out of flights
 	- Issues:
 		- Individual flight cards are not the same width as group flight cards
 		- Dividing a flight causes the 2nd section to disappear
 - Case  II/III toggle that adds
 	- DME distances to holding altitudes and shifts lowest marshal stack altitude to Angels 6
+- Position update flight card interaction
+- Fix single flight card position display
