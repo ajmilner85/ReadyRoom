@@ -3,8 +3,6 @@ In Progress:
 - Event management page essential features
 	- Delete and edit events
 	- List dividers for upcoming and past events
-
-Next:
 - Mission preparation page
 	- Attendance (Discord/Apollo integration?)
 		- Cruise, Foothold, Other (Accepted, Declined, Tentative)
@@ -16,8 +14,12 @@ Next:
 	- Assign MIDS/Encryption channels
 	- Create comms card
 	- Export kneeboards
-	- +OpenKneeboard compatible dynamic page
 
+Next:
+- Database implementation
+	- Roster
+	- Mission/event saving
+	
 
 Essential:
 - Case  II/III recovery section refactor to add
@@ -27,18 +29,14 @@ Essential:
 
 
 High Priority:
-
-- Database implementation
-	- Roster
-	- Mission/event saving
-
-Medium Priority:
 - Squadron Roster Management
 	- Implement CRUD functions
 		- Prevent duplicate board numbers
 	- Role Assignment and Qualification Management
 	- Distinguish Site, Discord, and Squadron Roles/Billets
 	- Improve visual appearance of pilot details tile
+
+Medium Priority:
 - Add signal divert
 	- Split Tanker Column into 2, with divert area at the bottom
 - Refactor storage area to sort flights by size (Single > 4-ship)
@@ -65,6 +63,7 @@ QOL:
 - Quick references
 	- NATOPs
 	- NAVAIR
+- Simplified, OpenKneeboard compatible dynamic page for live kneeboard updates, last minute coordination
 
 
 

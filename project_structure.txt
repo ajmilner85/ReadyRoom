@@ -1,6 +1,7 @@
 pri-fly
 ├── README.md
 ├── To-do List.txt
+├── Useful Commands.txt
 ├── eslint.config.js
 ├── index.html
 ├── package-lock.json
@@ -25,7 +26,10 @@ pri-fly
 │   │   │   └── SectionContext.tsx
 │   │   └── ui
 │   │       ├── DivisionEditor.tsx
+│   │       ├── EventsManagement.tsx
+│   │       ├── MissionPreparation.tsx
 │   │       ├── NavigationBar.tsx
+│   │       ├── PilotList.tsx
 │   │       ├── QualificationBadge.tsx
 │   │       ├── RosterManagement.tsx
 │   │       ├── buttons
@@ -42,16 +46,27 @@ pri-fly
 │   │       │   ├── LaunchDivisionDialog.tsx
 │   │       │   ├── PositionReportDialog.tsx
 │   │       │   └── TankerDivisionDialog.tsx
-│   │       └── flight cards
-│   │           ├── FlightCard.tsx
-│   │           ├── FuelDisplay.tsx
-│   │           └── SingleFlightCard.tsx
+│   │       ├── events
+│   │       │   ├── EventAttendance.tsx
+│   │       │   ├── EventDetails.tsx
+│   │       │   ├── EventDialog.tsx
+│   │       │   └── EventsList.tsx
+│   │       ├── flight cards
+│   │       │   ├── FlightCard.tsx
+│   │       │   ├── FuelDisplay.tsx
+│   │       │   └── SingleFlightCard.tsx
+│   │       └── mission prep
+│   │           ├── AvailablePilots.tsx
+│   │           ├── Communications.tsx
+│   │           ├── FlightAssignments.tsx
+│   │           └── MissionDetails.tsx
 │   ├── index.css
 │   ├── main.tsx
 │   ├── styles
 │   │   └── DivisionEditor.ts
 │   ├── types
 │   │   ├── EnRouteTypes.ts
+│   │   ├── EventTypes.ts
 │   │   ├── FlightData.ts
 │   │   ├── PilotTypes.ts
 │   │   └── TankerTypes.ts
