@@ -4,11 +4,21 @@ import type { Event } from '../../../types/EventTypes';
 
 interface MissionDetailsProps {
   width: string;
+  events: Event[];
+  selectedEvent: Event | null;
+  onEventSelect: (event: Event | null) => void;
 }
 
-const MissionDetails: React.FC<MissionDetailsProps> = ({ width }) => {
-  // TODO: Get events from context/API
-  const events: Event[] = [];
+const MissionDetails: React.FC<MissionDetailsProps> = ({ 
+  width,
+  events,
+  selectedEvent,
+  onEventSelect
+}) => {
+  // Sort events by date (newest first)
+  const sortedEvents = [...events].sort((a, b) => 
+    new Date(b.datetime).getTime() - new Date(a.datetime).getTime()
+  );
 
   return (
     <div style={{ 
@@ -39,12 +49,16 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({ width }) => {
             <label className="text-sm text-slate-500 block mb-1">Event</label>
             <select 
               className="w-full p-2 border rounded-md"
-              defaultValue=""
+              value={selectedEvent?.id || ''}
+              onChange={(e) => {
+                const event = events.find(evt => evt.id === e.target.value);
+                onEventSelect(event || null);
+              }}
             >
-              <option value="" disabled>Select an event</option>
-              {events.map(event => (
+              <option value="">Select an event</option>
+              {sortedEvents.map(event => (
                 <option key={event.id} value={event.id}>
-                  {event.title}
+                  {new Date(event.datetime).toLocaleString()} - {event.title}
                 </option>
               ))}
             </select>
@@ -54,6 +68,8 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({ width }) => {
             <textarea 
               className="w-full p-2 border rounded-md h-24" 
               placeholder="Enter mission objective"
+              value={selectedEvent?.description || ''}
+              readOnly
             />
           </div>
           <div>

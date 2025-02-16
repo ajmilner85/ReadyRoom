@@ -11,8 +11,8 @@ interface PilotListProps {
 
 const QUALIFICATION_ORDER: QualificationType[] = [
   'Strike Lead',
-  '4-Ship',
-  '2-Ship',
+  'Flight Lead',
+  'Section Lead',
   'CQ'
 ];
 

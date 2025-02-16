@@ -1,13 +1,5 @@
 import React from 'react';
-
-export type QualificationType = 
-  | 'Strike Lead' 
-  | 'Instructor Pilot' 
-  | 'LSO' 
-  | '4-Ship' 
-  | '2-Ship' 
-  | 'CQ' 
-  | 'Night CQ';
+import type { QualificationType } from '../../types/PilotTypes';
 
 interface QualificationBadgeProps {
   type: QualificationType;
@@ -27,11 +19,11 @@ const QUALIFICATION_CONFIGS: Record<QualificationType, { abbr: string; color: st
     abbr: 'LSO', 
     color: '#646F7E'  // Slate
   },
-  '4-Ship': { 
+  'Flight Lead': { 
     abbr: '4S', 
     color: '#646F7E'  // Slate
   },
-  '2-Ship': { 
+  'Section Lead': { 
     abbr: '2S', 
     color: '#646F7E'  // Slate
   },
@@ -42,6 +34,10 @@ const QUALIFICATION_CONFIGS: Record<QualificationType, { abbr: string; color: st
   'Night CQ': { 
     abbr: 'NCQ', 
     color: '#222A35'  // Dark Blue
+  },
+  'Wingman': {
+    abbr: 'WM',
+    color: '#B0B0B0'  // Medium Grey
   }
 };
 
@@ -78,7 +74,7 @@ const QualificationBadge: React.FC<QualificationBadgeProps> = ({ type, count }) 
       >
         <span>{config.abbr}</span>
       </div>
-      {count !== undefined && (
+      {count !== undefined && count > 1 && (
         <div
           style={{
             backgroundColor: '#646F7E',
