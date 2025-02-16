@@ -43,7 +43,23 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
           boxSizing: 'border-box'
         }}
       >
-        <h2 className="text-lg font-semibold mb-4">Mission Details</h2>
+        <div style={{
+          width: '100%',
+          textAlign: 'center',
+          marginBottom: '16px'
+        }}>
+          <span style={{
+            fontFamily: 'Inter',
+            fontStyle: 'normal',
+            fontWeight: 300,
+            fontSize: '20px',
+            lineHeight: '24px',
+            color: '#64748B',
+            textTransform: 'uppercase'
+          }}>
+            Mission Details
+          </span>
+        </div>
         <div className="space-y-4">
           <div>
             <label className="text-sm text-slate-500 block mb-1">Event</label>
@@ -98,7 +114,23 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
           boxSizing: 'border-box'
         }}
       >
-        <h2 className="text-lg font-semibold mb-4">Tasking & Roles</h2>
+        <div style={{
+          width: '100%',
+          textAlign: 'center',
+          marginBottom: '16px'
+        }}>
+          <span style={{
+            fontFamily: 'Inter',
+            fontStyle: 'normal',
+            fontWeight: 300,
+            fontSize: '20px',
+            lineHeight: '24px',
+            color: '#64748B',
+            textTransform: 'uppercase'
+          }}>
+            Tasking
+          </span>
+        </div>
         <div className="flex-1" style={{ overflowY: 'auto' }}>
           {/* Task list will go here - styled like squadron roster list */}
         </div>
@@ -106,9 +138,9 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
           display: 'flex',
           justifyContent: 'center',
           alignItems: 'center',
-          padding: '18px',
-          position: 'relative',
-          zIndex: 5
+          marginTop: 'auto',
+          padding: '24px 0 0 0',
+          borderTop: '1px solid #E2E8F0'
         }}>
           <button
             style={{

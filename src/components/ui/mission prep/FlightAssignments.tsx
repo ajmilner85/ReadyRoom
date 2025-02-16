@@ -167,7 +167,23 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({ width }) => {
           boxSizing: 'border-box'
         }}
       >
-        <h2 className="text-lg font-semibold mb-4">Flight Assignments</h2>
+        <div style={{
+          width: '100%',
+          textAlign: 'center',
+          marginBottom: '16px'
+        }}>
+          <span style={{
+            fontFamily: 'Inter',
+            fontStyle: 'normal',
+            fontWeight: 300,
+            fontSize: '20px',
+            lineHeight: '24px',
+            color: '#64748B',
+            textTransform: 'uppercase'
+          }}>
+            Flight Assignments
+          </span>
+        </div>
         <div className="flex-1" style={{ overflowY: 'auto' }}>
           <div className="space-y-4">
             {exampleFlights.map((flight, index) => (
@@ -186,9 +202,9 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({ width }) => {
           display: 'flex',
           justifyContent: 'center',
           alignItems: 'center',
-          padding: '18px',
-          position: 'relative',
-          zIndex: 5
+          marginTop: 'auto',
+          padding: '24px 0 0 0',
+          borderTop: '1px solid #E2E8F0'
         }}>
           <button
             style={{
