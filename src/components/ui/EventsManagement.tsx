@@ -3,6 +3,7 @@ import EventsList from './events/EventsList';
 import EventDetails from './events/EventDetails';
 import EventAttendance from './events/EventAttendance';
 import EventDialog from './events/EventDialog';
+import { DeleteDivisionDialog } from './dialogs/DeleteDivisionDialog';
 import type { Event } from '../../types/EventTypes';
 
 const INITIAL_EVENTS: Event[] = [
@@ -37,6 +38,9 @@ const EventsManagement: React.FC = () => {
   const [events, setEvents] = useState<Event[]>(INITIAL_EVENTS);
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [showEventDialog, setShowEventDialog] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [eventToDelete, setEventToDelete] = useState<Event | null>(null);
+  const [editingEvent, setEditingEvent] = useState<Event | null>(null);
 
   const handleCreateEvent = (eventData: {
     title: string;
@@ -72,6 +76,63 @@ const EventsManagement: React.FC = () => {
     setShowEventDialog(false);
   };
 
+  const handleEditEvent = (eventData: {
+    title: string;
+    description: string;
+    datetime: string;
+    restrictedTo?: string[];
+  }) => {
+    if (!editingEvent) return;
+
+    setEvents(prevEvents => {
+      return prevEvents.map(event => {
+        if (event.id === editingEvent.id) {
+          const updatedEvent = {
+            ...event,
+            ...eventData
+          };
+          // If this is the selected event, update the selection
+          if (selectedEvent?.id === event.id) {
+            setSelectedEvent(updatedEvent);
+          }
+          return updatedEvent;
+        }
+        return event;
+      }).sort((a, b) => 
+        new Date(b.datetime).getTime() - new Date(a.datetime).getTime()
+      );
+    });
+
+    setEditingEvent(null);
+    setShowEventDialog(false);
+  };
+
+  const handleDeleteEvent = (event: Event) => {
+    setEventToDelete(event);
+    setShowDeleteDialog(true);
+  };
+
+  const confirmDeleteEvent = () => {
+    if (!eventToDelete) return;
+
+    setEvents(prevEvents => {
+      const updatedEvents = prevEvents.filter(e => e.id !== eventToDelete.id);
+      // If we're deleting the selected event, clear the selection
+      if (selectedEvent?.id === eventToDelete.id) {
+        setSelectedEvent(null);
+      }
+      return updatedEvents;
+    });
+
+    setShowDeleteDialog(false);
+    setEventToDelete(null);
+  };
+
+  const handleEditClick = (event: Event) => {
+    setEditingEvent(event);
+    setShowEventDialog(true);
+  };
+
   return (
     <div 
       style={{ 
@@ -100,7 +161,12 @@ const EventsManagement: React.FC = () => {
           events={events}
           selectedEvent={selectedEvent}
           onEventSelect={setSelectedEvent}
-          onNewEvent={() => setShowEventDialog(true)}
+          onNewEvent={() => {
+            setEditingEvent(null);
+            setShowEventDialog(true);
+          }}
+          onEditEvent={handleEditClick}
+          onDeleteEvent={handleDeleteEvent}
         />
         
         <EventDetails event={selectedEvent} />
@@ -110,8 +176,24 @@ const EventsManagement: React.FC = () => {
 
       {showEventDialog && (
         <EventDialog
-          onSave={handleCreateEvent}
-          onCancel={() => setShowEventDialog(false)}
+          onSave={editingEvent ? handleEditEvent : handleCreateEvent}
+          onCancel={() => {
+            setShowEventDialog(false);
+            setEditingEvent(null);
+          }}
+          initialData={editingEvent ?? undefined}
+        />
+      )}
+
+      {showDeleteDialog && eventToDelete && (
+        <DeleteDivisionDialog
+          onConfirm={confirmDeleteEvent}
+          onCancel={() => {
+            setShowDeleteDialog(false);
+            setEventToDelete(null);
+          }}
+          sectionTitle="Event"
+          divisionLabel={eventToDelete.title}
         />
       )}
     </div>

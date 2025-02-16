@@ -1,8 +1,8 @@
 
 In Progress:
-- Event management page essential features
-	- Delete and edit events
-	- List dividers for upcoming and past events
+
+
+Next:
 - Mission preparation page
 	- Attendance (Discord/Apollo integration?)
 		- Cruise, Foothold, Other (Accepted, Declined, Tentative)
@@ -12,10 +12,9 @@ In Progress:
 		- Automatically sequence flight numbers within each callsign
 	- Assign pilots
 	- Assign MIDS/Encryption channels
+	- Loadouts/Initial Fuel State
 	- Create comms card
 	- Export kneeboards
-
-Next:
 - Database implementation
 	- Roster
 	- Mission/event saving
@@ -157,3 +156,6 @@ Complete
 	- Event details
 	- Attendance (expected and actual)
 	- Add events
+- Event management page essential features
+	- Delete and edit events
+	- List dividers for upcoming and past events

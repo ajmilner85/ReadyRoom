@@ -2,10 +2,11 @@ export type QualificationType =
   | 'Strike Lead' 
   | 'Instructor Pilot' 
   | 'LSO' 
-  | '4-Ship' 
-  | '2-Ship' 
+  | 'Flight Lead'  // Formerly '4-Ship'
+  | 'Section Lead' // Formerly '2-Ship'
   | 'CQ' 
-  | 'Night CQ';
+  | 'Night CQ'
+  | 'Wingman';  // Added Wingman as a valid qualification type
 
 export interface Qualification {
   id: string;
@@ -116,12 +117,12 @@ export const pilots: Pilot[] = [
     "qualifications": [
       {
         "id": "265513619276562433-0",
-        "type": "4-Ship",
+        "type": "Flight Lead",
         "dateAchieved": "2024-01-01"
       },
       {
         "id": "265513619276562433-1",
-        "type": "2-Ship",
+        "type": "Section Lead",
         "dateAchieved": "2024-01-01"
       }
     ],
@@ -136,12 +137,12 @@ export const pilots: Pilot[] = [
     "qualifications": [
       {
         "id": "285985223022477315-0",
-        "type": "4-Ship",
+        "type": "Flight Lead",
         "dateAchieved": "2024-01-01"
       },
       {
         "id": "285985223022477315-1",
-        "type": "2-Ship",
+        "type": "Section Lead",
         "dateAchieved": "2024-01-01"
       },
       {
@@ -171,12 +172,12 @@ export const pilots: Pilot[] = [
       },
       {
         "id": "193203657938960384-1",
-        "type": "4-Ship",
+        "type": "Flight Lead",
         "dateAchieved": "2024-01-01"
       },
       {
         "id": "193203657938960384-2",
-        "type": "2-Ship",
+        "type": "Section Lead",
         "dateAchieved": "2024-01-01"
       },
       {
@@ -196,12 +197,12 @@ export const pilots: Pilot[] = [
     "qualifications": [
       {
         "id": "225432482445656065-0",
-        "type": "4-Ship",
+        "type": "Flight Lead",
         "dateAchieved": "2024-01-01"
       },
       {
         "id": "225432482445656065-1",
-        "type": "2-Ship",
+        "type": "Section Lead",
         "dateAchieved": "2024-01-01"
       },
       {
@@ -221,7 +222,7 @@ export const pilots: Pilot[] = [
     "qualifications": [
       {
         "id": "228618266472480778-0",
-        "type": "2-Ship",
+        "type": "Section Lead",
         "dateAchieved": "2024-01-01"
       }
     ],
@@ -283,12 +284,12 @@ export const pilots: Pilot[] = [
       },
       {
         "id": "163349806427668480-1",
-        "type": "4-Ship",
+        "type": "Flight Lead",
         "dateAchieved": "2024-01-01"
       },
       {
         "id": "163349806427668480-2",
-        "type": "2-Ship",
+        "type": "Section Lead",
         "dateAchieved": "2024-01-01"
       },
       {
@@ -353,7 +354,7 @@ export const pilots: Pilot[] = [
     "qualifications": [
         {
         "id": "248983844764647426-0",
-        "type": "2-Ship",
+        "type": "Section Lead",
         "dateAchieved": "2024-01-01"
         },
         {
@@ -373,7 +374,7 @@ export const pilots: Pilot[] = [
     "qualifications": [
         {
         "id": "161244060126937091-0",
-        "type": "4-Ship",
+        "type": "Flight Lead",
         "dateAchieved": "2024-01-01"
         },
         {
@@ -393,7 +394,7 @@ export const pilots: Pilot[] = [
     "qualifications": [
         {
         "id": "331482431154814978-0",
-        "type": "2-Ship",
+        "type": "Section Lead",
         "dateAchieved": "2024-01-01"
         },
         {
@@ -437,7 +438,7 @@ export const pilots: Pilot[] = [
     "qualifications": [
         {
         "id": "244270802306990081-0",
-        "type": "4-Ship",
+        "type": "Flight Lead",
         "dateAchieved": "2024-01-01"
         },
         {
@@ -447,7 +448,7 @@ export const pilots: Pilot[] = [
         },
         {
         "id": "244270802306990081-2",
-        "type": "2-Ship",
+        "type": "Section Lead",
         "dateAchieved": "2024-01-01"
         },
         {
@@ -509,7 +510,7 @@ export const pilots: Pilot[] = [
     "qualifications": [
         {
         "id": "442807532973719552-0",
-        "type": "2-Ship",
+        "type": "Section Lead",
         "dateAchieved": "2024-01-01"
         }
     ],
