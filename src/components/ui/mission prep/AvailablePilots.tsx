@@ -117,6 +117,25 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
           boxSizing: 'border-box'
         }}
       >
+        {/* Header with new card label style */}
+        <div style={{
+          width: '100%',
+          textAlign: 'center',
+          marginBottom: '16px'
+        }}>
+          <span style={{
+            fontFamily: 'Inter',
+            fontStyle: 'normal',
+            fontWeight: 300,
+            fontSize: '20px',
+            lineHeight: '24px',
+            color: '#64748B',
+            textTransform: 'uppercase'
+          }}>
+            Available Pilots
+          </span>
+        </div>
+
         {/* Filter section */}
         <div className="mb-4">
           <div style={{
@@ -177,7 +196,7 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
           </div>
         </div>
 
-        {/* Pilots list - Using PilotList.tsx structure */}
+        {/* Pilots list */}
         <div className="flex-1 overflow-y-auto">
           {[...DISPLAY_ORDER, 'Wingman' as QualificationType].map(qualification => {
             const qualPilots = groupedPilots[qualification] || [];
@@ -231,12 +250,6 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
                       transition: 'background-color 0.2s ease',
                       borderRadius: '8px',
                       padding: '0 10px'
-                    }}
-                    onMouseEnter={e => {
-                      e.currentTarget.style.backgroundColor = 'rgba(100, 116, 139, 0.1)';
-                    }}
-                    onMouseLeave={e => {
-                      e.currentTarget.style.backgroundColor = 'transparent';
                     }}
                   >
                     <span style={{
