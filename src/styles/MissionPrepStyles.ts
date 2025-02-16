@@ -37,9 +37,8 @@ export const styles = {
       alignItems: 'center',
       justifyContent: 'center',
       transition: 'box-shadow 0.1s ease',
-      position: 'absolute' as const,
-      right: '24px',
-      top: '24px',
+      marginLeft: '8px',
+      zIndex: 1,
     },
     addButton: {
       width: '119px',
