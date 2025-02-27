@@ -4,6 +4,7 @@ import { useSections } from '../../layout/SectionContext';
 interface RecoveryDivision {
   id: string;
   label: string;
+  approachTime?: number;
 }
 
 const generateCaseIDivisions = (): RecoveryDivision[] => [
@@ -25,11 +26,16 @@ const generateCaseIIIIIDivisions = (): RecoveryDivision[] => {
   // Add divisions from Angels 17 down to Angels 6
   for (let altitude = 17; altitude >= 6; altitude--) {
     const dme = altitude + 15; // DME = ANGELS + 15
+    const approachTime = 30 + (altitude - 6); // Start at :30 for Angels 6, increment by 1 minute per level
     divisions.push({
       id: `recovery-${altitude}`,
-      label: `DME ${dme} - ANGELS ${altitude}`
+      label: `DME ${dme}\nANGELS ${altitude}\n:${approachTime.toString().padStart(2, '0')}`,
+      approachTime
     });
   }
+  
+  divisions.push({ id: 'recovery-spin', label: 'SPIN' });
+  divisions.push({ id: 'recovery-charlie', label: 'CHARLIE' });
   
   return divisions;
 };
