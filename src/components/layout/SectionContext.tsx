@@ -1,6 +1,13 @@
 import React, { createContext, useContext, useState } from 'react';
 import type { EnRouteDivisionData } from '../../types/EnRouteTypes';
-import type { TankerDivisionData } from '../ui/dialogs/TankerDivisionDialog';
+
+interface TankerDivisionData {
+  label: string;
+  callsign: string;
+  altitude: number;
+  aircraftType: string;
+  role: 'mission-tankers' | 'recovery-tankers';
+}
 
 export interface Division {
   id: string;
@@ -10,17 +17,17 @@ export interface Division {
   blockFloor?: number;
   blockCeiling?: number;
   missionType?: string;
-  // Add tanker-specific properties
   callsign?: string;
   altitude?: number;
   aircraftType?: string;
+  approachTime?: number;
 }
 
 export interface Section {
   title: string;
   type: 'launch' | 'altitude' | 'tanker';
   divisions: Division[];
-  mode?: 0 | 1 | 2; // For Recovery section: 0 = Case I, 1 = Case II, 2 = Case III
+  mode?: 0 | 1 | 2;
 }
 
 interface SectionContextType {
@@ -35,6 +42,7 @@ interface SectionContextType {
   ) => void;
   reorderDivisions: (sectionTitle: string, startIndex: number, endIndex: number) => void;
   updateSectionProperty: (sectionTitle: string, property: string, value: any) => void;
+  adjustRecoveryTime: (altitude: number, minutesToAdd: number) => void;
 }
 
 const defaultSections: Section[] = [
@@ -58,7 +66,7 @@ const defaultSections: Section[] = [
   {
     title: "Recovery",
     type: 'altitude',
-    mode: 0, // Default to Case I
+    mode: 0,
     divisions: [
       { id: 'recovery-inbound', label: "INBOUND" },
       { id: 'recovery-6', label: "ANGELS 6" },
@@ -135,17 +143,11 @@ export const SectionProvider: React.FC<{ children: React.ReactNode }> = ({ child
             return div;
           });
 
-          // Sort launches by step time
           if (section.type === 'launch') {
             updatedDivisions.sort((a, b) => (b.stepTime ?? 0) - (a.stepTime ?? 0));
-          }
-          // Sort En Route divisions by block ceiling
-          else if (section.title === "En Route/Tasking") {
+          } else if (section.title === "En Route/Tasking") {
             updatedDivisions.sort((a, b) => (b.blockCeiling ?? 0) - (a.blockCeiling ?? 0));
-          }
-          // Sort and group tanker divisions
-          else if (section.type === 'tanker') {
-            // Split tankers by role
+          } else if (section.type === 'tanker') {
             const missionTankers = updatedDivisions
               .filter(d => d.groupType === 'mission-tankers')
               .sort((a, b) => (b.altitude ?? 0) - (a.altitude ?? 0));
@@ -262,6 +264,78 @@ export const SectionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     });
   };
 
+  const adjustRecoveryTime = (altitude: number, minutesToAdd: number) => {
+    setSections(prevSections => {
+      return prevSections.map(section => {
+        if (section.title === 'Recovery') {
+          const numberedDivisions = section.divisions
+            .map(div => {
+              const match = div.id.match(/recovery-(\d+)/);
+              if (!match) return null;
+              const divAltitude = parseInt(match[1]);
+              if (divAltitude < 6) return null;
+              return { div, altitude: divAltitude };
+            })
+            .filter((item): item is { div: Division; altitude: number } => item !== null)
+            .sort((a, b) => a.altitude - b.altitude);
+
+          const adjustingDivIndex = numberedDivisions.findIndex(item => item.altitude === altitude);
+          if (adjustingDivIndex === -1) return section;
+
+          const adjustingDiv = numberedDivisions[adjustingDivIndex];
+          const newTime = ((adjustingDiv.div.approachTime! + minutesToAdd + 60) % 60);
+
+          // Check if we're decrementing and there's a lower division
+          if (minutesToAdd < 0 && adjustingDivIndex > 0) {
+            const lowerDiv = numberedDivisions[adjustingDivIndex - 1];
+            // If new time would be <= the lower division's time, prevent the change
+            if (newTime <= lowerDiv.div.approachTime!) {
+              return section;
+            }
+          }
+          
+          const updatedDivisions = [...section.divisions];
+          
+          // Update the adjusting division
+          const updatedAdjustingDiv = {
+            ...adjustingDiv.div,
+            approachTime: newTime,
+            label: adjustingDiv.div.label.replace(/:\d{2}$/, `:${newTime.toString().padStart(2, '0')}`)
+          };
+          
+          updatedDivisions[section.divisions.findIndex(d => d.id === adjustingDiv.div.id)] = updatedAdjustingDiv;
+
+          let shouldPropagate = false;
+          let currentTime = newTime;
+
+          if (adjustingDivIndex < numberedDivisions.length - 1) {
+            const nextDiv = numberedDivisions[adjustingDivIndex + 1];
+            shouldPropagate = currentTime >= nextDiv.div.approachTime!;
+          }
+
+          if (shouldPropagate) {
+            for (let i = adjustingDivIndex + 1; i < numberedDivisions.length; i++) {
+              currentTime = (currentTime + 1) % 60;
+              const div = numberedDivisions[i];
+              const updatedDiv = {
+                ...div.div,
+                approachTime: currentTime,
+                label: div.div.label.replace(/:\d{2}$/, `:${currentTime.toString().padStart(2, '0')}`)
+              };
+              updatedDivisions[section.divisions.findIndex(d => d.id === div.div.id)] = updatedDiv;
+            }
+          }
+
+          return {
+            ...section,
+            divisions: updatedDivisions
+          };
+        }
+        return section;
+      });
+    });
+  };
+
   return (
     <SectionContext.Provider value={{
       sections,
@@ -269,7 +343,8 @@ export const SectionProvider: React.FC<{ children: React.ReactNode }> = ({ child
       removeDivision,
       updateDivisionLabel,
       reorderDivisions,
-      updateSectionProperty
+      updateSectionProperty,
+      adjustRecoveryTime
     }}>
       {children}
     </SectionContext.Provider>
