@@ -9,7 +9,7 @@ export const TimeAdjuster: React.FC<TimeAdjusterProps> = ({ isVisible, onAdjust 
   if (!isVisible) return null;
 
   const buttonBaseStyle = {
-    padding: '2px 4px',
+    padding: '0',
     fontSize: '10px',
     background: '#475569',
     color: 'white',
@@ -17,8 +17,12 @@ export const TimeAdjuster: React.FC<TimeAdjusterProps> = ({ isVisible, onAdjust 
     borderRadius: '3px',
     cursor: 'pointer',
     transition: 'all 0.2s ease',
-    minWidth: '24px',
-    textAlign: 'center' as const
+    width: '18px',
+    height: '16px',
+    textAlign: 'center' as const,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center'
   };
 
   const buttonHoverStyle = (e: React.MouseEvent<HTMLButtonElement>) => {
@@ -34,7 +38,7 @@ export const TimeAdjuster: React.FC<TimeAdjusterProps> = ({ isVisible, onAdjust 
   return (
     <div style={{
       display: 'flex',
-      gap: '4px',
+      gap: '2px',
       alignItems: 'center',
       opacity: 0.8,
       transition: 'opacity 0.2s',

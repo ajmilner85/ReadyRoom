@@ -19,11 +19,13 @@ const DroppableZone: React.FC<DroppableZoneProps> = ({
   renderFlightCard
 }) => {
   const [isHovering, setIsHovering] = useState(false);
+  const [isEditingEAT, setIsEditingEAT] = useState(false);
+  const [editedEAT, setEditedEAT] = useState("");
   const { isOver, setNodeRef } = useDroppable({
     id: id,
   });
 
-  const { sections, adjustRecoveryTime } = useSections();
+  const { sections, adjustRecoveryTime, updateDivisionLabel } = useSections();
   const recoverySection = sections.find(s => s.title === 'Recovery');
   const isRecoveryZone = id.startsWith('recovery-');
   const isCaseIIorIII = isRecoveryZone && (recoverySection?.mode === 1 || recoverySection?.mode === 2);
@@ -41,6 +43,43 @@ const DroppableZone: React.FC<DroppableZoneProps> = ({
     }
   };
 
+  const handleDoubleClick = (e: React.MouseEvent) => {
+    if (!isCaseIIorIII || !altitude || altitude < 6) return;
+    
+    // Extract current EAT from label
+    const timeMatch = label.match(/:(\d{2})/);
+    if (timeMatch) {
+      setIsEditingEAT(true);
+      setEditedEAT(timeMatch[1]);
+      e.stopPropagation();
+    }
+  };
+
+  const handleEATChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value.replace(/\D/g, '').slice(0, 2);
+    setEditedEAT(value);
+  };
+
+  const handleEATBlur = () => {
+    if (altitude && editedEAT) {
+      const newTime = parseInt(editedEAT);
+      if (!isNaN(newTime) && newTime >= 0 && newTime <= 59) {
+        const dme = altitude + 15;
+        const newLabel = `DME ${dme}\nANGELS ${altitude}\n:${editedEAT.padStart(2, '0')}`;
+        updateDivisionLabel('Recovery', id, newLabel);
+      }
+    }
+    setIsEditingEAT(false);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      (e.target as HTMLInputElement).blur();
+    } else if (e.key === 'Escape') {
+      setIsEditingEAT(false);
+    }
+  };
+
   if (!label) return null;
 
   // Sort flights by fuel state (lowest at bottom)
@@ -53,7 +92,6 @@ const DroppableZone: React.FC<DroppableZoneProps> = ({
         if (flight.formation === 'single') {
           return flight.lowState;
         }
-        // For group formation, find minimum fuel among all members
         return flight.lowState;
       };
       
@@ -65,12 +103,10 @@ const DroppableZone: React.FC<DroppableZoneProps> = ({
   const getMinHeight = () => {
     if (!isRecoveryZone) return 117;
     if (!isCaseIIorIII) return 117;
-    // In Case II/III, make divisions more compact
-    const baseHeight = 59; // 43px (single card) + 8px padding top + 8px padding bottom
+    const baseHeight = 59;
     return showTimeAdjuster ? baseHeight + 20 : baseHeight;
   };
 
-  // Calculate actual height based on content
   const getContentHeight = () => {
     const baseHeight = !isRecoveryZone ? 117 : (isCaseIIorIII ? 59 : 117);
     const adjustedBase = showTimeAdjuster ? baseHeight + 20 : baseHeight;
@@ -79,20 +115,59 @@ const DroppableZone: React.FC<DroppableZoneProps> = ({
     
     if (numCards === 0) return adjustedBase;
 
-    // Calculate height needed for cards
     let totalCardHeight = 0;
     sortedFlights.forEach(flight => {
       totalCardHeight += flight.formation === 'single' ? 43 : 100;
     });
 
-    // Add spacing between cards and padding
     totalCardHeight += (numCards - 1) * cardSpacing;
-    totalCardHeight += 16; // Add padding (8px top and bottom)
+    totalCardHeight += 16;
 
     return Math.max(adjustedBase, totalCardHeight);
   };
 
   const contentHeight = getContentHeight();
+
+  const renderLabel = () => {
+    if (!isCaseIIorIII || !altitude || altitude < 6) {
+      return label.toUpperCase();
+    }
+
+    const parts = label.split('\n');
+    return (
+      <>
+        {parts[0]?.toUpperCase()}<br />
+        {parts[1]?.toUpperCase()}<br />
+        {isEditingEAT ? (
+          <input
+            type="text"
+            value={editedEAT}
+            onChange={handleEATChange}
+            onBlur={handleEATBlur}
+            onKeyDown={handleKeyDown}
+            onFocus={(e) => e.target.select()}
+            style={{
+              width: '20px',
+              height: '14px',
+              background: 'rgba(148, 163, 184, 0.1)',
+              border: 'none',
+              color: '#64748B',
+              fontSize: '12px',
+              fontFamily: 'inherit',
+              textAlign: 'center',
+              padding: 0,
+              margin: 0,
+              outline: 'none',
+              borderRadius: '2px'
+            }}
+            autoFocus
+          />
+        ) : (
+          parts[2]
+        )}
+      </>
+    );
+  };
 
   return (
     <div style={{
@@ -116,26 +191,30 @@ const DroppableZone: React.FC<DroppableZoneProps> = ({
         }}
       >
         {/* Label container at the top */}
-        <div style={{
-          position: 'absolute',
-          top: '8px',
-          left: '8px',
-          fontSize: '12px',
-          fontFamily: 'Inter, sans-serif',
-          fontWeight: 300,
-          color: '#64748B',
-          whiteSpace: 'pre-line',
-          lineHeight: '1.2'
-        }}>
-          {label.toUpperCase()}
+        <div 
+          onDoubleClick={handleDoubleClick}
+          style={{
+            position: 'absolute',
+            top: '8px',
+            left: '8px',
+            fontSize: '12px',
+            fontFamily: 'Inter, sans-serif',
+            fontWeight: 300,
+            color: '#64748B',
+            whiteSpace: 'pre-line',
+            lineHeight: '1.2',
+            cursor: isCaseIIorIII && altitude && altitude >= 6 ? 'pointer' : 'default'
+          }}
+        >
+          {renderLabel()}
           
           <TimeAdjuster 
-            isVisible={showTimeAdjuster && isHovering}
+            isVisible={showTimeAdjuster && isHovering && !isEditingEAT}
             onAdjust={handleTimeAdjust}
           />
         </div>
 
-        {/* Flight cards container, pushed to the right */}
+        {/* Flight cards container */}
         <div style={{
           marginLeft: 'auto',
           width: '442px',
