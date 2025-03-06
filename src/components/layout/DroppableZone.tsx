@@ -219,13 +219,17 @@ const DroppableZone: React.FC<DroppableZoneProps> = ({
           marginLeft: 'auto',
           width: '442px',
           marginRight: '4px',
+          paddingTop: '10px', // Add padding at top to prevent overlap with label
+          paddingBottom: '10px', // Add padding at bottom for consistency
+          paddingLeft: '10px', // Add padding on sides to prevent drop shadow cutoff
+          paddingRight: '10px'
         }}>
           {sortedFlights.map((flight, index) => (
             <div 
               key={flight.id}
               style={{
                 position: 'relative',
-                marginBottom: index === sortedFlights.length - 1 ? 0 : '8px',
+                marginBottom: index === sortedFlights.length - 1 ? 0 : '10px', // Ensure consistent 10px spacing between cards
                 display: 'block'
               }}
             >

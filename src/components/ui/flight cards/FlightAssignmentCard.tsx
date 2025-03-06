@@ -78,9 +78,9 @@ const FlightAssignmentCard: React.FC<FlightAssignmentCardProps> = ({
       style={{
         position: 'relative',
         boxSizing: 'border-box',
-        width: '100%',
-        minHeight: '180px',
-        padding: '16px',
+        width: 'calc(100% - 20px)', // Account for shadow space
+        padding: '10px 10px 5px 10px', // Removed bottom padding
+        margin: '10px', // Add margin for drop shadow
         backgroundColor: isOver ? '#EFF6FF' : '#FFFFFF',
         borderRadius: '8px',
         fontFamily: 'Inter, sans-serif',
@@ -90,7 +90,8 @@ const FlightAssignmentCard: React.FC<FlightAssignmentCardProps> = ({
           : '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)',
         transition: 'all 0.2s ease-in-out',
         display: 'flex',
-        flexDirection: 'column'
+        flexDirection: 'column',
+        marginBottom: '10px' // Add consistent spacing between cards
       }}
     >
       {/* Aircraft Tiles Container */}
@@ -98,9 +99,9 @@ const FlightAssignmentCard: React.FC<FlightAssignmentCardProps> = ({
         display: 'flex',
         justifyContent: 'center',
         alignItems: 'flex-start',
-        marginBottom: '36px',
         position: 'relative',
-        height: '140px', // Increased to handle the vertical positioning
+        height: '137px', // Fixed height for tile container
+        marginBottom: '0' // Removed margin
       }}>
         {/* Tiles in formation order: 1-2, 1-1, 1-3, 1-4 with vertical offsets */}
         
@@ -167,19 +168,21 @@ const FlightAssignmentCard: React.FC<FlightAssignmentCardProps> = ({
         </div>
       </div>
 
-      {/* Flight name at the bottom of the card */}
+      {/* Flight name at the bottom of the card with precise spacing */}
       <div style={{
         display: 'flex',
         justifyContent: 'center',
         alignItems: 'center',
-        marginTop: 'auto',
-        width: '100%'
+        width: '100%',
+        height: '22px', // Just enough for the text
+        marginBottom: '0' // Removed bottom margin
       }}>
         <div style={{
           fontSize: '18px',
           fontWeight: 600,
           color: '#1E1E1E',
-          textAlign: 'center'
+          textAlign: 'center',
+          lineHeight: '22px' // Add line height to control text block height
         }}>
           {callsign} {flightNumber}
         </div>
