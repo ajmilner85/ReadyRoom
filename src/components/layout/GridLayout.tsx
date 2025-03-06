@@ -21,7 +21,7 @@ const GridLayout: React.FC<GridLayoutProps> = ({ flights = [], onUpdateMemberFue
   const sectionRefs = useRef<(HTMLDivElement | null)[]>([]);
 
   const getFlightsForDivision = (sectionTitle: string, divisionId: string): Flight[] => {
-    const [sectionType, divisionNum] = divisionId.split('-');
+    const divisionNum = divisionId.split('-')[1];
     
     let expectedDivisionNumber: number;
     if (divisionNum === 'spin') {
@@ -158,7 +158,7 @@ const GridLayout: React.FC<GridLayoutProps> = ({ flights = [], onUpdateMemberFue
       <div style={{
         display: 'flex',
         gap: '20px',
-        padding: '5px',
+        padding: '15px',  // Add padding to prevent drop shadows being cut off
         height: 'fit-content',
         overflowX: 'auto',
         overflowY: 'auto',
@@ -170,7 +170,7 @@ const GridLayout: React.FC<GridLayoutProps> = ({ flights = [], onUpdateMemberFue
         {sections.map((section, index) => (
           <div
             key={section.title}
-            ref={el => sectionRefs.current[index] = el}
+            ref={(el: HTMLDivElement | null) => { sectionRefs.current[index] = el }}
             style={{
               flex: '1 0 550px', 
               minWidth: '550px', 
@@ -181,7 +181,8 @@ const GridLayout: React.FC<GridLayoutProps> = ({ flights = [], onUpdateMemberFue
               backgroundColor: 'white',
               borderRadius: '8px',
               boxShadow: '0px 4px 6px -1px rgba(0, 0, 0, 0.1)',
-              padding: '4px'
+              padding: '15px', // Increased padding to prevent drop shadows being cut off
+              margin: '0 0 20px 0' // Add bottom margin for spacing between sections
             }}
           >
             <div style={{
@@ -226,7 +227,7 @@ const GridLayout: React.FC<GridLayoutProps> = ({ flights = [], onUpdateMemberFue
         justifyContent: 'center',
         width: '100%',
         boxSizing: 'border-box',
-        padding: '20px 0'
+        padding: '20px 15px' // Add horizontal padding to prevent drop shadows being cut off
       }}>
         {unassignedFlights.map(renderFlightCard)}
       </div>

@@ -1,5 +1,5 @@
 import React from 'react';
-import aircraftIcon from '../../../assets/Aircraft Icon.png';
+import aircraftIcon from '../../../assets/Aircraft Icon.svg';
 
 interface AircraftTileProps {
   boardNumber: string;
@@ -35,13 +35,16 @@ const AircraftTile: React.FC<AircraftTileProps> = ({
   const PURE_BLACK = '#000000';
   const TEXT_GRAY = '#646F7E';
   const PURE_WHITE = '#FFFFFF';
+  const FADED_PURPLE = 'rgba(91, 78, 97, 0.5)'; // Faded version of PURPLE
+  const FADED_LIGHT_PURPLE = 'rgba(130, 114, 140, 0.5)'; // Faded version of LIGHT_PURPLE
 
   // Determine tile height based on position
-  // Flight lead (1-1) and wingpair (1-3) are taller
   const tileHeight = (isFlightLead || isWingPair) ? 102 : 92;
   
-  // Determine accent color
-  const accentColor = isFlightLead ? PURPLE : isWingPair ? LIGHT_PURPLE : '';
+  // Determine accent color with fading when empty
+  const accentColor = isEmpty 
+    ? (isFlightLead ? FADED_PURPLE : isWingPair ? FADED_LIGHT_PURPLE : '')
+    : (isFlightLead ? PURPLE : isWingPair ? LIGHT_PURPLE : '');
 
   return (
     <div 
@@ -51,7 +54,8 @@ const AircraftTile: React.FC<AircraftTileProps> = ({
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        marginTop: `${verticalOffset}px` // Apply vertical offset
+        marginTop: `${verticalOffset}px`, // Apply vertical offset
+        marginBottom: '0px' // Remove the margin bottom since spacing is handled by parent
       }}
     >
       {/* Flight number and dash number label above the tile */}
@@ -63,7 +67,7 @@ const AircraftTile: React.FC<AircraftTileProps> = ({
           lineHeight: '15px',
           textAlign: 'center',
           color: TEXT_GRAY, // Changed color to match spec
-          marginBottom: '4px',
+          marginBottom: '8px', // Restored from 6px back to 8px
           width: '100%'
         }}
       >
@@ -79,7 +83,9 @@ const AircraftTile: React.FC<AircraftTileProps> = ({
           height: `${tileHeight}px`, // Height varies based on position
           background: LIGHT_SLATE_GREY,
           borderRadius: '8px',
-          overflow: 'hidden'
+          overflow: 'hidden',
+          padding: '10px', // Reduced padding
+          boxSizing: 'border-box'
         }}
       >
         {/* Bottom accent strip (for flight lead 1-1 and wing pair 1-3) */}
@@ -87,27 +93,30 @@ const AircraftTile: React.FC<AircraftTileProps> = ({
           <div
             style={{
               position: 'absolute',
+              left: 0,
               bottom: 0,
               width: '100%',
               height: '10px',
               background: accentColor,
               zIndex: 1,
               display: 'flex',
-              alignItems: 'center', // Center vertically
+              alignItems: 'center',
               justifyContent: 'center'
             }}
           >
-            {/* Flight lead or section lead indicator dots with adjusted position */}
+            {/* Flight lead or section lead indicator dots */}
             <div
               style={{
                 fontFamily: 'Inter',
                 fontWeight: 700,
-                fontSize: '10px', // Smaller font for dots
+                fontSize: '10px',
                 lineHeight: '10px',
                 color: LIGHT_SLATE_GREY,
-                textAlign: 'center',
-                position: 'relative',
-                top: '-1px' // Shifted up by 1px for better vertical centering
+                position: 'absolute',
+                left: '50%',
+                top: '50%',
+                transform: 'translate(-50%, -60%)', // Move dots up by adjusting Y translation
+                textAlign: 'center'
               }}
             >
               {isFlightLead ? '••••' : '••'}
@@ -121,12 +130,14 @@ const AircraftTile: React.FC<AircraftTileProps> = ({
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
-            justifyContent: 'flex-start', // Changed to allow top padding
+            justifyContent: 'flex-start',
             height: '100%',
-            paddingTop: '20px', // 10px space from top edge to icon
+            paddingTop: '0px', // Removed padding to allow manual positioning
             paddingLeft: '5px',
             paddingRight: '5px',
-            boxSizing: 'border-box'
+            boxSizing: 'border-box',
+            position: 'relative', // Added for absolute positioning of children
+            marginTop: '-5px' // Pull everything up slightly
           }}
         >
           {/* Aircraft icon - faded when empty */}
@@ -139,7 +150,9 @@ const AircraftTile: React.FC<AircraftTileProps> = ({
               filter: isEmpty 
                 ? 'drop-shadow(0px 4px 4px rgba(0, 0, 0, 0.1)) opacity(0.5)' 
                 : 'drop-shadow(0px 4px 4px rgba(0, 0, 0, 0.1))',
-              opacity: isEmpty ? 0.5 : 1
+              opacity: isEmpty ? 0.5 : 1,
+              marginTop: '6px', // Increased from 5px to shift down by 1px
+              marginBottom: '2px'
             }}
           />
 
@@ -151,26 +164,26 @@ const AircraftTile: React.FC<AircraftTileProps> = ({
               fontSize: '16px',
               lineHeight: '19px',
               textAlign: 'center',
-              color: isEmpty ? TEXT_GRAY : PURPLE,
-              marginTop: '4px'
+              color: isEmpty ? TEXT_GRAY : '#646F7E',
+              marginTop: '-2px' // Shift down by 4px from previous position
             }}
           >
-            {isEmpty ? '-' : boardNumber}
+            {isEmpty ? '' : boardNumber} {/* Removed '-' placeholder */}
           </div>
-          
-          {/* Callsign (replaces the previous flight-dash number) */}
+
+          {/* Pilot callsign */}
           <div
             style={{
               fontFamily: 'Inter',
-              fontWeight: 500,
-              fontSize: '12px',
-              lineHeight: '15px',
+              fontWeight: 700,
+              fontSize: '14px',
+              lineHeight: '17px',
               textAlign: 'center',
               color: isEmpty ? TEXT_GRAY : PURE_BLACK,
-              marginTop: '2px'
+              marginTop: '-1px' // Adjusted from 1px to -1px to move up 2px more
             }}
           >
-            {isEmpty ? '-' : callsign}
+            {isEmpty ? '' : callsign} {/* Removed '-' placeholder */}
           </div>
         </div>
 
