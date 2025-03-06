@@ -1,6 +1,6 @@
 
 In Progress:
-
+- Make available pilots entries draggable in mission preparation page
 
 Next:
 - Mission preparation page
