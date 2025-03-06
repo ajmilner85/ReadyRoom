@@ -14,6 +14,7 @@ pri-fly
 │   ├── App.css
 │   ├── App.tsx
 │   ├── assets
+│   │   ├── Aircraft Icon.png
 │   │   ├── Billets.txt
 │   │   ├── CV-NATOPS-JUL09.pdf
 │   │   ├── MS33558ver0.1.ttf
@@ -38,8 +39,9 @@ pri-fly
 │   │       │   ├── EnRouteDivisionButton.tsx
 │   │       │   ├── LaunchDivisionButton.tsx
 │   │       │   ├── RecoveryToggleSwitch.tsx
-│   │       │   └── TankerDivisionButton.tsx
-│   │       ├── card.tsx
+│   │       │   ├── TankerDivisionButton.tsx
+│   │       │   └── TimeAdjuster.tsx
+│   │       ├── card.tsxa
 │   │       ├── dialogs
 │   │       │   ├── DeleteDivisionDialog.tsx
 │   │       │   ├── EnRouteDivisionDialog.tsx
