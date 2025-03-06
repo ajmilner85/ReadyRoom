@@ -165,28 +165,73 @@ const MissionPreparation: React.FC = () => {
       }
     }
 
+    // If not dropped on a valid target, and it's a pilot being dragged from a flight, remove them
     if (!over) {
+      if (active.data.current?.type === 'Pilot' && active.data.current.currentFlightId) {
+        // Remove pilot from their current flight
+        setAssignedPilots(prev => {
+          const updated = { ...prev };
+          const flightId = active.data.current.currentFlightId;
+          if (updated[flightId]) {
+            updated[flightId] = updated[flightId].filter(
+              p => p.boardNumber !== active.data.current.pilot.boardNumber
+            );
+            if (updated[flightId].length === 0) {
+              delete updated[flightId];
+            }
+          }
+          return updated;
+        });
+      }
       setDraggedPilot(null);
       return;
     }
 
-    // Handle pilot being dropped on a flight
-    if (active.data.current?.type === 'Pilot' && over.id.toString().startsWith('flight-')) {
+    // Handle pilot being dropped on a specific flight position
+    if (active.data.current?.type === 'Pilot') {
       const pilot = active.data.current.pilot;
-      const flightId = over.id.toString().replace('flight-', '');
+      const overId = over.id.toString();
       
-      // Update assigned pilots - find first empty slot
-      setAssignedPilots(prev => {
-        const updatedAssignments = { ...prev };
-        if (!updatedAssignments[flightId]) {
-          updatedAssignments[flightId] = [];
+      // Check if this is a flight position drop
+      if (overId.startsWith('flight-') && overId.includes('-position-')) {
+        const [, flightId, , dashNumber] = overId.split('-');
+        
+        // If pilot is already in a flight, remove them first
+        if (active.data.current.currentFlightId) {
+          setAssignedPilots(prev => {
+            const updated = { ...prev };
+            const currentFlightId = active.data.current.currentFlightId;
+            if (updated[currentFlightId]) {
+              updated[currentFlightId] = updated[currentFlightId].filter(
+                p => p.boardNumber !== pilot.boardNumber
+              );
+              if (updated[currentFlightId].length === 0) {
+                delete updated[currentFlightId];
+              }
+            }
+            return updated;
+          });
         }
-        // Only add if pilot isn't already in the flight
-        if (!updatedAssignments[flightId].find(p => p.boardNumber === pilot.boardNumber)) {
-          updatedAssignments[flightId].push(pilot);
-        }
-        return updatedAssignments;
-      });
+        
+        // Add pilot to new position
+        setAssignedPilots(prev => {
+          const updated = { ...prev };
+          if (!updated[flightId]) {
+            updated[flightId] = [];
+          }
+          
+          // Remove any pilot already in this position
+          updated[flightId] = updated[flightId].filter(p => p.dashNumber !== dashNumber);
+          
+          // Add the pilot with their new dash number
+          updated[flightId].push({
+            ...pilot,
+            dashNumber
+          });
+          
+          return updated;
+        });
+      }
     }
 
     setDraggedPilot(null);

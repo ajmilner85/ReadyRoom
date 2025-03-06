@@ -29,16 +29,18 @@ const DISPLAY_ORDER = QUALIFICATION_ORDER.filter(qual => qual !== 'Wingman');
 interface PilotEntryProps {
   pilot: Pilot;
   isAssigned?: boolean;
+  currentFlightId?: string;
 }
 
-const PilotEntry: React.FC<PilotEntryProps> = ({ pilot, isAssigned = false }) => {
+const PilotEntry: React.FC<PilotEntryProps> = ({ pilot, isAssigned = false, currentFlightId }) => {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: `pilot-${pilot.boardNumber}`,
     data: {
       type: 'Pilot',
-      pilot
+      pilot,
+      currentFlightId
     },
-    disabled: isAssigned
+    disabled: false // Allow dragging even when assigned
   });
   
   // Keep track of original position
@@ -219,11 +221,14 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
     groupedPilots[highestQual].push(pilot);
   });
 
-  // Check if a pilot is assigned to any flight
-  const isPilotAssigned = (pilot: Pilot): boolean => {
-    return Object.values(assignedPilots).some(flightPilots =>
-      flightPilots.some(p => p.boardNumber === pilot.boardNumber)
-    );
+  // Enhanced isPilotAssigned to return flight ID
+  const isPilotAssignedToFlight = (pilot: Pilot): { isAssigned: boolean; flightId?: string } => {
+    for (const [flightId, flightPilots] of Object.entries(assignedPilots)) {
+      if (flightPilots.some(p => p.boardNumber === pilot.boardNumber)) {
+        return { isAssigned: true, flightId };
+      }
+    }
+    return { isAssigned: false };
   };
 
   // Add an event listener to prevent horizontal scrolling during drag
@@ -490,13 +495,13 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
                   overflowX: 'hidden' 
                 }}>
                   {qualPilots.map(pilot => {
-                    // Check if this pilot is assigned to any flight
-                    const assigned = isPilotAssigned(pilot);
+                    const assignment = isPilotAssignedToFlight(pilot);
                     return (
                       <PilotEntry 
-                        key={`${pilot.id}-${assigned ? 'assigned' : 'available'}`} // Add assignment state to key to force re-render
+                        key={`${pilot.id}-${assignment.isAssigned ? 'assigned' : 'available'}`}
                         pilot={pilot} 
-                        isAssigned={assigned}
+                        isAssigned={assignment.isAssigned}
+                        currentFlightId={assignment.flightId}
                       />
                     );
                   })}

@@ -1,5 +1,6 @@
 import React from 'react';
 import aircraftIcon from '../../../assets/Aircraft Icon.svg';
+import { useDraggable } from '@dnd-kit/core';
 
 interface AircraftTileProps {
   boardNumber: string;
@@ -13,6 +14,7 @@ interface AircraftTileProps {
   midsA?: string;
   midsB?: string;
   verticalOffset?: number; // New prop for vertical positioning
+  flightId?: string; // Add this prop for drag handling
 }
 
 const AircraftTile: React.FC<AircraftTileProps> = ({
@@ -26,7 +28,8 @@ const AircraftTile: React.FC<AircraftTileProps> = ({
   isEmpty = false,
   midsA = '',
   midsB = '',
-  verticalOffset = 0
+  verticalOffset = 0,
+  flightId
 }) => {
   // Component styling constants
   const PURPLE = '#5B4E61';
@@ -45,6 +48,21 @@ const AircraftTile: React.FC<AircraftTileProps> = ({
   const accentColor = isEmpty 
     ? (isFlightLead ? FADED_PURPLE : isWingPair ? FADED_LIGHT_PURPLE : '')
     : (isFlightLead ? PURPLE : isWingPair ? LIGHT_PURPLE : '');
+
+  // Make the tile draggable if it has a pilot assigned
+  const { attributes, listeners, setNodeRef } = useDraggable({
+    id: `pilot-tile-${boardNumber}`,
+    data: {
+      type: 'Pilot',
+      pilot: isEmpty ? null : {
+        boardNumber,
+        callsign,
+        dashNumber
+      },
+      currentFlightId: flightId
+    },
+    disabled: isEmpty
+  });
 
   return (
     <div 
@@ -75,177 +93,191 @@ const AircraftTile: React.FC<AircraftTileProps> = ({
         {isFlightLead ? `${flightCallsign} ${flightNumber}-${dashNumber}` : `${flightNumber}-${dashNumber}`}
       </div>
 
-      {/* Main tile background */}
-      <div
+      {/* Main tile background with shadow wrapper */}
+      <div 
+        ref={setNodeRef}
+        {...(!isEmpty ? { ...attributes, ...listeners } : {})}
         style={{
           position: 'relative',
-          width: '92px', // All tiles are 92px wide
-          height: `${tileHeight}px`, // Height varies based on position
-          background: LIGHT_SLATE_GREY,
+          width: '92px',
+          boxShadow: !isEmpty ? '0px 4px 6px rgba(0, 0, 0, 0.1)' : 'none',
           borderRadius: '8px',
-          overflow: 'hidden',
-          padding: '10px', // Reduced padding
-          boxSizing: 'border-box'
+          cursor: isEmpty ? 'default' : 'grab'
         }}
       >
-        {/* Bottom accent strip (for flight lead 1-1 and wing pair 1-3) */}
-        {(isFlightLead || isWingPair) && (
+        <div
+          style={{
+            position: 'relative',
+            width: '92px', // All tiles are 92px wide
+            height: `${tileHeight}px`, // Height varies based on position
+            background: LIGHT_SLATE_GREY,
+            borderRadius: '8px',
+            overflow: 'hidden', // Changed to hidden to show drop shadow below accent strip
+            padding: '10px', // Reduced padding
+            boxSizing: 'border-box'
+          }}
+        >
+          {/* Bottom accent strip (for flight lead 1-1 and wing pair 1-3) */}
+          {(isFlightLead || isWingPair) && (
+            <div
+              style={{
+                position: 'absolute',
+                left: 0,
+                bottom: 0,
+                width: '100%',
+                height: '10px',
+                background: accentColor,
+                zIndex: 1,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}
+            >
+              {/* Flight lead or section lead indicator dots */}
+              <div
+                style={{
+                  fontFamily: 'Inter',
+                  fontWeight: 700,
+                  fontSize: '10px',
+                  lineHeight: '10px',
+                  color: LIGHT_SLATE_GREY,
+                  position: 'absolute',
+                  left: '50%',
+                  top: '50%',
+                  transform: 'translate(-50%, -60%)', // Move dots up by adjusting Y translation
+                  textAlign: 'center'
+                }}
+              >
+                {isFlightLead ? '••••' : '••'}
+              </div>
+            </div>
+          )}
+
+          {/* Aircraft information - centered in the tile */}
           <div
             style={{
-              position: 'absolute',
-              left: 0,
-              bottom: 0,
-              width: '100%',
-              height: '10px',
-              background: accentColor,
-              zIndex: 1,
               display: 'flex',
+              flexDirection: 'column',
               alignItems: 'center',
-              justifyContent: 'center'
+              justifyContent: 'flex-start',
+              height: '100%',
+              paddingTop: '0px', // Removed padding to allow manual positioning
+              paddingLeft: '5px',
+              paddingRight: '5px',
+              boxSizing: 'border-box',
+              position: 'relative', // Added for absolute positioning of children
+              marginTop: '-5px' // Pull everything up slightly
             }}
           >
-            {/* Flight lead or section lead indicator dots */}
+            {/* Aircraft icon - faded when empty */}
+            <img
+              src={aircraftIcon}
+              alt="Aircraft"
+              style={{
+                width: '34px',
+                height: '46px',
+                filter: isEmpty 
+                  ? 'drop-shadow(0px 4px 4px rgba(0, 0, 0, 0.1)) opacity(0.5)' 
+                  : 'drop-shadow(0px 4px 4px rgba(0, 0, 0, 0.1))',
+                opacity: isEmpty ? 0.5 : 1,
+                marginTop: '6px', // Increased from 5px to shift down by 1px
+                marginBottom: '2px'
+              }}
+            />
+
+            {/* Board number */}
+            <div
+              style={{
+                fontFamily: 'Inter',
+                fontWeight: 400,
+                fontSize: '16px',
+                lineHeight: '19px',
+                textAlign: 'center',
+                color: isEmpty ? TEXT_GRAY : '#646F7E',
+                marginTop: '-2px' // Shift down by 4px from previous position
+              }}
+            >
+              {isEmpty ? '' : boardNumber} {/* Removed '-' placeholder */}
+            </div>
+
+            {/* Pilot callsign */}
             <div
               style={{
                 fontFamily: 'Inter',
                 fontWeight: 700,
-                fontSize: '10px',
-                lineHeight: '10px',
-                color: LIGHT_SLATE_GREY,
-                position: 'absolute',
-                left: '50%',
-                top: '50%',
-                transform: 'translate(-50%, -60%)', // Move dots up by adjusting Y translation
-                textAlign: 'center'
+                fontSize: '14px',
+                lineHeight: '17px',
+                textAlign: 'center',
+                color: isEmpty ? TEXT_GRAY : PURE_BLACK,
+                marginTop: '-1px' // Adjusted from 1px to -1px to move up 2px more
               }}
             >
-              {isFlightLead ? '••••' : '••'}
+              {isEmpty ? '' : callsign} {/* Removed '-' placeholder */}
             </div>
           </div>
-        )}
 
-        {/* Aircraft information - centered in the tile */}
-        <div
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'flex-start',
-            height: '100%',
-            paddingTop: '0px', // Removed padding to allow manual positioning
-            paddingLeft: '5px',
-            paddingRight: '5px',
-            boxSizing: 'border-box',
-            position: 'relative', // Added for absolute positioning of children
-            marginTop: '-5px' // Pull everything up slightly
-          }}
-        >
-          {/* Aircraft icon - faded when empty */}
-          <img
-            src={aircraftIcon}
-            alt="Aircraft"
-            style={{
-              width: '34px',
-              height: '46px',
-              filter: isEmpty 
-                ? 'drop-shadow(0px 4px 4px rgba(0, 0, 0, 0.1)) opacity(0.5)' 
-                : 'drop-shadow(0px 4px 4px rgba(0, 0, 0, 0.1))',
-              opacity: isEmpty ? 0.5 : 1,
-              marginTop: '6px', // Increased from 5px to shift down by 1px
-              marginBottom: '2px'
-            }}
-          />
+          {/* MIDS assignment sections - positioned within the tile */}
+          {/* MIDS A - top left */}
+          {!isEmpty && (
+            <div
+              style={{
+                position: 'absolute',
+                top: '5px',
+                left: '5px',
+                width: '24px',
+                height: '24px',
+                background: PURE_WHITE,
+                borderRadius: '8px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                zIndex: 3
+              }}
+            >
+              <span
+                style={{
+                  fontFamily: 'Inter',
+                  fontWeight: 400,
+                  fontSize: '10px',
+                  lineHeight: '12px',
+                  color: TEXT_GRAY
+                }}
+              >
+                {midsA}
+              </span>
+            </div>
+          )}
 
-          {/* Board number */}
-          <div
-            style={{
-              fontFamily: 'Inter',
-              fontWeight: 400,
-              fontSize: '16px',
-              lineHeight: '19px',
-              textAlign: 'center',
-              color: isEmpty ? TEXT_GRAY : '#646F7E',
-              marginTop: '-2px' // Shift down by 4px from previous position
-            }}
-          >
-            {isEmpty ? '' : boardNumber} {/* Removed '-' placeholder */}
-          </div>
-
-          {/* Pilot callsign */}
-          <div
-            style={{
-              fontFamily: 'Inter',
-              fontWeight: 700,
-              fontSize: '14px',
-              lineHeight: '17px',
-              textAlign: 'center',
-              color: isEmpty ? TEXT_GRAY : PURE_BLACK,
-              marginTop: '-1px' // Adjusted from 1px to -1px to move up 2px more
-            }}
-          >
-            {isEmpty ? '' : callsign} {/* Removed '-' placeholder */}
-          </div>
-        </div>
-
-        {/* MIDS assignment sections - positioned within the tile */}
-        {/* MIDS A - top left */}
-        <div
-          style={{
-            position: 'absolute',
-            top: '5px',
-            left: '5px',
-            width: '24px',
-            height: '24px',
-            background: PURE_WHITE,
-            borderRadius: '8px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            boxShadow: '0px 2px 4px rgba(0, 0, 0, 0.1)',
-            zIndex: 3
-          }}
-        >
-          <span
-            style={{
-              fontFamily: 'Inter',
-              fontWeight: 400,
-              fontSize: '10px',
-              lineHeight: '12px',
-              color: TEXT_GRAY
-            }}
-          >
-            {midsA || '-'}
-          </span>
-        </div>
-
-        {/* MIDS B - top right */}
-        <div
-          style={{
-            position: 'absolute',
-            top: '5px',
-            right: '5px',
-            width: '24px',
-            height: '24px',
-            background: PURE_WHITE,
-            borderRadius: '8px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            boxShadow: '0px 2px 4px rgba(0, 0, 0, 0.1)',
-            zIndex: 3
-          }}
-        >
-          <span
-            style={{
-              fontFamily: 'Inter',
-              fontWeight: 400,
-              fontSize: '10px',
-              lineHeight: '12px',
-              color: TEXT_GRAY
-            }}
-          >
-            {midsB || '-'}
-          </span>
+          {/* MIDS B - top right */}
+          {!isEmpty && (
+            <div
+              style={{
+                position: 'absolute',
+                top: '5px',
+                right: '5px',
+                width: '24px',
+                height: '24px',
+                background: PURE_WHITE,
+                borderRadius: '8px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                zIndex: 3
+              }}
+            >
+              <span
+                style={{
+                  fontFamily: 'Inter',
+                  fontWeight: 400,
+                  fontSize: '10px',
+                  lineHeight: '12px',
+                  color: TEXT_GRAY
+                }}
+              >
+                {midsB}
+              </span>
+            </div>
+          )}
         </div>
       </div>
     </div>
