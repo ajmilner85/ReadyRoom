@@ -1,7 +1,10 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card } from '../card';
+import { useDroppable } from '@dnd-kit/core';
+import type { Pilot } from '../../../types/PilotTypes';
 
 interface MissionFlightCardProps {
+  id: string;
   callsign: string;
   flightNumber: string;
   pilots: Array<{
@@ -11,32 +14,72 @@ interface MissionFlightCardProps {
   }>;
   midsA?: string;
   midsB?: string;
+  onPilotAssigned?: (flightId: string, pilot: Pilot) => void;
 }
 
 const MissionFlightCard: React.FC<MissionFlightCardProps> = ({
+  id,
   callsign,
   flightNumber,
   pilots,
   midsA = 'N/A',
-  midsB = 'N/A'
+  midsB = 'N/A',
+  onPilotAssigned
 }) => {
+  const [isOver, setIsOver] = useState(false);
+  const { setNodeRef, isOver: isDraggingOver } = useDroppable({
+    id: `flight-${id}`,
+    data: {
+      type: 'Flight',
+      flight: { id, callsign, flightNumber, pilots }
+    }
+  });
+
+  useEffect(() => {
+    setIsOver(isDraggingOver);
+  }, [isDraggingOver]);
+
+  // Call onPilotAssigned when drop ends
+  useEffect(() => {
+    if (!isDraggingOver && isOver && onPilotAssigned) {
+      const dropHandler = (event: any) => {
+        const dragData = event.active?.data?.current;
+        if (dragData?.type === 'Pilot') {
+          onPilotAssigned(id, dragData.pilot);
+        }
+      };
+      window.addEventListener('drop', dropHandler);
+      return () => window.removeEventListener('drop', dropHandler);
+    }
+  }, [id, isDraggingOver, isOver, onPilotAssigned]);
+
   const lead = pilots.find(p => p.dashNumber === "1") || pilots[0];
   const wingmen = pilots.filter(p => p !== lead);
 
+  // Determine if this is an empty slot
+  const isEmpty = (pilot: { boardNumber: string; callsign: string; }): boolean => 
+    !pilot.boardNumber && !pilot.callsign;
+
   return (
-    <div style={{
-      position: 'relative',
-      boxSizing: 'border-box',
-      width: '442px',
-      height: '100px',
-      padding: '6px',
-      backgroundColor: '#FFFFFF',
-      borderRadius: '8px',
-      fontFamily: 'Inter, sans-serif',
-      userSelect: 'none',
-      boxShadow: '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)',
-      opacity: 1,
-    }}>
+    <div 
+      ref={setNodeRef}
+      style={{
+        position: 'relative',
+        boxSizing: 'border-box',
+        width: '442px',
+        height: '100px',
+        padding: '6px',
+        backgroundColor: isOver ? '#EFF6FF' : '#FFFFFF',
+        borderRadius: '8px',
+        fontFamily: 'Inter, sans-serif',
+        userSelect: 'none',
+        boxShadow: isOver 
+          ? '0px 20px 25px -5px rgba(0, 0, 0, 0.3), 0px 10px 10px -5px rgba(0, 0, 0, 0.2)'
+          : '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)',
+        opacity: 1,
+        transition: 'all 0.2s ease-in-out'
+      }}
+    >
       <div style={{
         display: 'flex',
         gap: '4px',
@@ -53,10 +96,15 @@ const MissionFlightCard: React.FC<MissionFlightCardProps> = ({
           justifyContent: 'center',
         }}>
           <div 
-            style={{ fontSize: '36px', fontWeight: 700, lineHeight: '44px', color: '#1E1E1E' }}
-            title={`${lead.callsign}`}
+            style={{ 
+              fontSize: '36px', 
+              fontWeight: 700, 
+              lineHeight: '44px', 
+              color: isEmpty(lead) ? '#94A3B8' : '#1E1E1E'
+            }}
+            title={isEmpty(lead) ? 'Empty slot' : lead.callsign}
           >
-            {lead.boardNumber}
+            {isEmpty(lead) ? '-' : lead.boardNumber}
           </div>
           <div style={{ fontSize: '12px', fontWeight: 300, lineHeight: '15px', color: '#000000' }}>
             {callsign} {flightNumber}-{lead.dashNumber}
@@ -74,7 +122,7 @@ const MissionFlightCard: React.FC<MissionFlightCardProps> = ({
           gap: '4px',
         }}>
           {wingmen.map((pilot) => (
-            <div key={pilot.boardNumber} 
+            <div key={`${flightNumber}-${pilot.dashNumber}`}
                  style={{
                    display: 'flex',
                    alignItems: 'center',
@@ -84,10 +132,15 @@ const MissionFlightCard: React.FC<MissionFlightCardProps> = ({
                 {flightNumber}-{pilot.dashNumber}
               </span>
               <span 
-                style={{ fontSize: '20px', fontWeight: 700, marginLeft: '29px', color: '#1E1E1E' }}
-                title={`${pilot.callsign}`}
+                style={{ 
+                  fontSize: '20px', 
+                  fontWeight: 700, 
+                  marginLeft: '29px', 
+                  color: isEmpty(pilot) ? '#94A3B8' : '#1E1E1E'
+                }}
+                title={isEmpty(pilot) ? 'Empty slot' : pilot.callsign}
               >
-                {pilot.boardNumber}
+                {isEmpty(pilot) ? '-' : pilot.boardNumber}
               </span>
             </div>
           ))}
@@ -129,14 +182,33 @@ const MissionFlightCard: React.FC<MissionFlightCardProps> = ({
   );
 };
 
-interface FlightAssignmentsProps {
-  width: string;
+interface Flight {
+  id: string;
+  callsign: string;
+  flightNumber: string;
+  pilots: Array<{
+    boardNumber: string;
+    callsign: string;
+    dashNumber: string;
+  }>;
+  midsA?: string;
+  midsB?: string;
 }
 
-const FlightAssignments: React.FC<FlightAssignmentsProps> = ({ width }) => {
-  // Example flight data - will be replaced with actual flights
-  const exampleFlights = [
+interface FlightAssignmentsProps {
+  width: string;
+  assignedPilots?: Record<string, Pilot[]>;
+  onPilotAssigned?: (flightId: string, pilot: Pilot) => void;
+}
+
+const FlightAssignments: React.FC<FlightAssignmentsProps> = ({ 
+  width, 
+  assignedPilots = {},
+  onPilotAssigned 
+}) => {
+  const [flights] = useState<Flight[]>([
     {
+      id: '1',
       callsign: "STING",
       flightNumber: "1",
       pilots: [
@@ -147,8 +219,41 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({ width }) => {
       ],
       midsA: "11",
       midsB: "12"
+    },
+    {
+      id: '2',
+      callsign: "STING",
+      flightNumber: "2",
+      pilots: [
+        { boardNumber: "", callsign: "", dashNumber: "1" },
+        { boardNumber: "", callsign: "", dashNumber: "2" },
+        { boardNumber: "", callsign: "", dashNumber: "3" },
+        { boardNumber: "", callsign: "", dashNumber: "4" }
+      ],
+      midsA: "",
+      midsB: ""
     }
-  ];
+  ]);
+
+  // Transform assigned pilots into the format needed for display
+  const getUpdatedFlightPilots = (flight: Flight) => {
+    const assigned = assignedPilots[flight.id] || [];
+    const updatedPilots = [...flight.pilots];
+    
+    // Find first empty slot for each assigned pilot
+    assigned.forEach(assignedPilot => {
+      const emptySlotIndex = updatedPilots.findIndex(p => !p.boardNumber && !p.callsign);
+      if (emptySlotIndex !== -1) {
+        updatedPilots[emptySlotIndex] = {
+          ...updatedPilots[emptySlotIndex],
+          boardNumber: assignedPilot.boardNumber,
+          callsign: assignedPilot.callsign
+        };
+      }
+    });
+    
+    return updatedPilots;
+  };
 
   return (
     <div style={{ width }}>
@@ -156,7 +261,6 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({ width }) => {
         style={{
           width: '100%',
           height: '100%',
-          backgroundColor: '#FFFFFF',
           boxShadow: '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)',
           borderRadius: '8px',
           padding: '24px',
@@ -164,7 +268,9 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({ width }) => {
           flexDirection: 'column',
           position: 'relative',
           overflowY: 'hidden',
-          boxSizing: 'border-box'
+          boxSizing: 'border-box',
+          transition: 'all 0.2s ease-in-out',
+          backgroundColor: '#FFFFFF'
         }}
       >
         <div style={{
@@ -186,14 +292,12 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({ width }) => {
         </div>
         <div className="flex-1" style={{ overflowY: 'auto' }}>
           <div className="space-y-4">
-            {exampleFlights.map((flight, index) => (
+            {flights.map((flight) => (
               <MissionFlightCard
-                key={index}
-                callsign={flight.callsign}
-                flightNumber={flight.flightNumber}
-                pilots={flight.pilots}
-                midsA={flight.midsA}
-                midsB={flight.midsB}
+                key={flight.id}
+                {...flight}
+                pilots={getUpdatedFlightPilots(flight)}
+                onPilotAssigned={onPilotAssigned}
               />
             ))}
           </div>

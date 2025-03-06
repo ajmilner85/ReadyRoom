@@ -1,18 +1,14 @@
-import React from 'react';
+import React, { forwardRef } from 'react';
+import type { ComponentPropsWithRef } from 'react';
 
-interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
-  children: React.ReactNode;
+export interface CardProps extends ComponentPropsWithRef<'div'> {
+  className?: string;
 }
 
-export const Card: React.FC<CardProps> = ({ children, className = '', ...props }) => {
+export const Card = forwardRef<HTMLDivElement, CardProps>(({ className = '', ...props }, ref) => {
   return (
-    <div 
-      className={`bg-white rounded-lg shadow-sm ${className}`}
-      {...props}
-    >
-      {children}
-    </div>
+    <div ref={ref} {...props} />
   );
-};
+});
 
 export default Card;

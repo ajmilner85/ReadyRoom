@@ -1,7 +1,8 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Card } from '../card';
 import QualificationBadge from '../QualificationBadge';
 import { Filter } from 'lucide-react';
+import { useDraggable } from '@dnd-kit/core';
 import type { Pilot, QualificationType } from '../../../types/PilotTypes';
 import type { Event } from '../../../types/EventTypes';
 
@@ -9,6 +10,7 @@ interface AvailablePilotsProps {
   width: string;
   pilots: Pilot[];
   selectedEvent: Event | null;
+  assignedPilots?: Record<string, Pilot[]>;
 }
 
 const QUALIFICATION_ORDER: QualificationType[] = [
@@ -24,11 +26,128 @@ const QUALIFICATION_ORDER: QualificationType[] = [
 
 const DISPLAY_ORDER = QUALIFICATION_ORDER.filter(qual => qual !== 'Wingman');
 
+interface PilotEntryProps {
+  pilot: Pilot;
+  isAssigned?: boolean;
+}
+
+const PilotEntry: React.FC<PilotEntryProps> = ({ pilot, isAssigned = false }) => {
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+    id: `pilot-${pilot.boardNumber}`,
+    data: {
+      type: 'Pilot',
+      pilot
+    },
+    disabled: isAssigned
+  });
+  
+  // Keep track of original position
+  const originalStyle = useRef<CSSStyleDeclaration | null>(null);
+  
+  // When dragging starts, store the original position but don't actually transform the element
+  useEffect(() => {
+    if (isDragging) {
+      const element = document.getElementById(`pilot-${pilot.boardNumber}`);
+      if (element) {
+        // Store the original style
+        originalStyle.current = window.getComputedStyle(element);
+        
+        // Ensure the element stays in its original position
+        element.style.transform = 'none';
+        element.style.transition = 'none';
+        element.style.zIndex = '1';
+        
+        // Make element semi-transparent to indicate it's being dragged
+        element.style.opacity = '0.4';
+      }
+    } else if (originalStyle.current) {
+      // Reset the element style when dragging ends
+      const element = document.getElementById(`pilot-${pilot.boardNumber}`);
+      if (element) {
+        element.style.opacity = isAssigned ? '0.5' : '1'; // Use the isAssigned prop to set opacity
+        element.style.zIndex = '1';
+      }
+      originalStyle.current = null;
+    }
+  }, [isDragging, pilot.boardNumber, isAssigned]);
+
+  // Style for the element - note we don't apply transform from DnD Kit
+  const style: React.CSSProperties = {
+    display: 'flex',
+    alignItems: 'center',
+    height: '24px',
+    marginBottom: '10px',
+    transition: 'background-color 0.2s ease, opacity 0.2s ease',
+    borderRadius: '8px',
+    padding: '0 10px',
+    cursor: isAssigned ? 'default' : 'grab',
+    position: 'relative',
+    left: 0,
+    width: 'calc(100% - 20px)',
+    zIndex: 1,
+    maxWidth: '100%',
+    overflow: 'hidden',
+    opacity: isAssigned ? 0.5 : 1,
+  };
+
+  return (
+    <div
+      id={`pilot-${pilot.boardNumber}`}
+      ref={setNodeRef}
+      style={style}
+      {...(isAssigned ? {} : { ...listeners, ...attributes })}
+      data-dragging={isDragging ? 'true' : 'false'}
+      data-assigned={isAssigned ? 'true' : 'false'}
+    >
+      <span style={{
+        width: '62px',
+        textAlign: 'center',
+        fontSize: '16px',
+        fontWeight: 400,
+        color: '#646F7E'
+      }}>
+        {pilot.boardNumber}
+      </span>
+      <span style={{
+        width: '120px',
+        fontSize: '16px',
+        fontWeight: 700
+      }}>
+        {pilot.callsign}
+      </span>
+      <span style={{
+        fontSize: '16px',
+        fontWeight: 300,
+        color: '#646F7E'
+      }}>
+        {pilot.billet}
+      </span>
+      
+      {/* Qualification badges */}
+      <div style={{
+        display: 'flex',
+        gap: '4px',
+        marginLeft: 'auto',
+        height: '24px'
+      }}>
+        {pilot.qualifications.map((qual, index) => (
+          <QualificationBadge 
+            key={`${qual.type}-${index}`} 
+            type={qual.type}
+          />
+        ))}
+      </div>
+    </div>
+  );
+};
+
 const AvailablePilots: React.FC<AvailablePilotsProps> = ({ 
   width,
   pilots,
-  selectedEvent 
+  selectedEvent,
+  assignedPilots = {}
 }) => {
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [showOnlyAttending, setShowOnlyAttending] = useState(false);
   const [selectedQualifications, setSelectedQualifications] = useState<QualificationType[]>([]);
 
@@ -100,8 +219,117 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
     groupedPilots[highestQual].push(pilot);
   });
 
+  // Check if a pilot is assigned to any flight
+  const isPilotAssigned = (pilot: Pilot): boolean => {
+    return Object.values(assignedPilots).some(flightPilots =>
+      flightPilots.some(p => p.boardNumber === pilot.boardNumber)
+    );
+  };
+
+  // Add an event listener to prevent horizontal scrolling during drag
+  useEffect(() => {
+    const preventHorizontalScroll = (e: WheelEvent) => {
+      if (document.body.classList.contains('dragging')) {
+        // Only allow vertical scrolling during drag operations
+        const container = scrollContainerRef.current;
+        if (container) {
+          container.scrollTop += e.deltaY;
+          e.preventDefault();
+        }
+      }
+    };
+
+    const container = scrollContainerRef.current;
+    if (container) {
+      container.addEventListener('wheel', preventHorizontalScroll);
+      
+      return () => {
+        container.removeEventListener('wheel', preventHorizontalScroll);
+      };
+    }
+  }, []);
+
+  // Add a more aggressive scroll prevention approach
+  useEffect(() => {
+    // Store original overflow style
+    const originalOverflow = document.body.style.overflowX;
+    
+    // Create a style element for our global CSS
+    const styleElement = document.createElement('style');
+    styleElement.textContent = `
+      .pilots-container, 
+      .pilots-container * {
+        overflow-x: hidden !important;
+        max-width: ${width};
+        scrollbar-width: thin;
+      }
+      
+      .pilots-scroll-container {
+        overflow-y: auto;
+        overflow-x: hidden !important;
+        scrollbar-width: thin;
+        width: 100%;
+        contain: strict;
+        scrollbar-gutter: stable;
+      }
+      
+      .qualification-group {
+        overflow-x: hidden !important;
+        width: 100%;
+        position: relative;
+      }
+      
+      /* Additional styles to prevent horizontal scroll during drag */
+      body.dragging .pilots-scroll-container {
+        overflow-x: hidden !important;
+        transform: translateZ(0);
+        will-change: transform;
+      }
+      
+      [data-dragging="true"] {
+        pointer-events: auto !important;
+        z-index: 9999 !important;
+      }
+    `;
+    document.head.appendChild(styleElement);
+    
+    // Handle drag start - lock scroll
+    const handleDragStart = () => {
+      document.body.style.overflowX = 'hidden';
+      
+      const containers = document.querySelectorAll('.pilots-scroll-container, .qualification-group');
+      containers.forEach(container => {
+        if (container instanceof HTMLElement) {
+          container.style.overflowX = 'hidden';
+          container.style.maxWidth = width;
+        }
+      });
+    };
+    
+    // Handle drag end - restore scroll
+    const handleDragEnd = () => {
+      document.body.style.overflowX = originalOverflow;
+    };
+    
+    // Listen for drag events
+    document.addEventListener('dragstart', handleDragStart);
+    document.addEventListener('dragend', handleDragEnd);
+    
+    return () => {
+      document.removeEventListener('dragstart', handleDragStart);
+      document.removeEventListener('dragend', handleDragEnd);
+      document.body.style.overflowX = originalOverflow;
+      document.head.removeChild(styleElement);
+    };
+  }, [width, assignedPilots]);
+
   return (
-    <div style={{ width }}>
+    <div className="pilots-container" style={{ 
+      width,
+      maxWidth: width,
+      overflow: 'hidden',
+      position: 'relative'
+    }}>
       <Card 
         style={{
           width: '100%',
@@ -196,14 +424,31 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
           </div>
         </div>
 
-        {/* Pilots list */}
-        <div className="flex-1 overflow-y-auto">
+        {/* Pilots list with ref */}
+        <div 
+          ref={scrollContainerRef}
+          className="pilots-scroll-container" 
+          style={{ 
+            flex: 1,
+            overflowY: 'auto',
+            overflowX: 'hidden',
+            width: '100%',
+            position: 'relative',
+            padding: '0 10px',
+            boxSizing: 'border-box',
+            margin: '0 -10px'
+          }}
+        >
           {[...DISPLAY_ORDER, 'Wingman' as QualificationType].map(qualification => {
             const qualPilots = groupedPilots[qualification] || [];
             if (qualPilots.length === 0) return null;
 
             return (
-              <div key={qualification}>
+              <div key={qualification} className="qualification-group" style={{ 
+                width: '100%',
+                overflowX: 'hidden',
+                position: 'relative'
+              }}>
                 {/* Qualification group divider */}
                 <div 
                   style={{
@@ -239,59 +484,23 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
                 </div>
 
                 {/* Pilot entries */}
-                {qualPilots.map(pilot => (
-                  <div
-                    key={pilot.id}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      height: '24px',
-                      marginBottom: '10px',
-                      transition: 'background-color 0.2s ease',
-                      borderRadius: '8px',
-                      padding: '0 10px'
-                    }}
-                  >
-                    <span style={{
-                      width: '62px',
-                      textAlign: 'center',
-                      fontSize: '16px',
-                      fontWeight: 400,
-                      color: '#646F7E'
-                    }}>
-                      {pilot.boardNumber}
-                    </span>
-                    <span style={{
-                      width: '120px',
-                      fontSize: '16px',
-                      fontWeight: 700
-                    }}>
-                      {pilot.callsign}
-                    </span>
-                    <span style={{
-                      fontSize: '16px',
-                      fontWeight: 300,
-                      color: '#646F7E'
-                    }}>
-                      {pilot.billet}
-                    </span>
-                    
-                    {/* Qualification badges */}
-                    <div style={{
-                      display: 'flex',
-                      gap: '4px',
-                      marginLeft: 'auto',
-                      height: '24px'
-                    }}>
-                      {pilot.qualifications.map((qual, index) => (
-                        <QualificationBadge 
-                          key={`${qual.type}-${index}`} 
-                          type={qual.type}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                ))}
+                <div style={{ 
+                  width: '100%', 
+                  position: 'relative', 
+                  overflowX: 'hidden' 
+                }}>
+                  {qualPilots.map(pilot => {
+                    // Check if this pilot is assigned to any flight
+                    const assigned = isPilotAssigned(pilot);
+                    return (
+                      <PilotEntry 
+                        key={`${pilot.id}-${assigned ? 'assigned' : 'available'}`} // Add assignment state to key to force re-render
+                        pilot={pilot} 
+                        isAssigned={assigned}
+                      />
+                    );
+                  })}
+                </div>
               </div>
             );
           })}
