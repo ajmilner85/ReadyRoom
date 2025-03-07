@@ -161,19 +161,31 @@ const DroppableAircraftTile: React.FC<DroppableAircraftTileProps> = ({
   isFlightLead,
   isWingPair
 }) => {
+  // Always make tiles droppable, but only trigger a fill action if the tile is empty
+  // or if the user is dragging the existing pilot in this tile
   const isEmpty = !pilot.boardNumber && !pilot.callsign;
+  const dropId = `flight-${flightId}-position-${dashNumber}`;
+  
   const { setNodeRef, isOver } = useDroppable({
-    id: isEmpty ? `flight-${flightId}-position-${dashNumber}` : `disabled-${flightId}-${dashNumber}`,
+    id: dropId,
     data: {
       type: 'FlightPosition',
       flightId,
-      dashNumber
-    },
-    disabled: !isEmpty
+      dashNumber,
+      currentBoardNumber: pilot.boardNumber // Include current occupant's info
+    }
   });
 
   return (
-    <div ref={setNodeRef} style={{ position: 'relative', marginRight: dashNumber !== "4" ? '15px' : '0' }}>
+    <div 
+      ref={setNodeRef} 
+      style={{ 
+        position: 'relative', 
+        marginRight: dashNumber !== "4" ? '15px' : '0',
+        zIndex: isOver ? 10 : 1 // Increase z-index when being dragged over
+      }}
+      data-drop-id={dropId}
+    >
       <AircraftTile
         {...pilot}
         flightId={flightId}
@@ -191,7 +203,7 @@ const DroppableAircraftTile: React.FC<DroppableAircraftTileProps> = ({
           0                          // 1-1 no offset
         }
       />
-      {isEmpty && isOver && (
+      {isOver && (
         <div style={{
           position: 'absolute',
           top: 0,

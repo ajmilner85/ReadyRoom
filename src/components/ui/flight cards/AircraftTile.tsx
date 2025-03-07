@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import aircraftIcon from '../../../assets/Aircraft Icon.svg';
 import { useDraggable } from '@dnd-kit/core';
 
@@ -31,6 +31,9 @@ const AircraftTile: React.FC<AircraftTileProps> = ({
   verticalOffset = 0,
   flightId
 }) => {
+  // Track local drag state
+  const [localDragging, setLocalDragging] = useState(false);
+
   // Component styling constants
   const PURPLE = '#5B4E61';
   const LIGHT_PURPLE = '#82728C'; // For the 1-3 accent
@@ -50,7 +53,7 @@ const AircraftTile: React.FC<AircraftTileProps> = ({
     : (isFlightLead ? PURPLE : isWingPair ? LIGHT_PURPLE : '');
 
   // Make the tile draggable if it has a pilot assigned
-  const { attributes, listeners, setNodeRef } = useDraggable({
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: `pilot-tile-${boardNumber}`,
     data: {
       type: 'Pilot',
@@ -64,8 +67,16 @@ const AircraftTile: React.FC<AircraftTileProps> = ({
     disabled: isEmpty
   });
 
+  // Update local dragging state
+  React.useEffect(() => {
+    if (isDragging !== localDragging) {
+      setLocalDragging(isDragging);
+    }
+  }, [isDragging, localDragging]);
+
   return (
     <div 
+      className="aircraft-tile-container"
       style={{
         position: 'relative',
         width: '92px', // All tiles should be 92px wide
@@ -73,11 +84,15 @@ const AircraftTile: React.FC<AircraftTileProps> = ({
         flexDirection: 'column',
         alignItems: 'center',
         marginTop: `${verticalOffset}px`, // Apply vertical offset
-        marginBottom: '0px' // Remove the margin bottom since spacing is handled by parent
+        marginBottom: '0px', // Remove the margin bottom since spacing is handled by parent
+        pointerEvents: 'auto', // Ensure pointer events are always enabled
+        isolation: 'isolate', // Isolate this component to prevent style leakage
+        transform: 'translateZ(0)' // Force GPU acceleration for consistent rendering
       }}
     >
       {/* Flight number and dash number label above the tile */}
       <div
+        className="aircraft-tile-label"
         style={{
           fontFamily: 'Inter',
           fontWeight: 400, // Changed to regular weight
@@ -96,16 +111,19 @@ const AircraftTile: React.FC<AircraftTileProps> = ({
       {/* Main tile background with shadow wrapper */}
       <div 
         ref={setNodeRef}
+        className="aircraft-tile-wrapper"
         {...(!isEmpty ? { ...attributes, ...listeners } : {})}
         style={{
           position: 'relative',
           width: '92px',
           boxShadow: !isEmpty ? '0px 4px 6px rgba(0, 0, 0, 0.1)' : 'none',
           borderRadius: '8px',
-          cursor: isEmpty ? 'default' : 'grab'
+          cursor: isEmpty ? 'default' : 'grab',
+          willChange: 'transform' // Optimize for animations
         }}
       >
         <div
+          className="aircraft-tile-main"
           style={{
             position: 'relative',
             width: '92px', // All tiles are 92px wide
@@ -135,6 +153,7 @@ const AircraftTile: React.FC<AircraftTileProps> = ({
             >
               {/* Flight lead or section lead indicator dots */}
               <div
+                className="indicator-dots"
                 style={{
                   fontFamily: 'Inter',
                   fontWeight: 700,

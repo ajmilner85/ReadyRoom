@@ -59,14 +59,22 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
   // Transform assigned pilots into the format needed for display
   const getUpdatedFlightPilots = (flight: Flight) => {
     const assigned = assignedPilots[flight.id] || [];
-    const updatedPilots = [...flight.pilots];
+    // Create a fresh array with empty positions
+    const updatedPilots = flight.pilots.map(p => ({
+      boardNumber: "",
+      callsign: "",
+      dashNumber: p.dashNumber
+    }));
     
-    // Find first empty slot for each assigned pilot
+    // Place each assigned pilot in their designated position by dashNumber
     assigned.forEach(assignedPilot => {
-      const emptySlotIndex = updatedPilots.findIndex(p => !p.boardNumber && !p.callsign);
-      if (emptySlotIndex !== -1) {
-        updatedPilots[emptySlotIndex] = {
-          ...updatedPilots[emptySlotIndex],
+      const dashNumber = assignedPilot.dashNumber;
+      // Find the position with matching dashNumber
+      const index = updatedPilots.findIndex(p => p.dashNumber === dashNumber);
+      
+      if (index !== -1) {
+        updatedPilots[index] = {
+          dashNumber,
           boardNumber: assignedPilot.boardNumber,
           callsign: assignedPilot.callsign
         };
