@@ -1,6 +1,10 @@
 
 In Progress:
-- Make available pilots entries draggable in mission preparation page
+- Fix drag and drop related issues on mission preparation page
+	- Tiles changing style when initiating a drag
+	- Pilots not droppping into correct slot or overwriting another slot
+	- Emptying slots not working correctly
+	- Moving pilots between slots not working correctly
 
 Next:
 - Mission preparation page
@@ -10,7 +14,6 @@ Next:
 	- Create flights
 		- Provide a list of recently used flight callsigns
 		- Automatically sequence flight numbers within each callsign
-	- Assign pilots
 	- Assign MIDS/Encryption channels
 	- Loadouts/Initial Fuel State
 	- Create comms card
@@ -159,3 +162,4 @@ Complete
 - Event management page essential features
 	- Delete and edit events
 	- List dividers for upcoming and past events
+- Make available pilots entries draggable in mission preparation page
