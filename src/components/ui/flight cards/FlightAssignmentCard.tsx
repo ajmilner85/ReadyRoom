@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useDroppable } from '@dnd-kit/core';
 import AircraftTile from './AircraftTile';
+import { Edit2, Trash2 } from 'lucide-react';
 import type { Pilot } from '../../../types/PilotTypes';
 
 interface FlightAssignmentCardProps {
@@ -14,6 +15,8 @@ interface FlightAssignmentCardProps {
   }>;
   midsA?: string;
   midsB?: string;
+  onDeleteFlight?: (id: string) => void;
+  onEditFlight?: (id: string, callsign: string) => void;
 }
 
 const FlightAssignmentCard: React.FC<FlightAssignmentCardProps> = ({
@@ -22,8 +25,12 @@ const FlightAssignmentCard: React.FC<FlightAssignmentCardProps> = ({
   flightNumber,
   pilots,
   midsA = '',
-  midsB = ''
+  midsB = '',
+  onDeleteFlight,
+  onEditFlight
 }) => {
+  const [isHovered, setIsHovered] = useState(false);
+
   const getPilotByDashNumber = (dashNumber: string) => {
     return pilots.find(p => p.dashNumber === dashNumber) || {
       boardNumber: "",
@@ -37,6 +44,14 @@ const FlightAssignmentCard: React.FC<FlightAssignmentCardProps> = ({
   const pilot1 = getPilotByDashNumber("1"); // 1-1 (flight lead)
   const pilot3 = getPilotByDashNumber("3"); // 1-3 (section lead)
   const pilot4 = getPilotByDashNumber("4"); // 1-4
+
+  // Calculate the second section's MIDS A channel (MIDS A + 1)
+  // If midsA is "1", then secondSectionMidsA will be "2"
+  const midsANum = parseInt(midsA) || 0;
+  const secondSectionMidsA = midsANum > 0 ? (midsANum + 1).toString() : '';
+
+  // Check if the flight is empty (no assigned pilots)
+  const isFlightEmpty = pilots.every(p => !p.boardNumber && !p.callsign);
 
   return (
     <div
@@ -56,7 +71,85 @@ const FlightAssignmentCard: React.FC<FlightAssignmentCardProps> = ({
         flexDirection: 'column',
         marginBottom: '10px' // Add consistent spacing between cards
       }}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
     >
+      {/* Hover controls (edit and delete) for empty flights */}
+      {isHovered && isFlightEmpty && (
+        <div
+          style={{
+            position: 'absolute',
+            top: '5px',
+            right: '5px',
+            display: 'flex',
+            gap: '5px',
+            zIndex: 5
+          }}
+        >
+          {/* Edit button - using Lucide-React component to match other sections */}
+          <button
+            onClick={() => onEditFlight?.(id, callsign)}
+            style={{
+              padding: '4px',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              background: 'white',
+              boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+              border: 'none',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              transition: 'all 0.1s ease',
+              color: '#64748B',
+              width: '24px',
+              height: '24px'
+            }}
+            title="Edit flight"
+            onMouseEnter={(e) => {
+              e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.15)';
+              e.currentTarget.style.background = '#F8FAFC';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
+              e.currentTarget.style.background = 'white';
+            }}
+          >
+            <Edit2 size={14} color="#64748B" />
+          </button>
+
+          {/* Delete button - using Lucide-React component to match other sections */}
+          <button
+            onClick={() => onDeleteFlight?.(id)}
+            style={{
+              padding: '4px',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              background: 'white',
+              boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+              border: 'none',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              transition: 'all 0.1s ease',
+              color: '#64748B',
+              width: '24px',
+              height: '24px'
+            }}
+            title="Delete flight"
+            onMouseEnter={(e) => {
+              e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.15)';
+              e.currentTarget.style.background = '#F8FAFC';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
+              e.currentTarget.style.background = 'white';
+            }}
+          >
+            <Trash2 size={14} color="#64748B" />
+          </button>
+        </div>
+      )}
+
       {/* Aircraft Tiles Container */}
       <div style={{
         display: 'flex',
@@ -67,49 +160,49 @@ const FlightAssignmentCard: React.FC<FlightAssignmentCardProps> = ({
         marginBottom: '0' // Removed margin
       }}>
         {/* Wrap each tile with DroppableAircraftTile when empty */}
-        {/* 1-2 position */}
+        {/* 1-2 position - first section */}
         <DroppableAircraftTile
           pilot={pilot2}
           flightId={id}
           dashNumber="2"
           flightNumber={flightNumber}
           flightCallsign={callsign}
-          midsA={midsA}
+          midsA={midsA}  // First section MIDS A
           midsB={midsB}
         />
         
-        {/* 1-1 position */}
+        {/* 1-1 position - first section */}
         <DroppableAircraftTile
           pilot={pilot1}
           flightId={id}
           dashNumber="1"
           flightNumber={flightNumber}
           flightCallsign={callsign}
-          midsA={midsA}
+          midsA={midsA}  // First section MIDS A
           midsB={midsB}
           isFlightLead={true}
         />
         
-        {/* 1-3 position */}
+        {/* 1-3 position - second section */}
         <DroppableAircraftTile
           pilot={pilot3}
           flightId={id}
           dashNumber="3"
           flightNumber={flightNumber}
           flightCallsign={callsign}
-          midsA={midsA}
+          midsA={secondSectionMidsA}  // Second section MIDS A
           midsB={midsB}
           isWingPair={true}
         />
         
-        {/* 1-4 position */}
+        {/* 1-4 position - second section */}
         <DroppableAircraftTile
           pilot={pilot4}
           flightId={id}
           dashNumber="4"
           flightNumber={flightNumber}
           flightCallsign={callsign}
-          midsA={midsA}
+          midsA={secondSectionMidsA}  // Second section MIDS A
           midsB={midsB}
         />
       </div>
