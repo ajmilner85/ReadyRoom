@@ -3,6 +3,8 @@ import { Card } from '../card';
 import { Edit2, Check, X, Upload } from 'lucide-react';
 import { styles } from '../../../styles/MissionPrepStyles';
 import type { Event } from '../../../types/EventTypes';
+import { processMissionCoordinates } from '../../../utils/coordinateUtils';
+import JSZip from 'jszip';
 
 interface MissionCommanderInfo {
   boardNumber: string;
@@ -65,6 +67,7 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
   const [isEditing, setIsEditing] = useState(false);
   const [editedDetails, setEditedDetails] = useState<MissionDetailsData>(missionDetails);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [isProcessingFile, setIsProcessingFile] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const startEditing = () => {
@@ -89,9 +92,57 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
     }));
   };
 
+  // Function to process the uploaded mission file
+  const processMissionFile = async (file: File) => {
+    setIsProcessingFile(true);
+    try {
+      // Load the .miz file as a JSZip archive
+      const zip = new JSZip();
+      const archive = await zip.loadAsync(file);
+      
+      // Look for the mission file in the archive (usually named "mission")
+      let missionContent = '';
+      const missionFile = archive.file('mission');
+      
+      if (missionFile) {
+        // Extract and read the mission file content
+        missionContent = await missionFile.async('string');
+        
+        // Process the mission content to extract coordinates
+        const missionData = processMissionCoordinates(missionContent);
+        
+        // Update the bullseye coordinates in the mission details
+        if (missionData.blueBullseye.formatted) {
+          setMissionDetails(prev => ({
+            ...prev,
+            bullseyeLatLon: missionData.blueBullseye.formatted || ''
+          }));
+          
+          setEditedDetails(prev => ({
+            ...prev,
+            bullseyeLatLon: missionData.blueBullseye.formatted || ''
+          }));
+        }
+        
+        // Optionally, update other fields based on mission data
+        if (missionData.theatre) {
+          console.log(`Loaded mission from ${missionData.theatre} theatre`);
+        }
+      } else {
+        throw new Error("Could not find mission file in the .miz archive");
+      }
+    } catch (error) {
+      console.error('Error processing mission file:', error);
+      alert('Error processing mission file. Check console for details.');
+    } finally {
+      setIsProcessingFile(false);
+    }
+  };
+
   const handleFileSelect = (file: File) => {
     if (file && file.name.endsWith('.miz')) {
       setSelectedFile(file);
+      processMissionFile(file);
     } else {
       alert('Only .miz files are supported');
     }
@@ -513,7 +564,9 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
               e.currentTarget.style.backgroundColor = 'transparent';
             }}
           >
-            {selectedFile ? (
+            {isProcessingFile ? (
+              <span>Processing mission file...</span>
+            ) : selectedFile ? (
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <Upload size={16} />
                 {selectedFile.name}

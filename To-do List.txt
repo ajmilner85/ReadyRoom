@@ -39,6 +39,7 @@ Medium Priority:
 
 
 QOL:
+- Add loading indicators
 - Add ability to set flight tasking during creation
 - Add quick add flight function (e.g. to add an additional STING flight)
 - Dragging a flight into an empty area of the En Route/Tasking section brings up an add mission dialog, entering a mission drops the card into that mission division, hitting cancel returns the card to where it was last

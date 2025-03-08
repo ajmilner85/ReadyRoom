@@ -19,7 +19,9 @@
     "@types/node": "^22.13.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "jszip": "^3.10.1",
     "lucide-react": "^0.474.0",
+    "proj4": "^2.15.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "tailwindcss-animate": "^1.0.7"
@@ -28,6 +30,8 @@
     "@eslint/js": "^9.19.0",
     "@tailwindcss/postcss": "^4.0.3",
     "@tailwindcss/typography": "^0.5.16",
+    "@types/jszip": "^3.4.0",
+    "@types/proj4": "^2.5.6",
     "@types/react": "^19.0.8",
     "@types/react-dom": "^19.0.3",
     "@vitejs/plugin-react-swc": "^3.5.0",
