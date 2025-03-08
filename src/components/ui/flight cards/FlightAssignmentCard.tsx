@@ -4,6 +4,15 @@ import AircraftTile from './AircraftTile';
 import { Edit2, Trash2 } from 'lucide-react';
 import type { Pilot } from '../../../types/PilotTypes';
 
+// Add mission commander interface
+interface MissionCommanderInfo {
+  boardNumber: string;
+  callsign: string;
+  flightId: string;
+  flightCallsign: string;
+  flightNumber: string;
+}
+
 interface FlightAssignmentCardProps {
   id: string;
   callsign: string;
@@ -17,6 +26,7 @@ interface FlightAssignmentCardProps {
   midsB?: string;
   onDeleteFlight?: (id: string) => void;
   onEditFlight?: (id: string, callsign: string) => void;
+  missionCommander?: MissionCommanderInfo | null;
 }
 
 const FlightAssignmentCard: React.FC<FlightAssignmentCardProps> = ({
@@ -27,7 +37,8 @@ const FlightAssignmentCard: React.FC<FlightAssignmentCardProps> = ({
   midsA = '',
   midsB = '',
   onDeleteFlight,
-  onEditFlight
+  onEditFlight,
+  missionCommander
 }) => {
   const [isHovered, setIsHovered] = useState(false);
 
@@ -37,6 +48,13 @@ const FlightAssignmentCard: React.FC<FlightAssignmentCardProps> = ({
       callsign: "",
       dashNumber
     };
+  };
+
+  // Check if a pilot is the mission commander
+  const isMissionCommander = (boardNumber: string) => {
+    return missionCommander !== null && 
+           missionCommander.boardNumber === boardNumber && 
+           missionCommander.flightId === id;
   };
 
   // Get the pilots in the correct order: 1-2, 1-1, 1-3, 1-4
@@ -169,6 +187,7 @@ const FlightAssignmentCard: React.FC<FlightAssignmentCardProps> = ({
           flightCallsign={callsign}
           midsA={midsA}  // First section MIDS A
           midsB={midsB}
+          isMissionCommander={isMissionCommander(pilot2.boardNumber)}
         />
         
         {/* 1-1 position - first section */}
@@ -181,6 +200,7 @@ const FlightAssignmentCard: React.FC<FlightAssignmentCardProps> = ({
           midsA={midsA}  // First section MIDS A
           midsB={midsB}
           isFlightLead={true}
+          isMissionCommander={isMissionCommander(pilot1.boardNumber)}
         />
         
         {/* 1-3 position - second section */}
@@ -193,6 +213,7 @@ const FlightAssignmentCard: React.FC<FlightAssignmentCardProps> = ({
           midsA={secondSectionMidsA}  // Second section MIDS A
           midsB={midsB}
           isWingPair={true}
+          isMissionCommander={isMissionCommander(pilot3.boardNumber)}
         />
         
         {/* 1-4 position - second section */}
@@ -204,6 +225,7 @@ const FlightAssignmentCard: React.FC<FlightAssignmentCardProps> = ({
           flightCallsign={callsign}
           midsA={secondSectionMidsA}  // Second section MIDS A
           midsB={midsB}
+          isMissionCommander={isMissionCommander(pilot4.boardNumber)}
         />
       </div>
 
@@ -241,6 +263,7 @@ interface DroppableAircraftTileProps {
   midsB?: string;
   isFlightLead?: boolean;
   isWingPair?: boolean;
+  isMissionCommander?: boolean;
 }
 
 const DroppableAircraftTile: React.FC<DroppableAircraftTileProps> = ({
@@ -252,7 +275,8 @@ const DroppableAircraftTile: React.FC<DroppableAircraftTileProps> = ({
   midsA,
   midsB,
   isFlightLead,
-  isWingPair
+  isWingPair,
+  isMissionCommander = false
 }) => {
   // Always make tiles droppable, but only trigger a fill action if the tile is empty
   // or if the user is dragging the existing pilot in this tile
@@ -295,6 +319,7 @@ const DroppableAircraftTile: React.FC<DroppableAircraftTileProps> = ({
           dashNumber === "4" ? 20 :  // 1-4 offset 20px down
           0                          // 1-1 no offset
         }
+        isMissionCommander={isMissionCommander}
       />
       {isOver && (
         <div style={{

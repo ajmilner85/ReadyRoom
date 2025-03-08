@@ -15,6 +15,7 @@ interface AircraftTileProps {
   midsB?: string;
   verticalOffset?: number; // New prop for vertical positioning
   flightId?: string; // Add this prop for drag handling
+  isMissionCommander?: boolean; // Add prop for mission commander status
 }
 
 const AircraftTile: React.FC<AircraftTileProps> = ({
@@ -29,7 +30,8 @@ const AircraftTile: React.FC<AircraftTileProps> = ({
   midsA = '',
   midsB = '',
   verticalOffset = 0,
-  flightId
+  flightId,
+  isMissionCommander = false
 }) => {
   // Track local drag state
   const [localDragging, setLocalDragging] = useState(false);
@@ -43,14 +45,27 @@ const AircraftTile: React.FC<AircraftTileProps> = ({
   const PURE_WHITE = '#FFFFFF';
   const FADED_PURPLE = 'rgba(91, 78, 97, 0.5)'; // Faded version of PURPLE
   const FADED_LIGHT_PURPLE = 'rgba(130, 114, 140, 0.5)'; // Faded version of LIGHT_PURPLE
+  const MISSION_COMMANDER_COLOR = '#F24607'; // Orange color for mission commander
 
   // Determine tile height based on position
   const tileHeight = (isFlightLead || isWingPair) ? 102 : 92;
   
   // Determine accent color with fading when empty
-  const accentColor = isEmpty 
-    ? (isFlightLead ? FADED_PURPLE : isWingPair ? FADED_LIGHT_PURPLE : '')
-    : (isFlightLead ? PURPLE : isWingPair ? LIGHT_PURPLE : '');
+  const getAccentColor = () => {
+    if (isEmpty) {
+      return isFlightLead ? FADED_PURPLE : isWingPair ? FADED_LIGHT_PURPLE : '';
+    }
+    
+    // If this is the mission commander, use the mission commander color
+    if (isMissionCommander) {
+      return MISSION_COMMANDER_COLOR;
+    }
+    
+    // Otherwise use standard colors
+    return isFlightLead ? PURPLE : isWingPair ? LIGHT_PURPLE : '';
+  };
+  
+  const accentColor = getAccentColor();
 
   // Make the tile draggable if it has a pilot assigned
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
@@ -73,6 +88,23 @@ const AircraftTile: React.FC<AircraftTileProps> = ({
       setLocalDragging(isDragging);
     }
   }, [isDragging, localDragging]);
+
+  // Get indicator content (dots or star)
+  const getIndicatorContent = () => {
+    if (isMissionCommander) {
+      // Unicode character for a five-pointed star (★)
+      return '★';
+    }
+    return isFlightLead ? '••••' : '••';
+  };
+
+  // Determine font size for indicator based on mission commander status
+  const getIndicatorFontSize = () => {
+    if (isMissionCommander) {
+      return '10px'; // Even smaller font size for the star
+    }
+    return '10px';
+  };
 
   return (
     <div 
@@ -157,7 +189,7 @@ const AircraftTile: React.FC<AircraftTileProps> = ({
                 style={{
                   fontFamily: 'Inter',
                   fontWeight: 700,
-                  fontSize: '10px',
+                  fontSize: getIndicatorFontSize(),
                   lineHeight: '10px',
                   color: LIGHT_SLATE_GREY,
                   position: 'absolute',
@@ -167,7 +199,7 @@ const AircraftTile: React.FC<AircraftTileProps> = ({
                   textAlign: 'center'
                 }}
               >
-                {isFlightLead ? '••••' : '••'}
+                {getIndicatorContent()}
               </div>
             </div>
           )}

@@ -23,16 +23,27 @@ interface AssignedPilot extends Pilot {
   dashNumber: string;
 }
 
+// Add mission commander interface
+interface MissionCommanderInfo {
+  boardNumber: string;
+  callsign: string;
+  flightId: string;
+  flightCallsign: string;
+  flightNumber: string;
+}
+
 interface FlightAssignmentsProps {
   width: string;
   assignedPilots?: Record<string, AssignedPilot[]>;
   onPilotAssigned?: (flightId: string, pilot: AssignedPilot) => void;
+  missionCommander?: MissionCommanderInfo | null;
 }
 
 const FlightAssignments: React.FC<FlightAssignmentsProps> = ({ 
   width, 
   assignedPilots = {},
-  onPilotAssigned
+  onPilotAssigned,
+  missionCommander
 }) => {
   const [flights, setFlights] = useState<Flight[]>([
     {
@@ -245,6 +256,13 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
     setShowAddFlightDialog(true);
   }, []);
 
+  // Check if a pilot is the mission commander
+  const isPilotMissionCommander = (boardNumber: string, flightId: string) => {
+    return missionCommander !== null && 
+           missionCommander.boardNumber === boardNumber && 
+           missionCommander.flightId === flightId;
+  };
+
   return (
     <div style={{ width, position: 'relative' }}>
       <Card 
@@ -293,6 +311,7 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
                 midsB={flight.midsB}
                 onDeleteFlight={handleDeleteFlight}
                 onEditFlight={handleEditFlight}
+                missionCommander={missionCommander}
               />
             ))}
           </div>

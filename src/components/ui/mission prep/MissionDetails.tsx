@@ -4,11 +4,30 @@ import { Edit2, Check, X } from 'lucide-react';
 import { styles } from '../../../styles/MissionPrepStyles';
 import type { Event } from '../../../types/EventTypes';
 
+interface MissionCommanderInfo {
+  boardNumber: string;
+  callsign: string;
+  flightId: string;
+  flightCallsign: string;
+  flightNumber: string;
+}
+
 interface MissionDetailsProps {
   width: string;
   events: Event[];
   selectedEvent: Event | null;
   onEventSelect: (event: Event | null) => void;
+  missionCommander: MissionCommanderInfo | null;
+  setMissionCommander: (commander: MissionCommanderInfo | null) => void;
+  getMissionCommanderCandidates: () => {
+    label: string;
+    value: string;
+    boardNumber: string;
+    callsign: string;
+    flightId: string;
+    flightCallsign: string;
+    flightNumber: string;
+  }[];
 }
 
 interface MissionDetailsData {
@@ -24,7 +43,10 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
   width,
   events,
   selectedEvent,
-  onEventSelect
+  onEventSelect,
+  missionCommander,
+  setMissionCommander,
+  getMissionCommanderCandidates
 }) => {
   // Sort events by date (newest first)
   const sortedEvents = [...events].sort((a, b) => 
@@ -68,7 +90,8 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
   const renderDetailRow = (
     label: string, 
     field: keyof MissionDetailsData, 
-    type: 'text' | 'datetime-local' | 'textarea' = 'text'
+    type: 'text' | 'datetime-local' | 'textarea' | 'select' = 'text',
+    options?: { label: string; value: string; data?: any }[]
   ) => {
     const value = isEditing ? editedDetails[field] : missionDetails[field];
     
@@ -100,6 +123,26 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
               }}
               placeholder={`Enter ${label.toLowerCase()}`}
             />
+          ) : type === 'select' && options ? (
+            <select
+              value={value as string}
+              onChange={(e) => handleDetailChange(field, e.target.value)}
+              style={{
+                width: '100%',
+                padding: '8px 12px',
+                border: '1px solid #CBD5E1',
+                borderRadius: '4px',
+                fontSize: '14px',
+                boxSizing: 'border-box'
+              }}
+            >
+              <option value="">Select {label}</option>
+              {options.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
           ) : (
             <input 
               type={type}
@@ -134,6 +177,61 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
             {value || '—'}
           </div>
         )}
+      </div>
+    );
+  };
+
+  // Render mission commander dropdown, separate from other fields since it needs special handling
+  const renderMissionCommanderDropdown = () => {
+    const candidates = getMissionCommanderCandidates();
+    const selectedValue = missionCommander ? missionCommander.boardNumber : '';
+    
+    return (
+      <div style={{ marginBottom: '16px' }}>
+        <label style={{
+          display: 'block',
+          marginBottom: '8px',
+          fontSize: '14px',
+          fontWeight: 500,
+          color: '#64748B'
+        }}>
+          Mission Commander
+        </label>
+        <select
+          value={selectedValue}
+          onChange={(e) => {
+            const selectedBoardNumber = e.target.value;
+            if (!selectedBoardNumber) {
+              setMissionCommander(null);
+            } else {
+              const selected = candidates.find(c => c.boardNumber === selectedBoardNumber);
+              if (selected) {
+                setMissionCommander({
+                  boardNumber: selected.boardNumber,
+                  callsign: selected.callsign,
+                  flightId: selected.flightId,
+                  flightCallsign: selected.flightCallsign,
+                  flightNumber: selected.flightNumber
+                });
+              }
+            }
+          }}
+          style={{
+            width: '100%',
+            padding: '8px 12px',
+            border: '1px solid #CBD5E1',
+            borderRadius: '4px',
+            fontSize: '14px',
+            boxSizing: 'border-box'
+          }}
+        >
+          <option value="">No Mission Commander</option>
+          {candidates.map((option) => (
+            <option key={option.boardNumber} value={option.boardNumber}>
+              {option.label}
+            </option>
+          ))}
+        </select>
       </div>
     );
   };
@@ -307,7 +405,7 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
           {renderDetailRow('Task Unit', 'taskUnit')}
           {renderDetailRow('Mother', 'mother')}
           {renderDetailRow('Mission Date/Time', 'missionDateTime', 'datetime-local')}
-          {renderDetailRow('Mission Commander', 'missionCommander')}
+          {renderMissionCommanderDropdown()}
           {renderDetailRow('Bullseye Lat/Lon', 'bullseyeLatLon')}
           {renderDetailRow('Weather', 'weather', 'textarea')}
         </div>
