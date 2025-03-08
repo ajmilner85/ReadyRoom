@@ -44,7 +44,7 @@ export const styles = {
     tableCell: {
       fontFamily: 'Inter',
       fontWeight: 400,
-      fontSize: '16px',
+      fontSize: '14px',  // Updated from 16px to 14px
       height: '24px', // Matches pilot list
       padding: '0 10px',
       marginBottom: '10px',
@@ -55,7 +55,7 @@ export const styles = {
     tableHeader: {
       fontFamily: 'Inter',
       fontWeight: 700,
-      fontSize: '16px',
+      fontSize: '14px',  // Updated from 16px to 14px
       color: '#646F7E',
       padding: '4px 10px',
     },
@@ -67,7 +67,7 @@ export const styles = {
       outline: 'none',
       fontFamily: 'Inter',
       fontWeight: 400,
-      fontSize: '16px',
+      fontSize: '14px',  // Updated from 16px to 14px
       padding: '0',
       margin: '0',
     },

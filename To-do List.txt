@@ -1,9 +1,6 @@
 
 In Progress:
-- Ability to set mission commander
-- Add utility functions for flight assignment (autofill flights, auto assign channels)
-- Add ability to set flight tasking during creation
-- Add quick add flight function (e.g. to add an additional STING flight)
+- Add utility functions for flight assignment (autofill flights, auto assign / re-assign MIDS channels)
 
 
 Next:
@@ -42,7 +39,8 @@ Medium Priority:
 
 
 QOL:
-
+- Add ability to set flight tasking during creation
+- Add quick add flight function (e.g. to add an additional STING flight)
 - Dragging a flight into an empty area of the En Route/Tasking section brings up an add mission dialog, entering a mission drops the card into that mission division, hitting cancel returns the card to where it was last
 - Fuel state estimate or last update timer
 - BRC/Weather Display
@@ -165,3 +163,4 @@ Complete
 - Case  II/III recovery section refactor to add
 	- Editable Expected Approach Times
 	- Next available level calculates expected approach time automatically
+- Ability to set mission commander
