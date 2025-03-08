@@ -1,3 +1,4 @@
+// Implementation adapted from [DCE Campaign Builder](https://github.com/bbirchnz/dce-campaign-builder) using methods from [PyDCS](https://github.com/pydcs/dcs)
 // JavaScript implementation of coordinate conversion using Proj4js
 import proj4 from 'proj4';
 
