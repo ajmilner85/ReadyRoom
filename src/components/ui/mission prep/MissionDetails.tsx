@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { Card } from '../card';
-import { Edit2, Check, X } from 'lucide-react';
+import { Edit2, Check, X, Upload } from 'lucide-react';
 import { styles } from '../../../styles/MissionPrepStyles';
 import type { Event } from '../../../types/EventTypes';
 
@@ -64,6 +64,8 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
 
   const [isEditing, setIsEditing] = useState(false);
   const [editedDetails, setEditedDetails] = useState<MissionDetailsData>(missionDetails);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const startEditing = () => {
     setIsEditing(true);
@@ -85,6 +87,42 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
       ...prev,
       [field]: value
     }));
+  };
+
+  const handleFileSelect = (file: File) => {
+    if (file && file.name.endsWith('.miz')) {
+      setSelectedFile(file);
+    } else {
+      alert('Only .miz files are supported');
+    }
+  };
+
+  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files && files.length > 0) {
+      handleFileSelect(files[0]);
+    }
+  };
+
+  const handleDropZoneClick = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const files = e.dataTransfer.files;
+    if (files && files.length > 0) {
+      handleFileSelect(files[0]);
+    }
   };
 
   const renderDetailRow = (
@@ -181,7 +219,6 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
     );
   };
 
-  // Render mission commander dropdown, separate from other fields since it needs special handling
   const renderMissionCommanderDropdown = () => {
     const candidates = getMissionCommanderCandidates();
     const selectedValue = missionCommander ? missionCommander.boardNumber : '';
@@ -311,7 +348,7 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
                   e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
                 }}
               >
-                <Check size={16} color="#16A34A" />
+                <Check size={16} color="#64748B" />
               </button>
               <button
                 onClick={cancelEditing}
@@ -327,7 +364,7 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
                   e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
                 }}
               >
-                <X size={16} color="#DC2626" />
+                <X size={16} color="#64748B" />
               </button>
             </div>
           )}
@@ -411,7 +448,7 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
         </div>
       </Card>
 
-      {/* Tasking Card */}
+      {/* Import Card */}
       <Card 
         style={{
           width: '100%',
@@ -432,29 +469,59 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
           textAlign: 'center',
           marginBottom: '16px'
         }}>
-          <span style={styles.headerLabel}>Tasking</span>
+          <span style={styles.headerLabel}>Import</span>
         </div>
-        <div className="flex-1" style={{ overflowY: 'auto' }}>
-          {/* Task list will go here - styled like squadron roster list */}
-        </div>
-        <div style={{
+        <div className="flex-1" style={{ 
           display: 'flex',
           justifyContent: 'center',
           alignItems: 'center',
-          borderTop: '1px solid #E2E8F0',
-          paddingTop: '18px'
+          padding: '20px'
         }}>
-          <button
-            style={styles.addButton}
-            onMouseEnter={e => {
-              e.currentTarget.style.boxShadow = '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)';
+          {/* Hidden file input */}
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleFileInputChange}
+            accept=".miz"
+            style={{ display: 'none' }}
+          />
+          
+          {/* File drop zone with dashed border */}
+          <div 
+            style={{
+              width: '500px',
+              height: '90px',
+              border: '1px dashed #CBD5E1',
+              borderRadius: '4px',
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+              cursor: 'pointer',
+              color: '#64748B',
+              fontSize: '14px',
+              textAlign: 'center',
+              padding: '16px',
+              transition: 'background-color 0.2s ease'
             }}
-            onMouseLeave={e => {
-              e.currentTarget.style.boxShadow = 'none';
+            onClick={handleDropZoneClick}
+            onDragOver={handleDragOver}
+            onDrop={handleDrop}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = '#F8FAFC';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = 'transparent';
             }}
           >
-            +
-          </button>
+            {selectedFile ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Upload size={16} />
+                {selectedFile.name}
+              </div>
+            ) : (
+              <span>Drag .miz file you wish to import here, or click to open file browser.</span>
+            )}
+          </div>
         </div>
       </Card>
     </div>
