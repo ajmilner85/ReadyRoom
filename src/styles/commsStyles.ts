@@ -34,9 +34,12 @@ export const styles = {
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
-      transition: 'box-shadow 0.1s ease',
+      transition: 'all 0.1s ease',
       marginLeft: '8px',
       zIndex: 1,
+      color: '#64748B',
+      width: '24px',
+      height: '24px',
     },
     tableCell: {
       fontFamily: 'Inter',

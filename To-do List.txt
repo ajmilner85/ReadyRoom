@@ -1,10 +1,7 @@
 
 In Progress:
-- Fix drag and drop related issues on mission preparation page
-	- Tiles changing style when initiating a drag
-	- Pilots not droppping into correct slot or overwriting another slot
-	- Emptying slots not working correctly
-	- Moving pilots between slots not working correctly
+- Impplement Add Flight button on mission preparation page
+- Automatic assignment of MIDS channels
 
 Next:
 - Mission preparation page
@@ -163,3 +160,8 @@ Complete
 	- Delete and edit events
 	- List dividers for upcoming and past events
 - Make available pilots entries draggable in mission preparation page
+- Fix drag and drop related issues on mission preparation page
+	- Tiles changing style when initiating a drag
+	- Pilots not droppping into correct slot or overwriting another slot
+	- Emptying slots not working correctly
+	- Moving pilots between slots not working correctly

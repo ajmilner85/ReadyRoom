@@ -218,12 +218,14 @@ const Communications: React.FC<CommunicationsProps> = ({ width }) => {
               }}
               onMouseEnter={(e) => {
                 e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.15)';
+                e.currentTarget.style.background = '#F8FAFC';
               }}
               onMouseLeave={(e) => {
                 e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
+                e.currentTarget.style.background = 'white';
               }}
             >
-              <Edit2 size={16} />
+              <Edit2 size={14} color="#64748B" />
             </button>
           ) : (
             <div style={{ 
@@ -238,24 +240,28 @@ const Communications: React.FC<CommunicationsProps> = ({ width }) => {
                 style={styles.editButton}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.15)';
+                  e.currentTarget.style.background = '#F8FAFC';
                 }}
                 onMouseLeave={(e) => {
                   e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
+                  e.currentTarget.style.background = 'white';
                 }}
               >
-                <Check size={16} color="#16A34A" />
+                <Check size={14} color="#64748B" />
               </button>
               <button
                 onClick={cancelEditing}
                 style={styles.editButton}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.15)';
+                  e.currentTarget.style.background = '#F8FAFC';
                 }}
                 onMouseLeave={(e) => {
                   e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
+                  e.currentTarget.style.background = 'white';
                 }}
               >
-                <X size={16} color="#DC2626" />
+                <X size={14} color="#64748B" />
               </button>
             </div>
           )}
