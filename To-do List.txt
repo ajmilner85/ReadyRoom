@@ -1,30 +1,27 @@
 
 In Progress:
-- Impplement Add Flight button on mission preparation page
-- Automatic assignment of MIDS channels
+- Ability to set mission commander
+- Add utility functions for flight assignment (autofill flights, auto assign channels)
+- Add ability to set flight tasking during creation
+- Add quick add flight function (e.g. to add an additional STING flight)
+
 
 Next:
 - Mission preparation page
 	- Attendance (Discord/Apollo integration?)
 		- Cruise, Foothold, Other (Accepted, Declined, Tentative)
 		- Training (IP, Trainee, Declined) not needed if IP qualification tracked?
-	- Create flights
-		- Provide a list of recently used flight callsigns
-		- Automatically sequence flight numbers within each callsign
-	- Assign MIDS/Encryption channels
 	- Loadouts/Initial Fuel State
 	- Create comms card
 	- Export kneeboards
 - Database implementation
 	- Roster
 	- Mission/event saving
-	
+
 
 Essential:
-- Case  II/III recovery section refactor to add
-	- Editable Expected Approach Times
-	- Next available level calculates expected approach time automatically
-	- Refactor CASE I/II/III button to be a three position sliding toggle
+- Altitudes, positions, TACAN, comms for tankers
+- Implement light/dark mode
 
 
 High Priority:
@@ -36,6 +33,7 @@ High Priority:
 	- Improve visual appearance of pilot details tile
 
 Medium Priority:
+- Read available flights from .miz file
 - Add signal divert
 	- Split Tanker Column into 2, with divert area at the bottom
 - Refactor storage area to sort flights by size (Single > 4-ship)
@@ -44,19 +42,12 @@ Medium Priority:
 
 
 QOL:
-- Admin page
-	- Squadron logo/branding
-	- Color themes
-	- Role Types
-	- Qualification Types
-	- Squadron Statuses
+
 - Dragging a flight into an empty area of the En Route/Tasking section brings up an add mission dialog, entering a mission drops the card into that mission division, hitting cancel returns the card to where it was last
 - Fuel state estimate or last update timer
 - BRC/Weather Display
 - Comms Info
-- Altitudes, positions, TACAN, comms for tankers
 - Full ATO info in En Route/Tasking section
-- Implement light/dark mode
 - Sort En Route/Tasking to top of page by default
 	- Divide by AA and AG taskings?
 - Quick references
@@ -65,11 +56,12 @@ QOL:
 - Simplified, OpenKneeboard compatible dynamic page for live kneeboard updates, last minute coordination
 
 
-
 Cosmetic:
 - Make storage area into a popup tray?
 - Add aircraft icons
 - Clean up flight card layout
+- Case  II/III recovery section refactor to add
+	- Refactor CASE I/II/III button to be a three position sliding toggle
 
 Nice to have:
 - Multiple carrier support
@@ -165,3 +157,11 @@ Complete
 	- Pilots not droppping into correct slot or overwriting another slot
 	- Emptying slots not working correctly
 	- Moving pilots between slots not working correctly
+- Impplement Add Flight button on mission preparation page
+- Automatic assignment of MIDS channels
+- Create flights
+	- Provide a list of recently used flight callsigns
+	- Automatically sequence flight numbers within each callsign
+- Case  II/III recovery section refactor to add
+	- Editable Expected Approach Times
+	- Next available level calculates expected approach time automatically

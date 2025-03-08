@@ -63,6 +63,15 @@ const INITIAL_EVENTS: Event[] = [
 
 const CARD_WIDTH = '550px';
 
+// Define a type for the mission commander
+interface MissionCommanderInfo {
+  boardNumber: string;
+  callsign: string;
+  flightId: string;
+  flightCallsign: string;
+  flightNumber: string;
+}
+
 const MissionPreparation: React.FC = () => {
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [draggedPilot, setDraggedPilot] = useState<Pilot | null>(null);
@@ -73,6 +82,8 @@ const MissionPreparation: React.FC = () => {
   const [draggedPilotBoardNumber, setDraggedPilotBoardNumber] = useState<string | null>(null);
   // Track the source of the drag (tile or list)
   const [dragSource, setDragSource] = useState<'tile' | 'list' | null>(null);
+  // Add state for mission commander
+  const [missionCommander, setMissionCommander] = useState<MissionCommanderInfo | null>(null);
 
   // Keep track of initial scroll positions of all containers
   const scrollPositions = React.useRef<Record<string, number>>({});
@@ -247,6 +258,68 @@ const MissionPreparation: React.FC = () => {
     });
   };
 
+  // Get all eligible mission commander candidates (pilots in -1 positions)
+  const getMissionCommanderCandidates = () => {
+    const candidates: { 
+      label: string; 
+      value: string;
+      boardNumber: string;
+      callsign: string;
+      flightId: string;
+      flightCallsign: string;
+      flightNumber: string;
+    }[] = [];
+
+    Object.entries(assignedPilots).forEach(([flightId, flightPilots]) => {
+      // Find all flights that have their -1 position filled
+      const dashOnePilot = flightPilots.find(p => p.dashNumber === "1");
+      
+      if (dashOnePilot) {
+        // Find the flight details of this pilot by manually searching through flights
+        let flightDetails = { callsign: "", number: "" };
+        
+        // First look for the flight in our flights state
+        document.querySelectorAll('.aircraft-tile-label').forEach(element => {
+          if (element.textContent && element.textContent.includes(`-1`) && 
+              element.closest('[data-drop-id]')?.getAttribute('data-drop-id') === `flight-${flightId}-position-1`) {
+            const text = element.textContent.trim();
+            const parts = text.split(' ');
+            if (parts.length >= 2) {
+              flightDetails.callsign = parts[0];
+              flightDetails.number = parts[1].split('-')[0];
+            }
+          }
+        });
+        
+        // Create a candidate entry with the correct format: "CALLSIGN FLIGHT-POSITION | BOARDNUM PILOTCALLSIGN"
+        const label = `${flightDetails.callsign} ${flightDetails.number}-1 | ${dashOnePilot.boardNumber} ${dashOnePilot.callsign}`;
+        
+        candidates.push({
+          label,
+          value: dashOnePilot.boardNumber,
+          boardNumber: dashOnePilot.boardNumber,
+          callsign: dashOnePilot.callsign,
+          flightId,
+          flightCallsign: flightDetails.callsign,
+          flightNumber: flightDetails.number
+        });
+      }
+    });
+
+    return candidates;
+  };
+
+  // Handle when a pilot is removed completely or moved to a non-lead position
+  const handleMissionCommanderCheck = (boardNumber: string, newDashNumber?: string) => {
+    // Check if the affected pilot is the mission commander
+    if (missionCommander && missionCommander.boardNumber === boardNumber) {
+      // If the pilot is moved to a non-lead position or removed completely, reset mission commander
+      if (!newDashNumber || newDashNumber !== "1") {
+        setMissionCommander(null);
+      }
+    }
+  };
+
   const handleDragStart = (event: DragStartEvent) => {
     if (event.active.data.current?.type === 'Pilot') {
       const pilot = event.active.data.current.pilot;
@@ -288,6 +361,9 @@ const MissionPreparation: React.FC = () => {
     // If not dropped on a valid target, and it's a pilot being dragged from a flight, remove them
     if (!over) {
       if (active.data.current?.type === 'Pilot' && active.data.current.currentFlightId) {
+        const pilot = active.data.current.pilot;
+        // Check if this affects the mission commander
+        handleMissionCommanderCheck(pilot.boardNumber);
         // Remove pilot from their current flight
         removePilotFromAllFlights(active.data.current.pilot.boardNumber);
       }
@@ -322,11 +398,47 @@ const MissionPreparation: React.FC = () => {
           setDragSource(null);
           return;
         }
+        
+        // If the pilot being moved is the mission commander and is leaving a -1 position
+        // or moving to a different position, check if we need to update mission commander
+        if (missionCommander && missionCommander.boardNumber === pilot.boardNumber) {
+          // If it's moving to another -1 position, update the mission commander info
+          if (dashNumber === "1") {
+            // Get the flight info for the new position
+            const flightElements = document.querySelectorAll('.aircraft-tile-label');
+            let newFlightCallsign = "";
+            let newFlightNumber = "";
+            
+            flightElements.forEach(el => {
+              if (el.textContent?.includes(`${flightId}`)) {
+                const parts = el.textContent.split(' ');
+                newFlightCallsign = parts[0] || "";
+                newFlightNumber = parts[1]?.split('-')[0] || "";
+              }
+            });
+            
+            // Update mission commander with new flight info
+            setMissionCommander(prev => ({
+              ...prev!,
+              flightId,
+              flightCallsign: newFlightCallsign,
+              flightNumber: newFlightNumber
+            }));
+          } else {
+            // If moving to a non-1 position, reset the mission commander
+            setMissionCommander(null);
+          }
+        }
 
         // Check if target position has a pilot
         const targetPositionPilot = assignedPilots[flightId]?.find(p => p.dashNumber === dashNumber);
         
         if (targetPositionPilot && currentDragFlightId) {
+          // If target position pilot is mission commander and is being moved from a -1 position, reset
+          if (missionCommander && missionCommander.boardNumber === targetPositionPilot.boardNumber) {
+            setMissionCommander(null);
+          }
+          
           // If pilot is coming from another position, swap the pilots
           const sourcePilot = { 
             flightId: currentDragFlightId, 
@@ -341,7 +453,12 @@ const MissionPreparation: React.FC = () => {
           
           swapPilots(sourcePilot, targetPosition);
         } else {
-          // If coming from available pilots or target position is empty, just assign
+          // If coming from available pilots or target position is empty
+          // Check if this affects the mission commander
+          if (currentDragFlightId) {
+            handleMissionCommanderCheck(pilot.boardNumber);
+          }
+          
           // First, remove this pilot from any flights they might be in
           removePilotFromAllFlights(pilot.boardNumber);
 
@@ -406,6 +523,9 @@ const MissionPreparation: React.FC = () => {
             events={INITIAL_EVENTS}
             selectedEvent={selectedEvent}
             onEventSelect={setSelectedEvent}
+            missionCommander={missionCommander}
+            getMissionCommanderCandidates={getMissionCommanderCandidates}
+            setMissionCommander={setMissionCommander}
           />
           <AvailablePilots 
             width={CARD_WIDTH}
@@ -416,6 +536,7 @@ const MissionPreparation: React.FC = () => {
           <FlightAssignments 
             width={CARD_WIDTH} 
             assignedPilots={assignedPilots}
+            missionCommander={missionCommander}
             onPilotAssigned={(flightId, pilot) => {
               setAssignedPilots(prev => ({
                 ...prev,
