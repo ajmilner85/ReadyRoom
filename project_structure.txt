@@ -10,15 +10,20 @@ pri-fly
 ├── project_structure.txt
 ├── public
 │   └── vite.svg
+├── reference
+│   ├── Billets.txt
+│   ├── Qualifications.txt
+│   ├── Roguistan_Cruise_Week5_WIP.miz
+│   ├── mission
+│   └── projections.rs
 ├── src
 │   ├── App.css
 │   ├── App.tsx
 │   ├── assets
 │   │   ├── Aircraft Icon.png
-│   │   ├── Billets.txt
+│   │   ├── Aircraft Icon.svg
 │   │   ├── CV-NATOPS-JUL09.pdf
 │   │   ├── MS33558ver0.1.ttf
-│   │   ├── Qualifications.txt
 │   │   ├── Stingrays Logo 80x80.png
 │   │   └── react.svg
 │   ├── components
@@ -41,8 +46,9 @@ pri-fly
 │   │       │   ├── RecoveryToggleSwitch.tsx
 │   │       │   ├── TankerDivisionButton.tsx
 │   │       │   └── TimeAdjuster.tsx
-│   │       ├── card.tsxa
+│   │       ├── card.tsx
 │   │       ├── dialogs
+│   │       │   ├── AddFlightDialog.tsx
 │   │       │   ├── DeleteDivisionDialog.tsx
 │   │       │   ├── EnRouteDivisionDialog.tsx
 │   │       │   ├── FuelStateDialog.tsx
@@ -55,14 +61,18 @@ pri-fly
 │   │       │   ├── EventDialog.tsx
 │   │       │   └── EventsList.tsx
 │   │       ├── flight cards
+│   │       │   ├── AircraftTile.tsx
+│   │       │   ├── FlightAssignmentCard.tsx
 │   │       │   ├── FlightCard.tsx
 │   │       │   ├── FuelDisplay.tsx
 │   │       │   └── SingleFlightCard.tsx
-│   │       └── mission prep
-│   │           ├── AvailablePilots.tsx
-│   │           ├── Communications.tsx
-│   │           ├── FlightAssignments.tsx
-│   │           └── MissionDetails.tsx
+│   │       ├── mission prep
+│   │       │   ├── AvailablePilots.tsx
+│   │       │   ├── Communications.tsx
+│   │       │   ├── FlightAssignments.tsx
+│   │       │   └── MissionDetails.tsx
+│   │       └── mission-execution
+│   │           └── sections
 │   ├── index.css
 │   ├── main.tsx
 │   ├── styles
@@ -78,6 +88,7 @@ pri-fly
 │   │   └── TankerTypes.ts
 │   ├── utils
 │   │   ├── commsUtils.tsx
+│   │   ├── coordinateUtils.tsx
 │   │   └── positionUtils.tsx
 │   └── vite-env.d.ts
 ├── tailwind.config.cjs
