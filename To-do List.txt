@@ -2,7 +2,6 @@
 In Progress:
 - .miz import for mission preparation
 
-
 Next:
 - Add utility functions for flight assignment (autofill flights, auto assign / re-assign MIDS channels)
 - Mission preparation page
