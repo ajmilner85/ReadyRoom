@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useCallback, useState, useRef, useEffect } from 'react';
 import { DndContext, DragOverlay } from '@dnd-kit/core';
 import { restrictToWindowEdges } from '@dnd-kit/modifiers';
 import MissionDetails from './mission prep/MissionDetails';
@@ -11,7 +11,7 @@ import type { Event } from '../../types/EventTypes';
 import type { Pilot } from '../../types/PilotTypes';
 import type { MissionCommanderInfo } from '../../types/MissionCommanderTypes';
 import { SAMPLE_EVENTS } from '../../data/sampleEvents';
-import { getMissionCommanderCandidates } from '../../utils/dragDropUtils';
+import { getMissionCommanderCandidates, findPilotInFlights } from '../../utils/dragDropUtils';
 import { useDragDrop } from '../../utils/useDragDrop';
 
 interface ExtractedFlight {
@@ -36,26 +36,68 @@ const MissionPreparation: React.FC = () => {
   const [availablePilots] = useState(pilots);
   const [assignedPilots, setAssignedPilots] = useState<Record<string, AssignedPilot[]>>({});
   const [missionCommander, setMissionCommander] = useState<MissionCommanderInfo | null>(null);
+  
+  // Use useRef to track extracted flights to prevent infinite update loops
   const [extractedFlights, setExtractedFlights] = useState<ExtractedFlight[]>([]);
-
+  const processedMizRef = useRef<boolean>(false);
+  
   // Use our custom hook for drag and drop functionality
   const { draggedPilot, dragSource, handleDragStart, handleDragEnd } = useDragDrop({
     missionCommander,
     setMissionCommander,
-    assignedPilots: assignedPilots as Record<string, Pilot[]>,
-    setAssignedPilots: (pilots: Record<string, Pilot[]>) => 
-      setAssignedPilots(pilots as Record<string, AssignedPilot[]>)
+    assignedPilots,
+    setAssignedPilots
   });
 
-  // Function to get mission commander candidates from pilots in -1 positions
-  const getMissionCommanderCandidatesWrapper = () => {
-    return getMissionCommanderCandidates(assignedPilots);
-  };
+  // Get mission commander candidates with additional flight info
+  const getMissionCommanderCandidatesWrapper = useCallback(() => {
+    const candidates = getMissionCommanderCandidates(assignedPilots);
+    return candidates.map(candidate => {
+      const pilotAssignment = findPilotInFlights(candidate.boardNumber, assignedPilots);
+      if (!pilotAssignment) return null;
 
-  // Handle extracted flights from AircraftGroups
-  const handleExtractedFlights = (flights: ExtractedFlight[]) => {
-    setExtractedFlights(flights);
-  };
+      // Get flight info from the flight ID
+      let flightCallsign = "";
+      let flightNumber = "";
+      
+      // Try to find the corresponding flight in assigned pilots
+      for (const [flightId, pilots] of Object.entries(assignedPilots)) {
+        if (flightId === pilotAssignment.flightId && pilots.length > 0) {
+          const flightParts = flightId.split('-');
+          if (flightParts.length > 1) {
+            flightCallsign = flightParts[0];
+            flightNumber = flightParts[1];
+          }
+          break;
+        }
+      }
+
+      return {
+        label: `${candidate.callsign} (${candidate.boardNumber})`,
+        value: candidate.boardNumber,
+        boardNumber: candidate.boardNumber,
+        callsign: candidate.callsign,
+        flightId: pilotAssignment.flightId,
+        flightCallsign: flightCallsign,
+        flightNumber: flightNumber
+      };
+    }).filter((item): item is NonNullable<typeof item> => item !== null);
+  }, [assignedPilots]);
+
+  // Handle extracted flights from AircraftGroups with safeguard against infinite loops
+  const handleExtractedFlights = useCallback((flights: ExtractedFlight[]) => {
+    if (flights.length > 0 && !processedMizRef.current) {
+      processedMizRef.current = true;
+      setExtractedFlights(flights);
+    }
+  }, []);
+  
+  // Reset the processed flag when component unmounts
+  useEffect(() => {
+    return () => {
+      processedMizRef.current = false;
+    };
+  }, []);
 
   return (
     <DndContext

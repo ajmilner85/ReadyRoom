@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, memo } from 'react';
 import { useDroppable } from '@dnd-kit/core';
 import AircraftTile from './AircraftTile';
 import { Edit2, Trash2 } from 'lucide-react';
@@ -52,8 +52,8 @@ const FlightAssignmentCard: React.FC<FlightAssignmentCardProps> = ({
 
   // Check if a pilot is the mission commander
   const isMissionCommander = (boardNumber: string) => {
-    return missionCommander !== null && 
-           missionCommander.boardNumber === boardNumber && 
+    if (!missionCommander) return false;
+    return missionCommander.boardNumber === boardNumber && 
            missionCommander.flightId === id;
   };
 
@@ -266,7 +266,8 @@ interface DroppableAircraftTileProps {
   isMissionCommander?: boolean;
 }
 
-const DroppableAircraftTile: React.FC<DroppableAircraftTileProps> = ({
+// Memoize the DroppableAircraftTile component to prevent unnecessary re-renders
+const DroppableAircraftTile = memo<DroppableAircraftTileProps>(({
   pilot,
   flightId,
   dashNumber,
@@ -278,18 +279,20 @@ const DroppableAircraftTile: React.FC<DroppableAircraftTileProps> = ({
   isWingPair,
   isMissionCommander = false
 }) => {
-  // Always make tiles droppable, but only trigger a fill action if the tile is empty
-  // or if the user is dragging the existing pilot in this tile
   const isEmpty = !pilot.boardNumber && !pilot.callsign;
+  // Use the complete flight ID to ensure unique drop targets
   const dropId = `flight-${flightId}-position-${dashNumber}`;
+  
+  // Debug the flight ID to ensure it's correct
+  console.log('DroppableAircraftTile using flightId:', flightId, 'dropId:', dropId);
   
   const { setNodeRef, isOver } = useDroppable({
     id: dropId,
     data: {
       type: 'FlightPosition',
-      flightId,
+      flightId: flightId, // Ensure the full flight ID is passed
       dashNumber,
-      currentBoardNumber: pilot.boardNumber // Include current occupant's info
+      currentPilot: !isEmpty ? pilot : undefined
     }
   });
 
@@ -299,9 +302,10 @@ const DroppableAircraftTile: React.FC<DroppableAircraftTileProps> = ({
       style={{ 
         position: 'relative', 
         marginRight: dashNumber !== "4" ? '15px' : '0',
-        zIndex: isOver ? 10 : 1 // Increase z-index when being dragged over
+        zIndex: isOver ? 10 : 1
       }}
       data-drop-id={dropId}
+      data-flight-id={flightId} // Add a data attribute for debugging
     >
       <AircraftTile
         {...pilot}
@@ -313,12 +317,6 @@ const DroppableAircraftTile: React.FC<DroppableAircraftTileProps> = ({
         isEmpty={isEmpty}
         midsA={midsA}
         midsB={midsB}
-        verticalOffset={
-          dashNumber === "2" ? 10 :  // 1-2 offset 10px down
-          dashNumber === "3" ? 10 :  // 1-3 offset 10px down
-          dashNumber === "4" ? 20 :  // 1-4 offset 20px down
-          0                          // 1-1 no offset
-        }
         isMissionCommander={isMissionCommander}
       />
       {isOver && (
@@ -335,6 +333,9 @@ const DroppableAircraftTile: React.FC<DroppableAircraftTileProps> = ({
       )}
     </div>
   );
-};
+});
 
-export default FlightAssignmentCard;
+// Add display name for memoized component
+DroppableAircraftTile.displayName = 'DroppableAircraftTile';
+
+export default memo(FlightAssignmentCard);

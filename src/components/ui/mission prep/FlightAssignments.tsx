@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { Card } from '../card';
 import FlightAssignmentCard from '../flight cards/FlightAssignmentCard';
 import AddFlightDialog from '../dialogs/AddFlightDialog';
@@ -45,7 +45,7 @@ interface ExtractedFlight {
 
 interface FlightAssignmentsProps {
   width: string;
-  assignedPilots?: Record<string, AssignedPilot[]>;
+  assignedPilots?: Record<string, AssignedPilot[]> | null;
   missionCommander?: MissionCommanderInfo | null;
   extractedFlights?: ExtractedFlight[];
 }
@@ -61,6 +61,9 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
   const [editFlightId, setEditFlightId] = useState<string | null>(null);
   const [initialEditCallsign, setInitialEditCallsign] = useState("");
   const [creationOrderCounter, setCreationOrderCounter] = useState(0);
+  
+  // Use a ref to track which extracted flights we've already processed
+  const processedFlightTimestamps = useRef<Set<string>>(new Set());
 
   // Parse a group name into callsign and flight number
   const parseGroupName = (name: string): { callsign: string; flightNumber: string } => {
@@ -85,61 +88,100 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
   useEffect(() => {
     if (!extractedFlights.length) return;
 
-    // Convert extracted flights to our Flight format
-    const newFlights = extractedFlights.map((extractedFlight, index) => {
-      const { callsign, flightNumber } = parseGroupName(extractedFlight.name);
-      return {
-        id: `extracted-${index}`,
-        callsign: callsign.toUpperCase(),
-        flightNumber,
-        pilots: [
-          { boardNumber: "", callsign: "", dashNumber: "1" },
-          { boardNumber: "", callsign: "", dashNumber: "2" },
-          { boardNumber: "", callsign: "", dashNumber: "3" },
-          { boardNumber: "", callsign: "", dashNumber: "4" }
-        ],
-        midsA: "",
-        midsB: "",
-        creationOrder: index
-      };
-    });
-
-    // Group flights by callsign and assign sequential flight numbers only for those without numbers
-    const groupedByCallsign = newFlights.reduce<Record<string, Flight[]>>((acc, flight) => {
-      if (!acc[flight.callsign]) {
-        acc[flight.callsign] = [];
-      }
-      acc[flight.callsign].push(flight);
-      return acc;
-    }, {});
-
-    // Sort each group by flight number and fix any gaps or duplicates
-    Object.values(groupedByCallsign).forEach(flightGroup => {
-      // Sort by existing flight numbers
-      flightGroup.sort((a, b) => parseInt(a.flightNumber) - parseInt(b.flightNumber));
+    // Create a unique timestamp for this batch of flights
+    const batchTimestamp = Date.now().toString();
+    
+    // If we've already processed a batch with the same size recently, skip it to prevent duplicates
+    if (processedFlightTimestamps.current.size > 0 && 
+        processedFlightTimestamps.current.size === extractedFlights.length) {
+      return;
+    }
+    
+    // Add this batch to our processed set
+    processedFlightTimestamps.current.add(batchTimestamp);
+    
+    // Convert extracted flights to our Flight format while preserving existing flights
+    setFlights(prevFlights => {
+      // Check if we already have extracted flights (with IDs starting with "extracted-")
+      const hasExistingExtracted = prevFlights.some(flight => flight.id.startsWith('extracted-'));
       
-      // Fix any gaps or duplicates
-      let expectedNumber = 1;
-      flightGroup.forEach(flight => {
-        // If this flight's number doesn't match what we expect, update it
-        if (parseInt(flight.flightNumber) !== expectedNumber) {
-          flight.flightNumber = expectedNumber.toString();
+      // If we already have extracted flights, don't add more
+      if (hasExistingExtracted) {
+        return prevFlights;
+      }
+      
+      const existingFlights = prevFlights;
+      const maxCreationOrder = Math.max(...existingFlights.map(f => f.creationOrder), -1);
+      
+      const newFlights = extractedFlights.map((extractedFlight, index) => {
+        const { callsign, flightNumber } = parseGroupName(extractedFlight.name);
+        return {
+          id: `extracted-${batchTimestamp}-${index}`, // Make IDs unique with timestamp
+          callsign: callsign.toUpperCase(),
+          flightNumber,
+          pilots: [
+            { boardNumber: "", callsign: "", dashNumber: "1" },
+            { boardNumber: "", callsign: "", dashNumber: "2" },
+            { boardNumber: "", callsign: "", dashNumber: "3" },
+            { boardNumber: "", callsign: "", dashNumber: "4" }
+          ],
+          midsA: "",
+          midsB: "",
+          creationOrder: maxCreationOrder + index + 1
+        };
+      });
+
+      const allFlights = [...existingFlights, ...newFlights];
+
+      // Group flights by callsign and fix any gaps or duplicates
+      const groupedByCallsign = allFlights.reduce<Record<string, Flight[]>>((acc, flight) => {
+        if (!acc[flight.callsign]) {
+          acc[flight.callsign] = [];
         }
-        expectedNumber++;
+        acc[flight.callsign].push(flight);
+        return acc;
+      }, {});
+
+      // Sort and fix flight numbers within each group
+      Object.values(groupedByCallsign).forEach(flightGroup => {
+        flightGroup.sort((a, b) => parseInt(a.flightNumber) - parseInt(b.flightNumber));
+        
+        let expectedNumber = 1;
+        flightGroup.forEach(flight => {
+          if (parseInt(flight.flightNumber) !== expectedNumber) {
+            flight.flightNumber = expectedNumber.toString();
+          }
+          expectedNumber++;
+        });
+      });
+
+      // Reassign MIDS channels for all flights
+      let midsCounter = 1;
+      allFlights.forEach(flight => {
+        flight.midsA = midsCounter.toString();
+        flight.midsB = (midsCounter + 2).toString();
+        midsCounter += 3;
+      });
+
+      // Sort flights by creation order and then by callsign/flight number
+      return allFlights.sort((a, b) => {
+        if (a.callsign === b.callsign) {
+          return parseInt(a.flightNumber) - parseInt(b.flightNumber);
+        }
+        return a.creationOrder - b.creationOrder;
       });
     });
 
-    // Assign MIDS channels
-    let midsCounter = 1;
-    newFlights.forEach(flight => {
-      flight.midsA = midsCounter.toString();
-      flight.midsB = (midsCounter + 2).toString();
-      midsCounter += 3;
-    });
-
-    setFlights(newFlights);
-    setCreationOrderCounter(extractedFlights.length);
+    // Update the creation order counter
+    setCreationOrderCounter(prev => prev + extractedFlights.length);
   }, [extractedFlights]);
+
+  // Clear processed flights when component unmounts
+  useEffect(() => {
+    return () => {
+      processedFlightTimestamps.current.clear();
+    };
+  }, []);
 
   // Get unique existing callsigns for the dialog suggestions
   const existingCallsigns = [...new Set(flights.map(flight => flight.callsign))];
@@ -157,17 +199,23 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
     // Place each assigned pilot in their designated position by dashNumber
     assigned.forEach(assignedPilot => {
       const dashNumber = assignedPilot.dashNumber;
+      // Make sure dashNumber is a string
+      const dashNumberStr = dashNumber.toString();
+      
       // Find the position with matching dashNumber
-      const index = updatedPilots.findIndex(p => p.dashNumber === dashNumber);
+      const index = updatedPilots.findIndex(p => p.dashNumber === dashNumberStr);
       
       if (index !== -1) {
         updatedPilots[index] = {
-          dashNumber,
+          dashNumber: dashNumberStr,
           boardNumber: assignedPilot.boardNumber,
           callsign: assignedPilot.callsign
         };
       }
     });
+    
+    // Debug output for tracking pilot assignments
+    console.log(`For flight ${flight.id}, assigned:`, assigned, 'mapped to:', updatedPilots);
     
     return updatedPilots;
   };
@@ -226,9 +274,9 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
   // Function to add a new flight with the given callsign
   const handleAddFlight = useCallback(({ callsign }: { callsign: string }) => {
     if (editFlightId) {
-      // If we're editing an existing flight, update its callsign
+      // Update an existing flight's callsign
       setFlights(prevFlights => {
-        return prevFlights.map(flight => {
+        const updatedFlights = prevFlights.map(flight => {
           if (flight.id === editFlightId) {
             return {
               ...flight,
@@ -240,18 +288,26 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
           }
           return flight;
         });
+
+        // Re-sort flights by callsign and flight number, preserving creation order groups
+        return updatedFlights.sort((a, b) => {
+          if (a.callsign === b.callsign) {
+            return parseInt(a.flightNumber) - parseInt(b.flightNumber);
+          }
+          return a.creationOrder - b.creationOrder;
+        });
       });
       
       // Reset edit state
       setEditFlightId(null);
       setInitialEditCallsign("");
     } else {
-      // We're adding a new flight
+      // Add a new flight
       const flightNumber = getNextFlightNumber(callsign);
       const { midsA, midsB } = findNextAvailableMIDS();
       
       const newFlight: Flight = {
-        id: Date.now().toString(), // Generate a unique ID
+        id: Date.now().toString(),
         callsign: callsign.toUpperCase(),
         flightNumber,
         pilots: [
@@ -269,23 +325,9 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
       setFlights(prev => {
         const updatedFlights = [...prev, newFlight];
         return updatedFlights.sort((a, b) => {
-          // First, group by callsign based on the first occurrence's creation order
-          const aFirstOfCallsign = prev.find(f => f.callsign === a.callsign);
-          const bFirstOfCallsign = prev.find(f => f.callsign === b.callsign);
-          
-          if (aFirstOfCallsign && bFirstOfCallsign) {
-            // If both callsigns existed before, sort by their first occurrence's creation order
-            if (aFirstOfCallsign.creationOrder !== bFirstOfCallsign.creationOrder) {
-              return aFirstOfCallsign.creationOrder - bFirstOfCallsign.creationOrder;
-            }
-          } 
-          
-          // If same callsign, sort by flight number
           if (a.callsign === b.callsign) {
             return parseInt(a.flightNumber) - parseInt(b.flightNumber);
           }
-          
-          // If different callsigns, sort by creation order
           return a.creationOrder - b.creationOrder;
         });
       });
