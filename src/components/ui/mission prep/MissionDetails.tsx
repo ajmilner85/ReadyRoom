@@ -1,10 +1,12 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Card } from '../card';
 import { Edit2, Check, X, Upload } from 'lucide-react';
 import { styles } from '../../../styles/MissionPrepStyles';
 import type { Event } from '../../../types/EventTypes';
 import { processMissionCoordinates } from '../../../utils/coordinateUtils';
 import JSZip from 'jszip';
+import { load } from 'fengari-web';
+import AircraftGroups from './AircraftGroups';
 
 interface MissionCommanderInfo {
   boardNumber: string;
@@ -30,6 +32,7 @@ interface MissionDetailsProps {
     flightCallsign: string;
     flightNumber: string;
   }[];
+  onExtractedFlights?: (flights: any[]) => void;
 }
 
 interface MissionDetailsData {
@@ -48,7 +51,8 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
   onEventSelect,
   missionCommander,
   setMissionCommander,
-  getMissionCommanderCandidates
+  getMissionCommanderCandidates,
+  onExtractedFlights
 }) => {
   // Sort events by date (newest first)
   const sortedEvents = [...events].sort((a, b) => 
@@ -68,7 +72,29 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
   const [editedDetails, setEditedDetails] = useState<MissionDetailsData>(missionDetails);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isProcessingFile, setIsProcessingFile] = useState(false);
+  const [parsedMission, setParsedMission] = useState<any>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [json2Lua, setJson2Lua] = useState<string | null>(null);
+
+  // Load the json2.lua file on component mount
+  useEffect(() => {
+    async function loadJson2Lua() {
+      try {
+        // Make sure to use the correct path for json2.lua
+        const response = await fetch('/assets/json2.lua');
+        if (!response.ok) {
+          throw new Error(`Failed to load json2.lua: ${response.status} ${response.statusText}`);
+        }
+        const luaCode = await response.text();
+        setJson2Lua(luaCode);
+        console.log('json2.lua loaded successfully');
+      } catch (error) {
+        console.error('Error loading json2.lua:', error);
+      }
+    }
+    
+    loadJson2Lua();
+  }, []);
 
   const startEditing = () => {
     setIsEditing(true);
@@ -90,90 +116,6 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
       ...prev,
       [field]: value
     }));
-  };
-
-  // Function to process the uploaded mission file
-  const processMissionFile = async (file: File) => {
-    setIsProcessingFile(true);
-    try {
-      // Load the .miz file as a JSZip archive
-      const zip = new JSZip();
-      const archive = await zip.loadAsync(file);
-      
-      // Look for the mission file in the archive (usually named "mission")
-      let missionContent = '';
-      const missionFile = archive.file('mission');
-      
-      if (missionFile) {
-        // Extract and read the mission file content
-        missionContent = await missionFile.async('string');
-        
-        // Process the mission content to extract coordinates
-        const missionData = processMissionCoordinates(missionContent);
-        
-        // Update the bullseye coordinates in the mission details
-        if (missionData.blueBullseye.formatted) {
-          setMissionDetails(prev => ({
-            ...prev,
-            bullseyeLatLon: missionData.blueBullseye.formatted || ''
-          }));
-          
-          setEditedDetails(prev => ({
-            ...prev,
-            bullseyeLatLon: missionData.blueBullseye.formatted || ''
-          }));
-        }
-        
-        // Optionally, update other fields based on mission data
-        if (missionData.theatre) {
-          console.log(`Loaded mission from ${missionData.theatre} theatre`);
-        }
-      } else {
-        throw new Error("Could not find mission file in the .miz archive");
-      }
-    } catch (error) {
-      console.error('Error processing mission file:', error);
-      alert('Error processing mission file. Check console for details.');
-    } finally {
-      setIsProcessingFile(false);
-    }
-  };
-
-  const handleFileSelect = (file: File) => {
-    if (file && file.name.endsWith('.miz')) {
-      setSelectedFile(file);
-      processMissionFile(file);
-    } else {
-      alert('Only .miz files are supported');
-    }
-  };
-
-  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (files && files.length > 0) {
-      handleFileSelect(files[0]);
-    }
-  };
-
-  const handleDropZoneClick = () => {
-    if (fileInputRef.current) {
-      fileInputRef.current.click();
-    }
-  };
-
-  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    e.stopPropagation();
-  };
-
-  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    e.stopPropagation();
-
-    const files = e.dataTransfer.files;
-    if (files && files.length > 0) {
-      handleFileSelect(files[0]);
-    }
   };
 
   const renderDetailRow = (
@@ -324,6 +266,196 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
     );
   };
 
+  // Function to process the uploaded mission file
+  const processMissionFile = async (file: File) => {
+    setIsProcessingFile(true);
+    try {
+      // Make sure json2.lua is loaded
+      if (!json2Lua) {
+        throw new Error("json2.lua hasn't been loaded yet. Please try again.");
+      }
+      
+      // Load the .miz file as a JSZip archive
+      const zip = new JSZip();
+      const archive = await zip.loadAsync(file);
+      console.log('ZIP file loaded successfully');
+      
+      // Look for the mission file in the archive (usually named "mission")
+      const missionFile = archive.file('mission');
+      
+      if (!missionFile) {
+        console.error('Mission file not found in ZIP');
+        throw new Error("Could not find mission file in the .miz archive");
+      }
+      
+      console.log('Mission file found in ZIP');
+      
+      // Extract and read the mission file content
+      const missionContent = await missionFile.async('string');
+      console.log('Mission content loaded, size:', missionContent.length);
+      
+      // Process the mission content to extract coordinates
+      const coordinateData = processMissionCoordinates(missionContent);
+      
+      // Update the bullseye coordinates in the mission details
+      if (coordinateData.blueBullseye.formatted) {
+        setMissionDetails(prev => ({
+          ...prev,
+          bullseyeLatLon: coordinateData.blueBullseye.formatted || ''
+        }));
+        
+        setEditedDetails(prev => ({
+          ...prev,
+          bullseyeLatLon: coordinateData.blueBullseye.formatted || ''
+        }));
+      }
+      
+      try {
+        // First execute json2.lua to define the json module
+        console.log('Executing json2.lua...');
+        load(json2Lua)();
+        console.log('json2.lua executed successfully');
+        
+        // Create and execute the Lua code to process the mission
+        const luaCode = `
+          local mission_content = [=[${missionContent}]=]
+          
+          -- Create a sandbox environment
+          local env = {}
+          
+          -- Load the mission code into our environment
+          local fn, err = load(mission_content, "mission", "t", env)
+          if not fn then
+            error("Failed to load mission content: " .. tostring(err))
+          end
+          
+          -- Execute the mission code in our environment
+          local status, err = pcall(fn)
+          if not status then
+            error("Failed to execute mission code: " .. tostring(err))
+          end
+          
+          -- Now we should have a mission table in our environment
+          local mission_table = env.mission
+          if not mission_table then
+            error("No mission table found after execution")
+          end
+          
+          -- Return the mission table as JSON
+          return json.encode(mission_table)
+        `;
+        
+        console.log('Executing Lua code to parse mission...');
+        
+        // Execute the Lua code and get the JSON result
+        const jsonResult = load(luaCode)();
+        
+        if (typeof jsonResult !== 'string') {
+          console.error('Invalid result type:', typeof jsonResult);
+          throw new Error('Invalid JSON result from Lua conversion');
+        }
+        
+        console.log('Mission data converted to JSON successfully');
+        
+        // Parse the JSON into a JavaScript object
+        const missionData = JSON.parse(jsonResult);
+        console.log('Mission data parsed successfully');
+        
+        // Store the parsed mission data
+        setParsedMission(missionData);
+        
+        // Update any other details based on mission data
+        if (missionData.date) {
+          const missionDate = new Date(
+            missionData.date.Year, 
+            missionData.date.Month - 1, // JS months are 0-indexed
+            missionData.date.Day,
+            missionData.start_time
+          );
+          
+          const formattedDate = missionDate.toISOString().slice(0, 16); // Format as YYYY-MM-DDTHH:MM
+          
+          setMissionDetails(prev => ({
+            ...prev,
+            missionDateTime: formattedDate
+          }));
+          
+          setEditedDetails(prev => ({
+            ...prev,
+            missionDateTime: formattedDate
+          }));
+        }
+        
+        // Update weather info if available
+        if (missionData.weather) {
+          const weatherDetails = [
+            `Cloud base: ${missionData.weather?.clouds?.base || 'N/A'} meters`,
+            `Visibility: ${missionData.weather?.visibility?.distance || 'N/A'} meters`,
+            `Wind at ground: ${missionData.weather?.wind?.at8000?.speed || 'N/A'} m/s from ${missionData.weather?.wind?.at8000?.dir || 'N/A'}°`
+          ].join('\n');
+          
+          setMissionDetails(prev => ({
+            ...prev,
+            weather: weatherDetails
+          }));
+          
+          setEditedDetails(prev => ({
+            ...prev,
+            weather: weatherDetails
+          }));
+        }
+        
+        console.log('Mission processing complete');
+        
+      } catch (luaError) {
+        console.error('Error in Lua execution:', luaError);
+        throw new Error(`Failed to process mission file using Lua: ${luaError}`);
+      }
+    } catch (error) {
+      console.error('Error processing mission file:', error);
+      alert(`Error processing mission file: ${error instanceof Error ? error.message : String(error)}`);
+    } finally {
+      setIsProcessingFile(false);
+    }
+  };
+
+  const handleFileSelect = (file: File) => {
+    if (file && file.name.endsWith('.miz')) {
+      setSelectedFile(file);
+      processMissionFile(file);
+    } else {
+      alert('Only .miz files are supported');
+    }
+  };
+
+  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files && files.length > 0) {
+      handleFileSelect(files[0]);
+    }
+  };
+
+  const handleDropZoneClick = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const files = e.dataTransfer.files;
+    if (files && files.length > 0) {
+      handleFileSelect(files[0]);
+    }
+  };
+
   return (
     <div style={{ 
       display: 'flex', 
@@ -332,6 +464,7 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
       width,
       height: '100%'
     }}>
+      {/* Mission Details Card */}
       <Card 
         style={{
           width: '100%',
@@ -511,7 +644,7 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
           flexDirection: 'column',
           position: 'relative',
           boxSizing: 'border-box',
-          height: '250px',
+          height: 'auto',
           overflow: 'visible'
         }}
       >
@@ -540,7 +673,7 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
           {/* File drop zone with dashed border */}
           <div 
             style={{
-              width: '500px',
+              width: '100%',
               height: '90px',
               border: '1px dashed #CBD5E1',
               borderRadius: '4px',
@@ -577,6 +710,18 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
           </div>
         </div>
       </Card>
+
+      {/* Aircraft Groups */}
+      {parsedMission && (
+        <>
+          <AircraftGroups 
+            missionData={parsedMission} 
+            width="100%"
+            aircraftType="FA-18C_hornet"
+            onExtractedFlights={onExtractedFlights}
+          />
+        </>
+      )}
     </div>
   );
 };

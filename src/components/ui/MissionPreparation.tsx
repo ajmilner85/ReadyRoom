@@ -14,25 +14,47 @@ import { SAMPLE_EVENTS } from '../../data/sampleEvents';
 import { getMissionCommanderCandidates } from '../../utils/dragDropUtils';
 import { useDragDrop } from '../../utils/useDragDrop';
 
+interface ExtractedFlight {
+  name: string;
+  units: {
+    name: string;
+    type: string;
+    onboard_num: string;
+    callsign?: { [key: number]: string | number } | string;
+    fuel: number;
+  }[];
+}
+
+interface AssignedPilot extends Pilot {
+  dashNumber: string;
+}
+
 const CARD_WIDTH = '550px';
 
 const MissionPreparation: React.FC = () => {
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [availablePilots] = useState(pilots);
-  const [assignedPilots, setAssignedPilots] = useState<Record<string, Pilot[]>>({});
+  const [assignedPilots, setAssignedPilots] = useState<Record<string, AssignedPilot[]>>({});
   const [missionCommander, setMissionCommander] = useState<MissionCommanderInfo | null>(null);
+  const [extractedFlights, setExtractedFlights] = useState<ExtractedFlight[]>([]);
 
   // Use our custom hook for drag and drop functionality
   const { draggedPilot, dragSource, handleDragStart, handleDragEnd } = useDragDrop({
     missionCommander,
     setMissionCommander,
-    assignedPilots,
-    setAssignedPilots
+    assignedPilots: assignedPilots as Record<string, Pilot[]>,
+    setAssignedPilots: (pilots: Record<string, Pilot[]>) => 
+      setAssignedPilots(pilots as Record<string, AssignedPilot[]>)
   });
 
   // Function to get mission commander candidates from pilots in -1 positions
   const getMissionCommanderCandidatesWrapper = () => {
     return getMissionCommanderCandidates(assignedPilots);
+  };
+
+  // Handle extracted flights from AircraftGroups
+  const handleExtractedFlights = (flights: ExtractedFlight[]) => {
+    setExtractedFlights(flights);
   };
 
   return (
@@ -49,7 +71,7 @@ const MissionPreparation: React.FC = () => {
           alignItems: 'center',
           padding: '20px',
           boxSizing: 'border-box',
-          overflow: 'hidden' // Prevent any overflow at root level
+          overflow: 'hidden'
         }}>
         <div style={{
             display: 'flex',
@@ -61,7 +83,7 @@ const MissionPreparation: React.FC = () => {
             width: 'min(100%, 2240px)',
             boxSizing: 'border-box',
             justifyContent: 'center',
-            overflowX: 'hidden' // Prevent horizontal scroll
+            overflowX: 'hidden'
           }}>
           <MissionDetails 
             width={CARD_WIDTH} 
@@ -71,6 +93,7 @@ const MissionPreparation: React.FC = () => {
             missionCommander={missionCommander}
             getMissionCommanderCandidates={getMissionCommanderCandidatesWrapper}
             setMissionCommander={setMissionCommander}
+            onExtractedFlights={handleExtractedFlights}
           />
           <AvailablePilots 
             width={CARD_WIDTH}
@@ -82,13 +105,9 @@ const MissionPreparation: React.FC = () => {
             width={CARD_WIDTH} 
             assignedPilots={assignedPilots}
             missionCommander={missionCommander}
-            onPilotAssigned={(flightId, pilot) => {
-              setAssignedPilots(prev => ({
-                ...prev,
-                [flightId]: [...(prev[flightId] || []), pilot]
-              }));
-            }}
+            extractedFlights={extractedFlights}
           />
+
           <Communications width={CARD_WIDTH} />
         </div>
       </div>

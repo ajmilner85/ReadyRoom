@@ -22,8 +22,8 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+reference/
 src/assets/CV-NATOPS-JUL09.pdf
-src/assets/Qualifications.txt
-src/assets/Billets.txt
-Useful Commands.txt
 src/assets/MS33558ver0.1.ttf
+Useful Commands.txt
