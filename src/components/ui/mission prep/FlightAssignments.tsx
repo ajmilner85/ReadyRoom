@@ -32,54 +32,114 @@ interface MissionCommanderInfo {
   flightNumber: string;
 }
 
+interface ExtractedFlight {
+  name: string;
+  units: {
+    name: string;
+    type: string;
+    onboard_num: string;
+    callsign?: { [key: number]: string | number } | string;
+    fuel: number;
+  }[];
+}
+
 interface FlightAssignmentsProps {
   width: string;
   assignedPilots?: Record<string, AssignedPilot[]>;
-  onPilotAssigned?: (flightId: string, pilot: AssignedPilot) => void;
   missionCommander?: MissionCommanderInfo | null;
+  extractedFlights?: ExtractedFlight[];
 }
 
 const FlightAssignments: React.FC<FlightAssignmentsProps> = ({ 
   width, 
   assignedPilots = {},
-  onPilotAssigned,
-  missionCommander
+  missionCommander,
+  extractedFlights = []
 }) => {
-  const [flights, setFlights] = useState<Flight[]>([
-    {
-      id: '1',
-      callsign: "STING",
-      flightNumber: "1",
-      pilots: [
-        { boardNumber: "744", callsign: "JACKPOT", dashNumber: "1" },
-        { boardNumber: "637", callsign: "BOWSER", dashNumber: "2" },
-        { boardNumber: "727", callsign: "KNIGHT", dashNumber: "3" },
-        { boardNumber: "555", callsign: "DASH", dashNumber: "4" }
-      ],
-      midsA: "1",
-      midsB: "3",
-      creationOrder: 0
-    },
-    {
-      id: '2',
-      callsign: "STING",
-      flightNumber: "2",
-      pilots: [
-        { boardNumber: "", callsign: "", dashNumber: "1" },
-        { boardNumber: "", callsign: "", dashNumber: "2" },
-        { boardNumber: "", callsign: "", dashNumber: "3" },
-        { boardNumber: "", callsign: "", dashNumber: "4" }
-      ],
-      midsA: "4",
-      midsB: "6",
-      creationOrder: 1
-    }
-  ]);
-  
+  const [flights, setFlights] = useState<Flight[]>([]);
   const [showAddFlightDialog, setShowAddFlightDialog] = useState(false);
   const [editFlightId, setEditFlightId] = useState<string | null>(null);
   const [initialEditCallsign, setInitialEditCallsign] = useState("");
-  const [creationOrderCounter, setCreationOrderCounter] = useState(2); // Start at 2 since we have two initial flights
+  const [creationOrderCounter, setCreationOrderCounter] = useState(0);
+
+  // Parse a group name into callsign and flight number
+  const parseGroupName = (name: string): { callsign: string; flightNumber: string } => {
+    // Split on last space to handle callsigns with spaces
+    const lastSpaceIndex = name.lastIndexOf(' ');
+    if (lastSpaceIndex === -1) {
+      return { callsign: name, flightNumber: "1" };
+    }
+    
+    const callsign = name.substring(0, lastSpaceIndex);
+    const flightNumber = name.substring(lastSpaceIndex + 1);
+    
+    // Validate that flight number is actually a number
+    if (!/^\d+$/.test(flightNumber)) {
+      return { callsign: name, flightNumber: "1" };
+    }
+    
+    return { callsign, flightNumber };
+  };
+
+  // Effect to create flight cards from extracted flights
+  useEffect(() => {
+    if (!extractedFlights.length) return;
+
+    // Convert extracted flights to our Flight format
+    const newFlights = extractedFlights.map((extractedFlight, index) => {
+      const { callsign, flightNumber } = parseGroupName(extractedFlight.name);
+      return {
+        id: `extracted-${index}`,
+        callsign: callsign.toUpperCase(),
+        flightNumber,
+        pilots: [
+          { boardNumber: "", callsign: "", dashNumber: "1" },
+          { boardNumber: "", callsign: "", dashNumber: "2" },
+          { boardNumber: "", callsign: "", dashNumber: "3" },
+          { boardNumber: "", callsign: "", dashNumber: "4" }
+        ],
+        midsA: "",
+        midsB: "",
+        creationOrder: index
+      };
+    });
+
+    // Group flights by callsign and assign sequential flight numbers only for those without numbers
+    const groupedByCallsign = newFlights.reduce<Record<string, Flight[]>>((acc, flight) => {
+      if (!acc[flight.callsign]) {
+        acc[flight.callsign] = [];
+      }
+      acc[flight.callsign].push(flight);
+      return acc;
+    }, {});
+
+    // Sort each group by flight number and fix any gaps or duplicates
+    Object.values(groupedByCallsign).forEach(flightGroup => {
+      // Sort by existing flight numbers
+      flightGroup.sort((a, b) => parseInt(a.flightNumber) - parseInt(b.flightNumber));
+      
+      // Fix any gaps or duplicates
+      let expectedNumber = 1;
+      flightGroup.forEach(flight => {
+        // If this flight's number doesn't match what we expect, update it
+        if (parseInt(flight.flightNumber) !== expectedNumber) {
+          flight.flightNumber = expectedNumber.toString();
+        }
+        expectedNumber++;
+      });
+    });
+
+    // Assign MIDS channels
+    let midsCounter = 1;
+    newFlights.forEach(flight => {
+      flight.midsA = midsCounter.toString();
+      flight.midsB = (midsCounter + 2).toString();
+      midsCounter += 3;
+    });
+
+    setFlights(newFlights);
+    setCreationOrderCounter(extractedFlights.length);
+  }, [extractedFlights]);
 
   // Get unique existing callsigns for the dialog suggestions
   const existingCallsigns = [...new Set(flights.map(flight => flight.callsign))];
@@ -255,13 +315,6 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
     setInitialEditCallsign(callsign);
     setShowAddFlightDialog(true);
   }, []);
-
-  // Check if a pilot is the mission commander
-  const isPilotMissionCommander = (boardNumber: string, flightId: string) => {
-    return missionCommander !== null && 
-           missionCommander.boardNumber === boardNumber && 
-           missionCommander.flightId === flightId;
-  };
 
   return (
     <div style={{ width, position: 'relative' }}>

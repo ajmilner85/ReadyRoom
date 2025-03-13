@@ -53,6 +53,15 @@ QOL:
 	- NATOPs
 	- NAVAIR
 - Simplified, OpenKneeboard compatible dynamic page for live kneeboard updates, last minute coordination
+- Export modified .miz file after crew assignments
+	- Set board numbers
+	- Set MIDS channels (VOCB_Channel, VOCA_Channel)
+	- Set laser codes
+	- Set link16 (STN_L16?) and team members
+	- Set liveries
+	- Set radios
+	- Set HMD type
+
 
 
 Cosmetic:
