@@ -1,6 +1,10 @@
 import type { Pilot } from '../types/PilotTypes';
 import type { MissionCommanderInfo } from '../types/MissionCommanderTypes';
 
+interface AssignedPilot extends Pilot {
+  dashNumber: string;
+}
+
 // Find a pilot by board number across all flights
 export const findPilotInFlights = (
   boardNumber: string, 
@@ -18,8 +22,8 @@ export const findPilotInFlights = (
 // Remove pilot from all flights
 export const removePilotFromAllFlights = (
   boardNumber: string, 
-  assignedPilots: Record<string, Pilot[]>
-): Record<string, Pilot[]> => {
+  assignedPilots: Record<string, AssignedPilot[]>
+): Record<string, AssignedPilot[]> => {
   const updated = { ...assignedPilots };
   
   // Check all flights for this pilot
@@ -38,10 +42,10 @@ export const removePilotFromAllFlights = (
 
 // Swap pilots between two positions
 export const swapPilots = (
-  source: { flightId: string; pilot: Pilot },
-  target: { flightId: string; dashNumber: string; currentPilot?: Pilot },
-  assignedPilots: Record<string, Pilot[]>
-): Record<string, Pilot[]> => {
+  source: { flightId: string; pilot: AssignedPilot },
+  target: { flightId: string; dashNumber: string; currentPilot?: AssignedPilot },
+  assignedPilots: Record<string, AssignedPilot[]>
+): Record<string, AssignedPilot[]> => {
   const updated = { ...assignedPilots };
   
   // Remove source pilot from their flight
@@ -88,69 +92,63 @@ export const swapPilots = (
   return updated;
 };
 
-// Check if pilot being moved affects mission commander
+// Check and update mission commander status based on pilot movement
 export const handleMissionCommanderCheck = (
-  boardNumber: string, 
-  newDashNumber: string | undefined, 
-  missionCommander: MissionCommanderInfo | null
+  boardNumber: string,
+  newDashNumber: string | undefined,
+  currentCommander: MissionCommanderInfo | null
 ): MissionCommanderInfo | null => {
-  // Check if the affected pilot is the mission commander
-  if (missionCommander && missionCommander.boardNumber === boardNumber) {
-    // If the pilot is moved to a non-lead position or removed completely, reset mission commander
-    if (!newDashNumber || newDashNumber !== "1") {
+  // If the pilot being moved is the current mission commander
+  if (currentCommander?.boardNumber === boardNumber) {
+    // If they're leaving a -1 position, remove them as mission commander
+    if (currentCommander.flightId && !newDashNumber) {
       return null;
     }
   }
-  return missionCommander;
+  return currentCommander;
 };
 
-// Get all mission commander candidates from positions -1
-export const getMissionCommanderCandidates = (assignedPilots: Record<string, Pilot[]>) => {
-  const candidates: { 
-    label: string; 
-    value: string;
-    boardNumber: string;
-    callsign: string;
-    flightId: string;
-    flightCallsign: string;
-    flightNumber: string;
-  }[] = [];
+// Check if a pilot is eligible to be mission commander based on their qualifications
+const isEligibleForMissionCommander = (pilot: Pilot): boolean => {
+  // Add null check to prevent errors when qualifications is undefined
+  if (!pilot.qualifications) {
+    console.warn('Pilot missing qualifications:', pilot);
+    return false;
+  }
+  
+  return pilot.qualifications.some(qual => 
+    qual.type === 'Flight Lead' || qual.type === 'Strike Lead' || qual.type === 'Instructor Pilot'
+  );
+};
 
+// Get candidates for mission commander from all pilots
+export const getMissionCommanderCandidates = (
+  assignedPilots: Record<string, AssignedPilot[]>
+): Array<{ boardNumber: string; callsign: string; }> => {
+  // Filter to get only assigned pilots who are flight leads
+  const candidates: Array<{ boardNumber: string; callsign: string; }> = [];
+  
   Object.entries(assignedPilots).forEach(([flightId, flightPilots]) => {
-    // Find all flights that have their -1 position filled
-    const dashOnePilot = flightPilots.find(p => p.dashNumber === "1");
-    
-    if (dashOnePilot) {
-      // Find the flight details of this pilot by manually searching through flights
-      let flightDetails = { callsign: "", number: "" };
-      
-      // First look for the flight in our flights state
-      document.querySelectorAll('.aircraft-tile-label').forEach(element => {
-        if (element.textContent && element.textContent.includes(`-1`) && 
-            element.closest('[data-drop-id]')?.getAttribute('data-drop-id') === `flight-${flightId}-position-1`) {
-          const text = element.textContent.trim();
-          const parts = text.split(' ');
-          if (parts.length >= 2) {
-            flightDetails.callsign = parts[0];
-            flightDetails.number = parts[1].split('-')[0];
-          }
-        }
-      });
-      
-      // Create a candidate entry with the correct format: "CALLSIGN FLIGHT-POSITION | BOARDNUM PILOTCALLSIGN"
-      const label = `${flightDetails.callsign} ${flightDetails.number}-1 | ${dashOnePilot.boardNumber} ${dashOnePilot.callsign}`;
-      
-      candidates.push({
-        label,
-        value: dashOnePilot.boardNumber,
-        boardNumber: dashOnePilot.boardNumber,
-        callsign: dashOnePilot.callsign,
-        flightId,
-        flightCallsign: flightDetails.callsign,
-        flightNumber: flightDetails.number
-      });
+    // Ensure the flight array exists and has pilots
+    if (!flightPilots || !Array.isArray(flightPilots)) {
+      return;
     }
+    
+    flightPilots.forEach(pilot => {
+      // Skip if pilot is not properly formed
+      if (!pilot || !pilot.boardNumber || !pilot.callsign) {
+        return;
+      }
+      
+      // Only pilots in -1 position are eligible
+      if (pilot.dashNumber === "1" && isEligibleForMissionCommander(pilot)) {
+        candidates.push({
+          boardNumber: pilot.boardNumber,
+          callsign: pilot.callsign
+        });
+      }
+    });
   });
-
+  
   return candidates;
 };
