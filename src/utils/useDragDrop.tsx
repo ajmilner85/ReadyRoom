@@ -76,7 +76,13 @@ export const useDragDrop = ({
       // Handle dropping outside valid drop zones
       if (active.data.current?.type === 'Pilot' && active.data.current.currentFlightId) {
         const pilot = active.data.current.pilot;
-        const newMissionCommander = handleMissionCommanderCheck(pilot.boardNumber, undefined, missionCommander);
+        // Pass undefined for flightId and dashNumber to indicate removal
+        const newMissionCommander = handleMissionCommanderCheck(
+          pilot.boardNumber, 
+          undefined, 
+          undefined, 
+          missionCommander
+        );
         if (newMissionCommander !== missionCommander) {
           setMissionCommander(newMissionCommander);
         }
@@ -114,16 +120,6 @@ export const useDragDrop = ({
 
         // Debug the extracted IDs
         console.log('Dropping pilot:', pilot.callsign, 'from:', currentFlightId, 'to flight:', flightIdPart, 'position:', dashNumber);
-
-        // Update mission commander if necessary
-        const newMissionCommander = handleMissionCommanderCheck(
-          pilot.boardNumber,
-          dashNumber,
-          missionCommander
-        );
-        if (newMissionCommander !== missionCommander) {
-          setMissionCommander(newMissionCommander);
-        }
 
         // First ensure the pilot is completely removed from any flights they might be in
         // This is important to prevent duplicates
@@ -171,7 +167,40 @@ export const useDragDrop = ({
           }
           
           console.log('Updated assignments after swap:', updatedPilots);
+          
+          // Apply the pilots update first, then check for mission commander updates
+          // This ensures that getMissionCommanderCandidates will have the latest pilot positions 
+          // when determining eligibility
           setAssignedPilots(updatedPilots);
+          
+          // Now update mission commander status after the positions are updated
+          // This is critical for when pilots are moved back to -1 positions
+          const newMissionCommander = handleMissionCommanderCheck(
+            pilot.boardNumber,
+            flightIdPart,
+            dashNumber,
+            missionCommander
+          );
+          
+          if (newMissionCommander !== missionCommander) {
+            console.log('Mission commander status updated:', newMissionCommander);
+            setMissionCommander(newMissionCommander);
+          }
+          
+          // Also check the displaced pilot
+          if (displacedPilot.boardNumber === missionCommander?.boardNumber) {
+            const displacedMissionCommander = handleMissionCommanderCheck(
+              displacedPilot.boardNumber,
+              currentFlightId,
+              pilot.dashNumber,
+              missionCommander
+            );
+              
+            if (displacedMissionCommander !== missionCommander && displacedMissionCommander !== newMissionCommander) {
+              console.log('Displaced pilot mission commander status updated:', displacedMissionCommander);
+              setMissionCommander(displacedMissionCommander);
+            }
+          }
         } else {
           // No pilot in target position, simply add to the target position
           if (!updatedPilots[flightIdPart]) {
@@ -184,7 +213,22 @@ export const useDragDrop = ({
           });
           
           console.log('Added pilot to empty position:', updatedPilots);
+          
+          // Apply the pilots update first, then check for mission commander
           setAssignedPilots(updatedPilots);
+          
+          // Update mission commander status after positions are updated
+          const newMissionCommander = handleMissionCommanderCheck(
+            pilot.boardNumber,
+            flightIdPart,
+            dashNumber,
+            missionCommander
+          );
+          
+          if (newMissionCommander !== missionCommander) {
+            console.log('Mission commander status updated:', newMissionCommander);
+            setMissionCommander(newMissionCommander);
+          }
         }
       }
     }
