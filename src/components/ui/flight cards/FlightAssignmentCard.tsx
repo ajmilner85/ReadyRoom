@@ -188,6 +188,7 @@ const FlightAssignmentCard: React.FC<FlightAssignmentCardProps> = ({
           midsA={midsA}  // First section MIDS A
           midsB={midsB}
           isMissionCommander={isMissionCommander(pilot2.boardNumber)}
+          verticalOffset={10} // Apply the 10px offset for 1-2 position
         />
         
         {/* 1-1 position - first section */}
@@ -201,6 +202,7 @@ const FlightAssignmentCard: React.FC<FlightAssignmentCardProps> = ({
           midsB={midsB}
           isFlightLead={true}
           isMissionCommander={isMissionCommander(pilot1.boardNumber)}
+          verticalOffset={0} // No offset for 1-1 (flight lead)
         />
         
         {/* 1-3 position - second section */}
@@ -214,6 +216,7 @@ const FlightAssignmentCard: React.FC<FlightAssignmentCardProps> = ({
           midsB={midsB}
           isWingPair={true}
           isMissionCommander={isMissionCommander(pilot3.boardNumber)}
+          verticalOffset={10} // Apply the 10px offset for 1-3 position
         />
         
         {/* 1-4 position - second section */}
@@ -226,6 +229,7 @@ const FlightAssignmentCard: React.FC<FlightAssignmentCardProps> = ({
           midsA={secondSectionMidsA}  // Second section MIDS A
           midsB={midsB}
           isMissionCommander={isMissionCommander(pilot4.boardNumber)}
+          verticalOffset={20} // Apply the 20px offset for 1-4 position
         />
       </div>
 
@@ -264,6 +268,7 @@ interface DroppableAircraftTileProps {
   isFlightLead?: boolean;
   isWingPair?: boolean;
   isMissionCommander?: boolean;
+  verticalOffset?: number; // Add the verticalOffset prop
 }
 
 // Memoize the DroppableAircraftTile component to prevent unnecessary re-renders
@@ -277,7 +282,8 @@ const DroppableAircraftTile = memo<DroppableAircraftTileProps>(({
   midsB,
   isFlightLead,
   isWingPair,
-  isMissionCommander = false
+  isMissionCommander = false,
+  verticalOffset = 0 // Default to 0 if not provided
 }) => {
   const isEmpty = !pilot.boardNumber && !pilot.callsign;
   // Use the complete flight ID to ensure unique drop targets
@@ -318,6 +324,7 @@ const DroppableAircraftTile = memo<DroppableAircraftTileProps>(({
         midsA={midsA}
         midsB={midsB}
         isMissionCommander={isMissionCommander}
+        verticalOffset={verticalOffset} // Pass the verticalOffset to AircraftTile
       />
       {isOver && (
         <div style={{
