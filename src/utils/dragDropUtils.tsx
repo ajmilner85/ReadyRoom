@@ -95,16 +95,48 @@ export const swapPilots = (
 // Check and update mission commander status based on pilot movement
 export const handleMissionCommanderCheck = (
   boardNumber: string,
+  newFlightId: string | undefined,
   newDashNumber: string | undefined,
   currentCommander: MissionCommanderInfo | null
 ): MissionCommanderInfo | null => {
+  // If no mission commander is set, nothing changes
+  if (!currentCommander) {
+    return null;
+  }
+  
   // If the pilot being moved is the current mission commander
   if (currentCommander?.boardNumber === boardNumber) {
-    // If they're leaving a -1 position, remove them as mission commander
-    if (currentCommander.flightId && !newDashNumber) {
+    // If they're moving to a non-dash-1 position or being removed completely, 
+    // they can no longer be mission commander
+    if (!newDashNumber || newDashNumber !== "1") {
+      console.log('Mission commander removed - not in dash-1 position');
       return null;
     }
+    
+    // If they're moving to a dash-1 position in a different flight,
+    // update their flight info but keep them as mission commander
+    if (newFlightId && newFlightId !== currentCommander.flightId) {
+      // Extract flight callsign and number from flight ID
+      const flightParts = newFlightId.split('-');
+      const flightCallsign = flightParts[0];
+      const flightNumber = flightParts.length > 1 ? flightParts[1] : '';
+      
+      console.log('Mission commander moved to new flight', {
+        flightId: newFlightId,
+        flightCallsign,
+        flightNumber
+      });
+      
+      // Update mission commander with new flight info
+      return {
+        ...currentCommander,
+        flightId: newFlightId,
+        flightCallsign,
+        flightNumber
+      };
+    }
   }
+  
   return currentCommander;
 };
 
@@ -125,7 +157,7 @@ const isEligibleForMissionCommander = (pilot: Pilot): boolean => {
 export const getMissionCommanderCandidates = (
   assignedPilots: Record<string, AssignedPilot[]>
 ): Array<{ boardNumber: string; callsign: string; }> => {
-  // Filter to get only assigned pilots who are flight leads
+  // Filter to get only assigned pilots who are in -1 position
   const candidates: Array<{ boardNumber: string; callsign: string; }> = [];
   
   Object.entries(assignedPilots).forEach(([flightId, flightPilots]) => {
@@ -141,7 +173,10 @@ export const getMissionCommanderCandidates = (
       }
       
       // Only pilots in -1 position are eligible
-      if (pilot.dashNumber === "1" && isEligibleForMissionCommander(pilot)) {
+      // We're removing the additional qualification check here since being in
+      // dash-1 position is what matters for selection in the dropdown
+      if (pilot.dashNumber === "1") {
+        console.log(`Pilot ${pilot.callsign} (${pilot.boardNumber}) is eligible for mission commander as they're in position -1`);
         candidates.push({
           boardNumber: pilot.boardNumber,
           callsign: pilot.callsign
