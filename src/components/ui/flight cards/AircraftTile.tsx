@@ -193,10 +193,14 @@ const AircraftTile: React.FC<AircraftTileProps> = ({
                   lineHeight: '10px',
                   color: LIGHT_SLATE_GREY,
                   position: 'absolute',
-                  left: '50%',
+                  left: '50%', 
                   top: '50%',
-                  transform: 'translate(-50%, -60%)', // Move dots up by adjusting Y translation
-                  textAlign: 'center'
+                  // Replace transform with explicit positioning
+                  marginLeft: '-50%', // Center horizontally (equivalent to translateX(-50%))
+                  marginTop: '-6px',  // Move up by 6px instead of 3px to position higher
+                  textAlign: 'center',
+                  width: '100%',      // Ensure the text container spans the full width
+                  height: '10px'      // Match the height of the accent strip
                 }}
               >
                 {getIndicatorContent()}
