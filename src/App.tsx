@@ -1,13 +1,16 @@
-import React, { useState, Suspense, useEffect } from 'react';
+import React, { useState, Suspense, useEffect, useCallback } from 'react';
 import { DndContext, DragEndEvent, DragOverlay, DragStartEvent } from '@dnd-kit/core';
 import GridLayout from './components/layout/GridLayout';
 import { SectionProvider } from './components/layout/SectionContext';
-import { sampleFlights, splitFlight, divideFlight, updateFlightPosition, type Flight } from './types/FlightData';
+import { splitFlight, divideFlight, updateFlightPosition, type Flight } from './types/FlightData';
 import FlightCard from './components/ui/flight cards/FlightCard';
 import SingleFlightCard from './components/ui/flight cards/SingleFlightCard';
 import FuelStateDialog from './components/ui/dialogs/FuelStateDialog';
 import PositionReportDialog from './components/ui/dialogs/PositionReportDialog';
 import NavigationBar from './components/ui/NavigationBar';
+import type { AssignedPilot } from './types/PilotTypes';
+import type { MissionCommanderInfo } from './types/MissionCommanderTypes';
+import type { ExtractedFlight } from './types/FlightData';
 
 // Lazy load components that aren't needed immediately
 const RosterManagement = React.lazy(() => import('./components/ui/RosterManagement'));
@@ -15,7 +18,8 @@ const EventsManagement = React.lazy(() => import('./components/ui/EventsManageme
 const MissionPreparation = React.lazy(() => import('./components/ui/MissionPreparation'));
 
 const App: React.FC = () => {
-  const [flights, setFlights] = useState<Flight[]>(sampleFlights);
+  // Mission Execution state
+  const [flights, setFlights] = useState<Flight[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [showFuelDialog, setShowFuelDialog] = useState(false);
   const [showPositionDialog, setShowPositionDialog] = useState(false);
@@ -25,6 +29,12 @@ const App: React.FC = () => {
   const [hoveredFlightId, setHoveredFlightId] = useState<string | null>(null);
   const [currentView, setCurrentView] = useState<'roster' | 'flights' | 'events' | 'mission-prep'>('flights');
   const [activeButton, setActiveButton] = useState<string>('flights');
+
+  // Mission Preparation state (lifted up to persist across navigation)
+  const [assignedPilots, setAssignedPilots] = useState<Record<string, AssignedPilot[]>>({});
+  const [missionCommander, setMissionCommander] = useState<MissionCommanderInfo | null>(null);
+  const [extractedFlights, setExtractedFlights] = useState<ExtractedFlight[]>([]);
+  const [prepFlights, setPrepFlights] = useState<any[]>([]);
 
   const handleNavigate = (view: 'roster' | 'flights' | 'events' | 'mission-prep') => {
     setCurrentView(view);
@@ -121,6 +131,28 @@ const App: React.FC = () => {
     });
   };
 
+  // Function to handle transfer of flights from Mission Preparation
+  const handleTransferToMission = useCallback((transferredFlights: Flight[]) => {
+    setFlights(transferredFlights);
+  }, []);
+
+  // Handlers for Mission Preparation state updates
+  const handleAssignedPilotsChange = useCallback((pilots: Record<string, AssignedPilot[]>) => {
+    setAssignedPilots(pilots);
+  }, []);
+
+  const handleMissionCommanderChange = useCallback((commander: MissionCommanderInfo | null) => {
+    setMissionCommander(commander);
+  }, []);
+
+  const handleExtractedFlightsChange = useCallback((flights: ExtractedFlight[]) => {
+    setExtractedFlights(flights);
+  }, []);
+
+  const handlePrepFlightsChange = useCallback((flights: any[]) => {
+    setPrepFlights(flights);
+  }, []);
+
   const activeFlight = flights.find(f => f.id === activeId);
 
   const renderMainContent = () => {
@@ -149,7 +181,17 @@ const App: React.FC = () => {
         <Suspense fallback={
           <div className="bg-slate-50" style={{ width: '100%', height: '100%' }} />
         }>
-          <MissionPreparation />
+          <MissionPreparation 
+            onTransferToMission={handleTransferToMission}
+            assignedPilots={assignedPilots}
+            onAssignedPilotsChange={handleAssignedPilotsChange}
+            missionCommander={missionCommander}
+            onMissionCommanderChange={handleMissionCommanderChange}
+            extractedFlights={extractedFlights}
+            onExtractedFlightsChange={handleExtractedFlightsChange}
+            prepFlights={prepFlights}
+            onPrepFlightsChange={handlePrepFlightsChange}
+          />
         </Suspense>
       );
     }

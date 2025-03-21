@@ -48,15 +48,19 @@ interface FlightAssignmentsProps {
   assignedPilots?: Record<string, AssignedPilot[]> | null;
   missionCommander?: MissionCommanderInfo | null;
   extractedFlights?: ExtractedFlight[];
+  onFlightsChange?: (flights: Flight[]) => void;
+  initialFlights?: Flight[];
 }
 
 const FlightAssignments: React.FC<FlightAssignmentsProps> = ({ 
   width, 
   assignedPilots = {},
   missionCommander,
-  extractedFlights = []
+  extractedFlights = [],
+  onFlightsChange,
+  initialFlights = []
 }) => {
-  const [flights, setFlights] = useState<Flight[]>([]);
+  const [flights, setFlights] = useState<Flight[]>(initialFlights);
   const [showAddFlightDialog, setShowAddFlightDialog] = useState(false);
   const [editFlightId, setEditFlightId] = useState<string | null>(null);
   const [initialEditCallsign, setInitialEditCallsign] = useState("");
@@ -64,6 +68,27 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
   
   // Use a ref to track which extracted flights we've already processed
   const processedFlightTimestamps = useRef<Set<string>>(new Set());
+  const initializedRef = useRef(false);
+
+  // Initialize flights from initialFlights when first mounted
+  useEffect(() => {
+    if (!initializedRef.current && initialFlights.length > 0) {
+      setFlights(initialFlights);
+      
+      // Calculate the highest creation order for future additions
+      const maxCreationOrder = Math.max(...initialFlights.map(f => f.creationOrder), -1);
+      setCreationOrderCounter(maxCreationOrder + 1);
+      
+      initializedRef.current = true;
+    }
+  }, [initialFlights]);
+
+  // Notify parent component when flights change
+  useEffect(() => {
+    if (onFlightsChange) {
+      onFlightsChange(flights);
+    }
+  }, [flights, onFlightsChange]);
 
   // Parse a group name into callsign and flight number
   const parseGroupName = (name: string): { callsign: string; flightNumber: string } => {

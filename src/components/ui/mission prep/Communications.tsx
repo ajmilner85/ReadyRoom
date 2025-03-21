@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Card } from '../card';
-import { FileDown, Edit2, Check, X } from 'lucide-react';
+import { FileDown, Edit2, Check, X, Send } from 'lucide-react';
 import { styles } from '../../../styles/commsStyles';
 import { 
   isValidFrequency, 
@@ -11,17 +11,27 @@ import {
   CommsPlanEntry, 
   generateInitialCommsData 
 } from '../../../types/CommsTypes';
+import { Flight } from '../../../types/FlightData';
 
 interface CommunicationsProps {
   width: string;
+  assignedPilots?: Record<string, any> | null;
+  onTransferToMission?: (flights: Flight[]) => void;
+  flights?: any[];
 }
 
-const Communications: React.FC<CommunicationsProps> = ({ width }) => {
+const Communications: React.FC<CommunicationsProps> = ({ 
+  width, 
+  assignedPilots = {},
+  onTransferToMission,
+  flights = []
+}) => {
   const [selectedEncryption, setSelectedEncryption] = useState<number | null>(null);
   const [commsData, setCommsData] = useState<CommsPlanEntry[]>(generateInitialCommsData());
   const [isEditing, setIsEditing] = useState(false);
   const [editedData, setEditedData] = useState<CommsPlanEntry[]>([]);
   const [hoveredRow, setHoveredRow] = useState<number | null>(null);
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
 
   const handleEncryptionSelect = (number: number) => {
     setSelectedEncryption(number === selectedEncryption ? null : number);
@@ -65,6 +75,54 @@ const Communications: React.FC<CommunicationsProps> = ({ width }) => {
     };
 
     setEditedData(newData);
+  };
+
+  const handleTransferToMission = () => {
+    if (onTransferToMission && flights.length > 0) {
+      // If there are already flights in the mission execution page, show confirmation dialog
+      setShowConfirmDialog(true);
+    } else {
+      // Otherwise, transfer flights immediately
+      transferFlights();
+    }
+  };
+
+  const transferFlights = () => {
+    if (!onTransferToMission) return;
+    
+    // Convert flight assignments to Flight objects
+    const transferFlights: Flight[] = flights.map(flight => {
+      const assigned = assignedPilots[flight.id] || [];
+      
+      // Create a FlightMember for each assigned pilot
+      const members = flight.pilots.map(pilot => {
+        const assignedPilot = assigned.find(p => p.dashNumber === pilot.dashNumber);
+        
+        return {
+          dashNumber: pilot.dashNumber,
+          boardNumber: assignedPilot?.boardNumber || "",
+          fuel: 5.0, // Default initial fuel state
+          pilotCallsign: assignedPilot?.callsign || ""
+        };
+      }).filter(member => member.boardNumber !== ""); // Only include members with assigned board numbers
+      
+      // Only include flights that have at least one assigned pilot
+      if (members.length === 0) return null;
+      
+      return {
+        id: `transferred-${flight.id}-${Date.now()}`,
+        flightNumber: flight.flightNumber,
+        callsign: flight.callsign,
+        members,
+        lowState: 5.0, // Default initial low state
+        currentSection: "", // Empty string for unassigned flights
+        currentDivision: 0,
+        formation: members.length > 1 ? "group" : "single"
+      };
+    }).filter(Boolean) as Flight[];
+    
+    onTransferToMission(transferFlights);
+    setShowConfirmDialog(false);
   };
 
   const renderEncryptionCard = () => (
@@ -275,9 +333,17 @@ const Communications: React.FC<CommunicationsProps> = ({ width }) => {
         <div style={styles.sectionHeader}>
           <span style={styles.headerLabel}>Export</span>
         </div>
-        <div className="flex gap-4">
+        <div style={{
+          display: 'flex',
+          justifyContent: 'space-around',
+          padding: '16px'
+        }}>
           <button 
-            style={styles.exportButton}
+            style={{
+              ...styles.exportButton,
+              flex: '0 0 40%',
+              margin: '0 16px'
+            }}
             onMouseEnter={e => {
               e.currentTarget.style.backgroundColor = '#F8FAFC';
             }}
@@ -289,7 +355,12 @@ const Communications: React.FC<CommunicationsProps> = ({ width }) => {
             Export Kneeboards
           </button>
           <button 
-            style={styles.exportButton}
+            style={{
+              ...styles.exportButton,
+              flex: '0 0 40%',
+              margin: '0 16px'
+            }}
+            onClick={handleTransferToMission}
             onMouseEnter={e => {
               e.currentTarget.style.backgroundColor = '#F8FAFC';
             }}
@@ -297,11 +368,93 @@ const Communications: React.FC<CommunicationsProps> = ({ width }) => {
               e.currentTarget.style.backgroundColor = '#FFFFFF';
             }}
           >
-            <FileDown size={16} />
+            <Send size={16} />
             Transfer to Mission
           </button>
         </div>
       </Card>
+
+      {/* Confirmation Dialog */}
+      {showConfirmDialog && (
+        <>
+          {/* Semi-transparent overlay */}
+          <div style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            zIndex: 1000,
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center'
+          }} onClick={() => setShowConfirmDialog(false)} />
+          
+          {/* Dialog */}
+          <div style={{
+            position: 'fixed',
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+            backgroundColor: 'white',
+            padding: '24px',
+            borderRadius: '8px',
+            boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+            width: '400px',
+            zIndex: 1001
+          }}>
+            <h3 style={{
+              fontSize: '18px',
+              fontWeight: 600,
+              marginBottom: '16px',
+              textAlign: 'center'
+            }}>
+              Replace Mission Cards
+            </h3>
+            <p style={{
+              fontSize: '14px',
+              marginBottom: '24px',
+              textAlign: 'center'
+            }}>
+              This will replace all existing cards in the Mission Execution page. Are you sure you want to continue?
+            </p>
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between'
+            }}>
+              <button
+                onClick={() => setShowConfirmDialog(false)}
+                style={{
+                  padding: '8px 16px',
+                  backgroundColor: '#F1F5F9',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  fontWeight: 500,
+                  color: '#64748B'
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={transferFlights}
+                style={{
+                  padding: '8px 16px',
+                  backgroundColor: '#F24607',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  fontWeight: 500,
+                  color: 'white'
+                }}
+              >
+                Confirm
+              </button>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 };
