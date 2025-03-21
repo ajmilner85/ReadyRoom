@@ -28,6 +28,17 @@ export interface Flight {
   parentFlightId?: string;
 }
 
+export interface ExtractedFlight {
+  name: string;
+  units: {
+    name: string;
+    type: string;
+    onboard_num: string;
+    callsign?: { [key: number]: string | number } | string;
+    fuel: number;
+  }[];
+}
+
 const isInSameFormation = (member1: FlightMember, member2: FlightMember, flight: Flight): boolean => {
   if (flight.formation === 'single') {
     return member1.boardNumber === member2.boardNumber;

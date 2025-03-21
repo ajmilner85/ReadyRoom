@@ -1,6 +1,6 @@
 
 In Progress:
-- .miz import for mission preparation
+- Ability to transfer flight cards from the mission preparation screen to the mission execution screen
 
 Next:
 - Add utility functions for flight assignment (autofill flights, auto assign / re-assign MIDS channels)
@@ -174,3 +174,4 @@ Complete
 	- Editable Expected Approach Times
 	- Next available level calculates expected approach time automatically
 - Ability to set mission commander
+- .miz import for mission preparation

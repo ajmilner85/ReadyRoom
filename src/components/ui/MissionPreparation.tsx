@@ -10,36 +10,94 @@ import { pilots } from '../../types/PilotTypes';
 import type { Event } from '../../types/EventTypes';
 import type { Pilot } from '../../types/PilotTypes';
 import type { MissionCommanderInfo } from '../../types/MissionCommanderTypes';
+import type { Flight, ExtractedFlight } from '../../types/FlightData';
 import { SAMPLE_EVENTS } from '../../data/sampleEvents';
 import { getMissionCommanderCandidates, findPilotInFlights } from '../../utils/dragDropUtils';
 import { useDragDrop } from '../../utils/useDragDrop';
-
-interface ExtractedFlight {
-  name: string;
-  units: {
-    name: string;
-    type: string;
-    onboard_num: string;
-    callsign?: { [key: number]: string | number } | string;
-    fuel: number;
-  }[];
-}
 
 interface AssignedPilot extends Pilot {
   dashNumber: string;
 }
 
+interface MissionPreparationProps {
+  onTransferToMission?: (flights: Flight[]) => void;
+  assignedPilots?: Record<string, AssignedPilot[]>;
+  onAssignedPilotsChange?: (pilots: Record<string, AssignedPilot[]>) => void;
+  missionCommander?: MissionCommanderInfo | null;
+  onMissionCommanderChange?: (commander: MissionCommanderInfo | null) => void;
+  extractedFlights?: ExtractedFlight[];
+  onExtractedFlightsChange?: (flights: ExtractedFlight[]) => void;
+  prepFlights?: any[];
+  onPrepFlightsChange?: (flights: any[]) => void;
+}
+
 const CARD_WIDTH = '550px';
 
-const MissionPreparation: React.FC = () => {
+const MissionPreparation: React.FC<MissionPreparationProps> = ({ 
+  onTransferToMission,
+  assignedPilots: externalAssignedPilots,
+  onAssignedPilotsChange,
+  missionCommander: externalMissionCommander,
+  onMissionCommanderChange,
+  extractedFlights: externalExtractedFlights,
+  onExtractedFlightsChange,
+  prepFlights: externalPrepFlights,
+  onPrepFlightsChange
+}) => {
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [availablePilots] = useState(pilots);
-  const [assignedPilots, setAssignedPilots] = useState<Record<string, AssignedPilot[]>>({});
-  const [missionCommander, setMissionCommander] = useState<MissionCommanderInfo | null>(null);
   
-  // Use useRef to track extracted flights to prevent infinite update loops
-  const [extractedFlights, setExtractedFlights] = useState<ExtractedFlight[]>([]);
+  // Use the external state if provided, otherwise use local state
+  const [localAssignedPilots, setLocalAssignedPilots] = useState<Record<string, AssignedPilot[]>>({});
+  const [localMissionCommander, setLocalMissionCommander] = useState<MissionCommanderInfo | null>(null);
+  const [localExtractedFlights, setLocalExtractedFlights] = useState<ExtractedFlight[]>([]);
+  const [localPrepFlights, setLocalPrepFlights] = useState<any[]>([]);
+  
+  // Use refs to track which state to use (external or local)
   const processedMizRef = useRef<boolean>(false);
+  
+  // Determine which state to use
+  const assignedPilots = externalAssignedPilots !== undefined ? externalAssignedPilots : localAssignedPilots;
+  const missionCommander = externalMissionCommander !== undefined ? externalMissionCommander : localMissionCommander;
+  const extractedFlights = externalExtractedFlights !== undefined ? externalExtractedFlights : localExtractedFlights;
+  const prepFlights = externalPrepFlights !== undefined ? externalPrepFlights : localPrepFlights;
+  
+  // Create functions to update the appropriate state
+  const setAssignedPilots = useCallback((value: React.SetStateAction<Record<string, AssignedPilot[]>>) => {
+    const newValue = typeof value === 'function' ? value(assignedPilots) : value;
+    if (onAssignedPilotsChange) {
+      onAssignedPilotsChange(newValue);
+    } else {
+      setLocalAssignedPilots(newValue);
+    }
+  }, [assignedPilots, onAssignedPilotsChange]);
+
+  const setMissionCommander = useCallback((value: React.SetStateAction<MissionCommanderInfo | null>) => {
+    const newValue = typeof value === 'function' ? value(missionCommander) : value;
+    if (onMissionCommanderChange) {
+      onMissionCommanderChange(newValue);
+    } else {
+      setLocalMissionCommander(newValue);
+    }
+  }, [missionCommander, onMissionCommanderChange]);
+
+  const setExtractedFlights = useCallback((value: React.SetStateAction<ExtractedFlight[]>) => {
+    const newValue = typeof value === 'function' ? value(extractedFlights) : value;
+    if (onExtractedFlightsChange) {
+      onExtractedFlightsChange(newValue);
+    } else {
+      setLocalExtractedFlights(newValue);
+    }
+  }, [extractedFlights, onExtractedFlightsChange]);
+
+  const setPrepFlights = useCallback((value: React.SetStateAction<any[]>) => {
+    const newValue = typeof value === 'function' ? value(prepFlights) : value;
+    if (onPrepFlightsChange) {
+      onPrepFlightsChange(newValue);
+    } else {
+      setLocalPrepFlights(newValue);
+    }
+  }, [prepFlights, onPrepFlightsChange]);
   
   // Use our custom hook for drag and drop functionality
   const { draggedPilot, dragSource, handleDragStart, handleDragEnd } = useDragDrop({
@@ -90,7 +148,7 @@ const MissionPreparation: React.FC = () => {
       processedMizRef.current = true;
       setExtractedFlights(flights);
     }
-  }, []);
+  }, [setExtractedFlights]);
   
   // Reset the processed flag when component unmounts
   useEffect(() => {
@@ -98,6 +156,11 @@ const MissionPreparation: React.FC = () => {
       processedMizRef.current = false;
     };
   }, []);
+
+  // Update flights when FlightAssignments updates them
+  const handleFlightsChange = useCallback((updatedFlights: any[]) => {
+    setPrepFlights(updatedFlights);
+  }, [setPrepFlights]);
 
   return (
     <DndContext
@@ -148,9 +211,16 @@ const MissionPreparation: React.FC = () => {
             assignedPilots={assignedPilots}
             missionCommander={missionCommander}
             extractedFlights={extractedFlights}
+            onFlightsChange={handleFlightsChange}
+            initialFlights={prepFlights}
           />
 
-          <Communications width={CARD_WIDTH} />
+          <Communications 
+            width={CARD_WIDTH} 
+            assignedPilots={assignedPilots}
+            onTransferToMission={onTransferToMission}
+            flights={prepFlights}
+          />
         </div>
       </div>
 
