@@ -336,13 +336,16 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
     <div className="pilots-container" style={{ 
       width,
       maxWidth: width,
-      overflow: 'hidden',
-      position: 'relative'
+      overflow: 'visible', // Changed from 'hidden' to 'visible'
+      position: 'relative',
+      padding: '10px', // Added padding for shadows
+      margin: '-10px', // Added negative margin to maintain layout
+      height: '100%' // Added to ensure full height
     }}>
       <Card 
         style={{
           width: '100%',
-          height: '100%',
+          height: '100%', // Ensure card takes full height of container
           backgroundColor: '#FFFFFF',
           boxShadow: '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)',
           borderRadius: '8px',
@@ -350,7 +353,7 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
           display: 'flex',
           flexDirection: 'column',
           position: 'relative',
-          overflow: 'hidden',
+          overflow: 'visible', // Changed from 'hidden' to 'visible'
           boxSizing: 'border-box'
         }}
       >

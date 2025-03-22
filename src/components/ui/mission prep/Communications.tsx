@@ -130,7 +130,12 @@ const Communications: React.FC<CommunicationsProps> = ({
       <div style={styles.sectionHeader}>
         <span style={styles.headerLabel}>Encryption Channel</span>
       </div>
-      <div style={styles.encryptionContainer}>
+      <div style={{
+        ...styles.encryptionContainer,
+        display: 'flex',
+        justifyContent: 'center',
+        gap: 'calc(var(--encryption-button-size, 40px) / 2)' // Space between buttons is half of button width
+      }}>
         {[1, 2, 3, 4, 5, 6].map((number) => (
           <button
             key={number}
@@ -139,6 +144,9 @@ const Communications: React.FC<CommunicationsProps> = ({
               ...styles.encryptionButton,
               backgroundColor: selectedEncryption === number ? '#F24607' : '#FFFFFF',
               color: selectedEncryption === number ? '#FFFFFF' : '#64748B',
+              width: 'var(--encryption-button-size, 40px)',
+              height: 'var(--encryption-button-size, 40px)',
+              flexShrink: 0,
             }}
             onMouseEnter={e => {
               if (selectedEncryption !== number) {
@@ -341,8 +349,10 @@ const Communications: React.FC<CommunicationsProps> = ({
           <button 
             style={{
               ...styles.exportButton,
-              flex: '0 0 40%',
-              margin: '0 16px'
+              flex: '1', // Changed from fixed percentage to flexible width
+              margin: '0 16px',
+              whiteSpace: 'nowrap', // Prevent text wrapping
+              minWidth: '150px' // Add minimum width to ensure buttons have enough space
             }}
             onMouseEnter={e => {
               e.currentTarget.style.backgroundColor = '#F8FAFC';
@@ -357,8 +367,10 @@ const Communications: React.FC<CommunicationsProps> = ({
           <button 
             style={{
               ...styles.exportButton,
-              flex: '0 0 40%',
-              margin: '0 16px'
+              flex: '1', // Changed from fixed percentage to flexible width
+              margin: '0 16px',
+              whiteSpace: 'nowrap', // Prevent text wrapping
+              minWidth: '150px' // Add minimum width to ensure buttons have enough space
             }}
             onClick={handleTransferToMission}
             onMouseEnter={e => {

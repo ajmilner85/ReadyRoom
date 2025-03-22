@@ -590,21 +590,24 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
-          padding: '20px',
+          padding: '20px 20px 20px 20px',
           boxSizing: 'border-box',
-          overflow: 'hidden'
+          overflow: 'visible'
         }}>
         <div style={{
             display: 'flex',
             gap: '20px',
-            height: 'calc(100vh - 40px)',
+            height: 'calc(100vh - 20px)', // Changed from 40px to 20px to make cards taller
             position: 'relative',
             zIndex: 1,
             maxWidth: '2240px',
             width: 'min(100%, 2240px)',
             boxSizing: 'border-box',
             justifyContent: 'center',
-            overflowX: 'hidden'
+            overflowX: 'auto',
+            overflowY: 'visible',
+            padding: '15px',
+            margin: '-15px',
           }}>
           <MissionDetails 
             width={CARD_WIDTH} 
