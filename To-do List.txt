@@ -1,9 +1,8 @@
 
 In Progress:
-- Ability to transfer flight cards from the mission preparation screen to the mission execution screen
+- Add utility functions for flight assignment (autofill flights, auto assign / re-assign MIDS channels)
 
 Next:
-- Add utility functions for flight assignment (autofill flights, auto assign / re-assign MIDS channels)
 - Mission preparation page
 	- Attendance (Discord/Apollo integration?)
 		- Cruise, Foothold, Other (Accepted, Declined, Tentative)
@@ -175,3 +174,4 @@ Complete
 	- Next available level calculates expected approach time automatically
 - Ability to set mission commander
 - .miz import for mission preparation
+- Ability to transfer flight cards from the mission preparation screen to the mission execution screen

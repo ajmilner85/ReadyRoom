@@ -11,6 +11,8 @@ interface AvailablePilotsProps {
   pilots: Pilot[];
   selectedEvent: Event | null;
   assignedPilots?: Record<string, Pilot[]>;
+  onAutoAssign?: () => void;
+  onClearAssignments?: () => void;
 }
 
 const QUALIFICATION_ORDER: QualificationType[] = [
@@ -147,7 +149,9 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
   width,
   pilots,
   selectedEvent,
-  assignedPilots = {}
+  assignedPilots = {},
+  onAutoAssign,
+  onClearAssignments
 }) => {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [showOnlyAttending, setShowOnlyAttending] = useState(false);
@@ -509,6 +513,96 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
               </div>
             );
           })}
+        </div>
+
+        {/* Bottom action buttons with separator */}
+        <div style={{
+          marginTop: 'auto',
+          width: '100%',
+        }}>
+          {/* Horizontal separator */}
+          <div style={{
+            borderTop: '1px solid #E2E8F0',
+            marginTop: '16px',
+            marginBottom: '16px',
+            width: '100%'
+          }}></div>
+
+          {/* Buttons container */}
+          <div style={{
+            display: 'flex',
+            justifyContent: 'space-around',
+            padding: '0 16px'
+          }}>
+            <button
+              onClick={onAutoAssign}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px',
+                padding: '8px 16px',
+                backgroundColor: '#FFFFFF',
+                color: '#64748B',
+                borderRadius: '8px',
+                border: '1px solid #CBD5E1',
+                cursor: 'pointer',
+                transition: 'background-color 0.2s ease',
+                fontFamily: 'Inter',
+                fontSize: '14px',
+                fontWeight: 400,
+                flex: '0 0 40%',
+                margin: '0 8px'
+              }}
+              onMouseEnter={e => {
+                e.currentTarget.style.backgroundColor = '#F8FAFC';
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.backgroundColor = '#FFFFFF';
+              }}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M9 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-4" />
+                <line x1="14" y1="15" x2="20" y2="9" />
+                <path d="M9 15h4.5c.28 0 .5-.22.5-.5v-4c0-.28-.22-.5-.5-.5H9" />
+                <line x1="5" y1="9" x2="5" y2="15" />
+              </svg>
+              Auto Assign
+            </button>
+            <button
+              onClick={onClearAssignments}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px',
+                padding: '8px 16px',
+                backgroundColor: '#FFFFFF',
+                color: '#64748B',
+                borderRadius: '8px',
+                border: '1px solid #CBD5E1',
+                cursor: 'pointer',
+                transition: 'background-color 0.2s ease',
+                fontFamily: 'Inter',
+                fontSize: '14px',
+                fontWeight: 400,
+                flex: '0 0 40%',
+                margin: '0 8px'
+              }}
+              onMouseEnter={e => {
+                e.currentTarget.style.backgroundColor = '#F8FAFC';
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.backgroundColor = '#FFFFFF';
+              }}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M3 6h18" />
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+              </svg>
+              Clear Assignments
+            </button>
+          </div>
         </div>
       </Card>
     </div>
