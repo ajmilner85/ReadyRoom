@@ -384,11 +384,18 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
   }, []);
 
   return (
-    <div style={{ width, position: 'relative' }}>
+    <div style={{ 
+      width, 
+      position: 'relative',
+      padding: '10px',
+      margin: '-10px',
+      paddingBottom: '20px',
+      height: '100%', // Added to ensure full height same as Available Pilots
+    }}>
       <Card 
         style={{
           width: '100%',
-          height: '100%',
+          height: '100%', // Ensures card takes full height of container
           boxShadow: '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)',
           borderRadius: '8px',
           padding: '24px',

@@ -1,6 +1,6 @@
 
 In Progress:
-- Add utility functions for flight assignment (autofill flights, auto assign / re-assign MIDS channels)
+
 
 Next:
 - Mission preparation page
@@ -175,3 +175,4 @@ Complete
 - Ability to set mission commander
 - .miz import for mission preparation
 - Ability to transfer flight cards from the mission preparation screen to the mission execution screen
+- Add utility functions for flight assignment (autofill flights, auto assign / re-assign MIDS channels)
