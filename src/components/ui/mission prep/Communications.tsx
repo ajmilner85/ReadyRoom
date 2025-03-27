@@ -18,13 +18,24 @@ interface CommunicationsProps {
   assignedPilots?: Record<string, any> | null;
   onTransferToMission?: (flights: Flight[]) => void;
   flights?: any[];
+  extractedFlights?: Array<{
+    name: string;
+    units: Array<{
+      name: string;
+      type: string;
+      onboard_num: string;
+      callsign?: { [key: number]: string | number } | string;
+      fuel: number;
+    }>;
+  }>;
 }
 
 const Communications: React.FC<CommunicationsProps> = ({ 
   width, 
   assignedPilots = {},
   onTransferToMission,
-  flights = []
+  flights = [],
+  extractedFlights = []
 }) => {
   const [selectedEncryption, setSelectedEncryption] = useState<number | null>(null);
   const [commsData, setCommsData] = useState<CommsPlanEntry[]>(generateInitialCommsData());
@@ -77,6 +88,55 @@ const Communications: React.FC<CommunicationsProps> = ({
     setEditedData(newData);
   };
 
+  // Function to calculate total fuel including external tanks
+  const calculateTotalFuel = (unit: any) => {
+    let totalFuel = unit.fuel || 4900; // Default to standard F/A-18C internal fuel if not specified
+
+    try {
+      if (unit.payload?.pylons) {
+        // Handle both array and object pylon structures
+        const pylonValues = Array.isArray(unit.payload.pylons) 
+          ? unit.payload.pylons
+          : Object.values(unit.payload.pylons);
+
+        pylonValues.forEach((pylon: { CLSID: string }) => {
+          if (!pylon || typeof pylon !== 'object') return;
+          
+          const clsid = pylon.CLSID;
+          if (!clsid) return;
+
+          // Only count FPU-8A tanks for F/A-18C
+          if (clsid === '{FPU_8A_FUEL_TANK}' && unit.type === 'FA-18C_hornet') {
+            totalFuel += 2200;
+          }
+        });
+      }
+    } catch (error) {
+      console.error('Error calculating fuel:', error);
+    }
+
+    return totalFuel;
+  };
+
+  // Parse a group name into callsign and flight number
+  const parseGroupName = (name: string): { callsign: string; flightNumber: string } => {
+    // Split on last space to handle callsigns with spaces
+    const lastSpaceIndex = name.lastIndexOf(' ');
+    if (lastSpaceIndex === -1) {
+      return { callsign: name, flightNumber: "1" };
+    }
+    
+    const callsign = name.substring(0, lastSpaceIndex);
+    const flightNumber = name.substring(lastSpaceIndex + 1);
+    
+    // Validate that flight number is actually a number
+    if (!/^\d+$/.test(flightNumber)) {
+      return { callsign: name, flightNumber: "1" };
+    }
+    
+    return { callsign, flightNumber };
+  };
+
   const handleTransferToMission = () => {
     if (onTransferToMission && flights.length > 0) {
       // If there are already flights in the mission execution page, show confirmation dialog
@@ -90,18 +150,70 @@ const Communications: React.FC<CommunicationsProps> = ({
   const transferFlights = () => {
     if (!onTransferToMission) return;
     
+    console.log("Transfer to mission initiated");
+    console.log("Current flights to transfer:", flights);
+    console.log("Current assigned pilots:", assignedPilots);
+    console.log("Available extractedFlights:", extractedFlights);
+    
     // Convert flight assignments to Flight objects
     const transferFlights: Flight[] = flights.map(flight => {
       const assigned = assignedPilots[flight.id] || [];
+      
+      // Log the current flight being processed for debugging
+      console.log(`Processing flight ${flight.callsign} ${flight.flightNumber}, ID: ${flight.id}`);
+      
+      // Find matching extracted flight directly from extractedFlights by callsign and flight number
+      const matchingExtractedFlight = extractedFlights.find(ef => {
+        const { callsign, flightNumber } = parseGroupName(ef.name);
+        return callsign.toUpperCase() === flight.callsign && 
+               flightNumber === flight.flightNumber;
+      });
+      
+      console.log(`Matching extracted flight for ${flight.callsign} ${flight.flightNumber}:`, 
+                  matchingExtractedFlight ? matchingExtractedFlight.name : "none found");
       
       // Create a FlightMember for each assigned pilot
       const members = flight.pilots.map(pilot => {
         const assignedPilot = assigned.find(p => p.dashNumber === pilot.dashNumber);
         
+        // Default fuel value - will use this if we can't find a match
+        let fuelValue = 5.0;
+        
+        // Try to get fuel directly from matching extracted flight
+        if (matchingExtractedFlight && matchingExtractedFlight.units) {
+          // Get the dash number (1-based) and convert to 0-based index
+          const dashPosition = parseInt(pilot.dashNumber) - 1;
+          
+          // Log detailed information to debug the value access
+          console.log(`Accessing fuel for dash ${pilot.dashNumber} at index ${dashPosition}`);
+          
+          // Check if we have that unit position in the extracted flight
+          if (dashPosition >= 0 && dashPosition < matchingExtractedFlight.units.length) {
+            const unit = matchingExtractedFlight.units[dashPosition];
+            console.log(`Unit at position ${dashPosition}:`, unit);
+            
+            // Use our calculateTotalFuel function to get the proper total fuel value including external tanks
+            if (unit) {
+              // Calculate total fuel in pounds including external tanks
+              const totalFuelPounds = calculateTotalFuel(unit);
+              
+              // Convert from pounds to 1000s of pounds (divide by 1000)
+              fuelValue = totalFuelPounds / 1000;
+              console.log(`Using calculated total fuel for ${pilot.dashNumber}: ${fuelValue.toFixed(2)} (from ${totalFuelPounds} lbs)`);
+            } else {
+              console.log(`Invalid unit for dash ${pilot.dashNumber}, using default of ${fuelValue}`);
+            }
+          } else {
+            console.log(`No unit at index ${dashPosition}, using default of ${fuelValue}`);
+          }
+        } else {
+          console.log(`No matching extracted flight found for ${flight.callsign} ${flight.flightNumber}, using default of ${fuelValue}`);
+        }
+        
         return {
           dashNumber: pilot.dashNumber,
           boardNumber: assignedPilot?.boardNumber || "",
-          fuel: 5.0, // Default initial fuel state
+          fuel: fuelValue,
           pilotCallsign: assignedPilot?.callsign || ""
         };
       }).filter(member => member.boardNumber !== ""); // Only include members with assigned board numbers
@@ -109,18 +221,24 @@ const Communications: React.FC<CommunicationsProps> = ({
       // Only include flights that have at least one assigned pilot
       if (members.length === 0) return null;
       
+      // Calculate the low state as the minimum fuel among all members
+      const lowState = Math.min(...members.map(m => m.fuel));
+      console.log(`Flight ${flight.callsign} ${flight.flightNumber} members:`, members);
+      console.log(`Low state calculated as: ${lowState}`);
+      
       return {
         id: `transferred-${flight.id}-${Date.now()}`,
         flightNumber: flight.flightNumber,
         callsign: flight.callsign,
         members,
-        lowState: 5.0, // Default initial low state
+        lowState, // Use calculated low state instead of hardcoded value
         currentSection: "", // Empty string for unassigned flights
         currentDivision: 0,
         formation: members.length > 1 ? "group" : "single"
       };
     }).filter(Boolean) as Flight[];
     
+    console.log("Final flights being transferred:", transferFlights);
     onTransferToMission(transferFlights);
     setShowConfirmDialog(false);
   };

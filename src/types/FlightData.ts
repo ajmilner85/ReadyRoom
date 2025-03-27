@@ -26,6 +26,11 @@ export interface Flight {
   currentDivision: number;
   formation: FlightFormation;
   parentFlightId?: string;
+  metadata?: {
+    extractedIndex?: number;
+    originalName?: string;
+    fuelValues?: number[];
+  };
 }
 
 export interface ExtractedFlight {

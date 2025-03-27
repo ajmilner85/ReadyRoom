@@ -152,7 +152,13 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
           ],
           midsA: "",
           midsB: "",
-          creationOrder: maxCreationOrder + index + 1
+          creationOrder: maxCreationOrder + index + 1,
+          // Store metadata about the original extracted flight index for later reference
+          metadata: {
+            extractedIndex: index,
+            originalName: extractedFlight.name,
+            fuelValues: extractedFlight.units.map(unit => unit.fuel)
+          }
         };
       });
 

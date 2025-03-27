@@ -641,6 +641,7 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
             assignedPilots={assignedPilots}
             onTransferToMission={onTransferToMission}
             flights={prepFlights}
+            extractedFlights={extractedFlights}
           />
         </div>
       </div>
