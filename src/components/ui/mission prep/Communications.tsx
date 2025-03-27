@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card } from '../card';
 import { FileDown, Edit2, Check, X, Send } from 'lucide-react';
 import { styles } from '../../../styles/commsStyles';
@@ -12,6 +12,7 @@ import {
   generateInitialCommsData 
 } from '../../../types/CommsTypes';
 import { Flight } from '../../../types/FlightData';
+import { saveToLocalStorage, loadFromLocalStorage, STORAGE_KEYS } from '../../../utils/localStorageUtils';
 
 interface CommunicationsProps {
   width: string;
@@ -37,12 +38,29 @@ const Communications: React.FC<CommunicationsProps> = ({
   flights = [],
   extractedFlights = []
 }) => {
-  const [selectedEncryption, setSelectedEncryption] = useState<number | null>(null);
-  const [commsData, setCommsData] = useState<CommsPlanEntry[]>(generateInitialCommsData());
+  // Initialize state with data from localStorage if available
+  const [selectedEncryption, setSelectedEncryption] = useState<number | null>(() => {
+    return loadFromLocalStorage<number | null>(STORAGE_KEYS.ENCRYPTION_CHANNEL, null);
+  });
+  
+  const [commsData, setCommsData] = useState<CommsPlanEntry[]>(() => {
+    return loadFromLocalStorage<CommsPlanEntry[]>(STORAGE_KEYS.COMMS_PLAN, generateInitialCommsData());
+  });
+  
   const [isEditing, setIsEditing] = useState(false);
   const [editedData, setEditedData] = useState<CommsPlanEntry[]>([]);
   const [hoveredRow, setHoveredRow] = useState<number | null>(null);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+
+  // Save encryption channel to localStorage whenever it changes
+  useEffect(() => {
+    saveToLocalStorage(STORAGE_KEYS.ENCRYPTION_CHANNEL, selectedEncryption);
+  }, [selectedEncryption]);
+
+  // Save comms plan to localStorage whenever it changes
+  useEffect(() => {
+    saveToLocalStorage(STORAGE_KEYS.COMMS_PLAN, commsData);
+  }, [commsData]);
 
   const handleEncryptionSelect = (number: number) => {
     setSelectedEncryption(number === selectedEncryption ? null : number);
@@ -61,6 +79,7 @@ const Communications: React.FC<CommunicationsProps> = ({
   const saveChanges = () => {
     setCommsData(editedData);
     setIsEditing(false);
+    // No need to explicitly save to localStorage here as the useEffect will handle it
   };
 
   const handleCellEdit = (index: number, field: keyof CommsPlanEntry, value: string) => {
