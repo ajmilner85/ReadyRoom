@@ -11,6 +11,7 @@ import type { Event } from '../../types/EventTypes';
 import type { Pilot } from '../../types/PilotTypes';
 import type { MissionCommanderInfo } from '../../types/MissionCommanderTypes';
 import type { Flight, ExtractedFlight } from '../../types/FlightData';
+import { CommsPlanEntry, generateInitialCommsData } from '../../types/CommsTypes';
 import { SAMPLE_EVENTS } from '../../data/sampleEvents';
 import { getMissionCommanderCandidates, findPilotInFlights } from '../../utils/dragDropUtils';
 import { useDragDrop } from '../../utils/useDragDrop';

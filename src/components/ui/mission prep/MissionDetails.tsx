@@ -4,6 +4,7 @@ import { Edit2, Check, X, Upload } from 'lucide-react';
 import { styles } from '../../../styles/MissionPrepStyles';
 import type { Event } from '../../../types/EventTypes';
 import { processMissionCoordinates } from '../../../utils/coordinateUtils';
+import { saveToLocalStorage, loadFromLocalStorage, STORAGE_KEYS } from '../../../utils/localStorageUtils';
 import JSZip from 'jszip';
 import { load } from 'fengari-web';
 import AircraftGroups from './AircraftGroups';
@@ -59,13 +60,16 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
     new Date(b.datetime).getTime() - new Date(a.datetime).getTime()
   );
 
-  const [missionDetails, setMissionDetails] = useState<MissionDetailsData>({
-    taskUnit: 'VFA-161',
-    mother: 'CVN-73 George Washington "Warfighter"',
-    missionDateTime: '',
-    missionCommander: '',
-    bullseyeLatLon: '',
-    weather: ''
+  const [missionDetails, setMissionDetails] = useState<MissionDetailsData>(() => {
+    // Load mission details from localStorage or use defaults
+    return loadFromLocalStorage<MissionDetailsData>(STORAGE_KEYS.MISSION_DETAILS, {
+      taskUnit: 'VFA-161',
+      mother: 'CVN-73 George Washington "Warfighter"',
+      missionDateTime: '',
+      missionCommander: '',
+      bullseyeLatLon: '',
+      weather: ''
+    });
   });
 
   const [isEditing, setIsEditing] = useState(false);
@@ -96,6 +100,11 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
     loadJson2Lua();
   }, []);
 
+  // Save mission details to localStorage whenever they change
+  useEffect(() => {
+    saveToLocalStorage(STORAGE_KEYS.MISSION_DETAILS, missionDetails);
+  }, [missionDetails]);
+
   const startEditing = () => {
     setIsEditing(true);
     setEditedDetails(missionDetails);
@@ -109,6 +118,7 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
   const saveChanges = () => {
     setMissionDetails(editedDetails);
     setIsEditing(false);
+    // No need to explicitly save to localStorage here as the useEffect will handle it
   };
 
   const handleDetailChange = (field: keyof MissionDetailsData, value: string) => {
@@ -270,7 +280,7 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
   const processMissionFile = async (file: File) => {
     setIsProcessingFile(true);
     try {
-      // Make sure json2.lua is loaded
+      // Make sure json2Lua is loaded
       if (!json2Lua) {
         throw new Error("json2.lua hasn't been loaded yet. Please try again.");
       }
