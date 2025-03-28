@@ -15,6 +15,7 @@ import { CommsPlanEntry, generateInitialCommsData } from '../../types/CommsTypes
 import { SAMPLE_EVENTS } from '../../data/sampleEvents';
 import { getMissionCommanderCandidates, findPilotInFlights } from '../../utils/dragDropUtils';
 import { useDragDrop } from '../../utils/useDragDrop';
+import { loadAssignedPilots, saveAssignedPilots, loadMissionCommander, saveMissionCommander, loadExtractedFlights, saveExtractedFlights, loadPrepFlights, savePrepFlights, loadSelectedEvent, saveSelectedEvent } from '../../utils/localStorageUtils';
 
 interface AssignedPilot extends Pilot {
   dashNumber: string;
@@ -45,7 +46,7 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
   prepFlights: externalPrepFlights,
   onPrepFlightsChange
 }) => {
-  const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
+  const [selectedEvent, setSelectedEvent] = useState<Event | null>(loadSelectedEvent());
   
   // Filter out inactive and retired pilots
   const activePilots = useMemo(() => {
@@ -55,10 +56,10 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
   }, []);
   
   // Use the external state if provided, otherwise use local state
-  const [localAssignedPilots, setLocalAssignedPilots] = useState<Record<string, AssignedPilot[]>>({});
-  const [localMissionCommander, setLocalMissionCommander] = useState<MissionCommanderInfo | null>(null);
-  const [localExtractedFlights, setLocalExtractedFlights] = useState<ExtractedFlight[]>([]);
-  const [localPrepFlights, setLocalPrepFlights] = useState<any[]>([]);
+  const [localAssignedPilots, setLocalAssignedPilots] = useState<Record<string, AssignedPilot[]>>(loadAssignedPilots() || {});
+  const [localMissionCommander, setLocalMissionCommander] = useState<MissionCommanderInfo | null>(loadMissionCommander());
+  const [localExtractedFlights, setLocalExtractedFlights] = useState<ExtractedFlight[]>(loadExtractedFlights() || []);
+  const [localPrepFlights, setLocalPrepFlights] = useState<any[]>(loadPrepFlights() || []);
   
   // Use refs to track which state to use (external or local)
   const processedMizRef = useRef<boolean>(false);
@@ -76,6 +77,7 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
       onAssignedPilotsChange(newValue);
     } else {
       setLocalAssignedPilots(newValue);
+      saveAssignedPilots(newValue);
     }
   }, [assignedPilots, onAssignedPilotsChange]);
 
@@ -85,6 +87,7 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
       onMissionCommanderChange(newValue);
     } else {
       setLocalMissionCommander(newValue);
+      saveMissionCommander(newValue);
     }
   }, [missionCommander, onMissionCommanderChange]);
 
@@ -94,6 +97,7 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
       onExtractedFlightsChange(newValue);
     } else {
       setLocalExtractedFlights(newValue);
+      saveExtractedFlights(newValue);
     }
   }, [extractedFlights, onExtractedFlightsChange]);
 
@@ -103,8 +107,14 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
       onPrepFlightsChange(newValue);
     } else {
       setLocalPrepFlights(newValue);
+      savePrepFlights(newValue);
     }
   }, [prepFlights, onPrepFlightsChange]);
+
+  const setSelectedEventWrapper = useCallback((event: Event | null) => {
+    setSelectedEvent(event);
+    saveSelectedEvent(event);
+  }, []);
   
   // Use our custom hook for drag and drop functionality
   const { draggedPilot, dragSource, handleDragStart, handleDragEnd } = useDragDrop({
@@ -614,7 +624,7 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
             width={CARD_WIDTH} 
             events={SAMPLE_EVENTS}
             selectedEvent={selectedEvent}
-            onEventSelect={setSelectedEvent}
+            onEventSelect={setSelectedEventWrapper}
             missionCommander={missionCommander}
             getMissionCommanderCandidates={getMissionCommanderCandidatesWrapper}
             setMissionCommander={setMissionCommander}

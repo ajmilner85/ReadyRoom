@@ -11,6 +11,7 @@ import NavigationBar from './components/ui/NavigationBar';
 import type { AssignedPilot } from './types/PilotTypes';
 import type { MissionCommanderInfo } from './types/MissionCommanderTypes';
 import type { ExtractedFlight } from './types/FlightData';
+import { loadAssignedPilots, saveMissionCommander, saveAssignedPilots, loadMissionCommander, loadExtractedFlights, saveExtractedFlights, loadPrepFlights, savePrepFlights } from './utils/localStorageUtils';
 
 // Lazy load components that aren't needed immediately
 const RosterManagement = React.lazy(() => import('./components/ui/RosterManagement'));
@@ -31,10 +32,27 @@ const App: React.FC = () => {
   const [activeButton, setActiveButton] = useState<string>('flights');
 
   // Mission Preparation state (lifted up to persist across navigation)
-  const [assignedPilots, setAssignedPilots] = useState<Record<string, AssignedPilot[]>>({});
-  const [missionCommander, setMissionCommander] = useState<MissionCommanderInfo | null>(null);
-  const [extractedFlights, setExtractedFlights] = useState<ExtractedFlight[]>([]);
-  const [prepFlights, setPrepFlights] = useState<any[]>([]);
+  const [assignedPilots, setAssignedPilots] = useState<Record<string, AssignedPilot[]>>(() => loadAssignedPilots());
+  const [missionCommander, setMissionCommander] = useState<MissionCommanderInfo | null>(() => loadMissionCommander());
+  const [extractedFlights, setExtractedFlights] = useState<ExtractedFlight[]>(() => loadExtractedFlights());
+  const [prepFlights, setPrepFlights] = useState<any[]>(() => loadPrepFlights());
+
+  // Save state to localStorage when it changes
+  useEffect(() => {
+    saveAssignedPilots(assignedPilots);
+  }, [assignedPilots]);
+
+  useEffect(() => {
+    saveMissionCommander(missionCommander);
+  }, [missionCommander]);
+
+  useEffect(() => {
+    saveExtractedFlights(extractedFlights);
+  }, [extractedFlights]);
+
+  useEffect(() => {
+    savePrepFlights(prepFlights);
+  }, [prepFlights]);
 
   const handleNavigate = (view: 'roster' | 'flights' | 'events' | 'mission-prep') => {
     setCurrentView(view);
