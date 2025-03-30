@@ -1,6 +1,9 @@
 
 In Progress:
-
+- Database implementation
+	- Admin Settings
+	- Roster
+	- Mission/event saving
 
 Next:
 - Mission preparation page
@@ -10,10 +13,6 @@ Next:
 	- Loadouts/Initial Fuel State
 	- Create comms card
 	- Export kneeboards
-- Database implementation
-	- Roster
-	- Mission/event saving
-
 
 Essential:
 - Altitudes, positions, TACAN, comms for tankers
@@ -29,7 +28,6 @@ High Priority:
 	- Improve visual appearance of pilot details tile
 
 Medium Priority:
-- Read available flights from .miz file
 - Add signal divert
 	- Split Tanker Column into 2, with divert area at the bottom
 - Refactor storage area to sort flights by size (Single > 4-ship)
@@ -62,9 +60,7 @@ QOL:
 	- Set HMD type
 
 
-
 Cosmetic:
-- Make storage area into a popup tray?
 - Add aircraft icons
 - Clean up flight card layout
 - Case  II/III recovery section refactor to add
@@ -176,3 +172,4 @@ Complete
 - .miz import for mission preparation
 - Ability to transfer flight cards from the mission preparation screen to the mission execution screen
 - Add utility functions for flight assignment (autofill flights, auto assign / re-assign MIDS channels)
+- Read available flights from .miz file

@@ -109,7 +109,6 @@ export const handleMissionCommanderCheck = (
     // If they're moving to a non-dash-1 position or being removed completely, 
     // they can no longer be mission commander
     if (!newDashNumber || newDashNumber !== "1") {
-      console.log('Mission commander removed - not in dash-1 position');
       return null;
     }
     
@@ -120,12 +119,6 @@ export const handleMissionCommanderCheck = (
       const flightParts = newFlightId.split('-');
       const flightCallsign = flightParts[0];
       const flightNumber = flightParts.length > 1 ? flightParts[1] : '';
-      
-      console.log('Mission commander moved to new flight', {
-        flightId: newFlightId,
-        flightCallsign,
-        flightNumber
-      });
       
       // Update mission commander with new flight info
       return {
@@ -144,7 +137,6 @@ export const handleMissionCommanderCheck = (
 const isEligibleForMissionCommander = (pilot: Pilot): boolean => {
   // Add null check to prevent errors when qualifications is undefined
   if (!pilot.qualifications) {
-    console.warn('Pilot missing qualifications:', pilot);
     return false;
   }
   
@@ -176,7 +168,6 @@ export const getMissionCommanderCandidates = (
       // We're removing the additional qualification check here since being in
       // dash-1 position is what matters for selection in the dropdown
       if (pilot.dashNumber === "1") {
-        console.log(`Pilot ${pilot.callsign} (${pilot.boardNumber}) is eligible for mission commander as they're in position -1`);
         candidates.push({
           boardNumber: pilot.boardNumber,
           callsign: pilot.callsign

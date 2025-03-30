@@ -289,9 +289,6 @@ const DroppableAircraftTile = memo<DroppableAircraftTileProps>(({
   // Use the complete flight ID to ensure unique drop targets
   const dropId = `flight-${flightId}-position-${dashNumber}`;
   
-  // Debug the flight ID to ensure it's correct
-  console.log('DroppableAircraftTile using flightId:', flightId, 'dropId:', dropId);
-  
   const { setNodeRef, isOver } = useDroppable({
     id: dropId,
     data: {
