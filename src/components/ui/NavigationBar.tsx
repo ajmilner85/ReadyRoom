@@ -1,11 +1,11 @@
 import React from 'react';
-import { Users, Layout, Calendar, FileText } from 'lucide-react';
+import { Users, Layout, Calendar, FileText, Settings } from 'lucide-react';
 
 interface NavigationButton {
   id: string;
   icon: React.ReactNode;
   label: string;
-  view: 'roster' | 'flights' | 'events' | 'mission-prep';
+  view: 'roster' | 'flights' | 'events' | 'mission-prep' | 'admin';
 }
 
 const buttons: NavigationButton[] = [
@@ -32,11 +32,17 @@ const buttons: NavigationButton[] = [
     icon: <Layout size={24} />,
     label: 'Flight Management',
     view: 'flights'
+  },
+  {
+    id: 'admin',
+    icon: <Settings size={24} />,
+    label: 'Admin Tools',
+    view: 'admin'
   }
 ];
 
 interface NavigationBarProps {
-  onNavigate: (view: 'roster' | 'flights' | 'events' | 'mission-prep') => void;
+  onNavigate: (view: 'roster' | 'flights' | 'events' | 'mission-prep' | 'admin') => void;
   activeButton: string;
 }
 

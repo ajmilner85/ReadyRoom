@@ -6,7 +6,8 @@ import AvailablePilots from './mission prep/AvailablePilots';
 import FlightAssignments from './mission prep/FlightAssignments';
 import Communications from './mission prep/Communications';
 import PilotDragOverlay from './mission-execution/PilotDragOverlay';
-import { pilots } from '../../types/PilotTypes';
+import { getAllPilots } from '../../utils/pilotService';
+import { convertSupabasePilotToLegacy } from '../../types/PilotTypes';
 import type { Event } from '../../types/EventTypes';
 import type { Pilot } from '../../types/PilotTypes';
 import type { MissionCommanderInfo } from '../../types/MissionCommanderTypes';
@@ -47,13 +48,68 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
   onPrepFlightsChange
 }) => {
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(loadSelectedEvent());
+  const [pilots, setPilots] = useState<Pilot[]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  
+  // Fetch pilots from Supabase when component mounts
+  useEffect(() => {
+    const fetchPilots = async () => {
+      setIsLoading(true);
+      try {
+        const { data, error } = await getAllPilots();
+        
+        if (error) {
+          throw new Error(error.message);
+        }
+
+        if (data && data.length > 0) {
+          // Convert Supabase format to the format our UI expects
+          const convertedPilots = data.map(pilot => {
+            const legacyPilot = convertSupabasePilotToLegacy(pilot);
+            if (pilot.discord_original_id) {
+              legacyPilot.id = pilot.discord_original_id;
+            }
+            
+            // Set status based on squadron role if not set
+            if (!legacyPilot.status) {
+              const role = pilot.roles?.squadron?.toLowerCase() || '';
+              if (role.includes('co')) {
+                legacyPilot.status = 'Command';
+              } else if (role.includes('xo')) {
+                legacyPilot.status = 'Command';
+              } else if (role.includes('oic')) {
+                legacyPilot.status = 'Staff';
+              } else if (role.includes('ret')) {
+                legacyPilot.status = 'Retired';
+              }
+            }
+            return legacyPilot;
+          });
+          setPilots(convertedPilots);
+          setLoadError(null);
+        } else {
+          // No pilots in database
+          setPilots([]);
+          setLoadError('No pilots found in the database');
+        }
+      } catch (err: any) {
+        setLoadError(err.message);
+        setPilots([]);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchPilots();
+  }, []);
   
   // Filter out inactive and retired pilots
   const activePilots = useMemo(() => {
     return pilots.filter(pilot => 
       pilot.status !== 'Inactive' && pilot.status !== 'Retired'
     );
-  }, []);
+  }, [pilots]);
   
   // Use the external state if provided, otherwise use local state
   const [localAssignedPilots, setLocalAssignedPilots] = useState<Record<string, AssignedPilot[]>>(loadAssignedPilots() || {});
@@ -61,7 +117,7 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
   const [localExtractedFlights, setLocalExtractedFlights] = useState<ExtractedFlight[]>(loadExtractedFlights() || []);
   const [localPrepFlights, setLocalPrepFlights] = useState<any[]>(loadPrepFlights() || []);
   
-  // Use refs to track which state to use (external or local)
+  // Use refs to track which state to use
   const processedMizRef = useRef<boolean>(false);
   
   // Determine which state to use
@@ -608,7 +664,7 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
         <div style={{
             display: 'flex',
             gap: '20px',
-            height: 'calc(100vh - 20px)', // Changed from 40px to 20px to make cards taller
+            height: 'calc(100vh - 20px)', 
             position: 'relative',
             zIndex: 1,
             maxWidth: '2240px',
@@ -620,40 +676,51 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
             padding: '15px',
             margin: '-15px',
           }}>
-          <MissionDetails 
-            width={CARD_WIDTH} 
-            events={SAMPLE_EVENTS}
-            selectedEvent={selectedEvent}
-            onEventSelect={setSelectedEventWrapper}
-            missionCommander={missionCommander}
-            getMissionCommanderCandidates={getMissionCommanderCandidatesWrapper}
-            setMissionCommander={setMissionCommander}
-            onExtractedFlights={handleExtractedFlights}
-          />
-          <AvailablePilots 
-            width={CARD_WIDTH}
-            pilots={activePilots}
-            selectedEvent={selectedEvent}
-            assignedPilots={assignedPilots}
-            onAutoAssign={() => handleAutoAssign(prepFlights, activePilots)}
-            onClearAssignments={handleClearAssignments}
-          />
-          <FlightAssignments 
-            width={CARD_WIDTH} 
-            assignedPilots={assignedPilots}
-            missionCommander={missionCommander}
-            extractedFlights={extractedFlights}
-            onFlightsChange={handleFlightsChange}
-            initialFlights={prepFlights}
-          />
-
-          <Communications 
-            width={CARD_WIDTH} 
-            assignedPilots={assignedPilots}
-            onTransferToMission={onTransferToMission}
-            flights={prepFlights}
-            extractedFlights={extractedFlights}
-          />
+          {isLoading ? (
+            <div className="flex items-center justify-center w-full">
+              <p className="text-lg">Loading pilots data...</p>
+            </div>
+          ) : loadError ? (
+            <div className="flex items-center justify-center w-full">
+              <p className="text-red-500">{loadError}</p>
+            </div>
+          ) : (
+            <>
+              <MissionDetails 
+                width={CARD_WIDTH} 
+                events={SAMPLE_EVENTS}
+                selectedEvent={selectedEvent}
+                onEventSelect={setSelectedEventWrapper}
+                missionCommander={missionCommander}
+                getMissionCommanderCandidates={getMissionCommanderCandidatesWrapper}
+                setMissionCommander={setMissionCommander}
+                onExtractedFlights={handleExtractedFlights}
+              />
+              <AvailablePilots 
+                width={CARD_WIDTH}
+                pilots={activePilots}
+                selectedEvent={selectedEvent}
+                assignedPilots={assignedPilots}
+                onAutoAssign={() => handleAutoAssign(prepFlights, activePilots)}
+                onClearAssignments={handleClearAssignments}
+              />
+              <FlightAssignments 
+                width={CARD_WIDTH} 
+                assignedPilots={assignedPilots}
+                missionCommander={missionCommander}
+                extractedFlights={extractedFlights}
+                onFlightsChange={handleFlightsChange}
+                initialFlights={prepFlights}
+              />
+              <Communications 
+                width={CARD_WIDTH} 
+                assignedPilots={assignedPilots}
+                onTransferToMission={onTransferToMission}
+                flights={prepFlights}
+                extractedFlights={extractedFlights}
+              />
+            </>
+          )}
         </div>
       </div>
 

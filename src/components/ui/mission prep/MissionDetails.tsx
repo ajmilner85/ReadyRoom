@@ -91,7 +91,6 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
         }
         const luaCode = await response.text();
         setJson2Lua(luaCode);
-        console.log('json2.lua loaded successfully');
       } catch (error) {
         console.error('Error loading json2.lua:', error);
       }
@@ -288,7 +287,6 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
       // Load the .miz file as a JSZip archive
       const zip = new JSZip();
       const archive = await zip.loadAsync(file);
-      console.log('ZIP file loaded successfully');
       
       // Look for the mission file in the archive (usually named "mission")
       const missionFile = archive.file('mission');
@@ -298,11 +296,8 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
         throw new Error("Could not find mission file in the .miz archive");
       }
       
-      console.log('Mission file found in ZIP');
-      
       // Extract and read the mission file content
       const missionContent = await missionFile.async('string');
-      console.log('Mission content loaded, size:', missionContent.length);
       
       // Process the mission content to extract coordinates
       const coordinateData = processMissionCoordinates(missionContent);
@@ -322,9 +317,7 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
       
       try {
         // First execute json2.lua to define the json module
-        console.log('Executing json2.lua...');
         load(json2Lua)();
-        console.log('json2.lua executed successfully');
         
         // Create and execute the Lua code to process the mission
         const luaCode = `
@@ -355,8 +348,6 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
           return json.encode(mission_table)
         `;
         
-        console.log('Executing Lua code to parse mission...');
-        
         // Execute the Lua code and get the JSON result
         const jsonResult = load(luaCode)();
         
@@ -365,11 +356,8 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
           throw new Error('Invalid JSON result from Lua conversion');
         }
         
-        console.log('Mission data converted to JSON successfully');
-        
         // Parse the JSON into a JavaScript object
         const missionData = JSON.parse(jsonResult);
-        console.log('Mission data parsed successfully');
         
         // Store the parsed mission data
         setParsedMission(missionData);
@@ -414,8 +402,6 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
             weather: weatherDetails
           }));
         }
-        
-        console.log('Mission processing complete');
         
       } catch (luaError) {
         console.error('Error in Lua execution:', luaError);

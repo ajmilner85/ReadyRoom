@@ -17,6 +17,7 @@ import { loadAssignedPilots, saveMissionCommander, saveAssignedPilots, loadMissi
 const RosterManagement = React.lazy(() => import('./components/ui/RosterManagement'));
 const EventsManagement = React.lazy(() => import('./components/ui/EventsManagement'));
 const MissionPreparation = React.lazy(() => import('./components/ui/MissionPreparation'));
+const AdminTools = React.lazy(() => import('./components/ui/AdminTools'));
 
 const App: React.FC = () => {
   // Mission Execution state
@@ -28,7 +29,7 @@ const App: React.FC = () => {
   const [isHoveringBoardNumber, setIsHoveringBoardNumber] = useState(false);
   const [initialBoardNumber, setInitialBoardNumber] = useState<string>('');
   const [hoveredFlightId, setHoveredFlightId] = useState<string | null>(null);
-  const [currentView, setCurrentView] = useState<'roster' | 'flights' | 'events' | 'mission-prep'>('flights');
+  const [currentView, setCurrentView] = useState<'roster' | 'flights' | 'events' | 'mission-prep' | 'admin'>('flights');
   const [activeButton, setActiveButton] = useState<string>('flights');
 
   // Mission Preparation state (lifted up to persist across navigation)
@@ -54,7 +55,7 @@ const App: React.FC = () => {
     savePrepFlights(prepFlights);
   }, [prepFlights]);
 
-  const handleNavigate = (view: 'roster' | 'flights' | 'events' | 'mission-prep') => {
+  const handleNavigate = (view: 'roster' | 'flights' | 'events' | 'mission-prep' | 'admin') => {
     setCurrentView(view);
     setActiveButton(view);
   };
@@ -210,6 +211,16 @@ const App: React.FC = () => {
             prepFlights={prepFlights}
             onPrepFlightsChange={handlePrepFlightsChange}
           />
+        </Suspense>
+      );
+    }
+
+    if (currentView === 'admin') {
+      return (
+        <Suspense fallback={
+          <div className="bg-slate-50" style={{ width: '100%', height: '100%' }} />
+        }>
+          <AdminTools />
         </Suspense>
       );
     }

@@ -245,9 +245,6 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
       }
     });
     
-    // Debug output for tracking pilot assignments
-    console.log(`For flight ${flight.id}, assigned:`, assigned, 'mapped to:', updatedPilots);
-    
     return updatedPilots;
   };
 
