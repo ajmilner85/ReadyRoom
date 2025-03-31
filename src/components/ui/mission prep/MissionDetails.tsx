@@ -707,16 +707,16 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
         </div>
       </Card>
 
-      {/* Aircraft Groups */}
+      {/* Aircraft Groups - Hidden but still processing data */}
       {parsedMission && (
-        <>
+        <div style={{ display: 'none' }}>
           <AircraftGroups 
             missionData={parsedMission} 
             width="100%"
             aircraftType="FA-18C_hornet"
             onExtractedFlights={onExtractedFlights}
           />
-        </>
+        </div>
       )}
     </div>
   );

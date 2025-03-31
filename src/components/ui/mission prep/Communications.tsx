@@ -169,17 +169,9 @@ const Communications: React.FC<CommunicationsProps> = ({
   const transferFlights = () => {
     if (!onTransferToMission) return;
     
-    console.log("Transfer to mission initiated");
-    console.log("Current flights to transfer:", flights);
-    console.log("Current assigned pilots:", assignedPilots);
-    console.log("Available extractedFlights:", extractedFlights);
-    
     // Convert flight assignments to Flight objects
     const transferFlights: Flight[] = flights.map(flight => {
       const assigned = assignedPilots[flight.id] || [];
-      
-      // Log the current flight being processed for debugging
-      console.log(`Processing flight ${flight.callsign} ${flight.flightNumber}, ID: ${flight.id}`);
       
       // Find matching extracted flight directly from extractedFlights by callsign and flight number
       const matchingExtractedFlight = extractedFlights.find(ef => {
@@ -187,9 +179,6 @@ const Communications: React.FC<CommunicationsProps> = ({
         return callsign.toUpperCase() === flight.callsign && 
                flightNumber === flight.flightNumber;
       });
-      
-      console.log(`Matching extracted flight for ${flight.callsign} ${flight.flightNumber}:`, 
-                  matchingExtractedFlight ? matchingExtractedFlight.name : "none found");
       
       // Create a FlightMember for each assigned pilot
       const members = flight.pilots.map(pilot => {
@@ -203,13 +192,9 @@ const Communications: React.FC<CommunicationsProps> = ({
           // Get the dash number (1-based) and convert to 0-based index
           const dashPosition = parseInt(pilot.dashNumber) - 1;
           
-          // Log detailed information to debug the value access
-          console.log(`Accessing fuel for dash ${pilot.dashNumber} at index ${dashPosition}`);
-          
           // Check if we have that unit position in the extracted flight
           if (dashPosition >= 0 && dashPosition < matchingExtractedFlight.units.length) {
             const unit = matchingExtractedFlight.units[dashPosition];
-            console.log(`Unit at position ${dashPosition}:`, unit);
             
             // Use our calculateTotalFuel function to get the proper total fuel value including external tanks
             if (unit) {
@@ -218,15 +203,8 @@ const Communications: React.FC<CommunicationsProps> = ({
               
               // Convert from pounds to 1000s of pounds (divide by 1000)
               fuelValue = totalFuelPounds / 1000;
-              console.log(`Using calculated total fuel for ${pilot.dashNumber}: ${fuelValue.toFixed(2)} (from ${totalFuelPounds} lbs)`);
-            } else {
-              console.log(`Invalid unit for dash ${pilot.dashNumber}, using default of ${fuelValue}`);
             }
-          } else {
-            console.log(`No unit at index ${dashPosition}, using default of ${fuelValue}`);
           }
-        } else {
-          console.log(`No matching extracted flight found for ${flight.callsign} ${flight.flightNumber}, using default of ${fuelValue}`);
         }
         
         return {
@@ -242,8 +220,6 @@ const Communications: React.FC<CommunicationsProps> = ({
       
       // Calculate the low state as the minimum fuel among all members
       const lowState = Math.min(...members.map(m => m.fuel));
-      console.log(`Flight ${flight.callsign} ${flight.flightNumber} members:`, members);
-      console.log(`Low state calculated as: ${lowState}`);
       
       return {
         id: `transferred-${flight.id}-${Date.now()}`,
@@ -257,7 +233,6 @@ const Communications: React.FC<CommunicationsProps> = ({
       };
     }).filter(Boolean) as Flight[];
     
-    console.log("Final flights being transferred:", transferFlights);
     onTransferToMission(transferFlights);
     setShowConfirmDialog(false);
   };
