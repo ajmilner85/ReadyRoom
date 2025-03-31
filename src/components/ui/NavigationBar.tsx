@@ -36,7 +36,7 @@ const buttons: NavigationButton[] = [
   {
     id: 'admin',
     icon: <Settings size={24} />,
-    label: 'Admin Tools',
+    label: 'Settings',
     view: 'admin'
   }
 ];
@@ -47,6 +47,8 @@ interface NavigationBarProps {
 }
 
 const NavigationBar: React.FC<NavigationBarProps> = ({ onNavigate, activeButton }) => {
+  const [tooltipVisible, setTooltipVisible] = React.useState<string | null>(null);
+  
   const buttonStyle = {
     position: 'relative' as const,
     width: '50px',
@@ -79,6 +81,19 @@ const NavigationBar: React.FC<NavigationBarProps> = ({ onNavigate, activeButton 
     zIndex: 2,
     pointerEvents: 'none' as const
   };
+  
+  const tooltipStyle = {
+    position: 'absolute' as const,
+    left: '70px',
+    backgroundColor: '#1E293B',
+    color: 'white',
+    padding: '4px 8px',
+    borderRadius: '4px',
+    fontSize: '12px',
+    whiteSpace: 'nowrap' as const,
+    zIndex: 100,
+    pointerEvents: 'none' as const
+  };
 
   return (
     <div className="h-full bg-[#F9FAFB] border-r border-[#E2E8F0] flex flex-col">
@@ -99,6 +114,8 @@ const NavigationBar: React.FC<NavigationBarProps> = ({ onNavigate, activeButton 
               key={button.id} 
               style={buttonStyle}
               onClick={() => onNavigate(button.view)}
+              onMouseEnter={() => setTooltipVisible(button.id)}
+              onMouseLeave={() => setTooltipVisible(null)}
             >
               <div 
                 style={{
@@ -124,6 +141,13 @@ const NavigationBar: React.FC<NavigationBarProps> = ({ onNavigate, activeButton 
               >
                 {button.icon}
               </div>
+              
+              {/* Tooltip */}
+              {tooltipVisible === button.id && (
+                <div style={tooltipStyle}>
+                  {button.label}
+                </div>
+              )}
             </div>
           ))}
         </div>
