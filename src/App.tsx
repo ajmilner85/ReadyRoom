@@ -17,7 +17,7 @@ import { loadAssignedPilots, saveMissionCommander, saveAssignedPilots, loadMissi
 const RosterManagement = React.lazy(() => import('./components/ui/RosterManagement'));
 const EventsManagement = React.lazy(() => import('./components/ui/EventsManagement'));
 const MissionPreparation = React.lazy(() => import('./components/ui/MissionPreparation'));
-const AdminTools = React.lazy(() => import('./components/ui/AdminTools'));
+const Settings = React.lazy(() => import('./components/ui/Settings'));
 
 const App: React.FC = () => {
   // Mission Execution state
@@ -220,7 +220,7 @@ const App: React.FC = () => {
         <Suspense fallback={
           <div className="bg-slate-50" style={{ width: '100%', height: '100%' }} />
         }>
-          <AdminTools />
+          <Settings />
         </Suspense>
       );
     }
