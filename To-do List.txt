@@ -33,6 +33,7 @@ Medium Priority:
 - Refactor storage area to sort flights by size (Single > 4-ship)
 - Enable dragging-and-dropping to storage area
 - Sort storage area flights by callsign then flight number then dash number in ascending order
+- Pilot service record (awards, cruises etc.)
 
 
 QOL:

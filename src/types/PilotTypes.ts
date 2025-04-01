@@ -8,7 +8,8 @@ export type QualificationType =
   | 'Night CQ'
   | 'Wingman';  // Added Wingman as a valid qualification type
 
-export type PilotStatus = 'Command' | 'Staff' | 'Cadre' | 'Provisional' | 'Inactive' | 'Retired';
+// Legacy status type - maintained for compatibility
+export type PilotStatus = 'Command' | 'Staff' | 'Cadre' | 'Provisional' | 'Inactive' | 'Retired' | 'On Leave' | 'AWOL';
 
 export interface PilotRole {
   site?: string[];
@@ -28,6 +29,7 @@ export interface Pilot {
   callsign: string;
   boardNumber: string;
   status: PilotStatus;
+  status_id?: string; // Added to support new status system
   billet: string;
   qualifications: Qualification[];
   discordUsername: string;
@@ -44,6 +46,7 @@ export interface SupabasePilot {
   roles: PilotRole;
   created_at?: string;
   updated_at?: string;
+  status_id?: string; // Foreign key to statuses table
 }
 
 // Convert legacy pilot format to Supabase format
@@ -59,7 +62,8 @@ export function convertLegacyPilotToSupabase(pilot: Pilot): Omit<SupabasePilot, 
       squadron: pilot.billet,
       site: [],
       discord: []
-    }
+    },
+    status_id: pilot.status_id // Include status_id if available
   };
 }
 
@@ -70,6 +74,7 @@ export function convertSupabasePilotToLegacy(pilot: SupabasePilot): Pilot {
     callsign: pilot.callsign,
     boardNumber: pilot.boardNumber.toString(),
     status: 'Provisional', // Default, should be updated with actual value
+    status_id: pilot.status_id, // Include status_id if available
     billet: pilot.roles?.squadron || '',
     qualifications: pilot.qualifications.map((q, index) => ({
       id: `${pilot.id}-${index}`,

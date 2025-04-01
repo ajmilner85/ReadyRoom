@@ -20,23 +20,46 @@ export type Database = {
           roles: Json
           created_at?: string
           updated_at?: string
+          status_id?: string // Changed from status to status_id of type UUID (string in TypeScript)
         }
         Insert: {
           id?: string
           callsign: string
           boardNumber: number
           discordId?: string
-          discord_original_id?: string // Added field to Insert operations
+          discord_original_id?: string
           qualifications?: string[]
           roles?: Json
+          status_id?: string // Changed from status to status_id of type UUID
         }
         Update: {
           callsign?: string
           boardNumber?: number
           discordId?: string
-          discord_original_id?: string // Added field to Update operations
+          discord_original_id?: string
           qualifications?: string[]
           roles?: Json
+          status_id?: string // Changed from status to status_id of type UUID
+        }
+      }
+      statuses: {
+        Row: {
+          id: string
+          name: string
+          isActive: boolean
+          order: number
+          created_at?: string
+        }
+        Insert: {
+          id?: string
+          name: string
+          isActive: boolean
+          order: number
+        }
+        Update: {
+          name?: string
+          isActive?: boolean
+          order?: number
         }
       }
       events: {
