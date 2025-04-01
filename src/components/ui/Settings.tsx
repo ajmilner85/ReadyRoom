@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card } from './card';
 import LoginForm from './LoginForm';
-import { User, Users, Building, Plane, PaintBucket, ScrollText } from 'lucide-react';
+import { User, Users, Building, Plane, PaintBucket, ScrollText, Plus, Edit, Trash, Check, X, AlertCircle, ToggleLeft, ToggleRight } from 'lucide-react';
+import { Status, getAllStatuses, createStatus, updateStatus, deleteStatus, getStatusUsageCount, initializeDefaultStatuses } from '../../utils/statusService';
 
 // Define the types of settings pages
 type SettingsPage = 'roster' | 'squadron' | 'mission' | 'appearance' | 'accounts';
@@ -44,9 +45,191 @@ const settingsNavItems: SettingsNavItem[] = [
 const Settings: React.FC = () => {
   const [activeSettingsPage, setActiveSettingsPage] = useState<SettingsPage>('roster');
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [statuses, setStatuses] = useState<Status[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  
+  // New state for status management
+  const [newStatusName, setNewStatusName] = useState('');
+  const [newStatusIsActive, setNewStatusIsActive] = useState(true);
+  const [isAddingStatus, setIsAddingStatus] = useState(false);
+  const [editingStatusId, setEditingStatusId] = useState<string | null>(null);
+  const [editingStatusName, setEditingStatusName] = useState('');
+  const [editingStatusIsActive, setEditingStatusIsActive] = useState(true);
+  const [statusUsage, setStatusUsage] = useState<Record<string, number>>({});
+
+  useEffect(() => {
+    const fetchStatuses = async () => {
+      setLoading(true);
+      try {
+        await initializeDefaultStatuses(); // Initialize default statuses if none exist
+        const { data, error } = await getAllStatuses();
+        
+        if (error) {
+          throw new Error(error.message);
+        }
+        
+        if (data) {
+          setStatuses(data);
+          
+          // Get usage count for each status
+          const usageCounts: Record<string, number> = {};
+          for (const status of data) {
+            const { count, error: usageError } = await getStatusUsageCount(status.id);
+            if (!usageError) {
+              usageCounts[status.id] = count;
+            }
+          }
+          setStatusUsage(usageCounts);
+        }
+      } catch (err: any) {
+        setError(err.message);
+        console.error('Error fetching statuses:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchStatuses();
+  }, []);
 
   const handleLoginStateChange = (loggedIn: boolean) => {
     setIsLoggedIn(loggedIn);
+  };
+
+  // Add a new status
+  const handleAddStatus = async () => {
+    if (!newStatusName.trim()) {
+      setError('Status name cannot be empty');
+      return;
+    }
+    
+    setLoading(true);
+    try {
+      // Get the highest order number and add 10
+      const highestOrder = statuses.length > 0 
+        ? Math.max(...statuses.map(s => s.order))
+        : 0;
+        
+      const { data, error: createError } = await createStatus({
+        name: newStatusName.trim(),
+        isActive: newStatusIsActive,
+        order: highestOrder + 10
+      });
+      
+      if (createError) {
+        throw new Error(createError.message);
+      }
+      
+      if (data) {
+        setStatuses([...statuses, data]);
+        setStatusUsage({ ...statusUsage, [data.id]: 0 });
+        setNewStatusName('');
+        setNewStatusIsActive(true);
+        setIsAddingStatus(false);
+      }
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Toggle status active/inactive
+  const handleToggleStatusActive = async (status: Status) => {
+    setLoading(true);
+    try {
+      const { data, error: updateError } = await updateStatus(status.id, {
+        isActive: !status.isActive
+      });
+      
+      if (updateError) {
+        throw new Error(updateError.message);
+      }
+      
+      if (data) {
+        setStatuses(statuses.map(s => s.id === status.id ? data : s));
+      }
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Start editing a status
+  const handleStartEditStatus = (status: Status) => {
+    setEditingStatusId(status.id);
+    setEditingStatusName(status.name);
+    setEditingStatusIsActive(status.isActive);
+  };
+
+  // Cancel editing a status
+  const handleCancelEditStatus = () => {
+    setEditingStatusId(null);
+    setEditingStatusName('');
+    setEditingStatusIsActive(true);
+  };
+
+  // Save status changes
+  const handleSaveStatus = async () => {
+    if (!editingStatusId || !editingStatusName.trim()) {
+      setError('Status name cannot be empty');
+      return;
+    }
+    
+    setLoading(true);
+    try {
+      const { data, error: updateError } = await updateStatus(editingStatusId, {
+        name: editingStatusName.trim(),
+        isActive: editingStatusIsActive
+      });
+      
+      if (updateError) {
+        throw new Error(updateError.message);
+      }
+      
+      if (data) {
+        setStatuses(statuses.map(s => s.id === editingStatusId ? data : s));
+        setEditingStatusId(null);
+        setEditingStatusName('');
+        setEditingStatusIsActive(true);
+      }
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Delete a status
+  const handleDeleteStatus = async (status: Status) => {
+    // Check if the status is in use
+    if (statusUsage[status.id] > 0) {
+      setError(`Cannot delete status "${status.name}" because it is assigned to ${statusUsage[status.id]} pilots`);
+      return;
+    }
+    
+    setLoading(true);
+    try {
+      const { success, error: deleteError } = await deleteStatus(status.id);
+      
+      if (deleteError) {
+        throw new Error(deleteError.message);
+      }
+      
+      if (success) {
+        setStatuses(statuses.filter(s => s.id !== status.id));
+        // Remove from usage counts
+        const newUsage = { ...statusUsage };
+        delete newUsage[status.id];
+        setStatusUsage(newUsage);
+      }
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Navigate between settings pages
@@ -79,6 +262,16 @@ const Settings: React.FC = () => {
               Configure statuses, roles, and qualifications for squadron personnel.
             </p>
 
+            {error && (
+              <div className="p-4 mb-4 bg-red-100 border border-red-400 text-red-700 rounded relative flex items-center" role="alert">
+                <AlertCircle size={18} className="mr-2" />
+                <span>{error}</span>
+                <button onClick={() => setError(null)} className="absolute top-0 right-0 p-2">
+                  <X size={16} />
+                </button>
+              </div>
+            )}
+
             <div className="space-y-6">
               <Card className="p-4">
                 <h3 style={{
@@ -99,51 +292,163 @@ const Settings: React.FC = () => {
                 }}>
                   Define the status options available for pilots in the squadron roster.
                 </p>
-                <div className="flex items-center justify-between p-3 border border-gray-200 rounded mb-2">
-                  <div style={{
-                    fontWeight: 500,
-                    fontFamily: 'Inter',
-                    fontSize: '14px',
-                    color: '#0F172A'
-                  }}>
-                    Available
-                  </div>
-                  <div className="flex space-x-2">
-                    <button className="p-1 hover:bg-slate-100 rounded">
-                      <ScrollText size={16} color="#64748B" />
-                    </button>
-                  </div>
+                
+                {/* Status Headers */}
+                <div className="flex items-center justify-between p-2 border-b border-gray-200 mb-2">
+                  <div className="flex-1 font-medium text-sm text-slate-500">Status Name</div>
+                  <div className="w-24 text-center text-sm text-slate-500">Membership</div>
+                  <div className="w-20 text-center text-sm text-slate-500">Usage</div>
+                  <div className="w-24 text-center text-sm text-slate-500">Actions</div>
                 </div>
-                <div className="flex items-center justify-between p-3 border border-gray-200 rounded mb-2">
-                  <div style={{
-                    fontWeight: 500,
-                    fontFamily: 'Inter',
-                    fontSize: '14px',
-                    color: '#0F172A'
-                  }}>
-                    On Leave
+
+                {/* Loading indicator */}
+                {loading && <div className="text-center py-4">Loading...</div>}
+                
+                {/* List of statuses */}
+                {!loading && statuses.map((status) => (
+                  <div key={status.id} className="flex items-center justify-between p-3 border border-gray-200 rounded mb-2">
+                    {editingStatusId === status.id ? (
+                      // Editing mode
+                      <>
+                        <input
+                          type="text"
+                          value={editingStatusName}
+                          onChange={(e) => setEditingStatusName(e.target.value)}
+                          className="flex-1 px-2 py-1 border border-gray-300 rounded mr-2"
+                          placeholder="Status name"
+                        />
+                        <div className="w-24 flex justify-center">
+                          <button
+                            onClick={() => setEditingStatusIsActive(!editingStatusIsActive)}
+                            className="p-1 hover:bg-slate-100 rounded flex items-center"
+                            title={editingStatusIsActive ? "Active" : "Inactive"}
+                          >
+                            {editingStatusIsActive ? (
+                              <ToggleRight size={20} className="text-green-600" />
+                            ) : (
+                              <ToggleLeft size={20} className="text-slate-400" />
+                            )}
+                          </button>
+                        </div>
+                        <div className="w-20 text-center">
+                          {statusUsage[status.id] || 0}
+                        </div>
+                        <div className="w-24 flex justify-center space-x-1">
+                          <button 
+                            onClick={handleSaveStatus}
+                            className="p-1 hover:bg-green-100 rounded" 
+                            title="Save"
+                          >
+                            <Check size={16} className="text-green-600" />
+                          </button>
+                          <button 
+                            onClick={handleCancelEditStatus}
+                            className="p-1 hover:bg-red-100 rounded" 
+                            title="Cancel"
+                          >
+                            <X size={16} className="text-red-600" />
+                          </button>
+                        </div>
+                      </>
+                    ) : (
+                      // Display mode
+                      <>
+                        <div className="flex-1 font-medium" style={{ fontFamily: 'Inter', fontSize: '14px', color: '#0F172A' }}>
+                          {status.name}
+                        </div>
+                        <div className="w-24 flex justify-center">
+                          <button
+                            onClick={() => handleToggleStatusActive(status)}
+                            className="p-1 hover:bg-slate-100 rounded"
+                            title={status.isActive ? "Active" : "Inactive"}
+                          >
+                            {status.isActive ? (
+                              <ToggleRight size={20} className="text-green-600" />
+                            ) : (
+                              <ToggleLeft size={20} className="text-slate-400" />
+                            )}
+                          </button>
+                        </div>
+                        <div className="w-20 text-center" title={`${statusUsage[status.id] || 0} pilots have this status`}>
+                          {statusUsage[status.id] || 0}
+                        </div>
+                        <div className="w-24 flex justify-center space-x-1">
+                          <button 
+                            onClick={() => handleStartEditStatus(status)}
+                            className="p-1 hover:bg-slate-100 rounded" 
+                            title="Edit"
+                          >
+                            <Edit size={16} color="#64748B" />
+                          </button>
+                          <button 
+                            onClick={() => handleDeleteStatus(status)}
+                            className={`p-1 rounded ${statusUsage[status.id] > 0 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-red-100'}`}
+                            disabled={statusUsage[status.id] > 0}
+                            title={statusUsage[status.id] > 0 ? "Cannot delete a status in use" : "Delete"}
+                          >
+                            <Trash size={16} className={statusUsage[status.id] > 0 ? "text-slate-400" : "text-red-600"} />
+                          </button>
+                        </div>
+                      </>
+                    )}
                   </div>
-                  <div className="flex space-x-2">
-                    <button className="p-1 hover:bg-slate-100 rounded">
-                      <ScrollText size={16} color="#64748B" />
-                    </button>
+                ))}
+                
+                {/* Add new status form */}
+                {isAddingStatus ? (
+                  <div className="flex items-center justify-between p-3 border border-gray-200 rounded mb-2 bg-slate-50">
+                    <input
+                      type="text"
+                      value={newStatusName}
+                      onChange={(e) => setNewStatusName(e.target.value)}
+                      className="flex-1 px-2 py-1 border border-gray-300 rounded mr-2"
+                      placeholder="New status name"
+                      autoFocus
+                    />
+                    <div className="w-24 flex justify-center">
+                      <button
+                        onClick={() => setNewStatusIsActive(!newStatusIsActive)}
+                        className="p-1 hover:bg-slate-100 rounded flex items-center"
+                        title={newStatusIsActive ? "Active" : "Inactive"}
+                      >
+                        {newStatusIsActive ? (
+                          <ToggleRight size={20} className="text-green-600" />
+                        ) : (
+                          <ToggleLeft size={20} className="text-slate-400" />
+                        )}
+                      </button>
+                    </div>
+                    <div className="w-20 text-center">-</div>
+                    <div className="w-24 flex justify-center space-x-1">
+                      <button 
+                        onClick={handleAddStatus}
+                        className="p-1 hover:bg-green-100 rounded" 
+                        title="Save"
+                      >
+                        <Check size={16} className="text-green-600" />
+                      </button>
+                      <button 
+                        onClick={() => {
+                          setIsAddingStatus(false);
+                          setNewStatusName('');
+                          setNewStatusIsActive(true);
+                        }}
+                        className="p-1 hover:bg-red-100 rounded" 
+                        title="Cancel"
+                      >
+                        <X size={16} className="text-red-600" />
+                      </button>
+                    </div>
                   </div>
-                </div>
-                <div className="flex items-center justify-between p-3 border border-gray-200 rounded mb-2">
-                  <div style={{
-                    fontWeight: 500,
-                    fontFamily: 'Inter',
-                    fontSize: '14px',
-                    color: '#0F172A'
-                  }}>
-                    TAD
-                  </div>
-                  <div className="flex space-x-2">
-                    <button className="p-1 hover:bg-slate-100 rounded">
-                      <ScrollText size={16} color="#64748B" />
-                    </button>
-                  </div>
-                </div>
+                ) : (
+                  <button
+                    onClick={() => setIsAddingStatus(true)}
+                    className="w-full flex items-center justify-center py-2 border border-dashed border-gray-300 rounded hover:bg-slate-50"
+                  >
+                    <Plus size={16} className="mr-2 text-slate-500" />
+                    <span className="text-slate-500">Add New Status</span>
+                  </button>
+                )}
               </Card>
 
               <Card className="p-4">
