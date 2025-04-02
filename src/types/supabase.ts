@@ -6,7 +6,7 @@ export type Json =
   | { [key: string]: Json | undefined }
   | Json[]
 
-export type Database = {
+export interface Database {
   public: {
     Tables: {
       pilots: {
@@ -15,12 +15,12 @@ export type Database = {
           callsign: string
           boardNumber: number
           discordId?: string
-          discord_original_id?: string // Added field to store original Discord IDs
-          qualifications: string[]
-          roles: Json
           created_at?: string
           updated_at?: string
-          status_id?: string // Changed from status to status_id of type UUID (string in TypeScript)
+          discord_original_id?: string
+          qualifications?: string[]
+          roles?: Json
+          status_id?: string // Changed from status to status_id of type UUID
         }
         Insert: {
           id?: string
@@ -60,6 +60,46 @@ export type Database = {
           name?: string
           isActive?: boolean
           order?: number
+        }
+      }
+      roles: {
+        Row: {
+          id: string
+          name: string
+          isExclusive: boolean
+          compatible_statuses: string[]
+          order: number
+          created_at?: string
+        }
+        Insert: {
+          id?: string
+          name: string
+          isExclusive: boolean
+          compatible_statuses: string[]
+          order: number
+        }
+        Update: {
+          name?: string
+          isExclusive?: boolean
+          compatible_statuses?: string[]
+          order?: number
+        }
+      }
+      pilot_roles: {
+        Row: {
+          id: string
+          pilot_id: string
+          role_id: string
+          created_at?: string
+        }
+        Insert: {
+          id?: string
+          pilot_id: string
+          role_id: string
+        }
+        Update: {
+          pilot_id?: string
+          role_id?: string
         }
       }
       events: {

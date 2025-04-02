@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Card } from './card';
 import LoginForm from './LoginForm';
-import { User, Users, Building, Plane, PaintBucket, ScrollText, Plus, Edit, Trash, Check, X, AlertCircle, ToggleLeft, ToggleRight } from 'lucide-react';
+import { User, Users, Building, Plane, PaintBucket, ScrollText, Plus, Edit, Trash, Check, X, AlertCircle, ToggleLeft, ToggleRight, Lock, Unlock } from 'lucide-react';
 import { Status, getAllStatuses, createStatus, updateStatus, deleteStatus, getStatusUsageCount, initializeDefaultStatuses } from '../../utils/statusService';
+import { Role, getAllRoles, createRole, updateRole, deleteRole, getRoleUsageCount, initializeDefaultRoles } from '../../utils/roleService';
 
 // Define the types of settings pages
 type SettingsPage = 'roster' | 'squadron' | 'mission' | 'appearance' | 'accounts';
@@ -49,7 +50,7 @@ const Settings: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
-  // New state for status management
+  // Status management state
   const [newStatusName, setNewStatusName] = useState('');
   const [newStatusIsActive, setNewStatusIsActive] = useState(true);
   const [isAddingStatus, setIsAddingStatus] = useState(false);
@@ -57,6 +58,18 @@ const Settings: React.FC = () => {
   const [editingStatusName, setEditingStatusName] = useState('');
   const [editingStatusIsActive, setEditingStatusIsActive] = useState(true);
   const [statusUsage, setStatusUsage] = useState<Record<string, number>>({});
+
+  // Role management state
+  const [roles, setRoles] = useState<Role[]>([]);
+  const [newRoleName, setNewRoleName] = useState('');
+  const [newRoleIsExclusive, setNewRoleIsExclusive] = useState(false);
+  const [newRoleCompatibleStatuses, setNewRoleCompatibleStatuses] = useState<string[]>([]);
+  const [isAddingRole, setIsAddingRole] = useState(false);
+  const [editingRoleId, setEditingRoleId] = useState<string | null>(null);
+  const [editingRoleName, setEditingRoleName] = useState('');
+  const [editingRoleIsExclusive, setEditingRoleIsExclusive] = useState(false);
+  const [editingRoleCompatibleStatuses, setEditingRoleCompatibleStatuses] = useState<string[]>([]);
+  const [roleUsage, setRoleUsage] = useState<Record<string, number>>({});
 
   useEffect(() => {
     const fetchStatuses = async () => {
@@ -90,14 +103,46 @@ const Settings: React.FC = () => {
       }
     };
 
+    const fetchRoles = async () => {
+      setLoading(true);
+      try {
+        await initializeDefaultRoles(); // Initialize default roles if none exist
+        const { data, error } = await getAllRoles();
+        
+        if (error) {
+          throw new Error(error.message);
+        }
+        
+        if (data) {
+          setRoles(data);
+          
+          // Get usage count for each role
+          const usageCounts: Record<string, number> = {};
+          for (const role of data) {
+            const { count, error: usageError } = await getRoleUsageCount(role.id);
+            if (!usageError) {
+              usageCounts[role.id] = count;
+            }
+          }
+          setRoleUsage(usageCounts);
+        }
+      } catch (err: any) {
+        setError(err.message);
+        console.error('Error fetching roles:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
     fetchStatuses();
+    fetchRoles();
   }, []);
 
   const handleLoginStateChange = (loggedIn: boolean) => {
     setIsLoggedIn(loggedIn);
   };
 
-  // Add a new status
+  // Status management functions
   const handleAddStatus = async () => {
     if (!newStatusName.trim()) {
       setError('Status name cannot be empty');
@@ -229,6 +274,160 @@ const Settings: React.FC = () => {
       setError(err.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Role management functions
+  const handleAddRole = async () => {
+    if (!newRoleName.trim()) {
+      setError('Role name cannot be empty');
+      return;
+    }
+    
+    setLoading(true);
+    try {
+      // Get the highest order number and add 10
+      const highestOrder = roles.length > 0 
+        ? Math.max(...roles.map(r => r.order))
+        : 0;
+        
+      const { data, error: createError } = await createRole({
+        name: newRoleName.trim(),
+        isExclusive: newRoleIsExclusive,
+        compatible_statuses: newRoleCompatibleStatuses,
+        order: highestOrder + 10
+      });
+      
+      if (createError) {
+        throw new Error(createError.message);
+      }
+      
+      if (data) {
+        setRoles([...roles, data]);
+        setRoleUsage({ ...roleUsage, [data.id]: 0 });
+        setNewRoleName('');
+        setNewRoleIsExclusive(false);
+        setNewRoleCompatibleStatuses([]);
+        setIsAddingRole(false);
+      }
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleToggleRoleExclusive = async (role: Role) => {
+    setLoading(true);
+    try {
+      const { data, error: updateError } = await updateRole(role.id, {
+        isExclusive: !role.isExclusive
+      });
+      
+      if (updateError) {
+        throw new Error(updateError.message);
+      }
+      
+      if (data) {
+        setRoles(roles.map(r => r.id === role.id ? data : r));
+      }
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleStartEditRole = (role: Role) => {
+    setEditingRoleId(role.id);
+    setEditingRoleName(role.name);
+    setEditingRoleIsExclusive(role.isExclusive);
+    setEditingRoleCompatibleStatuses([...role.compatible_statuses]);
+  };
+
+  const handleCancelEditRole = () => {
+    setEditingRoleId(null);
+    setEditingRoleName('');
+    setEditingRoleIsExclusive(false);
+    setEditingRoleCompatibleStatuses([]);
+  };
+
+  const handleSaveRole = async () => {
+    if (!editingRoleId || !editingRoleName.trim()) {
+      setError('Role name cannot be empty');
+      return;
+    }
+    
+    setLoading(true);
+    try {
+      const { data, error: updateError } = await updateRole(editingRoleId, {
+        name: editingRoleName.trim(),
+        isExclusive: editingRoleIsExclusive,
+        compatible_statuses: editingRoleCompatibleStatuses
+      });
+      
+      if (updateError) {
+        throw new Error(updateError.message);
+      }
+      
+      if (data) {
+        setRoles(roles.map(r => r.id === editingRoleId ? data : r));
+        setEditingRoleId(null);
+        setEditingRoleName('');
+        setEditingRoleIsExclusive(false);
+        setEditingRoleCompatibleStatuses([]);
+      }
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteRole = async (role: Role) => {
+    // Check if the role is in use
+    if (roleUsage[role.id] > 0) {
+      setError(`Cannot delete role "${role.name}" because it is assigned to ${roleUsage[role.id]} pilots`);
+      return;
+    }
+    
+    setLoading(true);
+    try {
+      const { success, error: deleteError } = await deleteRole(role.id);
+      
+      if (deleteError) {
+        throw new Error(deleteError.message);
+      }
+      
+      if (success) {
+        setRoles(roles.filter(r => r.id !== role.id));
+        // Remove from usage counts
+        const newUsage = { ...roleUsage };
+        delete newUsage[role.id];
+        setRoleUsage(newUsage);
+      }
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleToggleCompatibleStatus = (statusId: string, isNewRole: boolean = false) => {
+    if (isNewRole) {
+      // For new role
+      if (newRoleCompatibleStatuses.includes(statusId)) {
+        setNewRoleCompatibleStatuses(newRoleCompatibleStatuses.filter(id => id !== statusId));
+      } else {
+        setNewRoleCompatibleStatuses([...newRoleCompatibleStatuses, statusId]);
+      }
+    } else {
+      // For editing role
+      if (editingRoleCompatibleStatuses.includes(statusId)) {
+        setEditingRoleCompatibleStatuses(editingRoleCompatibleStatuses.filter(id => id !== statusId));
+      } else {
+        setEditingRoleCompatibleStatuses([...editingRoleCompatibleStatuses, statusId]);
+      }
     }
   };
 
@@ -470,51 +669,208 @@ const Settings: React.FC = () => {
                 }}>
                   Define the role options available for pilots in the squadron roster.
                 </p>
-                <div className="flex items-center justify-between p-3 border border-gray-200 rounded mb-2">
-                  <div style={{
-                    fontWeight: 500,
-                    fontFamily: 'Inter',
-                    fontSize: '14px',
-                    color: '#0F172A'
-                  }}>
-                    Squadron CO
-                  </div>
-                  <div className="flex space-x-2">
-                    <button className="p-1 hover:bg-slate-100 rounded">
-                      <ScrollText size={16} color="#64748B" />
-                    </button>
-                  </div>
+                
+                {/* Role Headers */}
+                <div className="flex items-center justify-between p-2 border-b border-gray-200 mb-2">
+                  <div className="flex-1 font-medium text-sm text-slate-500">Role Name</div>
+                  <div className="w-24 text-center text-sm text-slate-500">Exclusivity</div>
+                  <div className="w-20 text-center text-sm text-slate-500">Usage</div>
+                  <div className="w-24 text-center text-sm text-slate-500">Actions</div>
                 </div>
-                <div className="flex items-center justify-between p-3 border border-gray-200 rounded mb-2">
-                  <div style={{
-                    fontWeight: 500,
-                    fontFamily: 'Inter',
-                    fontSize: '14px',
-                    color: '#0F172A'
-                  }}>
-                    Squadron XO
+
+                {/* Loading indicator */}
+                {loading && <div className="text-center py-4">Loading...</div>}
+                
+                {/* List of roles */}
+                {!loading && roles.map((role) => (
+                  <div key={role.id} className="flex items-center justify-between p-3 border border-gray-200 rounded mb-2">
+                    {editingRoleId === role.id ? (
+                      // Editing mode
+                      <>
+                        <div className="flex-1">
+                          <input
+                            type="text"
+                            value={editingRoleName}
+                            onChange={(e) => setEditingRoleName(e.target.value)}
+                            className="w-full px-2 py-1 border border-gray-300 rounded mr-2"
+                            placeholder="Role name"
+                          />
+                          <div className="mt-2">
+                            <p className="text-xs text-slate-500 mb-1">Compatible Statuses:</p>
+                            <div className="flex flex-wrap gap-2">
+                              {statuses.map(status => (
+                                <label key={status.id} className="flex items-center text-xs">
+                                  <input
+                                    type="checkbox"
+                                    checked={editingRoleCompatibleStatuses.includes(status.id)}
+                                    onChange={() => handleToggleCompatibleStatus(status.id)}
+                                    className="mr-1"
+                                  />
+                                  {status.name}
+                                </label>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="w-24 flex justify-center">
+                          <button
+                            onClick={() => setEditingRoleIsExclusive(!editingRoleIsExclusive)}
+                            className="p-1 hover:bg-slate-100 rounded flex items-center"
+                            title={editingRoleIsExclusive ? "Exclusive (only one pilot can have this role)" : "Non-exclusive (multiple pilots can have this role)"}
+                          >
+                            {editingRoleIsExclusive ? (
+                              <Lock size={20} className="text-red-600" />
+                            ) : (
+                              <Unlock size={20} className="text-green-600" />
+                            )}
+                          </button>
+                        </div>
+                        <div className="w-20 text-center">
+                          {roleUsage[role.id] || 0}
+                        </div>
+                        <div className="w-24 flex justify-center space-x-1">
+                          <button 
+                            onClick={handleSaveRole}
+                            className="p-1 hover:bg-green-100 rounded" 
+                            title="Save"
+                          >
+                            <Check size={16} className="text-green-600" />
+                          </button>
+                          <button 
+                            onClick={handleCancelEditRole}
+                            className="p-1 hover:bg-red-100 rounded" 
+                            title="Cancel"
+                          >
+                            <X size={16} className="text-red-600" />
+                          </button>
+                        </div>
+                      </>
+                    ) : (
+                      // Display mode
+                      <>
+                        <div className="flex-1 font-medium" style={{ fontFamily: 'Inter', fontSize: '14px', color: '#0F172A' }}>
+                          <div>{role.name}</div>
+                          <div className="text-xs text-slate-500 mt-1">
+                            Compatible with: {statuses
+                              .filter(status => role.compatible_statuses.includes(status.id))
+                              .map(status => status.name)
+                              .join(', ')}
+                          </div>
+                        </div>
+                        <div className="w-24 flex justify-center">
+                          <button
+                            onClick={() => handleToggleRoleExclusive(role)}
+                            className="p-1 hover:bg-slate-100 rounded"
+                            title={role.isExclusive ? "Exclusive (only one pilot can have this role)" : "Non-exclusive (multiple pilots can have this role)"}
+                          >
+                            {role.isExclusive ? (
+                              <Lock size={20} className="text-red-600" />
+                            ) : (
+                              <Unlock size={20} className="text-green-600" />
+                            )}
+                          </button>
+                        </div>
+                        <div className="w-20 text-center" title={`${roleUsage[role.id] || 0} pilots have this role`}>
+                          {roleUsage[role.id] || 0}
+                        </div>
+                        <div className="w-24 flex justify-center space-x-1">
+                          <button 
+                            onClick={() => handleStartEditRole(role)}
+                            className="p-1 hover:bg-slate-100 rounded" 
+                            title="Edit"
+                          >
+                            <Edit size={16} color="#64748B" />
+                          </button>
+                          <button 
+                            onClick={() => handleDeleteRole(role)}
+                            className={`p-1 rounded ${roleUsage[role.id] > 0 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-red-100'}`}
+                            disabled={roleUsage[role.id] > 0}
+                            title={roleUsage[role.id] > 0 ? "Cannot delete a role in use" : "Delete"}
+                          >
+                            <Trash size={16} className={roleUsage[role.id] > 0 ? "text-slate-400" : "text-red-600"} />
+                          </button>
+                        </div>
+                      </>
+                    )}
                   </div>
-                  <div className="flex space-x-2">
-                    <button className="p-1 hover:bg-slate-100 rounded">
-                      <ScrollText size={16} color="#64748B" />
-                    </button>
+                ))}
+                
+                {/* Add new role form */}
+                {isAddingRole ? (
+                  <div className="flex flex-col p-3 border border-gray-200 rounded mb-2 bg-slate-50">
+                    <div className="flex items-center mb-3">
+                      <input
+                        type="text"
+                        value={newRoleName}
+                        onChange={(e) => setNewRoleName(e.target.value)}
+                        className="flex-1 px-2 py-1 border border-gray-300 rounded mr-2"
+                        placeholder="New role name"
+                        autoFocus
+                      />
+                      <div className="flex items-center">
+                        <button
+                          onClick={() => setNewRoleIsExclusive(!newRoleIsExclusive)}
+                          className="p-1 hover:bg-slate-100 rounded flex items-center"
+                          title={newRoleIsExclusive ? "Exclusive (only one pilot can have this role)" : "Non-exclusive (multiple pilots can have this role)"}
+                        >
+                          {newRoleIsExclusive ? (
+                            <Lock size={20} className="text-red-600" />
+                          ) : (
+                            <Unlock size={20} className="text-green-600" />
+                          )}
+                        </button>
+                        <span className="ml-1 text-xs text-slate-500">
+                          {newRoleIsExclusive ? "Exclusive" : "Non-exclusive"}
+                        </span>
+                      </div>
+                    </div>
+                    
+                    <div className="mb-3">
+                      <p className="text-xs text-slate-500 mb-1">Compatible Statuses:</p>
+                      <div className="flex flex-wrap gap-2">
+                        {statuses.map(status => (
+                          <label key={status.id} className="flex items-center text-xs">
+                            <input
+                              type="checkbox"
+                              checked={newRoleCompatibleStatuses.includes(status.id)}
+                              onChange={() => handleToggleCompatibleStatus(status.id, true)}
+                              className="mr-1"
+                            />
+                            {status.name}
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                    
+                    <div className="flex justify-end space-x-2">
+                      <button 
+                        onClick={handleAddRole}
+                        className="px-3 py-1 bg-green-100 text-green-700 rounded hover:bg-green-200" 
+                      >
+                        Save
+                      </button>
+                      <button 
+                        onClick={() => {
+                          setIsAddingRole(false);
+                          setNewRoleName('');
+                          setNewRoleIsExclusive(false);
+                          setNewRoleCompatibleStatuses([]);
+                        }}
+                        className="px-3 py-1 bg-slate-100 text-slate-700 rounded hover:bg-slate-200" 
+                      >
+                        Cancel
+                      </button>
+                    </div>
                   </div>
-                </div>
-                <div className="flex items-center justify-between p-3 border border-gray-200 rounded mb-2">
-                  <div style={{
-                    fontWeight: 500,
-                    fontFamily: 'Inter',
-                    fontSize: '14px',
-                    color: '#0F172A'
-                  }}>
-                    Department Head
-                  </div>
-                  <div className="flex space-x-2">
-                    <button className="p-1 hover:bg-slate-100 rounded">
-                      <ScrollText size={16} color="#64748B" />
-                    </button>
-                  </div>
-                </div>
+                ) : (
+                  <button
+                    onClick={() => setIsAddingRole(true)}
+                    className="w-full flex items-center justify-center py-2 border border-dashed border-gray-300 rounded hover:bg-slate-50"
+                  >
+                    <Plus size={16} className="mr-2 text-slate-500" />
+                    <span className="text-slate-500">Add New Role</span>
+                  </button>
+                )}
               </Card>
 
               <Card className="p-4">
