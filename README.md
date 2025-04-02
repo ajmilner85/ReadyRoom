@@ -1,50 +1,50 @@
-# React + TypeScript + Vite
+# ReadyRoom
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A flight planning and pilot management application designed for virtual naval aviation squadrons.
 
-Currently, two official plugins are available:
+## Overview
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react/README.md) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+ReadyRoom is intended to provide a complete solution for squadron management, mission preparation, and flight operations. It serves as a digital ready room, allowing squadrons to efficiently manage their roster, plan missions, and coordinate flight activities. 
 
-## Expanding the ESLint configuration
+## Key Features
 
-If you are developing a production application, we recommend updating the configuration to enable type aware lint rules:
+- **Roster Management**: Track pilots, their qualifications, roles, and statuses
+- **DCS World Integration**: Import mission data directly from DCS mission files (.miz)
+- **Mission Preparation**: Plan missions with tools for:
+  - Flight assignments and aircraft grouping
+  - Communications planning
+  - Automatic pilot assignments based on qualifications
+  - Prepare kneeboards
+- **Mission Coordination**: Coordinate status of flights from launch to recovery
 
-- Configure the top-level `parserOptions` property like this:
 
-```js
-export default tseslint.config({
-  languageOptions: {
-    // other options...
-    parserOptions: {
-      project: ['./tsconfig.node.json', './tsconfig.app.json'],
-      tsconfigRootDir: import.meta.dirname,
-    },
-  },
-})
+## Technology Stack
+
+Built with:
+- React + TypeScript
+- Vite for fast development
+- Supabase for backend storage
+- Tailwind CSS for styling
+
+## Development
+
+This project uses Vite for an optimized development workflow.
+
+```bash
+# Install dependencies
+npm install
+
+# Run development server
+npm run dev
+
+# Build for production
+npm run build
 ```
 
-- Replace `tseslint.configs.recommended` to `tseslint.configs.recommendedTypeChecked` or `tseslint.configs.strictTypeChecked`
-- Optionally add `...tseslint.configs.stylisticTypeChecked`
-- Install [eslint-plugin-react](https://github.com/jsx-eslint/eslint-plugin-react) and update the config:
+## Customization
 
-```js
-// eslint.config.js
-import react from 'eslint-plugin-react'
+Squadron-specific configurations can be adjusted in the settings panel, allowing customization of callsigns, qualifications, and roles specific to your unit.
 
-export default tseslint.config({
-  // Set the react version
-  settings: { react: { version: '18.3' } },
-  plugins: {
-    // Add the react plugin
-    react,
-  },
-  rules: {
-    // other rules...
-    // Enable its recommended rules
-    ...react.configs.recommended.rules,
-    ...react.configs['jsx-runtime'].rules,
-  },
-})
-```
+## License
+
+See the [LICENSE](LICENSE) file for details.
