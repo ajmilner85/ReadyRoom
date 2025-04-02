@@ -33,6 +33,7 @@ export interface Pilot {
   billet: string;
   qualifications: Qualification[];
   discordUsername: string;
+  role?: string; // Added role field to display in the UI
 }
 
 // Supabase Pilot interface - matches our database schema
@@ -47,6 +48,9 @@ export interface SupabasePilot {
   created_at?: string;
   updated_at?: string;
   status_id?: string; // Foreign key to statuses table
+  primary_role_id?: string; // Foreign key to roles table
+  role_name?: string; // Added to store the role name from the join
+  role?: string; // Added for runtime property set in pilotService.ts
 }
 
 // Convert legacy pilot format to Supabase format
@@ -81,6 +85,7 @@ export function convertSupabasePilotToLegacy(pilot: SupabasePilot): Pilot {
       type: q as QualificationType,
       dateAchieved: new Date().toISOString().split('T')[0]
     })),
-    discordUsername: pilot.discordId || ''
+    discordUsername: pilot.discordId || '',
+    role: pilot.role_name || pilot.role // Check for both role_name and role properties
   };
 }

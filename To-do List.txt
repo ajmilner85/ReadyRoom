@@ -18,7 +18,6 @@ Essential:
 - Altitudes, positions, TACAN, comms for tankers
 - Implement light/dark mode
 
-
 High Priority:
 - Squadron Roster Management
 	- Implement CRUD functions
@@ -34,6 +33,9 @@ Medium Priority:
 - Enable dragging-and-dropping to storage area
 - Sort storage area flights by callsign then flight number then dash number in ascending order
 - Pilot service record (awards, cruises etc.)
+
+Suggestions
+- TacticalPaddles integration
 
 
 QOL:

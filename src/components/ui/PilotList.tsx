@@ -1,9 +1,6 @@
-// First, let's fix the width issues in existing columns by using style={{ width: CARD_WIDTH }} in their parent divs
-
-// Then, let's implement the pilot list component:
-import React from 'react';
+import React, { useEffect } from 'react';
 import QualificationBadge from './QualificationBadge';
-import type { Pilot, QualificationType } from '../../types/PilotTypes';
+import type { Pilot, QualificationType, SupabasePilot } from '../../types/PilotTypes';
 
 interface PilotListProps {
   pilots: Pilot[];
@@ -17,6 +14,20 @@ const QUALIFICATION_ORDER: QualificationType[] = [
 ];
 
 const PilotList: React.FC<PilotListProps> = ({ pilots }) => {
+  // Add debug logging for the raw pilots data
+  useEffect(() => {
+    console.log('PilotList received pilots:', pilots);
+    
+    // Check each pilot for role-related properties
+    pilots.forEach(pilot => {
+      console.log(
+        `Pilot ${pilot.callsign} (${pilot.boardNumber}) - ` +
+        `Role: "${pilot.role || 'No role'}", ` + 
+        `Billet: "${pilot.billet || 'No billet'}"`
+      );
+    });
+  }, [pilots]);
+
   // Group pilots by their highest qualification
   const groupedPilots = pilots.reduce((acc, pilot) => {
     // Find pilot's highest qualification based on QUALIFICATION_ORDER
@@ -120,7 +131,8 @@ const PilotList: React.FC<PilotListProps> = ({ pilots }) => {
                   fontWeight: 300,
                   color: '#646F7E'
                 }}>
-                  {pilot.billet}
+                  {/* Display role information instead of billet */}
+                  {pilot.role || ''}
                 </span>
                 
                 {/* Qualification badges */}
