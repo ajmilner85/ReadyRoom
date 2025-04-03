@@ -7,14 +7,12 @@ import {
   getPilotByDiscordOriginalId, 
   updatePilotStatus, 
   getPilotAssignedRoles,
-  updatePilotRoleAssignments,
   canAssignRoleToPilot
 } from '../../utils/pilotService';
 import { supabase } from '../../utils/supabaseClient';
 import { subscribeToTable } from '../../utils/supabaseClient';
 import { getAllStatuses, Status } from '../../utils/statusService';
 import { getAllRoles, Role } from '../../utils/roleService';
-import { CheckCircle2, AlertTriangle, Plus, X, Lock, Unlock } from 'lucide-react';
 
 const RosterManagement: React.FC = () => {
   const [pilots, setPilots] = useState<Pilot[]>([]);
@@ -26,16 +24,15 @@ const RosterManagement: React.FC = () => {
   const [hoveredPilot, setHoveredPilot] = useState<string | null>(null);
   const [activeStatusFilter, setActiveStatusFilter] = useState<boolean | null>(null); // null means show all
   const [updatingStatus, setUpdatingStatus] = useState(false);
-  const [statusUpdateSuccess, setStatusUpdateSuccess] = useState<boolean | null>(null);
   
   // Role management state
   const [roles, setRoles] = useState<Role[]>([]);
   const [pilotRoles, setPilotRoles] = useState<Role[]>([]);
   const [loadingRoles, setLoadingRoles] = useState(false);
   const [updatingRoles, setUpdatingRoles] = useState(false);
-  const [rolesUpdateSuccess, setRolesUpdateSuccess] = useState<boolean | null>(null);
-  const [showAddRoleDropdown, setShowAddRoleDropdown] = useState(false);
-  const [roleCompatibilityErrors, setRoleCompatibilityErrors] = useState<Record<string, string>>({});
+  
+  // New state to track which roles are already assigned and should be disabled
+  const [disabledRoles, setDisabledRoles] = useState<Record<string, boolean>>({});
   
   const rosterListRef = useRef<HTMLDivElement>(null);
   const pilotDetailsRef = useRef<HTMLDivElement>(null);
@@ -46,7 +43,6 @@ const RosterManagement: React.FC = () => {
     if (!selectedPilot) return;
     
     setUpdatingStatus(true);
-    setStatusUpdateSuccess(null);
     
     try {
       const { data, error } = await updatePilotStatus(selectedPilot.id, statusId);
@@ -80,19 +76,11 @@ const RosterManagement: React.FC = () => {
           // Refresh pilot roles to check compatibility
           fetchPilotRoles(selectedPilot.id);
         }
-        
-        setStatusUpdateSuccess(true);
       }
     } catch (err: any) {
       console.error('Error updating pilot status:', err);
-      setStatusUpdateSuccess(false);
     } finally {
       setUpdatingStatus(false);
-      
-      // Clear success/error message after 3 seconds
-      setTimeout(() => {
-        setStatusUpdateSuccess(null);
-      }, 3000);
     }
   };
   
@@ -122,182 +110,261 @@ const RosterManagement: React.FC = () => {
       }
       
       // Now use the actual UUID for fetching roles
-      const { data, error } = await getPilotAssignedRoles(actualPilotId);
+      const { data, error } = await supabase
+        .from('roles')
+        .select('*')
+        .eq('id', actualPilotId);
       
       if (error) {
         throw new Error(error.message);
       }
       
-      // Check role compatibility for all roles
-      const compatibilityErrors: Record<string, string> = {};
-      for (const role of data) {
-        const { canAssign, reason } = await canAssignRoleToPilot(actualPilotId, role.id);
-        if (!canAssign && reason) {
-          compatibilityErrors[role.id] = reason;
-        }
-      }
-      
       setPilotRoles(data || []);
-      setRoleCompatibilityErrors(compatibilityErrors);
     } catch (err: any) {
       console.error('Error fetching pilot roles:', err);
     } finally {
       setLoadingRoles(false);
     }
   };
-  
-  // Function to assign a role to the selected pilot
-  const handleAssignRole = async (roleId: string) => {
-    if (!selectedPilot) return;
-    
-    setUpdatingRoles(true);
-    setRolesUpdateSuccess(null);
-    
+
+  // Check if a role is exclusive and already assigned to another pilot
+  const isRoleExclusiveAndAssigned = async (roleId: string, currentPilotId: string): Promise<boolean> => {
     try {
-      // Get the actual UUID if selected pilot has a Discord ID
-      const isDiscordId = /^\d+$/.test(selectedPilot.id) && selectedPilot.id.length > 10;
+      if (!roleId) return false;
       
-      let actualPilotId = selectedPilot.id;
-      if (isDiscordId) {
-        // If it's a Discord ID, first get the corresponding UUID
-        const { data: pilotData, error: pilotError } = await getPilotByDiscordOriginalId(selectedPilot.id);
-        
-        if (pilotError) {
-          throw new Error(pilotError.message);
-        }
-        
-        if (!pilotData) {
-          throw new Error('Could not find pilot with the provided Discord ID');
-        }
-        
-        actualPilotId = pilotData.id; // Use the actual UUID
-      }
-      
-      // Get the current status of the pilot directly
-      const { data: pilotWithStatus, error: statusError } = await supabase
-        .from('pilots')
-        .select('status_id')
-        .eq('id', actualPilotId)
-        .single();
-        
-      if (statusError) {
-        throw new Error(`Error fetching pilot status: ${statusError.message}`);
-      }
-      
-      const pilotStatusId = pilotWithStatus?.status_id;
-      if (!pilotStatusId) {
-        throw new Error('Pilot has no status assigned');
-      }
-      
-      // Get role details directly
+      // Get role details
       const { data: role, error: roleError } = await supabase
         .from('roles')
-        .select('id, name, "isExclusive"::boolean, compatible_statuses')
+        .select('isExclusive')
         .eq('id', roleId)
         .single();
-        
+      
       if (roleError) {
-        throw new Error(`Error fetching role data: ${roleError.message}`);
+        console.error('Error fetching role details:', roleError);
+        return false;
       }
       
-      if (!role) {
-        throw new Error('Role not found');
+      // If role is not exclusive, it can be assigned
+      if (!role || !role.isExclusive) {
+        return false;
       }
       
-      // Manual compatibility check
-      const isCompatible = !role.compatible_statuses || 
-                          role.compatible_statuses.length === 0 || 
-                          role.compatible_statuses.includes(pilotStatusId);
-                          
-      if (!isCompatible) {
-        throw new Error("Pilot's status is not compatible with this role");
+      // For exclusive roles, check if any pilot already has this role
+      const { data: existingAssignments, error: assignmentError } = await supabase
+        .from('pilots')
+        .select('id')
+        .eq('role_id', roleId);
+      
+      if (assignmentError) {
+        console.error('Error checking role assignments:', assignmentError);
+        return false;
       }
       
-      // Add the role to the current list of roles
-      const newRoleIds = [...pilotRoles.map(r => r.id), roleId];
+      // No assignments or only assigned to current pilot is OK
+      if (!existingAssignments || existingAssignments.length === 0) {
+        return false;
+      }
       
-      // Update the pilot's roles using the actual UUID
-      const { success, error } = await updatePilotRoleAssignments(actualPilotId, newRoleIds);
+      // If there's only one assignment and it's to the current pilot, that's fine
+      if (existingAssignments.length === 1 && 
+          existingAssignments[0].id === currentPilotId) {
+        return false;
+      }
+      
+      // Otherwise, the role is already assigned to someone else
+      return true;
+    } catch (err) {
+      console.error('Error checking exclusive role:', err);
+      return false;
+    }
+  };
+
+  // Get the actual UUID from a pilot ID that might be a Discord ID
+  const getActualPilotId = async (pilotId: string): Promise<string> => {
+    // Discord IDs are typically long numeric strings
+    const isDiscordId = /^\d+$/.test(pilotId) && pilotId.length > 10;
+    
+    if (!isDiscordId) {
+      return pilotId;
+    }
+    
+    // If it's a Discord ID, get the corresponding UUID
+    try {
+      const { data, error } = await getPilotByDiscordOriginalId(pilotId);
       
       if (error) {
         throw new Error(error.message);
       }
       
-      if (success) {
-        // Refresh pilot roles
-        fetchPilotRoles(selectedPilot.id);
-        setRolesUpdateSuccess(true);
+      if (!data) {
+        throw new Error('Could not find pilot with the provided Discord ID');
       }
-    } catch (err: any) {
-      console.error('Error assigning role:', err);
-      setRolesUpdateSuccess(false);
-      setError(err.message);
-    } finally {
-      setUpdatingRoles(false);
-      setShowAddRoleDropdown(false);
       
-      // Clear success/error message after 3 seconds
-      setTimeout(() => {
-        setRolesUpdateSuccess(null);
-        setError(null);
-      }, 3000);
+      return data.id;
+    } catch (err) {
+      console.error('Error getting actual pilot ID:', err);
+      return pilotId;
     }
   };
-  
-  // Function to remove a role from the selected pilot
-  const handleRemoveRole = async (roleId: string) => {
+
+  // Fetch all exclusive roles that are already assigned
+  const fetchExclusiveRoleAssignments = async () => {
+    try {
+      // Get all exclusive roles
+      const exclusiveRoles = roles.filter(role => role.isExclusive);
+      
+      if (!exclusiveRoles.length) return;
+      
+      // Create a map to track which roles are already assigned
+      const newDisabledRoles: Record<string, boolean> = {};
+      
+      // Get the actual UUID of the selected pilot if available
+      let currentPilotId = null;
+      if (selectedPilot) {
+        currentPilotId = await getActualPilotId(selectedPilot.id);
+      }
+
+      // For each exclusive role, check if it's already assigned to any pilot
+      for (const role of exclusiveRoles) {
+        // Query for all pilots with this role assigned
+        const { data, error } = await supabase
+          .from('pilots')
+          .select('id')
+          .eq('role_id', role.id);
+          
+        if (error) {
+          console.error('Error checking role assignments:', error);
+          continue;
+        }
+        
+        // If there are assignments and none of them are to the current pilot,
+        // disable the role for the current pilot
+        if (data && data.length > 0) {
+          // Check if the role is assigned to the current pilot
+          const isAssignedToCurrentPilot = currentPilotId && 
+            data.some(pilot => pilot.id === currentPilotId);
+          
+          // If the role is not assigned to the current pilot, disable it
+          if (!isAssignedToCurrentPilot) {
+            newDisabledRoles[role.id] = true;
+          }
+        }
+      }
+      
+      setDisabledRoles(newDisabledRoles);
+    } catch (err) {
+      console.error('Error fetching exclusive role assignments:', err);
+    }
+  };
+
+  // Add useEffect to fetch disabled roles whenever pilots or roles change
+  useEffect(() => {
+    if (roles.length > 0) {
+      fetchExclusiveRoleAssignments();
+    }
+  }, [roles, selectedPilot]);
+
+  // Handle role change with improved exclusive role checking
+  const handleRoleChange = async (roleId: string) => {
     if (!selectedPilot) return;
     
     setUpdatingRoles(true);
-    setRolesUpdateSuccess(null);
     
     try {
-      // Get the actual UUID if selected pilot has a Discord ID
-      const isDiscordId = /^\d+$/.test(selectedPilot.id) && selectedPilot.id.length > 10;
+      // Get the actual UUID
+      const actualPilotId = await getActualPilotId(selectedPilot.id);
       
-      let actualPilotId = selectedPilot.id;
-      if (isDiscordId) {
-        // If it's a Discord ID, get the corresponding UUID
-        const { data: pilotData, error: pilotError } = await getPilotByDiscordOriginalId(selectedPilot.id);
+      // If empty selection, remove the role
+      if (!roleId) {
+        // Update the pilot's role to null
+        const { error } = await supabase
+          .from('pilots')
+          .update({ role_id: null })
+          .eq('id', actualPilotId);
         
-        if (pilotError) {
-          throw new Error(pilotError.message);
+        if (error) {
+          throw new Error(error.message);
         }
         
-        if (!pilotData) {
-          throw new Error('Could not find pilot with the provided Discord ID');
-        }
+        // Update local state
+        setPilotRoles([]);
+        updatePilotRoleInList(selectedPilot.id, null);
         
-        actualPilotId = pilotData.id; // Use the actual UUID
+        // Refresh exclusive role assignments after removing a role
+        fetchExclusiveRoleAssignments();
+        return;
       }
       
-      // Remove the role from the current list of roles
-      const newRoleIds = pilotRoles.filter(r => r.id !== roleId).map(r => r.id);
+      // Check if the role is exclusive
+      const selectedRole = roles.find(r => r.id === roleId);
       
-      // Update the pilot's roles using the actual UUID
-      const { success, error } = await updatePilotRoleAssignments(actualPilotId, newRoleIds);
+      if (selectedRole?.isExclusive) {
+        // For exclusive roles, check if it's already assigned to someone else
+        const { data, error } = await supabase
+          .from('pilots')
+          .select('id')
+          .eq('role_id', roleId);
+          
+        if (error) {
+          throw new Error(`Error checking role assignments: ${error.message}`);
+        }
+        
+        // If assigned to someone other than the current pilot, prevent assignment
+        if (data && data.length > 0) {
+          const assignedToOthers = data.some(pilot => pilot.id !== actualPilotId);
+          
+          if (assignedToOthers) {
+            alert(`Cannot assign this role. It is exclusive and already assigned to another pilot.`);
+            return;
+          }
+        }
+      }
+      
+      // Get the role name to update the UI immediately
+      const roleToAssign = roles.find(r => r.id === roleId);
+      
+      // Update the pilot's role directly
+      const { error } = await supabase
+        .from('pilots')
+        .update({ role_id: roleId })
+        .eq('id', actualPilotId);
       
       if (error) {
         throw new Error(error.message);
       }
       
-      if (success) {
-        // Refresh pilot roles
-        fetchPilotRoles(selectedPilot.id);
-        setRolesUpdateSuccess(true);
+      // If successful, update local state
+      if (roleToAssign) {
+        setPilotRoles([roleToAssign]);
+        updatePilotRoleInList(selectedPilot.id, roleToAssign.name || null);
       }
+      
+      // Refresh exclusive role assignments after making an assignment
+      fetchExclusiveRoleAssignments();
     } catch (err: any) {
-      console.error('Error removing role:', err);
-      setRolesUpdateSuccess(false);
-      setError(err.message);
+      console.error('Error changing role:', err);
+      alert(`Error: ${err.message}`);
     } finally {
       setUpdatingRoles(false);
-      
-      // Clear success/error message after 3 seconds
-      setTimeout(() => {
-        setRolesUpdateSuccess(null);
-      }, 3000);
     }
+  };
+
+  // Update the role displayed in the pilot list
+  const updatePilotRoleInList = (pilotId: string, roleName: string | null) => {
+    setPilots(prevPilots => prevPilots.map(p => {
+      if (p.id === pilotId) {
+        return { ...p, role: roleName || '' };
+      }
+      return p;
+    }));
+    
+    // Also update selected pilot if it's the one being changed
+    if (selectedPilot && selectedPilot.id === pilotId) {
+      setSelectedPilot(prev => prev ? { ...prev, role: roleName || '' } : null);
+    }
+    
+    // Refresh the exclusive role assignments to reflect the change
+    fetchExclusiveRoleAssignments();
   };
 
   useEffect(() => {
@@ -350,7 +417,7 @@ const RosterManagement: React.FC = () => {
           // Convert Supabase format to the format our UI expects
           const convertedPilots = data.map(pilot => {
             // Use the discord_original_id as the main ID if available (for backwards compatibility)
-            const legacyPilot = convertSupabasePilotToLegacy(pilot);
+            const legacyPilot = convertSupabasePilotToLegacy(pilot as any);
             if (pilot.discord_original_id) {
               legacyPilot.id = pilot.discord_original_id;
             }
@@ -361,7 +428,7 @@ const RosterManagement: React.FC = () => {
               legacyPilot.status_id = pilot.status_id;
             } else {
               // Fallback to role-based status for backward compatibility
-              const role = pilot.roles?.squadron?.toLowerCase() || '';
+              const role = pilot.roles ? (pilot.roles as any).squadron?.toLowerCase() || '' : '';
               if (role.includes('co') || role.includes('xo')) {
                 legacyPilot.status = 'Command';
               } else if (role.includes('oic')) {
@@ -370,6 +437,12 @@ const RosterManagement: React.FC = () => {
                 legacyPilot.status = 'Retired';
               }
             }
+            
+            // Set role if available from the join
+            if (pilot.role_name) {
+              legacyPilot.role = pilot.role_name;
+            }
+            
             return legacyPilot;
           });
           setPilots(convertedPilots);
@@ -393,7 +466,7 @@ const RosterManagement: React.FC = () => {
     }
 
     // Subscribe to real-time updates
-    const subscription = subscribeToTable('pilots', (payload) => {
+    const subscription = subscribeToTable('pilots', () => {
       // Update the pilots list when changes occur
       if (Object.keys(statusMap).length > 0) {
         fetchPilots();
@@ -473,7 +546,8 @@ const RosterManagement: React.FC = () => {
         flexDirection: 'column',
         alignItems: 'center',
         padding: '20px 0',
-        boxSizing: 'border-box'
+        boxSizing: 'border-box',
+        overflowY: 'hidden' // Prevent overall page scroll
       }}
     >
       {loading ? (
@@ -489,7 +563,7 @@ const RosterManagement: React.FC = () => {
           style={{
             display: 'flex',
             flexDirection: 'column',
-            height: 'calc(100% - 40px)', // Subtract top and bottom padding
+            height: 'calc(100vh - 40px)', // Subtract top and bottom padding
             position: 'relative',
             zIndex: 1,
             maxWidth: `${baseWidth * 3 + 20}px`,
@@ -497,33 +571,12 @@ const RosterManagement: React.FC = () => {
             width: '100%'
           }}
         >
-          {/* Status filter tabs */}
-          <div className="flex mb-4">
-            <div 
-              className={`cursor-pointer px-4 py-2 mr-2 rounded-t-md ${activeStatusFilter === null ? 'bg-white font-medium' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
-              onClick={() => setActiveStatusFilter(null)}
-            >
-              All
-            </div>
-            <div 
-              className={`cursor-pointer px-4 py-2 mr-2 rounded-t-md ${activeStatusFilter === true ? 'bg-white font-medium' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
-              onClick={() => setActiveStatusFilter(true)}
-            >
-              Active
-            </div>
-            <div 
-              className={`cursor-pointer px-4 py-2 rounded-t-md ${activeStatusFilter === false ? 'bg-white font-medium' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
-              onClick={() => setActiveStatusFilter(false)}
-            >
-              Inactive
-            </div>
-          </div>
-
           <div 
             style={{
               display: 'flex',
               gap: '20px',
               flex: 1,
+              maxHeight: 'calc(100vh - 40px)', // Ensure it doesn't go beyond the viewport
             }}
           >
             {/* Left column - Squadron Roster List */}
@@ -537,9 +590,44 @@ const RosterManagement: React.FC = () => {
                 display: 'flex',
                 flexDirection: 'column',
                 position: 'relative',
-                overflow: 'hidden' // Contain the scrollbar
+                overflow: 'hidden', // Contain the scrollbar
+                maxHeight: 'calc(100vh - 60px)' // Stay 20px from bottom of viewport
               }}
             >
+              {/* Status filter tabs - now inside the card */}
+              <div className="flex p-4">
+                <div 
+                  className="cursor-pointer px-3 py-2 mr-2 rounded-md"
+                  style={{
+                    backgroundColor: activeStatusFilter === null ? 'rgba(249, 115, 22, 0.1)' : 'transparent',
+                    color: activeStatusFilter === null ? '#F97316' : '#646F7E'
+                  }}
+                  onClick={() => setActiveStatusFilter(null)}
+                >
+                  All
+                </div>
+                <div 
+                  className="cursor-pointer px-3 py-2 mr-2 rounded-md"
+                  style={{
+                    backgroundColor: activeStatusFilter === true ? 'rgba(249, 115, 22, 0.1)' : 'transparent',
+                    color: activeStatusFilter === true ? '#F97316' : '#646F7E'
+                  }}
+                  onClick={() => setActiveStatusFilter(true)}
+                >
+                  Active
+                </div>
+                <div 
+                  className="cursor-pointer px-3 py-2 rounded-md"
+                  style={{
+                    backgroundColor: activeStatusFilter === false ? 'rgba(249, 115, 22, 0.1)' : 'transparent',
+                    color: activeStatusFilter === false ? '#F97316' : '#646F7E'
+                  }}
+                  onClick={() => setActiveStatusFilter(false)}
+                >
+                  Inactive
+                </div>
+              </div>
+              
               <div 
                 ref={rosterContentRef}
                 style={{
@@ -640,8 +728,8 @@ const RosterManagement: React.FC = () => {
                             fontWeight: 300,
                             color: '#646F7E'
                           }}>
-                            {/* Display role instead of billet */}
-                            {pilot.role || pilot.billet}
+                            {/* Display role */}
+                            {pilot.role || ''}
                           </span>
                           
                           {/* Qualification badges */}
@@ -685,193 +773,291 @@ const RosterManagement: React.FC = () => {
                 display: 'flex',
                 flexDirection: 'column',
                 position: 'relative',
-                overflowY: 'auto' // Add scrollbar if content overflows
+                overflowY: 'auto', // Add scrollbar if content overflows
+                maxHeight: 'calc(100vh - 60px)' // Stay 20px from bottom of viewport
               }}
             >
               {selectedPilot ? (
                 <div>
-                  <div style={{ marginBottom: '24px' }}>
+                  {/* Header with board number, callsign, and role */}
+                  <div style={{
+                    marginBottom: '24px',
+                    display: 'flex',
+                    alignItems: 'baseline', // Align text baselines
+                    gap: '12px'
+                  }}>
                     <h1 style={{
                       fontSize: '24px',
                       fontWeight: 700,
-                      color: '#0F172A'
+                      color: '#0F172A',
+                      display: 'flex',
+                      alignItems: 'baseline', // Align text baselines
+                      gap: '12px',
+                      margin: 0 // Remove default margin
                     }}>
+                      <span style={{ fontWeight: 400, color: '#64748B' }}>{selectedPilot.boardNumber}</span>
                       {selectedPilot.callsign}
+                      <span style={{ 
+                        fontSize: '18px', 
+                        fontWeight: 400, 
+                        color: '#64748B',
+                        fontStyle: 'normal'
+                      }}>
+                        {selectedPilot.role || ''}
+                      </span>
                     </h1>
-                    <div style={{
-                      fontSize: '18px',
-                      color: '#64748B'
-                    }}>
-                      Board #{selectedPilot.boardNumber}
-                    </div>
                   </div>
 
                   <div style={{ display: 'grid', gap: '24px' }}>
+                    {/* Section 1: Basic Information */}
                     <Card className="p-4">
-                      <h2 className="text-lg font-semibold mb-2">Squadron Information</h2>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <div className="text-sm text-slate-500 mb-1">Status</div>
-                          <div className="relative">
-                            <select
-                              value={selectedPilot.status_id || ''}
-                              onChange={(e) => handleStatusChange(e.target.value)}
-                              disabled={updatingStatus}
-                              className="w-full p-2 border border-gray-300 rounded bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent font-medium"
-                              style={{
-                                appearance: 'none',
-                                paddingRight: '2.5rem'
-                              }}
-                            >
-                              {statuses.sort((a, b) => a.order - b.order).map(status => (
-                                <option key={status.id} value={status.id}>
-                                  {status.name} {status.isActive ? '(Active)' : '(Inactive)'}
-                                </option>
-                              ))}
-                              {!selectedPilot.status_id && <option value="">-- Select status --</option>}
-                            </select>
-                            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2">
-                              <svg className="h-4 w-4 fill-current text-gray-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
-                                <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/>
-                              </svg>
-                            </div>
-                          </div>
-                          
-                          {/* Status update indicators */}
-                          {statusUpdateSuccess === true && (
-                            <div className="mt-2 flex items-center text-sm text-green-600">
-                              <CheckCircle2 size={16} className="mr-1" /> 
-                              Status updated successfully!
-                            </div>
-                          )}
-                          {statusUpdateSuccess === false && (
-                            <div className="mt-2 flex items-center text-sm text-red-600">
-                              <AlertTriangle size={16} className="mr-1" />
-                              Failed to update status
-                            </div>
-                          )}
+                      <h2 className="text-lg font-semibold mb-4" style={{
+                        borderBottom: '1px solid #E2E8F0',
+                        paddingBottom: '8px'
+                      }}>Basic Information</h2>
+                      
+                      <div style={{ marginBottom: '16px' }}>
+                        <label style={{
+                          display: 'block',
+                          marginBottom: '8px',
+                          fontSize: '14px',
+                          fontWeight: 500,
+                          color: '#64748B'
+                        }}>
+                          Board Number
+                        </label>
+                        <div style={{
+                          padding: '8px 12px',
+                          border: '1px solid #CBD5E1',
+                          borderRadius: '6px',
+                          backgroundColor: '#F8FAFC',
+                          fontSize: '14px',
+                          width: '33%'
+                        }}>
+                          {selectedPilot.boardNumber}
                         </div>
-
-                        <div>
-                          <div className="text-sm text-slate-500">Billet</div>
-                          <div className="font-medium">{selectedPilot.billet}</div>
+                      </div>
+                      
+                      <div style={{ marginBottom: '16px' }}>
+                        <label style={{
+                          display: 'block',
+                          marginBottom: '8px',
+                          fontSize: '14px',
+                          fontWeight: 500,
+                          color: '#64748B'
+                        }}>
+                          Callsign
+                        </label>
+                        <div style={{
+                          padding: '8px 12px',
+                          border: '1px solid #CBD5E1',
+                          borderRadius: '6px',
+                          backgroundColor: '#F8FAFC',
+                          fontSize: '14px',
+                          width: '33%'
+                        }}>
+                          {selectedPilot.callsign}
+                        </div>
+                      </div>
+                      
+                      <div>
+                        <label style={{
+                          display: 'block',
+                          marginBottom: '8px',
+                          fontSize: '14px',
+                          fontWeight: 500,
+                          color: '#64748B'
+                        }}>
+                          Discord Username
+                        </label>
+                        <div style={{
+                          padding: '8px 12px',
+                          border: '1px solid #CBD5E1',
+                          borderRadius: '6px',
+                          backgroundColor: '#F8FAFC',
+                          fontSize: '14px',
+                          width: '33%'
+                        }}>
+                          {selectedPilot.discordUsername}
                         </div>
                       </div>
                     </Card>
                     
-                    {/* Squadron Roles Card */}
+                    {/* Section 2: Status, Roles, and Qualifications */}
                     <Card className="p-4">
-                      <div className="flex justify-between items-center mb-2">
-                        <h2 className="text-lg font-semibold">Squadron Roles</h2>
-                        <div className="relative">
-                          {showAddRoleDropdown ? (
-                            <div className="absolute right-0 top-8 bg-white border border-gray-200 rounded shadow-lg z-10 w-48 py-1">
-                              {roles
-                                .filter(role => !pilotRoles.some(pr => pr.id === role.id))
-                                .sort((a, b) => a.order - b.order)
-                                .map(role => (
-                                  <div 
-                                    key={role.id}
-                                    className="px-4 py-2 hover:bg-slate-50 cursor-pointer flex items-center justify-between"
-                                    onClick={() => handleAssignRole(role.id)}
-                                  >
-                                    <span>{role.name}</span>
-                                    {role.isExclusive && <Lock size={14} className="text-red-600" />}
-                                  </div>
-                                ))}
-                              <div 
-                                className="px-4 py-2 hover:bg-slate-50 cursor-pointer text-slate-500 flex items-center"
-                                onClick={() => setShowAddRoleDropdown(false)}
-                              >
-                                <X size={14} className="mr-1" />
-                                Cancel
-                              </div>
-                            </div>
-                          ) : (
-                            <button
-                              className="flex items-center text-sm px-2 py-1 border border-slate-300 rounded hover:bg-slate-50"
-                              onClick={() => setShowAddRoleDropdown(true)}
-                              disabled={updatingRoles}
-                            >
-                              <Plus size={14} className="mr-1" />
-                              Add Role
-                            </button>
-                          )}
+                      <h2 className="text-lg font-semibold mb-4" style={{
+                        borderBottom: '1px solid #E2E8F0',
+                        paddingBottom: '8px'
+                      }}>Status, Role and Qualifications</h2>
+                      
+                      {/* Status */}
+                      <div style={{ marginBottom: '20px' }}>
+                        <label style={{
+                          display: 'block',
+                          marginBottom: '8px',
+                          fontSize: '14px',
+                          fontWeight: 500,
+                          color: '#64748B'
+                        }}>
+                          Status
+                        </label>
+                        <div style={{
+                          position: 'relative',
+                          width: '33%'
+                        }}>
+                          <select
+                            value={selectedPilot.status_id || ''}
+                            onChange={(e) => handleStatusChange(e.target.value)}
+                            disabled={updatingStatus}
+                            style={{
+                              width: '100%',
+                              padding: '8px 12px',
+                              paddingRight: '32px',
+                              border: '1px solid #CBD5E1',
+                              borderRadius: '6px',
+                              backgroundColor: '#F8FAFC',
+                              fontSize: '14px',
+                              appearance: 'none',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            {statuses.sort((a, b) => a.order - b.order).map(status => (
+                              <option key={status.id} value={status.id}>
+                                {status.name}
+                              </option>
+                            ))}
+                            {!selectedPilot.status_id && <option value="">-- Select status --</option>}
+                          </select>
+                          <div style={{
+                            position: 'absolute',
+                            top: '50%',
+                            right: '12px',
+                            transform: 'translateY(-50%)',
+                            pointerEvents: 'none'
+                          }}>
+                            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+                              <path d="M6 8.5L2 4.5H10L6 8.5Z" fill="#64748B"/>
+                            </svg>
+                          </div>
                         </div>
                       </div>
                       
-                      {loadingRoles ? (
-                        <div className="text-center py-4 text-slate-500">Loading roles...</div>
-                      ) : pilotRoles.length > 0 ? (
-                        <div className="space-y-2">
-                          {pilotRoles
-                            .sort((a, b) => a.order - b.order)
-                            .map(role => (
-                              <div key={role.id} className="flex justify-between items-center p-2 border border-gray-100 rounded-md bg-slate-50 relative">
-                                <div className="flex items-center">
-                                  <span className="font-medium mr-2">{role.name}</span>
-                                  {role.isExclusive && <Lock size={14} className="text-red-600" title="Exclusive role" />}
-                                </div>
-                                
-                                {roleCompatibilityErrors[role.id] && (
-                                  <div className="absolute left-0 -bottom-6 text-xs text-red-600">
-                                    {roleCompatibilityErrors[role.id]}
-                                  </div>
-                                )}
-                                
-                                <button
-                                  className="text-red-600 hover:bg-red-50 p-1 rounded"
-                                  onClick={() => handleRemoveRole(role.id)}
-                                  disabled={updatingRoles}
-                                  title="Remove role"
+                      {/* Role dropdown */}
+                      <div style={{ marginBottom: '20px' }}>
+                        <label style={{
+                          display: 'block',
+                          marginBottom: '8px',
+                          fontSize: '14px',
+                          fontWeight: 500,
+                          color: '#64748B'
+                        }}>
+                          Role
+                        </label>
+                        <div style={{
+                          position: 'relative',
+                          width: '33%'
+                        }}>
+                          <select
+                            value={pilotRoles.length > 0 ? pilotRoles[0].id : ''}
+                            onChange={(e) => handleRoleChange(e.target.value)}
+                            disabled={updatingRoles || loadingRoles}
+                            style={{
+                              width: '100%',
+                              padding: '8px 12px',
+                              paddingRight: '32px',
+                              border: '1px solid #CBD5E1',
+                              borderRadius: '6px',
+                              backgroundColor: '#F8FAFC',
+                              fontSize: '14px',
+                              appearance: 'none',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            <option value="">No Role</option>
+                            {roles
+                              .sort((a, b) => a.order - b.order)
+                              .map(role => (
+                                <option 
+                                  key={role.id} 
+                                  value={role.id}
+                                  disabled={disabledRoles[role.id]}
                                 >
-                                  <X size={14} />
-                                </button>
+                                  {role.name}
+                                </option>
+                              ))}
+                          </select>
+                          <div style={{
+                            position: 'absolute',
+                            top: '50%',
+                            right: '12px',
+                            transform: 'translateY(-50%)',
+                            pointerEvents: 'none'
+                          }}>
+                            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+                              <path d="M6 8.5L2 4.5H10L6 8.5Z" fill="#64748B"/>
+                            </svg>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {/* Qualifications */}
+                      <div>
+                        <label style={{
+                          display: 'block',
+                          marginBottom: '8px',
+                          fontSize: '14px',
+                          fontWeight: 500,
+                          color: '#64748B'
+                        }}>
+                          Qualifications
+                        </label>
+                        {selectedPilot.qualifications.length > 0 ? (
+                          <div className="space-y-2" style={{
+                            padding: '8px 12px',
+                            border: '1px solid #CBD5E1',
+                            borderRadius: '6px',
+                            backgroundColor: '#F8FAFC',
+                            width: '100%'
+                          }}>
+                            {selectedPilot.qualifications.map(qual => (
+                              <div key={qual.id} className="flex justify-between items-center">
+                                <span className="font-medium">{qual.type}</span>
+                                <span className="text-sm text-slate-500">
+                                  {new Date(qual.dateAchieved).toLocaleDateString()}
+                                </span>
                               </div>
                             ))}
-
-                            {/* Role update indicators */}
-                            {rolesUpdateSuccess === true && (
-                              <div className="mt-2 flex items-center text-sm text-green-600">
-                                <CheckCircle2 size={16} className="mr-1" /> 
-                                Roles updated successfully!
-                              </div>
-                            )}
-                            {rolesUpdateSuccess === false && (
-                              <div className="mt-2 flex items-center text-sm text-red-600">
-                                <AlertTriangle size={16} className="mr-1" />
-                                Failed to update roles
-                              </div>
-                            )}
-                        </div>
-                      ) : (
-                        <div className="text-slate-500">No roles assigned</div>
-                      )}
+                          </div>
+                        ) : (
+                          <div style={{
+                            padding: '8px 12px',
+                            border: '1px solid #CBD5E1',
+                            borderRadius: '6px',
+                            backgroundColor: '#F8FAFC',
+                            fontSize: '14px',
+                            color: '#94A3B8',
+                            width: '100%'
+                          }}>
+                            No qualifications
+                          </div>
+                        )}
+                      </div>
                     </Card>
 
+                    {/* Section 3: Attendance and Service Record */}
                     <Card className="p-4">
-                      <h2 className="text-lg font-semibold mb-2">Qualifications</h2>
-                      {selectedPilot.qualifications.length > 0 ? (
-                        <div className="space-y-2">
-                          {selectedPilot.qualifications.map(qual => (
-                            <div key={qual.id} className="flex justify-between items-center">
-                              <span className="font-medium">{qual.type}</span>
-                              <span className="text-sm text-slate-500">
-                                {new Date(qual.dateAchieved).toLocaleDateString()}
-                              </span>
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <div className="text-slate-500">No qualifications</div>
-                      )}
-                    </Card>
-
-                    <Card className="p-4">
-                      <h2 className="text-lg font-semibold mb-2">Contact Information</h2>
-                      <div>
-                        <div className="text-sm text-slate-500">Discord</div>
-                        <div className="font-medium">{selectedPilot.discordUsername}</div>
+                      <h2 className="text-lg font-semibold mb-4" style={{
+                        borderBottom: '1px solid #E2E8F0',
+                        paddingBottom: '8px'
+                      }}>Attendance and Service Record</h2>
+                      
+                      <div style={{
+                        padding: '16px',
+                        textAlign: 'center',
+                        color: '#94A3B8',
+                        fontStyle: 'italic'
+                      }}>
+                        Service record information will be available in a future update
                       </div>
                     </Card>
                   </div>
