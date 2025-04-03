@@ -1,58 +1,63 @@
-
 In Progress:
 - Database implementation
 	- Admin Settings
 	- Roster
-	- Mission/event saving
+
 
 Next:
-- Mission preparation page
-	- Attendance (Discord/Apollo integration?)
-		- Cruise, Foothold, Other (Accepted, Declined, Tentative)
-		- Training (IP, Trainee, Declined) not needed if IP qualification tracked?
-	- Loadouts/Initial Fuel State
-	- Create comms card
-	- Export kneeboards
-
-Essential:
-- Altitudes, positions, TACAN, comms for tankers
-- Implement light/dark mode
-
-High Priority:
 - Squadron Roster Management
 	- Implement CRUD functions
 		- Prevent duplicate board numbers
 	- Role Assignment and Qualification Management
 	- Distinguish Site, Discord, and Squadron Roles/Billets
-	- Improve visual appearance of pilot details tile
+	- Improve visual appearance of pilot details card
+
+
+Essential:
+	- Mission/event saving
+
+
+High Priority:
+- Mission Preparation
+	- Attendance (Discord/Apollo integration?)
+		- Cruise, Foothold, Other (Accepted, Declined, Tentative)
+		- Training (IP, Trainee, Declined) not needed if IP qualification tracked?
+	- Create comms card
+	- Export kneeboards
+
 
 Medium Priority:
-- Add signal divert
-	- Split Tanker Column into 2, with divert area at the bottom
-- Refactor storage area to sort flights by size (Single > 4-ship)
-- Enable dragging-and-dropping to storage area
-- Sort storage area flights by callsign then flight number then dash number in ascending order
-- Pilot service record (awards, cruises etc.)
-
-Suggestions
-- TacticalPaddles integration
+	- Simplified, OpenKneeboard compatible dynamic page for live kneeboard updates, last minute coordination
 
 
 QOL:
-- Add loading indicators
-- Add ability to set flight tasking during creation
-- Add quick add flight function (e.g. to add an additional STING flight)
-- Dragging a flight into an empty area of the En Route/Tasking section brings up an add mission dialog, entering a mission drops the card into that mission division, hitting cancel returns the card to where it was last
-- Fuel state estimate or last update timer
-- BRC/Weather Display
-- Comms Info
-- Full ATO info in En Route/Tasking section
-- Sort En Route/Tasking to top of page by default
-	- Divide by AA and AG taskings?
-- Quick references
-	- NATOPs
-	- NAVAIR
-- Simplified, OpenKneeboard compatible dynamic page for live kneeboard updates, last minute coordination
+- Implement light/dark mode
+
+
+Cosmetic:
+- Add loading indicators to all pages
+- Mission Coordination
+	- Add aircraft icons on mission coordination page
+	- Refactor flight card layout
+	- Case  II/III recovery section refactor to add
+		- Refactor CASE I/II/III button to be a three position sliding toggle
+
+
+- Mission roles
+	- Mission commander (Done)
+	- Marshall
+	- Tower
+	- LSO
+- Push, IP, Get Well points for En Route/Tasking Section
+
+
+Integrations/Tech:
+	- Discord/Apollo (Attendance, events)
+	- TacticalPaddles (Greenie board, carrier qualifications)
+	- Websocket implementation for real-time collaboration
+
+
+Skunkworks:
 - Export modified .miz file after crew assignments
 	- Set board numbers
 	- Set MIDS channels (VOCB_Channel, VOCA_Channel)
@@ -63,38 +68,43 @@ QOL:
 	- Set HMD type
 
 
-Cosmetic:
-- Add aircraft icons
-- Clean up flight card layout
-- Case  II/III recovery section refactor to add
-	- Refactor CASE I/II/III button to be a three position sliding toggle
-
-Nice to have:
-- Multiple carrier support
-- Multiple marshal radials
-- Websocket implementation for real-time collaboration
-- Tactical Paddles integration, greenie board
-
-- Mission roles
-	- Mission commander
-	- Marshall
-	- Tower
-	- LSO
-- Push, IP, Get Well points for En Route/Tasking Section
-
-
-To prioritize:
-- Handle out of action aircraft
-- Flag emergency aircraft
-- Tagging aircraft with Alibis
-- Keybinds, e.g.
-	- C - combine flight or check-in
-	- R - recover or RTB or Rolex
-	- E - established
-	- A - approach time
-	- W - winchester
-	- X - Out of action? Position update?
-	- G - gripes/alibis
+Unprioritized:
+	- Roster Management
+		- Pilot service record (awards, cruises etc.)
+	- Mission Preparation
+			- Loadouts (Complicated due to DCS use of CLSIDs)
+	- Mission Coordination
+		- Refactor flight card storage area
+			- Sort flights by size (Single > 4-ship)
+			- Sort storage area flights by callsign then flight number then dash number in ascending order
+			- Enable dragging-and-dropping to storage area
+		- Add signal divert, divert field
+		- Split Tanker Column into 2, with divert area at the bottom
+		- Altitudes, positions, TACAN, comms for tankers
+		- Comms Info (e.g. MIDS channels for flights/sections)
+		- Handle out of action aircraft
+		- Flag emergency aircraft
+		- Tagging aircraft with alibis
+		- Dragging a flight into an empty area of the En Route/Tasking section brings up an add mission dialog, entering a mission drops the card into that mission division, hitting cancel returns the card to where it was last
+		- Fuel state estimate or last update timer
+		- BRC/Weather Display
+		- Multiple carrier support
+		- Multiple marshal radials
+		- Quick reference documents
+			- NATOPs
+			- NAVAIR
+		- Sort En Route/Tasking to top of page by default
+		- Divide by AA and AG taskings?
+		- Add ability to set flight tasking during creation
+		- Full ATO info in En Route/Tasking section
+		- Additional keybinds, e.g.
+			- C - combine flight or check-in
+			- R - recover or RTB or Rolex
+			- E - established
+			- A - approach time
+			- W - winchester
+			- X - Out of action? Position update?
+			- G - gripes/alibis
 
 Complete
 - Second digit of fuel state in smaller font (36 > 32 for low state, 12 > 10 for flight members)
@@ -176,3 +186,5 @@ Complete
 - Ability to transfer flight cards from the mission preparation screen to the mission execution screen
 - Add utility functions for flight assignment (autofill flights, auto assign / re-assign MIDS channels)
 - Read available flights from .miz file
+- Mission preparation page
+	- Initial fuel state (from .miz)

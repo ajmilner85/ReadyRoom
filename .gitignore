@@ -22,7 +22,7 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
-*,sql
+*.sql
 
 reference/
 src/assets/CV-NATOPS-JUL09.pdf
