@@ -109,19 +109,40 @@ const RosterManagement: React.FC = () => {
         actualPilotId = pilotData.id; // Use the actual UUID from the database
       }
       
-      // Now use the actual UUID for fetching roles
-      const { data, error } = await supabase
-        .from('roles')
-        .select('*')
-        .eq('id', actualPilotId);
+      // Fetch the pilot to get their role_id
+      const { data: pilotData, error: pilotError } = await supabase
+        .from('pilots')
+        .select('role_id')
+        .eq('id', actualPilotId)
+        .single();
       
-      if (error) {
-        throw new Error(error.message);
+      if (pilotError) {
+        throw new Error(pilotError.message);
       }
       
-      setPilotRoles(data || []);
+      // If the pilot has a role assigned, find the role details
+      if (pilotData && pilotData.role_id) {
+        const { data: roleData, error: roleError } = await supabase
+          .from('roles')
+          .select('*')
+          .eq('id', pilotData.role_id)
+          .single();
+          
+        if (roleError) {
+          throw new Error(roleError.message);
+        }
+        
+        if (roleData) {
+          setPilotRoles([roleData]);
+        } else {
+          setPilotRoles([]);
+        }
+      } else {
+        setPilotRoles([]);
+      }
     } catch (err: any) {
       console.error('Error fetching pilot roles:', err);
+      setPilotRoles([]);
     } finally {
       setLoadingRoles(false);
     }
@@ -510,6 +531,27 @@ const RosterManagement: React.FC = () => {
     .sort((a, b) => a.order - b.order)
     .map(status => status.name);
 
+  // Sort pilots within each status group by role order
+  Object.keys(groupedPilots).forEach(status => {
+    groupedPilots[status].sort((a, b) => {
+      // Find role objects for both pilots
+      const roleA = roles.find(role => role.name === a.role);
+      const roleB = roles.find(role => role.name === b.role);
+      
+      // If both have roles, sort by role order
+      if (roleA && roleB) {
+        return roleA.order - roleB.order;
+      }
+      
+      // Put pilots with roles at the top
+      if (roleA) return -1;
+      if (roleB) return 1;
+      
+      // Otherwise sort by callsign alphabetically
+      return a.callsign.localeCompare(b.callsign);
+    });
+  });
+
   const renderQualificationBadges = (qualifications: Pilot['qualifications']) => {
     const qualTypes = qualifications.map(q => q.type);
     const uniqueQuals = Array.from(new Set(qualTypes));
@@ -595,7 +637,7 @@ const RosterManagement: React.FC = () => {
               }}
             >
               {/* Status filter tabs - now inside the card */}
-              <div className="flex p-4">
+              <div className="flex p-4" style={{ padding: '5px' }}>
                 <div 
                   className="cursor-pointer px-3 py-2 mr-2 rounded-md"
                   style={{

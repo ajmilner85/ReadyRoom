@@ -203,7 +203,22 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
       );
     }
 
-    return filtered;
+    // Sort pilots with roles to the top, and by role.order if available
+    return filtered.sort((a, b) => {
+      // If both pilots have roles, sort by role order
+      if (a.role && b.role) {
+        // If we have access to role.order, we'd use it here, but we don't have it in this component
+        // So we'll just sort alphabetically for now
+        return a.role.localeCompare(b.role);
+      }
+      
+      // Put pilots with roles at the top
+      if (a.role) return -1;
+      if (b.role) return 1;
+      
+      // Otherwise, keep existing sort (by qualification)
+      return 0;
+    });
   }, [pilots, selectedEvent, showOnlyAttending, selectedQualifications]);
 
   // Initialize groupedPilots with all possible qualification types
