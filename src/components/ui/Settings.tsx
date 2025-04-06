@@ -1641,98 +1641,91 @@ const Settings: React.FC = () => {
           <div>
             <h2 className="text-xl font-semibold mb-4">Mission Defaults</h2>
             <p className="text-slate-600 mb-6">
-              Configure default mission settings and parameters.
+              Configure default JOKER and BINGO fuel states, encryption channels, and Comms Plan templates.
             </p>
-            
+
             <div className="space-y-6">
               <Card className="p-4">
-                <h3 className="text-lg font-medium mb-3">General Mission Settings</h3>
-                <div className="space-y-4">
+                <h3 className="text-lg font-medium mb-3">Fuel States</h3>
+                <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm text-slate-700 mb-1">Default Task Unit</label>
+                    <label className="block text-sm text-slate-700 mb-1">Default BINGO (1000 lbs)</label>
                     <input 
-                      type="text" 
+                      type="number" 
                       className="w-full p-2 border border-gray-200 rounded" 
-                      placeholder="VFA-26"
-                      defaultValue="VFA-26"
+                      defaultValue={3.0} 
+                      min={1.0}
+                      max={10.0}
+                      step={0.1}
                     />
                   </div>
                   <div>
-                    <label className="block text-sm text-slate-700 mb-1">Default Mother</label>
+                    <label className="block text-sm text-slate-700 mb-1">Default JOKER (1000 lbs)</label>
                     <input 
-                      type="text" 
+                      type="number" 
                       className="w-full p-2 border border-gray-200 rounded" 
-                      placeholder="CVN-73 George Washington 'Warfighter'"
-                      defaultValue="CVN-73 George Washington 'Warfighter'"
+                      defaultValue={5.0}
+                      min={1.0}
+                      max={15.0}
+                      step={0.1} 
                     />
                   </div>
                 </div>
               </Card>
-              
+
               <Card className="p-4">
-                <h3 className="text-lg font-medium mb-3">Radio Frequencies</h3>
+                <h3 className="text-lg font-medium mb-3">Default Encryption</h3>
                 <p className="text-sm text-slate-500 mb-4">
-                  Set default radio frequencies for mission planning.
+                  Set the default encryption channel for new missions.
                 </p>
-                <div className="space-y-3">
-                  <div className="grid grid-cols-3 gap-4">
-                    <div>
-                      <label className="block text-sm text-slate-700 mb-1">Tower</label>
-                      <input 
-                        type="text" 
-                        className="w-full p-2 border border-gray-200 rounded" 
-                        placeholder="251.000"
-                        defaultValue="251.000"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm text-slate-700 mb-1">Approach</label>
-                      <input 
-                        type="text" 
-                        className="w-full p-2 border border-gray-200 rounded" 
-                        placeholder="252.000"
-                        defaultValue="252.000"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm text-slate-700 mb-1">Departure</label>
-                      <input 
-                        type="text" 
-                        className="w-full p-2 border border-gray-200 rounded" 
-                        placeholder="253.000"
-                        defaultValue="253.000"
-                      />
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-3 gap-4">
-                    <div>
-                      <label className="block text-sm text-slate-700 mb-1">AWACS</label>
-                      <input 
-                        type="text" 
-                        className="w-full p-2 border border-gray-200 rounded" 
-                        placeholder="254.000"
-                        defaultValue="254.000"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm text-slate-700 mb-1">Strike</label>
-                      <input 
-                        type="text" 
-                        className="w-full p-2 border border-gray-200 rounded" 
-                        placeholder="270.000"
-                        defaultValue="270.000"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm text-slate-700 mb-1">Ground</label>
-                      <input 
-                        type="text" 
-                        className="w-full p-2 border border-gray-200 rounded" 
-                        placeholder="121.000"
-                        defaultValue="121.000"
-                      />
-                    </div>
-                  </div>
+                <div className="grid grid-cols-6 gap-2">
+                  {[1, 2, 3, 4, 5, 6].map((num) => (
+                    <button
+                      key={num}
+                      className={`p-3 border rounded-lg ${num === 1 ? 'bg-[#F24607] text-white' : 'bg-white text-slate-600 hover:bg-slate-100'}`}
+                    >
+                      {num}
+                    </button>
+                  ))}
+                </div>
+              </Card>
+
+              <Card className="p-4">
+                <h3 className="text-lg font-medium mb-3">Comms Plan Template</h3>
+                <button className="px-4 py-2 bg-slate-100 text-slate-700 rounded hover:bg-slate-200 mb-4">
+                  Edit Default Template
+                </button>
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="text-left bg-slate-50">
+                        <th className="p-2 text-sm font-medium text-slate-500">Chan</th>
+                        <th className="p-2 text-sm font-medium text-slate-500">Name</th>
+                        <th className="p-2 text-sm font-medium text-slate-500">Freq</th>
+                        <th className="p-2 text-sm font-medium text-slate-500">TACAN</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr className="border-b">
+                        <td className="p-2">1</td>
+                        <td className="p-2">Base</td>
+                        <td className="p-2">251.000</td>
+                        <td className="p-2">——</td>
+                      </tr>
+                      <tr className="border-b">
+                        <td className="p-2">2</td>
+                        <td className="p-2">Tower</td>
+                        <td className="p-2">340.200</td>
+                        <td className="p-2">——</td>
+                      </tr>
+                      <tr>
+                        <td className="p-2">3</td>
+                        <td className="p-2">Strike</td>
+                        <td className="p-2">377.800</td>
+                        <td className="p-2">——</td>
+                      </tr>
+                    </tbody>
+                  </table>
                 </div>
               </Card>
             </div>
@@ -1743,106 +1736,84 @@ const Settings: React.FC = () => {
           <div>
             <h2 className="text-xl font-semibold mb-4">Appearance</h2>
             <p className="text-slate-600 mb-6">
-              Customize the visual appearance of the application.
+              Configure squadron logos, colors, and default units of measure.
             </p>
-            
+
             <div className="space-y-6">
               <Card className="p-4">
-                <h3 className="text-lg font-medium mb-3">Themes</h3>
-                <p className="text-sm text-slate-500 mb-4">
-                  Select a color theme for the application.
-                </p>
-                <div className="space-y-3">
-                  <div className="flex items-center">
-                    <input type="radio" id="theme-default" name="theme" className="mr-2" defaultChecked />
-                    <label htmlFor="theme-default">Default</label>
+                <h3 className="text-lg font-medium mb-3">Squadron Logo</h3>
+                <div className="flex items-center space-x-6 mb-4">
+                  <div className="w-32 h-32 border-2 border-dashed border-slate-300 rounded-lg flex items-center justify-center">
+                    <img 
+                      src="/src/assets/Stingrays Logo 80x80.png" 
+                      alt="Squadron Logo" 
+                      className="max-w-full max-h-full"
+                    />
                   </div>
-                  <div className="flex items-center">
-                    <input type="radio" id="theme-dark" name="theme" className="mr-2" />
-                    <label htmlFor="theme-dark">Dark Mode</label>
-                  </div>
-                  <div className="flex items-center">
-                    <input type="radio" id="theme-high-contrast" name="theme" className="mr-2" />
-                    <label htmlFor="theme-high-contrast">High Contrast</label>
-                  </div>
+                  <button className="px-4 py-2 bg-slate-100 text-slate-700 rounded hover:bg-slate-200">
+                    Change Logo
+                  </button>
                 </div>
               </Card>
-              
+
               <Card className="p-4">
-                <h3 className="text-lg font-medium mb-3">Squadron Palette</h3>
+                <h3 className="text-lg font-medium mb-3">Color Scheme</h3>
                 <p className="text-sm text-slate-500 mb-4">
-                  Define the color palette for squadron elements.
+                  Customize the application's color scheme.
                 </p>
-                <div className="grid grid-cols-2 gap-4 mb-4">
+                <div className="space-y-4">
                   <div>
                     <label className="block text-sm text-slate-700 mb-1">Primary Color</label>
-                    <div className="flex items-center">
-                      <input 
-                        type="color" 
-                        id="primary-color" 
-                        className="w-12 h-8 border-0" 
-                        defaultValue="#82728C" 
-                      />
-                      <input 
-                        type="text" 
-                        className="ml-2 p-2 border border-gray-200 rounded w-32" 
-                        defaultValue="#82728C" 
-                      />
+                    <div className="flex space-x-2">
+                      <input type="color" defaultValue="#5B4E61" className="w-16 h-10" />
+                      <input type="text" defaultValue="#5B4E61" className="p-2 border border-gray-200 rounded" />
                     </div>
                   </div>
                   <div>
                     <label className="block text-sm text-slate-700 mb-1">Secondary Color</label>
-                    <div className="flex items-center">
-                      <input 
-                        type="color" 
-                        id="secondary-color" 
-                        className="w-12 h-8 border-0" 
-                        defaultValue="#506F8E" 
-                      />
-                      <input 
-                        type="text" 
-                        className="ml-2 p-2 border border-gray-200 rounded w-32" 
-                        defaultValue="#506F8E" 
-                      />
+                    <div className="flex space-x-2">
+                      <input type="color" defaultValue="#82728C" className="w-16 h-10" />
+                      <input type="text" defaultValue="#82728C" className="p-2 border border-gray-200 rounded" />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm text-slate-700 mb-1">Accent Color</label>
+                    <div className="flex space-x-2">
+                      <input type="color" defaultValue="#F24607" className="w-16 h-10" />
+                      <input type="text" defaultValue="#F24607" className="p-2 border border-gray-200 rounded" />
                     </div>
                   </div>
                 </div>
-                <div className="grid grid-cols-3 gap-4">
+              </Card>
+
+              <Card className="p-4">
+                <h3 className="text-lg font-medium mb-3">Units of Measure</h3>
+                <p className="text-sm text-slate-500 mb-4">
+                  Set your preferred units of measurement.
+                </p>
+                <div className="space-y-4">
                   <div>
-                    <label className="block text-sm text-slate-700 mb-1">Accent 1</label>
-                    <div className="flex items-center">
-                      <input 
-                        type="color" 
-                        id="accent-1" 
-                        className="w-8 h-6 border-0" 
-                        defaultValue="#E63946" 
-                      />
-                      <span className="ml-2 text-xs text-slate-500">#E63946</span>
-                    </div>
+                    <label className="block text-sm text-slate-700 mb-1">Distance</label>
+                    <select className="w-full p-2 border border-gray-200 rounded">
+                      <option>Nautical Miles</option>
+                      <option>Kilometers</option>
+                      <option>Miles</option>
+                    </select>
                   </div>
                   <div>
-                    <label className="block text-sm text-slate-700 mb-1">Accent 2</label>
-                    <div className="flex items-center">
-                      <input 
-                        type="color" 
-                        id="accent-2" 
-                        className="w-8 h-6 border-0" 
-                        defaultValue="#457B9D" 
-                      />
-                      <span className="ml-2 text-xs text-slate-500">#457B9D</span>
-                    </div>
+                    <label className="block text-sm text-slate-700 mb-1">Altitude</label>
+                    <select className="w-full p-2 border border-gray-200 rounded">
+                      <option>Feet</option>
+                      <option>Meters</option>
+                    </select>
                   </div>
                   <div>
-                    <label className="block text-sm text-slate-700 mb-1">Accent 3</label>
-                    <div className="flex items-center">
-                      <input 
-                        type="color" 
-                        id="accent-3" 
-                        className="w-8 h-6 border-0" 
-                        defaultValue="#2A9D8F" 
-                      />
-                      <span className="ml-2 text-xs text-slate-500">#2A9D8F</span>
-                    </div>
+                    <label className="block text-sm text-slate-700 mb-1">Fuel</label>
+                    <select className="w-full p-2 border border-gray-200 rounded">
+                      <option>Thousands of Pounds</option>
+                      <option>Kilograms</option>
+                      <option>Percent</option>
+                    </select>
                   </div>
                 </div>
               </Card>
@@ -1854,64 +1825,97 @@ const Settings: React.FC = () => {
           <div>
             <h2 className="text-xl font-semibold mb-4">User Accounts</h2>
             <p className="text-slate-600 mb-6">
-              Manage user accounts and access permissions.
+              Manage user accounts, access levels, and permissions.
             </p>
-            
+
             <div className="space-y-6">
               <Card className="p-4">
-                <h3 className="text-lg font-medium mb-3">Access Control</h3>
-                <p className="text-sm text-slate-500 mb-4">
-                  Define who can access administrative features.
-                </p>
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between p-2 border border-gray-200 rounded">
-                    <div>
-                      <div className="font-medium">Admin Access</div>
-                      <div className="text-xs text-slate-500 mt-1">Allow squadron commanders to access admin features</div>
-                    </div>
-                    <div className="flex items-center">
-                      <div className="px-3 py-1 bg-green-100 text-green-700 rounded text-sm mr-4">Enabled</div>
-                      <button className="text-slate-500 hover:text-slate-700">
-                        <Edit size={16} />
-                      </button>
-                    </div>
-                  </div>
-                  <div className="flex items-center justify-between p-2 border border-gray-200 rounded">
-                    <div>
-                      <div className="font-medium">Read-Only Access</div>
-                      <div className="text-xs text-slate-500 mt-1">Allow guests to view schedules without editing</div>
-                    </div>
-                    <div className="flex items-center">
-                      <div className="px-3 py-1 bg-red-100 text-red-700 rounded text-sm mr-4">Disabled</div>
-                      <button className="text-slate-500 hover:text-slate-700">
-                        <Edit size={16} />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </Card>
-              
-              <Card className="p-4">
                 <h3 className="text-lg font-medium mb-3">Authentication</h3>
-                <p className="text-sm text-slate-500 mb-4">
-                  Configure authentication methods.
-                </p>
-                <div className="space-y-4">
-                  <div className="flex items-center">
-                    <input type="checkbox" id="discord-auth" className="mr-2" defaultChecked />
-                    <label htmlFor="discord-auth">Enable Discord Authentication</label>
-                  </div>
-                  <div className="flex items-center">
-                    <input type="checkbox" id="local-auth" className="mr-2" defaultChecked />
-                    <label htmlFor="local-auth">Enable Local Authentication</label>
-                  </div>
-                  <div className="mt-4">
-                    <button className="px-4 py-2 bg-slate-200 text-slate-700 rounded hover:bg-slate-300">
-                      Configure Authentication Providers
-                    </button>
-                  </div>
+                <div className="mb-6">
+                  <LoginForm onLoginStateChange={handleLoginStateChange} />
                 </div>
               </Card>
+
+              {isLoggedIn && (
+                <>
+                  <Card className="p-4">
+                    <h3 className="text-lg font-medium mb-3">User Management</h3>
+                    <p className="text-sm text-slate-500 mb-4">
+                      Manage users and their access levels.
+                    </p>
+                    <div className="overflow-x-auto">
+                      <table className="w-full">
+                        <thead>
+                          <tr className="text-left bg-slate-50">
+                            <th className="p-2 text-sm font-medium text-slate-500">Username</th>
+                            <th className="p-2 text-sm font-medium text-slate-500">Role</th>
+                            <th className="p-2 text-sm font-medium text-slate-500">Status</th>
+                            <th className="p-2 text-sm font-medium text-slate-500">Last Login</th>
+                            <th className="p-2 text-sm font-medium text-slate-500">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr className="border-b">
+                            <td className="p-2">admin</td>
+                            <td className="p-2">Administrator</td>
+                            <td className="p-2">
+                              <span className="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs">Active</span>
+                            </td>
+                            <td className="p-2">Now</td>
+                            <td className="p-2">
+                              <button className="px-2 py-1 bg-slate-100 text-slate-700 rounded text-xs mr-1">Edit</button>
+                            </td>
+                          </tr>
+                          <tr className="border-b">
+                            <td className="p-2">user1</td>
+                            <td className="p-2">Squadron Member</td>
+                            <td className="p-2">
+                              <span className="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs">Active</span>
+                            </td>
+                            <td className="p-2">1 day ago</td>
+                            <td className="p-2">
+                              <button className="px-2 py-1 bg-slate-100 text-slate-700 rounded text-xs mr-1">Edit</button>
+                            </td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                    <button className="mt-4 px-4 py-2 bg-slate-100 text-slate-700 rounded hover:bg-slate-200">
+                      Add New User
+                    </button>
+                  </Card>
+
+                  <Card className="p-4">
+                    <h3 className="text-lg font-medium mb-3">Permission Levels</h3>
+                    <p className="text-sm text-slate-500 mb-4">
+                      Configure access levels and permissions.
+                    </p>
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between p-3 border border-gray-200 rounded">
+                        <div>
+                          <div className="font-medium">Administrator</div>
+                          <p className="text-xs text-slate-500">Full access to all features</p>
+                        </div>
+                        <button className="px-3 py-1 bg-slate-100 text-slate-700 rounded text-sm">Edit</button>
+                      </div>
+                      <div className="flex items-center justify-between p-3 border border-gray-200 rounded">
+                        <div>
+                          <div className="font-medium">Squadron Leader</div>
+                          <p className="text-xs text-slate-500">Can manage roster and events</p>
+                        </div>
+                        <button className="px-3 py-1 bg-slate-100 text-slate-700 rounded text-sm">Edit</button>
+                      </div>
+                      <div className="flex items-center justify-between p-3 border border-gray-200 rounded">
+                        <div>
+                          <div className="font-medium">Squadron Member</div>
+                          <p className="text-xs text-slate-500">Basic access to view info</p>
+                        </div>
+                        <button className="px-3 py-1 bg-slate-100 text-slate-700 rounded text-sm">Edit</button>
+                      </div>
+                    </div>
+                  </Card>
+                </>
+              )}
             </div>
           </div>
         );
