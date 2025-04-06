@@ -205,12 +205,33 @@ export async function deleteRole(id: string): Promise<{ success: boolean; error:
  * Returns the number of pilots currently assigned this role
  */
 export async function getRoleUsageCount(roleId: string): Promise<{ count: number; error: any }> {
-  const { data, error, count } = await supabase
-    .from('pilot_roles')
-    .select('id', { count: 'exact' })
-    .eq('role_id', roleId);
+  try {
+    // Check pilot_roles junction table
+    const { count: junctionCount, error: junctionError } = await supabase
+      .from('pilot_roles')
+      .select('id', { count: 'exact' })
+      .eq('role_id', roleId);
 
-  return { count: count || 0, error };
+    if (junctionError) {
+      return { count: 0, error: junctionError };
+    }
+
+    // Check primary_role_id in pilots table
+    const { count: primaryCount, error: primaryError } = await supabase
+      .from('pilots')
+      .select('id', { count: 'exact' })
+      .eq('primary_role_id', roleId);
+
+    if (primaryError) {
+      return { count: junctionCount || 0, error: primaryError };
+    }
+
+    // Return the sum of both counts
+    return { count: (junctionCount || 0) + (primaryCount || 0), error: null };
+  } catch (e) {
+    console.error('Error in getRoleUsageCount:', e);
+    return { count: 0, error: e };
+  }
 }
 
 /**
