@@ -7,6 +7,7 @@ import FlightAssignments from './mission prep/FlightAssignments';
 import Communications from './mission prep/Communications';
 import PilotDragOverlay from './mission-execution/PilotDragOverlay';
 import { getAllPilots } from '../../utils/pilotService';
+import { getPilotQualifications } from '../../utils/qualificationService';
 import { convertSupabasePilotToLegacy } from '../../types/PilotTypes';
 import type { Event } from '../../types/EventTypes';
 import type { Pilot } from '../../types/PilotTypes';
@@ -51,6 +52,7 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
   const [pilots, setPilots] = useState<Pilot[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [allPilotQualifications, setAllPilotQualifications] = useState<Record<string, any[]>>({});
   
   // Fetch pilots from Supabase when component mounts
   useEffect(() => {
@@ -71,6 +73,9 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
               legacyPilot.id = pilot.discord_original_id;
             }
             
+            // Store supabase_id consistently for qualification lookups
+            legacyPilot.supabase_id = pilot.id;
+            
             // Set status based on squadron role if not set
             if (!legacyPilot.status) {
               const role = pilot.roles?.squadron?.toLowerCase() || '';
@@ -87,6 +92,10 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
             return legacyPilot;
           });
           setPilots(convertedPilots);
+          
+          // After fetching pilots, also fetch their qualifications
+          await fetchAllPilotQualifications(convertedPilots);
+
           setLoadError(null);
         } else {
           // No pilots in database
@@ -103,6 +112,65 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
 
     fetchPilots();
   }, []);
+  
+  // Function to fetch qualifications for all pilots
+  const fetchAllPilotQualifications = async (pilotsList: Pilot[]) => {
+    if (pilotsList.length === 0) return;
+    
+    try {
+      const qualMap: Record<string, any[]> = {};
+      console.log(`Fetching qualifications for ${pilotsList.length} pilots...`);
+      
+      // Create an array to track all qualification fetch promises
+      const fetchPromises: Promise<void>[] = [];
+      
+      // Fetch qualifications for each pilot
+      for (const pilot of pilotsList) {
+        // Always prioritize the Supabase UUID if available
+        const pilotId = pilot.supabase_id || pilot.id;
+        
+        if (!pilotId) {
+          console.warn(`Skipping qualification fetch for pilot with no ID: ${pilot.callsign} (${pilot.boardNumber})`);
+          continue;
+        }
+        
+        // Create a promise for fetching this pilot's qualifications
+        const fetchPromise = async () => {
+          const { data, error } = await getPilotQualifications(pilotId);
+          
+          if (error) {
+            console.warn(`Error fetching qualifications for ${pilot.callsign} with ID ${pilotId}:`, error);
+          } else if (data) {
+            // Store in qualMap using all available pilot identifiers for easier lookup
+            qualMap[pilot.boardNumber] = data;
+            qualMap[pilot.id] = data;
+            if (pilot.supabase_id) qualMap[pilot.supabase_id] = data;
+            
+            // Only log if we actually found qualifications
+            if (data.length > 0) {
+              console.log(`Found ${data.length} qualifications for ${pilot.callsign} (${pilot.boardNumber})`);
+            }
+          } else {
+            // Initialize empty arrays to avoid undefined checks later
+            qualMap[pilot.boardNumber] = [];
+            qualMap[pilot.id] = [];
+            if (pilot.supabase_id) qualMap[pilot.supabase_id] = [];
+          }
+        };
+        
+        // Add this promise to our array
+        fetchPromises.push(fetchPromise());
+      }
+      
+      // Wait for all qualification fetches to complete
+      await Promise.all(fetchPromises);
+      
+      setAllPilotQualifications(qualMap);
+      console.log('Pilot qualifications map updated', Object.keys(qualMap).length);
+    } catch (err: any) {
+      console.error('Error fetching all pilot qualifications:', err);
+    }
+  };
   
   // Filter out inactive and retired pilots
   const activePilots = useMemo(() => {
@@ -243,406 +311,7 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
 
   // Auto-assign pilots to flights according to priority rules
   const handleAutoAssign = useCallback((flights: Flight[], availablePilots: Pilot[]) => {
-    if (!flights.length) return;
-
-    // Create a new copy of the current assignments to modify
-    const newAssignments = { ...assignedPilots };
-
-    // 1. Preserve original flight order, only sort within each callsign group
-    // Group flights by callsign, maintaining the original order they appear
-    const flightsByCallsign: Record<string, Flight[]> = {};
-    const callsignOrder: string[] = [];
-    
-    flights.forEach(flight => {
-      if (!flightsByCallsign[flight.callsign]) {
-        flightsByCallsign[flight.callsign] = [];
-        callsignOrder.push(flight.callsign);
-      }
-      flightsByCallsign[flight.callsign].push(flight);
-    });
-    
-    // Sort flights within each callsign group by flight number
-    Object.values(flightsByCallsign).forEach(callsignFlights => {
-      callsignFlights.sort((a, b) => parseInt(a.flightNumber) - parseInt(b.flightNumber));
-    });
-    
-    // Flatten back to a single array preserving callsign group order
-    const sortedFlights: Flight[] = [];
-    callsignOrder.forEach(callsign => {
-      sortedFlights.push(...flightsByCallsign[callsign]);
-    });
-
-    // 2. Get unique callsigns in the order they first appear in the original list
-    const uniqueCallsigns = callsignOrder;
-
-    // 3. Create lists of all dash-1, dash-3, dash-2, and dash-4 positions that need to be filled
-    const dashOnePositions: { flightId: string; callsign: string; flightNumber: string }[] = [];
-    const dashThreePositions: { flightId: string; callsign: string; flightNumber: string }[] = [];
-    const dashTwoPositions: { flightId: string; callsign: string; flightNumber: string }[] = [];
-    const dashFourPositions: { flightId: string; callsign: string; flightNumber: string }[] = [];
-
-    // Collect all positions that need to be filled
-    sortedFlights.forEach(flight => {
-      const flightId = `${flight.id}`;
-      const currentAssignments = newAssignments[flightId] || [];
-      
-      // Check if dash-1 position is empty
-      if (!currentAssignments.some(p => p.dashNumber === "1")) {
-        dashOnePositions.push({ 
-          flightId, 
-          callsign: flight.callsign, 
-          flightNumber: flight.flightNumber 
-        });
-      }
-      
-      // Check if dash-3 position is empty
-      if (!currentAssignments.some(p => p.dashNumber === "3")) {
-        dashThreePositions.push({ 
-          flightId, 
-          callsign: flight.callsign, 
-          flightNumber: flight.flightNumber 
-        });
-      }
-      
-      // Check if dash-2 position is empty
-      if (!currentAssignments.some(p => p.dashNumber === "2")) {
-        dashTwoPositions.push({ 
-          flightId, 
-          callsign: flight.callsign, 
-          flightNumber: flight.flightNumber 
-        });
-      }
-      
-      // Check if dash-4 position is empty
-      if (!currentAssignments.some(p => p.dashNumber === "4")) {
-        dashFourPositions.push({ 
-          flightId, 
-          callsign: flight.callsign, 
-          flightNumber: flight.flightNumber 
-        });
-      }
-    });
-
-    // 4. Filter out pilots that are already assigned
-    const getAssignedPilotBoardNumbers = () => {
-      const assignedBoardNumbers = new Set<string>();
-      Object.values(newAssignments).forEach(pilots => {
-        pilots.forEach(pilot => {
-          assignedBoardNumbers.add(pilot.boardNumber);
-        });
-      });
-      return assignedBoardNumbers;
-    };
-
-    // Get pilots that are not yet assigned
-    const getAvailablePilots = () => {
-      const assignedBoardNumbers = getAssignedPilotBoardNumbers();
-      return availablePilots.filter(pilot => !assignedBoardNumbers.has(pilot.boardNumber));
-    };
-
-    // 5. Categorize pilots by qualification and billet rank
-    const categorizePilots = (pilots: Pilot[]) => {
-      // Priority order for billets: CO, XO, OPS O, other staff positions
-      const rankOrder = ['CO', 'XO', 'OPS O', 'Train OIC', 'Admin OIC', 'Intel OIC', 'DS Admin'];
-      
-      const rankPilots = pilots
-        .filter(p => rankOrder.some(rank => p.billet?.includes(rank)))
-        .sort((a, b) => {
-          const aRank = rankOrder.findIndex(rank => a.billet?.includes(rank));
-          const bRank = rankOrder.findIndex(rank => b.billet?.includes(rank));
-          if (aRank === bRank) return 0;
-          if (aRank === -1) return 1;
-          if (bRank === -1) return -1;
-          return aRank - bRank;
-        });
-
-      const flightLeads = pilots.filter(p => 
-        p.qualifications.some(q => q.type === 'Flight Lead' || q.type === 'Strike Lead' || q.type === 'Instructor Pilot') &&
-        !rankPilots.some(rp => rp.boardNumber === p.boardNumber)
-      );
-      
-      const sectionLeads = pilots.filter(p => 
-        p.qualifications.some(q => q.type === 'Section Lead') &&
-        !flightLeads.some(fl => fl.boardNumber === p.boardNumber) &&
-        !rankPilots.some(rp => rp.boardNumber === p.boardNumber)
-      );
-      
-      const wingmen = pilots.filter(p => 
-        !rankPilots.some(rp => rp.boardNumber === p.boardNumber) &&
-        !flightLeads.some(fl => fl.boardNumber === p.boardNumber) &&
-        !sectionLeads.some(sl => sl.boardNumber === p.boardNumber)
-      );
-
-      return {
-        rankPilots,
-        flightLeads,
-        sectionLeads,
-        wingmen
-      };
-    };
-
-    // 6. Assign pilots based on the specified rules
-    const assignPilotToPosition = (
-      pilot: Pilot,
-      position: { flightId: string; callsign: string; flightNumber: string },
-      dashNumber: string
-    ) => {
-      if (!newAssignments[position.flightId]) {
-        newAssignments[position.flightId] = [];
-      }
-      
-      // Add the assigned pilot with the dash number
-      newAssignments[position.flightId].push({
-        ...pilot,
-        dashNumber
-      });
-      
-      return true; // Assignment successful
-    };
-
-    let availablePilotPool = getAvailablePilots();
-    const categorized = categorizePilots(availablePilotPool);
-
-    // Rule 1 & 2: Assign highest ranking pilots to dash-1 positions of first flight of each callsign
-    uniqueCallsigns.forEach((callsign, index) => {
-      // Find the first flight for this callsign
-      const firstFlightPos = dashOnePositions.find(pos => 
-        pos.callsign === callsign && pos.flightNumber === "1"
-      );
-      
-      if (firstFlightPos) {
-        // Assign based on rank for the first few callsigns
-        if (index < categorized.rankPilots.length) {
-          const pilot = categorized.rankPilots[index];
-          assignPilotToPosition(pilot, firstFlightPos, "1");
-        } else if (categorized.flightLeads.length > 0) {
-          // If no more ranked pilots, use flight leads
-          const pilot = categorized.flightLeads[0];
-          assignPilotToPosition(pilot, firstFlightPos, "1");
-          categorized.flightLeads.splice(0, 1); // Remove assigned pilot
-        }
-      }
-    });
-
-    // Update available pilots pool after first wave of assignments
-    availablePilotPool = getAvailablePilots();
-    const updatedCategorized = categorizePilots(availablePilotPool);
-
-    // Rule 3: Fill remaining dash-1 positions with flight lead qualified pilots
-    const remainingDashOnePositions = dashOnePositions.filter(pos => {
-      return !newAssignments[pos.flightId]?.some(p => p.dashNumber === "1");
-    });
-
-    remainingDashOnePositions.forEach(position => {
-      if (updatedCategorized.flightLeads.length > 0) {
-        const pilot = updatedCategorized.flightLeads[0];
-        assignPilotToPosition(pilot, position, "1");
-        updatedCategorized.flightLeads.splice(0, 1); // Remove assigned pilot
-      } else if (updatedCategorized.rankPilots.length > 0) {
-        // Use ranked pilots if no more flight leads
-        const pilot = updatedCategorized.rankPilots[0];
-        assignPilotToPosition(pilot, position, "1");
-        updatedCategorized.rankPilots.splice(0, 1);
-      }
-    });
-
-    // Re-update available pilots
-    availablePilotPool = getAvailablePilots();
-    const categorizedAfterDashOne = categorizePilots(availablePilotPool);
-
-    // Rule 4: Fill dash-3 positions with section lead qualified pilots
-    dashThreePositions.forEach(position => {
-      if (categorizedAfterDashOne.sectionLeads.length > 0) {
-        const pilot = categorizedAfterDashOne.sectionLeads[0];
-        assignPilotToPosition(pilot, position, "3");
-        categorizedAfterDashOne.sectionLeads.splice(0, 1); // Remove assigned pilot
-      } else if (categorizedAfterDashOne.flightLeads.length > 0) {
-        // Use flight leads if no more section leads
-        const pilot = categorizedAfterDashOne.flightLeads[0];
-        assignPilotToPosition(pilot, position, "3");
-        categorizedAfterDashOne.flightLeads.splice(0, 1);
-      }
-    });
-
-    // Re-update available pilots
-    availablePilotPool = getAvailablePilots();
-    const categorizedAfterDashThree = categorizePilots(availablePilotPool);
-
-    // Rule 5: Fill dash-2 positions with remaining pilots
-    dashTwoPositions.forEach(position => {
-      // Prioritize any remaining qualified pilots
-      let pilotToAssign = null;
-      
-      if (categorizedAfterDashThree.wingmen.length > 0) {
-        pilotToAssign = categorizedAfterDashThree.wingmen[0];
-        categorizedAfterDashThree.wingmen.splice(0, 1);
-      } else if (categorizedAfterDashThree.sectionLeads.length > 0) {
-        pilotToAssign = categorizedAfterDashThree.sectionLeads[0];
-        categorizedAfterDashThree.sectionLeads.splice(0, 1);
-      } else if (categorizedAfterDashThree.flightLeads.length > 0) {
-        pilotToAssign = categorizedAfterDashThree.flightLeads[0];
-        categorizedAfterDashThree.flightLeads.splice(0, 1);
-      } else if (categorizedAfterDashThree.rankPilots.length > 0) {
-        pilotToAssign = categorizedAfterDashThree.rankPilots[0];
-        categorizedAfterDashThree.rankPilots.splice(0, 1);
-      }
-      
-      if (pilotToAssign) {
-        assignPilotToPosition(pilotToAssign, position, "2");
-      }
-    });
-
-    // Re-update available pilots
-    availablePilotPool = getAvailablePilots();
-    const categorizedAfterDashTwo = categorizePilots(availablePilotPool);
-
-    // Rule 5 (continued): Fill dash-4 positions with remaining pilots
-    dashFourPositions.forEach(position => {
-      let pilotToAssign = null;
-      
-      if (categorizedAfterDashTwo.wingmen.length > 0) {
-        pilotToAssign = categorizedAfterDashTwo.wingmen[0];
-        categorizedAfterDashTwo.wingmen.splice(0, 1);
-      } else if (categorizedAfterDashTwo.sectionLeads.length > 0) {
-        pilotToAssign = categorizedAfterDashTwo.sectionLeads[0];
-        categorizedAfterDashTwo.sectionLeads.splice(0, 1);
-      } else if (categorizedAfterDashTwo.flightLeads.length > 0) {
-        pilotToAssign = categorizedAfterDashTwo.flightLeads[0];
-        categorizedAfterDashTwo.flightLeads.splice(0, 1);
-      } else if (categorizedAfterDashTwo.rankPilots.length > 0) {
-        pilotToAssign = categorizedAfterDashTwo.rankPilots[0];
-        categorizedAfterDashTwo.rankPilots.splice(0, 1);
-      }
-      
-      if (pilotToAssign) {
-        assignPilotToPosition(pilotToAssign, position, "4");
-      }
-    });
-
-    // Rule 6: Make sure each flight has at least 2 pilots if possible
-    const checkFlightsWithFewerThanTwoPilots = () => {
-      const flightsNeeding = [];
-      
-      for (const flight of sortedFlights) {
-        const flightId = `${flight.id}`;
-        const assignedCount = newAssignments[flightId]?.length || 0;
-        
-        if (assignedCount < 2) {
-          flightsNeeding.push({
-            flightId,
-            callsign: flight.callsign,
-            flightNumber: flight.flightNumber,
-            assignedCount
-          });
-        }
-      }
-      
-      return flightsNeeding;
-    };
-
-    const flightsNeedingPilots = checkFlightsWithFewerThanTwoPilots();
-    const lastAvailablePilots = getAvailablePilots();
-    
-    // Try to ensure every flight has at least the lead and wingman positions filled
-    flightsNeedingPilots.forEach(flight => {
-      if (lastAvailablePilots.length === 0) return;
-      
-      const flightAssignments = newAssignments[flight.flightId] || [];
-      
-      // If no pilots assigned, add one to dash-1 position
-      if (flightAssignments.length === 0) {
-        const pilot = lastAvailablePilots.shift();
-        if (pilot) {
-          assignPilotToPosition(pilot, flight, "1");
-        }
-      }
-      
-      // If we have one pilot and still have available pilots, add one to dash-2 position
-      if (flightAssignments.length === 1 && lastAvailablePilots.length > 0) {
-        const pilot = lastAvailablePilots.shift();
-        if (pilot) {
-          assignPilotToPosition(pilot, flight, "2");
-        }
-      }
-    });
-
-    // Rule 8: Assign mission commander to the most senior pilot in a dash-1 slot
-    const assignMissionCommander = () => {
-      // Priority order for billets: CO, XO, OPS O, other staff positions
-      const rankOrder = ['CO', 'XO', 'OPS O', 'Train OIC', 'Admin OIC', 'Intel OIC', 'DS Admin'];
-      
-      // Get all assigned pilots across all flights
-      const allAssignedPilots: Array<{
-        boardNumber: string;
-        callsign: string;
-        flightId: string;
-        flightCallsign: string;
-        flightNumber: string;
-        billet: string;
-        dashNumber: string;
-      }> = [];
-      
-      Object.entries(newAssignments).forEach(([flightId, pilots]) => {
-        pilots.forEach(pilot => {
-          const flightParts = flightId.split('-');
-          const flightCallsign = flightParts[0] || "";
-          const flightNumber = flightParts[1] || "";
-          
-          allAssignedPilots.push({
-            boardNumber: pilot.boardNumber,
-            callsign: pilot.callsign,
-            flightId,
-            flightCallsign,
-            flightNumber,
-            billet: pilot.billet || "",
-            dashNumber: pilot.dashNumber
-          });
-        });
-      });
-      
-      // Sort by billet rank (most senior staff first)
-      allAssignedPilots.sort((a, b) => {
-        const aRank = rankOrder.findIndex(rank => a.billet?.includes(rank));
-        const bRank = rankOrder.findIndex(rank => b.billet?.includes(rank));
-        if (aRank === bRank) return 0;
-        if (aRank === -1) return 1;
-        if (bRank === -1) return -1;
-        return aRank - bRank;
-      });
-      
-      // Find the highest ranking staff member
-      const seniorStaff = allAssignedPilots.find(pilot => 
-        rankOrder.some(rank => pilot.billet?.includes(rank))
-      );
-      
-      // If we have a senior staff member, assign them as mission commander
-      if (seniorStaff) {
-        setMissionCommander({
-          boardNumber: seniorStaff.boardNumber,
-          callsign: seniorStaff.callsign,
-          flightId: seniorStaff.flightId,
-          flightCallsign: seniorStaff.flightCallsign,
-          flightNumber: seniorStaff.flightNumber
-        });
-      } else if (allAssignedPilots.length > 0) {
-        // If no senior staff, find the first dash-1 pilot
-        const dashOnePilot = allAssignedPilots.find(p => p.dashNumber === "1");
-        if (dashOnePilot) {
-          setMissionCommander({
-            boardNumber: dashOnePilot.boardNumber,
-            callsign: dashOnePilot.callsign,
-            flightId: dashOnePilot.flightId,
-            flightCallsign: dashOnePilot.flightCallsign,
-            flightNumber: dashOnePilot.flightNumber
-          });
-        }
-      }
-    };
-    
-    // Apply the assignments and set mission commander
-    setAssignedPilots(newAssignments);
-    assignMissionCommander();
-    
+    // ...existing auto-assign function...
   }, [assignedPilots, setAssignedPilots, setMissionCommander]);
 
   return (
@@ -703,6 +372,7 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
                 assignedPilots={assignedPilots}
                 onAutoAssign={() => handleAutoAssign(prepFlights, activePilots)}
                 onClearAssignments={handleClearAssignments}
+                pilotQualifications={allPilotQualifications}
               />
               <FlightAssignments 
                 width={CARD_WIDTH} 

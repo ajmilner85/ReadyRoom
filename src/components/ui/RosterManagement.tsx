@@ -13,6 +13,14 @@ import { supabase } from '../../utils/supabaseClient';
 import { subscribeToTable } from '../../utils/supabaseClient';
 import { getAllStatuses, Status } from '../../utils/statusService';
 import { getAllRoles, Role } from '../../utils/roleService';
+import { 
+  Qualification, 
+  getAllQualifications, 
+  assignQualificationToPilot,
+  removeQualificationFromPilot,
+  getPilotQualifications,
+  getBatchPilotQualifications
+} from '../../utils/qualificationService';
 
 const RosterManagement: React.FC = () => {
   const [pilots, setPilots] = useState<Pilot[]>([]);
@@ -34,6 +42,20 @@ const RosterManagement: React.FC = () => {
   // New state to track which roles are already assigned and should be disabled
   const [disabledRoles, setDisabledRoles] = useState<Record<string, boolean>>({});
   
+  // Qualification management state
+  const [availableQualifications, setAvailableQualifications] = useState<Qualification[]>([]);
+  const [pilotQualifications, setPilotQualifications] = useState<any[]>([]);
+  const [loadingQualifications, setLoadingQualifications] = useState(false);
+  const [selectedQualification, setSelectedQualification] = useState<string>('');
+  const [qualificationAchievedDate, setQualificationAchievedDate] = useState<string>(
+    new Date().toISOString().split('T')[0] // Default to today's date
+  );
+  const [isAddingQualification, setIsAddingQualification] = useState(false);
+  const [updatingQualifications, setUpdatingQualifications] = useState(false);
+  
+  // Add a state variable to store qualifications for all pilots
+  const [allPilotQualifications, setAllPilotQualifications] = useState<Record<string, any[]>>({});
+
   const rosterListRef = useRef<HTMLDivElement>(null);
   const pilotDetailsRef = useRef<HTMLDivElement>(null);
   const rosterContentRef = useRef<HTMLDivElement>(null);
@@ -388,9 +410,194 @@ const RosterManagement: React.FC = () => {
     fetchExclusiveRoleAssignments();
   };
 
+  // Function to fetch all available qualifications
+  const fetchAvailableQualifications = async () => {
+    try {
+      const { data, error } = await getAllQualifications();
+      if (error) {
+        throw new Error(error.message);
+      }
+      if (data) {
+        setAvailableQualifications(data);
+      }
+    } catch (err: any) {
+      console.error('Error fetching qualifications:', err);
+    }
+  };
+
+  // Function to fetch a pilot's qualifications
+  const fetchPilotQualifications = async (pilotId: string) => {
+    setLoadingQualifications(true);
+    
+    try {
+      // Get the actual UUID
+      const actualPilotId = await getActualPilotId(pilotId);
+      
+      // Fetch qualifications
+      const { data, error } = await getPilotQualifications(actualPilotId);
+      
+      if (error) {
+        throw new Error(error.message);
+      }
+      
+      setPilotQualifications(data || []);
+    } catch (err: any) {
+      console.error('Error fetching pilot qualifications:', err);
+      setPilotQualifications([]);
+    } finally {
+      setLoadingQualifications(false);
+    }
+  };
+
+  // Function to fetch qualifications for all pilots
+  const fetchAllPilotQualifications = async () => {
+    if (pilots.length === 0) return;
+    
+    setLoading(true);
+    try {
+      // Get all pilot IDs
+      const pilotIds = pilots.map(pilot => pilot.id);
+      
+      // Use batch loading instead of individual fetches
+      const qualMap = await getBatchPilotQualifications(pilotIds);
+      
+      // Update the state with the batch-loaded qualifications
+      setAllPilotQualifications(qualMap);
+    } catch (err: any) {
+      console.error('Error fetching all pilot qualifications:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Function to add a qualification to a pilot
+  const handleAddQualification = async () => {
+    if (!selectedPilot || !selectedQualification) return;
+    
+    setUpdatingQualifications(true);
+    
+    try {
+      // Get the actual UUID
+      const actualPilotId = await getActualPilotId(selectedPilot.id);
+      
+      // Convert achieved date string to Date object
+      const achievedDate = qualificationAchievedDate ? new Date(qualificationAchievedDate) : null;
+      
+      // Find the qualification object to include in optimistic update
+      const qualToAdd = availableQualifications.find(q => q.id === selectedQualification);
+      
+      // Optimistic update for UI responsiveness
+      if (qualToAdd) {
+        const optimisticQual = {
+          id: `temp-${Date.now()}`,
+          pilot_id: actualPilotId,
+          qualification_id: selectedQualification,
+          qualification: qualToAdd,
+          achieved_date: achievedDate?.toISOString()
+        };
+        
+        // Update pilotQualifications state immediately
+        setPilotQualifications(prev => [...prev, optimisticQual]);
+        
+        // Also update allPilotQualifications for badge rendering
+        setAllPilotQualifications(prev => ({
+          ...prev,
+          [selectedPilot.id]: [...(prev[selectedPilot.id] || []), optimisticQual]
+        }));
+      }
+      
+      // Assign qualification
+      const { data, error } = await assignQualificationToPilot(
+        actualPilotId,
+        selectedQualification,
+        null, // No expiry date initially
+        achievedDate
+      );
+      
+      if (error) {
+        throw new Error(error.message);
+      }
+      
+      // Refresh qualifications for the selected pilot
+      const { data: updatedQuals, error: fetchError } = await getPilotQualifications(actualPilotId);
+      
+      if (fetchError) {
+        throw new Error(fetchError.message);
+      }
+      
+      if (updatedQuals) {
+        // Update local state for the selected pilot
+        setPilotQualifications(updatedQuals);
+        
+        // Also update allPilotQualifications
+        setAllPilotQualifications(prev => ({
+          ...prev,
+          [selectedPilot.id]: updatedQuals,
+          [actualPilotId]: updatedQuals // Also store under the actual UUID
+        }));
+      }
+      
+      // Reset form
+      setSelectedQualification('');
+      setIsAddingQualification(false);
+    } catch (err: any) {
+      console.error('Error adding qualification:', err);
+      alert(`Error adding qualification: ${err.message}`);
+      
+      // Revert the optimistic update on error
+      fetchPilotQualifications(selectedPilot.id);
+    } finally {
+      setUpdatingQualifications(false);
+    }
+  };
+
+  // Function to remove a qualification from a pilot
+  const handleRemoveQualification = async (qualificationId: string) => {
+    if (!selectedPilot) return;
+    
+    setUpdatingQualifications(true);
+    
+    try {
+      // Get the actual UUID
+      const actualPilotId = await getActualPilotId(selectedPilot.id);
+      
+      // Optimistic update - remove from UI immediately
+      const updatedQuals = pilotQualifications.filter(
+        pq => pq.qualification_id !== qualificationId
+      );
+      setPilotQualifications(updatedQuals);
+      
+      // Also update allPilotQualifications for badge rendering
+      setAllPilotQualifications(prev => ({
+        ...prev,
+        [selectedPilot.id]: updatedQuals,
+        [actualPilotId]: updatedQuals
+      }));
+      
+      // Remove qualification
+      const { success, error } = await removeQualificationFromPilot(actualPilotId, qualificationId);
+      
+      if (error) {
+        throw new Error(error.message);
+      }
+      
+      if (!success) {
+        throw new Error('Failed to remove qualification');
+      }
+    } catch (err: any) {
+      console.error('Error removing qualification:', err);
+      alert(`Error removing qualification: ${err.message}`);
+      
+      // Revert the optimistic update on error
+      fetchPilotQualifications(selectedPilot.id);
+    } finally {
+      setUpdatingQualifications(false);
+    }
+  };
+
   useEffect(() => {
-    // Fetch all statuses and roles
-    const fetchStatusesAndRoles = async () => {
+    // Fetch all statuses, roles and qualifications
+    const fetchStatusesRolesAndQuals = async () => {
       // Fetch statuses
       const { data: statusData, error: statusError } = await getAllStatuses();
       if (statusError) {
@@ -418,9 +625,12 @@ const RosterManagement: React.FC = () => {
       if (roleData) {
         setRoles(roleData);
       }
+
+      // Fetch qualifications
+      await fetchAvailableQualifications();
     };
 
-    fetchStatusesAndRoles();
+    fetchStatusesRolesAndQuals();
   }, []);
 
   useEffect(() => {
@@ -499,12 +709,21 @@ const RosterManagement: React.FC = () => {
     };
   }, [statusMap]); // Depend on statusMap to re-run when statuses are loaded
 
-  // When a pilot is selected, fetch their roles
+  useEffect(() => {
+    // When pilots are loaded, fetch qualifications for all pilots
+    if (pilots.length > 0) {
+      fetchAllPilotQualifications();
+    }
+  }, [pilots]);
+
+  // When a pilot is selected, fetch their roles and qualifications
   useEffect(() => {
     if (selectedPilot) {
       fetchPilotRoles(selectedPilot.id);
+      fetchPilotQualifications(selectedPilot.id);
     } else {
       setPilotRoles([]);
+      setPilotQualifications([]);
     }
   }, [selectedPilot]);
 
@@ -552,21 +771,36 @@ const RosterManagement: React.FC = () => {
     });
   });
 
-  const renderQualificationBadges = (qualifications: Pilot['qualifications']) => {
-    const qualTypes = qualifications.map(q => q.type);
-    const uniqueQuals = Array.from(new Set(qualTypes));
+  // Optimize renderQualificationBadges function with memoization
+  const renderQualificationBadges = React.useCallback((pilot: Pilot) => {
+    // Use the pilot ID to get qualifications directly from allPilotQualifications state
+    const pilotId = pilot.id;
+    const pilotQuals = allPilotQualifications[pilotId] || [];
     
-    return uniqueQuals.map((type, index) => {
-      const count = qualTypes.filter(t => t === type).length;
-      return (
-        <QualificationBadge 
-          key={`${type}-${index}`} 
-          type={type} 
-          count={count > 1 ? count : undefined} 
-        />
-      );
+    if (pilotQuals.length === 0) {
+      return null;
+    }
+    
+    // Use a Map for efficient deduplication
+    const qualMap = new Map();
+    pilotQuals.forEach((pq: any) => {
+      if (!qualMap.has(pq.qualification.id)) {
+        qualMap.set(pq.qualification.id, pq);
+      }
     });
-  };
+    
+    // Convert map back to array for rendering
+    const uniqueQuals = Array.from(qualMap.values());
+    
+    return uniqueQuals.map((pq: any) => (
+      <QualificationBadge 
+        key={`${pilotId}-${pq.qualification.id}`}
+        type={pq.qualification.name}
+        code={pq.qualification.code}
+        color={pq.qualification.color}
+      />
+    ));
+  }, [allPilotQualifications]);
 
   useEffect(() => {
     // Synchronize heights of both columns
@@ -781,7 +1015,7 @@ const RosterManagement: React.FC = () => {
                             marginLeft: 'auto',
                             height: '24px'
                           }}>
-                            {renderQualificationBadges(pilot.qualifications)}
+                            {renderQualificationBadges(pilot)}
                           </div>
                         </div>
                       ))}
@@ -945,7 +1179,7 @@ const RosterManagement: React.FC = () => {
                         </label>
                         <div style={{
                           position: 'relative',
-                          width: '33%'
+                          width: '450px'
                         }}>
                           <select
                             value={selectedPilot.status_id || ''}
@@ -997,7 +1231,7 @@ const RosterManagement: React.FC = () => {
                         </label>
                         <div style={{
                           position: 'relative',
-                          width: '33%'
+                          width: '450px'
                         }}>
                           <select
                             value={pilotRoles.length > 0 ? pilotRoles[0].id : ''}
@@ -1053,36 +1287,111 @@ const RosterManagement: React.FC = () => {
                         }}>
                           Qualifications
                         </label>
-                        {selectedPilot.qualifications.length > 0 ? (
-                          <div className="space-y-2" style={{
-                            padding: '8px 12px',
-                            border: '1px solid #CBD5E1',
-                            borderRadius: '6px',
-                            backgroundColor: '#F8FAFC',
-                            width: '100%'
-                          }}>
-                            {selectedPilot.qualifications.map(qual => (
-                              <div key={qual.id} className="flex justify-between items-center">
-                                <span className="font-medium">{qual.type}</span>
-                                <span className="text-sm text-slate-500">
-                                  {new Date(qual.dateAchieved).toLocaleDateString()}
-                                </span>
+
+                        {/* Show loading state if loading qualifications */}
+                        {loadingQualifications ? (
+                          <div className="text-center p-4 text-slate-500">
+                            Loading qualifications...
+                          </div>
+                        ) : pilotQualifications.length > 0 ? (
+                          <div className="space-y-2 p-4 border border-gray-200 rounded-md bg-slate-50" style={{ width: '450px' }}>
+                            {pilotQualifications.map((pilotQual) => (
+                              <div 
+                                key={pilotQual.id} 
+                                className="flex justify-between items-center py-2 border-b border-gray-200 last:border-0 relative group"
+                              >
+                                <div className="flex-1">
+                                  <div className="font-medium">{pilotQual.qualification.name}</div>
+                                  {pilotQual.achieved_date && (
+                                    <div className="text-xs text-slate-500">
+                                      {new Date(pilotQual.achieved_date).toLocaleDateString()}
+                                    </div>
+                                  )}
+                                </div>
+                                <button
+                                  onClick={() => handleRemoveQualification(pilotQual.qualification_id)}
+                                  className="opacity-0 group-hover:opacity-100 transition-opacity"
+                                  disabled={updatingQualifications}
+                                  title="Remove qualification"
+                                  style={{
+                                    width: '30px',
+                                    height: '30px',
+                                    padding: '4px',
+                                    borderRadius: '4px',
+                                    background: 'white',
+                                    boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                                    border: 'none',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    cursor: 'pointer',
+                                    color: '#64748B'
+                                  }}
+                                  onMouseEnter={(e) => {
+                                    e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.15)';
+                                    e.currentTarget.style.background = '#F8FAFC';
+                                  }}
+                                  onMouseLeave={(e) => {
+                                    e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
+                                    e.currentTarget.style.background = 'white';
+                                  }}
+                                >
+                                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <path d="M18 6L6 18M6 6l12 12"/>
+                                  </svg>
+                                </button>
                               </div>
                             ))}
                           </div>
                         ) : (
-                          <div style={{
-                            padding: '8px 12px',
-                            border: '1px solid #CBD5E1',
-                            borderRadius: '6px',
-                            backgroundColor: '#F8FAFC',
-                            fontSize: '14px',
-                            color: '#94A3B8',
-                            width: '100%'
-                          }}>
-                            No qualifications
+                          <div className="p-4 text-center text-sm text-slate-500 border border-dashed border-slate-300 rounded-md" style={{ width: '450px' }}>
+                            No qualifications added
                           </div>
                         )}
+
+                        {/* Add qualification section */}
+                        <div className="mt-4" style={{ width: '450px' }}>
+                          <div className="flex space-x-2 mb-2">
+                            <div className="flex-1">
+                              <select
+                                value={selectedQualification}
+                                onChange={(e) => setSelectedQualification(e.target.value)}
+                                disabled={isAddingQualification || updatingQualifications}
+                                className="w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                              >
+                                <option value="">-- Select qualification --</option>
+                                {availableQualifications
+                                  .filter(qual => !pilotQualifications.some(pq => pq.qualification_id === qual.id))
+                                  .map(qual => (
+                                    <option key={qual.id} value={qual.id}>
+                                      {qual.name}
+                                    </option>
+                                  ))
+                                }
+                              </select>
+                            </div>
+                            <input
+                              type="date"
+                              value={qualificationAchievedDate}
+                              onChange={(e) => setQualificationAchievedDate(e.target.value)}
+                              disabled={isAddingQualification || updatingQualifications || !selectedQualification}
+                              className="px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                            />
+                          </div>
+                          <div className="flex justify-center">
+                            <button
+                              onClick={handleAddQualification}
+                              disabled={!selectedQualification || isAddingQualification || updatingQualifications}
+                              className={`mt-2 px-4 py-1 text-sm font-medium rounded-md ${
+                                !selectedQualification || isAddingQualification || updatingQualifications
+                                  ? 'bg-slate-300 text-slate-500 cursor-not-allowed'
+                                  : 'bg-blue-600 text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500'
+                              }`}
+                            >
+                              {isAddingQualification ? 'Adding...' : 'Add'}
+                            </button>
+                          </div>
+                        </div>
                       </div>
                     </Card>
 

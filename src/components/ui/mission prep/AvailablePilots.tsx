@@ -13,6 +13,7 @@ interface AvailablePilotsProps {
   assignedPilots?: Record<string, Pilot[]>;
   onAutoAssign?: () => void;
   onClearAssignments?: () => void;
+  pilotQualifications?: Record<string, any[]>;
 }
 
 const QUALIFICATION_ORDER: QualificationType[] = [
@@ -28,13 +29,26 @@ const QUALIFICATION_ORDER: QualificationType[] = [
 
 const DISPLAY_ORDER = QUALIFICATION_ORDER.filter(qual => qual !== 'Wingman');
 
+const mapQualificationNameToType = (name: string): QualificationType => {
+  const lowerName = name.toLowerCase();
+  if (lowerName.includes('strike lead')) return 'Strike Lead';
+  if (lowerName.includes('instructor')) return 'Instructor Pilot';
+  if (lowerName.includes('lso')) return 'LSO';
+  if (lowerName.includes('flight lead')) return 'Flight Lead';
+  if (lowerName.includes('section lead')) return 'Section Lead';
+  if (lowerName.includes('carrier qual') || lowerName === 'cq') return 'CQ';
+  if (lowerName.includes('night') && lowerName.includes('cq')) return 'Night CQ';
+  return 'Wingman';
+};
+
 interface PilotEntryProps {
   pilot: Pilot;
   isAssigned?: boolean;
   currentFlightId?: string;
+  pilotQualifications?: any[];
 }
 
-const PilotEntry: React.FC<PilotEntryProps> = ({ pilot, isAssigned = false, currentFlightId }) => {
+const PilotEntry: React.FC<PilotEntryProps> = ({ pilot, isAssigned = false, currentFlightId, pilotQualifications }) => {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: `pilot-${pilot.boardNumber}`,
     data: {
@@ -42,40 +56,31 @@ const PilotEntry: React.FC<PilotEntryProps> = ({ pilot, isAssigned = false, curr
       pilot,
       currentFlightId
     },
-    disabled: false // Allow dragging even when assigned
+    disabled: false
   });
   
-  // Keep track of original position
   const originalStyle = useRef<CSSStyleDeclaration | null>(null);
   
-  // When dragging starts, store the original position but don't actually transform the element
   useEffect(() => {
     if (isDragging) {
       const element = document.getElementById(`pilot-${pilot.boardNumber}`);
       if (element) {
-        // Store the original style
         originalStyle.current = window.getComputedStyle(element);
-        
-        // Ensure the element stays in its original position
         element.style.transform = 'none';
         element.style.transition = 'none';
         element.style.zIndex = '1';
-        
-        // Make element semi-transparent to indicate it's being dragged
         element.style.opacity = '0.4';
       }
     } else if (originalStyle.current) {
-      // Reset the element style when dragging ends
       const element = document.getElementById(`pilot-${pilot.boardNumber}`);
       if (element) {
-        element.style.opacity = isAssigned ? '0.5' : '1'; // Use the isAssigned prop to set opacity
+        element.style.opacity = isAssigned ? '0.5' : '1';
         element.style.zIndex = '1';
       }
       originalStyle.current = null;
     }
   }, [isDragging, pilot.boardNumber, isAssigned]);
 
-  // Style for the element - note we don't apply transform from DnD Kit
   const style: React.CSSProperties = {
     display: 'flex',
     alignItems: 'center',
@@ -92,6 +97,28 @@ const PilotEntry: React.FC<PilotEntryProps> = ({ pilot, isAssigned = false, curr
     maxWidth: '100%',
     overflow: 'hidden',
     opacity: isAssigned ? 0.5 : 1,
+  };
+
+  const renderQualificationBadges = () => {
+    const dbQualifications = pilotQualifications || [];
+    
+    if (dbQualifications && dbQualifications.length > 0) {
+      return dbQualifications.map((pq, index) => {
+        if (pq.qualification) {
+          return (
+            <QualificationBadge 
+              key={`db-${pq.qualification.id}-${index}`}
+              type={pq.qualification.name}
+              code={pq.qualification.code}
+              color={pq.qualification.color}
+            />
+          );
+        }
+        return null;
+      }).filter(badge => badge !== null);
+    }
+    
+    return [];
   };
 
   return (
@@ -127,19 +154,13 @@ const PilotEntry: React.FC<PilotEntryProps> = ({ pilot, isAssigned = false, curr
         {pilot.billet}
       </span>
       
-      {/* Qualification badges */}
       <div style={{
         display: 'flex',
         gap: '4px',
         marginLeft: 'auto',
         height: '24px'
       }}>
-        {pilot.qualifications.map((qual, index) => (
-          <QualificationBadge 
-            key={`${qual.type}-${index}`} 
-            type={qual.type}
-          />
-        ))}
+        {renderQualificationBadges()}
       </div>
     </div>
   );
@@ -151,26 +172,34 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
   selectedEvent,
   assignedPilots = {},
   onAutoAssign,
-  onClearAssignments
+  onClearAssignments,
+  pilotQualifications = {}
 }) => {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [showOnlyAttending, setShowOnlyAttending] = useState(false);
   const [selectedQualifications, setSelectedQualifications] = useState<QualificationType[]>([]);
 
-  // Get all unique qualifications from all pilots
   const allQualifications = useMemo(() => {
     const qualSet = new Set<QualificationType>();
-    pilots.forEach(pilot => {
-      pilot.qualifications.forEach(qual => {
-        qualSet.add(qual.type);
-      });
+    
+    Object.values(pilotQualifications).forEach(qualArray => {
+      if (Array.isArray(qualArray)) {
+        qualArray.forEach(qual => {
+          if (qual.qualification && qual.qualification.name) {
+            const mappedType = mapQualificationNameToType(qual.qualification.name);
+            qualSet.add(mappedType);
+          }
+        });
+      }
     });
+    
+    // Don't fall back to legacy qualifications
+    
     return Array.from(qualSet).sort((a, b) => 
       QUALIFICATION_ORDER.indexOf(a) - QUALIFICATION_ORDER.indexOf(b)
     );
-  }, [pilots]);
+  }, [pilotQualifications]);
 
-  // Toggle qualification filter
   const toggleQualification = (qual: QualificationType) => {
     setSelectedQualifications(prev => 
       prev.includes(qual) 
@@ -179,11 +208,17 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
     );
   };
 
-  // Filter pilots based on attendance and qualifications
+  const hasDatabaseQualification = (pilotId: string, qualType: QualificationType) => {
+    const pilotQuals = pilotQualifications[pilotId] || [];
+    return pilotQuals.some(qual => {
+      const mappedType = mapQualificationNameToType(qual.qualification?.name || '');
+      return mappedType === qualType;
+    });
+  };
+
   const filteredPilots = useMemo(() => {
     let filtered = [...pilots];
 
-    // Filter by event attendance
     if (showOnlyAttending && selectedEvent) {
       const attendingBoardNumbers = [
         ...selectedEvent.attendance.accepted,
@@ -194,53 +229,58 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
       );
     }
 
-    // Filter by selected qualifications
     if (selectedQualifications.length > 0) {
-      filtered = filtered.filter(pilot =>
-        pilot.qualifications.some(qual => 
-          selectedQualifications.includes(qual.type)
-        )
-      );
+      filtered = filtered.filter(pilot => {
+        // Only use database qualifications for filtering
+        const pilotId = pilot.id || pilot.boardNumber;
+        return selectedQualifications.some(qualType => 
+          hasDatabaseQualification(pilotId, qualType) || 
+          hasDatabaseQualification(pilot.boardNumber, qualType)
+        );
+      });
     }
 
-    // Sort pilots with roles to the top, and by role.order if available
     return filtered.sort((a, b) => {
-      // If both pilots have roles, sort by role order
       if (a.role && b.role) {
-        // If we have access to role.order, we'd use it here, but we don't have it in this component
-        // So we'll just sort alphabetically for now
         return a.role.localeCompare(b.role);
       }
       
-      // Put pilots with roles at the top
       if (a.role) return -1;
       if (b.role) return 1;
       
-      // Otherwise, keep existing sort (by qualification)
       return 0;
     });
-  }, [pilots, selectedEvent, showOnlyAttending, selectedQualifications]);
+  }, [pilots, selectedEvent, showOnlyAttending, selectedQualifications, pilotQualifications, hasDatabaseQualification]);
 
-  // Initialize groupedPilots with all possible qualification types
-  const groupedPilots: Record<QualificationType, Pilot[]> = QUALIFICATION_ORDER.reduce((acc, qual) => {
-    acc[qual] = [];
-    return acc;
-  }, {} as Record<QualificationType, Pilot[]>);
-  
-  filteredPilots.forEach(pilot => {
-    // Find pilot's highest qualification
-    let highestQual: QualificationType = 'Wingman';  // Default to Wingman
-    for (const qual of QUALIFICATION_ORDER) {
-      if (pilot.qualifications.some(q => q.type === qual)) {
-        highestQual = qual;
-        break;
-      }
-    }
+  const groupedPilots = useMemo(() => {
+    const result: Record<QualificationType, Pilot[]> = QUALIFICATION_ORDER.reduce((acc, qual) => {
+      acc[qual] = [];
+      return acc;
+    }, {} as Record<QualificationType, Pilot[]>);
     
-    groupedPilots[highestQual].push(pilot);
-  });
+    filteredPilots.forEach(pilot => {
+      let highestQual: QualificationType = 'Wingman';
+      
+      const pilotDbQuals = pilotQualifications[pilot.id] || pilotQualifications[pilot.boardNumber] || [];
+      
+      if (pilotDbQuals.length > 0) {
+        const mappedTypes = pilotDbQuals.map(q => mapQualificationNameToType(q.qualification?.name || ''));
+        
+        for (const qual of QUALIFICATION_ORDER) {
+          if (mappedTypes.includes(qual)) {
+            highestQual = qual;
+            break;
+          }
+        }
+      }
+      // Don't fall back to legacy qualifications, just use Wingman as default
+      
+      result[highestQual].push(pilot);
+    });
+    
+    return result;
+  }, [filteredPilots, pilotQualifications]);
 
-  // Enhanced isPilotAssigned to return flight ID
   const isPilotAssignedToFlight = (pilot: Pilot): { isAssigned: boolean; flightId?: string } => {
     for (const [flightId, flightPilots] of Object.entries(assignedPilots)) {
       if (flightPilots.some(p => p.boardNumber === pilot.boardNumber)) {
@@ -250,11 +290,9 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
     return { isAssigned: false };
   };
 
-  // Add an event listener to prevent horizontal scrolling during drag
   useEffect(() => {
     const preventHorizontalScroll = (e: WheelEvent) => {
       if (document.body.classList.contains('dragging')) {
-        // Only allow vertical scrolling during drag operations
         const container = scrollContainerRef.current;
         if (container) {
           container.scrollTop += e.deltaY;
@@ -273,12 +311,9 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
     }
   }, []);
 
-  // Add a more aggressive scroll prevention approach
   useEffect(() => {
-    // Store original overflow style
     const originalOverflow = document.body.style.overflowX;
     
-    // Create a style element for our global CSS
     const styleElement = document.createElement('style');
     styleElement.textContent = `
       .pilots-container, 
@@ -303,7 +338,6 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
         position: relative;
       }
       
-      /* Additional styles to prevent horizontal scroll during drag */
       body.dragging .pilots-scroll-container {
         overflow-x: hidden !important;
         transform: translateZ(0);
@@ -317,7 +351,6 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
     `;
     document.head.appendChild(styleElement);
     
-    // Handle drag start - lock scroll
     const handleDragStart = () => {
       document.body.style.overflowX = 'hidden';
       
@@ -330,12 +363,10 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
       });
     };
     
-    // Handle drag end - restore scroll
     const handleDragEnd = () => {
       document.body.style.overflowX = originalOverflow;
     };
     
-    // Listen for drag events
     document.addEventListener('dragstart', handleDragStart);
     document.addEventListener('dragend', handleDragEnd);
     
@@ -351,16 +382,16 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
     <div className="pilots-container" style={{ 
       width,
       maxWidth: width,
-      overflow: 'visible', // Changed from 'hidden' to 'visible'
+      overflow: 'visible',
       position: 'relative',
-      padding: '10px', // Added padding for shadows
-      margin: '-10px', // Added negative margin to maintain layout
-      height: '100%' // Added to ensure full height
+      padding: '10px',
+      margin: '-10px',
+      height: '100%'
     }}>
       <Card 
         style={{
           width: '100%',
-          height: '100%', // Ensure card takes full height of container
+          height: '100%',
           backgroundColor: '#FFFFFF',
           boxShadow: '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)',
           borderRadius: '8px',
@@ -368,11 +399,10 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
           display: 'flex',
           flexDirection: 'column',
           position: 'relative',
-          overflow: 'visible', // Changed from 'hidden' to 'visible'
+          overflow: 'visible',
           boxSizing: 'border-box'
         }}
       >
-        {/* Header with new card label style */}
         <div style={{
           width: '100%',
           textAlign: 'center',
@@ -391,14 +421,12 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
           </span>
         </div>
 
-        {/* Filter section */}
         <div className="mb-4">
           <div style={{
             display: 'flex',
             alignItems: 'center',
             gap: '4px'
           }}>
-            {/* Qualification filter tags */}
             <div style={{
               display: 'flex',
               alignItems: 'center',
@@ -423,7 +451,6 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
               ))}
             </div>
 
-            {/* Attending filter button */}
             <button
               onClick={() => setShowOnlyAttending(!showOnlyAttending)}
               style={{
@@ -451,7 +478,6 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
           </div>
         </div>
 
-        {/* Pilots list with ref */}
         <div 
           ref={scrollContainerRef}
           className="pilots-scroll-container" 
@@ -476,7 +502,6 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
                 overflowX: 'hidden',
                 position: 'relative'
               }}>
-                {/* Qualification group divider */}
                 <div 
                   style={{
                     position: 'relative',
@@ -510,7 +535,6 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
                   </span>
                 </div>
 
-                {/* Pilot entries */}
                 <div style={{ 
                   width: '100%', 
                   position: 'relative', 
@@ -518,12 +542,17 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
                 }}>
                   {qualPilots.map(pilot => {
                     const assignment = isPilotAssignedToFlight(pilot);
+                    // Get qualifications for this specific pilot
+                    const pilotId = pilot.id || pilot.boardNumber;
+                    const pilotDbQuals = pilotQualifications[pilotId] || [];
+                    
                     return (
                       <PilotEntry 
-                        key={`${pilot.id}-${assignment.isAssigned ? 'assigned' : 'available'}`}
+                        key={`${pilot.boardNumber}-${assignment.isAssigned ? 'assigned' : 'available'}`}
                         pilot={pilot} 
                         isAssigned={assignment.isAssigned}
                         currentFlightId={assignment.flightId}
+                        pilotQualifications={pilotDbQuals}
                       />
                     );
                   })}
@@ -533,12 +562,10 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
           })}
         </div>
 
-        {/* Bottom action buttons with separator */}
         <div style={{
           marginTop: 'auto',
           width: '100%',
         }}>
-          {/* Horizontal separator */}
           <div style={{
             borderTop: '1px solid #E2E8F0',
             marginTop: '16px',
@@ -546,7 +573,6 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
             width: '100%'
           }}></div>
 
-          {/* Buttons container */}
           <div style={{
             display: 'flex',
             justifyContent: 'space-around',

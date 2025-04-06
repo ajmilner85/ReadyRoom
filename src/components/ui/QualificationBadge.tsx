@@ -1,12 +1,16 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import type { QualificationType } from '../../types/PilotTypes';
+import { Qualification, getAllQualifications } from '../../utils/qualificationService';
 
 interface QualificationBadgeProps {
   type: QualificationType;
   count?: number;
+  code?: string; // Optional code if we already have it
+  color?: string; // Optional color if we already have it
 }
 
-const QUALIFICATION_CONFIGS: Record<QualificationType, { abbr: string; color: string }> = {
+// Legacy qualification configs (for backward compatibility)
+const LEGACY_QUALIFICATION_CONFIGS: Record<QualificationType, { abbr: string; color: string }> = {
   'Strike Lead': { 
     abbr: 'SL', 
     color: '#732103'  // Dark Orange
@@ -41,10 +45,78 @@ const QUALIFICATION_CONFIGS: Record<QualificationType, { abbr: string; color: st
   }
 };
 
-const QualificationBadge: React.FC<QualificationBadgeProps> = ({ type, count }) => {
-  const config = QUALIFICATION_CONFIGS[type];
+// Generate a color based on a string (consistent for same inputs)
+const stringToColor = (str: string): string => {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = str.charCodeAt(i) + ((hash << 5) - hash);
+  }
   
-  if (!config) return null;
+  // Generate different colors based on the hash
+  // Using different hue values for different categories
+  const colors = [
+    '#732103', // Dark Orange (Leadership)
+    '#5B4E61', // Medium Purple
+    '#646F7E', // Slate
+    '#222A35', // Dark Blue
+    '#0D4A3E', // Dark Green
+    '#6D3111', // Dark Red
+    '#3D4451', // Dark Grey
+    '#27272A'  // Nearly Black
+  ];
+  
+  // Use the hash to pick a color
+  const index = Math.abs(hash) % colors.length;
+  return colors[index];
+};
+
+const QualificationBadge: React.FC<QualificationBadgeProps> = ({ type, count, code, color }) => {
+  const [qualifications, setQualifications] = useState<Qualification[]>([]);
+  const [loaded, setLoaded] = useState(false);
+  
+  // Fetch all qualifications once
+  useEffect(() => {
+    const fetchQualifications = async () => {
+      try {
+        const { data } = await getAllQualifications();
+        if (data) {
+          setQualifications(data);
+        }
+      } catch (error) {
+        console.error('Error fetching qualifications:', error);
+      } finally {
+        setLoaded(true);
+      }
+    };
+    
+    fetchQualifications();
+  }, []);
+  
+  // Find matching qualification in the database
+  const matchingQualification = qualifications.find(q => 
+    q.name.toLowerCase() === type.toLowerCase()
+  );
+  
+  // Use code from props or matching qualification, or fall back to legacy
+  const abbreviation = code || 
+    (matchingQualification?.code) || 
+    (LEGACY_QUALIFICATION_CONFIGS[type]?.abbr) || 
+    type.substring(0, 2).toUpperCase();
+  
+  // Use color from provided color prop, or from database qualification's color/category
+  let backgroundColor = '#646F7E'; // Default slate color
+  
+  if (color) {
+    backgroundColor = color;
+  } else if (matchingQualification?.color) {
+    backgroundColor = matchingQualification.color;
+  } else if (matchingQualification?.category) {
+    backgroundColor = stringToColor(matchingQualification.category);
+  } else if (LEGACY_QUALIFICATION_CONFIGS[type]) {
+    backgroundColor = LEGACY_QUALIFICATION_CONFIGS[type].color;
+  } else {
+    backgroundColor = stringToColor(type);
+  }
 
   return (
     <div 
@@ -59,7 +131,7 @@ const QualificationBadge: React.FC<QualificationBadgeProps> = ({ type, count }) 
     >
       <div
         style={{
-          backgroundColor: config.color,
+          backgroundColor: backgroundColor,
           borderRadius: '8px',
           width: '100%',
           height: '100%',
@@ -72,7 +144,7 @@ const QualificationBadge: React.FC<QualificationBadgeProps> = ({ type, count }) 
           lineHeight: '15px',
         }}
       >
-        <span>{config.abbr}</span>
+        <span>{abbreviation}</span>
       </div>
       {count !== undefined && count > 1 && (
         <div
