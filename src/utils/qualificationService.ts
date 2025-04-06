@@ -98,20 +98,22 @@ export async function updateQualification(id: string, updates: Partial<Omit<Qual
       updated_at: new Date().toISOString()
     };
 
-    // Ensure color property is included if provided
-    if (updates.color) {
-      updatesWithTimestamp.color = updates.color;
-    }
+    // Log the update operation for debugging
+    console.log('Updating qualification:', id, updatesWithTimestamp);
 
     const { data, error } = await supabase
       .from('qualifications')
       .update(updatesWithTimestamp)
       .eq('id', id)
-      .select()
-      .single();
+      .select('*');
     
-    return { data, error };
+    if (error) {
+      console.error('Qualification update error:', error);
+    }
+
+    return { data: data ? data[0] : null, error };
   } catch (e) {
+    console.error('Exception in updateQualification:', e);
     return { data: null, error: e };
   }
 }
