@@ -1,7 +1,7 @@
 import React, { useRef } from 'react';
 import { Pilot } from '../../../types/PilotTypes';
 import { Status } from '../../../utils/statusService';
-import { pilotListStyles } from '../../../styles/RosterManagementStyles';
+import { pilotListStyles, rosterStyles } from '../../../styles/RosterManagementStyles';
 import StatusFilter from './StatusFilter';
 import PilotListItem from './PilotListItem';
 
@@ -13,9 +13,11 @@ interface PilotListProps {
   hoveredPilot: string | null;
   activeStatusFilter: boolean | null;
   allPilotQualifications: Record<string, any[]>;
-  setSelectedPilot: (pilot: Pilot) => void;
+  setSelectedPilot?: (pilot: Pilot) => void;
   setHoveredPilot: (id: string | null) => void;
   setActiveStatusFilter: (status: boolean | null) => void;
+  onAddPilot: () => void;
+  isAddingNewPilot?: boolean;
 }
 
 const PilotList: React.FC<PilotListProps> = ({
@@ -28,7 +30,9 @@ const PilotList: React.FC<PilotListProps> = ({
   allPilotQualifications,
   setSelectedPilot,
   setHoveredPilot,
-  setActiveStatusFilter
+  setActiveStatusFilter,
+  onAddPilot,
+  isAddingNewPilot = false
 }) => {
   const rosterContentRef = useRef<HTMLDivElement>(null);
   const rosterListRef = useRef<HTMLDivElement>(null);
@@ -99,10 +103,11 @@ const PilotList: React.FC<PilotListProps> = ({
                   pilot={pilot}
                   isSelected={selectedPilot?.id === pilot.id}
                   isHovered={hoveredPilot === pilot.id}
-                  onSelect={() => setSelectedPilot(pilot)}
+                  onSelect={() => setSelectedPilot && setSelectedPilot(pilot)}
                   onMouseEnter={() => setHoveredPilot(pilot.id)}
                   onMouseLeave={() => setHoveredPilot(null)}
                   pilotQualifications={allPilotQualifications[pilot.id] || []}
+                  isDisabled={isAddingNewPilot}
                 />
               ))}
 
@@ -120,6 +125,36 @@ const PilotList: React.FC<PilotListProps> = ({
             No pilots found.
           </div>
         )}
+      </div>
+
+      {/* Add Pilot button at the bottom of the pilot list */}
+      <div style={{
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginTop: 'auto',
+        padding: '24px 0 16px 0',
+        borderTop: '1px solid #E2E8F0'
+      }}>
+        <button
+          onClick={onAddPilot}
+          disabled={isAddingNewPilot}
+          style={{
+            ...rosterStyles.addPilotButton,
+            opacity: isAddingNewPilot ? 0.5 : 1,
+            cursor: isAddingNewPilot ? 'not-allowed' : 'pointer'
+          }}
+          onMouseEnter={e => {
+            if (!isAddingNewPilot) {
+              e.currentTarget.style.boxShadow = '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)';
+            }
+          }}
+          onMouseLeave={e => {
+            e.currentTarget.style.boxShadow = 'none';
+          }}
+        >
+          +
+        </button>
       </div>
     </div>
   );

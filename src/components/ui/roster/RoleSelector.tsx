@@ -24,12 +24,12 @@ const RoleSelector: React.FC<RoleSelectorProps> = ({
       <label style={pilotDetailsStyles.fieldLabel}>
         Role
       </label>
-      <div style={pilotDetailsStyles.selectorContainer}>
+      <div style={{...pilotDetailsStyles.selectorContainer, width: '450px'}}>
         <select
           value={pilotRoles.length > 0 ? pilotRoles[0].id : ''}
           onChange={(e) => handleRoleChange(e.target.value)}
           disabled={updatingRoles || loadingRoles}
-          style={pilotDetailsStyles.selector}
+          style={{...pilotDetailsStyles.selector, width: '450px'}}
         >
           <option value="">No Role</option>
           {roles

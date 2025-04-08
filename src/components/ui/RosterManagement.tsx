@@ -3,7 +3,8 @@ import { Pilot, convertSupabasePilotToLegacy } from '../../types/PilotTypes';
 import { 
   getAllPilots, 
   getPilotByDiscordOriginalId, 
-  updatePilotStatus
+  updatePilotStatus,
+  createPilot
 } from '../../utils/pilotService';
 import { supabase } from '../../utils/supabaseClient';
 import { subscribeToTable } from '../../utils/supabaseClient';
@@ -20,6 +21,7 @@ import {
 import { rosterStyles } from '../../styles/RosterManagementStyles';
 import PilotList from './roster/PilotList';
 import PilotDetails from './roster/PilotDetails';
+import { v4 as uuidv4 } from 'uuid';
 
 const RosterManagement: React.FC = () => {
   // State for pilots and filtering
@@ -32,6 +34,17 @@ const RosterManagement: React.FC = () => {
   const [hoveredPilot, setHoveredPilot] = useState<string | null>(null);
   const [activeStatusFilter, setActiveStatusFilter] = useState<boolean | null>(null); // null means show all
   const [updatingStatus, setUpdatingStatus] = useState(false);
+  const [isAddingNewPilot, setIsAddingNewPilot] = useState(false);
+  const [newPilot, setNewPilot] = useState<Partial<Pilot>>({
+    id: '',
+    callsign: '',
+    boardNumber: '',
+    discordUsername: '',
+    status_id: '',
+    qualifications: []
+  });
+  const [isSavingNewPilot, setIsSavingNewPilot] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   
   // Role management state
   const [roles, setRoles] = useState<Role[]>([]);
@@ -57,6 +70,125 @@ const RosterManagement: React.FC = () => {
   const rosterListRef = useRef<HTMLDivElement>(null);
   const pilotDetailsRef = useRef<HTMLDivElement>(null);
   const rosterContentRef = useRef<HTMLDivElement>(null);
+
+  // Function to handle adding a new pilot
+  const handleAddPilot = () => {
+    // Create a temporary blank pilot
+    const tempId = uuidv4();
+    const blankPilot: Pilot = {
+      id: tempId,
+      callsign: '',
+      boardNumber: '',
+      status: 'Provisional',
+      status_id: statuses.find(s => s.name === 'Provisional')?.id || '',
+      qualifications: [],
+      discordUsername: ''
+    };
+    
+    setIsAddingNewPilot(true);
+    setNewPilot(blankPilot);
+    setSelectedPilot(blankPilot);
+  };
+
+  // Update new pilot field
+  const handleNewPilotChange = (field: string, value: string) => {
+    setNewPilot(prev => ({
+      ...prev,
+      [field]: value
+    }));
+    
+    // Also update the selected pilot for real-time preview
+    setSelectedPilot(prev => prev ? { ...prev, [field]: value } : null);
+  };
+
+  // Save new pilot
+  const handleSaveNewPilot = async () => {
+    if (!newPilot.callsign || !newPilot.boardNumber || !newPilot.status_id) {
+      setSaveError('Board Number, Callsign, and Status are required.');
+      return;
+    }
+    
+    setIsSavingNewPilot(true);
+    setSaveError(null);
+    
+    try {
+      // Format the pilot data for the API - using the correct field structure
+      const pilotData = {
+        boardNumber: parseInt(newPilot.boardNumber),
+        callsign: newPilot.callsign,
+        discordId: newPilot.discordUsername || null,
+        status_id: newPilot.status_id,
+        // Don't include roles directly - it was causing the schema error
+      };
+      
+      // Create the pilot in the database
+      const { data, error } = await createPilot(pilotData);
+      
+      if (error) {
+        throw new Error(error.message || 'Failed to create pilot');
+      }
+      
+      // Create a new converted pilot object to immediately add to the UI
+      if (data) {
+        const newConvertedPilot = convertSupabasePilotToLegacy(data as any);
+        
+        // Add status name from the status_id
+        if (newConvertedPilot.status_id && statusMap[newConvertedPilot.status_id]) {
+          newConvertedPilot.status = statusMap[newConvertedPilot.status_id].name as any;
+        }
+        
+        // Immediately update the pilots list in state with the new pilot
+        setPilots(prevPilots => [...prevPilots, newConvertedPilot]);
+        
+        // Reset states
+        setIsAddingNewPilot(false);
+        setNewPilot({
+          id: '',
+          callsign: '',
+          boardNumber: '',
+          discordUsername: '',
+          status_id: '',
+          qualifications: []
+        });
+        
+        // Select the newly created pilot
+        setSelectedPilot(newConvertedPilot);
+      } else {
+        // If no data returned, just refresh the full list
+        await fetchPilots();
+        setIsAddingNewPilot(false);
+        setNewPilot({
+          id: '',
+          callsign: '',
+          boardNumber: '',
+          discordUsername: '',
+          status_id: '',
+          qualifications: []
+        });
+        setSelectedPilot(null);
+      }
+    } catch (err: any) {
+      setSaveError(err.message || 'An error occurred while saving the pilot');
+      console.error('Error saving new pilot:', err);
+    } finally {
+      setIsSavingNewPilot(false);
+    }
+  };
+
+  // Cancel adding new pilot
+  const handleCancelAddPilot = () => {
+    setIsAddingNewPilot(false);
+    setNewPilot({
+      id: '',
+      callsign: '',
+      boardNumber: '',
+      discordUsername: '',
+      status_id: '',
+      qualifications: []
+    });
+    setSelectedPilot(null);
+    setSaveError(null);
+  };
 
   // Function to handle pilot status change
   const handleStatusChange = async (statusId: string) => {
@@ -704,35 +836,69 @@ const RosterManagement: React.FC = () => {
               hoveredPilot={hoveredPilot}
               activeStatusFilter={activeStatusFilter}
               allPilotQualifications={allPilotQualifications}
-              setSelectedPilot={setSelectedPilot}
+              setSelectedPilot={isAddingNewPilot ? undefined : setSelectedPilot}
               setHoveredPilot={setHoveredPilot}
               setActiveStatusFilter={setActiveStatusFilter}
+              onAddPilot={handleAddPilot}
+              isAddingNewPilot={isAddingNewPilot}
             />
 
             {/* Right column - Pilot Details */}
-            <PilotDetails
-              selectedPilot={selectedPilot}
-              statuses={statuses}
-              roles={roles}
-              pilotRoles={pilotRoles}
-              availableQualifications={availableQualifications}
-              pilotQualifications={pilotQualifications}
-              loadingRoles={loadingRoles}
-              updatingRoles={updatingRoles}
-              updatingStatus={updatingStatus}
-              loadingQualifications={loadingQualifications}
-              disabledRoles={disabledRoles}
-              selectedQualification={selectedQualification}
-              qualificationAchievedDate={qualificationAchievedDate}
-              isAddingQualification={isAddingQualification}
-              updatingQualifications={updatingQualifications}
-              setSelectedQualification={setSelectedQualification}
-              setQualificationAchievedDate={setQualificationAchievedDate}
-              handleStatusChange={handleStatusChange}
-              handleRoleChange={handleRoleChange}
-              handleAddQualification={handleAddQualification}
-              handleRemoveQualification={handleRemoveQualification}
-            />
+            {isAddingNewPilot ? (
+              <PilotDetails
+                selectedPilot={selectedPilot}
+                statuses={statuses}
+                roles={roles}
+                pilotRoles={pilotRoles}
+                availableQualifications={availableQualifications}
+                pilotQualifications={pilotQualifications}
+                loadingRoles={loadingRoles}
+                updatingRoles={updatingRoles}
+                updatingStatus={updatingStatus}
+                loadingQualifications={loadingQualifications}
+                disabledRoles={disabledRoles}
+                selectedQualification={selectedQualification}
+                qualificationAchievedDate={qualificationAchievedDate}
+                isAddingQualification={isAddingQualification}
+                updatingQualifications={updatingQualifications}
+                setSelectedQualification={setSelectedQualification}
+                setQualificationAchievedDate={setQualificationAchievedDate}
+                handleStatusChange={(statusId) => handleNewPilotChange('status_id', statusId)}
+                handleRoleChange={handleRoleChange}
+                handleAddQualification={handleAddQualification}
+                handleRemoveQualification={handleRemoveQualification}
+                isNewPilot={true}
+                onPilotFieldChange={handleNewPilotChange}
+                onSaveNewPilot={handleSaveNewPilot}
+                onCancelAddPilot={handleCancelAddPilot}
+                isSavingNewPilot={isSavingNewPilot}
+                saveError={saveError}
+              />
+            ) : (
+              <PilotDetails
+                selectedPilot={selectedPilot}
+                statuses={statuses}
+                roles={roles}
+                pilotRoles={pilotRoles}
+                availableQualifications={availableQualifications}
+                pilotQualifications={pilotQualifications}
+                loadingRoles={loadingRoles}
+                updatingRoles={updatingRoles}
+                updatingStatus={updatingStatus}
+                loadingQualifications={loadingQualifications}
+                disabledRoles={disabledRoles}
+                selectedQualification={selectedQualification}
+                qualificationAchievedDate={qualificationAchievedDate}
+                isAddingQualification={isAddingQualification}
+                updatingQualifications={updatingQualifications}
+                setSelectedQualification={setSelectedQualification}
+                setQualificationAchievedDate={setQualificationAchievedDate}
+                handleStatusChange={handleStatusChange}
+                handleRoleChange={handleRoleChange}
+                handleAddQualification={handleAddQualification}
+                handleRemoveQualification={handleRemoveQualification}
+              />
+            )}
           </div>
         </div>
       )}

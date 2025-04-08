@@ -80,7 +80,7 @@ export function convertSupabasePilotToLegacy(pilot: SupabasePilot): Pilot {
     status: 'Provisional', // Default, should be updated with actual value
     status_id: pilot.status_id, // Include status_id if available
     billet: pilot.roles?.squadron || '',
-    qualifications: pilot.qualifications.map((q, index) => ({
+    qualifications: (pilot.qualifications || []).map((q, index) => ({
       id: `${pilot.id}-${index}`,
       type: q as QualificationType,
       dateAchieved: new Date().toISOString().split('T')[0]

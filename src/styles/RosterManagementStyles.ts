@@ -37,6 +37,27 @@ export const rosterStyles = {
     color: 'red',
     textAlign: 'center' as const,
     padding: '20px'
+  },
+  addPilotButton: {
+    width: '119px',
+    height: '30px',
+    background: '#FFFFFF',
+    borderRadius: '8px',
+    border: 'none',
+    cursor: 'pointer',
+    transition: 'box-shadow 0.2s ease-in-out',
+    fontFamily: 'Inter',
+    fontStyle: 'normal',
+    fontWeight: 400,
+    fontSize: '20px',
+    lineHeight: '24px',
+    color: '#64748B',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: '10px',
+    marginLeft: 'auto',
+    marginRight: 'auto'
   }
 };
 
@@ -50,7 +71,7 @@ export const pilotListStyles = {
     flexDirection: 'column' as const,
     position: 'relative' as const,
     overflow: 'hidden',
-    maxHeight: 'calc(100vh - 60px)'
+    maxHeight: 'calc(100vh - 40px)'
   },
   content: {
     flex: 1,
