@@ -4,7 +4,8 @@ import {
   getAllPilots, 
   getPilotByDiscordOriginalId, 
   updatePilotStatus,
-  createPilot
+  createPilot,
+  deletePilot // Added import for deletePilot
 } from '../../utils/pilotService';
 import { supabase } from '../../utils/supabaseClient';
 import { subscribeToTable } from '../../utils/supabaseClient';
@@ -666,6 +667,42 @@ const RosterManagement: React.FC = () => {
     }
   };
 
+  // Function to handle pilot deletion
+  const handleDeletePilot = async (pilotId: string) => {
+    try {
+      // Get the actual UUID if this is a Discord ID
+      const actualPilotId = await getActualPilotId(pilotId);
+      
+      // Delete the pilot from the database
+      const { success, error } = await deletePilot(actualPilotId);
+      
+      if (error) {
+        throw new Error(error.message || 'Failed to delete pilot');
+      }
+      
+      if (success) {
+        // Update the pilots list by removing the deleted pilot
+        setPilots(prevPilots => prevPilots.filter(p => p.id !== pilotId));
+        
+        // Clear the selected pilot if it was the one deleted
+        if (selectedPilot && selectedPilot.id === pilotId) {
+          setSelectedPilot(null);
+        }
+
+        // Remove from qualifications cache
+        setAllPilotQualifications(prev => {
+          const updated = { ...prev };
+          delete updated[pilotId];
+          delete updated[actualPilotId];
+          return updated;
+        });
+      }
+    } catch (err: any) {
+      console.error('Error deleting pilot:', err);
+      alert(`Error deleting pilot: ${err.message}`);
+    }
+  };
+
   useEffect(() => {
     // Fetch all statuses, roles and qualifications
     const fetchStatusesRolesAndQuals = async () => {
@@ -867,6 +904,7 @@ const RosterManagement: React.FC = () => {
                 handleRoleChange={handleRoleChange}
                 handleAddQualification={handleAddQualification}
                 handleRemoveQualification={handleRemoveQualification}
+                handleDeletePilot={handleDeletePilot}
                 isNewPilot={true}
                 onPilotFieldChange={handleNewPilotChange}
                 onSaveNewPilot={handleSaveNewPilot}
@@ -897,6 +935,7 @@ const RosterManagement: React.FC = () => {
                 handleRoleChange={handleRoleChange}
                 handleAddQualification={handleAddQualification}
                 handleRemoveQualification={handleRemoveQualification}
+                handleDeletePilot={handleDeletePilot}
               />
             )}
           </div>
