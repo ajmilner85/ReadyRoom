@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import { Card } from '../card';
 import { pilotDetailsStyles } from '../../../styles/RosterManagementStyles';
 import { Pilot } from '../../../types/PilotTypes';
@@ -9,7 +9,7 @@ import BasicPilotInfo from './BasicPilotInfo';
 import StatusSelector from './StatusSelector';
 import RoleSelector from './RoleSelector';
 import QualificationsManager from './QualificationsManager';
-import { Save, X } from 'lucide-react'; // Import the icons
+import { Save, X, Trash2 } from 'lucide-react'; // Added Trash2 icon
 
 interface PilotDetailsProps {
   selectedPilot: Pilot | null;
@@ -33,6 +33,7 @@ interface PilotDetailsProps {
   handleRoleChange: (roleId: string) => void;
   handleAddQualification: () => void;
   handleRemoveQualification: (id: string) => void;
+  handleDeletePilot?: (pilotId: string) => void;  // New prop for deleting a pilot
   // New props for adding a new pilot
   isNewPilot?: boolean;
   onPilotFieldChange?: (field: string, value: string) => void;
@@ -64,6 +65,7 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
   handleRoleChange,
   handleAddQualification,
   handleRemoveQualification,
+  handleDeletePilot,
   // New props for adding a new pilot
   isNewPilot = false,
   onPilotFieldChange,
@@ -73,6 +75,20 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
   saveError = null
 }) => {
   const pilotDetailsRef = useRef<HTMLDivElement>(null);
+  const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
+
+  // Define consistent input field styles with explicit height
+  const inputFieldStyle = {
+    ...pilotDetailsStyles.fieldValue,
+    width: '450px',
+    minHeight: '35px', // Ensure consistent height
+    boxSizing: 'border-box' as const,
+  };
+  
+  // Define section spacing style
+  const sectionSpacingStyle = {
+    marginBottom: '24px' // Consistent spacing between sections
+  };
 
   if (!selectedPilot) {
     return (
@@ -108,17 +124,7 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
   const renderEditableBasicInfo = () => {
     return (
       <>
-        <div style={pilotDetailsStyles.header}>
-          <h1 style={pilotDetailsStyles.headerTitle}>
-            <span style={pilotDetailsStyles.boardNumber}>{selectedPilot.boardNumber || "New"}</span>
-            {selectedPilot.callsign || "New Pilot"}
-            <span style={pilotDetailsStyles.roleText}>
-              {selectedPilot.role || ''}
-            </span>
-          </h1>
-        </div>
-
-        <div style={pilotDetailsStyles.fieldContainer}>
+        <div style={{...pilotDetailsStyles.fieldContainer, ...sectionSpacingStyle}}>
           <label style={pilotDetailsStyles.fieldLabel}>
             Board Number *
           </label>
@@ -126,12 +132,12 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
             type="text"
             value={selectedPilot.boardNumber || ''}
             onChange={(e) => onPilotFieldChange && onPilotFieldChange('boardNumber', e.target.value.replace(/[^0-9]/g, ''))}
-            style={{...pilotDetailsStyles.fieldValue, width: '450px'}}
+            style={inputFieldStyle}
             placeholder="Enter board number"
           />
         </div>
         
-        <div style={pilotDetailsStyles.fieldContainer}>
+        <div style={{...pilotDetailsStyles.fieldContainer, ...sectionSpacingStyle}}>
           <label style={pilotDetailsStyles.fieldLabel}>
             Callsign *
           </label>
@@ -139,12 +145,12 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
             type="text"
             value={selectedPilot.callsign || ''}
             onChange={(e) => onPilotFieldChange && onPilotFieldChange('callsign', e.target.value)}
-            style={{...pilotDetailsStyles.fieldValue, width: '450px'}}
+            style={inputFieldStyle}
             placeholder="Enter callsign"
           />
         </div>
 
-        <div style={pilotDetailsStyles.fieldContainer}>
+        <div style={{...pilotDetailsStyles.fieldContainer, ...sectionSpacingStyle}}>
           <label style={pilotDetailsStyles.fieldLabel}>
             Discord Username
           </label>
@@ -152,28 +158,32 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
             type="text"
             value={selectedPilot.discordUsername || ''}
             onChange={(e) => onPilotFieldChange && onPilotFieldChange('discordUsername', e.target.value)}
-            style={{...pilotDetailsStyles.fieldValue, width: '450px'}}
+            style={inputFieldStyle}
             placeholder="Enter Discord username (optional)"
           />
         </div>
 
-        {/* Status selector moved into basic info */}
-        <StatusSelector
-          statuses={statuses}
-          selectedStatusId={selectedPilot.status_id || ''}
-          updatingStatus={updatingStatus}
-          handleStatusChange={handleStatusChange}
-        />
+        {/* Status selector moved into basic info with increased top margin */}
+        <div style={{...sectionSpacingStyle, marginTop: '12px'}}>
+          <StatusSelector
+            statuses={statuses}
+            selectedStatusId={selectedPilot.status_id || ''}
+            updatingStatus={updatingStatus}
+            handleStatusChange={handleStatusChange}
+          />
+        </div>
         
-        {/* Role selector moved into basic info */}
-        <RoleSelector
-          roles={roles}
-          pilotRoles={pilotRoles}
-          updatingRoles={updatingRoles}
-          loadingRoles={loadingRoles}
-          disabledRoles={disabledRoles}
-          handleRoleChange={handleRoleChange}
-        />
+        {/* Role selector moved into basic info with increased top margin */}
+        <div style={{...sectionSpacingStyle, marginTop: '12px'}}>
+          <RoleSelector
+            roles={roles}
+            pilotRoles={pilotRoles}
+            updatingRoles={updatingRoles}
+            loadingRoles={loadingRoles}
+            disabledRoles={disabledRoles}
+            handleRoleChange={handleRoleChange}
+          />
+        </div>
 
         {/* Required fields notice moved here */}
         <div style={{ marginTop: '16px', color: '#64748B', fontSize: '14px' }}>
@@ -252,30 +262,48 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
           </div>
         )}
         
+        {/* Header with pilot details moved outside the card for existing pilots */}
+        {!isNewPilot && (
+          <div style={pilotDetailsStyles.header}>
+            <h1 style={pilotDetailsStyles.headerTitle}>
+              <span style={pilotDetailsStyles.boardNumber}>{selectedPilot.boardNumber}</span>
+              {selectedPilot.callsign}
+              <span style={pilotDetailsStyles.roleText}>
+                {selectedPilot.role || ''}
+              </span>
+            </h1>
+          </div>
+        )}
+
         {/* Section 1: Basic Information (now includes Status and Role) */}
         <Card className="p-4">
           <h2 className="text-lg font-semibold mb-4" style={pilotDetailsStyles.sectionTitle}>Basic Information</h2>
           {isNewPilot ? renderEditableBasicInfo() : (
             <>
+              {/* BasicPilotInfo no longer has the header */}
               <BasicPilotInfo pilot={selectedPilot} />
               
-              {/* Status */}
-              <StatusSelector
-                statuses={statuses}
-                selectedStatusId={selectedPilot.status_id || ''}
-                updatingStatus={updatingStatus}
-                handleStatusChange={handleStatusChange}
-              />
+              {/* Status with increased spacing */}
+              <div style={{...sectionSpacingStyle, marginTop: '20px'}}>
+                <StatusSelector
+                  statuses={statuses}
+                  selectedStatusId={selectedPilot.status_id || ''}
+                  updatingStatus={updatingStatus}
+                  handleStatusChange={handleStatusChange}
+                />
+              </div>
               
-              {/* Role */}
-              <RoleSelector
-                roles={roles}
-                pilotRoles={pilotRoles}
-                updatingRoles={updatingRoles}
-                loadingRoles={loadingRoles}
-                disabledRoles={disabledRoles}
-                handleRoleChange={handleRoleChange}
-              />
+              {/* Role with increased spacing */}
+              <div style={{...sectionSpacingStyle, marginTop: '20px'}}>
+                <RoleSelector
+                  roles={roles}
+                  pilotRoles={pilotRoles}
+                  updatingRoles={updatingRoles}
+                  loadingRoles={loadingRoles}
+                  disabledRoles={disabledRoles}
+                  handleRoleChange={handleRoleChange}
+                />
+              </div>
             </>
           )}
         </Card>
@@ -321,6 +349,99 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
             </Card>
           )}
         </div>
+
+        {/* Delete Pilot Button and Confirmation Dialog */}
+        {!isNewPilot && handleDeletePilot && (
+          <div style={{ marginTop: '24px', display: 'flex', justifyContent: 'flex-end' }}>
+            <button
+              onClick={() => setShowDeleteConfirmation(true)}
+              style={{
+                ...exportButtonStyle,
+                backgroundColor: '#FEE2E2',
+                color: '#B91C1C',
+                border: '1px solid #FCA5A5',
+              }}
+              onMouseEnter={e => {
+                e.currentTarget.style.backgroundColor = '#FECACA';
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.backgroundColor = '#FEE2E2';
+              }}
+            >
+              <Trash2 size={16} style={{ marginRight: '4px' }} />
+              Delete Pilot
+            </button>
+          </div>
+        )}
+
+        {showDeleteConfirmation && (
+          <div style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            width: '100%',
+            height: '100%',
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            zIndex: 1000
+          }}>
+            <div style={{
+              backgroundColor: '#FFFFFF',
+              padding: '24px',
+              borderRadius: '8px',
+              width: '400px',
+              textAlign: 'center'
+            }}>
+              <h2 style={{ fontSize: '18px', fontWeight: 600, marginBottom: '16px' }}>Confirm Deletion</h2>
+              <p style={{ marginBottom: '24px', color: '#64748B' }}>
+                Are you sure you want to delete this pilot? This action cannot be undone.
+              </p>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <button
+                  onClick={() => setShowDeleteConfirmation(false)}
+                  style={{
+                    ...exportButtonStyle,
+                    backgroundColor: '#E5E7EB',
+                    color: '#374151',
+                    border: '1px solid #D1D5DB',
+                    width: '45%'
+                  }}
+                  onMouseEnter={e => {
+                    e.currentTarget.style.backgroundColor = '#D1D5DB';
+                  }}
+                  onMouseLeave={e => {
+                    e.currentTarget.style.backgroundColor = '#E5E7EB';
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    handleDeletePilot(selectedPilot.id);
+                    setShowDeleteConfirmation(false);
+                  }}
+                  style={{
+                    ...exportButtonStyle,
+                    backgroundColor: '#FEE2E2',
+                    color: '#B91C1C',
+                    border: '1px solid #FCA5A5',
+                    width: '45%'
+                  }}
+                  onMouseEnter={e => {
+                    e.currentTarget.style.backgroundColor = '#FECACA';
+                  }}
+                  onMouseLeave={e => {
+                    e.currentTarget.style.backgroundColor = '#FEE2E2';
+                  }}
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
