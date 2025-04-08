@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { Card } from '../card';
 import { pilotDetailsStyles } from '../../../styles/RosterManagementStyles';
 import { Pilot } from '../../../types/PilotTypes';
@@ -9,7 +9,7 @@ import BasicPilotInfo from './BasicPilotInfo';
 import StatusSelector from './StatusSelector';
 import RoleSelector from './RoleSelector';
 import QualificationsManager from './QualificationsManager';
-import { Save, X, Trash2 } from 'lucide-react'; // Added Trash2 icon
+import { Save, X, Trash2 } from 'lucide-react';
 
 interface PilotDetailsProps {
   selectedPilot: Pilot | null;
@@ -33,8 +33,8 @@ interface PilotDetailsProps {
   handleRoleChange: (roleId: string) => void;
   handleAddQualification: () => void;
   handleRemoveQualification: (id: string) => void;
-  handleDeletePilot?: (pilotId: string) => void;  // New prop for deleting a pilot
-  // New props for adding a new pilot
+  handleDeletePilot?: (pilotId: string) => void;
+  handleSavePilotChanges?: (pilot: Pilot) => Promise<{ success: boolean; error?: string }>;
   isNewPilot?: boolean;
   onPilotFieldChange?: (field: string, value: string) => void;
   onSaveNewPilot?: () => void;
@@ -66,41 +66,118 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
   handleAddQualification,
   handleRemoveQualification,
   handleDeletePilot,
-  // New props for adding a new pilot
+  handleSavePilotChanges,
   isNewPilot = false,
   onPilotFieldChange,
   onSaveNewPilot,
   onCancelAddPilot,
   isSavingNewPilot = false,
-  saveError = null
+  saveError = null,
 }) => {
   const pilotDetailsRef = useRef<HTMLDivElement>(null);
   const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
+  const [editedPilot, setEditedPilot] = useState<Pilot | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isEdited, setIsEdited] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
 
-  // Define consistent input field styles with explicit height
+  useEffect(() => {
+    if (selectedPilot) {
+      setEditedPilot({ ...selectedPilot });
+      setIsEdited(false);
+    } else {
+      setEditedPilot(null);
+    }
+    setEditError(null);
+  }, [selectedPilot]);
+
+  const handleFieldChange = (field: string, value: string) => {
+    if (!editedPilot) return;
+
+    setEditedPilot({
+      ...editedPilot,
+      [field]: value,
+    });
+
+    setIsEdited(true);
+  };
+
+  const handleSaveChanges = async () => {
+    if (!editedPilot || !handleSavePilotChanges) return;
+
+    setIsSaving(true);
+    setEditError(null);
+
+    try {
+      const result = await handleSavePilotChanges(editedPilot);
+
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to save pilot changes');
+      }
+
+      setIsEdited(false);
+    } catch (err: any) {
+      setEditError(err.message || 'An error occurred while saving changes');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleCancelChanges = () => {
+    if (selectedPilot) {
+      setEditedPilot({ ...selectedPilot });
+    }
+
+    setIsEdited(false);
+    setEditError(null);
+  };
+
+  const handleEditStatusChange = (statusId: string) => {
+    if (!editedPilot) return;
+
+    const status = statuses.find((s) => s.id === statusId);
+
+    setEditedPilot({
+      ...editedPilot,
+      status_id: statusId,
+      status: status?.name as any,
+    });
+
+    setIsEdited(true);
+  };
+
+  const handleEditRoleChange = (roleId: string) => {
+    if (!editedPilot) return;
+
+    const role = roles.find((r) => r.id === roleId);
+
+    setEditedPilot({
+      ...editedPilot,
+      role: role?.name || '',
+    });
+
+    setIsEdited(true);
+  };
+
   const inputFieldStyle = {
     ...pilotDetailsStyles.fieldValue,
     width: '450px',
-    minHeight: '35px', // Ensure consistent height
+    minHeight: '35px',
     boxSizing: 'border-box' as const,
   };
-  
-  // Define section spacing style
+
   const sectionSpacingStyle = {
-    marginBottom: '24px' // Consistent spacing between sections
+    marginBottom: '24px',
   };
 
   if (!selectedPilot) {
     return (
       <div ref={pilotDetailsRef} style={pilotDetailsStyles.container}>
-        <div style={pilotDetailsStyles.emptyState}>
-          Select a pilot to view their details
-        </div>
+        <div style={pilotDetailsStyles.emptyState}>Select a pilot to view their details</div>
       </div>
     );
   }
 
-  // Updated button styles with EXPLICIT 35px height
   const exportButtonStyle = {
     display: 'flex',
     alignItems: 'center',
@@ -117,30 +194,28 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
     fontWeight: 400,
     minWidth: '120px',
     justifyContent: 'center',
-    height: '35px' // Explicitly setting the height to 35px
+    height: '35px',
   };
 
-  // Function to render editable basic information for new pilots
   const renderEditableBasicInfo = () => {
     return (
       <>
-        <div style={{...pilotDetailsStyles.fieldContainer, ...sectionSpacingStyle}}>
-          <label style={pilotDetailsStyles.fieldLabel}>
-            Board Number *
-          </label>
+        <div style={{ ...pilotDetailsStyles.fieldContainer, ...sectionSpacingStyle }}>
+          <label style={pilotDetailsStyles.fieldLabel}>Board Number *</label>
           <input
             type="text"
             value={selectedPilot.boardNumber || ''}
-            onChange={(e) => onPilotFieldChange && onPilotFieldChange('boardNumber', e.target.value.replace(/[^0-9]/g, ''))}
+            onChange={(e) =>
+              onPilotFieldChange &&
+              onPilotFieldChange('boardNumber', e.target.value.replace(/[^0-9]/g, ''))
+            }
             style={inputFieldStyle}
             placeholder="Enter board number"
           />
         </div>
-        
-        <div style={{...pilotDetailsStyles.fieldContainer, ...sectionSpacingStyle}}>
-          <label style={pilotDetailsStyles.fieldLabel}>
-            Callsign *
-          </label>
+
+        <div style={{ ...pilotDetailsStyles.fieldContainer, ...sectionSpacingStyle }}>
+          <label style={pilotDetailsStyles.fieldLabel}>Callsign *</label>
           <input
             type="text"
             value={selectedPilot.callsign || ''}
@@ -150,21 +225,20 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
           />
         </div>
 
-        <div style={{...pilotDetailsStyles.fieldContainer, ...sectionSpacingStyle}}>
-          <label style={pilotDetailsStyles.fieldLabel}>
-            Discord Username
-          </label>
+        <div style={{ ...pilotDetailsStyles.fieldContainer, ...sectionSpacingStyle }}>
+          <label style={pilotDetailsStyles.fieldLabel}>Discord Username</label>
           <input
             type="text"
             value={selectedPilot.discordUsername || ''}
-            onChange={(e) => onPilotFieldChange && onPilotFieldChange('discordUsername', e.target.value)}
+            onChange={(e) =>
+              onPilotFieldChange && onPilotFieldChange('discordUsername', e.target.value)
+            }
             style={inputFieldStyle}
             placeholder="Enter Discord username (optional)"
           />
         </div>
 
-        {/* Status selector moved into basic info with increased top margin */}
-        <div style={{...sectionSpacingStyle, marginTop: '12px'}}>
+        <div style={{ ...sectionSpacingStyle, marginTop: '12px' }}>
           <StatusSelector
             statuses={statuses}
             selectedStatusId={selectedPilot.status_id || ''}
@@ -172,9 +246,8 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
             handleStatusChange={handleStatusChange}
           />
         </div>
-        
-        {/* Role selector moved into basic info with increased top margin */}
-        <div style={{...sectionSpacingStyle, marginTop: '12px'}}>
+
+        <div style={{ ...sectionSpacingStyle, marginTop: '12px' }}>
           <RoleSelector
             roles={roles}
             pilotRoles={pilotRoles}
@@ -185,9 +258,69 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
           />
         </div>
 
-        {/* Required fields notice moved here */}
-        <div style={{ marginTop: '16px', color: '#64748B', fontSize: '14px' }}>
-          * Required fields
+        <div style={{ marginTop: '16px', color: '#64748B', fontSize: '14px' }}>* Required fields</div>
+      </>
+    );
+  };
+
+  const renderEditableExistingPilotInfo = () => {
+    if (!editedPilot) return null;
+
+    return (
+      <>
+        <div style={{ ...pilotDetailsStyles.fieldContainer, ...sectionSpacingStyle }}>
+          <label style={pilotDetailsStyles.fieldLabel}>Board Number</label>
+          <input
+            type="text"
+            value={editedPilot.boardNumber || ''}
+            onChange={(e) =>
+              handleFieldChange('boardNumber', e.target.value.replace(/[^0-9]/g, ''))
+            }
+            style={inputFieldStyle}
+            placeholder="Enter board number"
+          />
+        </div>
+
+        <div style={{ ...pilotDetailsStyles.fieldContainer, ...sectionSpacingStyle }}>
+          <label style={pilotDetailsStyles.fieldLabel}>Callsign</label>
+          <input
+            type="text"
+            value={editedPilot.callsign || ''}
+            onChange={(e) => handleFieldChange('callsign', e.target.value)}
+            style={inputFieldStyle}
+            placeholder="Enter callsign"
+          />
+        </div>
+
+        <div style={{ ...pilotDetailsStyles.fieldContainer, ...sectionSpacingStyle }}>
+          <label style={pilotDetailsStyles.fieldLabel}>Discord Username</label>
+          <input
+            type="text"
+            value={editedPilot.discordUsername || ''}
+            onChange={(e) => handleFieldChange('discordUsername', e.target.value)}
+            style={inputFieldStyle}
+            placeholder="Enter Discord username (optional)"
+          />
+        </div>
+
+        <div style={{ ...sectionSpacingStyle, marginTop: '20px' }}>
+          <StatusSelector
+            statuses={statuses}
+            selectedStatusId={editedPilot.status_id || ''}
+            updatingStatus={false}
+            handleStatusChange={handleEditStatusChange}
+          />
+        </div>
+
+        <div style={{ ...sectionSpacingStyle, marginTop: '20px' }}>
+          <RoleSelector
+            roles={roles}
+            pilotRoles={pilotRoles}
+            updatingRoles={false}
+            loadingRoles={loadingRoles}
+            disabledRoles={disabledRoles}
+            handleRoleChange={handleEditRoleChange}
+          />
         </div>
       </>
     );
@@ -202,21 +335,46 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
             <div style={{ display: 'flex', gap: '12px' }}>
               <button
                 onClick={onSaveNewPilot}
-                disabled={isSavingNewPilot || !selectedPilot.callsign || !selectedPilot.boardNumber || !selectedPilot.status_id}
+                disabled={
+                  isSavingNewPilot ||
+                  !selectedPilot.callsign ||
+                  !selectedPilot.boardNumber ||
+                  !selectedPilot.status_id
+                }
                 style={{
                   ...exportButtonStyle,
-                  cursor: (isSavingNewPilot || !selectedPilot.callsign || !selectedPilot.boardNumber || !selectedPilot.status_id) 
-                    ? 'not-allowed' 
-                    : 'pointer',
-                  opacity: (isSavingNewPilot || !selectedPilot.callsign || !selectedPilot.boardNumber || !selectedPilot.status_id) ? 0.7 : 1
+                  cursor:
+                    isSavingNewPilot ||
+                    !selectedPilot.callsign ||
+                    !selectedPilot.boardNumber ||
+                    !selectedPilot.status_id
+                      ? 'not-allowed'
+                      : 'pointer',
+                  opacity:
+                    isSavingNewPilot ||
+                    !selectedPilot.callsign ||
+                    !selectedPilot.boardNumber ||
+                    !selectedPilot.status_id
+                      ? 0.7
+                      : 1,
                 }}
-                onMouseEnter={e => {
-                  if (!isSavingNewPilot && selectedPilot.callsign && selectedPilot.boardNumber && selectedPilot.status_id) {
+                onMouseEnter={(e) => {
+                  if (
+                    !isSavingNewPilot &&
+                    selectedPilot.callsign &&
+                    selectedPilot.boardNumber &&
+                    selectedPilot.status_id
+                  ) {
                     e.currentTarget.style.backgroundColor = '#F8FAFC';
                   }
                 }}
-                onMouseLeave={e => {
-                  if (!isSavingNewPilot && selectedPilot.callsign && selectedPilot.boardNumber && selectedPilot.status_id) {
+                onMouseLeave={(e) => {
+                  if (
+                    !isSavingNewPilot &&
+                    selectedPilot.callsign &&
+                    selectedPilot.boardNumber &&
+                    selectedPilot.status_id
+                  ) {
                     e.currentTarget.style.backgroundColor = '#FFFFFF';
                   }
                 }}
@@ -230,14 +388,14 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
                 style={{
                   ...exportButtonStyle,
                   cursor: isSavingNewPilot ? 'not-allowed' : 'pointer',
-                  opacity: isSavingNewPilot ? 0.7 : 1
+                  opacity: isSavingNewPilot ? 0.7 : 1,
                 }}
-                onMouseEnter={e => {
+                onMouseEnter={(e) => {
                   if (!isSavingNewPilot) {
                     e.currentTarget.style.backgroundColor = '#F8FAFC';
                   }
                 }}
-                onMouseLeave={e => {
+                onMouseLeave={(e) => {
                   if (!isSavingNewPilot) {
                     e.currentTarget.style.backgroundColor = '#FFFFFF';
                   }
@@ -251,69 +409,61 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
         )}
 
         {saveError && (
-          <div style={{ 
-            padding: '12px', 
-            backgroundColor: '#FEE2E2', 
-            color: '#B91C1C', 
-            borderRadius: '6px',
-            marginBottom: '16px'
-          }}>
+          <div
+            style={{
+              padding: '12px',
+              backgroundColor: '#FEE2E2',
+              color: '#B91C1C',
+              borderRadius: '6px',
+              marginBottom: '16px',
+            }}
+          >
             {saveError}
           </div>
         )}
-        
-        {/* Header with pilot details moved outside the card for existing pilots */}
+
         {!isNewPilot && (
           <div style={pilotDetailsStyles.header}>
             <h1 style={pilotDetailsStyles.headerTitle}>
               <span style={pilotDetailsStyles.boardNumber}>{selectedPilot.boardNumber}</span>
               {selectedPilot.callsign}
-              <span style={pilotDetailsStyles.roleText}>
-                {selectedPilot.role || ''}
-              </span>
+              <span style={pilotDetailsStyles.roleText}>{selectedPilot.role || ''}</span>
             </h1>
           </div>
         )}
 
-        {/* Section 1: Basic Information (now includes Status and Role) */}
         <Card className="p-4">
-          <h2 className="text-lg font-semibold mb-4" style={pilotDetailsStyles.sectionTitle}>Basic Information</h2>
-          {isNewPilot ? renderEditableBasicInfo() : (
-            <>
-              {/* BasicPilotInfo no longer has the header */}
-              <BasicPilotInfo pilot={selectedPilot} />
-              
-              {/* Status with increased spacing */}
-              <div style={{...sectionSpacingStyle, marginTop: '20px'}}>
-                <StatusSelector
-                  statuses={statuses}
-                  selectedStatusId={selectedPilot.status_id || ''}
-                  updatingStatus={updatingStatus}
-                  handleStatusChange={handleStatusChange}
-                />
-              </div>
-              
-              {/* Role with increased spacing */}
-              <div style={{...sectionSpacingStyle, marginTop: '20px'}}>
-                <RoleSelector
-                  roles={roles}
-                  pilotRoles={pilotRoles}
-                  updatingRoles={updatingRoles}
-                  loadingRoles={loadingRoles}
-                  disabledRoles={disabledRoles}
-                  handleRoleChange={handleRoleChange}
-                />
-              </div>
-            </>
+          <h2 className="text-lg font-semibold mb-4" style={pilotDetailsStyles.sectionTitle}>
+            Basic Information
+          </h2>
+          {isNewPilot ? (
+            renderEditableBasicInfo()
+          ) : (
+            renderEditableExistingPilotInfo()
           )}
         </Card>
-        
-        {/* Section 2: Qualifications (no longer includes Status and Role) */}
+
+        {editError && (
+          <div
+            style={{
+              padding: '12px',
+              backgroundColor: '#FEE2E2',
+              color: '#B91C1C',
+              borderRadius: '6px',
+              marginBottom: '16px',
+              marginTop: '16px'
+            }}
+          >
+            {editError}
+          </div>
+        )}
+
         <div style={{ display: 'grid', gap: '24px', marginTop: '24px' }}>
           <Card className="p-4">
-            <h2 className="text-lg font-semibold mb-4" style={pilotDetailsStyles.sectionTitle}>Qualifications</h2>
-            
-            {/* Qualifications - only show for existing pilots */}
+            <h2 className="text-lg font-semibold mb-4" style={pilotDetailsStyles.sectionTitle}>
+              Qualifications
+            </h2>
+
             {!isNewPilot && (
               <QualificationsManager
                 pilotQualifications={pilotQualifications}
@@ -336,13 +486,12 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
             )}
           </Card>
 
-          {/* Section 3: Attendance and Service Record - only show for existing pilots */}
           {!isNewPilot && (
             <Card className="p-4">
               <h2 className="text-lg font-semibold mb-4" style={pilotDetailsStyles.sectionTitle}>
                 Attendance and Service Record
               </h2>
-              
+
               <div style={pilotDetailsStyles.emptyQualMessage}>
                 Service record information will be available in a future update
               </div>
@@ -350,7 +499,55 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
           )}
         </div>
 
-        {/* Delete Pilot Button and Confirmation Dialog */}
+        {isEdited && (
+          <div style={{ marginTop: '24px', display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+            <button
+              onClick={handleSaveChanges}
+              disabled={isSaving}
+              style={{
+                ...exportButtonStyle,
+                cursor: isSaving ? 'not-allowed' : 'pointer',
+                opacity: isSaving ? 0.7 : 1,
+              }}
+              onMouseEnter={(e) => {
+                if (!isSaving) {
+                  e.currentTarget.style.backgroundColor = '#F8FAFC';
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!isSaving) {
+                  e.currentTarget.style.backgroundColor = '#FFFFFF';
+                }
+              }}
+            >
+              <Save size={16} style={{ marginRight: '4px' }} />
+              {isSaving ? 'Saving...' : 'Save Changes'}
+            </button>
+            <button
+              onClick={handleCancelChanges}
+              disabled={isSaving}
+              style={{
+                ...exportButtonStyle,
+                cursor: isSaving ? 'not-allowed' : 'pointer',
+                opacity: isSaving ? 0.7 : 1,
+              }}
+              onMouseEnter={(e) => {
+                if (!isSaving) {
+                  e.currentTarget.style.backgroundColor = '#F8FAFC';
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!isSaving) {
+                  e.currentTarget.style.backgroundColor = '#FFFFFF';
+                }
+              }}
+            >
+              <X size={16} style={{ marginRight: '4px' }} />
+              Cancel
+            </button>
+          </div>
+        )}
+
         {!isNewPilot && handleDeletePilot && (
           <div style={{ marginTop: '24px', display: 'flex', justifyContent: 'flex-end' }}>
             <button
@@ -361,10 +558,10 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
                 color: '#B91C1C',
                 border: '1px solid #FCA5A5',
               }}
-              onMouseEnter={e => {
+              onMouseEnter={(e) => {
                 e.currentTarget.style.backgroundColor = '#FECACA';
               }}
-              onMouseLeave={e => {
+              onMouseLeave={(e) => {
                 e.currentTarget.style.backgroundColor = '#FEE2E2';
               }}
             >
@@ -375,26 +572,32 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
         )}
 
         {showDeleteConfirmation && (
-          <div style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            width: '100%',
-            height: '100%',
-            backgroundColor: 'rgba(0, 0, 0, 0.5)',
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'center',
-            zIndex: 1000
-          }}>
-            <div style={{
-              backgroundColor: '#FFFFFF',
-              padding: '24px',
-              borderRadius: '8px',
-              width: '400px',
-              textAlign: 'center'
-            }}>
-              <h2 style={{ fontSize: '18px', fontWeight: 600, marginBottom: '16px' }}>Confirm Deletion</h2>
+          <div
+            style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              width: '100%',
+              height: '100%',
+              backgroundColor: 'rgba(0, 0, 0, 0.5)',
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+              zIndex: 1000,
+            }}
+          >
+            <div
+              style={{
+                backgroundColor: '#FFFFFF',
+                padding: '24px',
+                borderRadius: '8px',
+                width: '400px',
+                textAlign: 'center',
+              }}
+            >
+              <h2 style={{ fontSize: '18px', fontWeight: 600, marginBottom: '16px' }}>
+                Confirm Deletion
+              </h2>
               <p style={{ marginBottom: '24px', color: '#64748B' }}>
                 Are you sure you want to delete this pilot? This action cannot be undone.
               </p>
@@ -406,12 +609,12 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
                     backgroundColor: '#E5E7EB',
                     color: '#374151',
                     border: '1px solid #D1D5DB',
-                    width: '45%'
+                    width: '45%',
                   }}
-                  onMouseEnter={e => {
+                  onMouseEnter={(e) => {
                     e.currentTarget.style.backgroundColor = '#D1D5DB';
                   }}
-                  onMouseLeave={e => {
+                  onMouseLeave={(e) => {
                     e.currentTarget.style.backgroundColor = '#E5E7EB';
                   }}
                 >
@@ -419,7 +622,9 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
                 </button>
                 <button
                   onClick={() => {
-                    handleDeletePilot(selectedPilot.id);
+                    if (handleDeletePilot) {
+                      handleDeletePilot(selectedPilot.id);
+                    }
                     setShowDeleteConfirmation(false);
                   }}
                   style={{
@@ -427,12 +632,12 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
                     backgroundColor: '#FEE2E2',
                     color: '#B91C1C',
                     border: '1px solid #FCA5A5',
-                    width: '45%'
+                    width: '45%',
                   }}
-                  onMouseEnter={e => {
+                  onMouseEnter={(e) => {
                     e.currentTarget.style.backgroundColor = '#FECACA';
                   }}
-                  onMouseLeave={e => {
+                  onMouseLeave={(e) => {
                     e.currentTarget.style.backgroundColor = '#FEE2E2';
                   }}
                 >

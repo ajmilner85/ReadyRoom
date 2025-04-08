@@ -5,7 +5,9 @@ import {
   getPilotByDiscordOriginalId, 
   updatePilotStatus,
   createPilot,
-  deletePilot // Added import for deletePilot
+  deletePilot, // Added import for deletePilot
+  updatePilot,
+  updatePilotRole
 } from '../../utils/pilotService';
 import { supabase } from '../../utils/supabaseClient';
 import { subscribeToTable } from '../../utils/supabaseClient';
@@ -80,6 +82,7 @@ const RosterManagement: React.FC = () => {
       id: tempId,
       callsign: '',
       boardNumber: '',
+      billet: '', // Add missing billet property
       status: 'Provisional',
       status_id: statuses.find(s => s.name === 'Provisional')?.id || '',
       qualifications: [],
@@ -117,7 +120,7 @@ const RosterManagement: React.FC = () => {
       const pilotData = {
         boardNumber: parseInt(newPilot.boardNumber),
         callsign: newPilot.callsign,
-        discordId: newPilot.discordUsername || null,
+        discordId: newPilot.discordUsername || undefined, // Changed null to undefined
         status_id: newPilot.status_id,
         // Don't include roles directly - it was causing the schema error
       };
@@ -156,7 +159,35 @@ const RosterManagement: React.FC = () => {
         setSelectedPilot(newConvertedPilot);
       } else {
         // If no data returned, just refresh the full list
-        await fetchPilots();
+        const fetchPilotsData = async () => {
+          setLoading(true);
+          try {
+            const { data, error } = await getAllPilots();
+            if (error) {
+              throw new Error(error.message);
+            }
+            if (data) {
+              const convertedPilots = data.map(pilot => {
+                const legacyPilot = convertSupabasePilotToLegacy(pilot as any);
+                if (pilot.discord_original_id) {
+                  legacyPilot.id = pilot.discord_original_id;
+                }
+                if (pilot.status_id && statusMap[pilot.status_id]) {
+                  legacyPilot.status = statusMap[pilot.status_id].name as any;
+                  legacyPilot.status_id = pilot.status_id;
+                }
+                return legacyPilot;
+              });
+              setPilots(convertedPilots);
+            }
+          } catch (err: any) {
+            console.error('Error refreshing pilots:', err);
+          } finally {
+            setLoading(false);
+          }
+        };
+        
+        await fetchPilotsData();
         setIsAddingNewPilot(false);
         setNewPilot({
           id: '',
@@ -579,7 +610,7 @@ const RosterManagement: React.FC = () => {
       }
       
       // Assign qualification
-      const { data, error } = await assignQualificationToPilot(
+      const { error } = await assignQualificationToPilot(
         actualPilotId,
         selectedQualification,
         null, // No expiry date initially
@@ -700,6 +731,67 @@ const RosterManagement: React.FC = () => {
     } catch (err: any) {
       console.error('Error deleting pilot:', err);
       alert(`Error deleting pilot: ${err.message}`);
+    }
+  };
+
+  // Function to handle saving pilot changes
+  const handleSavePilotChanges = async (updatedPilot: Pilot): Promise<{ success: boolean; error?: string }> => {
+    if (!updatedPilot) return { success: false, error: 'No pilot data provided' };
+    
+    try {
+      // Get actual pilot ID if this is a discord ID
+      const actualPilotId = await getActualPilotId(updatedPilot.id);
+      
+      // Prepare update payload - only include fields that can be updated directly
+      const updatePayload: any = {
+        callsign: updatedPilot.callsign,
+        boardNumber: parseInt(updatedPilot.boardNumber),
+        discordId: updatedPilot.discordUsername || undefined,
+        status_id: updatedPilot.status_id
+        // Note: role is handled separately via updatePilotRole
+      };
+      
+      // Update pilot basic info
+      const { data, error } = await updatePilot(actualPilotId, updatePayload);
+      
+      if (error) {
+        throw new Error(error.message || 'Failed to update pilot');
+      }
+      
+      // Find the role ID based on the role name
+      let roleId: string | null = null;
+      if (updatedPilot.role) {
+        const matchingRole = roles.find(r => r.name === updatedPilot.role);
+        roleId = matchingRole?.id || null;
+      }
+      
+      // Update pilot role if changed
+      if (roleId !== null) {
+        const { error: roleError } = await updatePilotRole(actualPilotId, roleId);
+        
+        if (roleError) {
+          throw new Error(roleError.message || 'Failed to update pilot role');
+        }
+      }
+      
+      // Update the pilot in the local state
+      setPilots(prevPilots => prevPilots.map(p => {
+        if (p.id === updatedPilot.id) {
+          return updatedPilot;
+        }
+        return p;
+      }));
+      
+      // Update selected pilot
+      setSelectedPilot(updatedPilot);
+      
+      // Refresh exclusive role assignments
+      fetchExclusiveRoleAssignments();
+      
+      return { success: true };
+    } catch (err: any) {
+      console.error('Error saving pilot changes:', err);
+      return { success: false, error: err.message || 'An error occurred while saving changes' };
     }
   };
 
@@ -905,6 +997,7 @@ const RosterManagement: React.FC = () => {
                 handleAddQualification={handleAddQualification}
                 handleRemoveQualification={handleRemoveQualification}
                 handleDeletePilot={handleDeletePilot}
+                handleSavePilotChanges={handleSavePilotChanges}
                 isNewPilot={true}
                 onPilotFieldChange={handleNewPilotChange}
                 onSaveNewPilot={handleSaveNewPilot}
@@ -936,6 +1029,7 @@ const RosterManagement: React.FC = () => {
                 handleAddQualification={handleAddQualification}
                 handleRemoveQualification={handleRemoveQualification}
                 handleDeletePilot={handleDeletePilot}
+                handleSavePilotChanges={handleSavePilotChanges}
               />
             )}
           </div>
