@@ -11,6 +11,7 @@ interface PilotListItemProps {
   onMouseEnter: () => void;
   onMouseLeave: () => void;
   pilotQualifications: any[];
+  isDisabled?: boolean;
 }
 
 const PilotListItem: React.FC<PilotListItemProps> = ({
@@ -20,7 +21,8 @@ const PilotListItem: React.FC<PilotListItemProps> = ({
   onSelect,
   onMouseEnter,
   onMouseLeave,
-  pilotQualifications
+  pilotQualifications,
+  isDisabled = false
 }) => {
   // Render qualification badges for the pilot
   const renderQualificationBadges = () => {
@@ -52,9 +54,10 @@ const PilotListItem: React.FC<PilotListItemProps> = ({
   return (
     <div
       style={pilotListStyles.pilotRow(isSelected, isHovered)}
-      onClick={onSelect}
+      onClick={isDisabled ? undefined : onSelect}
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
+      className={isDisabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
     >
       <span style={pilotListStyles.boardNumber}>
         {pilot.boardNumber}

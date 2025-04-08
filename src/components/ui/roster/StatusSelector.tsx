@@ -20,12 +20,12 @@ const StatusSelector: React.FC<StatusSelectorProps> = ({
       <label style={pilotDetailsStyles.fieldLabel}>
         Status
       </label>
-      <div style={pilotDetailsStyles.selectorContainer}>
+      <div style={{...pilotDetailsStyles.selectorContainer, width: '450px'}}>
         <select
           value={selectedStatusId || ''}
           onChange={(e) => handleStatusChange(e.target.value)}
           disabled={updatingStatus}
-          style={pilotDetailsStyles.selector}
+          style={{...pilotDetailsStyles.selector, width: '450px'}}
         >
           {statuses.sort((a, b) => a.order - b.order).map(status => (
             <option key={status.id} value={status.id}>
