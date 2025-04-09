@@ -1,20 +1,10 @@
 In Progress:
-- Database implementation
-	- Admin Settings
-	- Roster
+
 
 
 Next:
-- Squadron Roster Management
-	- Implement CRUD functions
-		- Prevent duplicate board numbers
-	- Role Assignment and Qualification Management
-	- Distinguish Site, Discord, and Squadron Roles/Billets
-	- Improve visual appearance of pilot details card
-
-
-Essential:
 	- Mission/event saving
+	
 
 
 High Priority:
@@ -69,8 +59,13 @@ Skunkworks:
 
 
 Unprioritized:
+	- Admin Settings
+		- Per user vs. per squadron preferences
+		- Site roles/user privileges
 	- Roster Management
 		- Pilot service record (awards, cruises etc.)
+		- Improve visual appearance of pilot details card
+		- Distinguish Site, Discord, and Squadron Roles/Billets
 	- Mission Preparation
 			- Loadouts (Complicated due to DCS use of CLSIDs)
 	- Mission Coordination
@@ -188,3 +183,9 @@ Complete
 - Read available flights from .miz file
 - Mission preparation page
 	- Initial fuel state (from .miz)
+- Squadron Roster Management
+	- Implement CRUD functions
+		- Prevent duplicate board numbers
+	- Role Assignment and Qualification Management
+- Basic Database implementation
+		- Roster

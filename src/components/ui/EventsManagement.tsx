@@ -1,177 +1,463 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import EventsList from './events/EventsList';
 import EventDetails from './events/EventDetails';
 import EventAttendance from './events/EventAttendance';
 import EventDialog from './events/EventDialog';
+import CyclesList from './events/CyclesList';
+import CycleDialog from './events/CycleDialog';
 import { DeleteDivisionDialog } from './dialogs/DeleteDivisionDialog';
-import type { Event } from '../../types/EventTypes';
+import type { Event, Cycle, CycleType } from '../../types/EventTypes';
+import { fetchCycles, createCycle, updateCycle, deleteCycle, 
+         fetchEvents, createEvent, updateEvent, deleteEvent } from '../../utils/supabaseClient';
+import LoadingSpinner from './LoadingSpinner';
 
-const INITIAL_EVENTS: Event[] = [
-  {
-    id: "1",
-    title: "Training Cycle 25-1 Week 4 – A2G1: Bombs",
-    description: "Welcome to Week 4 – time to drop some bombs! We'll be launching from the boat to drop a pair of JDAMs and a pair of LGBs each.",
-    datetime: "2025-01-30T20:30:00",
-    status: "upcoming",
-    creator: {
-      boardNumber: "637",
-      callsign: "Prince",
-      billet: "Train OIC"
-    },
-    attendance: {
-      accepted: [
-        { boardNumber: "637", callsign: "Prince", billet: "Train OIC" },
-        { boardNumber: "551", callsign: "Boot" },
-        { boardNumber: "523", callsign: "Grass" }
-      ],
-      declined: [
-        { boardNumber: "556", callsign: "Zapp", billet: "OPS O" },
-        { boardNumber: "771", callsign: "Ray" }
-      ],
-      tentative: []
-    },
-    restrictedTo: ["Cadre"]
-  }
-];
+// Standard card width matching MissionPreparation component
+const CARD_WIDTH = '550px';
 
 const EventsManagement: React.FC = () => {
-  const [events, setEvents] = useState<Event[]>(INITIAL_EVENTS);
+  // State for data
+  const [events, setEvents] = useState<Event[]>([]);
+  const [cycles, setCycles] = useState<Cycle[]>([]);
+  const [loading, setLoading] = useState({
+    cycles: false,
+    events: false
+  });
+  const [error, setError] = useState<string | null>(null);
+  
+  // State for UI interactions
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
+  const [selectedCycle, setSelectedCycle] = useState<Cycle | null>(null);
+  
   const [showEventDialog, setShowEventDialog] = useState(false);
+  const [showCycleDialog, setShowCycleDialog] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  
   const [eventToDelete, setEventToDelete] = useState<Event | null>(null);
+  const [cycleToDelete, setCycleToDelete] = useState<Cycle | null>(null);
+  const [isDeleteCycle, setIsDeleteCycle] = useState(false);
+  
   const [editingEvent, setEditingEvent] = useState<Event | null>(null);
+  const [editingCycle, setEditingCycle] = useState<Cycle | null>(null);
 
-  const handleCreateEvent = (eventData: {
+  // Fetch cycles and events on component mount
+  useEffect(() => {
+    loadCycles();
+    loadEvents();
+  }, []);
+
+  // Fetch events when selected cycle changes
+  useEffect(() => {
+    loadEvents(selectedCycle?.id);
+  }, [selectedCycle]);
+
+  // Load cycles from database
+  const loadCycles = async () => {
+    setLoading(prev => ({ ...prev, cycles: true }));
+    try {
+      const { cycles: fetchedCycles, error } = await fetchCycles();
+      if (error) {
+        throw error;
+      }
+      setCycles(fetchedCycles);
+    } catch (err: any) {
+      setError(`Failed to load cycles: ${err.message}`);
+    } finally {
+      setLoading(prev => ({ ...prev, cycles: false }));
+    }
+  };
+
+  // Load events from database
+  const loadEvents = async (cycleId?: string) => {
+    setLoading(prev => ({ ...prev, events: true }));
+    try {
+      const { events: fetchedEvents, error } = await fetchEvents(cycleId);
+      if (error) {
+        throw error;
+      }
+      setEvents(fetchedEvents);
+      
+      // If we had a selected event and it's still in the list, update it
+      if (selectedEvent) {
+        const updatedSelectedEvent = fetchedEvents.find(e => e.id === selectedEvent.id);
+        if (updatedSelectedEvent) {
+          setSelectedEvent(updatedSelectedEvent);
+        } else {
+          // If the selected event is no longer in the list, clear selection
+          setSelectedEvent(null);
+        }
+      }
+    } catch (err: any) {
+      setError(`Failed to load events: ${err.message}`);
+    } finally {
+      setLoading(prev => ({ ...prev, events: false }));
+    }
+  };
+
+  // Event handlers
+  const handleCreateEvent = async (eventData: {
     title: string;
     description: string;
     datetime: string;
     restrictedTo?: string[];
   }) => {
-    const newEvent: Event = {
-      id: `${Date.now()}`,  // Simple ID generation
-      ...eventData,
-      status: 'upcoming',
-      creator: {
-        // TODO: Replace with actual logged-in user info
-        boardNumber: "637",
-        callsign: "Prince",
-        billet: "Train OIC"
-      },
-      attendance: {
-        accepted: [],
-        declined: [],
-        tentative: []
+    try {
+      // Determine event type based on cycle
+      let eventType = undefined;
+      if (selectedCycle) {
+        if (selectedCycle.type === 'Training') {
+          eventType = 'Hop';
+        } else if (selectedCycle.type === 'Cruise-WorkUp') {
+          eventType = 'Evolution';
+        } else if (selectedCycle.type === 'Cruise-Mission') {
+          eventType = 'Episode';
+        }
       }
-    };
 
-    setEvents(prevEvents => {
-      // Sort by datetime in descending order (newest first)
-      const updatedEvents = [...prevEvents, newEvent].sort((a, b) => 
-        new Date(b.datetime).getTime() - new Date(a.datetime).getTime()
-      );
-      return updatedEvents;
-    });
-    
-    setShowEventDialog(false);
+      const { event, error } = await createEvent({
+        ...eventData,
+        status: 'upcoming',
+        cycleId: selectedCycle?.id,
+        eventType
+      });
+
+      if (error) throw error;
+      
+      // Reload events to get the latest data
+      await loadEvents(selectedCycle?.id);
+      setShowEventDialog(false);
+    } catch (err: any) {
+      setError(`Failed to create event: ${err.message}`);
+    }
   };
 
-  const handleEditEvent = (eventData: {
+  const handleEditEvent = async (eventData: {
     title: string;
     description: string;
     datetime: string;
     restrictedTo?: string[];
   }) => {
     if (!editingEvent) return;
-
-    setEvents(prevEvents => {
-      return prevEvents.map(event => {
-        if (event.id === editingEvent.id) {
-          const updatedEvent = {
-            ...event,
-            ...eventData
-          };
-          // If this is the selected event, update the selection
-          if (selectedEvent?.id === event.id) {
-            setSelectedEvent(updatedEvent);
-          }
-          return updatedEvent;
-        }
-        return event;
-      }).sort((a, b) => 
-        new Date(b.datetime).getTime() - new Date(a.datetime).getTime()
-      );
-    });
-
-    setEditingEvent(null);
-    setShowEventDialog(false);
+    
+    try {
+      const { event, error } = await updateEvent(editingEvent.id, eventData);
+      if (error) throw error;
+      
+      // Reload events to get the latest data
+      await loadEvents(selectedCycle?.id);
+      setEditingEvent(null);
+      setShowEventDialog(false);
+    } catch (err: any) {
+      setError(`Failed to update event: ${err.message}`);
+    }
   };
 
   const handleDeleteEvent = (event: Event) => {
     setEventToDelete(event);
+    setIsDeleteCycle(false);
     setShowDeleteDialog(true);
   };
 
-  const confirmDeleteEvent = () => {
-    if (!eventToDelete) return;
-
-    setEvents(prevEvents => {
-      const updatedEvents = prevEvents.filter(e => e.id !== eventToDelete.id);
-      // If we're deleting the selected event, clear the selection
-      if (selectedEvent?.id === eventToDelete.id) {
-        setSelectedEvent(null);
+  // Cycle handlers
+  const handleCreateCycle = async (cycleData: {
+    name: string;
+    description: string;
+    startDate: string;
+    endDate: string;
+    type: CycleType;
+    restrictedTo?: string[];
+  }) => {
+    try {
+      // Determine status based on dates
+      const now = new Date();
+      const startDate = new Date(cycleData.startDate);
+      const endDate = new Date(cycleData.endDate);
+      
+      let status: 'active' | 'completed' | 'upcoming';
+      if (now >= startDate && now <= endDate) {
+        status = 'active';
+      } else if (now < startDate) {
+        status = 'upcoming';
+      } else {
+        status = 'completed';
       }
-      return updatedEvents;
-    });
 
-    setShowDeleteDialog(false);
-    setEventToDelete(null);
+      const { cycle, error } = await createCycle({
+        ...cycleData,
+        status
+      });
+      
+      if (error) throw error;
+      
+      // Reload cycles to get the latest data
+      await loadCycles();
+      setShowCycleDialog(false);
+    } catch (err: any) {
+      setError(`Failed to create cycle: ${err.message}`);
+    }
   };
 
-  const handleEditClick = (event: Event) => {
+  const handleEditCycle = async (cycleData: {
+    name: string;
+    description: string;
+    startDate: string;
+    endDate: string;
+    type: CycleType;
+    restrictedTo?: string[];
+  }) => {
+    if (!editingCycle) return;
+    
+    try {
+      // Determine status based on dates
+      const now = new Date();
+      const startDate = new Date(cycleData.startDate);
+      const endDate = new Date(cycleData.endDate);
+      
+      let status: 'active' | 'completed' | 'upcoming';
+      if (now >= startDate && now <= endDate) {
+        status = 'active';
+      } else if (now < startDate) {
+        status = 'upcoming';
+      } else {
+        status = 'completed';
+      }
+
+      const { cycle, error } = await updateCycle(editingCycle.id, {
+        ...cycleData,
+        status
+      });
+      
+      if (error) throw error;
+      
+      // Reload cycles to get the latest data
+      await loadCycles();
+      
+      // If this was the selected cycle, update the selection
+      if (selectedCycle?.id === editingCycle.id) {
+        setSelectedCycle(cycle);
+        // Also reload events to reflect any changes in cycle relationship
+        await loadEvents(cycle?.id);
+      }
+      
+      setEditingCycle(null);
+      setShowCycleDialog(false);
+    } catch (err: any) {
+      setError(`Failed to update cycle: ${err.message}`);
+    }
+  };
+
+  const handleDeleteCycle = (cycle: Cycle) => {
+    // Check if there are events associated with this cycle
+    const hasAssociatedEvents = events.some(event => event.cycleId === cycle.id);
+    
+    if (hasAssociatedEvents) {
+      // Show an error or confirmation to delete associated events as well
+      setError("Cannot delete a cycle with associated events. Please delete the events first.");
+      return;
+    }
+    
+    setCycleToDelete(cycle);
+    setIsDeleteCycle(true);
+    setShowDeleteDialog(true);
+  };
+
+  const confirmDelete = async () => {
+    try {
+      if (isDeleteCycle && cycleToDelete) {
+        // Delete cycle
+        const { error } = await deleteCycle(cycleToDelete.id);
+        if (error) throw error;
+        
+        // If we're deleting the selected cycle, clear the selection
+        if (selectedCycle?.id === cycleToDelete.id) {
+          setSelectedCycle(null);
+        }
+        
+        // Reload cycles
+        await loadCycles();
+      } else if (eventToDelete) {
+        // Delete event
+        const { error } = await deleteEvent(eventToDelete.id);
+        if (error) throw error;
+        
+        // If we're deleting the selected event, clear the selection
+        if (selectedEvent?.id === eventToDelete.id) {
+          setSelectedEvent(null);
+        }
+        
+        // Reload events
+        await loadEvents(selectedCycle?.id);
+      }
+    } catch (err: any) {
+      setError(`Failed to delete: ${err.message}`);
+    } finally {
+      setShowDeleteDialog(false);
+      setEventToDelete(null);
+      setCycleToDelete(null);
+    }
+  };
+
+  const handleEditEventClick = (event: Event) => {
     setEditingEvent(event);
     setShowEventDialog(true);
   };
+
+  const handleEditCycleClick = (cycle: Cycle) => {
+    setEditingCycle(cycle);
+    setShowCycleDialog(true);
+  };
+
+  // Clear any error message after 5 seconds
+  useEffect(() => {
+    if (error) {
+      const timer = setTimeout(() => {
+        setError(null);
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [error]);
+
+  // Filter events when a cycle is selected
+  const filteredEvents = selectedCycle 
+    ? events.filter(event => event.cycleId === selectedCycle.id)
+    : events;
 
   return (
     <div 
       style={{ 
         backgroundColor: '#F0F4F8', 
-        height: '100vh',
+        minHeight: '100vh',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
         boxSizing: 'border-box',
-        padding: '20px'
+        padding: '20px',
+        overflow: 'visible'
       }}
     >
+      {/* Error notification */}
+      {error && (
+        <div style={{
+          position: 'fixed',
+          top: '20px',
+          right: '20px',
+          backgroundColor: '#FEE2E2',
+          color: '#B91C1C',
+          padding: '12px 16px',
+          borderRadius: '4px',
+          boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+          zIndex: 1000
+        }}>
+          {error}
+        </div>
+      )}
+
       <div 
         style={{
           display: 'flex',
           gap: '20px',
-          height: 'calc(100vh - 40px)',
+          justifyContent: 'center',
+          minHeight: 'calc(100vh - 40px)',
           position: 'relative',
           zIndex: 1,
-          maxWidth: '1710px',
-          width: 'min(100%, 1710px)',
-          boxSizing: 'border-box'
+          maxWidth: '2240px',
+          width: 'min(100%, 2240px)',
+          boxSizing: 'border-box',
+          overflow: 'visible',
+          padding: '15px',
+          margin: '-15px',
         }}
       >
-        <EventsList
-          events={events}
-          selectedEvent={selectedEvent}
-          onEventSelect={setSelectedEvent}
-          onNewEvent={() => {
-            setEditingEvent(null);
-            setShowEventDialog(true);
-          }}
-          onEditEvent={handleEditClick}
-          onDeleteEvent={handleDeleteEvent}
-        />
+        {/* Cycles List */}
+        <div style={{ 
+          width: CARD_WIDTH, 
+          minWidth: '350px', 
+          height: 'calc(100vh - 40px)',
+          boxSizing: 'border-box',
+          overflowY: 'visible'
+        }}>
+          {loading.cycles ? (
+            <div style={{
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+              height: '100%',
+              backgroundColor: '#FFFFFF',
+              boxShadow: '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)',
+              borderRadius: '8px'
+            }}>
+              <LoadingSpinner />
+            </div>
+          ) : (
+            <CyclesList
+              cycles={cycles}
+              selectedCycle={selectedCycle}
+              onCycleSelect={setSelectedCycle}
+              onNewCycle={() => {
+                setEditingCycle(null);
+                setShowCycleDialog(true);
+              }}
+              onEditCycle={handleEditCycleClick}
+              onDeleteCycle={handleDeleteCycle}
+            />
+          )}
+        </div>
         
-        <EventDetails event={selectedEvent} />
+        {/* Events List */}
+        <div style={{ 
+          width: CARD_WIDTH, 
+          minWidth: '350px', 
+          height: 'calc(100vh - 40px)',
+          boxSizing: 'border-box',
+          overflowY: 'visible'
+        }}>
+          {loading.events ? (
+            <div style={{
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+              height: '100%',
+              backgroundColor: '#FFFFFF',
+              boxShadow: '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)',
+              borderRadius: '8px'
+            }}>
+              <LoadingSpinner />
+            </div>
+          ) : (
+            <EventsList
+              events={filteredEvents}
+              selectedEvent={selectedEvent}
+              onEventSelect={setSelectedEvent}
+              onNewEvent={() => {
+                setEditingEvent(null);
+                setShowEventDialog(true);
+              }}
+              onEditEvent={handleEditEventClick}
+              onDeleteEvent={handleDeleteEvent}
+            />
+          )}
+        </div>
         
-        <EventAttendance event={selectedEvent} />
+        {/* Event Details */}
+        <div style={{ 
+          width: CARD_WIDTH, 
+          minWidth: '350px', 
+          height: 'calc(100vh - 40px)',
+          boxSizing: 'border-box',
+          overflowY: 'visible'
+        }}>
+          <EventDetails event={selectedEvent} />
+        </div>
+        
+        {/* Event Attendance */}
+        <div style={{ 
+          width: CARD_WIDTH, 
+          minWidth: '350px', 
+          height: 'calc(100vh - 40px)',
+          boxSizing: 'border-box',
+          overflowY: 'visible'
+        }}>
+          <EventAttendance event={selectedEvent} />
+        </div>
       </div>
 
       {showEventDialog && (
@@ -185,15 +471,29 @@ const EventsManagement: React.FC = () => {
         />
       )}
 
-      {showDeleteDialog && eventToDelete && (
+      {showCycleDialog && (
+        <CycleDialog
+          onSave={editingCycle ? handleEditCycle : handleCreateCycle}
+          onCancel={() => {
+            setShowCycleDialog(false);
+            setEditingCycle(null);
+          }}
+          initialData={editingCycle ?? undefined}
+        />
+      )}
+
+      {showDeleteDialog && (isDeleteCycle ? cycleToDelete : eventToDelete) && (
         <DeleteDivisionDialog
-          onConfirm={confirmDeleteEvent}
+          onConfirm={confirmDelete}
           onCancel={() => {
             setShowDeleteDialog(false);
             setEventToDelete(null);
+            setCycleToDelete(null);
           }}
-          sectionTitle="Event"
-          divisionLabel={eventToDelete.title}
+          sectionTitle={isDeleteCycle ? "Cycle" : "Event"}
+          divisionLabel={isDeleteCycle 
+            ? cycleToDelete?.name || "" 
+            : eventToDelete?.title || ""}
         />
       )}
     </div>

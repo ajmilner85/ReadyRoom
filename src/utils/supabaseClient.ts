@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { Database } from '../types/supabase';
+import { Cycle, Event, EventType } from '../types/EventTypes';
 
 // Replace these with your actual Supabase URL and anon key
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
@@ -55,4 +56,412 @@ export const getCurrentUser = async () => {
 
 export const onAuthStateChange = (callback: (event: string, session: any) => void) => {
   return supabase.auth.onAuthStateChange(callback);
+};
+
+// Cycles API
+export const fetchCycles = async () => {
+  const { data, error } = await supabase
+    .from('cycles')
+    .select('*')
+    .order('start_date', { ascending: false });
+
+  if (error) {
+    console.error('Error fetching cycles:', error);
+    return { cycles: [], error };
+  }
+
+  // Transform database cycles to frontend format
+  const cycles: Cycle[] = data.map(dbCycle => ({
+    id: dbCycle.id,
+    name: dbCycle.name,
+    description: dbCycle.description || '',
+    startDate: dbCycle.start_date,
+    endDate: dbCycle.end_date,
+    type: dbCycle.type,
+    status: dbCycle.status,
+    restrictedTo: dbCycle.restricted_to || [],
+    creator: {
+      boardNumber: dbCycle.creator_board_number || '',
+      callsign: dbCycle.creator_call_sign || '',
+      billet: dbCycle.creator_billet || ''
+    }
+  }));
+
+  return { cycles, error: null };
+};
+
+export const createCycle = async (cycle: Omit<Cycle, 'id' | 'creator'>) => {
+  const { user, error: userError } = await getCurrentUser();
+  if (userError || !user) {
+    return { cycle: null, error: userError || new Error('User not authenticated') };
+  }
+
+  // Map from frontend format to database format
+  const { data, error } = await supabase
+    .from('cycles')
+    .insert({
+      name: cycle.name,
+      description: cycle.description,
+      start_date: cycle.startDate,
+      end_date: cycle.endDate,
+      type: cycle.type,
+      status: cycle.status,
+      restricted_to: cycle.restrictedTo,
+      creator_id: user.id,
+      // Optional user profile info
+      creator_call_sign: user.user_metadata?.callsign,
+      creator_board_number: user.user_metadata?.board_number,
+      creator_billet: user.user_metadata?.billet
+    })
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error creating cycle:', error);
+    return { cycle: null, error };
+  }
+
+  // Transform back to frontend format
+  const newCycle: Cycle = {
+    id: data.id,
+    name: data.name,
+    description: data.description || '',
+    startDate: data.start_date,
+    endDate: data.end_date,
+    type: data.type,
+    status: data.status,
+    restrictedTo: data.restricted_to || [],
+    creator: {
+      boardNumber: data.creator_board_number || '',
+      callsign: data.creator_call_sign || '',
+      billet: data.creator_billet || ''
+    }
+  };
+
+  return { cycle: newCycle, error: null };
+};
+
+export const updateCycle = async (cycleId: string, updates: Partial<Omit<Cycle, 'id' | 'creator'>>) => {
+  // Map from frontend format to database format
+  const dbUpdates: any = {};
+  
+  if (updates.name !== undefined) dbUpdates.name = updates.name;
+  if (updates.description !== undefined) dbUpdates.description = updates.description;
+  if (updates.startDate !== undefined) dbUpdates.start_date = updates.startDate;
+  if (updates.endDate !== undefined) dbUpdates.end_date = updates.endDate;
+  if (updates.type !== undefined) dbUpdates.type = updates.type;
+  if (updates.status !== undefined) dbUpdates.status = updates.status;
+  if (updates.restrictedTo !== undefined) dbUpdates.restricted_to = updates.restrictedTo;
+
+  const { data, error } = await supabase
+    .from('cycles')
+    .update(dbUpdates)
+    .eq('id', cycleId)
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error updating cycle:', error);
+    return { cycle: null, error };
+  }
+
+  // Transform to frontend format
+  const updatedCycle: Cycle = {
+    id: data.id,
+    name: data.name,
+    description: data.description || '',
+    startDate: data.start_date,
+    endDate: data.end_date,
+    type: data.type,
+    status: data.status,
+    restrictedTo: data.restricted_to || [],
+    creator: {
+      boardNumber: data.creator_board_number || '',
+      callsign: data.creator_call_sign || '',
+      billet: data.creator_billet || ''
+    }
+  };
+
+  return { cycle: updatedCycle, error: null };
+};
+
+export const deleteCycle = async (cycleId: string) => {
+  const { error } = await supabase
+    .from('cycles')
+    .delete()
+    .eq('id', cycleId);
+
+  return { error };
+};
+
+// Events API
+export const fetchEvents = async (cycleId?: string) => {
+  let query = supabase.from('events').select(`
+    id,
+    name,
+    date,
+    type,
+    description,
+    status,
+    event_type,
+    cycle_id,
+    created_at,
+    updated_at,
+    event_attendance(*)
+  `);
+
+  // If a cycle ID is provided, filter events for that cycle
+  if (cycleId) {
+    query = query.eq('cycle_id', cycleId);
+  }
+
+  const { data, error } = await query.order('date', { ascending: false });
+
+  if (error) {
+    console.error('Error fetching events:', error);
+    return { events: [], error };
+  }
+
+  // Transform database events to frontend format
+  const events: Event[] = data.map(dbEvent => {
+    // Process attendance data
+    const attendance = {
+      accepted: [],
+      declined: [],
+      tentative: []
+    };
+
+    // If the event has attendance records, process them
+    if (dbEvent.event_attendance && Array.isArray(dbEvent.event_attendance)) {
+      dbEvent.event_attendance.forEach(record => {
+        const attendee = {
+          boardNumber: record.board_number || '',
+          callsign: record.call_sign || '',
+          billet: record.billet || undefined
+        };
+
+        if (record.status === 'accepted') {
+          attendance.accepted.push(attendee);
+        } else if (record.status === 'declined') {
+          attendance.declined.push(attendee);
+        } else if (record.status === 'tentative') {
+          attendance.tentative.push(attendee);
+        }
+      });
+    }
+
+    // Return the transformed event with correct field mapping from DB to frontend
+    return {
+      id: dbEvent.id,
+      title: dbEvent.name, // DB field is 'name', frontend uses 'title'
+      description: dbEvent.description || '',
+      datetime: dbEvent.date, // DB field is 'date', frontend uses 'datetime'
+      status: dbEvent.status || 'upcoming',
+      eventType: dbEvent.event_type as EventType | undefined,
+      cycleId: dbEvent.cycle_id || undefined,
+      restrictedTo: [], // No restricted_to in the DB schema
+      creator: {
+        boardNumber: '',
+        callsign: '',
+        billet: ''
+      },
+      attendance
+    };
+  });
+
+  return { events, error: null };
+};
+
+export const createEvent = async (event: Omit<Event, 'id' | 'creator' | 'attendance'>) => {
+  const { user, error: userError } = await getCurrentUser();
+  if (userError || !user) {
+    return { event: null, error: userError || new Error('User not authenticated') };
+  }
+
+  // Map from frontend format to database format
+  const { data, error } = await supabase
+    .from('events')
+    .insert({
+      name: event.title, // Frontend uses 'title', DB field is 'name'
+      description: event.description,
+      date: event.datetime, // Frontend uses 'datetime', DB field is 'date'
+      status: event.status,
+      event_type: event.eventType,
+      cycle_id: event.cycleId
+      // No restricted_to or creator fields in the DB schema
+    })
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error creating event:', error);
+    return { event: null, error };
+  }
+
+  // Transform to frontend format
+  const newEvent: Event = {
+    id: data.id,
+    title: data.name, // DB field is 'name', frontend uses 'title'
+    description: data.description || '',
+    datetime: data.date, // DB field is 'date', frontend uses 'datetime'
+    status: data.status || 'upcoming',
+    eventType: data.event_type as EventType | undefined,
+    cycleId: data.cycle_id || undefined,
+    restrictedTo: [], // No restricted_to in the DB schema
+    creator: {
+      boardNumber: '',
+      callsign: '',
+      billet: ''
+    },
+    attendance: {
+      accepted: [],
+      declined: [],
+      tentative: []
+    }
+  };
+
+  return { event: newEvent, error: null };
+};
+
+export const updateEvent = async (eventId: string, updates: Partial<Omit<Event, 'id' | 'creator' | 'attendance'>>) => {
+  // Map from frontend format to database format
+  const dbUpdates: any = {};
+  
+  if (updates.title !== undefined) dbUpdates.name = updates.title; // Frontend uses 'title', DB field is 'name'
+  if (updates.description !== undefined) dbUpdates.description = updates.description;
+  if (updates.datetime !== undefined) dbUpdates.date = updates.datetime; // Frontend uses 'datetime', DB field is 'date'
+  if (updates.status !== undefined) dbUpdates.status = updates.status;
+  if (updates.eventType !== undefined) dbUpdates.event_type = updates.eventType;
+  if (updates.cycleId !== undefined) dbUpdates.cycle_id = updates.cycleId;
+  // No restricted_to in the DB schema
+
+  const { data, error } = await supabase
+    .from('events')
+    .update(dbUpdates)
+    .eq('id', eventId)
+    .select(`
+      *,
+      event_attendance(*)
+    `)
+    .single();
+
+  if (error) {
+    console.error('Error updating event:', error);
+    return { event: null, error };
+  }
+
+  // Process attendance data
+  const attendance = {
+    accepted: [],
+    declined: [],
+    tentative: []
+  };
+
+  // If the event has attendance records, process them
+  if (data.event_attendance && Array.isArray(data.event_attendance)) {
+    data.event_attendance.forEach(record => {
+      const attendee = {
+        boardNumber: record.board_number || '',
+        callsign: record.call_sign || '',
+        billet: record.billet || undefined
+      };
+
+      if (record.status === 'accepted') {
+        attendance.accepted.push(attendee);
+      } else if (record.status === 'declined') {
+        attendance.declined.push(attendee);
+      } else if (record.status === 'tentative') {
+        attendance.tentative.push(attendee);
+      }
+    });
+  }
+
+  // Transform to frontend format
+  const updatedEvent: Event = {
+    id: data.id,
+    title: data.name, // DB field is 'name', frontend uses 'title'
+    description: data.description || '',
+    datetime: data.date, // DB field is 'date', frontend uses 'datetime'
+    status: data.status || 'upcoming',
+    eventType: data.event_type as EventType | undefined,
+    cycleId: data.cycle_id || undefined,
+    restrictedTo: [], // No restricted_to in the DB schema
+    creator: {
+      boardNumber: '',
+      callsign: '',
+      billet: ''
+    },
+    attendance
+  };
+
+  return { event: updatedEvent, error: null };
+};
+
+export const deleteEvent = async (eventId: string) => {
+  const { error } = await supabase
+    .from('events')
+    .delete()
+    .eq('id', eventId);
+
+  return { error };
+};
+
+// Event Attendance API
+export const updateEventAttendance = async (eventId: string, status: 'accepted' | 'declined' | 'tentative') => {
+  const { user, error: userError } = await getCurrentUser();
+  if (userError || !user) {
+    return { error: userError || new Error('User not authenticated') };
+  }
+
+  // Get user profile for additional info
+  const { data: userProfile } = await supabase
+    .from('user_profiles')
+    .select('callsign, board_number, billet')
+    .eq('user_id', user.id)
+    .single();
+
+  // Check if attendance record already exists
+  const { data: existingAttendance } = await supabase
+    .from('event_attendance')
+    .select('*')
+    .eq('event_id', eventId)
+    .eq('user_id', user.id)
+    .single();
+
+  let error;
+
+  if (existingAttendance) {
+    // Update existing record
+    const { error: updateError } = await supabase
+      .from('event_attendance')
+      .update({
+        status,
+        call_sign: userProfile?.callsign || user.user_metadata?.callsign,
+        board_number: userProfile?.board_number || user.user_metadata?.board_number,
+        billet: userProfile?.billet || user.user_metadata?.billet
+      })
+      .eq('id', existingAttendance.id);
+    
+    error = updateError;
+  } else {
+    // Create new record
+    const { error: insertError } = await supabase
+      .from('event_attendance')
+      .insert({
+        event_id: eventId,
+        user_id: user.id,
+        status,
+        call_sign: userProfile?.callsign || user.user_metadata?.callsign,
+        board_number: userProfile?.board_number || user.user_metadata?.board_number,
+        billet: userProfile?.billet || user.user_metadata?.billet
+      });
+    
+    error = insertError;
+  }
+
+  if (error) {
+    console.error('Error updating attendance:', error);
+  }
+
+  return { error };
 };
