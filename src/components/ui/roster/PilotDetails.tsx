@@ -163,6 +163,7 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
     ...pilotDetailsStyles.fieldValue,
     width: '450px',
     minHeight: '35px',
+    padding: '8px',
     boxSizing: 'border-box' as const,
   };
 

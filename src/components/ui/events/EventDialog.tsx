@@ -125,11 +125,13 @@ export const EventDialog: React.FC<EventDialogProps> = ({
                 onChange={(e) => setTitle(e.target.value)}
                 style={{
                   width: '100%',
-                  padding: '8px 12px',
+                  padding: '8px',
                   border: '1px solid #CBD5E1',
                   borderRadius: '4px',
                   fontSize: '14px',
-                  boxSizing: 'border-box'
+                  boxSizing: 'border-box',
+                  height: '35px',
+                  lineHeight: '19px'
                 }}
                 placeholder="Enter event title"
               />
@@ -151,11 +153,13 @@ export const EventDialog: React.FC<EventDialogProps> = ({
                   value={datetime}
                   onChange={(e) => setDatetime(e.target.value)}
                   style={{
-                    padding: '8px 12px',
+                    padding: '8px',
                     border: '1px solid #CBD5E1',
                     borderRadius: '4px',
                     fontSize: '14px',
-                    width: 'auto'
+                    width: 'auto',
+                    height: '35px',
+                    lineHeight: '19px'
                   }}
                 />
               </div>
@@ -179,7 +183,7 @@ export const EventDialog: React.FC<EventDialogProps> = ({
                   }}
                   style={{
                     width: '100%',
-                    padding: '8px 12px',
+                    padding: '8px',
                     border: '1px solid #CBD5E1',
                     borderRadius: '4px',
                     fontSize: '14px',
@@ -217,7 +221,7 @@ export const EventDialog: React.FC<EventDialogProps> = ({
                 onChange={(e) => setDescription(e.target.value)}
                 style={{
                   width: '100%',
-                  padding: '8px 12px',
+                  padding: '8px',
                   border: '1px solid #CBD5E1',
                   borderRadius: '4px',
                   fontSize: '14px',
