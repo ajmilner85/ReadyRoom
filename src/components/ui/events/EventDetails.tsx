@@ -1,12 +1,54 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Card } from '../card';
 import type { Event } from '../../../types/EventTypes';
+import { publishEventToDiscord, updateEventDiscordId } from '../../../utils/discordService';
 
 interface EventDetailsProps {
   event: Event | null;
 }
 
 const EventDetails: React.FC<EventDetailsProps> = ({ event }) => {
+  const [publishing, setPublishing] = useState(false);
+  const [publishMessage, setPublishMessage] = useState<{type: 'success' | 'error', text: string} | null>(null);
+
+  const handlePublishToDiscord = async () => {
+    if (!event) return;
+    
+    setPublishing(true);
+    setPublishMessage(null);
+    
+    try {
+      const response = await publishEventToDiscord(event);
+      
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to publish event to Discord');
+      }
+      
+      // If successful, update the event with the Discord message ID
+      if (response.discordMessageId) {
+        await updateEventDiscordId(event.id, response.discordMessageId);
+      }
+      
+      setPublishMessage({
+        type: 'success',
+        text: 'Event successfully published to Discord!'
+      });
+      
+      // Clear the success message after 5 seconds
+      setTimeout(() => {
+        setPublishMessage(null);
+      }, 5000);
+    } catch (error) {
+      console.error('Failed to publish to Discord:', error);
+      setPublishMessage({
+        type: 'error',
+        text: error instanceof Error ? error.message : 'Unknown error occurred'
+      });
+    } finally {
+      setPublishing(false);
+    }
+  };
+
   if (!event) {
     return (
       <div
@@ -85,12 +127,34 @@ const EventDetails: React.FC<EventDetailsProps> = ({ event }) => {
         </div>
       </Card>
 
-      <Card className="p-4">
+      <Card className="p-4 mb-6">
         <h2 className="text-lg font-semibold mb-2">Description</h2>
         <div className="whitespace-pre-wrap text-slate-600">
           {event.description}
         </div>
       </Card>
+      
+      {/* Publish to Discord Button */}
+      <div className="mt-auto">
+        {publishMessage && (
+          <div 
+            className={`p-3 mb-4 rounded-md ${publishMessage.type === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}
+          >
+            {publishMessage.text}
+          </div>
+        )}
+        <button
+          onClick={handlePublishToDiscord}
+          disabled={publishing}
+          className={`w-full py-2 px-4 rounded-md transition-colors ${
+            publishing 
+            ? 'bg-indigo-300 cursor-not-allowed' 
+            : 'bg-indigo-600 hover:bg-indigo-700 text-white'
+          }`}
+        >
+          {publishing ? 'Publishing...' : 'Publish to Discord'}
+        </button>
+      </div>
     </div>
   );
 };

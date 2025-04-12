@@ -1,17 +1,16 @@
 In Progress:
-
-
+	- Custom Discord Bot for event creation and attendance tracking
+	- Develop Express server backend functionality
 
 Next:
-	- Mission/event saving
-	
-
-
-High Priority:
 - Mission Preparation
 	- Attendance (Discord/Apollo integration?)
 		- Cruise, Foothold, Other (Accepted, Declined, Tentative)
 		- Training (IP, Trainee, Declined) not needed if IP qualification tracked?
+	- Mission saving
+
+High Priority:
+- Mission Preparation
 	- Create comms card
 	- Export kneeboards
 
@@ -59,6 +58,8 @@ Skunkworks:
 
 
 Unprioritized:
+	- LSO functionality
+		- Grading panel with clickable shorthand
 	- Admin Settings
 		- Per user vs. per squadron preferences
 		- Site roles/user privileges
