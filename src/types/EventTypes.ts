@@ -48,4 +48,5 @@ export interface Event {
     cycleId?: string; // Reference to parent cycle
     eventType?: EventType; // Type of event
     restrictedTo?: string[];
+    discordMessageId?: string; // ID of the message in Discord for tracking responses
   }
