@@ -1,0 +1,146 @@
+{
+  "1360772762393907422": {
+    "title": "Test Hop 0",
+    "description": "This is a test of the ReadyRoom/SDOBot integration.",
+    "eventTime": {
+      "start": "2025-04-23T00:00:00.000Z",
+      "end": "2025-04-23T01:00:00.000Z"
+    },
+    "accepted": [],
+    "declined": [],
+    "tentative": [
+      {
+        "userId": "118942689508065280",
+        "displayName": "Leodis"
+      }
+    ]
+  },
+  "1360775181068402719": {
+    "title": "Test Hop 2",
+    "description": "",
+    "eventTime": {
+      "start": "2025-04-18T00:00:00.000Z",
+      "end": "2025-04-18T01:00:00.000Z"
+    },
+    "accepted": [
+      {
+        "userId": "118942689508065280",
+        "displayName": "Leodis"
+      }
+    ],
+    "declined": [],
+    "tentative": []
+  },
+  "1360775349897658378": {
+    "title": "Test Hop 1 - Modified",
+    "description": "Testing Discord integration",
+    "eventTime": {
+      "start": "2025-04-25T00:00:00.000Z",
+      "end": "2025-04-25T01:00:00.000Z"
+    },
+    "accepted": [],
+    "declined": [],
+    "tentative": [
+      {
+        "userId": "118942689508065280",
+        "displayName": "744 Nubs"
+      }
+    ]
+  },
+  "1360807086891728936": {
+    "title": "Test Hop 0",
+    "description": "This is a test of the ReadyRoom/SDOBot integration.",
+    "eventTime": {
+      "start": "2025-04-23T00:00:00.000Z",
+      "end": "2025-04-23T01:00:00.000Z"
+    },
+    "accepted": [
+      {
+        "userId": "118942689508065280",
+        "displayName": "744 Nubs"
+      }
+    ],
+    "declined": [],
+    "tentative": []
+  },
+  "1360825624452792403": {
+    "title": "Test Hop 2",
+    "description": "",
+    "eventTime": {
+      "start": "2025-04-18T00:00:00.000Z",
+      "end": "2025-04-18T01:00:00.000Z"
+    },
+    "accepted": [
+      {
+        "userId": "118942689508065280",
+        "displayName": "744 Nubs"
+      }
+    ],
+    "declined": [],
+    "tentative": []
+  },
+  "1360828543155703880": {
+    "title": "Test Event  1",
+    "description": "Test Event 1",
+    "eventTime": {
+      "start": "2025-04-16T00:00:00.000Z",
+      "end": "2025-04-16T01:00:00.000Z"
+    },
+    "accepted": [
+      {
+        "userId": "118942689508065280",
+        "displayName": "744 Nubs"
+      }
+    ],
+    "declined": [],
+    "tentative": []
+  },
+  "1360831106391343219": {
+    "title": "Test Event 1",
+    "description": "Test",
+    "eventTime": {
+      "start": "2025-04-22T00:00:00.000Z",
+      "end": "2025-04-22T01:00:00.000Z"
+    },
+    "accepted": [
+      {
+        "userId": "118942689508065280",
+        "displayName": "744 Nubs"
+      }
+    ],
+    "declined": [],
+    "tentative": []
+  },
+  "1360832766014652557": {
+    "title": "Test Event 1",
+    "description": "Test",
+    "eventTime": {
+      "start": "2025-04-16T00:00:00.000Z",
+      "end": "2025-04-16T01:00:00.000Z"
+    },
+    "accepted": [
+      {
+        "userId": "118942689508065280",
+        "displayName": "744 Nubs"
+      }
+    ],
+    "declined": [],
+    "tentative": []
+  },
+  "1360835656770650162": {
+    "title": "Test Event",
+    "description": "Test",
+    "eventTime": {
+      "start": "2025-04-17T00:00:00.000Z",
+      "end": "2025-04-17T01:00:00.000Z"
+    },
+    "accepted": [
+      {
+        "userId": "118942689508065280",
+        "displayName": "744 Nubs"
+      }
+    ],
+    "declined": [],
+    "tentative": []
+  }
+}

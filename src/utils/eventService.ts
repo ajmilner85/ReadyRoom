@@ -4,8 +4,8 @@ import type { Database } from '../types/supabase';
 export type Event = Database['public']['Tables']['events']['Row'];
 export type NewEvent = Database['public']['Tables']['events']['Insert'];
 export type UpdateEvent = Database['public']['Tables']['events']['Update'];
-export type Attendance = Database['public']['Tables']['attendance']['Row'];
-export type NewAttendance = Database['public']['Tables']['attendance']['Insert'];
+export type DiscordEventAttendance = Database['public']['Tables']['discord_event_attendance']['Row'];
+export type NewDiscordEventAttendance = Database['public']['Tables']['discord_event_attendance']['Insert'];
 
 /**
  * Fetch all events from the database
@@ -76,47 +76,89 @@ export async function deleteEvent(id: string): Promise<{ success: boolean; error
 }
 
 /**
- * Get attendance records for an event
+ * Get attendance records for an event using discord_event_id
  */
-export async function getEventAttendance(eventId: string): Promise<{ data: Attendance[] | null; error: any }> {
-  const { data, error } = await supabase
-    .from('attendance')
-    .select('*, pilots(*)')
-    .eq('eventId', eventId);
+export async function getEventAttendance(eventId: string): Promise<{ 
+  accepted: any[]; 
+  declined: any[]; 
+  tentative: any[]; 
+  error: any 
+}> {
+  try {
+    // First get the event to retrieve its discord_event_id
+    const { data: eventData, error: eventError } = await supabase
+      .from('events')
+      .select('discord_event_id')
+      .eq('id', eventId)
+      .single();
 
-  return { data, error };
+    if (eventError) {
+      throw eventError;
+    }
+
+    if (!eventData?.discord_event_id) {
+      return { 
+        accepted: [], 
+        declined: [], 
+        tentative: [],
+        error: null
+      };
+    }
+
+    // Then get all attendance records for this discord event
+    const { data: attendanceData, error: attendanceError } = await supabase
+      .from('discord_event_attendance')
+      .select('*')
+      .eq('discord_event_id', eventData.discord_event_id);
+
+    if (attendanceError) {
+      throw attendanceError;
+    }
+
+    // Format the response to match the expected structure
+    const attendance = {
+      accepted: [],
+      declined: [],
+      tentative: []
+    };
+    
+    // Process each attendance record
+    attendanceData?.forEach(record => {
+      // Prepare the attendee object
+      const attendee = {
+        boardNumber: record.discord_id ? record.discord_id.substring(0, 3) : 'N/A',
+        callsign: record.discord_username || 'Unknown User',
+        discord_id: record.discord_id
+      };
+      
+      // Add to the appropriate list based on user_response
+      if (record.user_response === 'accepted') {
+        attendance.accepted.push(attendee);
+      } else if (record.user_response === 'declined') {
+        attendance.declined.push(attendee);
+      } else if (record.user_response === 'tentative') {
+        attendance.tentative.push(attendee);
+      }
+    });
+
+    return { ...attendance, error: null };
+  } catch (error) {
+    console.error('Error fetching event attendance:', error);
+    return { 
+      accepted: [], 
+      declined: [], 
+      tentative: [],
+      error
+    };
+  }
 }
 
 /**
- * Update or create attendance record for a pilot at an event
+ * Update or create attendance record for a user at an event
+ * This is maintained for compatibility but will likely be replaced by Discord interactions
  */
-export async function updateAttendance(attendance: NewAttendance): Promise<{ data: Attendance | null; error: any }> {
-  // First check if an attendance record already exists
-  const { data: existingRecord } = await supabase
-    .from('attendance')
-    .select('id')
-    .eq('eventId', attendance.eventId)
-    .eq('pilotId', attendance.pilotId)
-    .single();
-
-  if (existingRecord) {
-    // Update existing record
-    const { data, error } = await supabase
-      .from('attendance')
-      .update({ status: attendance.status, role: attendance.role })
-      .eq('id', existingRecord.id)
-      .select()
-      .single();
-    
-    return { data, error };
-  } else {
-    // Create new record
-    const { data, error } = await supabase
-      .from('attendance')
-      .insert(attendance)
-      .select()
-      .single();
-    
-    return { data, error };
-  }
+export async function updateAttendance(attendance: any): Promise<{ data: any | null; error: any }> {
+  // This would need to be reworked for the new structure if needed
+  console.warn('updateAttendance is not implemented for discord_event_attendance');
+  return { data: null, error: new Error('Not implemented') };
 }
