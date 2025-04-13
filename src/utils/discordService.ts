@@ -4,6 +4,7 @@ import { supabase } from './supabaseClient';
 interface PublishEventResponse {
   success: boolean;
   discordMessageId?: string;
+  guildId?: string;
   error?: string;
 }
 
@@ -54,8 +55,11 @@ export async function publishEventToDiscord(event: Event): Promise<PublishEventR
           const endDate = new Date(startDate.getTime() + 60 * 60 * 1000); // Add 1 hour
           endTime = endDate.toISOString();
         }
+        
+        // Get the selected Discord server ID from localStorage
+        const selectedGuildId = localStorage.getItem('discordSelectedServer');
 
-        console.log(`[DEBUG] Request ${requestId}: Sending publish request to server`);
+        console.log(`[DEBUG] Request ${requestId}: Sending publish request to server with guild ID: ${selectedGuildId || 'default'}`);
   
         // Set a reasonable timeout for the fetch call
         const controller = new AbortController();
@@ -73,7 +77,8 @@ export async function publishEventToDiscord(event: Event): Promise<PublishEventR
             startTime: startTime,
             endTime: endTime,
             eventId: event.id, // Include the event ID so server can update the record
-            requestId: requestId // Also include in body for logging
+            requestId: requestId, // Also include in body for logging
+            guildId: selectedGuildId // Include the selected Discord server ID
           }),
           signal: controller.signal
         });
@@ -93,7 +98,8 @@ export async function publishEventToDiscord(event: Event): Promise<PublishEventR
           console.log(`[DEBUG] Request ${requestId}: Event was already published, returning existing ID`);
           return {
             success: true,
-            discordMessageId: data.discordMessageId
+            discordMessageId: data.discordMessageId,
+            guildId: data.discordGuildId
           };
         }
         
@@ -102,6 +108,11 @@ export async function publishEventToDiscord(event: Event): Promise<PublishEventR
           const discordMap = JSON.parse(localStorage.getItem('eventDiscordMessageIds') || '{}');
           discordMap[event.id] = data.discordMessageId;
           localStorage.setItem('eventDiscordMessageIds', JSON.stringify(discordMap));
+          
+          // Also store the guild ID for this message
+          const guildMap = JSON.parse(localStorage.getItem('eventDiscordGuildIds') || '{}');
+          guildMap[event.id] = data.discordGuildId;
+          localStorage.setItem('eventDiscordGuildIds', JSON.stringify(guildMap));
         } catch (err) {
           // Silent failure for localStorage operations
         }
@@ -109,6 +120,7 @@ export async function publishEventToDiscord(event: Event): Promise<PublishEventR
         return {
           success: true,
           discordMessageId: data.discordMessageId,
+          guildId: data.discordGuildId
         };
       } catch (error) {
         console.log(`[DEBUG] Request ${requestId}: Error during publish attempt ${retryCount + 1}:`, error);
@@ -146,24 +158,39 @@ export async function publishEventToDiscord(event: Event): Promise<PublishEventR
 }
 
 /**
- * Updates the discord_event_id field in the database for an event
+ * Updates the Discord event information in the database
  * @param eventId The event ID
  * @param discordMessageId The Discord message ID
+ * @param guildId The Discord guild (server) ID
  */
-export async function updateEventDiscordId(eventId: string, discordMessageId: string): Promise<boolean> {
+export async function updateEventDiscordId(
+  eventId: string, 
+  discordMessageId: string,
+  guildId?: string
+): Promise<boolean> {
   try {
-    // Update the event in the database with the Discord message ID
+    // Update object to apply to the database
+    const updateObj: any = { discord_event_id: discordMessageId };
+    
+    // Include guild ID if provided
+    if (guildId) {
+      updateObj.discord_guild_id = guildId;
+    }
+    
+    // Update the event in the database with Discord information
     const { error } = await supabase
       .from('events')
-      .update({ discord_event_id: discordMessageId })
+      .update(updateObj)
       .eq('id', eventId);
     
     if (error) {
+      console.error('Error updating event Discord IDs:', error);
       return false;
     }
     
     return true;
   } catch (error) {
+    console.error('Unexpected error updating event Discord IDs:', error);
     return false;
   }
 }
@@ -182,10 +209,64 @@ interface DiscordAttendanceResponse {
 }
 
 /**
+ * Interface for Discord server information
+ */
+export interface DiscordServer {
+  id: string;
+  name: string;
+  memberCount: number;
+  icon: string | null;
+  hasEventsChannel: boolean;
+}
+
+/**
+ * Fetches available Discord servers that the bot has access to
+ * @returns List of available Discord servers
+ */
+export async function getAvailableDiscordServers(): Promise<{ 
+  success: boolean;
+  servers?: DiscordServer[];
+  error?: string;
+}> {
+  try {
+    console.log('[DEBUG] Fetching available Discord servers');
+    
+    const response = await fetch('http://localhost:3001/api/discord/servers', {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    const data = await response.json();
+    
+    if (!response.ok) {
+      throw new Error(data.error || 'Failed to fetch Discord servers');
+    }
+    
+    if (!data.success) {
+      throw new Error(data.error || 'Server returned unsuccessful response');
+    }
+    
+    return {
+      success: true,
+      servers: data.servers
+    };
+  } catch (error) {
+    console.error('Error fetching Discord servers:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error fetching Discord servers'
+    };
+  }
+}
+
+/**
  * Delete a Discord message for an event that's being deleted
  * @param discordMessageId The Discord message ID to delete
+ * @param guildId Optional guild ID if known
  */
-export async function deleteDiscordMessage(discordMessageId: string): Promise<{ success: boolean; error?: string }> {
+export async function deleteDiscordMessage(discordMessageId: string, guildId?: string): Promise<{ success: boolean; error?: string }> {
   try {
     // Skip if no Discord message ID was provided
     if (!discordMessageId) {
@@ -193,10 +274,26 @@ export async function deleteDiscordMessage(discordMessageId: string): Promise<{ 
       return { success: true };
     }
     
-    console.log(`[DEBUG] Attempting to delete Discord message: ${discordMessageId}`);
+    console.log(`[DEBUG] Attempting to delete Discord message: ${discordMessageId} from guild: ${guildId || 'any'}`);
+    
+    // If no guild ID was provided, try to get it from localStorage
+    if (!guildId) {
+      try {
+        const guildMap = JSON.parse(localStorage.getItem('eventDiscordGuildIds') || '{}');
+        guildId = guildMap[discordMessageId];
+      } catch (err) {
+        // Silent failure for localStorage operations
+      }
+    }
+    
+    // Build the URL with optional guild ID as a query parameter
+    let url = `http://localhost:3001/api/events/${discordMessageId}`;
+    if (guildId) {
+      url += `?guildId=${encodeURIComponent(guildId)}`;
+    }
     
     // Call the server API to delete the message
-    const response = await fetch(`http://localhost:3001/api/events/${discordMessageId}`, {
+    const response = await fetch(url, {
       method: 'DELETE',
       headers: {
         'Content-Type': 'application/json',
@@ -210,6 +307,31 @@ export async function deleteDiscordMessage(discordMessageId: string): Promise<{ 
     }
     
     console.log(`[DEBUG] Discord message deletion response for ${discordMessageId}:`, data);
+    
+    // If deletion was successful, also remove from local storage
+    try {
+      const discordMap = JSON.parse(localStorage.getItem('eventDiscordMessageIds') || '{}');
+      // Find and remove the entry where the value is this message ID
+      for (const [eventId, msgId] of Object.entries(discordMap)) {
+        if (msgId === discordMessageId) {
+          delete discordMap[eventId];
+          break;
+        }
+      }
+      localStorage.setItem('eventDiscordMessageIds', JSON.stringify(discordMap));
+      
+      // Also clean up guild ID mapping
+      const guildMap = JSON.parse(localStorage.getItem('eventDiscordGuildIds') || '{}');
+      for (const [eventId, msgId] of Object.entries(discordMap)) {
+        if (msgId === discordMessageId) {
+          delete guildMap[eventId];
+          break;
+        }
+      }
+      localStorage.setItem('eventDiscordGuildIds', JSON.stringify(guildMap));
+    } catch (err) {
+      // Silent failure for localStorage operations
+    }
     
     return {
       success: true

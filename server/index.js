@@ -10,7 +10,12 @@ dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
 // Require the Discord bot with an explicit path
 const discordBotPath = path.resolve(__dirname, '../SDOBot/discordBot');
-const { publishEventToDiscord, initializeDiscordBot, deleteEventMessage } = require(discordBotPath);
+const { 
+  publishEventToDiscord, 
+  initializeDiscordBot, 
+  deleteEventMessage, 
+  getAvailableGuilds 
+} = require(discordBotPath);
 
 // Import Supabase client
 const { supabase, getEventByDiscordId } = require('./supabaseClient');
@@ -21,8 +26,13 @@ const { Client, GatewayIntentBits } = require('discord.js');
 const app = express();
 const PORT = process.env.SERVER_PORT || 3001;
 
-// Middleware
-app.use(cors());
+// Configure CORS with specific options to ensure it works properly
+app.use(cors({
+  origin: ['http://localhost:5173', 'http://127.0.0.1:5173', 'http://localhost:4173'], // Add your frontend URLs
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-ID'],
+  credentials: true
+}));
 app.use(bodyParser.json());
 
 // Health check endpoint
@@ -51,8 +61,9 @@ app.head('/api/health', (req, res) => {
 app.delete('/api/events/:discordMessageId', async (req, res) => {
   try {
     const { discordMessageId } = req.params;
+    const { guildId } = req.query; // Get guild ID from query params
     
-    console.log(`[DEBUG] Received request to delete Discord message: ${discordMessageId}`);
+    console.log(`[DEBUG] Received request to delete Discord message: ${discordMessageId}, Guild ID: ${guildId || 'not specified'}`);
     
     // Validate ID format to avoid unnecessary calls
     if (!discordMessageId || !/^\d+$/.test(discordMessageId)) {
@@ -62,8 +73,31 @@ app.delete('/api/events/:discordMessageId', async (req, res) => {
       });
     }
     
-    // Call the Discord bot to delete the message
-    const result = await deleteEventMessage(discordMessageId);
+    // If the event was in a specific guild, first try to look it up
+    if (!guildId) {
+      // Try to find the guild ID in the database if not provided
+      const { data, error } = await supabase
+        .from('events')
+        .select('discord_guild_id')
+        .eq('discord_event_id', discordMessageId)
+        .single();
+        
+      if (!error && data && data.discord_guild_id) {
+        console.log(`[DEBUG] Found guild ID ${data.discord_guild_id} for message ${discordMessageId}`);
+        // Use the guild ID from the database
+        const result = await deleteEventMessage(discordMessageId, data.discord_guild_id);
+        
+        if (result.success) {
+          return res.json({ 
+            success: true,
+            alreadyDeleted: !!result.alreadyDeleted
+          });
+        }
+      }
+    }
+    
+    // Call the Discord bot to delete the message (with guild ID if provided)
+    const result = await deleteEventMessage(discordMessageId, guildId);
     
     console.log(`[DEBUG] Delete result for message ${discordMessageId}:`, result);
     
@@ -91,13 +125,14 @@ app.delete('/api/events/:discordMessageId', async (req, res) => {
 // Add detailed logging to the publish endpoint
 app.post('/api/events/publish', async (req, res) => {
   try {
-    const { title, description, startTime, endTime, eventId } = req.body;
+    const { title, description, startTime, endTime, eventId, guildId } = req.body;
     
     console.log('[DEBUG] Received event publish request:', { 
       timestamp: new Date().toISOString(),
       eventId,
       title,
-      startTime
+      startTime,
+      guildId
     });
     
     if (!title || !startTime) {
@@ -112,7 +147,7 @@ app.post('/api/events/publish', async (req, res) => {
       console.log(`[DEBUG] Checking if event ${eventId} was already published...`);
       const { data: existingEvent, error: checkError } = await supabase
         .from('events')
-        .select('discord_event_id')
+        .select('discord_event_id, discord_guild_id')
         .eq('id', eventId)
         .single();
         
@@ -121,6 +156,7 @@ app.post('/api/events/publish', async (req, res) => {
         return res.json({
           success: true,
           discordMessageId: existingEvent.discord_event_id,
+          discordGuildId: existingEvent.discord_guild_id,
           alreadyPublished: true
         });
       }
@@ -135,32 +171,37 @@ app.post('/api/events/publish', async (req, res) => {
     console.log('[DEBUG] Publishing event to Discord:', { 
       title, 
       eventId,
+      guildId,
       startTime: eventTime.start.toISOString(), 
       endTime: eventTime.end.toISOString() 
     });
     
-    // Call the Discord bot to publish the event
-    const result = await publishEventToDiscord(title, description || '', eventTime);
+    // Call the Discord bot to publish the event, passing the guild ID if provided
+    const result = await publishEventToDiscord(title, description || '', eventTime, guildId);
     console.log('[DEBUG] Discord publish result:', result);
     
-    // If eventId was provided, update the event in Supabase with the Discord message ID
+    // If eventId was provided, update the event in Supabase with the Discord message ID and guild ID
     if (eventId && result.messageId) {
-      console.log(`[DEBUG] Updating event ${eventId} with Discord message ID ${result.messageId}`);
+      console.log(`[DEBUG] Updating event ${eventId} with Discord message ID ${result.messageId} and guild ID ${result.guildId}`);
       const { error: updateError } = await supabase
         .from('events')
-        .update({ discord_event_id: result.messageId })
+        .update({ 
+          discord_event_id: result.messageId,
+          discord_guild_id: result.guildId
+        })
         .eq('id', eventId);
       
       if (updateError) {
-        console.warn(`[WARNING] Failed to update event record with Discord message ID: ${updateError.message}`);
+        console.warn(`[WARNING] Failed to update event record with Discord IDs: ${updateError.message}`);
       } else {
-        console.log(`[DEBUG] Successfully linked event ${eventId} with Discord message ID ${result.messageId}`);
+        console.log(`[DEBUG] Successfully linked event ${eventId} with Discord message ID ${result.messageId} and guild ID ${result.guildId}`);
       }
     }
     
     res.json({
       success: true,
-      discordMessageId: result.messageId
+      discordMessageId: result.messageId,
+      discordGuildId: result.guildId
     });
   } catch (error) {
     console.error('[ERROR] Error publishing event to Discord:', error);
@@ -319,6 +360,36 @@ app.get('/api/discord/guild-members', async (req, res) => {
     console.error('[ERROR] Error fetching Discord guild members:', error);
     res.status(500).json({ 
       error: error.message || 'Failed to fetch Discord guild members' 
+    });
+  }
+});
+
+// New endpoint to get available Discord servers
+app.get('/api/discord/servers', async (req, res) => {
+  try {
+    console.log('[DEBUG] Received request to fetch available Discord servers');
+    
+    // Use the bot's getAvailableGuilds function
+    const { guilds, error } = await getAvailableGuilds();
+    
+    if (error) {
+      return res.status(500).json({ 
+        success: false,
+        error: error
+      });
+    }
+    
+    console.log(`[DEBUG] Found ${guilds.length} available Discord servers`);
+    
+    return res.json({
+      success: true,
+      servers: guilds
+    });
+  } catch (error) {
+    console.error('[ERROR] Error fetching Discord servers:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: error.message || 'Failed to fetch Discord servers' 
     });
   }
 });
