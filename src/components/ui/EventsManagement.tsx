@@ -351,7 +351,31 @@ const EventsManagement: React.FC = () => {
         // Reload cycles
         await loadCycles();
       } else if (eventToDelete) {
-        // Delete event
+        // Check if there's an associated Discord message that needs to be deleted
+        const discordMessageId = eventToDelete.discordEventId || eventToDelete.discordMessageId;
+        
+        if (discordMessageId) {
+          console.log(`Deleting associated Discord message: ${discordMessageId}`);
+          try {
+            // Import the Discord service function for deletion
+            const { deleteDiscordMessage } = await import('../../utils/discordService');
+            
+            // Attempt to delete the Discord message first
+            const { success, error } = await deleteDiscordMessage(discordMessageId);
+            
+            if (!success) {
+              console.warn(`Warning: Failed to delete Discord message: ${error}`);
+              // Continue with event deletion even if Discord deletion fails
+            } else {
+              console.log(`Successfully deleted Discord message: ${discordMessageId}`);
+            }
+          } catch (discordError) {
+            console.error('Error deleting Discord message:', discordError);
+            // Continue with event deletion even if Discord deletion fails
+          }
+        }
+        
+        // Delete event from database
         const { error } = await deleteEvent(eventToDelete.id);
         if (error) throw error;
         

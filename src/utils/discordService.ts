@@ -182,6 +182,48 @@ interface DiscordAttendanceResponse {
 }
 
 /**
+ * Delete a Discord message for an event that's being deleted
+ * @param discordMessageId The Discord message ID to delete
+ */
+export async function deleteDiscordMessage(discordMessageId: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    // Skip if no Discord message ID was provided
+    if (!discordMessageId) {
+      console.log('No Discord message ID provided for deletion');
+      return { success: true };
+    }
+    
+    console.log(`[DEBUG] Attempting to delete Discord message: ${discordMessageId}`);
+    
+    // Call the server API to delete the message
+    const response = await fetch(`http://localhost:3001/api/events/${discordMessageId}`, {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+      }
+    });
+    
+    const data = await response.json();
+    
+    if (!response.ok) {
+      throw new Error(data.error || 'Failed to delete Discord message');
+    }
+    
+    console.log(`[DEBUG] Discord message deletion response for ${discordMessageId}:`, data);
+    
+    return {
+      success: true
+    };
+  } catch (error) {
+    console.error('Error deleting Discord message:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error during message deletion'
+    };
+  }
+}
+
+/**
  * Fetches attendance data from Discord for a specific event
  * @param discordMessageId The Discord message ID of the event
  * @returns Attendance data from Discord

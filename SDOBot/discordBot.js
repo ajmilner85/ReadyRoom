@@ -213,6 +213,51 @@ async function findEventsChannel() {
   throw new Error('Events channel not found in any guild');
 }
 
+// Function to delete a Discord event message
+async function deleteEventMessage(messageId) {
+  try {
+    await ensureLoggedIn();
+    
+    // Find the events channel
+    const eventsChannel = await findEventsChannel();
+    
+    try {
+      // Try to fetch and delete the message
+      const message = await eventsChannel.messages.fetch(messageId);
+      if (message) {
+        await message.delete();
+        
+        // Remove from event responses in memory and storage
+        if (eventResponses.has(messageId)) {
+          eventResponses.delete(messageId);
+          saveEventResponses();
+        }
+        
+        console.log(`Successfully deleted Discord message: ${messageId}`);
+        return { success: true };
+      }
+    } catch (fetchError) {
+      console.error(`Error fetching Discord message ${messageId}:`, fetchError);
+      // If message not found, consider it already deleted
+      if (fetchError.code === 10008) {
+        console.log(`Message ${messageId} already deleted or not found`);
+        
+        // Still remove from our responses if it exists
+        if (eventResponses.has(messageId)) {
+          eventResponses.delete(messageId);
+          saveEventResponses();
+        }
+        
+        return { success: true, alreadyDeleted: true };
+      }
+      throw fetchError;
+    }
+  } catch (error) {
+    console.error('Error deleting Discord event message:', error);
+    return { success: false, error: error.message || 'Failed to delete message' };
+  }
+}
+
 // Function to publish an event to Discord from the server
 async function publishEventToDiscord(title, description, eventTime) {
   try {
@@ -371,5 +416,6 @@ module.exports = {
   publishEventToDiscord,
   getEventAttendance,
   initializeDiscordBot,
-  registerEventUpdateCallback
+  registerEventUpdateCallback,
+  deleteEventMessage
 };

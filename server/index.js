@@ -10,7 +10,7 @@ dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
 // Require the Discord bot with an explicit path
 const discordBotPath = path.resolve(__dirname, '../SDOBot/discordBot');
-const { publishEventToDiscord, initializeDiscordBot } = require(discordBotPath);
+const { publishEventToDiscord, initializeDiscordBot, deleteEventMessage } = require(discordBotPath);
 
 // Import Supabase client
 const { supabase, getEventByDiscordId } = require('./supabaseClient');
@@ -44,6 +44,47 @@ app.head('/api/health', (req, res) => {
 })();
 
 // Routes
+// API endpoint to delete a Discord message
+app.delete('/api/events/:discordMessageId', async (req, res) => {
+  try {
+    const { discordMessageId } = req.params;
+    
+    console.log(`[DEBUG] Received request to delete Discord message: ${discordMessageId}`);
+    
+    // Validate ID format to avoid unnecessary calls
+    if (!discordMessageId || !/^\d+$/.test(discordMessageId)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid Discord message ID format'
+      });
+    }
+    
+    // Call the Discord bot to delete the message
+    const result = await deleteEventMessage(discordMessageId);
+    
+    console.log(`[DEBUG] Delete result for message ${discordMessageId}:`, result);
+    
+    // Return success even if message was already deleted
+    if (result.success) {
+      return res.json({ 
+        success: true,
+        alreadyDeleted: !!result.alreadyDeleted
+      });
+    } else {
+      return res.status(500).json({
+        success: false,
+        error: result.error || 'Failed to delete Discord message'
+      });
+    }
+  } catch (error) {
+    console.error('[ERROR] Error deleting Discord message:', error);
+    return res.status(500).json({
+      success: false,
+      error: error.message || 'Server error while deleting Discord message'
+    });
+  }
+});
+
 // Add detailed logging to the publish endpoint
 app.post('/api/events/publish', async (req, res) => {
   try {

@@ -300,49 +300,6 @@
     "declined": [],
     "tentative": []
   },
-  "1360985444048703538": {
-    "title": "Test",
-    "description": "",
-    "eventTime": {
-      "start": "2025-04-17T00:00:00.000Z",
-      "end": "2025-04-17T01:00:00.000Z"
-    },
-    "accepted": [
-      {
-        "userId": "118942689508065280",
-        "displayName": "744 Nubs"
-      }
-    ],
-    "declined": [],
-    "tentative": []
-  },
-  "1360988037965676726": {
-    "title": "Test 2",
-    "description": "Another test",
-    "eventTime": {
-      "start": "2025-04-23T00:00:00.000Z",
-      "end": "2025-04-23T01:00:00.000Z"
-    },
-    "accepted": [
-      {
-        "userId": "118942689508065280",
-        "displayName": "744 Nubs"
-      }
-    ],
-    "declined": [],
-    "tentative": []
-  },
-  "1360988245709553664": {
-    "title": "Test 4",
-    "description": "",
-    "eventTime": {
-      "start": "2025-04-23T00:00:00.000Z",
-      "end": "2025-04-23T01:00:00.000Z"
-    },
-    "accepted": [],
-    "declined": [],
-    "tentative": []
-  },
   "1360989280415121578": {
     "title": "Test 5",
     "description": "",
@@ -351,22 +308,6 @@
       "end": "2025-04-24T01:00:00.000Z"
     },
     "accepted": [],
-    "declined": [],
-    "tentative": []
-  },
-  "1360989285716721665": {
-    "title": "Test 5",
-    "description": "",
-    "eventTime": {
-      "start": "2025-04-24T00:00:00.000Z",
-      "end": "2025-04-24T01:00:00.000Z"
-    },
-    "accepted": [
-      {
-        "userId": "118942689508065280",
-        "displayName": "744 Nubs"
-      }
-    ],
     "declined": [],
     "tentative": []
   },
@@ -380,32 +321,5 @@
     "accepted": [],
     "declined": [],
     "tentative": []
-  },
-  "1360991012981571854": {
-    "title": "Test 6",
-    "description": "TEST",
-    "eventTime": {
-      "start": "2025-04-30T00:00:00.000Z",
-      "end": "2025-04-30T01:00:00.000Z"
-    },
-    "accepted": [],
-    "declined": [],
-    "tentative": []
-  },
-  "1361002292479918330": {
-    "title": "Test 7",
-    "description": "Test 7",
-    "eventTime": {
-      "start": "2025-04-24T00:00:00.000Z",
-      "end": "2025-04-24T01:00:00.000Z"
-    },
-    "accepted": [],
-    "declined": [],
-    "tentative": [
-      {
-        "userId": "118942689508065280",
-        "displayName": "744 Nubs"
-      }
-    ]
   }
 }
