@@ -22,6 +22,7 @@ export interface Event {
     title: string;
     description: string;
     datetime: string;
+    endDatetime?: string;
     status: 'upcoming' | 'past';
     creator: {
       boardNumber: string;

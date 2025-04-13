@@ -1,11 +1,16 @@
-import React, { useState } from 'react';
-import { X } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { X, Clock } from 'lucide-react';
 
 interface EventDialogProps {
   onSave: (eventData: {
     title: string;
     description: string;
     datetime: string;
+    endDatetime?: string;
+    duration?: {
+      hours: number;
+      minutes: number;
+    };
     restrictedTo?: string[];
   }) => void;
   onCancel: () => void;
@@ -13,6 +18,7 @@ interface EventDialogProps {
     title: string;
     description: string;
     datetime: string;
+    endDatetime?: string;
     restrictedTo?: string[];
   };
 }
@@ -25,8 +31,56 @@ export const EventDialog: React.FC<EventDialogProps> = ({
   const [title, setTitle] = useState(initialData?.title || '');
   const [description, setDescription] = useState(initialData?.description || '');
   const [datetime, setDatetime] = useState(initialData?.datetime || '');
+  const [durationHours, setDurationHours] = useState(0);
+  const [durationMinutes, setDurationMinutes] = useState(0);
+  const [endDatetime, setEndDatetime] = useState('');
   const [restrictedTo, setRestrictedTo] = useState<string[]>(initialData?.restrictedTo || []);
   const [error, setError] = useState('');
+  
+  useEffect(() => {
+    if (initialData?.datetime && initialData?.endDatetime) {
+      const start = new Date(initialData.datetime);
+      const end = new Date(initialData.endDatetime);
+      
+      if (!isNaN(start.getTime()) && !isNaN(end.getTime())) {
+        const durationMs = end.getTime() - start.getTime();
+        const totalMinutes = Math.round(durationMs / (1000 * 60));
+        
+        setDurationHours(Math.floor(totalMinutes / 60));
+        setDurationMinutes(totalMinutes % 60);
+        setEndDatetime(initialData.endDatetime);
+      }
+    }
+  }, [initialData]);
+
+  useEffect(() => {
+    if (datetime) {
+      const start = new Date(datetime);
+      
+      if (!isNaN(start.getTime())) {
+        const durationMs = (durationHours * 60 + durationMinutes) * 60 * 1000;
+        const end = new Date(start.getTime() + durationMs);
+        
+        const formattedEndDate = end.toISOString().slice(0, 16);
+        setEndDatetime(formattedEndDate);
+      }
+    }
+  }, [datetime, durationHours, durationMinutes]);
+
+  const handleDatetimeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setDatetime(e.target.value);
+  };
+
+  const handleDurationHoursChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = parseInt(e.target.value);
+    setDurationHours(isNaN(value) || value < 0 ? 0 : value);
+  };
+
+  const handleDurationMinutesChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = parseInt(e.target.value);
+    const clamped = isNaN(value) ? 0 : Math.min(59, Math.max(0, value));
+    setDurationMinutes(clamped);
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -37,7 +91,19 @@ export const EventDialog: React.FC<EventDialogProps> = ({
     }
 
     if (!datetime) {
-      setError('Please select a date and time');
+      setError('Please select a start date and time');
+      return;
+    }
+
+    if (durationHours === 0 && durationMinutes === 0) {
+      setError('Please specify an event duration');
+      return;
+    }
+
+    const start = new Date(datetime);
+    const end = new Date(endDatetime);
+    if (end <= start) {
+      setError('End time must be after start time');
       return;
     }
 
@@ -45,6 +111,11 @@ export const EventDialog: React.FC<EventDialogProps> = ({
       title: title.trim(),
       description: description.trim(),
       datetime,
+      endDatetime,
+      duration: {
+        hours: durationHours,
+        minutes: durationMinutes
+      },
       restrictedTo: restrictedTo.length > 0 ? restrictedTo : undefined
     });
   };
@@ -137,72 +208,121 @@ export const EventDialog: React.FC<EventDialogProps> = ({
               />
             </div>
 
-            <div style={{ marginBottom: '16px', display: 'flex', gap: '16px' }}>
-              <div style={{ flex: '0 0 auto' }}>
-                <label style={{
-                  display: 'block',
-                  marginBottom: '8px',
+            <div style={{ marginBottom: '16px' }}>
+              <label style={{
+                display: 'block',
+                marginBottom: '8px',
+                fontSize: '14px',
+                fontWeight: 500,
+                color: '#64748B'
+              }}>
+                Start Date & Time
+              </label>
+              <input
+                type="datetime-local"
+                value={datetime}
+                onChange={handleDatetimeChange}
+                style={{
+                  width: '100%',
+                  padding: '8px',
+                  border: '1px solid #CBD5E1',
+                  borderRadius: '4px',
                   fontSize: '14px',
-                  fontWeight: 500,
-                  color: '#64748B'
-                }}>
-                  Date & Time (Eastern Time)
-                </label>
+                  boxSizing: 'border-box',
+                  height: '35px',
+                  lineHeight: '19px'
+                }}
+              />
+            </div>
+
+            <div style={{ marginBottom: '16px' }}>
+              <label style={{
+                display: 'block',
+                marginBottom: '8px',
+                fontSize: '14px',
+                fontWeight: 500,
+                color: '#64748B'
+              }}>
+                Duration
+              </label>
+              <div style={{ display: 'flex', alignItems: 'center' }}>
+                <Clock size={16} color="#64748B" style={{ marginRight: '8px' }} />
                 <input
-                  type="datetime-local"
-                  value={datetime}
-                  onChange={(e) => setDatetime(e.target.value)}
+                  type="number"
+                  min="0"
+                  value={durationHours}
+                  onChange={handleDurationHoursChange}
                   style={{
+                    width: '70px',
                     padding: '8px',
                     border: '1px solid #CBD5E1',
-                    borderRadius: '4px',
+                    borderRadius: '4px 0 0 4px',
                     fontSize: '14px',
-                    width: 'auto',
+                    boxSizing: 'border-box',
                     height: '35px',
-                    lineHeight: '19px'
+                    textAlign: 'center'
                   }}
                 />
-              </div>
-
-              <div style={{ flex: '1' }}>
-                <label style={{
-                  display: 'block',
-                  marginBottom: '8px',
-                  fontSize: '14px',
-                  fontWeight: 500,
-                  color: '#64748B'
-                }}>
-                  Eligibility
-                </label>
-                <select
-                  multiple
-                  value={restrictedTo}
-                  onChange={(e) => {
-                    const values = Array.from(e.target.selectedOptions, option => option.value);
-                    setRestrictedTo(values);
-                  }}
+                <span style={{ padding: '0 6px', border: '1px solid #CBD5E1', borderLeft: 'none', borderRight: 'none', height: '35px', lineHeight: '35px', backgroundColor: '#F8FAFC' }}>h</span>
+                <input
+                  type="number"
+                  min="0"
+                  max="59"
+                  value={durationMinutes}
+                  onChange={handleDurationMinutesChange}
                   style={{
-                    width: '100%',
+                    width: '70px',
                     padding: '8px',
                     border: '1px solid #CBD5E1',
-                    borderRadius: '4px',
+                    borderRadius: '0 4px 4px 0',
                     fontSize: '14px',
-                    boxSizing: 'border-box'
+                    boxSizing: 'border-box',
+                    height: '35px',
+                    textAlign: 'center'
                   }}
-                >
-                  {roleOptions.map(role => (
-                    <option key={role} value={role}>
-                      {role}
-                    </option>
-                  ))}
-                </select>
-                <div style={{
-                  fontSize: '12px',
-                  color: '#64748B',
-                  marginTop: '4px'
-                }}>
-                  Hold Ctrl/Cmd to select multiple roles. Leave empty for no restrictions.
-                </div>
+                />
+                <span style={{ marginLeft: '6px', height: '35px', lineHeight: '35px' }}>min</span>
+              </div>
+            </div>
+
+            <div style={{ marginBottom: '16px' }}>
+              <label style={{
+                display: 'block',
+                marginBottom: '8px',
+                fontSize: '14px',
+                fontWeight: 500,
+                color: '#64748B'
+              }}>
+                Eligibility
+              </label>
+              <select
+                multiple
+                value={restrictedTo}
+                onChange={(e) => {
+                  const values = Array.from(e.target.selectedOptions, option => option.value);
+                  setRestrictedTo(values);
+                }}
+                style={{
+                  width: '100%',
+                  padding: '8px',
+                  border: '1px solid #CBD5E1',
+                  borderRadius: '4px',
+                  fontSize: '14px',
+                  boxSizing: 'border-box'
+                }}
+              >
+                {roleOptions.map(role => (
+                  <option key={role} value={role}>
+                    {role}
+                  </option>
+                ))}
+              </select>
+              <div style={{
+                fontSize: '12px',
+                color: '#64748B',
+                marginTop: '4px'
+              }}>
+                Hold Ctrl/Cmd to select multiple roles. Leave empty for no restrictions.
               </div>
             </div>
 

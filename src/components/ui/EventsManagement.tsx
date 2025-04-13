@@ -132,10 +132,13 @@ const EventsManagement: React.FC = () => {
       const eventDiscordMap = storedMap ? JSON.parse(storedMap) : {};
       
       // Attach Discord message IDs to events
-      const eventsWithDiscordIds = fetchedEvents.map(event => ({
-        ...event,
-        discordMessageId: eventDiscordMap[event.id] || undefined
-      }));
+      const eventsWithDiscordIds = fetchedEvents.map(event => {
+        return {
+          ...event,
+          // Only use localStorage as fallback if database doesn't have an ID
+          discordMessageId: event.discordEventId || eventDiscordMap[event.id] || undefined
+        };
+      });
       
       setEvents(eventsWithDiscordIds);
       
@@ -161,6 +164,11 @@ const EventsManagement: React.FC = () => {
     title: string;
     description: string;
     datetime: string;
+    endDatetime?: string;
+    duration?: {
+      hours: number;
+      minutes: number;
+    };
     restrictedTo?: string[];
   }) => {
     try {
@@ -197,6 +205,11 @@ const EventsManagement: React.FC = () => {
     title: string;
     description: string;
     datetime: string;
+    endDatetime?: string;
+    duration?: {
+      hours: number;
+      minutes: number;
+    };
     restrictedTo?: string[];
   }) => {
     if (!editingEvent) return;

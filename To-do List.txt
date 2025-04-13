@@ -1,6 +1,7 @@
 In Progress:
 	- Custom Discord Bot for event creation and attendance tracking
 	- Develop Express server backend functionality
+	- Prevent duplicate event creation
 
 Next:
 - Mission Preparation
