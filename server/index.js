@@ -22,6 +22,16 @@ const PORT = process.env.SERVER_PORT || 3001;
 app.use(cors());
 app.use(bodyParser.json());
 
+// Health check endpoint
+app.get('/api/health', (req, res) => {
+  res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+// Also support HEAD requests for lightweight health checks
+app.head('/api/health', (req, res) => {
+  res.status(200).end();
+});
+
 // Initialize Discord bot connection
 (async function() {
   try {
@@ -34,9 +44,17 @@ app.use(bodyParser.json());
 })();
 
 // Routes
+// Add detailed logging to the publish endpoint
 app.post('/api/events/publish', async (req, res) => {
   try {
     const { title, description, startTime, endTime, eventId } = req.body;
+    
+    console.log('[DEBUG] Received event publish request:', { 
+      timestamp: new Date().toISOString(),
+      eventId,
+      title,
+      startTime
+    });
     
     if (!title || !startTime) {
       return res.status(400).json({ 
@@ -45,28 +63,54 @@ app.post('/api/events/publish', async (req, res) => {
       });
     }
     
+    // Check if this event was already published to avoid duplicates
+    if (eventId) {
+      console.log(`[DEBUG] Checking if event ${eventId} was already published...`);
+      const { data: existingEvent, error: checkError } = await supabase
+        .from('events')
+        .select('discord_event_id')
+        .eq('id', eventId)
+        .single();
+        
+      if (!checkError && existingEvent && existingEvent.discord_event_id) {
+        console.log(`[DEBUG] Event ${eventId} already published with Discord ID: ${existingEvent.discord_event_id}`);
+        return res.json({
+          success: true,
+          discordMessageId: existingEvent.discord_event_id,
+          alreadyPublished: true
+        });
+      }
+    }
+    
     // Format the event time object
     const eventTime = {
       start: new Date(startTime),
       end: endTime ? new Date(endTime) : new Date(new Date(startTime).getTime() + (60 * 60 * 1000)) // Default to 1 hour later
     };
     
-    console.log('Publishing event to Discord:', { title, description, eventTime });
+    console.log('[DEBUG] Publishing event to Discord:', { 
+      title, 
+      eventId,
+      startTime: eventTime.start.toISOString(), 
+      endTime: eventTime.end.toISOString() 
+    });
     
     // Call the Discord bot to publish the event
     const result = await publishEventToDiscord(title, description || '', eventTime);
+    console.log('[DEBUG] Discord publish result:', result);
     
     // If eventId was provided, update the event in Supabase with the Discord message ID
     if (eventId && result.messageId) {
+      console.log(`[DEBUG] Updating event ${eventId} with Discord message ID ${result.messageId}`);
       const { error: updateError } = await supabase
         .from('events')
         .update({ discord_event_id: result.messageId })
         .eq('id', eventId);
       
       if (updateError) {
-        console.warn(`Warning: Failed to update event record with Discord message ID: ${updateError.message}`);
+        console.warn(`[WARNING] Failed to update event record with Discord message ID: ${updateError.message}`);
       } else {
-        console.log(`Successfully linked event ${eventId} with Discord message ID ${result.messageId}`);
+        console.log(`[DEBUG] Successfully linked event ${eventId} with Discord message ID ${result.messageId}`);
       }
     }
     
@@ -75,7 +119,7 @@ app.post('/api/events/publish', async (req, res) => {
       discordMessageId: result.messageId
     });
   } catch (error) {
-    console.error('Error publishing event to Discord:', error);
+    console.error('[ERROR] Error publishing event to Discord:', error);
     res.status(500).json({ 
       success: false, 
       error: error.message || 'Failed to publish event to Discord'

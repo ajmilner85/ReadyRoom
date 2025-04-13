@@ -134,6 +134,49 @@
       "start": "2025-04-17T00:00:00.000Z",
       "end": "2025-04-17T01:00:00.000Z"
     },
+    "accepted": [],
+    "declined": [
+      {
+        "userId": "118942689508065280",
+        "displayName": "744 Nubs"
+      }
+    ],
+    "tentative": []
+  },
+  "1360837647559295169": {
+    "title": "Test Event",
+    "description": "Test",
+    "eventTime": {
+      "start": "2025-04-17T00:00:00.000Z",
+      "end": "2025-04-17T01:00:00.000Z"
+    },
+    "accepted": [],
+    "declined": [],
+    "tentative": []
+  },
+  "1360976642603749641": {
+    "title": "Test Event",
+    "description": "Test",
+    "eventTime": {
+      "start": "2025-04-17T00:00:00.000Z",
+      "end": "2025-04-17T01:00:00.000Z"
+    },
+    "accepted": [],
+    "declined": [
+      {
+        "userId": "118942689508065280",
+        "displayName": "744 Nubs"
+      }
+    ],
+    "tentative": []
+  },
+  "1360977042744807505": {
+    "title": "Test Event",
+    "description": "Test",
+    "eventTime": {
+      "start": "2025-04-17T00:00:00.000Z",
+      "end": "2025-04-17T01:00:00.000Z"
+    },
     "accepted": [
       {
         "userId": "118942689508065280",
@@ -142,5 +185,227 @@
     ],
     "declined": [],
     "tentative": []
+  },
+  "1360978328399642996": {
+    "title": "Test Event 2",
+    "description": "",
+    "eventTime": {
+      "start": "2025-04-23T00:00:00.000Z",
+      "end": "2025-04-23T01:00:00.000Z"
+    },
+    "accepted": [],
+    "declined": [
+      {
+        "userId": "118942689508065280",
+        "displayName": "744 Nubs"
+      }
+    ],
+    "tentative": []
+  },
+  "1360978402907132085": {
+    "title": "Test Event 2",
+    "description": "",
+    "eventTime": {
+      "start": "2025-04-23T00:00:00.000Z",
+      "end": "2025-04-23T01:00:00.000Z"
+    },
+    "accepted": [
+      {
+        "userId": "118942689508065280",
+        "displayName": "744 Nubs"
+      }
+    ],
+    "declined": [],
+    "tentative": []
+  },
+  "1360981458486951977": {
+    "title": "Test Event 2",
+    "description": "",
+    "eventTime": {
+      "start": "2025-04-23T00:00:00.000Z",
+      "end": "2025-04-23T01:00:00.000Z"
+    },
+    "accepted": [
+      {
+        "userId": "118942689508065280",
+        "displayName": "744 Nubs"
+      }
+    ],
+    "declined": [],
+    "tentative": []
+  },
+  "1360982154305208723": {
+    "title": "Test Event 2",
+    "description": "",
+    "eventTime": {
+      "start": "2025-04-23T00:00:00.000Z",
+      "end": "2025-04-23T01:00:00.000Z"
+    },
+    "accepted": [],
+    "declined": [],
+    "tentative": []
+  },
+  "1360982160328364202": {
+    "title": "Test Event 2",
+    "description": "",
+    "eventTime": {
+      "start": "2025-04-23T00:00:00.000Z",
+      "end": "2025-04-23T01:00:00.000Z"
+    },
+    "accepted": [],
+    "declined": [],
+    "tentative": []
+  },
+  "1360983686178279484": {
+    "title": "Test",
+    "description": "",
+    "eventTime": {
+      "start": "2025-04-15T00:00:00.000Z",
+      "end": "2025-04-15T01:00:00.000Z"
+    },
+    "accepted": [],
+    "declined": [],
+    "tentative": []
+  },
+  "1360983740603568142": {
+    "title": "Test",
+    "description": "",
+    "eventTime": {
+      "start": "2025-04-15T00:00:00.000Z",
+      "end": "2025-04-15T01:00:00.000Z"
+    },
+    "accepted": [],
+    "declined": [],
+    "tentative": []
+  },
+  "1360983767824601331": {
+    "title": "Test",
+    "description": "",
+    "eventTime": {
+      "start": "2025-04-15T00:00:00.000Z",
+      "end": "2025-04-15T01:00:00.000Z"
+    },
+    "accepted": [],
+    "declined": [],
+    "tentative": []
+  },
+  "1360985228419534939": {
+    "title": "Test",
+    "description": "",
+    "eventTime": {
+      "start": "2025-04-15T00:00:00.000Z",
+      "end": "2025-04-15T01:00:00.000Z"
+    },
+    "accepted": [],
+    "declined": [],
+    "tentative": []
+  },
+  "1360985444048703538": {
+    "title": "Test",
+    "description": "",
+    "eventTime": {
+      "start": "2025-04-17T00:00:00.000Z",
+      "end": "2025-04-17T01:00:00.000Z"
+    },
+    "accepted": [
+      {
+        "userId": "118942689508065280",
+        "displayName": "744 Nubs"
+      }
+    ],
+    "declined": [],
+    "tentative": []
+  },
+  "1360988037965676726": {
+    "title": "Test 2",
+    "description": "Another test",
+    "eventTime": {
+      "start": "2025-04-23T00:00:00.000Z",
+      "end": "2025-04-23T01:00:00.000Z"
+    },
+    "accepted": [
+      {
+        "userId": "118942689508065280",
+        "displayName": "744 Nubs"
+      }
+    ],
+    "declined": [],
+    "tentative": []
+  },
+  "1360988245709553664": {
+    "title": "Test 4",
+    "description": "",
+    "eventTime": {
+      "start": "2025-04-23T00:00:00.000Z",
+      "end": "2025-04-23T01:00:00.000Z"
+    },
+    "accepted": [],
+    "declined": [],
+    "tentative": []
+  },
+  "1360989280415121578": {
+    "title": "Test 5",
+    "description": "",
+    "eventTime": {
+      "start": "2025-04-24T00:00:00.000Z",
+      "end": "2025-04-24T01:00:00.000Z"
+    },
+    "accepted": [],
+    "declined": [],
+    "tentative": []
+  },
+  "1360989285716721665": {
+    "title": "Test 5",
+    "description": "",
+    "eventTime": {
+      "start": "2025-04-24T00:00:00.000Z",
+      "end": "2025-04-24T01:00:00.000Z"
+    },
+    "accepted": [
+      {
+        "userId": "118942689508065280",
+        "displayName": "744 Nubs"
+      }
+    ],
+    "declined": [],
+    "tentative": []
+  },
+  "1360991007692296486": {
+    "title": "Test 6",
+    "description": "TEST",
+    "eventTime": {
+      "start": "2025-04-30T00:00:00.000Z",
+      "end": "2025-04-30T01:00:00.000Z"
+    },
+    "accepted": [],
+    "declined": [],
+    "tentative": []
+  },
+  "1360991012981571854": {
+    "title": "Test 6",
+    "description": "TEST",
+    "eventTime": {
+      "start": "2025-04-30T00:00:00.000Z",
+      "end": "2025-04-30T01:00:00.000Z"
+    },
+    "accepted": [],
+    "declined": [],
+    "tentative": []
+  },
+  "1361002292479918330": {
+    "title": "Test 7",
+    "description": "Test 7",
+    "eventTime": {
+      "start": "2025-04-24T00:00:00.000Z",
+      "end": "2025-04-24T01:00:00.000Z"
+    },
+    "accepted": [],
+    "declined": [],
+    "tentative": [
+      {
+        "userId": "118942689508065280",
+        "displayName": "744 Nubs"
+      }
+    ]
   }
 }
