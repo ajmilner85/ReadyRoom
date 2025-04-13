@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Card } from '../card';
 import type { Event } from '../../../types/EventTypes';
-import { publishEventToDiscord, updateEventDiscordId } from '../../../utils/discordService';
+import { publishEventToDiscord } from '../../../utils/discordService';
 
 interface EventDetailsProps {
   event: Event | null;
@@ -24,10 +24,8 @@ const EventDetails: React.FC<EventDetailsProps> = ({ event }) => {
         throw new Error(response.error || 'Failed to publish event to Discord');
       }
       
-      // If successful, update the event with the Discord message ID
-      if (response.discordMessageId) {
-        await updateEventDiscordId(event.id, response.discordMessageId);
-      }
+      // The server has already updated the discord_event_id in the database,
+      // so we don't need to call updateEventDiscordId here
       
       setPublishMessage({
         type: 'success',
@@ -134,6 +132,21 @@ const EventDetails: React.FC<EventDetailsProps> = ({ event }) => {
         </div>
       </Card>
       
+      {/* Discord Integration Status */}
+      {event.discordMessageId && (
+        <Card className="p-4 mb-6">
+          <h2 className="text-lg font-semibold mb-2">Discord Integration</h2>
+          <div className="space-y-2">
+            <div className="text-sm text-green-600 flex items-center">
+              ✓ This event has been published to Discord
+            </div>
+            <div className="text-xs text-slate-500">
+              Discord attendance updates will appear in real-time
+            </div>
+          </div>
+        </Card>
+      )}
+      
       {/* Publish to Discord Button */}
       <div className="mt-auto">
         {publishMessage && (
@@ -145,15 +158,26 @@ const EventDetails: React.FC<EventDetailsProps> = ({ event }) => {
         )}
         <button
           onClick={handlePublishToDiscord}
-          disabled={publishing}
+          disabled={publishing || !!event.discordMessageId}
           className={`w-full py-2 px-4 rounded-md transition-colors ${
             publishing 
             ? 'bg-indigo-300 cursor-not-allowed' 
-            : 'bg-indigo-600 hover:bg-indigo-700 text-white'
+            : event.discordMessageId
+              ? 'bg-slate-300 cursor-not-allowed'
+              : 'bg-indigo-600 hover:bg-indigo-700 text-white'
           }`}
         >
-          {publishing ? 'Publishing...' : 'Publish to Discord'}
+          {publishing 
+            ? 'Publishing...' 
+            : event.discordMessageId 
+              ? 'Already Published' 
+              : 'Publish to Discord'}
         </button>
+        {event.discordMessageId && (
+          <div className="text-center mt-2 text-xs text-slate-500">
+            This event has already been published to Discord
+          </div>
+        )}
       </div>
     </div>
   );

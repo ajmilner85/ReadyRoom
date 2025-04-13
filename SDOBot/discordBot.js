@@ -1,5 +1,6 @@
 const path = require('path');
 const dotenv = require('dotenv');
+const fs = require('fs');
 const { Client, GatewayIntentBits, EmbedBuilder, ButtonBuilder, ActionRowBuilder, ButtonStyle } = require('discord.js');
 const { format, formatDistanceToNow } = require('date-fns');
 
@@ -9,6 +10,9 @@ const result = dotenv.config({ path: path.resolve(__dirname, '../.env') });
 if (result.error) {
   console.error('Error loading .env file:', result.error);
 }
+
+// Require Supabase client from server directory
+const { upsertEventAttendance, getEventIdByDiscordId, getEventByDiscordId } = require('../server/supabaseClient');
 
 // Check if BOT_TOKEN is loaded and log its status
 console.log('Environment variables loaded, BOT_TOKEN present:', !!process.env.BOT_TOKEN);
@@ -27,8 +31,49 @@ const client = new Client({
   ]
 });
 
+// Path to store event responses
+const EVENT_RESPONSES_FILE = path.join(__dirname, 'eventResponses.json');
+
 // Store event responses
-const eventResponses = new Map();
+let eventResponses = new Map();
+
+// Event update callback function
+let eventUpdateCallback = null;
+
+// Function to register the event update callback
+function registerEventUpdateCallback(callback) {
+  eventUpdateCallback = callback;
+}
+
+// Function to notify about event updates
+function notifyEventUpdate(eventId, eventData) {
+  if (eventUpdateCallback && typeof eventUpdateCallback === 'function') {
+    eventUpdateCallback(eventId, eventData);
+  }
+}
+
+// Function to load event responses from file
+function loadEventResponses() {
+  try {
+    if (fs.existsSync(EVENT_RESPONSES_FILE)) {
+      const data = JSON.parse(fs.readFileSync(EVENT_RESPONSES_FILE, 'utf8'));
+      eventResponses = new Map(Object.entries(data));
+      console.log(`Loaded ${eventResponses.size} events from storage`);
+    }
+  } catch (error) {
+    console.error('Error loading event responses:', error);
+  }
+}
+
+// Function to save event responses to file
+function saveEventResponses() {
+  try {
+    const data = Object.fromEntries(eventResponses);
+    fs.writeFileSync(EVENT_RESPONSES_FILE, JSON.stringify(data, null, 2));
+  } catch (error) {
+    console.error('Error saving event responses:', error);
+  }
+}
 
 // Function to create event message embed
 function createEventEmbed(title, description, eventTime, responses = {}) {
@@ -131,6 +176,10 @@ async function ensureLoggedIn() {
       client.once('ready', () => {
         console.log(`Logged in as ${client.user.tag}`);
         isLoggedIn = true;
+        
+        // Load event responses when the bot is ready
+        loadEventResponses();
+        
         resolve();
       });
       
@@ -183,14 +232,19 @@ async function publishEventToDiscord(title, description, eventTime) {
     });
     
     // Store response data
-    eventResponses.set(eventMessage.id, {
+    const eventData = {
       title,
       description,
       eventTime,
       accepted: [],
       declined: [],
       tentative: []
-    });
+    };
+    
+    eventResponses.set(eventMessage.id, eventData);
+    
+    // Save updated event responses
+    saveEventResponses();
     
     console.log(`Event published to Discord: ${title}`);
     
@@ -215,8 +269,50 @@ client.on('interactionCreate', async interaction => {
   
   // Get event data
   const eventData = eventResponses.get(eventId);
-  if (!eventData) return;
+  if (!eventData) {
+    console.log(`No event data found for message ID: ${eventId}`);
+    await interaction.reply({ content: 'Sorry, this event is no longer active. Please contact an administrator.', ephemeral: true });
+    return;
+  }
   
+  // Map Discord status to database response type
+  let userResponse;
+  if (customId === 'accept') {
+    userResponse = 'accepted';
+  } else if (customId === 'decline') {
+    userResponse = 'declined';
+  } else if (customId === 'tentative') {
+    userResponse = 'tentative';
+  }
+
+  // Get event details from database
+  const { event, error: eventError } = await getEventByDiscordId(eventId);
+  
+  if (eventError) {
+    console.warn(`Warning: Could not find event for Discord message ${eventId}: ${eventError}`);
+  }
+  
+  // Store the attendance in Supabase
+  if (userResponse) {
+    try {
+      const { data, error } = await upsertEventAttendance({
+        discordEventId: eventId,
+        discordUserId: userId,
+        discordUsername: displayName,
+        userResponse
+      });
+      
+      if (error) {
+        console.error('Error saving attendance to database:', error);
+      } else {
+        console.log(`Successfully saved ${userResponse} response for ${displayName} in database`);
+      }
+    } catch (err) {
+      console.error('Unexpected error saving attendance:', err);
+    }
+  }
+  
+  // Update in-memory event data for Discord UI
   // Remove user from all response lists by user ID
   eventData.accepted = eventData.accepted.filter(entry => 
     typeof entry === 'string' ? entry !== user.username : entry.userId !== userId
@@ -239,7 +335,7 @@ client.on('interactionCreate', async interaction => {
     eventData.tentative.push(userEntry);
   }
   
-  // Update the event message
+  // Update the Discord event message
   const updatedEmbed = createEventEmbed(eventData.title, eventData.description, eventData.eventTime, eventData);
   
   await interaction.update({
@@ -247,11 +343,23 @@ client.on('interactionCreate', async interaction => {
     components: [createAttendanceButtons()]
   });
   
-  console.log(`${displayName} (${userId}) responded ${customId} to event: ${eventData.title}`);
+  // Save the updated responses
+  saveEventResponses();
   
-  // TODO: Send this data back to the ReadyRoom app
-  // This would be implemented in the next phase
+  console.log(`${displayName} (${userId}) responded ${customId} to event: ${eventData.title}`);
 });
+
+// Function to initialize the Discord bot connection
+async function initializeDiscordBot() {
+  try {
+    // This will ensure the bot is logged in and event responses are loaded
+    await ensureLoggedIn();
+    return true;
+  } catch (error) {
+    console.error('Error initializing Discord bot:', error);
+    throw error;
+  }
+}
 
 // Function to get attendance for an event
 async function getEventAttendance(discordMessageId) {
@@ -260,5 +368,7 @@ async function getEventAttendance(discordMessageId) {
 
 module.exports = {
   publishEventToDiscord,
-  getEventAttendance
+  getEventAttendance,
+  initializeDiscordBot,
+  registerEventUpdateCallback
 };

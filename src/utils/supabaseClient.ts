@@ -205,9 +205,9 @@ export const fetchEvents = async (cycleId?: string) => {
     status,
     event_type,
     cycle_id,
+    discord_event_id,
     created_at,
-    updated_at,
-    event_attendance(*)
+    updated_at
   `);
 
   // If a cycle ID is provided, filter events for that cycle
@@ -222,34 +222,9 @@ export const fetchEvents = async (cycleId?: string) => {
     return { events: [], error };
   }
 
-  // Transform database events to frontend format
+  // Transform database events to frontend format without attendance data
+  // We'll fetch attendance separately based on discord_event_id
   const events: Event[] = data.map(dbEvent => {
-    // Process attendance data
-    const attendance = {
-      accepted: [],
-      declined: [],
-      tentative: []
-    };
-
-    // If the event has attendance records, process them
-    if (dbEvent.event_attendance && Array.isArray(dbEvent.event_attendance)) {
-      dbEvent.event_attendance.forEach(record => {
-        const attendee = {
-          boardNumber: record.board_number || '',
-          callsign: record.call_sign || '',
-          billet: record.billet || undefined
-        };
-
-        if (record.status === 'accepted') {
-          attendance.accepted.push(attendee);
-        } else if (record.status === 'declined') {
-          attendance.declined.push(attendee);
-        } else if (record.status === 'tentative') {
-          attendance.tentative.push(attendee);
-        }
-      });
-    }
-
     // Return the transformed event with correct field mapping from DB to frontend
     return {
       id: dbEvent.id,
@@ -259,13 +234,18 @@ export const fetchEvents = async (cycleId?: string) => {
       status: dbEvent.status || 'upcoming',
       eventType: dbEvent.event_type as EventType | undefined,
       cycleId: dbEvent.cycle_id || undefined,
+      discordEventId: dbEvent.discord_event_id || undefined,
       restrictedTo: [], // No restricted_to in the DB schema
       creator: {
         boardNumber: '',
         callsign: '',
         billet: ''
       },
-      attendance
+      attendance: {
+        accepted: [],
+        declined: [],
+        tentative: []
+      }
     };
   });
 
@@ -333,16 +313,14 @@ export const updateEvent = async (eventId: string, updates: Partial<Omit<Event, 
   if (updates.status !== undefined) dbUpdates.status = updates.status;
   if (updates.eventType !== undefined) dbUpdates.event_type = updates.eventType;
   if (updates.cycleId !== undefined) dbUpdates.cycle_id = updates.cycleId;
+  if (updates.discordEventId !== undefined) dbUpdates.discord_event_id = updates.discordEventId;
   // No restricted_to in the DB schema
 
   const { data, error } = await supabase
     .from('events')
     .update(dbUpdates)
     .eq('id', eventId)
-    .select(`
-      *,
-      event_attendance(*)
-    `)
+    .select()
     .single();
 
   if (error) {
@@ -350,30 +328,40 @@ export const updateEvent = async (eventId: string, updates: Partial<Omit<Event, 
     return { event: null, error };
   }
 
-  // Process attendance data
+  // Initialize with empty attendance
   const attendance = {
     accepted: [],
     declined: [],
     tentative: []
   };
 
-  // If the event has attendance records, process them
-  if (data.event_attendance && Array.isArray(data.event_attendance)) {
-    data.event_attendance.forEach(record => {
-      const attendee = {
-        boardNumber: record.board_number || '',
-        callsign: record.call_sign || '',
-        billet: record.billet || undefined
-      };
+  // If there's a Discord event ID, fetch attendance from discord_event_attendance
+  if (data.discord_event_id) {
+    const { data: attendanceData, error: attendanceError } = await supabase
+      .from('discord_event_attendance')
+      .select('*')
+      .eq('discord_event_id', data.discord_event_id);
 
-      if (record.status === 'accepted') {
-        attendance.accepted.push(attendee);
-      } else if (record.status === 'declined') {
-        attendance.declined.push(attendee);
-      } else if (record.status === 'tentative') {
-        attendance.tentative.push(attendee);
-      }
-    });
+    if (!attendanceError && attendanceData) {
+      // Process attendance data
+      attendanceData.forEach(record => {
+        const attendee = {
+          boardNumber: record.board_number || '',
+          callsign: record.call_sign || '',
+          billet: record.billet || undefined
+        };
+
+        if (record.status === 'accepted') {
+          attendance.accepted.push(attendee);
+        } else if (record.status === 'declined') {
+          attendance.declined.push(attendee);
+        } else if (record.status === 'tentative') {
+          attendance.tentative.push(attendee);
+        }
+      });
+    } else if (attendanceError) {
+      console.error('Error fetching attendance:', attendanceError);
+    }
   }
 
   // Transform to frontend format
@@ -385,6 +373,7 @@ export const updateEvent = async (eventId: string, updates: Partial<Omit<Event, 
     status: data.status || 'upcoming',
     eventType: data.event_type as EventType | undefined,
     cycleId: data.cycle_id || undefined,
+    discordEventId: data.discord_event_id || undefined,
     restrictedTo: [], // No restricted_to in the DB schema
     creator: {
       boardNumber: '',
@@ -422,7 +411,7 @@ export const updateEventAttendance = async (eventId: string, status: 'accepted' 
 
   // Check if attendance record already exists
   const { data: existingAttendance } = await supabase
-    .from('event_attendance')
+    .from('discord_event_attendance')
     .select('*')
     .eq('event_id', eventId)
     .eq('user_id', user.id)
@@ -433,7 +422,7 @@ export const updateEventAttendance = async (eventId: string, status: 'accepted' 
   if (existingAttendance) {
     // Update existing record
     const { error: updateError } = await supabase
-      .from('event_attendance')
+      .from('discord_event_attendance')
       .update({
         status,
         call_sign: userProfile?.callsign || user.user_metadata?.callsign,
@@ -446,7 +435,7 @@ export const updateEventAttendance = async (eventId: string, status: 'accepted' 
   } else {
     // Create new record
     const { error: insertError } = await supabase
-      .from('event_attendance')
+      .from('discord_event_attendance')
       .insert({
         event_id: eventId,
         user_id: user.id,
@@ -464,4 +453,64 @@ export const updateEventAttendance = async (eventId: string, status: 'accepted' 
   }
 
   return { error };
+};
+
+// Fetch discord_event_attendance for a specific event
+export const fetchEventAttendance = async (eventId: string) => {
+  // First, get the discord_event_id from the events table
+  const { data: eventData, error: eventError } = await supabase
+    .from('events')
+    .select('discord_event_id')
+    .eq('id', eventId)
+    .single();
+
+  if (eventError || !eventData?.discord_event_id) {
+    console.error('Error fetching event or no discord_event_id found:', eventError);
+    return { 
+      attendance: { accepted: [], declined: [], tentative: [] }, 
+      error: eventError || new Error('No discord_event_id found for this event')
+    };
+  }
+
+  // Now fetch the attendance data using discord_event_id
+  const { data: attendanceData, error: attendanceError } = await supabase
+    .from('discord_event_attendance')
+    .select('*')
+    .eq('discord_event_id', eventData.discord_event_id);
+
+  if (attendanceError) {
+    console.error('Error fetching discord_event_attendance:', attendanceError);
+    return { 
+      attendance: { accepted: [], declined: [], tentative: [] },
+      error: attendanceError 
+    };
+  }
+
+  // Process attendance data into the expected format
+  const attendance = {
+    accepted: [],
+    declined: [],
+    tentative: []
+  };
+
+  // If we have attendance records, process them
+  if (attendanceData && attendanceData.length > 0) {
+    attendanceData.forEach(record => {
+      const attendee = {
+        boardNumber: record.board_number || '',
+        callsign: record.call_sign || '',
+        billet: record.billet || undefined
+      };
+
+      if (record.status === 'accepted') {
+        attendance.accepted.push(attendee);
+      } else if (record.status === 'declined') {
+        attendance.declined.push(attendee);
+      } else if (record.status === 'tentative') {
+        attendance.tentative.push(attendee);
+      }
+    });
+  }
+
+  return { attendance, error: null };
 };

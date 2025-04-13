@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import EventsList from './events/EventsList';
 import EventDetails from './events/EventDetails';
 import EventAttendance from './events/EventAttendance';
@@ -10,6 +10,7 @@ import type { Event, Cycle, CycleType } from '../../types/EventTypes';
 import { fetchCycles, createCycle, updateCycle, deleteCycle, 
          fetchEvents, createEvent, updateEvent, deleteEvent } from '../../utils/supabaseClient';
 import LoadingSpinner from './LoadingSpinner';
+import { useWebSocket } from '../../context/WebSocketContext';
 
 // Standard card width matching MissionPreparation component
 const CARD_WIDTH = '550px';
@@ -23,6 +24,9 @@ const EventsManagement: React.FC = () => {
     events: false
   });
   const [error, setError] = useState<string | null>(null);
+  
+  // Get WebSocket context
+  const { lastEventUpdate } = useWebSocket();
   
   // State for UI interactions
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
@@ -39,6 +43,9 @@ const EventsManagement: React.FC = () => {
   const [editingEvent, setEditingEvent] = useState<Event | null>(null);
   const [editingCycle, setEditingCycle] = useState<Cycle | null>(null);
 
+  // Reference to keep track of last processed event update
+  const lastProcessedUpdateRef = useRef<string | null>(null);
+
   // Fetch cycles and events on component mount
   useEffect(() => {
     loadCycles();
@@ -49,6 +56,51 @@ const EventsManagement: React.FC = () => {
   useEffect(() => {
     loadEvents(selectedCycle?.id);
   }, [selectedCycle]);
+
+  // Watch for WebSocket event updates - fixed to prevent infinite loops
+  useEffect(() => {
+    // Skip if no update or already processed this update
+    if (!lastEventUpdate || !events.length || 
+        lastProcessedUpdateRef.current === JSON.stringify(lastEventUpdate)) return;
+
+    // Mark this update as processed
+    lastProcessedUpdateRef.current = JSON.stringify(lastEventUpdate);
+    
+    // Find event with the matching Discord message ID
+    const updatedEvents = events.map(event => {
+      // Check if this event matches the updated Discord message ID
+      if (event.discordMessageId === lastEventUpdate.eventId) {
+        // Create updated event with new attendance data
+        const updatedEvent: Event = {
+          ...event,
+          attendance: {
+            accepted: lastEventUpdate.eventData.accepted.map(user => ({
+              boardNumber: user.userId.substring(0, 3), // Using first 3 chars of Discord ID as board number (placeholder)
+              callsign: user.displayName,
+            })),
+            declined: lastEventUpdate.eventData.declined.map(user => ({
+              boardNumber: user.userId.substring(0, 3), // Using first 3 chars of Discord ID as board number (placeholder)
+              callsign: user.displayName,
+            })),
+            tentative: lastEventUpdate.eventData.tentative.map(user => ({
+              boardNumber: user.userId.substring(0, 3), // Using first 3 chars of Discord ID as board number (placeholder)
+              callsign: user.displayName,
+            }))
+          }
+        };
+        
+        // If this is the selected event, update it as well
+        if (selectedEvent && selectedEvent.id === event.id) {
+          setSelectedEvent(updatedEvent);
+        }
+        
+        return updatedEvent;
+      }
+      return event;
+    });
+    
+    setEvents(updatedEvents);
+  }, [lastEventUpdate]); // Only depend on lastEventUpdate, not events or selectedEvent
 
   // Load cycles from database
   const loadCycles = async () => {
@@ -74,11 +126,22 @@ const EventsManagement: React.FC = () => {
       if (error) {
         throw error;
       }
-      setEvents(fetchedEvents);
+      
+      // Load Discord message IDs from localStorage
+      const storedMap = localStorage.getItem('eventDiscordMessageIds');
+      const eventDiscordMap = storedMap ? JSON.parse(storedMap) : {};
+      
+      // Attach Discord message IDs to events
+      const eventsWithDiscordIds = fetchedEvents.map(event => ({
+        ...event,
+        discordMessageId: eventDiscordMap[event.id] || undefined
+      }));
+      
+      setEvents(eventsWithDiscordIds);
       
       // If we had a selected event and it's still in the list, update it
       if (selectedEvent) {
-        const updatedSelectedEvent = fetchedEvents.find(e => e.id === selectedEvent.id);
+        const updatedSelectedEvent = eventsWithDiscordIds.find(e => e.id === selectedEvent.id);
         if (updatedSelectedEvent) {
           setSelectedEvent(updatedSelectedEvent);
         } else {
