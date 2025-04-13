@@ -15,6 +15,9 @@ const { publishEventToDiscord, initializeDiscordBot, deleteEventMessage } = requ
 // Import Supabase client
 const { supabase, getEventByDiscordId } = require('./supabaseClient');
 
+// Import Discord.js for guild member operations
+const { Client, GatewayIntentBits } = require('discord.js');
+
 const app = express();
 const PORT = process.env.SERVER_PORT || 3001;
 
@@ -253,6 +256,70 @@ app.get('/api/events/discord/:discordMessageId', async (req, res) => {
   } catch (error) {
     console.error('Error finding event by Discord ID:', error);
     res.status(500).json({ error: error.message || 'Server error' });
+  }
+});
+
+// New endpoint to fetch Discord guild members
+app.get('/api/discord/guild-members', async (req, res) => {
+  try {
+    console.log('[DEBUG] Received request to fetch Discord guild members');
+    
+    // Create a Discord client with required intents
+    const client = new Client({
+      intents: [
+        GatewayIntentBits.Guilds,
+        GatewayIntentBits.GuildMembers,
+        GatewayIntentBits.GuildMessages
+      ]
+    });
+    
+    // Login to Discord
+    await client.login(process.env.BOT_TOKEN);
+    
+    // Wait for client to be ready
+    await new Promise((resolve) => {
+      if (client.isReady()) resolve();
+      else client.once('ready', resolve);
+    });
+    
+    console.log('[DEBUG] Discord client ready, fetching guild members');
+    
+    // Get the first guild (server) - assuming the bot is only in one server
+    const guilds = [...client.guilds.cache.values()];
+    
+    if (guilds.length === 0) {
+      await client.destroy();
+      return res.status(404).json({ error: 'No Discord guilds found' });
+    }
+    
+    const guild = guilds[0];
+    console.log(`[DEBUG] Found guild: ${guild.name} (${guild.id})`);
+    
+    // Fetch all members
+    await guild.members.fetch();
+    
+    // Map guild members to a simpler structure, exclude bots
+    const members = guild.members.cache
+      .filter(member => !member.user.bot) // Filter out bots
+      .map(member => ({
+        id: member.id,
+        username: member.user.username,
+        displayName: member.nickname || member.user.username, // Include server display name
+        roles: member.roles.cache.map(role => role.name).filter(name => name !== '@everyone'),
+        isBot: member.user.bot
+      }));
+    
+    console.log(`[DEBUG] Fetched ${members.length} guild members (after filtering out bots)`);
+    
+    // Destroy the client to free up resources
+    await client.destroy();
+    
+    res.json({ members });
+  } catch (error) {
+    console.error('[ERROR] Error fetching Discord guild members:', error);
+    res.status(500).json({ 
+      error: error.message || 'Failed to fetch Discord guild members' 
+    });
   }
 });
 

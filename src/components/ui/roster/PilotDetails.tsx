@@ -35,6 +35,7 @@ interface PilotDetailsProps {
   handleRemoveQualification: (id: string) => void;
   handleDeletePilot?: (pilotId: string) => void;
   handleSavePilotChanges?: (pilot: Pilot) => Promise<{ success: boolean; error?: string }>;
+  handleClearDiscord?: (pilotId: string) => Promise<{ success: boolean; error?: string }>;
   isNewPilot?: boolean;
   onPilotFieldChange?: (field: string, value: string) => void;
   onSaveNewPilot?: () => void;
@@ -67,6 +68,7 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
   handleRemoveQualification,
   handleDeletePilot,
   handleSavePilotChanges,
+  handleClearDiscord,
   isNewPilot = false,
   onPilotFieldChange,
   onSaveNewPilot,
@@ -80,6 +82,7 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
   const [isSaving, setIsSaving] = useState(false);
   const [isEdited, setIsEdited] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
+  const [isClearingDiscord, setIsClearingDiscord] = useState(false);
 
   useEffect(() => {
     if (selectedPilot) {
@@ -159,6 +162,46 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
     setIsEdited(true);
   };
 
+  const handleClearDiscordCredentials = async () => {
+    console.log('Clear Discord button clicked'); // Debug log
+    if (!editedPilot || !handleClearDiscord) {
+      console.log('Cannot clear Discord credentials:', { 
+        hasEditedPilot: !!editedPilot, 
+        hasHandlerFunction: !!handleClearDiscord 
+      }); // Debug log for why it's not working
+      return;
+    }
+
+    setIsClearingDiscord(true);
+    setEditError(null);
+
+    try {
+      console.log('Calling handleClearDiscord with pilot ID:', editedPilot.id); // Debug log
+      const result = await handleClearDiscord(editedPilot.id);
+      console.log('Clear Discord result:', result); // Debug log
+
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to clear Discord credentials');
+      }
+
+      // Update locally to reflect changes immediately
+      setEditedPilot({
+        ...editedPilot,
+        discordUsername: '',
+        discordId: null,
+        discordID: null, // Add this to ensure both property variants are updated
+        discord_original_id: null
+      });
+      console.log('Discord credentials cleared locally'); // Debug log
+      
+    } catch (err: any) {
+      console.error('Error clearing Discord credentials:', err); // Log the full error
+      setEditError(err.message || 'An error occurred while clearing Discord credentials');
+    } finally {
+      setIsClearingDiscord(false);
+    }
+  };
+
   const inputFieldStyle = {
     ...pilotDetailsStyles.fieldValue,
     width: '450px',
@@ -228,15 +271,22 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
 
         <div style={{ ...pilotDetailsStyles.fieldContainer, ...sectionSpacingStyle }}>
           <label style={pilotDetailsStyles.fieldLabel}>Discord Username</label>
-          <input
-            type="text"
-            value={selectedPilot.discordUsername || ''}
-            onChange={(e) =>
-              onPilotFieldChange && onPilotFieldChange('discordUsername', e.target.value)
-            }
-            style={inputFieldStyle}
-            placeholder="Enter Discord username (optional)"
-          />
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            <input
+              type="text"
+              value={selectedPilot.discordUsername || ''}
+              style={{
+                ...inputFieldStyle,
+                backgroundColor: '#f1f5f9',
+                cursor: 'not-allowed'
+              }}
+              placeholder="Discord account will be linked via sync"
+              disabled
+            />
+            <span style={{ fontSize: '12px', color: '#64748B', marginTop: '4px' }}>
+              Discord accounts are automatically linked via the sync process
+            </span>
+          </div>
         </div>
 
         <div style={{ ...sectionSpacingStyle, marginTop: '12px' }}>
@@ -295,13 +345,47 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
 
         <div style={{ ...pilotDetailsStyles.fieldContainer, ...sectionSpacingStyle }}>
           <label style={pilotDetailsStyles.fieldLabel}>Discord Username</label>
-          <input
-            type="text"
-            value={editedPilot.discordUsername || ''}
-            onChange={(e) => handleFieldChange('discordUsername', e.target.value)}
-            style={inputFieldStyle}
-            placeholder="Enter Discord username (optional)"
-          />
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <input
+              type="text"
+              value={editedPilot.discordUsername || ''}
+              style={{
+                ...inputFieldStyle,
+                backgroundColor: '#f1f5f9',
+                cursor: 'not-allowed'
+              }}
+              placeholder="No Discord account linked"
+              disabled
+            />
+            <button
+              onClick={handleClearDiscordCredentials}
+              disabled={!editedPilot.discordUsername || isClearingDiscord}
+              style={{
+                ...exportButtonStyle,
+                cursor: !editedPilot.discordUsername || isClearingDiscord ? 'not-allowed' : 'pointer',
+                opacity: !editedPilot.discordUsername || isClearingDiscord ? 0.7 : 1,
+                minWidth: '80px',
+                backgroundColor: '#FEE2E2',
+                color: '#B91C1C',
+                border: '1px solid #FCA5A5',
+              }}
+              onMouseEnter={(e) => {
+                if (editedPilot.discordUsername && !isClearingDiscord) {
+                  e.currentTarget.style.backgroundColor = '#FECACA';
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (editedPilot.discordUsername && !isClearingDiscord) {
+                  e.currentTarget.style.backgroundColor = '#FEE2E2';
+                }
+              }}
+            >
+              {isClearingDiscord ? 'Clearing...' : 'Clear'}
+            </button>
+          </div>
+          <span style={{ fontSize: '12px', color: '#64748B', marginTop: '4px' }}>
+            Discord accounts are automatically linked via the sync process
+          </span>
         </div>
 
         <div style={{ ...sectionSpacingStyle, marginTop: '20px' }}>

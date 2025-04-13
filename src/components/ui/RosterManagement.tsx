@@ -7,7 +7,8 @@ import {
   createPilot,
   deletePilot, // Added import for deletePilot
   updatePilot,
-  updatePilotRole
+  updatePilotRole,
+  clearDiscordCredentials // Added import for clearDiscordCredentials
 } from '../../utils/pilotService';
 import { supabase } from '../../utils/supabaseClient';
 import { subscribeToTable } from '../../utils/supabaseClient';
@@ -24,6 +25,7 @@ import {
 import { rosterStyles } from '../../styles/RosterManagementStyles';
 import PilotList from './roster/PilotList';
 import PilotDetails from './roster/PilotDetails';
+import { DiscordPilotsDialog } from './dialogs/DiscordPilotsDialog';
 import { v4 as uuidv4 } from 'uuid';
 
 const RosterManagement: React.FC = () => {
@@ -49,6 +51,13 @@ const RosterManagement: React.FC = () => {
   const [isSavingNewPilot, setIsSavingNewPilot] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   
+  // Discord integration state
+  const [isDiscordImportOpen, setIsDiscordImportOpen] = useState(false);
+  const [syncMessage, setSyncMessage] = useState<{ 
+    type: 'success' | 'error'; 
+    text: string 
+  } | null>(null);
+  
   // Role management state
   const [roles, setRoles] = useState<Role[]>([]);
   const [pilotRoles, setPilotRoles] = useState<Role[]>([]);
@@ -73,6 +82,201 @@ const RosterManagement: React.FC = () => {
   const rosterListRef = useRef<HTMLDivElement>(null);
   const pilotDetailsRef = useRef<HTMLDivElement>(null);
   const rosterContentRef = useRef<HTMLDivElement>(null);
+
+  // Handle Discord sync completion
+  const handleDiscordSyncComplete = (result: {
+    updated: number;
+    created: number;
+    unchanged: number;
+    errors: string[];
+  }) => {
+    // Show success message
+    let message = `Discord sync complete: ${result.updated} pilots updated, ${result.created} pilots created`;
+    
+    if (result.errors.length) {
+      message += `, ${result.errors.length} errors`;
+      setSyncMessage({
+        type: 'error',
+        text: message
+      });
+    } else {
+      setSyncMessage({
+        type: 'success',
+        text: message
+      });
+    }
+    
+    // Refresh pilots list
+    if (result.updated > 0 || result.created > 0) {
+      refreshPilots();
+      
+      // If there's a selected pilot, refresh it to show possible Discord updates
+      if (selectedPilot) {
+        refreshSelectedPilot(selectedPilot.id);
+      }
+    }
+    
+    // Clear message after 8 seconds
+    setTimeout(() => {
+      setSyncMessage(null);
+    }, 8000);
+  };
+
+  // Function to refresh a specific pilot's details
+  const refreshSelectedPilot = async (pilotId: string) => {
+    try {
+      // Get the actual UUID if this is a Discord ID
+      const actualPilotId = await getActualPilotId(pilotId);
+      
+      // Get the pilot's updated details
+      const { data, error } = await supabase
+        .from('pilots')
+        .select(`
+          *,
+          roles:role_id (
+            id,
+            name
+          )
+        `)
+        .eq('id', actualPilotId)
+        .single();
+      
+      if (error) {
+        throw new Error(error.message);
+      }
+      
+      if (data) {
+        // Convert to our UI format
+        const updatedPilot = convertSupabasePilotToLegacy(data as any);
+        
+        // Use the discord_original_id as the main ID if available (for backwards compatibility)
+        if (data.discord_original_id) {
+          updatedPilot.id = data.discord_original_id;
+        }
+        
+        // Set status based on status_id
+        if (data.status_id && statusMap[data.status_id]) {
+          updatedPilot.status = statusMap[data.status_id].name as any;
+          updatedPilot.status_id = data.status_id;
+        }
+        
+        // Set role if available
+        if (data.roles?.name) {
+          updatedPilot.role = data.roles.name;
+        }
+        
+        // Update the pilot in our state
+        setPilots(prevPilots => prevPilots.map(p => 
+          p.id === pilotId ? updatedPilot : p
+        ));
+        
+        // Update selected pilot state
+        setSelectedPilot(updatedPilot);
+        
+        // Also update role and qualification states
+        if (updatedPilot) {
+          fetchPilotRoles(updatedPilot.id);
+          fetchPilotQualifications(updatedPilot.id);
+        }
+      }
+    } catch (err: any) {
+      console.error('Error refreshing selected pilot:', err);
+    }
+  };
+
+  // Function to clear a pilot's Discord credentials
+  const handleClearDiscord = async (pilotId: string): Promise<{ success: boolean; error?: string }> => {
+    try {
+      const { success, error } = await clearDiscordCredentials(pilotId);
+      
+      if (error) {
+        throw new Error(error.message || 'Failed to clear Discord credentials');
+      }
+
+      if (success) {
+        // Update the pilot in local state to reflect changes immediately
+        setPilots(prevPilots => 
+          prevPilots.map(pilot => 
+            pilot.id === pilotId 
+              ? { ...pilot, discordUsername: '', discordID: null, discord_original_id: null } 
+              : pilot
+          )
+        );
+        
+        // If this was the selected pilot, update that too
+        if (selectedPilot && selectedPilot.id === pilotId) {
+          setSelectedPilot({
+            ...selectedPilot,
+            discordUsername: '',
+            discordID: null,
+            discord_original_id: null
+          });
+        }
+
+        // Show success message
+        setSyncMessage({
+          type: 'success',
+          text: 'Discord credentials cleared successfully'
+        });
+        
+        // Clear message after 5 seconds
+        setTimeout(() => {
+          setSyncMessage(null);
+        }, 5000);
+      }
+      
+      return { success };
+    } catch (err: any) {
+      console.error('Error clearing Discord credentials:', err);
+      
+      setSyncMessage({
+        type: 'error',
+        text: `Error clearing Discord credentials: ${err.message || 'Unknown error'}`
+      });
+      
+      // Clear error message after 8 seconds
+      setTimeout(() => {
+        setSyncMessage(null);
+      }, 8000);
+      
+      return { success: false, error: err.message || 'Unknown error occurred' };
+    }
+  };
+
+  // Function to refresh the pilots list
+  const refreshPilots = async () => {
+    setLoading(true);
+    try {
+      const { data, error } = await getAllPilots();
+      
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      if (data && data.length > 0) {
+        // Convert Supabase format to the format our UI expects
+        const convertedPilots = data.map(pilot => {
+          // Use the discord_original_id as the main ID if available
+          const legacyPilot = convertSupabasePilotToLegacy(pilot as any);
+          if (pilot.discord_original_id) {
+            legacyPilot.id = pilot.discord_original_id;
+          }
+
+          // Set status based on status_id if available
+          if (pilot.status_id && statusMap[pilot.status_id]) {
+            legacyPilot.status = statusMap[pilot.status_id].name as any;
+            legacyPilot.status_id = pilot.status_id;
+          }
+          return legacyPilot;
+        });
+        setPilots(convertedPilots);
+      }
+    } catch (err: any) {
+      console.error('Error refreshing pilots:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Function to handle adding a new pilot
   const handleAddPilot = () => {
@@ -338,25 +542,38 @@ const RosterManagement: React.FC = () => {
     const isDiscordId = /^\d+$/.test(pilotId) && pilotId.length > 10;
     
     if (!isDiscordId) {
-      return pilotId;
+      return pilotId; // Return as is if it's not a Discord ID
     }
     
     // If it's a Discord ID, get the corresponding UUID
     try {
-      const { data, error } = await getPilotByDiscordOriginalId(pilotId);
+      // Look up the pilot by Discord ID - don't use .single() as it will fail if multiple entries exist
+      const { data, error } = await supabase
+        .from('pilots')
+        .select('id')
+        .eq('discord_original_id', pilotId);
       
       if (error) {
-        throw new Error(error.message);
+        console.error('Error getting actual pilot ID:', error);
+        throw new Error(`Error getting actual pilot ID: ${error.message}`);
       }
       
-      if (!data) {
+      if (!data || data.length === 0) {
         throw new Error('Could not find pilot with the provided Discord ID');
       }
       
-      return data.id;
-    } catch (err) {
+      // If multiple entries exist with this Discord ID, log the issue and use the first one
+      if (data.length > 1) {
+        console.warn(`Multiple pilots (${data.length}) found with Discord ID ${pilotId}. Using the first one:`, data);
+      }
+      
+      // Use the first entry found
+      const actualId = data[0].id;
+      console.log(`Translated Discord ID ${pilotId} to UUID ${actualId}`);
+      return actualId;
+    } catch (err: any) {
       console.error('Error getting actual pilot ID:', err);
-      return pilotId;
+      throw err; // Re-throw to be handled by the caller
     }
   };
 
@@ -945,6 +1162,14 @@ const RosterManagement: React.FC = () => {
 
   return (
     <div style={rosterStyles.container}>
+      {/* Discord import modal */}
+      <DiscordPilotsDialog 
+        isOpen={isDiscordImportOpen} 
+        onClose={() => setIsDiscordImportOpen(false)}
+        onComplete={handleDiscordSyncComplete}
+        selectedPilotId={selectedPilot?.id} // Pass the selectedPilotId to track
+      />
+      
       {loading && !pilots.length ? (
         <div style={rosterStyles.loading}>
           <div>Loading roster data...</div>
@@ -955,6 +1180,70 @@ const RosterManagement: React.FC = () => {
         </div>
       ) : (
         <div style={rosterStyles.contentWrapper}>
+          {/* Admin toolbar */}
+          <div style={{ 
+            display: 'flex', 
+            justifyContent: 'space-between', 
+            alignItems: 'center',
+            marginBottom: '20px', 
+            padding: '0 16px' 
+          }}>
+            <h2 style={{ fontSize: '24px', fontWeight: 600 }}>Squadron Roster</h2>
+            
+            <div style={{ display: 'flex', gap: '12px' }}>
+              <button
+                onClick={() => setIsDiscordImportOpen(true)}
+                style={{
+                  backgroundColor: '#7289da', // Discord color
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  padding: '8px 16px',
+                  fontSize: '14px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px'
+                }}
+              >
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                  <path d="M20.317 4.3698a19.7913 19.7913 0 00-4.8851-1.5152.0741.0741 0 00-.0785.0371c-.211.3753-.4447.8648-.6083 1.2495-1.8447-.2762-3.68-.2762-5.4868 0-.1636-.3933-.4058-.8742-.6177-1.2495a.077.077 0 00-.0785-.037 19.7363 19.7363 0 00-4.8852 1.515.0699.0699 0 00-.0321.0277C.5334 9.0458-.319 13.5799.0992 18.0578a.0824.0824 0 00.0312.0561c2.0528 1.5076 4.0413 2.4228 5.9929 3.0294a.0777.0777 0 00.0842-.0276c.4616-.6304.8731-1.2952 1.226-1.9942a.076.076 0 00-.0416-.1057c-.6528-.2476-1.2743-.5495-1.8722-.8923a.077.077 0 01-.0076-.1277c.1258-.0943.2517-.1923.3718-.2914a.0743.0743 0 01.0776-.0105c3.9278 1.7933 8.18 1.7933 12.0614 0a.0739.0739 0 01.0785.0095c.1202.099.246.1981.3728.2924a.077.077 0 01-.0066.1276 12.2986 12.2986 0 01-1.873.8914.0766.0766 0 00-.0407.1067c.3604.698.7719 1.3628 1.225 1.9932a.076.076 0 00.0842.0286c1.961-.6067 3.9495-1.5219 6.0023-3.0294a.077.077 0 00.0313-.0552c.5004-5.177-.8382-9.6739-3.5485-13.6604a.061.061 0 00-.0312-.0286zM8.02 15.3312c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9555-2.4189 2.157-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.9555 2.4189-2.1569 2.4189zm7.9748 0c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9554-2.4189 2.1569-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.946 2.4189-2.1568 2.4189Z"/>
+                </svg>
+                Sync with Discord
+              </button>
+            </div>
+          </div>
+          
+          {/* Sync message */}
+          {syncMessage && (
+            <div 
+              style={{
+                padding: '10px 16px',
+                marginBottom: '16px',
+                borderRadius: '4px',
+                backgroundColor: syncMessage.type === 'success' ? '#d1fae5' : '#fee2e2',
+                color: syncMessage.type === 'success' ? '#065f46' : '#991b1b',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between'
+              }}
+            >
+              <span>{syncMessage.text}</span>
+              <button 
+                onClick={() => setSyncMessage(null)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  fontSize: '18px',
+                  padding: '0 5px'
+                }}
+              >
+                ×
+              </button>
+            </div>
+          )}
+          
           <div style={rosterStyles.columnsContainer}>
             {/* Left column - Squadron Roster List */}
             <PilotList
@@ -998,6 +1287,7 @@ const RosterManagement: React.FC = () => {
                 handleRemoveQualification={handleRemoveQualification}
                 handleDeletePilot={handleDeletePilot}
                 handleSavePilotChanges={handleSavePilotChanges}
+                handleClearDiscord={handleClearDiscord}
                 isNewPilot={true}
                 onPilotFieldChange={handleNewPilotChange}
                 onSaveNewPilot={handleSaveNewPilot}
@@ -1030,6 +1320,7 @@ const RosterManagement: React.FC = () => {
                 handleRemoveQualification={handleRemoveQualification}
                 handleDeletePilot={handleDeletePilot}
                 handleSavePilotChanges={handleSavePilotChanges}
+                handleClearDiscord={handleClearDiscord}
               />
             )}
           </div>

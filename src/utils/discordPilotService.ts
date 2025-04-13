@@ -1,0 +1,333 @@
+import { supabase } from './supabaseClient';
+import type { Pilot, SupabasePilot } from '../types/PilotTypes';
+import { convertSupabasePilotToLegacy } from '../types/PilotTypes';
+
+export interface DiscordMember {
+  id: string;
+  username: string;
+  displayName: string; // Added display name field
+  roles: string[];
+  boardNumber: string | null;
+  callsign: string | null;
+  status: string | null;
+  isBot: boolean;
+}
+
+export interface DiscordPilotMatch {
+  discordMember: DiscordMember;
+  matchedPilot: Pilot | null;
+  potentialMatches: Pilot[];
+  action: 'do-nothing' | 'create-new' | 'update-existing';
+  selectedPilotId: string | null;
+}
+
+/**
+ * Get guild members from Discord API
+ * @returns List of Discord members
+ */
+export async function fetchDiscordGuildMembers(): Promise<DiscordMember[]> {
+  try {
+    // Call the server endpoint that will use the Discord API
+    const response = await fetch('http://localhost:3001/api/discord/guild-members', {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to fetch Discord guild members');
+    }
+
+    const data = await response.json();
+    
+    if (!data.members) {
+      return [];
+    }
+
+    // Process the discord members to extract board numbers, callsigns, and roles
+    const members = data.members.map((member: any) => {
+      // Extract board number and callsign from display name
+      // Example formats: "123 Callsign", "123/Callsign", "123 | Callsign", etc.
+      const boardNumberMatch = member.displayName.match(/^(\d{3})[\s|\/\-_]+(.+)$/);
+      
+      return {
+        id: member.id,
+        username: member.username,
+        displayName: member.displayName,
+        roles: member.roles || [],
+        boardNumber: boardNumberMatch ? boardNumberMatch[1] : null,
+        callsign: boardNumberMatch ? boardNumberMatch[2] : null,
+        status: determineStatusFromRoles(member.roles || []),
+        isBot: member.isBot || false
+      };
+    });
+    
+    // Filter out bot users
+    return members.filter(member => !member.isBot);
+  } catch (error) {
+    console.error('Error fetching Discord guild members:', error);
+    throw error;
+  }
+}
+
+/**
+ * Determine pilot status from Discord roles
+ */
+function determineStatusFromRoles(roles: string[]): string | null {
+  const roleMap = {
+    'Command': ['CO', 'XO', 'Command'],
+    'Staff': ['Staff', 'Department Head', 'Officer'],
+    'Cadre': ['Cadre', 'Instructor'],
+    'Provisional': ['Provisional', 'Student'],
+    'Inactive': ['Inactive'],
+    'Retired': ['Retired', 'Alumni'],
+    'On Leave': ['On Leave', 'LOA']
+  };
+
+  for (const [status, keywords] of Object.entries(roleMap)) {
+    if (roles.some(role => keywords.some(keyword => 
+      role.toLowerCase().includes(keyword.toLowerCase())))) {
+      return status;
+    }
+  }
+
+  return 'Provisional'; // Default status
+}
+
+/**
+ * Find matching pilots in database
+ * @param discordMembers Discord guild members
+ */
+export async function matchDiscordMembersWithPilots(discordMembers: DiscordMember[]): Promise<DiscordPilotMatch[]> {
+  // Get all existing pilots from the database
+  const { data: existingPilots, error } = await supabase
+    .from('pilots')
+    .select('*');
+
+  if (error || !existingPilots) {
+    console.error('Error fetching existing pilots:', error);
+    throw error;
+  }
+  
+  console.log('Total Discord members:', discordMembers.length);
+  console.log('Total existing pilots:', existingPilots.length);
+  
+  // Convert to legacy format for consistency
+  const pilots = existingPilots.map(pilot => convertSupabasePilotToLegacy(pilot as any));
+  
+  const matches = discordMembers.map(member => {
+    console.log(`\n---- Processing Discord member: ${member.displayName} (${member.username}) ----`);
+    console.log('Board Number:', member.boardNumber);
+    console.log('Callsign:', member.callsign);
+    console.log('Discord ID:', member.id);
+    
+    // Try to find an exact match by Discord ID first
+    const exactMatchById = pilots.find(p => p.discordUsername === member.id || p.id === member.id);
+    if (exactMatchById) {
+      console.log('MATCH FOUND: Exact match by Discord ID:', exactMatchById.callsign, exactMatchById.boardNumber);
+      console.log('Matched pilot UUID:', exactMatchById.id);
+      console.log('Matched pilot Discord username:', exactMatchById.discordUsername);
+    }
+    
+    // If no exact match by Discord ID, try to match by board number and/or callsign
+    let potentialMatches: Pilot[] = [];
+    let bestMatch: Pilot | null = null;
+    
+    if (!exactMatchById && member.boardNumber) {
+      // Try to find matches by board number
+      const boardMatches = pilots.filter(p => p.boardNumber === member.boardNumber);
+      
+      if (boardMatches.length > 0) {
+        console.log(`MATCH: Found ${boardMatches.length} pilots with board number ${member.boardNumber}`);
+        boardMatches.forEach(p => console.log(`  - ${p.callsign} (${p.id})`));
+        potentialMatches = boardMatches;
+        
+        // If we have a single board match, consider it the best match
+        if (boardMatches.length === 1) {
+          bestMatch = boardMatches[0];
+          console.log('BEST MATCH: Single board number match:', bestMatch.callsign);
+        } 
+        // If multiple board matches, try to narrow down by callsign
+        else if (member.callsign) {
+          const callsignMatch = boardMatches.find(p => 
+            p.callsign.toLowerCase() === member.callsign!.toLowerCase()
+          );
+          if (callsignMatch) {
+            bestMatch = callsignMatch;
+            console.log('BEST MATCH: Found by board+callsign match:', bestMatch.callsign);
+          }
+        }
+      }
+      // If no board matches but we have callsign, try matching by callsign
+      else if (member.callsign) {
+        const callsignMatches = pilots.filter(p => 
+          p.callsign.toLowerCase() === member.callsign!.toLowerCase()
+        );
+        if (callsignMatches.length > 0) {
+          console.log(`MATCH: Found ${callsignMatches.length} pilots with callsign ${member.callsign}`);
+          callsignMatches.forEach(p => console.log(`  - ${p.callsign} (Board #${p.boardNumber})`));
+          potentialMatches = [...potentialMatches, ...callsignMatches];
+          // If single callsign match, consider it the best match
+          if (callsignMatches.length === 1) {
+            bestMatch = callsignMatches[0];
+            console.log('BEST MATCH: Single callsign match:', bestMatch.callsign);
+          }
+        }
+      }
+    }
+    
+    // Determine the matched pilot (exact match by ID takes precedence)
+    const matchedPilot = exactMatchById || bestMatch;
+    
+    // Set appropriate action and selectedPilotId based on matching results
+    let action: 'do-nothing' | 'create-new' | 'update-existing' = 'do-nothing';
+    let selectedPilotId: string | null = null;
+    
+    if (matchedPilot) {
+      action = 'update-existing';
+      // Use the pilot's UUID (not the Discord ID)
+      selectedPilotId = matchedPilot.id;
+      console.log('RESULT: Matched with pilot:', matchedPilot.callsign, '(ID:', matchedPilot.id, ')');
+      console.log('Action:', action, 'Selected pilot ID (UUID):', selectedPilotId);
+    } else if (member.boardNumber && member.callsign) {
+      // If we have both board number and callsign but no match, suggest creating new
+      action = 'create-new';
+      selectedPilotId = null;
+      console.log('RESULT: No match found. Suggesting to create new pilot.');
+      console.log('Action:', action, 'Selected pilot ID:', selectedPilotId);
+    } else {
+      console.log('RESULT: No match found and insufficient info to create new pilot.');
+      console.log('Action:', action, 'Selected pilot ID:', selectedPilotId);
+    }
+    
+    return {
+      discordMember: member,
+      matchedPilot: matchedPilot,
+      potentialMatches: matchedPilot ? [] : potentialMatches,
+      action: action,
+      selectedPilotId: selectedPilotId
+    };
+  });
+  
+  console.log('\n---- SUMMARY ----');
+  console.log(`Total Discord members: ${matches.length}`);
+  console.log(`Matched with existing pilots: ${matches.filter(m => m.matchedPilot !== null).length}`);
+  console.log(`Suggested for creation: ${matches.filter(m => m.action === 'create-new').length}`);
+  console.log(`No action (do-nothing): ${matches.filter(m => m.action === 'do-nothing').length}`);
+  
+  return matches;
+}
+
+/**
+ * Process the matched pilot data and update the database
+ * @param matches The final Discord-pilot matches after user review
+ */
+export async function processPilotMatches(matches: DiscordPilotMatch[]): Promise<{
+  updated: number;
+  created: number;
+  unchanged: number;
+  errors: string[];
+}> {
+  const result = {
+    updated: 0,
+    created: 0,
+    unchanged: 0,
+    errors: [] as string[]
+  };
+
+  for (const match of matches) {
+    try {
+      if (match.action === 'do-nothing') {
+        result.unchanged++;
+        continue;
+      }
+      
+      // If updating an existing pilot
+      if (match.action === 'update-existing' && match.selectedPilotId) {
+        // We're now using the actual pilot UUID as selectedPilotId, so no need to fetch it again
+        const pilotId = match.selectedPilotId;
+        
+        console.log(`Updating pilot ${pilotId} with Discord ID ${match.discordMember.id} and Username ${match.discordMember.username}`);
+        
+        // Update the Discord fields in the database
+        // discord_original_id = numeric ID from Discord API
+        // discordId = Discord Username
+        const { error: updateError } = await supabase
+          .from('pilots')
+          .update({ 
+            discord_original_id: match.discordMember.id,
+            discordId: match.discordMember.username
+          })
+          .eq('id', pilotId);
+          
+        if (updateError) {
+          throw updateError;
+        }
+        
+        result.updated++;
+      } 
+      // If creating a new pilot
+      else if (match.action === 'create-new') {
+        // Ensure we have the required fields
+        if (!match.discordMember.callsign) {
+          throw new Error('Callsign is required when creating a new pilot');
+        }
+        
+        if (!match.discordMember.boardNumber) {
+          throw new Error('Board number is required when creating a new pilot');
+        }
+        
+        console.log(`Creating new pilot with Discord ID ${match.discordMember.id} and Username ${match.discordMember.username}`);
+        
+        // Create new pilot record
+        const newPilot = {
+          callsign: match.discordMember.callsign,
+          boardNumber: parseInt(match.discordMember.boardNumber),
+          discord_original_id: match.discordMember.id,  // Discord numeric ID
+          discordId: match.discordMember.username,      // Discord Username
+          status_id: await getStatusIdByName(match.discordMember.status || 'Provisional')
+        };
+        
+        const { error: createError } = await supabase
+          .from('pilots')
+          .insert(newPilot);
+          
+        if (createError) {
+          throw createError;
+        }
+        
+        result.created++;
+      }
+    } catch (error: any) {
+      console.error(`Error processing pilot match for ${match.discordMember.username}:`, error);
+      result.errors.push(`${match.discordMember.username}: ${error.message}`);
+    }
+  }
+  
+  return result;
+}
+
+/**
+ * Helper function to get status ID by name
+ */
+async function getStatusIdByName(statusName: string): Promise<string> {
+  const { data, error } = await supabase
+    .from('statuses')
+    .select('id')
+    .eq('name', statusName)
+    .single();
+    
+  if (error || !data) {
+    // Fallback to the first status in the database if not found
+    const { data: firstStatus } = await supabase
+      .from('statuses')
+      .select('id')
+      .limit(1)
+      .single();
+      
+    return firstStatus?.id || '';
+  }
+  
+  return data.id;
+}
