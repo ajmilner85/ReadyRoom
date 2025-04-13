@@ -74,7 +74,7 @@ export function convertLegacyPilotToSupabase(pilot: Pilot): Omit<SupabasePilot, 
 // Convert Supabase pilot format to legacy format (for backwards compatibility)
 export function convertSupabasePilotToLegacy(pilot: SupabasePilot): Pilot {
   return {
-    id: pilot.discord_original_id || pilot.id,
+    id: pilot.id, // Always use the database UUID as the ID
     callsign: pilot.callsign,
     boardNumber: pilot.boardNumber.toString(),
     status: 'Provisional', // Default, should be updated with actual value
@@ -85,7 +85,7 @@ export function convertSupabasePilotToLegacy(pilot: SupabasePilot): Pilot {
       type: q as QualificationType,
       dateAchieved: new Date().toISOString().split('T')[0]
     })),
-    discordUsername: pilot.discordId || '',
+    discordUsername: pilot.discordId || '', // Use discordId (username) for display
     role: pilot.role_name || pilot.role // Check for both role_name and role properties
   };
 }

@@ -82,11 +82,12 @@ export const WebSocketProvider: React.FC<EventUpdatesProviderProps> = ({ childre
 
   // Initialize polling when component mounts
   useEffect(() => {
+    // DISABLED: Temporarily disabling polling to avoid 404 errors
     // Initial poll on mount
-    fetchUpdates();
+    // fetchUpdates();
     
     // Setup regular polling
-    pollingIntervalRef.current = setInterval(fetchUpdates, 2000);
+    // pollingIntervalRef.current = setInterval(fetchUpdates, 2000);
 
     // Cleanup on unmount
     return () => {

@@ -125,14 +125,19 @@ export async function createPilot(pilot: NewPilot): Promise<{ data: Pilot | null
 export async function updatePilot(id: string, updates: UpdatePilot): Promise<{ data: Pilot | null; error: any }> {
   // If board number is being updated, check if it's unique
   if (updates.boardNumber) {
-    const { data: existingPilot } = await supabase
+    const { data: existingPilots, error: checkError } = await supabase
       .from('pilots')
       .select('id')
       .eq('boardNumber', updates.boardNumber)
-      .neq('id', id)
-      .single();
+      .neq('id', id);
 
-    if (existingPilot) {
+    // Don't use .single() as it causes errors when no records are found
+    // Instead, check if data exists and has length > 0
+    if (checkError) {
+      return { data: null, error: checkError };
+    }
+    
+    if (existingPilots && existingPilots.length > 0) {
       return { 
         data: null, 
         error: { message: `Board number ${updates.boardNumber} is already in use` } 
@@ -520,5 +525,39 @@ export async function updatePilotRoleAssignments(
   } catch (error) {
     console.error('Error updating pilot role assignment:', error);
     return { success: false, error };
+  }
+}
+
+/**
+ * Clear a pilot's Discord credentials
+ * @param id The ID of the pilot to update (either UUID or Discord ID)
+ * @returns Success status and error if any
+ */
+export async function clearDiscordCredentials(id: string): Promise<{ success: boolean; error: any }> {
+  try {
+    // First try to find the pilot by discord_original_id (for Discord IDs)
+    const { data: pilotByDiscordId } = await supabase
+      .from('pilots')
+      .select('id')
+      .eq('discord_original_id', id)
+      .single();
+    
+    // If found by Discord ID, use the actual UUID from the database
+    const actualId = pilotByDiscordId ? pilotByDiscordId.id : id;
+    
+    // Now update using the correct UUID, clearing Discord-related fields
+    const { error } = await supabase
+      .from('pilots')
+      .update({ 
+        discordId: null, 
+        discord_original_id: null
+        // Removed discordUsername as it doesn't exist in the database schema
+      })
+      .eq('id', actualId);
+
+    return { success: !error, error };
+  } catch (err) {
+    console.error('Error clearing Discord credentials:', err);
+    return { success: false, error: err };
   }
 }
