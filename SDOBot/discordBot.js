@@ -192,15 +192,20 @@ async function ensureLoggedIn() {
   }
 }
 
-// Function to find the events channel
-async function findEventsChannel() {
+// Function to find the events channel by guild ID
+async function findEventsChannel(guildId = null) {
   await ensureLoggedIn();
   
   // Get all guilds the bot is in
   const guilds = client.guilds.cache;
   
-  // Search each guild for the events channel
-  for (const [, guild] of guilds) {
+  if (guildId) {
+    // If a specific guild ID is provided, use that guild
+    const guild = client.guilds.cache.get(guildId);
+    if (!guild) {
+      throw new Error(`Guild with ID ${guildId} not found. The bot might not be added to this server.`);
+    }
+    
     const eventsChannel = guild.channels.cache.find(
       channel => channel.name === 'events' && channel.type === 0
     );
@@ -208,18 +213,31 @@ async function findEventsChannel() {
     if (eventsChannel) {
       return eventsChannel;
     }
+    
+    throw new Error(`Events channel not found in guild ${guild.name} (${guildId})`);
+  } else {
+    // If no specific guild ID is provided, search all guilds (backward compatibility)
+    for (const [, guild] of guilds) {
+      const eventsChannel = guild.channels.cache.find(
+        channel => channel.name === 'events' && channel.type === 0
+      );
+      
+      if (eventsChannel) {
+        return eventsChannel;
+      }
+    }
   }
   
   throw new Error('Events channel not found in any guild');
 }
 
 // Function to delete a Discord event message
-async function deleteEventMessage(messageId) {
+async function deleteEventMessage(messageId, guildId = null) {
   try {
     await ensureLoggedIn();
     
     // Find the events channel
-    const eventsChannel = await findEventsChannel();
+    const eventsChannel = await findEventsChannel(guildId);
     
     try {
       // Try to fetch and delete the message
@@ -259,13 +277,13 @@ async function deleteEventMessage(messageId) {
 }
 
 // Function to publish an event to Discord from the server
-async function publishEventToDiscord(title, description, eventTime) {
+async function publishEventToDiscord(title, description, eventTime, guildId = null) {
   try {
     // Make sure the bot is logged in
     await ensureLoggedIn();
     
     // Find the events channel
-    const eventsChannel = await findEventsChannel();
+    const eventsChannel = await findEventsChannel(guildId);
     
     // Create the embed and buttons
     const eventEmbed = createEventEmbed(title, description, eventTime);
@@ -282,6 +300,7 @@ async function publishEventToDiscord(title, description, eventTime) {
       title,
       description,
       eventTime,
+      guildId: eventsChannel.guild.id, // Store the guild ID
       accepted: [],
       declined: [],
       tentative: []
@@ -292,11 +311,12 @@ async function publishEventToDiscord(title, description, eventTime) {
     // Save updated event responses
     saveEventResponses();
     
-    console.log(`Event published to Discord: ${title}`);
+    console.log(`Event published to Discord: ${title} in guild ${eventsChannel.guild.name} (${eventsChannel.guild.id})`);
     
     return {
       success: true,
-      messageId: eventMessage.id
+      messageId: eventMessage.id,
+      guildId: eventsChannel.guild.id
     };
   } catch (error) {
     console.error('Error publishing event to Discord:', error);
@@ -412,10 +432,34 @@ async function getEventAttendance(discordMessageId) {
   return eventResponses.get(discordMessageId) || null;
 }
 
+// Function to get available Discord servers (guilds)
+async function getAvailableGuilds() {
+  try {
+    await ensureLoggedIn();
+    
+    // Map guilds to a simpler structure
+    const guilds = Array.from(client.guilds.cache.values()).map(guild => ({
+      id: guild.id,
+      name: guild.name,
+      memberCount: guild.memberCount,
+      icon: guild.iconURL({ dynamic: true }),
+      hasEventsChannel: !!guild.channels.cache.find(
+        channel => channel.name === 'events' && channel.type === 0
+      )
+    }));
+    
+    return { guilds, error: null };
+  } catch (error) {
+    console.error('Error fetching available guilds:', error);
+    return { guilds: [], error: error.message || 'Unknown error fetching guilds' };
+  }
+}
+
 module.exports = {
   publishEventToDiscord,
   getEventAttendance,
   initializeDiscordBot,
   registerEventUpdateCallback,
-  deleteEventMessage
+  deleteEventMessage,
+  getAvailableGuilds
 };
