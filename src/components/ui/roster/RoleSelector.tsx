@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { pilotDetailsStyles } from '../../../styles/RosterManagementStyles';
 import { Role } from '../../../utils/roleService';
 
@@ -19,6 +19,25 @@ const RoleSelector: React.FC<RoleSelectorProps> = ({
   disabledRoles,
   handleRoleChange
 }) => {
+  // Track the current selected value internally to handle "No role" properly
+  const [selectedRoleId, setSelectedRoleId] = useState<string>('');
+  
+  // Update the internal state when pilotRoles changes
+  useEffect(() => {
+    if (pilotRoles.length > 0) {
+      setSelectedRoleId(pilotRoles[0].id);
+    } else {
+      setSelectedRoleId('');
+    }
+  }, [pilotRoles]);
+  
+  // Handle selection change
+  const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const newValue = e.target.value;
+    setSelectedRoleId(newValue);
+    handleRoleChange(newValue);
+  };
+  
   return (
     <div style={{ marginBottom: '20px' }}>
       <label style={pilotDetailsStyles.fieldLabel}>
@@ -26,8 +45,8 @@ const RoleSelector: React.FC<RoleSelectorProps> = ({
       </label>
       <div style={{...pilotDetailsStyles.selectorContainer, width: '450px'}}>
         <select
-          value={pilotRoles.length > 0 ? pilotRoles[0].id : ''}
-          onChange={(e) => handleRoleChange(e.target.value)}
+          value={selectedRoleId}
+          onChange={handleChange}
           disabled={updatingRoles || loadingRoles}
           style={{...pilotDetailsStyles.selector, width: '450px'}}
         >
@@ -44,6 +63,18 @@ const RoleSelector: React.FC<RoleSelectorProps> = ({
               </option>
             ))}
         </select>
+        {(updatingRoles || loadingRoles) && (
+          <div style={{ marginLeft: '8px' }}>
+            <div style={{
+              width: '16px',
+              height: '16px',
+              border: '2px solid rgba(59, 130, 246, 0.3)',
+              borderTopColor: '#3B82F6',
+              borderRadius: '50%',
+              animation: 'spin 1s linear infinite'
+            }} />
+          </div>
+        )}
         <div style={pilotDetailsStyles.selectorArrow}>
           <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
             <path d="M6 8.5L2 4.5H10L6 8.5Z" fill="#64748B"/>

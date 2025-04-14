@@ -638,14 +638,17 @@ const RosterManagement: React.FC = () => {
       const actualPilotId = await getActualPilotId(selectedPilot.id);
       
       // If empty selection, remove the role
-      if (!roleId) {
-        // Update the pilot's role to null
+      if (!roleId || roleId === "") {
+        console.log("Removing role (empty selection)");
+        
+        // Update the pilot's role to null - using explicit null value
         const { error } = await supabase
           .from('pilots')
           .update({ role_id: null })
           .eq('id', actualPilotId);
         
         if (error) {
+          console.error("Error setting role to null:", error);
           throw new Error(error.message);
         }
         
@@ -965,7 +968,7 @@ const RosterManagement: React.FC = () => {
         boardNumber: parseInt(updatedPilot.boardNumber),
         discordId: updatedPilot.discordUsername || undefined,
         status_id: updatedPilot.status_id
-        // Note: role is handled separately via updatePilotRole
+        // Note: role is handled separately
       };
       
       // Update pilot basic info
@@ -975,19 +978,31 @@ const RosterManagement: React.FC = () => {
         throw new Error(error.message || 'Failed to update pilot');
       }
       
-      // Find the role ID based on the role name
-      let roleId: string | null = null;
-      if (updatedPilot.role) {
-        const matchingRole = roles.find(r => r.name === updatedPilot.role);
-        roleId = matchingRole?.id || null;
-      }
-      
-      // Update pilot role if changed
-      if (roleId !== null) {
-        const { error: roleError } = await updatePilotRole(actualPilotId, roleId);
+      // Handle role updates - including removal case
+      if (!updatedPilot.role || updatedPilot.role === '') {
+        // If no role is selected, explicitly set role_id to null
+        console.log("Save changes: Removing role for pilot", actualPilotId);
+        const { error: nullRoleError } = await supabase
+          .from('pilots')
+          .update({ role_id: null })
+          .eq('id', actualPilotId);
         
-        if (roleError) {
-          throw new Error(roleError.message || 'Failed to update pilot role');
+        if (nullRoleError) {
+          console.error("Error setting role to null during save:", nullRoleError);
+          throw new Error(nullRoleError.message || 'Failed to remove pilot role');
+        }
+      } else {
+        // Find the role ID based on the role name
+        const matchingRole = roles.find(r => r.name === updatedPilot.role);
+        const roleId = matchingRole?.id || null;
+        
+        if (roleId) {
+          // Update to a specific role
+          const { error: roleError } = await updatePilotRole(actualPilotId, roleId);
+          
+          if (roleError) {
+            throw new Error(roleError.message || 'Failed to update pilot role');
+          }
         }
       }
       
