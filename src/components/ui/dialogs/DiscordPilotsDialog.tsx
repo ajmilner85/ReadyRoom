@@ -9,6 +9,8 @@ import {
 import { X } from 'lucide-react';
 import { Pilot } from '../../../types/PilotTypes';
 import { supabase } from '../../../utils/supabaseClient';
+import { Status } from '../../../utils/statusService';
+import { Role } from '../../../utils/roleService';
 
 interface DiscordPilotsDialogProps {
   isOpen: boolean;
@@ -31,6 +33,9 @@ export const DiscordPilotsDialog: React.FC<DiscordPilotsDialogProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [matches, setMatches] = useState<DiscordPilotMatch[]>([]);
   const [allPilots, setAllPilots] = useState<Pilot[]>([]);
+  const [roles, setRoles] = useState<Role[]>([]);
+  const [statuses, setStatuses] = useState<Status[]>([]);
+  const [disabledRoles, setDisabledRoles] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     if (isOpen) {
@@ -44,6 +49,29 @@ export const DiscordPilotsDialog: React.FC<DiscordPilotsDialogProps> = ({
     setError(null);
     
     try {
+      // Fetch roles and statuses for dropdowns
+      const { data: rolesData, error: rolesError } = await supabase
+        .from('roles')
+        .select('*')
+        .order('order', { ascending: true });
+        
+      if (rolesError) throw rolesError;
+      setRoles(rolesData || []);
+      
+      const { data: statusesData, error: statusesError } = await supabase
+        .from('statuses')
+        .select('*')
+        .order('order', { ascending: true });
+        
+      if (statusesError) throw statusesError;
+      setStatuses(statusesData || []);
+      
+      // First fetch exclusive role assignments since we need this before showing the UI
+      // This ensures the role restrictions are shown on first open
+      if (rolesData && rolesData.length > 0) {
+        await fetchExclusiveRoleAssignments(rolesData);
+      }
+      
       // Fetch Discord guild members
       const discordMembers = await fetchDiscordGuildMembers();
       
@@ -82,7 +110,9 @@ export const DiscordPilotsDialog: React.FC<DiscordPilotsDialogProps> = ({
         discord: m.discordMember.displayName,
         matchedPilot: m.matchedPilot ? `${m.matchedPilot.callsign} (${m.matchedPilot.id})` : 'none',
         action: m.action,
-        selectedPilotId: m.selectedPilotId
+        selectedPilotId: m.selectedPilotId,
+        roleId: m.roleId,
+        statusId: m.statusId
       })));
       
       setMatches(matches);
@@ -90,6 +120,44 @@ export const DiscordPilotsDialog: React.FC<DiscordPilotsDialogProps> = ({
       setError(err.message || 'Failed to load Discord members');
     } finally {
       setLoading(false);
+    }
+  };
+  
+  // Fetch all exclusive roles that are already assigned
+  const fetchExclusiveRoleAssignments = async (rolesList = roles) => {
+    try {
+      // Get all exclusive roles
+      const exclusiveRoles = rolesList.filter(role => role.isExclusive);
+      
+      if (!exclusiveRoles.length) return;
+      
+      // Create a map to track which roles are already assigned
+      const newDisabledRoles: Record<string, boolean> = {};
+      
+      // For each exclusive role, check if it's already assigned to any pilot
+      for (const role of exclusiveRoles) {
+        // Query for all pilots with this role assigned
+        const { data, error } = await supabase
+          .from('pilots')
+          .select('id, role_id')
+          .eq('role_id', role.id);
+          
+        if (error) {
+          console.error('Error checking role assignments:', error);
+          continue;
+        }
+        
+        // If this role is assigned to any pilot, mark it as disabled
+        if (data && data.length > 0) {
+          console.log(`Role ${role.name} is assigned to ${data.length} pilots`);
+          newDisabledRoles[role.id] = true;
+        }
+      }
+      
+      console.log('Disabled roles:', newDisabledRoles);
+      setDisabledRoles(newDisabledRoles);
+    } catch (err) {
+      console.error('Error fetching exclusive role assignments:', err);
     }
   };
 
@@ -121,6 +189,52 @@ export const DiscordPilotsDialog: React.FC<DiscordPilotsDialogProps> = ({
       
       return updatedMatches;
     });
+  };
+  
+  // Handle role selection from dropdown
+  const handleRoleChange = (index: number, roleId: string | null) => {
+    setMatches(prevMatches => {
+      const updatedMatches = [...prevMatches];
+      updatedMatches[index].roleId = roleId;
+      return updatedMatches;
+    });
+  };
+  
+  // Handle status selection from dropdown
+  const handleStatusChange = (index: number, statusId: string | null) => {
+    setMatches(prevMatches => {
+      const updatedMatches = [...prevMatches];
+      updatedMatches[index].statusId = statusId;
+      return updatedMatches;
+    });
+  };
+  
+  // Check if a role should be disabled for a specific pilot
+  const isRoleDisabled = (roleId: string, pilotId: string | null) => {
+    // If the role is not in the disabled map, it's available to everyone
+    if (!disabledRoles[roleId]) {
+      return false;
+    }
+    
+    // If no pilot is selected or it's a new pilot, the role is disabled if it's exclusive and already assigned
+    if (!pilotId) {
+      return true;
+    }
+    
+    // For existing pilots, check if they currently have this role assigned
+    // This requires checking the database or the current pilot role assignments
+    // Check with supabase if this pilot already has this role
+    const role = roles.find(r => r.id === roleId);
+    if (!role || !role.isExclusive) {
+      return false;
+    }
+    
+    // For existing pilots, check matches to see if they have this role already assigned
+    const hasRole = matches.some(m => 
+      m.selectedPilotId === pilotId && m.roleId === roleId
+    );
+    
+    return !hasRole;
   };
 
   // Save changes and process matches
@@ -167,7 +281,7 @@ export const DiscordPilotsDialog: React.FC<DiscordPilotsDialogProps> = ({
         top: '50%',
         left: '50%',
         transform: 'translate(-50%, -50%)',
-        width: '1050px', // Increased width to accommodate more columns
+        width: '1150px', // Increased width to accommodate more columns
         maxWidth: '95%',
         maxHeight: '90vh',
         backgroundColor: '#FFFFFF',
@@ -263,6 +377,9 @@ export const DiscordPilotsDialog: React.FC<DiscordPilotsDialogProps> = ({
                 <p style={{ color: '#374151', margin: '0 0 12px 0' }}>
                   Found {matches.length} users from Discord. Review and confirm the matches below.
                 </p>
+                <p style={{ color: '#4B5563', margin: '0', fontSize: '14px' }}>
+                  Role assignment rules: Roles can only be assigned to pilots with Command or Staff status, and exclusive roles can only be assigned to one pilot at a time.
+                </p>
               </div>
               
               <div style={{ overflowX: 'auto' }}>
@@ -278,7 +395,7 @@ export const DiscordPilotsDialog: React.FC<DiscordPilotsDialogProps> = ({
                       <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: 500, color: '#6B7280', textTransform: 'uppercase' }}>Board #</th>
                       <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: 500, color: '#6B7280', textTransform: 'uppercase' }}>Callsign</th>
                       <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: 500, color: '#6B7280', textTransform: 'uppercase' }}>Discord Username</th>
-                      <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: 500, color: '#6B7280', textTransform: 'uppercase' }}>Discord Display Name</th>
+                      <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: 500, color: '#6B7280', textTransform: 'uppercase' }}>Discord Display</th>
                       <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: 500, color: '#6B7280', textTransform: 'uppercase' }}>Role</th>
                       <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: 500, color: '#6B7280', textTransform: 'uppercase' }}>Status</th>
                       <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: 500, color: '#6B7280', textTransform: 'uppercase' }}>Pilot Record</th>
@@ -286,7 +403,8 @@ export const DiscordPilotsDialog: React.FC<DiscordPilotsDialogProps> = ({
                   </thead>
                   <tbody>
                     {matches.map((match, index) => {
-                      const isEditable = match.action === 'create-new';
+                      const isEditable = match.action === 'create-new' || match.action === 'update-existing';
+                      const isDisabled = match.action === 'do-nothing';
                       
                       return (
                         <tr 
@@ -303,7 +421,7 @@ export const DiscordPilotsDialog: React.FC<DiscordPilotsDialogProps> = ({
                               <input
                                 type="text"
                                 placeholder="###"
-                                disabled={match.action === 'do-nothing'}
+                                disabled={isDisabled}
                                 value={match.discordMember.boardNumber || ''}
                                 onChange={(e) => {
                                   const updatedMatches = [...matches];
@@ -327,7 +445,7 @@ export const DiscordPilotsDialog: React.FC<DiscordPilotsDialogProps> = ({
                               <input
                                 type="text"
                                 placeholder="Callsign"
-                                disabled={match.action === 'do-nothing'}
+                                disabled={isDisabled}
                                 value={match.discordMember.callsign || ''}
                                 onChange={(e) => {
                                   const updatedMatches = [...matches];
@@ -348,23 +466,86 @@ export const DiscordPilotsDialog: React.FC<DiscordPilotsDialogProps> = ({
                           <td style={{ padding: '12px 16px', fontSize: '14px' }}>
                             {match.discordMember.username}
                           </td>
-                          <td style={{ padding: '12px 16px', fontSize: '14px' }}>
+                          <td style={{ padding: '12px 16px', fontSize: '14px', maxWidth: '150px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                             {match.discordMember.displayName}
                           </td>
                           <td style={{ padding: '12px 16px', fontSize: '14px' }}>
-                            <div style={{ maxWidth: '150px', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                              {match.discordMember.roles.join(', ')}
-                            </div>
+                            <select
+                              disabled={isDisabled}
+                              value={match.roleId || ''}
+                              onChange={(e) => handleRoleChange(index, e.target.value || null)}
+                              style={{
+                                width: '100%',
+                                padding: '6px',
+                                border: '1px solid #D1D5DB',
+                                borderRadius: '4px',
+                                fontSize: '14px'
+                              }}
+                            >
+                              <option value="">No Role</option>
+                              {roles.map(role => {
+                                // Check if this role should be disabled for this pilot
+                                const isDisabled = isRoleDisabled(role.id, match.selectedPilotId);
+                                
+                                return (
+                                  <option 
+                                    key={role.id} 
+                                    value={role.id}
+                                    disabled={isDisabled}
+                                    style={{ color: isDisabled ? '#9CA3AF' : 'inherit' }}
+                                  >
+                                    {role.name}{isDisabled ? ' (Already Assigned)' : ''}
+                                  </option>
+                                );
+                              })}
+                            </select>
+                            {match.discordMember.role && !match.roleId && (
+                              <span style={{ 
+                                display: 'block', 
+                                fontSize: '12px', 
+                                color: '#9CA3AF', 
+                                marginTop: '4px' 
+                              }}>
+                                Detected: {match.discordMember.role}
+                              </span>
+                            )}
                           </td>
                           <td style={{ padding: '12px 16px', fontSize: '14px' }}>
-                            {match.discordMember.status || 'Provisional'}
+                            <select
+                              disabled={isDisabled}
+                              value={match.statusId || ''}
+                              onChange={(e) => handleStatusChange(index, e.target.value || null)}
+                              style={{
+                                width: '100%',
+                                padding: '6px',
+                                border: '1px solid #D1D5DB',
+                                borderRadius: '4px',
+                                fontSize: '14px'
+                              }}
+                            >
+                              <option value="">Select Status</option>
+                              {statuses.map(status => (
+                                <option key={status.id} value={status.id}>
+                                  {status.name}
+                                </option>
+                              ))}
+                            </select>
+                            {match.discordMember.status && !match.statusId && (
+                              <span style={{ 
+                                display: 'block', 
+                                fontSize: '12px', 
+                                color: '#9CA3AF', 
+                                marginTop: '4px' 
+                              }}>
+                                Detected: {match.discordMember.status}
+                              </span>
+                            )}
                           </td>
                           <td style={{ padding: '12px 16px', fontSize: '14px' }}>
                             <select 
                               value={match.selectedPilotId || (match.action === 'create-new' ? 'create-new' : 'do-nothing')}
                               onChange={(e) => {
                                 const value = e.target.value;
-                                console.log(`Dropdown changed for ${match.discordMember.displayName} to:`, value);
                                 
                                 // Handle dropdown selection
                                 if (value === 'create-new') {
@@ -389,25 +570,16 @@ export const DiscordPilotsDialog: React.FC<DiscordPilotsDialogProps> = ({
                                 backgroundColor: match.selectedPilotId ? '#EFF6FF' : '#FFFFFF'
                               }}
                             >
-                              {console.log(`Rendering dropdown for ${match.discordMember.displayName}:`, {
-                                selectedPilotId: match.selectedPilotId,
-                                action: match.action,
-                                value: match.selectedPilotId || (match.action === 'create-new' ? 'create-new' : 'do-nothing')
-                              })}
                               <option value="do-nothing">Do nothing</option>
                               <option value="create-new">Create new pilot</option>
-                              {allPilots.map(pilot => {
-                                const isSelected = pilot.id === match.selectedPilotId;
-                                console.log(`Option for ${pilot.callsign} (${pilot.id}):`, { isSelected });
-                                return (
-                                  <option 
-                                    key={pilot.id} 
-                                    value={pilot.id}
-                                  >
-                                    {pilot.boardNumber} {pilot.callsign}
-                                  </option>
-                                );
-                              })}
+                              {allPilots.map(pilot => (
+                                <option 
+                                  key={pilot.id} 
+                                  value={pilot.id}
+                                >
+                                  {pilot.boardNumber} {pilot.callsign}
+                                </option>
+                              ))}
                             </select>
                             
                             {match.action === 'create-new' && (
@@ -428,7 +600,7 @@ export const DiscordPilotsDialog: React.FC<DiscordPilotsDialogProps> = ({
                                 color: '#3B82F6', 
                                 marginTop: '4px' 
                               }}>
-                                Pilot record already exists
+                                Will update existing pilot
                               </span>
                             )}
                           </td>

@@ -10,6 +10,7 @@ export interface DiscordMember {
   boardNumber: string | null;
   callsign: string | null;
   status: string | null;
+  role: string | null; // Added role field
   isBot: boolean;
 }
 
@@ -19,6 +20,8 @@ export interface DiscordPilotMatch {
   potentialMatches: Pilot[];
   action: 'do-nothing' | 'create-new' | 'update-existing';
   selectedPilotId: string | null;
+  roleId: string | null; // Added roleId field
+  statusId: string | null; // Added statusId field
 }
 
 /**
@@ -59,6 +62,7 @@ export async function fetchDiscordGuildMembers(): Promise<DiscordMember[]> {
         boardNumber: boardNumberMatch ? boardNumberMatch[1] : null,
         callsign: boardNumberMatch ? boardNumberMatch[2] : null,
         status: determineStatusFromRoles(member.roles || []),
+        role: determineRoleFromName(member.displayName),
         isBot: member.isBot || false
       };
     });
@@ -96,6 +100,127 @@ function determineStatusFromRoles(roles: string[]): string | null {
 }
 
 /**
+ * Determine pilot role from Discord display name
+ * This extracts role strings like "Admin OIC" from the display name
+ */
+function determineRoleFromName(displayName: string): string | null {
+  // We'll extract any potential role strings from the display name
+  // Example: "123 Callsign - Admin OIC" would extract "Admin OIC"
+  
+  // Look for role indicators after separators like "-", "|", etc.
+  const roleSeparators = ['-', '|', '/', '–', '—', ':', '('];
+  let rolePart = null;
+  
+  // Check for each separator and extract the part after it
+  for (const separator of roleSeparators) {
+    if (displayName.includes(separator)) {
+      const parts = displayName.split(separator);
+      if (parts.length > 1) {
+        rolePart = parts[1].trim();
+        break;
+      }
+    }
+  }
+  
+  return rolePart;
+}
+
+/**
+ * Helper function to get status ID by name
+ */
+async function getStatusIdByName(statusName: string): Promise<string> {
+  const { data, error } = await supabase
+    .from('statuses')
+    .select('id')
+    .eq('name', statusName)
+    .single();
+    
+  if (error || !data) {
+    // Fallback to the first status in the database if not found
+    const { data: firstStatus } = await supabase
+      .from('statuses')
+      .select('id')
+      .limit(1)
+      .single();
+      
+    return firstStatus?.id || '';
+  }
+  
+  return data.id;
+}
+
+/**
+ * Helper function to get role ID by name
+ */
+async function getRoleIdByName(roleName: string): Promise<string | null> {
+  const { data, error } = await supabase
+    .from('roles')
+    .select('id')
+    .eq('name', roleName)
+    .single();
+    
+  if (error || !data) {
+    return null;
+  }
+  
+  return data.id;
+}
+
+/**
+ * Check if a role can be assigned to a pilot based on status and exclusivity
+ */
+async function canAssignRole(
+  roleId: string,
+  statusId: string,
+  pilotId?: string
+): Promise<boolean> {
+  try {
+    // First check if the role is exclusive
+    const { data: role } = await supabase
+      .from('roles')
+      .select('*')
+      .eq('id', roleId)
+      .single();
+      
+    if (!role) return false;
+    
+    // Get the status to check compatibility
+    const { data: status } = await supabase
+      .from('statuses')
+      .select('name')
+      .eq('id', statusId)
+      .single();
+      
+    if (!status) return false;
+    
+    // Check status compatibility - roles can only be assigned to Command and Staff
+    if (status.name !== 'Command' && status.name !== 'Staff') {
+      return false;
+    }
+    
+    // If role is exclusive, check if it's already assigned to someone else
+    if (role.isExclusive) {
+      const { data: assignedPilots } = await supabase
+        .from('pilots')
+        .select('id')
+        .eq('role_id', roleId);
+        
+      if (assignedPilots && assignedPilots.length > 0) {
+        // If no pilotId provided or if assigned to someone else
+        if (!pilotId || !assignedPilots.some(p => p.id === pilotId)) {
+          return false;
+        }
+      }
+    }
+    
+    return true;
+  } catch (error) {
+    console.error('Error checking role assignment:', error);
+    return false;
+  }
+}
+
+/**
  * Find matching pilots in database
  * @param discordMembers Discord guild members
  */
@@ -110,17 +235,28 @@ export async function matchDiscordMembersWithPilots(discordMembers: DiscordMembe
     throw error;
   }
   
+  // Get available roles and statuses for matching
+  const { data: availableRoles } = await supabase
+    .from('roles')
+    .select('*');
+    
+  const { data: availableStatuses } = await supabase
+    .from('statuses')
+    .select('*');
+  
   console.log('Total Discord members:', discordMembers.length);
   console.log('Total existing pilots:', existingPilots.length);
   
   // Convert to legacy format for consistency
   const pilots = existingPilots.map(pilot => convertSupabasePilotToLegacy(pilot as any));
   
-  const matches = discordMembers.map(member => {
+  const matches = await Promise.all(discordMembers.map(async member => {
     console.log(`\n---- Processing Discord member: ${member.displayName} (${member.username}) ----`);
     console.log('Board Number:', member.boardNumber);
     console.log('Callsign:', member.callsign);
     console.log('Discord ID:', member.id);
+    console.log('Discord Role:', member.role);
+    console.log('Discord Status:', member.status);
     
     // Try to find an exact match by Discord ID first
     const exactMatchById = pilots.find(p => p.discordUsername === member.id || p.id === member.id);
@@ -201,14 +337,50 @@ export async function matchDiscordMembersWithPilots(discordMembers: DiscordMembe
       console.log('Action:', action, 'Selected pilot ID:', selectedPilotId);
     }
     
+    // Find role ID and status ID
+    let roleId: string | null = null;
+    let statusId: string | null = null;
+    
+    // Find roleId if member.role matches any of the available roles
+    if (member.role && availableRoles) {
+      const matchingRole = availableRoles.find(r => 
+        member.role && r.name.toLowerCase() === member.role.toLowerCase()
+      );
+      
+      if (matchingRole) {
+        roleId = matchingRole.id;
+      } else {
+        // Try partial match - check if member.role contains any role name
+        for (const role of availableRoles) {
+          if (member.role.toLowerCase().includes(role.name.toLowerCase())) {
+            roleId = role.id;
+            break;
+          }
+        }
+      }
+    }
+    
+    // Find statusId based on member.status
+    if (member.status && availableStatuses) {
+      const matchingStatus = availableStatuses.find(s => 
+        s.name === member.status
+      );
+      
+      if (matchingStatus) {
+        statusId = matchingStatus.id;
+      }
+    }
+    
     return {
       discordMember: member,
       matchedPilot: matchedPilot,
       potentialMatches: matchedPilot ? [] : potentialMatches,
       action: action,
-      selectedPilotId: selectedPilotId
+      selectedPilotId: selectedPilotId,
+      roleId: roleId,
+      statusId: statusId
     };
-  });
+  }));
   
   console.log('\n---- SUMMARY ----');
   console.log(`Total Discord members: ${matches.length}`);
@@ -250,15 +422,46 @@ export async function processPilotMatches(matches: DiscordPilotMatch[]): Promise
         
         console.log(`Updating pilot ${pilotId} with Discord ID ${match.discordMember.id} and Username ${match.discordMember.username}`);
         
-        // Update the Discord fields in the database
-        // discord_original_id = numeric ID from Discord API
-        // discordId = Discord Username
+        // First get the current pilot data
+        const { data: currentPilot } = await supabase
+          .from('pilots')
+          .select('*')
+          .eq('id', pilotId)
+          .single();
+          
+        // Check if we have a valid pilot
+        if (!currentPilot) {
+          throw new Error(`Pilot with ID ${pilotId} not found`);
+        }
+        
+        // Prepare updates object
+        const updates: any = {
+          discord_original_id: match.discordMember.id,
+          discordId: match.discordMember.username
+        };
+        
+        // Update status if available and different
+        if (match.statusId && match.statusId !== currentPilot.status_id) {
+          updates.status_id = match.statusId;
+        }
+        
+        // Update role if available and status is compatible
+        if (match.roleId) {
+          // Check if the role can be assigned based on status rules
+          const statusToCheck = match.statusId || currentPilot.status_id;
+          const roleAssignable = await canAssignRole(match.roleId, statusToCheck, pilotId);
+          
+          if (roleAssignable) {
+            updates.role_id = match.roleId;
+          } else {
+            console.log(`Cannot assign role to pilot ${pilotId} due to status constraints or exclusivity rules`);
+          }
+        }
+        
+        // Update the pilot in the database
         const { error: updateError } = await supabase
           .from('pilots')
-          .update({ 
-            discord_original_id: match.discordMember.id,
-            discordId: match.discordMember.username
-          })
+          .update(updates)
           .eq('id', pilotId);
           
         if (updateError) {
@@ -280,15 +483,65 @@ export async function processPilotMatches(matches: DiscordPilotMatch[]): Promise
         
         console.log(`Creating new pilot with Discord ID ${match.discordMember.id} and Username ${match.discordMember.username}`);
         
-        // Create new pilot record
-        const newPilot = {
+        // Create new pilot record - start with basic details
+        const newPilot: any = {
           callsign: match.discordMember.callsign,
           boardNumber: parseInt(match.discordMember.boardNumber),
           discord_original_id: match.discordMember.id,  // Discord numeric ID
-          discordId: match.discordMember.username,      // Discord Username
-          status_id: await getStatusIdByName(match.discordMember.status || 'Provisional')
+          discordId: match.discordMember.username      // Discord Username
         };
         
+        // Add status - use selected status or detect from Discord roles
+        const statusId = match.statusId || await getStatusIdByName(match.discordMember.status || 'Provisional');
+        newPilot.status_id = statusId;
+        
+        // Handle role assignment separately after checking compatibility
+        // Only add role if one is selected and the status is compatible
+        if (match.roleId) {
+          try {
+            // Get role data to check exclusivity
+            const { data: roleData } = await supabase
+              .from('roles')
+              .select('*')
+              .eq('id', match.roleId)
+              .single();
+              
+            // Get status name to check compatibility
+            const { data: statusData } = await supabase
+              .from('statuses')
+              .select('name')
+              .eq('id', statusId)
+              .single();
+              
+            // Check if this status can have roles (Command or Staff only)
+            if (statusData && (statusData.name === 'Command' || statusData.name === 'Staff')) {
+              // Check if this role is exclusive and already assigned
+              if (roleData && roleData.isExclusive) {
+                const { data: assignedPilots } = await supabase
+                  .from('pilots')
+                  .select('id')
+                  .eq('role_id', match.roleId);
+                  
+                // If no one has this role yet, we can assign it
+                if (!assignedPilots || assignedPilots.length === 0) {
+                  newPilot.role_id = match.roleId;
+                } else {
+                  console.log(`Cannot assign exclusive role ${roleData.name} - it's already assigned to another pilot.`);
+                }
+              } else if (roleData) {
+                // Non-exclusive role can be assigned directly
+                newPilot.role_id = match.roleId;
+              }
+            } else {
+              console.log(`Cannot assign role to a pilot with status: ${statusData?.name || 'Unknown'}`);
+            }
+          } catch (roleError) {
+            console.error('Error checking role assignment:', roleError);
+            // Continue without assigning role
+          }
+        }
+        
+        // Create the pilot
         const { error: createError } = await supabase
           .from('pilots')
           .insert(newPilot);
@@ -306,28 +559,4 @@ export async function processPilotMatches(matches: DiscordPilotMatch[]): Promise
   }
   
   return result;
-}
-
-/**
- * Helper function to get status ID by name
- */
-async function getStatusIdByName(statusName: string): Promise<string> {
-  const { data, error } = await supabase
-    .from('statuses')
-    .select('id')
-    .eq('name', statusName)
-    .single();
-    
-  if (error || !data) {
-    // Fallback to the first status in the database if not found
-    const { data: firstStatus } = await supabase
-      .from('statuses')
-      .select('id')
-      .limit(1)
-      .single();
-      
-    return firstStatus?.id || '';
-  }
-  
-  return data.id;
 }
