@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  DiscordMember, 
   DiscordPilotMatch, 
   fetchDiscordGuildMembers, 
   matchDiscordMembersWithPilots,
@@ -281,7 +280,7 @@ export const DiscordPilotsDialog: React.FC<DiscordPilotsDialogProps> = ({
         top: '50%',
         left: '50%',
         transform: 'translate(-50%, -50%)',
-        width: '1150px', // Increased width to accommodate more columns
+        width: '1270px', // Increased width to accommodate fixed-width Role and Status columns
         maxWidth: '95%',
         maxHeight: '90vh',
         backgroundColor: '#FFFFFF',
@@ -393,12 +392,12 @@ export const DiscordPilotsDialog: React.FC<DiscordPilotsDialogProps> = ({
                   <thead>
                     <tr style={{ backgroundColor: '#F9FAFB', borderBottom: '1px solid #E5E7EB' }}>
                       <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: 500, color: '#6B7280', textTransform: 'uppercase' }}>Board #</th>
-                      <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: 500, color: '#6B7280', textTransform: 'uppercase' }}>Callsign</th>
-                      <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: 500, color: '#6B7280', textTransform: 'uppercase' }}>Discord Username</th>
+                      <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: 500, color: '#6B7280', textTransform: 'uppercase', width: '160px' }}>Callsign</th>
+                      <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: 500, color: '#6B7280', textTransform: 'uppercase', width: '160px' }}>Discord Username</th>
                       <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: 500, color: '#6B7280', textTransform: 'uppercase' }}>Discord Display</th>
-                      <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: 500, color: '#6B7280', textTransform: 'uppercase' }}>Role</th>
-                      <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: 500, color: '#6B7280', textTransform: 'uppercase' }}>Status</th>
-                      <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: 500, color: '#6B7280', textTransform: 'uppercase' }}>Pilot Record</th>
+                      <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: 500, color: '#6B7280', textTransform: 'uppercase', width: '160px' }}>Role</th>
+                      <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: 500, color: '#6B7280', textTransform: 'uppercase', width: '160px' }}>Status</th>
+                      <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: 500, color: '#6B7280', textTransform: 'uppercase', width: '280px' }}>Pilot Record</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -415,42 +414,205 @@ export const DiscordPilotsDialog: React.FC<DiscordPilotsDialogProps> = ({
                           }}
                         >
                           <td style={{ padding: '12px 16px', fontSize: '14px' }}>
-                            {!isEditable && match.discordMember.boardNumber ? (
-                              match.discordMember.boardNumber
-                            ) : (
-                              <input
-                                type="text"
-                                placeholder="###"
+                            <div>
+                              {!isEditable && match.discordMember.boardNumber ? (
+                                <div style={{ padding: '6px 0' }}>{match.discordMember.boardNumber}</div>
+                              ) : (
+                                <input
+                                  type="text"
+                                  placeholder="###"
+                                  disabled={isDisabled}
+                                  value={match.discordMember.boardNumber || ''}
+                                  onChange={(e) => {
+                                    const updatedMatches = [...matches];
+                                    updatedMatches[index].discordMember.boardNumber = e.target.value;
+                                    setMatches(updatedMatches);
+                                  }}
+                                  style={{
+                                    width: '60px',
+                                    padding: '6px',
+                                    border: '1px solid #D1D5DB',
+                                    borderRadius: '4px',
+                                    fontSize: '14px'
+                                  }}
+                                />
+                              )}
+                              <div style={{ height: '20px' }}></div>
+                            </div>
+                          </td>
+                          <td style={{ padding: '12px 16px', fontSize: '14px' }}>
+                            <div>
+                              {!isEditable && match.discordMember.callsign ? (
+                                <div style={{ padding: '6px 0' }}>{match.discordMember.callsign}</div>
+                              ) : (
+                                <input
+                                  type="text"
+                                  placeholder="Callsign"
+                                  disabled={isDisabled}
+                                  value={match.discordMember.callsign || ''}
+                                  onChange={(e) => {
+                                    const updatedMatches = [...matches];
+                                    updatedMatches[index].discordMember.callsign = e.target.value;
+                                    setMatches(updatedMatches);
+                                  }}
+                                  style={{
+                                    width: '100%',
+                                    padding: '6px',
+                                    border: '1px solid #D1D5DB',
+                                    borderRadius: '4px',
+                                    fontSize: '14px',
+                                    boxSizing: 'border-box'
+                                  }}
+                                />
+                              )}
+                              <div style={{ height: '20px' }}></div>
+                            </div>
+                          </td>
+                          <td style={{ padding: '12px 16px', fontSize: '14px' }}>
+                            <div>
+                              <div style={{ padding: '6px 0' }}>{match.discordMember.username}</div>
+                              <div style={{ height: '20px' }}></div>
+                            </div>
+                          </td>
+                          <td style={{ padding: '12px 16px', fontSize: '14px', maxWidth: '150px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            <div>
+                              <div style={{ padding: '6px 0' }}>{match.discordMember.displayName}</div>
+                              <div style={{ height: '20px' }}></div>
+                            </div>
+                          </td>
+                          <td style={{ padding: '12px 16px', fontSize: '14px' }}>
+                            <div>
+                              <select
                                 disabled={isDisabled}
-                                value={match.discordMember.boardNumber || ''}
-                                onChange={(e) => {
-                                  const updatedMatches = [...matches];
-                                  updatedMatches[index].discordMember.boardNumber = e.target.value;
-                                  setMatches(updatedMatches);
-                                }}
+                                value={match.roleId || ''}
+                                onChange={(e) => handleRoleChange(index, e.target.value || null)}
                                 style={{
-                                  width: '60px',
+                                  width: '100%',
                                   padding: '6px',
                                   border: '1px solid #D1D5DB',
                                   borderRadius: '4px',
                                   fontSize: '14px'
                                 }}
-                              />
-                            )}
+                              >
+                                <option value="">No Role</option>
+                                {roles.map(role => {
+                                  // Check if this role should be disabled for this pilot
+                                  const isDisabled = isRoleDisabled(role.id, match.selectedPilotId);
+                                  
+                                  return (
+                                    <option 
+                                      key={role.id} 
+                                      value={role.id}
+                                      disabled={isDisabled}
+                                      style={{ color: isDisabled ? '#9CA3AF' : 'inherit' }}
+                                    >
+                                      {role.name}{isDisabled ? ' (Already Assigned)' : ''}
+                                    </option>
+                                  );
+                                })}
+                              </select>
+                              {match.discordMember.role && !match.roleId && (
+                                <div style={{ height: '20px' }}>
+                                  <span style={{ 
+                                    display: 'block', 
+                                    fontSize: '12px', 
+                                    color: '#9CA3AF', 
+                                    marginTop: '4px' 
+                                  }}>
+                                    Detected: {match.discordMember.role}
+                                  </span>
+                                </div>
+                              )}
+                              {!(match.discordMember.role && !match.roleId) && (
+                                <div style={{ height: '20px' }}></div>
+                              )}
+                            </div>
                           </td>
                           <td style={{ padding: '12px 16px', fontSize: '14px' }}>
-                            {!isEditable && match.discordMember.callsign ? (
-                              match.discordMember.callsign
-                            ) : (
-                              <input
-                                type="text"
-                                placeholder="Callsign"
+                            <div>
+                              <select
                                 disabled={isDisabled}
-                                value={match.discordMember.callsign || ''}
+                                value={match.statusId || ''}
+                                onChange={(e) => handleStatusChange(index, e.target.value || null)}
+                                style={{
+                                  width: '100%',
+                                  padding: '6px',
+                                  border: '1px solid #D1D5DB',
+                                  borderRadius: '4px',
+                                  fontSize: '14px'
+                                }}
+                              >
+                                <option value="">Select Status</option>
+                                {statuses.map(status => (
+                                  <option key={status.id} value={status.id}>
+                                    {status.name}
+                                  </option>
+                                ))}
+                              </select>
+                              {match.discordMember.status && !match.statusId && (
+                                <div style={{ height: '20px' }}>
+                                  <span style={{ 
+                                    display: 'block', 
+                                    fontSize: '12px', 
+                                    color: '#9CA3AF', 
+                                    marginTop: '4px' 
+                                  }}>
+                                    Detected: {match.discordMember.status}
+                                  </span>
+                                </div>
+                              )}
+                              {!(match.discordMember.status && !match.statusId) && (
+                                <div style={{ height: '20px' }}></div>
+                              )}
+                            </div>
+                          </td>
+                          <td style={{ padding: '12px 16px', fontSize: '14px' }}>
+                            <div>
+                              <select 
+                                value={match.selectedPilotId || (match.action === 'create-new' ? 'create-new' : 'do-nothing')}
                                 onChange={(e) => {
-                                  const updatedMatches = [...matches];
-                                  updatedMatches[index].discordMember.callsign = e.target.value;
-                                  setMatches(updatedMatches);
+                                  const value = e.target.value;
+                                  
+                                  // Handle dropdown selection
+                                  if (value === 'create-new') {
+                                    // Set action to create-new, clear pilot selection
+                                    handleActionChange(index, 'create-new');
+                                  } else if (value === 'do-nothing') {
+                                    // Set action to do-nothing, clear pilot selection
+                                    handleActionChange(index, 'do-nothing');
+                                    handlePilotChange(index, null);
+                                  } else {
+                                    // Set action to update-existing with the selected pilot ID
+                                    handleActionChange(index, 'update-existing');
+                                    handlePilotChange(index, value);
+                                    
+                                    // Set role and status to match the selected pilot's current values
+                                    const selectedPilot = allPilots.find(p => p.id === value);
+                                    if (selectedPilot) {
+                                      // Find the pilot's current role and status in the database
+                                      (async () => {
+                                        try {
+                                          const { data } = await supabase
+                                            .from('pilots')
+                                            .select('role_id, status_id')
+                                            .eq('id', value)
+                                            .single();
+                                            
+                                          if (data) {
+                                            // Update the match with the current role and status
+                                            setMatches(prevMatches => {
+                                              const updatedMatches = [...prevMatches];
+                                              updatedMatches[index].roleId = data.role_id;
+                                              updatedMatches[index].statusId = data.status_id;
+                                              return updatedMatches;
+                                            });
+                                          }
+                                        } catch (err) {
+                                          console.error('Error fetching pilot roles and status:', err);
+                                        }
+                                      })();
+                                    }
+                                  }
                                 }}
                                 style={{
                                   width: '100%',
@@ -458,151 +620,51 @@ export const DiscordPilotsDialog: React.FC<DiscordPilotsDialogProps> = ({
                                   border: '1px solid #D1D5DB',
                                   borderRadius: '4px',
                                   fontSize: '14px',
-                                  boxSizing: 'border-box'
+                                  backgroundColor: match.selectedPilotId ? '#EFF6FF' : '#FFFFFF'
                                 }}
-                              />
-                            )}
-                          </td>
-                          <td style={{ padding: '12px 16px', fontSize: '14px' }}>
-                            {match.discordMember.username}
-                          </td>
-                          <td style={{ padding: '12px 16px', fontSize: '14px', maxWidth: '150px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {match.discordMember.displayName}
-                          </td>
-                          <td style={{ padding: '12px 16px', fontSize: '14px' }}>
-                            <select
-                              disabled={isDisabled}
-                              value={match.roleId || ''}
-                              onChange={(e) => handleRoleChange(index, e.target.value || null)}
-                              style={{
-                                width: '100%',
-                                padding: '6px',
-                                border: '1px solid #D1D5DB',
-                                borderRadius: '4px',
-                                fontSize: '14px'
-                              }}
-                            >
-                              <option value="">No Role</option>
-                              {roles.map(role => {
-                                // Check if this role should be disabled for this pilot
-                                const isDisabled = isRoleDisabled(role.id, match.selectedPilotId);
-                                
-                                return (
+                              >
+                                <option value="do-nothing">Do nothing</option>
+                                <option value="create-new">Create new pilot</option>
+                                {allPilots.map(pilot => (
                                   <option 
-                                    key={role.id} 
-                                    value={role.id}
-                                    disabled={isDisabled}
-                                    style={{ color: isDisabled ? '#9CA3AF' : 'inherit' }}
+                                    key={pilot.id} 
+                                    value={pilot.id}
                                   >
-                                    {role.name}{isDisabled ? ' (Already Assigned)' : ''}
+                                    {pilot.boardNumber} {pilot.callsign}
                                   </option>
-                                );
-                              })}
-                            </select>
-                            {match.discordMember.role && !match.roleId && (
-                              <span style={{ 
-                                display: 'block', 
-                                fontSize: '12px', 
-                                color: '#9CA3AF', 
-                                marginTop: '4px' 
-                              }}>
-                                Detected: {match.discordMember.role}
-                              </span>
-                            )}
-                          </td>
-                          <td style={{ padding: '12px 16px', fontSize: '14px' }}>
-                            <select
-                              disabled={isDisabled}
-                              value={match.statusId || ''}
-                              onChange={(e) => handleStatusChange(index, e.target.value || null)}
-                              style={{
-                                width: '100%',
-                                padding: '6px',
-                                border: '1px solid #D1D5DB',
-                                borderRadius: '4px',
-                                fontSize: '14px'
-                              }}
-                            >
-                              <option value="">Select Status</option>
-                              {statuses.map(status => (
-                                <option key={status.id} value={status.id}>
-                                  {status.name}
-                                </option>
-                              ))}
-                            </select>
-                            {match.discordMember.status && !match.statusId && (
-                              <span style={{ 
-                                display: 'block', 
-                                fontSize: '12px', 
-                                color: '#9CA3AF', 
-                                marginTop: '4px' 
-                              }}>
-                                Detected: {match.discordMember.status}
-                              </span>
-                            )}
-                          </td>
-                          <td style={{ padding: '12px 16px', fontSize: '14px' }}>
-                            <select 
-                              value={match.selectedPilotId || (match.action === 'create-new' ? 'create-new' : 'do-nothing')}
-                              onChange={(e) => {
-                                const value = e.target.value;
-                                
-                                // Handle dropdown selection
-                                if (value === 'create-new') {
-                                  // Set action to create-new, clear pilot selection
-                                  handleActionChange(index, 'create-new');
-                                } else if (value === 'do-nothing') {
-                                  // Set action to do-nothing, clear pilot selection
-                                  handleActionChange(index, 'do-nothing');
-                                  handlePilotChange(index, null);
-                                } else {
-                                  // Set action to update-existing with the selected pilot ID
-                                  handleActionChange(index, 'update-existing');
-                                  handlePilotChange(index, value);
-                                }
-                              }}
-                              style={{
-                                width: '100%',
-                                padding: '6px',
-                                border: '1px solid #D1D5DB',
-                                borderRadius: '4px',
-                                fontSize: '14px',
-                                backgroundColor: match.selectedPilotId ? '#EFF6FF' : '#FFFFFF'
-                              }}
-                            >
-                              <option value="do-nothing">Do nothing</option>
-                              <option value="create-new">Create new pilot</option>
-                              {allPilots.map(pilot => (
-                                <option 
-                                  key={pilot.id} 
-                                  value={pilot.id}
-                                >
-                                  {pilot.boardNumber} {pilot.callsign}
-                                </option>
-                              ))}
-                            </select>
-                            
-                            {match.action === 'create-new' && (
-                              <span style={{ 
-                                display: 'block', 
-                                fontSize: '12px', 
-                                color: '#047857', 
-                                marginTop: '4px' 
-                              }}>
-                                Will create a new pilot record
-                              </span>
-                            )}
-                            
-                            {match.action === 'update-existing' && match.selectedPilotId && (
-                              <span style={{ 
-                                display: 'block', 
-                                fontSize: '12px', 
-                                color: '#3B82F6', 
-                                marginTop: '4px' 
-                              }}>
-                                Will update existing pilot
-                              </span>
-                            )}
+                                ))}
+                              </select>
+                              
+                              {match.action === 'create-new' && (
+                                <div style={{ height: '20px' }}>
+                                  <span style={{ 
+                                    display: 'block', 
+                                    fontSize: '12px', 
+                                    color: '#047857', 
+                                    marginTop: '4px' 
+                                  }}>
+                                    Create new pilot record
+                                  </span>
+                                </div>
+                              )}
+                              
+                              {match.action === 'update-existing' && match.selectedPilotId && (
+                                <div style={{ height: '20px' }}>
+                                  <span style={{ 
+                                    display: 'block', 
+                                    fontSize: '12px', 
+                                    color: '#3B82F6', 
+                                    marginTop: '4px' 
+                                  }}>
+                                    Update existing pilot record
+                                  </span>
+                                </div>
+                              )}
+                              
+                              {!(match.action === 'create-new' || (match.action === 'update-existing' && match.selectedPilotId)) && (
+                                <div style={{ height: '20px' }}></div>
+                              )}
+                            </div>
                           </td>
                         </tr>
                       );

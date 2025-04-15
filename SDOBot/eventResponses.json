@@ -321,5 +321,17 @@
     "accepted": [],
     "declined": [],
     "tentative": []
+  },
+  "1361521065452372114": {
+    "title": "Test",
+    "description": "",
+    "eventTime": {
+      "start": "2025-04-17T00:00:00.000Z",
+      "end": "2025-04-17T01:00:00.000Z"
+    },
+    "guildId": "1359357233342976151",
+    "accepted": [],
+    "declined": [],
+    "tentative": []
   }
 }
