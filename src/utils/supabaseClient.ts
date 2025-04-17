@@ -199,7 +199,8 @@ export const fetchEvents = async (cycleId?: string) => {
   let query = supabase.from('events').select(`
     id,
     name,
-    date,
+    start_datetime,
+    end_datetime,
     type,
     description,
     status,
@@ -215,7 +216,7 @@ export const fetchEvents = async (cycleId?: string) => {
     query = query.eq('cycle_id', cycleId);
   }
 
-  const { data, error } = await query.order('date', { ascending: false });
+  const { data, error } = await query.order('start_datetime', { ascending: false });
 
   if (error) {
     console.error('Error fetching events:', error);
@@ -230,7 +231,8 @@ export const fetchEvents = async (cycleId?: string) => {
       id: dbEvent.id,
       title: dbEvent.name, // DB field is 'name', frontend uses 'title'
       description: dbEvent.description || '',
-      datetime: dbEvent.date, // DB field is 'date', frontend uses 'datetime'
+      datetime: dbEvent.start_datetime, // DB field is 'start_datetime', frontend uses 'datetime'
+      end_datetime: dbEvent.end_datetime, // Include end datetime 
       status: dbEvent.status || 'upcoming',
       eventType: dbEvent.event_type as EventType | undefined,
       cycleId: dbEvent.cycle_id || undefined,
@@ -264,7 +266,8 @@ export const createEvent = async (event: Omit<Event, 'id' | 'creator' | 'attenda
     .insert({
       name: event.title, // Frontend uses 'title', DB field is 'name'
       description: event.description,
-      date: event.datetime, // Frontend uses 'datetime', DB field is 'date'
+      start_datetime: event.datetime, // Frontend uses 'datetime', DB uses 'start_datetime'
+      end_datetime: event.end_datetime, // Pass end datetime if available
       status: event.status,
       event_type: event.eventType,
       cycle_id: event.cycleId
@@ -283,7 +286,8 @@ export const createEvent = async (event: Omit<Event, 'id' | 'creator' | 'attenda
     id: data.id,
     title: data.name, // DB field is 'name', frontend uses 'title'
     description: data.description || '',
-    datetime: data.date, // DB field is 'date', frontend uses 'datetime'
+    datetime: data.start_datetime, // DB field is 'start_datetime', frontend uses 'datetime'
+    end_datetime: data.end_datetime, // Include end datetime if available
     status: data.status || 'upcoming',
     eventType: data.event_type as EventType | undefined,
     cycleId: data.cycle_id || undefined,
@@ -309,7 +313,8 @@ export const updateEvent = async (eventId: string, updates: Partial<Omit<Event, 
   
   if (updates.title !== undefined) dbUpdates.name = updates.title; // Frontend uses 'title', DB field is 'name'
   if (updates.description !== undefined) dbUpdates.description = updates.description;
-  if (updates.datetime !== undefined) dbUpdates.date = updates.datetime; // Frontend uses 'datetime', DB field is 'date'
+  if (updates.datetime !== undefined) dbUpdates.start_datetime = updates.datetime; // Frontend uses 'datetime', DB uses 'start_datetime'
+  if (updates.end_datetime !== undefined) dbUpdates.end_datetime = updates.end_datetime; // Include end datetime
   if (updates.status !== undefined) dbUpdates.status = updates.status;
   if (updates.eventType !== undefined) dbUpdates.event_type = updates.eventType;
   if (updates.cycleId !== undefined) dbUpdates.cycle_id = updates.cycleId;
@@ -369,7 +374,8 @@ export const updateEvent = async (eventId: string, updates: Partial<Omit<Event, 
     id: data.id,
     title: data.name, // DB field is 'name', frontend uses 'title'
     description: data.description || '',
-    datetime: data.date, // DB field is 'date', frontend uses 'datetime'
+    datetime: data.start_datetime, // DB field is 'start_datetime', frontend uses 'datetime'
+    end_datetime: data.end_datetime, // Include end datetime if available
     status: data.status || 'upcoming',
     eventType: data.event_type as EventType | undefined,
     cycleId: data.cycle_id || undefined,

@@ -23,6 +23,18 @@ const { supabase, getEventByDiscordId } = require('./supabaseClient');
 // Import Discord.js for guild member operations
 const { Client, GatewayIntentBits } = require('discord.js');
 
+// Add Discord client for caching at the top level
+const discordClient = new Client({
+  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.GuildMembers]
+});
+
+// Cache for Discord server channels to avoid redundant fetches
+const channelCache = {
+  timestamp: 0,
+  ttl: 5 * 60 * 1000, // 5 minutes cache
+  servers: {}
+};
+
 const app = express();
 const PORT = process.env.SERVER_PORT || 3001;
 
@@ -45,14 +57,17 @@ app.head('/api/health', (req, res) => {
   res.status(200).end();
 });
 
-// Initialize Discord bot connection
+// Initialize Discord bot and client connection
 (async function() {
   try {
-    console.log('Initializing Discord bot connection...');
+    console.log('Initializing Discord bot and client connection...');
     await initializeDiscordBot();
-    console.log('Discord bot connection established successfully');
+    
+    // Login the persistent client
+    await discordClient.login(process.env.BOT_TOKEN);
+    console.log('Discord client connection established successfully');
   } catch (error) {
-    console.error('Failed to initialize Discord bot:', error);
+    console.error('Failed to initialize Discord:', error);
   }
 })();
 
@@ -61,9 +76,9 @@ app.head('/api/health', (req, res) => {
 app.delete('/api/events/:discordMessageId', async (req, res) => {
   try {
     const { discordMessageId } = req.params;
-    const { guildId } = req.query; // Get guild ID from query params
+    const { guildId, channelId } = req.query; // Get both guild ID and channel ID from query params
     
-    console.log(`[DEBUG] Received request to delete Discord message: ${discordMessageId}, Guild ID: ${guildId || 'not specified'}`);
+    console.log(`[DEBUG] Received request to delete Discord message: ${discordMessageId}, Guild ID: ${guildId || 'not specified'}, Channel ID: ${channelId || 'not specified'}`);
     
     // Validate ID format to avoid unnecessary calls
     if (!discordMessageId || !/^\d+$/.test(discordMessageId)) {
@@ -73,31 +88,63 @@ app.delete('/api/events/:discordMessageId', async (req, res) => {
       });
     }
     
-    // If the event was in a specific guild, first try to look it up
-    if (!guildId) {
-      // Try to find the guild ID in the database if not provided
-      const { data, error } = await supabase
+    let discordGuildId = guildId;
+    let discordChannelId = channelId;
+    
+    // First try to get both the guild ID and channel ID from the events table if not provided
+    if (!discordGuildId || !discordChannelId) {
+      // Look up the event in the database using the Discord message ID
+      const { data: eventData, error: eventError } = await supabase
         .from('events')
-        .select('discord_guild_id')
+        .select('discord_guild_id, discord_channel_id')
         .eq('discord_event_id', discordMessageId)
         .single();
         
-      if (!error && data && data.discord_guild_id) {
-        console.log(`[DEBUG] Found guild ID ${data.discord_guild_id} for message ${discordMessageId}`);
-        // Use the guild ID from the database
-        const result = await deleteEventMessage(discordMessageId, data.discord_guild_id);
+      if (!eventError && eventData) {
+        if (eventData.discord_guild_id && !discordGuildId) {
+          discordGuildId = eventData.discord_guild_id;
+          console.log(`[DEBUG] Found guild ID ${discordGuildId} for message ${discordMessageId}`);
+        }
         
-        if (result.success) {
-          return res.json({ 
-            success: true,
-            alreadyDeleted: !!result.alreadyDeleted
-          });
+        if (eventData.discord_channel_id && !discordChannelId) {
+          discordChannelId = eventData.discord_channel_id;
+          console.log(`[DEBUG] Found channel ID ${discordChannelId} for message ${discordMessageId}`);
         }
       }
     }
     
-    // Call the Discord bot to delete the message (with guild ID if provided)
-    const result = await deleteEventMessage(discordMessageId, guildId);
+    // If still missing guild ID or channel ID, try to get them from squadron_settings
+    if (!discordGuildId || !discordChannelId) {
+      const { data: settingsData, error: settingsError } = await supabase
+        .from('squadron_settings')
+        .select('key, value')
+        .in('key', ['discord_guild_id', 'events_channel_id']);
+        
+      if (!settingsError && settingsData) {
+        settingsData.forEach(setting => {
+          if (setting.key === 'discord_guild_id' && setting.value && !discordGuildId) {
+            discordGuildId = setting.value;
+            console.log(`[DEBUG] Using guild ID ${discordGuildId} from squadron_settings`);
+          } else if (setting.key === 'events_channel_id' && setting.value && !discordChannelId) {
+            discordChannelId = setting.value;
+            console.log(`[DEBUG] Using channel ID ${discordChannelId} from squadron_settings`);
+          }
+        });
+      }
+    }
+    
+    // If we still don't have a guild ID, we can't proceed
+    if (!discordGuildId) {
+      return res.status(400).json({
+        success: false,
+        error: 'Discord server ID could not be determined. Please check your Discord integration settings.'
+      });
+    }
+    
+    console.log(`[DEBUG] Attempting to delete Discord message: ${discordMessageId}, Guild ID: ${discordGuildId}, Channel ID: ${discordChannelId || 'not specified'}`);
+    
+    // Call the Discord bot to delete the message, passing both guild ID and channel ID
+    const result = await deleteEventMessage(discordMessageId, discordGuildId, discordChannelId);
     
     console.log(`[DEBUG] Delete result for message ${discordMessageId}:`, result);
     
@@ -125,20 +172,35 @@ app.delete('/api/events/:discordMessageId', async (req, res) => {
 // Add detailed logging to the publish endpoint
 app.post('/api/events/publish', async (req, res) => {
   try {
-    const { title, description, startTime, endTime, eventId, guildId } = req.body;
+    const { title, description, startTime, endTime, eventId, guildId, channelId } = req.body;
     
     console.log('[DEBUG] Received event publish request:', { 
       timestamp: new Date().toISOString(),
       eventId,
       title,
       startTime,
-      guildId
+      guildId,
+      channelId
     });
     
     if (!title || !startTime) {
       return res.status(400).json({ 
         success: false, 
         error: 'Title and start time are required' 
+      });
+    }
+
+    if (!guildId) {
+      return res.status(400).json({
+        success: false,
+        error: 'Discord server ID (guildId) is required'
+      });
+    }
+
+    if (!channelId) {
+      return res.status(400).json({
+        success: false,
+        error: 'Discord channel ID (channelId) is required'
       });
     }
     
@@ -172,15 +234,17 @@ app.post('/api/events/publish', async (req, res) => {
       title, 
       eventId,
       guildId,
+      channelId,
       startTime: eventTime.start.toISOString(), 
       endTime: eventTime.end.toISOString() 
     });
     
-    // Call the Discord bot to publish the event, passing the guild ID if provided
-    const result = await publishEventToDiscord(title, description || '', eventTime, guildId);
+    // Call the Discord bot to publish the event, passing both the guild ID and channel ID
+    const result = await publishEventToDiscord(title, description || '', eventTime, guildId, channelId);
     console.log('[DEBUG] Discord publish result:', result);
     
     // If eventId was provided, update the event in Supabase with the Discord message ID and guild ID
+    // Don't try to store the channelId in the events table as it doesn't have that column
     if (eventId && result.messageId) {
       console.log(`[DEBUG] Updating event ${eventId} with Discord message ID ${result.messageId} and guild ID ${result.guildId}`);
       const { error: updateError } = await supabase
@@ -390,6 +454,82 @@ app.get('/api/discord/servers', async (req, res) => {
     res.status(500).json({ 
       success: false, 
       error: error.message || 'Failed to fetch Discord servers' 
+    });
+  }
+});
+
+// New endpoint to get channels for a specific Discord server
+app.get('/api/discord/servers/:guildId/channels', async (req, res) => {
+  try {
+    const { guildId } = req.params;
+    
+    if (!guildId) {
+      return res.status(400).json({
+        success: false,
+        error: 'Guild ID is required'
+      });
+    }
+    
+    // Check if we have a recent cache for this guild
+    const now = Date.now();
+    if (channelCache.servers[guildId] && 
+        now - channelCache.timestamp < channelCache.ttl) {
+      // Return cached channels if they exist and are not expired
+      return res.json({
+        success: true,
+        channels: channelCache.servers[guildId],
+        cached: true
+      });
+    }
+    
+    // Wait for client to be ready if not already
+    if (!discordClient.isReady()) {
+      await new Promise((resolve) => {
+        discordClient.once('ready', resolve);
+      });
+    }
+    
+    // Fetch the specified guild
+    const guild = discordClient.guilds.cache.get(guildId);
+    
+    if (!guild) {
+      return res.status(404).json({ 
+        success: false,
+        error: `Discord server with ID ${guildId} not found or bot doesn't have access` 
+      });
+    }
+    
+    // Fetch all channels
+    await guild.channels.fetch();
+    
+    // Filter to text channels that can be used for posting events
+    const textChannels = guild.channels.cache
+      .filter(channel => {
+        // Convert any type to string for comparison
+        const typeStr = String(channel.type);
+        // Include all text-like channels (can contain text messages)
+        return ['0', 'GUILD_TEXT', 'TEXT', 'DM', 'GROUP_DM', 'GUILD_NEWS', 
+                'GUILD_NEWS_THREAD', 'GUILD_PUBLIC_THREAD', 'GUILD_PRIVATE_THREAD'].includes(typeStr);
+      })
+      .map(channel => ({
+        id: channel.id,
+        name: channel.name,
+        type: channel.type
+      }));
+    
+    // Update the cache
+    channelCache.servers[guildId] = textChannels;
+    channelCache.timestamp = now;
+    
+    res.json({
+      success: true,
+      channels: textChannels
+    });
+  } catch (error) {
+    console.error('[ERROR] Error fetching Discord channels:', error);
+    res.status(500).json({ 
+      success: false,
+      error: error.message || 'Failed to fetch Discord channels' 
     });
   }
 });

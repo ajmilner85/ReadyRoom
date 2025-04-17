@@ -1,7 +1,12 @@
 In Progress:
-	- Custom Discord Bot for event creation and attendance tracking
-	- Develop Express server backend functionality
-	- Prevent duplicate event creation
+	- Add squadron_settings and user_settings tables to supabase
+	- Refactor Discord Integration settings page to:
+		- Save server/guild id to squadron_settings table
+		- Allow selection of events channel using a drop down (also saved to squadron_settings)
+	- Refactor Discord Bot for use with multiple servers/guilds
+		- Sync to Discord/Discord Pilots Integration to pull member list from selected squadron only
+		- Publlish and delete events to/from selected server only
+		- Record attendance from selected server only
 
 Next:
 - Mission Preparation
@@ -191,3 +196,6 @@ Complete
 	- Role Assignment and Qualification Management
 - Basic Database implementation
 		- Roster
+- Custom Discord Bot for event creation and attendance tracking
+- Develop Express server backend functionality
+- Prevent duplicate event creation
