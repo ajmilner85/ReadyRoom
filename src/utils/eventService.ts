@@ -14,7 +14,7 @@ export async function getAllEvents(): Promise<{ data: Event[] | null; error: any
   const { data, error } = await supabase
     .from('events')
     .select('*')
-    .order('date', { ascending: true });
+    .order('start_datetime', { ascending: true });
 
   return { data, error };
 }

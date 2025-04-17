@@ -333,5 +333,68 @@
     "accepted": [],
     "declined": [],
     "tentative": []
+  },
+  "1362246736730390751": {
+    "title": "Test Event",
+    "description": "",
+    "eventTime": {
+      "start": "2025-04-17T00:00:00.000Z",
+      "end": "2025-04-17T01:00:00.000Z"
+    },
+    "guildId": "1359357233342976151",
+    "accepted": [],
+    "declined": [],
+    "tentative": []
+  },
+  "1362246742623391755": {
+    "title": "Test Event",
+    "description": "",
+    "eventTime": {
+      "start": "2025-04-17T00:00:00.000Z",
+      "end": "2025-04-17T01:00:00.000Z"
+    },
+    "guildId": "1359357233342976151",
+    "accepted": [],
+    "declined": [],
+    "tentative": []
+  },
+  "1362265149490200577": {
+    "title": "Test Event",
+    "description": "An event for testing purposes. Obviously.",
+    "eventTime": {
+      "start": "2025-04-19T00:00:00.000Z",
+      "end": "2025-04-19T01:00:00.000Z"
+    },
+    "guildId": "268876258023047168",
+    "channelId": "1361472236816699429",
+    "accepted": [],
+    "declined": [],
+    "tentative": []
+  },
+  "1362267504541700108": {
+    "title": "Test Event",
+    "description": "MOAR TESTS!",
+    "eventTime": {
+      "start": "2025-04-18T00:00:00.000Z",
+      "end": "2025-04-18T01:00:00.000Z"
+    },
+    "guildId": "268876258023047168",
+    "channelId": "1361472236816699429",
+    "accepted": [],
+    "declined": [],
+    "tentative": []
+  },
+  "1362267704865587250": {
+    "title": "Test Test Test",
+    "description": "",
+    "eventTime": {
+      "start": "2025-04-25T00:00:00.000Z",
+      "end": "2025-04-25T01:00:00.000Z"
+    },
+    "guildId": "268876258023047168",
+    "channelId": "1361472236816699429",
+    "accepted": [],
+    "declined": [],
+    "tentative": []
   }
 }

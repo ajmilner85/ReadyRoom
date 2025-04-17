@@ -12,7 +12,7 @@ if (result.error) {
 }
 
 // Require Supabase client from server directory
-const { upsertEventAttendance, getEventIdByDiscordId, getEventByDiscordId } = require('../server/supabaseClient');
+const { supabase, upsertEventAttendance, getEventIdByDiscordId, getEventByDiscordId } = require('../server/supabaseClient');
 
 // Check if BOT_TOKEN is loaded and log its status
 console.log('Environment variables loaded, BOT_TOKEN present:', !!process.env.BOT_TOKEN);
@@ -32,9 +32,6 @@ const client = new Client({
   ]
 });
 
-// Path to store event responses
-const EVENT_RESPONSES_FILE = path.join(__dirname, 'eventResponses.json');
-
 // Store event responses
 let eventResponses = new Map();
 
@@ -53,27 +50,97 @@ function notifyEventUpdate(eventId, eventData) {
   }
 }
 
-// Function to load event responses from file
-function loadEventResponses() {
+// Function to load event responses from database
+async function loadEventResponses() {
   try {
-    if (fs.existsSync(EVENT_RESPONSES_FILE)) {
-      const data = JSON.parse(fs.readFileSync(EVENT_RESPONSES_FILE, 'utf8'));
-      eventResponses = new Map(Object.entries(data));
-      console.log(`Loaded ${eventResponses.size} events from storage`);
+    // Get all events with Discord message IDs from the database
+    const { data, error } = await supabase
+      .from('events')
+      .select('id, name, description, start_datetime, end_datetime, discord_event_id, discord_guild_id')
+      .not('discord_event_id', 'is', null);
+    
+    if (error) {
+      console.error('Error loading events from database:', error);
+      return;
     }
+    
+    let loadedCount = 0;
+    
+    // Process each event
+    for (const event of data) {
+      if (!event.discord_event_id) continue;
+      
+      // Get channel ID from squadron_settings
+      const { data: settingsData, error: settingsError } = await supabase
+        .from('squadron_settings')
+        .select('value')
+        .eq('key', 'events_channel_id')
+        .single();
+      
+      let channelId = null;
+      if (!settingsError && settingsData && settingsData.value) {
+        channelId = settingsData.value;
+      }
+      
+      // Get attendance data for this event
+      const { data: attendanceData, error: attendanceError } = await supabase
+        .from('discord_event_attendance')
+        .select('*')
+        .eq('discord_event_id', event.discord_event_id);
+      
+      if (attendanceError) {
+        console.error(`Error loading attendance for event ${event.discord_event_id}:`, attendanceError);
+        continue;
+      }
+      
+      // Format event data
+      const eventData = {
+        title: event.name,
+        description: event.description || '',
+        eventTime: {
+          start: new Date(event.start_datetime),
+          end: event.end_datetime ? new Date(event.end_datetime) : new Date(new Date(event.start_datetime).getTime() + (60 * 60 * 1000))
+        },
+        guildId: event.discord_guild_id,
+        channelId: channelId,
+        accepted: [],
+        declined: [],
+        tentative: []
+      };
+      
+      // Process attendance data
+      if (attendanceData) {
+        for (const record of attendanceData) {
+          const userEntry = { 
+            userId: record.discord_id, 
+            displayName: record.discord_username || 'Unknown User' 
+          };
+          
+          if (record.user_response === 'accepted') {
+            eventData.accepted.push(userEntry);
+          } else if (record.user_response === 'declined') {
+            eventData.declined.push(userEntry);
+          } else if (record.user_response === 'tentative') {
+            eventData.tentative.push(userEntry);
+          }
+        }
+      }
+      
+      // Add to memory cache
+      eventResponses.set(event.discord_event_id, eventData);
+      loadedCount++;
+    }
+    
+    console.log(`Loaded ${loadedCount} events from database`);
   } catch (error) {
-    console.error('Error loading event responses:', error);
+    console.error('Error in loadEventResponses:', error);
   }
 }
 
-// Function to save event responses to file
+// This function is now just a no-op since we don't save to file anymore
 function saveEventResponses() {
-  try {
-    const data = Object.fromEntries(eventResponses);
-    fs.writeFileSync(EVENT_RESPONSES_FILE, JSON.stringify(data, null, 2));
-  } catch (error) {
-    console.error('Error saving event responses:', error);
-  }
+  // We're no longer saving to file, all data is saved to the database directly
+  // when user interactions occur
 }
 
 // Function to create event message embed
@@ -192,52 +259,53 @@ async function ensureLoggedIn() {
   }
 }
 
-// Function to find the events channel by guild ID
-async function findEventsChannel(guildId = null) {
+// Function to find a specified Discord channel by ID, no fallbacks
+async function findEventsChannel(guildId = null, channelId = null) {
   await ensureLoggedIn();
   
-  // Get all guilds the bot is in
-  const guilds = client.guilds.cache;
-  
-  if (guildId) {
-    // If a specific guild ID is provided, use that guild
-    const guild = client.guilds.cache.get(guildId);
-    if (!guild) {
-      throw new Error(`Guild with ID ${guildId} not found. The bot might not be added to this server.`);
-    }
-    
-    const eventsChannel = guild.channels.cache.find(
-      channel => channel.name === 'events' && channel.type === 0
-    );
-    
-    if (eventsChannel) {
-      return eventsChannel;
-    }
-    
-    throw new Error(`Events channel not found in guild ${guild.name} (${guildId})`);
-  } else {
-    // If no specific guild ID is provided, search all guilds (backward compatibility)
-    for (const [, guild] of guilds) {
-      const eventsChannel = guild.channels.cache.find(
-        channel => channel.name === 'events' && channel.type === 0
-      );
-      
-      if (eventsChannel) {
-        return eventsChannel;
-      }
-    }
+  // If no guild ID is provided, throw an error
+  if (!guildId) {
+    throw new Error('Discord server ID (guildId) is required');
   }
   
-  throw new Error('Events channel not found in any guild');
+  // Find the specified guild
+  const guild = client.guilds.cache.get(guildId);
+  if (!guild) {
+    throw new Error(`Guild with ID ${guildId} not found. The bot might not be added to this server.`);
+  }
+  
+  // If a channel ID is provided, try to find that specific channel
+  if (channelId) {
+    const specifiedChannel = guild.channels.cache.get(channelId);
+    if (specifiedChannel) {
+      console.log(`Using specified channel: ${specifiedChannel.name} (${channelId})`);
+      return specifiedChannel;
+    }
+    
+    // If the specified channel is not found, throw an error (no fallback)
+    throw new Error(`Channel with ID ${channelId} not found in guild ${guild.name} (${guildId}). Please select a different channel in Discord Integration settings.`);
+  }
+  
+  // If no channel ID is provided, throw an error
+  throw new Error('Discord channel ID (channelId) is required. Please configure Discord Integration settings.');
 }
 
 // Function to delete a Discord event message
-async function deleteEventMessage(messageId, guildId = null) {
+async function deleteEventMessage(messageId, guildId = null, channelId = null) {
   try {
     await ensureLoggedIn();
     
-    // Find the events channel
-    const eventsChannel = await findEventsChannel(guildId);
+    // If we don't have a channelId yet, try to find it in event responses
+    if (!channelId && eventResponses.has(messageId)) {
+      const eventData = eventResponses.get(messageId);
+      if (eventData && eventData.channelId) {
+        channelId = eventData.channelId;
+        console.log(`Found channel ID ${channelId} from event responses for message ${messageId}`);
+      }
+    }
+    
+    // Find the specific channel using both guildId and channelId
+    const eventsChannel = await findEventsChannel(guildId, channelId);
     
     try {
       // Try to fetch and delete the message
@@ -245,10 +313,10 @@ async function deleteEventMessage(messageId, guildId = null) {
       if (message) {
         await message.delete();
         
-        // Remove from event responses in memory and storage
+        // Remove from event responses in memory only - no longer saving to file
         if (eventResponses.has(messageId)) {
           eventResponses.delete(messageId);
-          saveEventResponses();
+          // No need to call saveEventResponses() here as we're using the database for storage
         }
         
         console.log(`Successfully deleted Discord message: ${messageId}`);
@@ -260,10 +328,10 @@ async function deleteEventMessage(messageId, guildId = null) {
       if (fetchError.code === 10008) {
         console.log(`Message ${messageId} already deleted or not found`);
         
-        // Still remove from our responses if it exists
+        // Remove from event responses in memory only - no longer saving to file
         if (eventResponses.has(messageId)) {
           eventResponses.delete(messageId);
-          saveEventResponses();
+          // No need to call saveEventResponses() here as we're using the database for storage
         }
         
         return { success: true, alreadyDeleted: true };
@@ -277,13 +345,13 @@ async function deleteEventMessage(messageId, guildId = null) {
 }
 
 // Function to publish an event to Discord from the server
-async function publishEventToDiscord(title, description, eventTime, guildId = null) {
+async function publishEventToDiscord(title, description, eventTime, guildId = null, channelId = null) {
   try {
     // Make sure the bot is logged in
     await ensureLoggedIn();
     
-    // Find the events channel
-    const eventsChannel = await findEventsChannel(guildId);
+    // Find the specified channel, or fall back to events channel
+    const eventsChannel = await findEventsChannel(guildId, channelId);
     
     // Create the embed and buttons
     const eventEmbed = createEventEmbed(title, description, eventTime);
@@ -301,22 +369,22 @@ async function publishEventToDiscord(title, description, eventTime, guildId = nu
       description,
       eventTime,
       guildId: eventsChannel.guild.id, // Store the guild ID
+      channelId: eventsChannel.id, // Store the channel ID
       accepted: [],
       declined: [],
       tentative: []
     };
     
+    // Add to in-memory cache only - no longer saving to file
     eventResponses.set(eventMessage.id, eventData);
     
-    // Save updated event responses
-    saveEventResponses();
-    
-    console.log(`Event published to Discord: ${title} in guild ${eventsChannel.guild.name} (${eventsChannel.guild.id})`);
+    console.log(`Event published to Discord: "${title}" in channel #${eventsChannel.name} (${eventsChannel.id}) in guild ${eventsChannel.guild.name} (${eventsChannel.guild.id})`);
     
     return {
       success: true,
       messageId: eventMessage.id,
-      guildId: eventsChannel.guild.id
+      guildId: eventsChannel.guild.id,
+      channelId: eventsChannel.id
     };
   } catch (error) {
     console.error('Error publishing event to Discord:', error);
@@ -409,8 +477,8 @@ client.on('interactionCreate', async interaction => {
     components: [createAttendanceButtons()]
   });
   
-  // Save the updated responses
-  saveEventResponses();
+  // No need to call saveEventResponses() here as we're using the database directly
+  // for storing attendance data via the upsertEventAttendance() function call above
   
   console.log(`${displayName} (${userId}) responded ${customId} to event: ${eventData.title}`);
 });

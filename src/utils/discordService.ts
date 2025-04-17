@@ -49,17 +49,58 @@ export async function publishEventToDiscord(event: Event): Promise<PublishEventR
         const startTime = event.startTime || event.datetime;
         
         // Calculate an endTime 1 hour after startTime if not provided
-        let endTime = event.endTime;
+        let endTime = event.endTime || event.endDatetime;
         if (!endTime && startTime) {
           const startDate = new Date(startTime);
           const endDate = new Date(startDate.getTime() + 60 * 60 * 1000); // Add 1 hour
           endTime = endDate.toISOString();
         }
         
-        // Get the selected Discord server ID from localStorage
-        const selectedGuildId = localStorage.getItem('discordSelectedServer');
+        // Get Discord settings from database
+        const { data: settingsData, error: settingsError } = await supabase
+          .from('squadron_settings')
+          .select('key, value')
+          .in('key', ['discord_guild_id', 'events_channel_id']);
+        
+        if (settingsError) {
+          throw new Error(`Failed to fetch Discord settings: ${settingsError.message}`);
+        }
+        
+        let guildId = null;
+        let channelId = null;
+        
+        // Extract settings from the response
+        if (settingsData) {
+          settingsData.forEach(setting => {
+            if (setting.key === 'discord_guild_id' && setting.value) {
+              guildId = setting.value;
+            } else if (setting.key === 'events_channel_id' && setting.value) {
+              channelId = setting.value;
+            }
+          });
+        }
+        
+        // Fall back to localStorage only if database settings are missing
+        if (!guildId) {
+          guildId = localStorage.getItem('discordSelectedServer');
+          console.log(`[DEBUG] Using fallback guildId from localStorage: ${guildId}`);
+        }
+        
+        if (!channelId) {
+          channelId = localStorage.getItem('discordSelectedChannel');
+          console.log(`[DEBUG] Using fallback channelId from localStorage: ${channelId}`);
+        }
+        
+        // Validate we have the required settings
+        if (!guildId) {
+          throw new Error('Discord server ID not configured. Please configure Discord integration in settings.');
+        }
+        
+        if (!channelId) {
+          throw new Error('Discord events channel ID not configured. Please configure Discord integration in settings.');
+        }
 
-        console.log(`[DEBUG] Request ${requestId}: Sending publish request to server with guild ID: ${selectedGuildId || 'default'}`);
+        console.log(`[DEBUG] Request ${requestId}: Sending publish request to server with guild ID: ${guildId} and channel ID: ${channelId}`);
   
         // Set a reasonable timeout for the fetch call
         const controller = new AbortController();
@@ -78,7 +119,8 @@ export async function publishEventToDiscord(event: Event): Promise<PublishEventR
             endTime: endTime,
             eventId: event.id, // Include the event ID so server can update the record
             requestId: requestId, // Also include in body for logging
-            guildId: selectedGuildId // Include the selected Discord server ID
+            guildId: guildId, // Include the Discord server ID
+            channelId: channelId // Include the Discord channel ID
           }),
           signal: controller.signal
         });
@@ -101,20 +143,6 @@ export async function publishEventToDiscord(event: Event): Promise<PublishEventR
             discordMessageId: data.discordMessageId,
             guildId: data.discordGuildId
           };
-        }
-        
-        // Save Discord Message ID to localStorage as a backup
-        try {
-          const discordMap = JSON.parse(localStorage.getItem('eventDiscordMessageIds') || '{}');
-          discordMap[event.id] = data.discordMessageId;
-          localStorage.setItem('eventDiscordMessageIds', JSON.stringify(discordMap));
-          
-          // Also store the guild ID for this message
-          const guildMap = JSON.parse(localStorage.getItem('eventDiscordGuildIds') || '{}');
-          guildMap[event.id] = data.discordGuildId;
-          localStorage.setItem('eventDiscordGuildIds', JSON.stringify(guildMap));
-        } catch (err) {
-          // Silent failure for localStorage operations
         }
 
         return {
@@ -262,11 +290,55 @@ export async function getAvailableDiscordServers(): Promise<{
 }
 
 /**
+ * Fetches channels for a specific Discord server
+ * @param guildId The Discord guild ID to fetch channels for
+ * @returns List of text channels available in the guild
+ */
+export async function getServerChannels(guildId: string): Promise<{
+  success: boolean;
+  channels?: Array<{id: string, name: string, type: string}>;
+  error?: string;
+}> {
+  try {
+    console.log(`[DEBUG] Fetching channels for Discord server ID: ${guildId}`);
+    
+    const response = await fetch(`http://localhost:3001/api/discord/servers/${guildId}/channels`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    const data = await response.json();
+    
+    if (!response.ok) {
+      throw new Error(data.error || 'Failed to fetch Discord channels');
+    }
+    
+    if (!data.success) {
+      throw new Error(data.error || 'Server returned unsuccessful response');
+    }
+    
+    return {
+      success: true,
+      channels: data.channels
+    };
+  } catch (error) {
+    console.error('Error fetching Discord channels:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error fetching Discord channels'
+    };
+  }
+}
+
+/**
  * Delete a Discord message for an event that's being deleted
  * @param discordMessageId The Discord message ID to delete
  * @param guildId Optional guild ID if known
+ * @param channelId Optional channel ID if known
  */
-export async function deleteDiscordMessage(discordMessageId: string, guildId?: string): Promise<{ success: boolean; error?: string }> {
+export async function deleteDiscordMessage(discordMessageId: string, guildId?: string, channelId?: string): Promise<{ success: boolean; error?: string }> {
   try {
     // Skip if no Discord message ID was provided
     if (!discordMessageId) {
@@ -274,22 +346,69 @@ export async function deleteDiscordMessage(discordMessageId: string, guildId?: s
       return { success: true };
     }
     
-    console.log(`[DEBUG] Attempting to delete Discord message: ${discordMessageId} from guild: ${guildId || 'any'}`);
+    console.log(`[DEBUG] Attempting to delete Discord message: ${discordMessageId} from guild: ${guildId || 'unknown'}, channel: ${channelId || 'unknown'}`);
     
-    // If no guild ID was provided, try to get it from localStorage
-    if (!guildId) {
+    // If we don't have a guild ID or channel ID, try to get them from database first
+    if (!guildId || !channelId) {
       try {
-        const guildMap = JSON.parse(localStorage.getItem('eventDiscordGuildIds') || '{}');
-        guildId = guildMap[discordMessageId];
+        // First try to get IDs from the events table
+        const { data: eventData, error: eventError } = await supabase
+          .from('events')
+          .select('discord_guild_id, discord_channel_id')
+          .eq('discord_event_id', discordMessageId)
+          .single();
+          
+        if (!eventError && eventData) {
+          if (!guildId && eventData.discord_guild_id) {
+            guildId = eventData.discord_guild_id;
+            console.log(`[DEBUG] Using guild ID from events table: ${guildId}`);
+          }
+          
+          if (!channelId && eventData.discord_channel_id) {
+            channelId = eventData.discord_channel_id;
+            console.log(`[DEBUG] Using channel ID from events table: ${channelId}`);
+          }
+        }
+        
+        // If still missing IDs, try to get them from squadron_settings
+        if (!guildId || !channelId) {
+          const { data: settingsData, error: settingsError } = await supabase
+            .from('squadron_settings')
+            .select('key, value')
+            .in('key', ['discord_guild_id', 'events_channel_id']);
+            
+          if (!settingsError && settingsData) {
+            for (const setting of settingsData) {
+              if (setting.key === 'discord_guild_id' && setting.value && !guildId) {
+                guildId = setting.value;
+                console.log(`[DEBUG] Using guild ID from squadron_settings: ${guildId}`);
+              } else if (setting.key === 'events_channel_id' && setting.value && !channelId) {
+                channelId = setting.value;
+                console.log(`[DEBUG] Using channel ID from squadron_settings: ${channelId}`);
+              }
+            }
+          }
+        }
       } catch (err) {
-        // Silent failure for localStorage operations
+        console.error('Error retrieving Discord IDs:', err);
+        // Continue without guild/channel IDs if lookup fails
       }
     }
     
     // Build the URL with optional guild ID as a query parameter
     let url = `http://localhost:3001/api/events/${discordMessageId}`;
+    const queryParams = [];
+    
     if (guildId) {
-      url += `?guildId=${encodeURIComponent(guildId)}`;
+      queryParams.push(`guildId=${encodeURIComponent(guildId)}`);
+    }
+    
+    if (channelId) {
+      queryParams.push(`channelId=${encodeURIComponent(channelId)}`);
+    }
+    
+    if (queryParams.length > 0) {
+      url += `?${queryParams.join('&')}`;
     }
     
     // Call the server API to delete the message
@@ -307,31 +426,6 @@ export async function deleteDiscordMessage(discordMessageId: string, guildId?: s
     }
     
     console.log(`[DEBUG] Discord message deletion response for ${discordMessageId}:`, data);
-    
-    // If deletion was successful, also remove from local storage
-    try {
-      const discordMap = JSON.parse(localStorage.getItem('eventDiscordMessageIds') || '{}');
-      // Find and remove the entry where the value is this message ID
-      for (const [eventId, msgId] of Object.entries(discordMap)) {
-        if (msgId === discordMessageId) {
-          delete discordMap[eventId];
-          break;
-        }
-      }
-      localStorage.setItem('eventDiscordMessageIds', JSON.stringify(discordMap));
-      
-      // Also clean up guild ID mapping
-      const guildMap = JSON.parse(localStorage.getItem('eventDiscordGuildIds') || '{}');
-      for (const [eventId, msgId] of Object.entries(discordMap)) {
-        if (msgId === discordMessageId) {
-          delete guildMap[eventId];
-          break;
-        }
-      }
-      localStorage.setItem('eventDiscordGuildIds', JSON.stringify(guildMap));
-    } catch (err) {
-      // Silent failure for localStorage operations
-    }
     
     return {
       success: true
