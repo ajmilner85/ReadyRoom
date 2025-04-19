@@ -334,31 +334,96 @@ export async function getServerChannels(guildId: string): Promise<{
 
 /**
  * Delete a Discord message for an event that's being deleted
- * @param discordMessageId The Discord message ID to delete
+ * @param eventOrMessageId The event object or Discord message ID string
  * @param guildId Optional guild ID if known
  * @param channelId Optional channel ID if known
  */
-export async function deleteDiscordMessage(discordMessageId: string, guildId?: string, channelId?: string): Promise<{ success: boolean; error?: string }> {
+export async function deleteDiscordMessage(eventOrMessageId: Event | string, guildId?: string, channelId?: string): Promise<{ success: boolean; error?: string }> {
   try {
+    // Extract the Discord message ID from either the event object or use the string directly
+    let discordMessageId: string | undefined;
+    
+    if (typeof eventOrMessageId === 'object') {      // It's an event object, try to extract the message ID
+      const eventObj = eventOrMessageId as any; // Cast to any to access potential properties
+      console.log(`[DEBUG] Event object properties for extraction:`, Object.keys(eventObj));
+      
+      // First check for direct event properties
+      discordMessageId = eventObj.discord_event_id || eventObj.discordMessageId || eventObj.discordEventId || undefined;
+      
+      // If we still don't have an ID, let's query the database directly using the event ID
+      if (!discordMessageId && eventObj.id) {
+        console.log(`[DEBUG] No Discord ID in event object, checking database for event ID: ${eventObj.id}`);
+        
+        // Perform a direct database lookup for this event
+        try {
+          const { data, error } = await supabase
+            .from('events')
+            .select('discord_event_id')
+            .eq('id', eventObj.id)
+            .single();
+            
+          if (!error && data && data.discord_event_id) {
+            discordMessageId = data.discord_event_id;
+            console.log(`[DEBUG] Found Discord message ID in database: ${discordMessageId}`);
+          } else if (error) {
+            console.log(`[DEBUG] Database lookup error: ${error.message}`);
+          } else {
+            console.log(`[DEBUG] No Discord message ID found in database for event ${eventObj.id}`);
+          }
+        } catch (dbError) {
+          console.error(`[DEBUG] Error looking up event in database:`, dbError);
+        }
+      }
+      
+      console.log(`[DEBUG] Extracted message ID from event object: ${discordMessageId}`);
+      
+      // Also check for guild ID and channel ID in the event if we don't have them yet
+      if (!guildId && eventObj.discord_guild_id) {
+        guildId = eventObj.discord_guild_id;
+      }
+      
+      if (!channelId && eventObj.discord_channel_id) {
+        channelId = eventObj.discord_channel_id;
+      }
+    } else {
+      // It's already a string
+      discordMessageId = eventOrMessageId;
+    }
+    
     // Skip if no Discord message ID was provided
     if (!discordMessageId) {
-      console.log('No Discord message ID provided for deletion');
+      console.log('[DEBUG] No Discord message ID could be extracted for deletion');
       return { success: true };
     }
     
     console.log(`[DEBUG] Attempting to delete Discord message: ${discordMessageId} from guild: ${guildId || 'unknown'}, channel: ${channelId || 'unknown'}`);
+    console.log(`[DEBUG] Message type check: typeof discordMessageId = ${typeof discordMessageId}, length = ${discordMessageId?.length}`);
+    
+    // Check if messageId is a valid format
+    if (discordMessageId.length < 17 || !/^\d+$/.test(discordMessageId)) {
+      console.log(`[WARNING] Discord message ID ${discordMessageId} doesn't appear to be in valid format (should be a numeric string)`);
+    }
     
     // If we don't have a guild ID or channel ID, try to get them from database first
     if (!guildId || !channelId) {
       try {
+        console.log(`[DEBUG] Looking up server/channel info for message: ${discordMessageId}`);
+        
         // First try to get IDs from the events table
         const { data: eventData, error: eventError } = await supabase
           .from('events')
-          .select('discord_guild_id, discord_channel_id')
+          .select('id, discord_guild_id, discord_channel_id, discord_event_id')
           .eq('discord_event_id', discordMessageId)
           .single();
           
+        if (eventError) {
+          console.log(`[DEBUG] Error finding message in events table: ${eventError.message}`);
+          console.log(`[DEBUG] Will try alternative lookup options`);
+        }
+        
         if (!eventError && eventData) {
+          console.log(`[DEBUG] Found event with message ID ${discordMessageId}: ${JSON.stringify(eventData)}`);
+          
           if (!guildId && eventData.discord_guild_id) {
             guildId = eventData.discord_guild_id;
             console.log(`[DEBUG] Using guild ID from events table: ${guildId}`);
@@ -368,16 +433,47 @@ export async function deleteDiscordMessage(discordMessageId: string, guildId?: s
             channelId = eventData.discord_channel_id;
             console.log(`[DEBUG] Using channel ID from events table: ${channelId}`);
           }
+        } else {
+          // If not found with discord_event_id, try looking up with discordMessageId as the field name
+          console.log(`[DEBUG] Trying alternative lookup with field 'discordMessageId'`);
+          const { data: altEventData, error: altEventError } = await supabase
+            .from('events')
+            .select('id, discord_guild_id, discord_channel_id, discordMessageId')
+            .eq('discordMessageId', discordMessageId)
+            .single();
+            
+          if (!altEventError && altEventData) {
+            console.log(`[DEBUG] Found event with alt field lookup: ${JSON.stringify(altEventData)}`);
+            
+            if (!guildId && altEventData.discord_guild_id) {
+              guildId = altEventData.discord_guild_id;
+              console.log(`[DEBUG] Using guild ID from alternative lookup: ${guildId}`);
+            }
+            
+            if (!channelId && altEventData.discord_channel_id) {
+              channelId = altEventData.discord_channel_id;
+              console.log(`[DEBUG] Using channel ID from alternative lookup: ${channelId}`);
+            }
+          } else if (altEventError) {
+            console.log(`[DEBUG] Alt lookup error: ${altEventError.message}`);
+          }
         }
-        
-        // If still missing IDs, try to get them from squadron_settings
+          // If still missing IDs, try to get them from squadron_settings
         if (!guildId || !channelId) {
+          console.log(`[DEBUG] Still missing ${!guildId ? 'guildId' : ''}${(!guildId && !channelId) ? ' and ' : ''}${!channelId ? 'channelId' : ''}, checking squadron_settings`);
+          
           const { data: settingsData, error: settingsError } = await supabase
             .from('squadron_settings')
             .select('key, value')
             .in('key', ['discord_guild_id', 'events_channel_id']);
             
+          if (settingsError) {
+            console.log(`[DEBUG] Error fetching Discord settings: ${settingsError.message}`);
+          }
+          
           if (!settingsError && settingsData) {
+            console.log(`[DEBUG] Found settings data: ${JSON.stringify(settingsData)}`);
+            
             for (const setting of settingsData) {
               if (setting.key === 'discord_guild_id' && setting.value && !guildId) {
                 guildId = setting.value;
@@ -395,6 +491,31 @@ export async function deleteDiscordMessage(discordMessageId: string, guildId?: s
       }
     }
     
+    // As a last resort, try localStorage
+    if (!guildId) {
+      const localStorageGuildId = localStorage.getItem('discordSelectedServer');
+      if (localStorageGuildId) {
+        guildId = localStorageGuildId;
+        console.log(`[DEBUG] Using guild ID from localStorage: ${guildId}`);
+      }
+    }
+    
+    if (!channelId) {
+      const localStorageChannelId = localStorage.getItem('discordSelectedChannel');
+      if (localStorageChannelId) {
+        channelId = localStorageChannelId;
+        console.log(`[DEBUG] Using channel ID from localStorage: ${channelId}`);
+      }
+    }
+      // Check if we have the required IDs
+    if (!guildId) {
+      console.log(`[WARNING] No guild ID found for message ${discordMessageId}. Deletion may fail.`);
+    }
+    
+    if (!channelId) {
+      console.log(`[WARNING] No channel ID found for message ${discordMessageId}. Deletion may fail.`);
+    }
+    
     // Build the URL with optional guild ID as a query parameter
     let url = `http://localhost:3001/api/events/${discordMessageId}`;
     const queryParams = [];
@@ -410,6 +531,7 @@ export async function deleteDiscordMessage(discordMessageId: string, guildId?: s
     if (queryParams.length > 0) {
       url += `?${queryParams.join('&')}`;
     }
+      console.log(`[DEBUG] Sending delete request to: ${url}`);
     
     // Call the server API to delete the message
     const response = await fetch(url, {
@@ -419,7 +541,10 @@ export async function deleteDiscordMessage(discordMessageId: string, guildId?: s
       }
     });
     
+    console.log(`[DEBUG] Delete response status: ${response.status} ${response.statusText}`);
+    
     const data = await response.json();
+    console.log(`[DEBUG] Full delete response:`, data);
     
     if (!response.ok) {
       throw new Error(data.error || 'Failed to delete Discord message');

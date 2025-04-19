@@ -9,6 +9,7 @@ import { DeleteDivisionDialog } from './dialogs/DeleteDivisionDialog';
 import type { Event, Cycle, CycleType } from '../../types/EventTypes';
 import { fetchCycles, createCycle, updateCycle, deleteCycle, 
          fetchEvents, createEvent, updateEvent, deleteEvent } from '../../utils/supabaseClient';
+import { deleteDiscordMessage } from '../../utils/discordService';
 import LoadingSpinner from './LoadingSpinner';
 import { useWebSocket } from '../../context/WebSocketContext';
 
@@ -130,13 +131,19 @@ const EventsManagement: React.FC = () => {
       // Load Discord message IDs from localStorage
       const storedMap = localStorage.getItem('eventDiscordMessageIds');
       const eventDiscordMap = storedMap ? JSON.parse(storedMap) : {};
-      
-      // Attach Discord message IDs to events
+        // Attach Discord message IDs to events
       const eventsWithDiscordIds = fetchedEvents.map(event => {
+        // Cast to any to access potential database fields that might not be in the TypeScript type
+        const eventObj = event as any;
+        const discordMessageId = eventObj.discord_event_id || eventDiscordMap[event.id] || undefined;
+        
+        console.log(`[DEBUG] Processing event ${event.id}: discord_event_id=${eventObj.discord_event_id}, localStorage ID=${eventDiscordMap[event.id]}`);
+        
         return {
           ...event,
-          // Only use localStorage as fallback if database doesn't have an ID
-          discordMessageId: event.discordEventId || eventDiscordMap[event.id] || undefined
+          // Store the ID in both potential field names for maximum compatibility
+          discordMessageId: discordMessageId,
+          discord_event_id: discordMessageId
         };
       });
       
@@ -335,7 +342,6 @@ const EventsManagement: React.FC = () => {
     setIsDeleteCycle(true);
     setShowDeleteDialog(true);
   };
-
   const confirmDelete = async () => {
     try {
       if (isDeleteCycle && cycleToDelete) {
@@ -349,30 +355,28 @@ const EventsManagement: React.FC = () => {
         }
         
         // Reload cycles
-        await loadCycles();
-      } else if (eventToDelete) {
-        // Check if there's an associated Discord message that needs to be deleted
-        const discordMessageId = eventToDelete.discordEventId || eventToDelete.discordMessageId;
+        await loadCycles();      } else if (eventToDelete) {
+        console.log(`[DEBUG] Starting deletion for event:`, eventToDelete);
+        console.log(`[DEBUG] Event JSON:`, JSON.stringify(eventToDelete));
+        console.log(`[DEBUG] All event properties:`, Object.keys(eventToDelete));
         
-        if (discordMessageId) {
-          console.log(`Deleting associated Discord message: ${discordMessageId}`);
-          try {
-            // Import the Discord service function for deletion
-            const { deleteDiscordMessage } = await import('../../utils/discordService');
-            
-            // Attempt to delete the Discord message first
-            const { success, error } = await deleteDiscordMessage(discordMessageId);
-            
-            if (!success) {
-              console.warn(`Warning: Failed to delete Discord message: ${error}`);
-              // Continue with event deletion even if Discord deletion fails
-            } else {
-              console.log(`Successfully deleted Discord message: ${discordMessageId}`);
-            }
-          } catch (discordError) {
-            console.error('Error deleting Discord message:', discordError);
+        // First try to delete any associated Discord message
+        try {
+          console.log(`[DEBUG] Calling deleteDiscordMessage with entire event object`);
+          // Pass the entire event object to the enhanced deleteDiscordMessage function
+          const { success, error } = await deleteDiscordMessage(eventToDelete);
+          
+          console.log(`[DEBUG] Delete result: success=${success}, error=${error || 'none'}`);
+          
+          if (!success) {
+            console.warn(`Warning: Failed to delete Discord message: ${error}`);
             // Continue with event deletion even if Discord deletion fails
+          } else {
+            console.log(`Successfully deleted Discord message for event: ${eventToDelete.id}`);
           }
+        } catch (discordError) {
+          console.error('[DEBUG] Error deleting Discord message:', discordError);
+          // Continue with event deletion even if Discord deletion fails
         }
         
         // Delete event from database
