@@ -369,6 +369,17 @@ app.get('/api/discord/guild-members', async (req, res) => {
   try {
     console.log('[DEBUG] Received request to fetch Discord guild members');
     
+    // Get the guild ID from query parameters
+    const { guildId } = req.query;
+    
+    if (!guildId) {
+      return res.status(400).json({ 
+        error: 'Guild ID is required. Please check your Discord integration settings.' 
+      });
+    }
+    
+    console.log(`[DEBUG] Fetching members for guild ID: ${guildId}`);
+    
     // Create a Discord client with required intents
     const client = new Client({
       intents: [
@@ -389,16 +400,16 @@ app.get('/api/discord/guild-members', async (req, res) => {
     
     console.log('[DEBUG] Discord client ready, fetching guild members');
     
-    // Get the first guild (server) - assuming the bot is only in one server
-    const guilds = [...client.guilds.cache.values()];
+    // Get the specific guild (server) by ID
+    const guild = client.guilds.cache.get(guildId);
     
-    if (guilds.length === 0) {
+    if (!guild) {
       await client.destroy();
-      return res.status(404).json({ error: 'No Discord guilds found' });
+      return res.status(404).json({ 
+        error: `Discord guild with ID ${guildId} not found or bot doesn't have access` 
+      });
     }
-    
-    const guild = guilds[0];
-    console.log(`[DEBUG] Found guild: ${guild.name} (${guild.id})`);
+      console.log(`[DEBUG] Found guild: ${guild.name} (${guild.id})`);
     
     // Fetch all members
     await guild.members.fetch();
