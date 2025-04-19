@@ -25,21 +25,35 @@ export interface DiscordPilotMatch {
 }
 
 /**
- * Get guild members from Discord API
+ * Get guild members from Discord API for the selected guild
  * @returns List of Discord members
  */
 export async function fetchDiscordGuildMembers(): Promise<DiscordMember[]> {
   try {
-    // Call the server endpoint that will use the Discord API
-    const response = await fetch('http://localhost:3001/api/discord/guild-members', {
+    // First get the guild ID from squadron_settings
+    const { data: settingsData, error: settingsError } = await supabase
+      .from('squadron_settings')
+      .select('value')
+      .eq('key', 'discord_guild_id')
+      .single();
+      
+    // If no guild ID is configured, throw an error
+    if (settingsError || !settingsData || !settingsData.value) {
+      throw new Error('Discord server not configured. Please set up Discord integration in settings first.');
+    }
+    
+    const guildId = settingsData.value;
+    console.log(`Fetching Discord members for guild ID: ${guildId}`);
+    
+    // Call the server endpoint that will use the Discord API with the specific guild ID
+    const response = await fetch(`http://localhost:3001/api/discord/guild-members?guildId=${guildId}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json'
       }
-    });
-
-    if (!response.ok) {
-      throw new Error('Failed to fetch Discord guild members');
+    });    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+      throw new Error(errorData.error || 'Failed to fetch Discord guild members');
     }
 
     const data = await response.json();

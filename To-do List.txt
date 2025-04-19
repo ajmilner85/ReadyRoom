@@ -1,11 +1,7 @@
 In Progress:
-	- Add squadron_settings and user_settings tables to supabase
-	- Refactor Discord Integration settings page to:
-		- Save server/guild id to squadron_settings table
-		- Allow selection of events channel using a drop down (also saved to squadron_settings)
 	- Refactor Discord Bot for use with multiple servers/guilds
 		- Sync to Discord/Discord Pilots Integration to pull member list from selected squadron only
-		- Publlish and delete events to/from selected server only
+		- Publish and delete events to/from selected server only
 		- Record attendance from selected server only
 
 Next:
@@ -27,7 +23,7 @@ Medium Priority:
 
 QOL:
 - Implement light/dark mode
-
+- Add user_settings table to supabase
 
 Cosmetic:
 - Add loading indicators to all pages
@@ -199,3 +195,7 @@ Complete
 - Custom Discord Bot for event creation and attendance tracking
 - Develop Express server backend functionality
 - Prevent duplicate event creation
+- Add squadron_settings table to supabase
+- Refactor Discord Integration settings page to:
+	- Save server/guild id to squadron_settings table
+	- Allow selection of events channel using a drop down (also saved to squadron_settings)
