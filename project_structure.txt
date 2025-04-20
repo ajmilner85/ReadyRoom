@@ -1,21 +1,45 @@
 pri-fly
+├── .env
+├── .vscode
+│   ├── mcp.json
+│   └── settings.json
+├── LICENSE
 ├── README.md
+├── SDOBot
+│   ├── SDOBot Avatar.png
+│   ├── SDOBot Banner.png
+│   ├── discordBot.js
+│   ├── eventResponses.json
+│   ├── index.js
+│   ├── package-lock.json
+│   └── package.json
 ├── To-do List.txt
 ├── Useful Commands.txt
 ├── eslint.config.js
 ├── index.html
 ├── package-lock.json
 ├── package.json
+├── pilots_import.csv
 ├── postcss.config.cjs
 ├── project_structure.txt
 ├── public
+│   ├── assets
+│   │   └── json2.lua
 │   └── vite.svg
 ├── reference
 │   ├── Billets.txt
 │   ├── Qualifications.txt
 │   ├── Roguistan_Cruise_Week5_WIP.miz
 │   ├── mission
+│   ├── mission.json
 │   └── projections.rs
+├── server
+│   ├── index.js
+│   ├── package-lock.json
+│   ├── package.json
+│   ├── restart.js
+│   ├── routes
+│   └── supabaseClient.js
 ├── src
 │   ├── App.css
 │   ├── App.tsx
@@ -27,13 +51,26 @@ pri-fly
 │   │   ├── Stingrays Logo 80x80.png
 │   │   └── react.svg
 │   ├── components
+│   │   ├── Schedule
+│   │   │   └── EditEventModal.tsx
 │   │   ├── layout
 │   │   │   ├── DroppableZone.tsx
 │   │   │   ├── GridLayout.tsx
 │   │   │   └── SectionContext.tsx
+│   │   ├── settings
+│   │   │   ├── Appearance.tsx
+│   │   │   ├── DiscordIntegration.tsx
+│   │   │   ├── MissionDefaults.tsx
+│   │   │   ├── RosterSettings.tsx
+│   │   │   ├── Settings.tsx
+│   │   │   ├── SquadronSettings.tsx
+│   │   │   └── UserAccounts.tsx
 │   │   └── ui
+│   │       ├── AdminTools.tsx
 │   │       ├── DivisionEditor.tsx
 │   │       ├── EventsManagement.tsx
+│   │       ├── LoadingSpinner.tsx
+│   │       ├── LoginForm.tsx
 │   │       ├── MissionPreparation.tsx
 │   │       ├── NavigationBar.tsx
 │   │       ├── PilotList.tsx
@@ -50,14 +87,18 @@ pri-fly
 │   │       ├── dialogs
 │   │       │   ├── AddFlightDialog.tsx
 │   │       │   ├── DeleteDivisionDialog.tsx
+│   │       │   ├── DiscordPilotsDialog.tsx
 │   │       │   ├── EnRouteDivisionDialog.tsx
 │   │       │   ├── FuelStateDialog.tsx
 │   │       │   ├── LaunchDivisionDialog.tsx
 │   │       │   ├── PositionReportDialog.tsx
 │   │       │   └── TankerDivisionDialog.tsx
 │   │       ├── events
+│   │       │   ├── CycleDialog.tsx
+│   │       │   ├── CyclesList.tsx
 │   │       │   ├── EventAttendance.tsx
 │   │       │   ├── EventDetails.tsx
+│   │       │   ├── EventDetails.tsx.debug
 │   │       │   ├── EventDialog.tsx
 │   │       │   └── EventsList.tsx
 │   │       ├── flight cards
@@ -67,29 +108,66 @@ pri-fly
 │   │       │   ├── FuelDisplay.tsx
 │   │       │   └── SingleFlightCard.tsx
 │   │       ├── mission prep
+│   │       │   ├── AircraftGroups.tsx
 │   │       │   ├── AvailablePilots.tsx
 │   │       │   ├── Communications.tsx
 │   │       │   ├── FlightAssignments.tsx
-│   │       │   └── MissionDetails.tsx
-│   │       └── mission-execution
-│   │           └── sections
+│   │       │   ├── MissionDetails.tsx
+│   │       │   └── MissionProcessor.tsx
+│   │       ├── mission-execution
+│   │       │   ├── PilotDragOverlay.tsx
+│   │       │   └── sections
+│   │       └── roster
+│   │           ├── BasicPilotInfo.tsx
+│   │           ├── PilotDetails.tsx
+│   │           ├── PilotList.tsx
+│   │           ├── PilotListItem.tsx
+│   │           ├── QualificationsManager.tsx
+│   │           ├── RoleSelector.tsx
+│   │           ├── StatusFilter.tsx
+│   │           └── StatusSelector.tsx
+│   ├── context
+│   │   └── WebSocketContext.tsx
+│   ├── data
+│   │   └── sampleEvents.ts
+│   ├── fengari.d.ts
 │   ├── index.css
 │   ├── main.tsx
 │   ├── styles
+│   │   ├── AircraftTile.css
 │   │   ├── DivisionEditor.ts
 │   │   ├── MissionPrepStyles.ts
+│   │   ├── RosterManagementStyles.ts
 │   │   └── commsStyles.ts
 │   ├── types
 │   │   ├── CommsTypes.ts
 │   │   ├── EnRouteTypes.ts
 │   │   ├── EventTypes.ts
 │   │   ├── FlightData.ts
+│   │   ├── MissionCommanderTypes.ts
 │   │   ├── PilotTypes.ts
-│   │   └── TankerTypes.ts
+│   │   ├── TankerTypes.ts
+│   │   └── supabase.ts
 │   ├── utils
+│   │   ├── aircraftExtractor.tsx
 │   │   ├── commsUtils.tsx
 │   │   ├── coordinateUtils.tsx
-│   │   └── positionUtils.tsx
+│   │   ├── discordPilotService.ts
+│   │   ├── discordService.ts
+│   │   ├── dragDropUtils.tsx
+│   │   ├── eventImageService.ts
+│   │   ├── eventImageService.ts.new
+│   │   ├── eventImageService.ts.old
+│   │   ├── eventService.ts
+│   │   ├── localStorageUtils.ts
+│   │   ├── migratePilots.ts
+│   │   ├── pilotService.ts
+│   │   ├── positionUtils.tsx
+│   │   ├── qualificationService.ts
+│   │   ├── roleService.ts
+│   │   ├── statusService.ts
+│   │   ├── supabaseClient.ts
+│   │   └── useDragDrop.tsx
 │   └── vite-env.d.ts
 ├── tailwind.config.cjs
 ├── tsconfig.app.json

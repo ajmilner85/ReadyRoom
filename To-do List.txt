@@ -3,6 +3,9 @@ In Progress:
 	- Add image to event
 	- Post image to Discord
 	- Filter events by selected Discord server
+	- Reminder messages
+	- Direct message reminder messages
+	- Change buttons to use emojis instead of text?
 - Misson Preparation	
 	- Associate mission with event
 	- Create database table(s) for storing mission data

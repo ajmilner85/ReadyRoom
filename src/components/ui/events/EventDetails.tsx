@@ -40,28 +40,18 @@ const EventDetails: React.FC<EventDetailsProps> = ({ event }) => {
   const [imageError, setImageError] = useState<string | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-    // Set initial image preview from event data
+  // Set initial image preview from event data
   useEffect(() => {
-    // Add debugging to understand the image URL handling
-    console.log('Event details: ', {
-      eventId: event?.id,
-      imageUrl: event?.imageUrl,
-      image_url: event?.image_url, // Check for DB field naming
-      eventObject: event
-    });
-
+    const eventObj = event as any; // Cast to access non-standard properties
+    
     if (event?.imageUrl) {
-      console.log('Using event.imageUrl for preview:', event.imageUrl);
       setImagePreview(event.imageUrl);
-    } else if (event?.image_url) {
-      // Check if the image URL might be in a different property (DB naming convention)
-      console.log('Using event.image_url for preview:', event.image_url);
-      setImagePreview(event.image_url);
+    } else if (eventObj?.image_url) {
+      setImagePreview(eventObj.image_url);
     } else {
-      console.log('No image URL found in event object');
       setImagePreview(null);
     }
-  }, [event?.imageUrl, event?.image_url, event?.id]);
+  }, [event]);
 
   // Handle image upload
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -168,13 +158,15 @@ const EventDetails: React.FC<EventDetailsProps> = ({ event }) => {
             discordCard.classList.add('hidden');
           }
         }
-        
-        // Update button state
+          // Update button state
         const publishBtn = document.querySelector('#publish-discord-btn');
         if (publishBtn && (updatedEvent.discordEventId || updatedEvent.discordMessageId)) {
           publishBtn.setAttribute('disabled', 'true');
           publishBtn.classList.add('published');
-          publishBtn.querySelector('span').textContent = 'Published to Discord';
+          const spanElement = publishBtn.querySelector('span');
+          if (spanElement) {
+            spanElement.textContent = 'Published to Discord';
+          }
         }
       }
     } catch (error) {
@@ -185,59 +177,28 @@ const EventDetails: React.FC<EventDetailsProps> = ({ event }) => {
   }, [event]);  const handlePublishToDiscord = async () => {
     if (!event) return;
     
-    // More detailed debugging about the event being published and its image
-    const eventObj = event as any;
-    console.log('[DEBUG] Publish button clicked for event:', { 
-      id: event.id,
-      title: event.title,
-      discordMessageId: event.discordMessageId,
-      discordEventId: event.discordEventId,
-      // Add detailed debugging for ALL image-related properties
-      imageUrl: event.imageUrl,
-      image_url: eventObj.image_url,
-      eventRawProps: Object.keys(eventObj),
-      imagePreviewState: imagePreview,
-      hasImage: Boolean(event.imageUrl || eventObj.image_url || imagePreview)
-    });
-    
     // Check if the event already has a discord message ID (already published)
-    if (event.discordMessageId) {
-      console.log('[DEBUG] Publish canceled - event already has discordMessageId:', event.discordMessageId);
-      return;
-    } else if (event.discordEventId) {
-      console.log('[DEBUG] Publish canceled - event already has discordEventId:', event.discordEventId);
+    if (event.discordMessageId || event.discordEventId) {
       return;
     }
     
     // Check if server is available before attempting to publish
     setPublishing(true);
     setPublishMessage(null);
-    
-    try {
+      try {
       // First check if the server is available
-      console.log('[DEBUG] Checking server availability...');
       const isServerAvailable = await checkServerAvailability();
       
       if (!isServerAvailable) {
-        console.log('[DEBUG] Server unavailable, cannot publish');
         throw new Error('Cannot connect to the server. Please check if the server is running and try again.');
       }
-        console.log('[DEBUG] Server available, publishing event to Discord...');
       
       // Check database directly for the image_url for this event
-      console.log(`[DEBUG] Querying database directly for event ${event.id} image_url...`);
-      const { data: dbEvent, error: dbError } = await supabase
+      const { data: dbEvent } = await supabase
         .from('events')
         .select('image_url')
         .eq('id', event.id)
         .single();
-        
-      console.log('[DEBUG] Database query result:', {
-        dbEvent,
-        dbError,
-        hasImageUrlInDB: dbEvent && Boolean(dbEvent.image_url),
-        imageUrlValue: dbEvent?.image_url
-      });
       
       // Create an enhanced version of the event with guaranteed image URL
       const publishableEvent = {
@@ -246,19 +207,8 @@ const EventDetails: React.FC<EventDetailsProps> = ({ event }) => {
         imageUrl: dbEvent?.image_url || imagePreview || event.imageUrl || (event as any).image_url
       };
       
-      console.log('[DEBUG] Publishing event with enhanced image data:', { 
-        originalImageUrl: event.imageUrl,
-        dbImageUrl: dbEvent?.image_url,
-        componentImagePreview: imagePreview,
-        finalImageUrl: publishableEvent.imageUrl,
-        hasImage: Boolean(publishableEvent.imageUrl)
-      });
-      
       const response = await publishEventToDiscord(publishableEvent);
-      
-      console.log('[DEBUG] Publish response:', response);
-      
-      if (!response.success) {
+        if (!response.success) {
         throw new Error(response.error || 'Failed to publish event to Discord');
       }
       
@@ -268,7 +218,6 @@ const EventDetails: React.FC<EventDetailsProps> = ({ event }) => {
       });
       
       // Refresh data from database to get updated Discord ID
-      console.log('[DEBUG] Refreshing event data from database...');
       await refreshEventData();
       
       // Clear the success message after 5 seconds
