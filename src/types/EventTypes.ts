@@ -50,4 +50,6 @@ export interface Event {
     eventType?: EventType; // Type of event
     restrictedTo?: string[];
     discordMessageId?: string; // ID of the message in Discord for tracking responses
+    discordEventId?: string; // ID of the event in Discord
+    imageUrl?: string; // URL to the image stored in Supabase Storage
   }

@@ -172,7 +172,7 @@ app.delete('/api/events/:discordMessageId', async (req, res) => {
 // Add detailed logging to the publish endpoint
 app.post('/api/events/publish', async (req, res) => {
   try {
-    const { title, description, startTime, endTime, eventId, guildId, channelId } = req.body;
+    const { title, description, startTime, endTime, eventId, guildId, channelId, imageUrl } = req.body;
     
     console.log('[DEBUG] Received event publish request:', { 
       timestamp: new Date().toISOString(),
@@ -180,7 +180,8 @@ app.post('/api/events/publish', async (req, res) => {
       title,
       startTime,
       guildId,
-      channelId
+      channelId,
+      hasImage: !!imageUrl
     });
     
     if (!title || !startTime) {
@@ -238,9 +239,8 @@ app.post('/api/events/publish', async (req, res) => {
       startTime: eventTime.start.toISOString(), 
       endTime: eventTime.end.toISOString() 
     });
-    
-    // Call the Discord bot to publish the event, passing both the guild ID and channel ID
-    const result = await publishEventToDiscord(title, description || '', eventTime, guildId, channelId);
+      // Call the Discord bot to publish the event, passing both the guild ID, channel ID, and image URL if available
+    const result = await publishEventToDiscord(title, description || '', eventTime, guildId, channelId, imageUrl);
     console.log('[DEBUG] Discord publish result:', result);
     
     // If eventId was provided, update the event in Supabase with the Discord message ID and guild ID

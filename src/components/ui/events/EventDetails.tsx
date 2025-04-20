@@ -1,9 +1,10 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Card } from '../card';
-import { Check, Send, RefreshCw } from 'lucide-react';
+import { Check, Send, RefreshCw, ImageIcon, X, Upload } from 'lucide-react';
 import type { Event } from '../../../types/EventTypes';
 import { publishEventToDiscord } from '../../../utils/discordService';
-import { fetchEvents } from '../../../utils/supabaseClient';
+import { fetchEvents, supabase } from '../../../utils/supabaseClient';
+import { uploadEventImage, deleteEventImage } from '../../../utils/eventImageService';
 
 /**
  * Check if the server is available before attempting to publish
@@ -35,7 +36,114 @@ const EventDetails: React.FC<EventDetailsProps> = ({ event }) => {
   const [publishing, setPublishing] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [publishMessage, setPublishMessage] = useState<{type: 'success' | 'error', text: string} | null>(null);
+  const [imageLoading, setImageLoading] = useState(false);
+  const [imageError, setImageError] = useState<string | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+    // Set initial image preview from event data
+  useEffect(() => {
+    // Add debugging to understand the image URL handling
+    console.log('Event details: ', {
+      eventId: event?.id,
+      imageUrl: event?.imageUrl,
+      image_url: event?.image_url, // Check for DB field naming
+      eventObject: event
+    });
+
+    if (event?.imageUrl) {
+      console.log('Using event.imageUrl for preview:', event.imageUrl);
+      setImagePreview(event.imageUrl);
+    } else if (event?.image_url) {
+      // Check if the image URL might be in a different property (DB naming convention)
+      console.log('Using event.image_url for preview:', event.image_url);
+      setImagePreview(event.image_url);
+    } else {
+      console.log('No image URL found in event object');
+      setImagePreview(null);
+    }
+  }, [event?.imageUrl, event?.image_url, event?.id]);
+
+  // Handle image upload
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!event || !e.target.files || e.target.files.length === 0) return;
+    
+    const file = e.target.files[0];
+    
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      setImageError('Please select an image file');
+      return;
+    }
+    
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      setImageError('Image size should be less than 5MB');
+      return;
+    }
+    
+    setImageLoading(true);
+    setImageError(null);
+    
+    try {
+      // Create object URL for preview
+      const previewUrl = URL.createObjectURL(file);
+      setImagePreview(previewUrl);
+      
+      // Upload to Supabase
+      const { url, error } = await uploadEventImage(event.id, file);
+      
+      if (error) {
+        throw new Error(error.message);
+      }
+      
+      // Update local state with the Supabase URL
+      if (url) {
+        setImagePreview(url);
+        // Release the object URL since we now have the Supabase URL
+        URL.revokeObjectURL(previewUrl);
+      }
+    } catch (error) {
+      console.error('Error uploading image:', error);
+      setImageError(error instanceof Error ? error.message : 'Failed to upload image');
+      setImagePreview(null);
+    } finally {
+      setImageLoading(false);
+      // Reset the file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
   
+  // Handle image removal
+  const handleRemoveImage = async () => {
+    if (!event || !event.imageUrl) return;
+    
+    setImageLoading(true);
+    
+    try {
+      const { error } = await deleteEventImage(event.imageUrl);
+      
+      if (error) {
+        throw new Error(error.message);
+      }
+      
+      setImagePreview(null);
+    } catch (error) {
+      console.error('Error removing image:', error);
+      setImageError(error instanceof Error ? error.message : 'Failed to remove image');
+    } finally {
+      setImageLoading(false);
+    }
+  };
+  
+  // Function to trigger file input click
+  const triggerFileInput = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    }
+  };
+
   // Function to refresh event data from database
   const refreshEventData = useCallback(async () => {
     if (!event) return;
@@ -74,16 +182,22 @@ const EventDetails: React.FC<EventDetailsProps> = ({ event }) => {
     } finally {
       setRefreshing(false);
     }
-  }, [event]);
-
-  const handlePublishToDiscord = async () => {
+  }, [event]);  const handlePublishToDiscord = async () => {
     if (!event) return;
     
+    // More detailed debugging about the event being published and its image
+    const eventObj = event as any;
     console.log('[DEBUG] Publish button clicked for event:', { 
       id: event.id,
       title: event.title,
       discordMessageId: event.discordMessageId,
-      discordEventId: event.discordEventId 
+      discordEventId: event.discordEventId,
+      // Add detailed debugging for ALL image-related properties
+      imageUrl: event.imageUrl,
+      image_url: eventObj.image_url,
+      eventRawProps: Object.keys(eventObj),
+      imagePreviewState: imagePreview,
+      hasImage: Boolean(event.imageUrl || eventObj.image_url || imagePreview)
     });
     
     // Check if the event already has a discord message ID (already published)
@@ -108,9 +222,39 @@ const EventDetails: React.FC<EventDetailsProps> = ({ event }) => {
         console.log('[DEBUG] Server unavailable, cannot publish');
         throw new Error('Cannot connect to the server. Please check if the server is running and try again.');
       }
+        console.log('[DEBUG] Server available, publishing event to Discord...');
       
-      console.log('[DEBUG] Server available, publishing event to Discord...');
-      const response = await publishEventToDiscord(event);
+      // Check database directly for the image_url for this event
+      console.log(`[DEBUG] Querying database directly for event ${event.id} image_url...`);
+      const { data: dbEvent, error: dbError } = await supabase
+        .from('events')
+        .select('image_url')
+        .eq('id', event.id)
+        .single();
+        
+      console.log('[DEBUG] Database query result:', {
+        dbEvent,
+        dbError,
+        hasImageUrlInDB: dbEvent && Boolean(dbEvent.image_url),
+        imageUrlValue: dbEvent?.image_url
+      });
+      
+      // Create an enhanced version of the event with guaranteed image URL
+      const publishableEvent = {
+        ...event,
+        // Force set the image URL from multiple possible sources, prioritizing DB value
+        imageUrl: dbEvent?.image_url || imagePreview || event.imageUrl || (event as any).image_url
+      };
+      
+      console.log('[DEBUG] Publishing event with enhanced image data:', { 
+        originalImageUrl: event.imageUrl,
+        dbImageUrl: dbEvent?.image_url,
+        componentImagePreview: imagePreview,
+        finalImageUrl: publishableEvent.imageUrl,
+        hasImage: Boolean(publishableEvent.imageUrl)
+      });
+      
+      const response = await publishEventToDiscord(publishableEvent);
       
       console.log('[DEBUG] Publish response:', response);
       
@@ -286,6 +430,80 @@ const EventDetails: React.FC<EventDetailsProps> = ({ event }) => {
         <div className="whitespace-pre-wrap text-slate-600">
           {event.description}
         </div>
+      </Card>
+      
+      {/* Event Image Section */}
+      <Card className="p-4 mb-6">
+        <div className="flex justify-between items-center mb-3">
+          <h2 className="text-lg font-semibold">Event Image</h2>
+          {imageLoading && (
+            <div className="text-sm text-slate-500 flex items-center">
+              <div className="w-4 h-4 mr-2 border-2 border-t-transparent border-slate-500 rounded-full animate-spin" />
+              Processing...
+            </div>
+          )}
+        </div>
+        
+        {imageError && (
+          <div className="p-2 mb-3 bg-red-50 text-red-700 text-sm rounded-md">
+            {imageError}
+            <button 
+              className="ml-2 text-red-500 hover:text-red-700"
+              onClick={() => setImageError(null)}
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
+        
+        {imagePreview ? (
+          <div className="relative">
+            <div className="relative aspect-video w-full rounded-md overflow-hidden bg-slate-100 mb-3">
+              <img 
+                src={imagePreview}
+                alt="Event preview" 
+                className="w-full h-full object-cover"
+              />
+              
+              <button
+                onClick={handleRemoveImage}
+                disabled={imageLoading || publishing}
+                className="absolute top-2 right-2 bg-white bg-opacity-70 hover:bg-opacity-100 p-1.5 rounded-full text-red-500 hover:text-red-700 transition-colors"
+                title="Remove image"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <p className="text-sm text-slate-500">
+              This image will appear in Discord when the event is published
+            </p>
+          </div>
+        ) : (
+          <div className="flex flex-col items-center justify-center p-6 border-2 border-dashed border-slate-200 rounded-md bg-slate-50">
+            <ImageIcon size={42} className="text-slate-300 mb-3" />
+            <p className="mb-3 text-slate-500 text-center">
+              Add an image to be shown with this event when published to Discord
+            </p>
+            <button
+              onClick={triggerFileInput}
+              disabled={imageLoading || publishing}
+              className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+            >
+              <Upload size={16} />
+              <span>Upload Image</span>
+            </button>
+            <input 
+              type="file"
+              ref={fileInputRef}
+              onChange={handleImageUpload}
+              accept="image/*"
+              className="hidden"
+            />
+            <p className="mt-3 text-xs text-slate-400">
+              Supported formats: JPG, PNG, GIF (max 5MB)
+            </p>
+          </div>
+        )}
       </Card>
       
       {/* Discord Integration Status */}

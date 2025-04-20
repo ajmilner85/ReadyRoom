@@ -1,20 +1,30 @@
 In Progress:
-	- Refactor Discord Bot for use with multiple servers/guilds
-		- Sync to Discord/Discord Pilots Integration to pull member list from selected squadron only
-		- Publish and delete events to/from selected server only
-		- Record attendance from selected server only
+- Event Management
+	- Add image to event
+	- Post image to Discord
+	- Filter events by selected Discord server
+- Misson Preparation	
+	- Associate mission with event
+	- Create database table(s) for storing mission data
+	- Filter available pilots list by event attendance
+	- Attendance overrides
+	- Misson content ()
 
 Next:
 - Mission Preparation
-	- Attendance (Discord/Apollo integration?)
-		- Cruise, Foothold, Other (Accepted, Declined, Tentative)
-		- Training (IP, Trainee, Declined) not needed if IP qualification tracked?
-	- Mission saving
-
-High Priority:
-- Mission Preparation
+	- Mission support role slots
+		- Mission commander (Done)
+		- Marshall
+		- Tower
+		- LSO
+		- AWACS
+		- Olympus
+		- GCI
 	- Create comms card
 	- Export kneeboards
+
+High Priority:
+- Refactor and reorganize codebase
 
 
 Medium Priority:
@@ -27,6 +37,7 @@ QOL:
 
 Cosmetic:
 - Add loading indicators to all pages
+- Get server emoji's for event responses etc.
 - Mission Coordination
 	- Add aircraft icons on mission coordination page
 	- Refactor flight card layout
@@ -34,18 +45,10 @@ Cosmetic:
 		- Refactor CASE I/II/III button to be a three position sliding toggle
 
 
-- Mission roles
-	- Mission commander (Done)
-	- Marshall
-	- Tower
-	- LSO
-- Push, IP, Get Well points for En Route/Tasking Section
-
-
 Integrations/Tech:
-	- Discord/Apollo (Attendance, events)
 	- TacticalPaddles (Greenie board, carrier qualifications)
-	- Websocket implementation for real-time collaboration
+	- Websocket implemetation for real-time collaboration
+	- Creeper A/G Bot Integration
 
 
 Skunkworks:
@@ -71,6 +74,7 @@ Unprioritized:
 		- Distinguish Site, Discord, and Squadron Roles/Billets
 	- Mission Preparation
 			- Loadouts (Complicated due to DCS use of CLSIDs)
+			- Push, IP, Get Well points for En Route/Tasking Section
 	- Mission Coordination
 		- Refactor flight card storage area
 			- Sort flights by size (Single > 4-ship)
@@ -199,3 +203,7 @@ Complete
 - Refactor Discord Integration settings page to:
 	- Save server/guild id to squadron_settings table
 	- Allow selection of events channel using a drop down (also saved to squadron_settings)
+- Refactor Discord Bot for use with multiple servers/guilds
+	- Sync to Discord/Discord Pilots Integration to pull member list from selected squadron only
+	- Publish and delete events to/from selected server only
+	- Record attendance from selected server only
