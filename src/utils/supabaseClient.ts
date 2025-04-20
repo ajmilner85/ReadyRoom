@@ -195,8 +195,7 @@ export const deleteCycle = async (cycleId: string) => {
 };
 
 // Events API
-export const fetchEvents = async (cycleId?: string) => {
-  let query = supabase.from('events').select(`
+export const fetchEvents = async (cycleId?: string) => {  let query = supabase.from('events').select(`
     id,
     name,
     start_datetime,
@@ -207,6 +206,7 @@ export const fetchEvents = async (cycleId?: string) => {
     event_type,
     cycle_id,
     discord_event_id,
+    image_url,
     created_at,
     updated_at
   `);
@@ -222,7 +222,6 @@ export const fetchEvents = async (cycleId?: string) => {
     console.error('Error fetching events:', error);
     return { events: [], error };
   }
-
   // Transform database events to frontend format without attendance data
   // We'll fetch attendance separately based on discord_event_id
   const events: Event[] = data.map(dbEvent => {
@@ -232,11 +231,12 @@ export const fetchEvents = async (cycleId?: string) => {
       title: dbEvent.name, // DB field is 'name', frontend uses 'title'
       description: dbEvent.description || '',
       datetime: dbEvent.start_datetime, // DB field is 'start_datetime', frontend uses 'datetime'
-      end_datetime: dbEvent.end_datetime, // Include end datetime 
+      endDatetime: dbEvent.end_datetime, // Include end datetime with correct camelCase
       status: dbEvent.status || 'upcoming',
       eventType: dbEvent.event_type as EventType | undefined,
       cycleId: dbEvent.cycle_id || undefined,
       discordEventId: dbEvent.discord_event_id || undefined,
+      imageUrl: dbEvent.image_url || undefined, // Map image_url from DB to imageUrl in frontend
       restrictedTo: [], // No restricted_to in the DB schema
       creator: {
         boardNumber: '',

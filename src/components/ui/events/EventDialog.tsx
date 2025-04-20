@@ -27,11 +27,10 @@ export const EventDialog: React.FC<EventDialogProps> = ({
   onSave,
   onCancel,
   initialData
-}) => {
-  const [title, setTitle] = useState(initialData?.title || '');
+}) => {  const [title, setTitle] = useState(initialData?.title || '');
   const [description, setDescription] = useState(initialData?.description || '');
   const [datetime, setDatetime] = useState(initialData?.datetime || '');
-  const [durationHours, setDurationHours] = useState(0);
+  const [durationHours, setDurationHours] = useState(initialData ? 0 : 1); // Default to 1 hour for new events
   const [durationMinutes, setDurationMinutes] = useState(0);
   const [endDatetime, setEndDatetime] = useState('');
   const [restrictedTo, setRestrictedTo] = useState<string[]>(initialData?.restrictedTo || []);

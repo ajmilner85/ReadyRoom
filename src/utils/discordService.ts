@@ -105,14 +105,12 @@ export async function publishEventToDiscord(event: Event): Promise<PublishEventR
         // Set a reasonable timeout for the fetch call
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
-        
-        const response = await fetch('http://localhost:3001/api/events/publish', {
+          const response = await fetch('http://localhost:3001/api/events/publish', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             'X-Request-ID': requestId // Add a request ID for tracking
-          },
-          body: JSON.stringify({
+          },          body: JSON.stringify({
             title: event.title,
             description: event.description,
             startTime: startTime,
@@ -120,7 +118,20 @@ export async function publishEventToDiscord(event: Event): Promise<PublishEventR
             eventId: event.id, // Include the event ID so server can update the record
             requestId: requestId, // Also include in body for logging
             guildId: guildId, // Include the Discord server ID
-            channelId: channelId // Include the Discord channel ID
+            channelId: channelId, // Include the Discord channel ID
+            
+            // Get image URL from any available source
+            imageUrl: event.imageUrl || (event as any).image_url,
+            
+            // Explicitly tell the server whether there's an image
+            hasImage: Boolean(event.imageUrl || (event as any).image_url),
+            
+            // Add additional debugging information
+            debugImageInfo: {
+              imageUrl: event.imageUrl,
+              image_url: (event as any).image_url,
+              eventProps: Object.keys(event)
+            }
           }),
           signal: controller.signal
         });

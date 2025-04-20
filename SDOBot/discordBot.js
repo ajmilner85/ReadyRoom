@@ -345,7 +345,7 @@ async function deleteEventMessage(messageId, guildId = null, channelId = null) {
 }
 
 // Function to publish an event to Discord from the server
-async function publishEventToDiscord(title, description, eventTime, guildId = null, channelId = null) {
+async function publishEventToDiscord(title, description, eventTime, guildId = null, channelId = null, imageUrl = null) {
   try {
     // Make sure the bot is logged in
     await ensureLoggedIn();
@@ -357,19 +357,24 @@ async function publishEventToDiscord(title, description, eventTime, guildId = nu
     const eventEmbed = createEventEmbed(title, description, eventTime);
     const buttons = createAttendanceButtons();
     
+    // If an image URL is provided, add it to the embed
+    if (imageUrl) {
+      eventEmbed.setImage(imageUrl);
+    }
+    
     // Send the event message
     const eventMessage = await eventsChannel.send({
       embeds: [eventEmbed],
       components: [buttons]
     });
-    
-    // Store response data
+      // Store response data
     const eventData = {
       title,
       description,
       eventTime,
       guildId: eventsChannel.guild.id, // Store the guild ID
       channelId: eventsChannel.id, // Store the channel ID
+      imageUrl: imageUrl, // Store the image URL to preserve it during updates
       accepted: [],
       declined: [],
       tentative: []
@@ -468,9 +473,13 @@ client.on('interactionCreate', async interaction => {
   } else if (customId === 'tentative') {
     eventData.tentative.push(userEntry);
   }
-  
-  // Update the Discord event message
+    // Update the Discord event message
   const updatedEmbed = createEventEmbed(eventData.title, eventData.description, eventData.eventTime, eventData);
+  
+  // Preserve the image if it exists in the event data
+  if (eventData.imageUrl) {
+    updatedEmbed.setImage(eventData.imageUrl);
+  }
   
   await interaction.update({
     embeds: [updatedEmbed],

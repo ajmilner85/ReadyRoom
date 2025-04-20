@@ -1,0 +1,132 @@
+import { supabase } from './supabaseClient';
+
+/**
+ * Upload an event image to Supabase storage and return the public URL
+ * @param eventId The event ID to associate with the image
+ * @param file The image file to upload
+ * @returns The URL to the uploaded image or error
+ */
+export const uploadEventImage = async (eventId: string, file: File) => {
+  try {
+    console.log(`Uploading image for event ${eventId}...`);
+    
+    // Create a unique file path for the event image
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${Date.now()}.${fileExt}`;
+    const filePath = `${eventId}/${fileName}`;
+    
+    console.log(`Upload path: ${filePath}`);
+    
+    // Upload the file to the 'event-images' bucket with upsert=true
+    const { data, error } = await supabase.storage
+      .from('event-images')
+      .upload(filePath, file, {
+        cacheControl: '3600',
+        upsert: true // Use upsert to override existing files
+      });
+    
+    if (error) {
+      console.error('Error uploading event image:', error);
+      return { url: null, error };
+    }
+    
+    // Get the public URL for the uploaded file
+    const { data: publicUrlData } = supabase.storage
+      .from('event-images')
+      .getPublicUrl(filePath);
+    
+    console.log(`Generated URL: ${publicUrlData.publicUrl}`);
+    
+    // Update the event with the image URL
+    const { error: updateError } = await supabase
+      .from('events')
+      .update({ image_url: publicUrlData.publicUrl })
+      .eq('id', eventId);
+    
+    if (updateError) {
+      console.error('Error updating event with image URL:', updateError);
+      return { url: null, error: updateError };
+    }
+    
+    console.log('Image upload and database update successful');
+    return { url: publicUrlData.publicUrl, error: null };
+  } catch (err) {
+    console.error('Unexpected error in uploadEventImage:', err);
+    return { url: null, error: err instanceof Error ? err : new Error('Unknown error') };
+  }
+};
+
+/**
+ * Delete an event image from Supabase storage
+ * @param imageUrl The URL of the image to delete
+ * @returns Success status
+ */
+export const deleteEventImage = async (imageUrl: string) => {
+  if (!imageUrl) return { error: null };
+  
+  try {
+    console.log(`Attempting to delete image: ${imageUrl}`);
+    
+    // Extract the path from the full URL
+    const urlParts = imageUrl.split('/');
+    const bucketName = 'event-images';
+    
+    // The path will be everything after the bucket name in the URL
+    const bucketIndex = urlParts.findIndex(part => part === bucketName);
+    if (bucketIndex === -1) {
+      console.error('Invalid image URL format:', imageUrl);
+      return { error: new Error('Invalid image URL') };
+    }
+    
+    // Get path components after the bucket name
+    const pathParts = urlParts.slice(bucketIndex + 1);
+    const path = pathParts.join('/');
+    
+    console.log(`Extracted path to delete: ${path}`);
+    
+    const { error } = await supabase.storage
+      .from(bucketName)
+      .remove([path]);
+    
+    if (error) {
+      console.error('Error deleting image:', error);
+      return { error };
+    }
+    
+    // Update the event to remove the image URL
+    const { error: updateError } = await supabase
+      .from('events')
+      .update({ image_url: null })
+      .eq('image_url', imageUrl);
+      
+    if (updateError) {
+      console.error('Error updating event after image deletion:', updateError);
+    }
+    
+    console.log('Successfully deleted image and updated event');
+    return { error: null };
+  } catch (err) {
+    console.error('Unexpected error in deleteEventImage:', err);
+    return { error: err instanceof Error ? err : new Error('Unknown error') };
+  }
+};
+
+/**
+ * Update the Discord publish function to include images
+ * @param event The event to publish (with imageUrl)
+ * @param imageUrl The URL of the image to include in the Discord message
+ * @returns Response with success status and Discord IDs
+ */
+export const updateEventImageUrl = async (eventId: string, imageUrl: string | null) => {
+  try {
+    const { error } = await supabase
+      .from('events')
+      .update({ image_url: imageUrl })
+      .eq('id', eventId);
+    
+    return { error };
+  } catch (err) {
+    console.error('Unexpected error in updateEventImageUrl:', err);
+    return { error: err instanceof Error ? err : new Error('Unknown error') };
+  }
+};
