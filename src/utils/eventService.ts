@@ -4,8 +4,6 @@ import type { Database } from '../types/supabase';
 export type Event = Database['public']['Tables']['events']['Row'];
 export type NewEvent = Database['public']['Tables']['events']['Insert'];
 export type UpdateEvent = Database['public']['Tables']['events']['Update'];
-export type DiscordEventAttendance = Database['public']['Tables']['discord_event_attendance']['Row'];
-export type NewDiscordEventAttendance = Database['public']['Tables']['discord_event_attendance']['Insert'];
 
 /**
  * Fetch all events from the database
@@ -129,17 +127,24 @@ export async function getEventAttendance(eventId: string): Promise<{
       throw attendanceError;
     }
 
+  // Define the attendee type
+    type Attendee = {
+      boardNumber: string;
+      callsign: string;
+      discord_id: string | null;
+    };
+
     // Format the response to match the expected structure
     const attendance = {
-      accepted: [],
-      declined: [],
-      tentative: []
+      accepted: [] as Attendee[],
+      declined: [] as Attendee[],
+      tentative: [] as Attendee[]
     };
     
     // Process each attendance record
     attendanceData?.forEach(record => {
       // Prepare the attendee object
-      const attendee = {
+      const attendee: Attendee = {
         boardNumber: record.discord_id ? record.discord_id.substring(0, 3) : 'N/A',
         callsign: record.discord_username || 'Unknown User',
         discord_id: record.discord_id
@@ -169,12 +174,84 @@ export async function getEventAttendance(eventId: string): Promise<{
 
 /**
  * Update or create attendance record for a user at an event
- * This is maintained for compatibility but will likely be replaced by Discord interactions
+ * @param eventId The ID of the event
+ * @param discordId The Discord ID of the user
+ * @param discordUsername The Discord username of the user
+ * @param status The attendance status ('accepted', 'declined', or 'tentative')
  */
-export async function updateAttendance(attendance: any): Promise<{ data: any | null; error: any }> {
-  // This would need to be reworked for the new structure if needed
-  console.warn('updateAttendance is not implemented for discord_event_attendance');
-  return { data: null, error: new Error('Not implemented') };
+export async function updateAttendance(
+  eventId: string,
+  discordId: string,
+  discordUsername: string,
+  status: 'accepted' | 'declined' | 'tentative'
+): Promise<{ data: any | null; error: any }> {
+  try {
+    // First get the event to retrieve its discord_event_id
+    const { data: eventData, error: eventError } = await supabase
+      .from('events')
+      .select('discord_event_id')
+      .eq('id', eventId)
+      .single();
+
+    if (eventError) {
+      return { data: null, error: eventError };
+    }
+
+    if (!eventData?.discord_event_id) {
+      return { data: null, error: new Error('Event does not have a Discord event ID') };
+    }
+
+    // Check if an attendance record already exists
+    const { data: existingRecord, error: fetchError } = await supabase
+      .from('discord_event_attendance')
+      .select('*')
+      .eq('discord_event_id', eventData.discord_event_id)
+      .eq('discord_id', discordId)
+      .maybeSingle();
+
+    if (fetchError && fetchError.code !== 'PGRST116') {
+      return { data: null, error: fetchError };
+    }
+
+    // If record exists, update it
+    if (existingRecord) {
+      const { data, error } = await supabase
+        .from('discord_event_attendance')
+        .update({
+          user_response: status,
+          discord_username: discordUsername,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', existingRecord.id)
+        .select()
+        .single();
+
+      if (error) {
+        return { data: null, error };
+      }
+      return { data, error: null };
+    } 
+    
+    // Otherwise, create a new record
+    const { data, error } = await supabase
+      .from('discord_event_attendance')
+      .insert({
+        discord_event_id: eventData.discord_event_id,
+        discord_id: discordId,
+        discord_username: discordUsername,
+        user_response: status
+      })
+      .select()
+      .single();
+
+    if (error) {
+      return { data: null, error };
+    }
+    return { data, error: null };
+  } catch (error) {
+    console.error('Error updating attendance:', error);
+    return { data: null, error };
+  }
 }
 
 /**
@@ -186,10 +263,10 @@ export function convertDatabaseEventToAppEvent(dbEvent: Event): any {
   return {
     id: dbEvent.id,
     title: dbEvent.name,
-    description: dbEvent.description || '',
-    datetime: dbEvent.start_datetime || dbEvent.date, // Use start_datetime if available, fall back to date
+    description: dbEvent.description,
+    datetime: dbEvent.start_datetime,
     endDatetime: dbEvent.end_datetime,
-    status: dbEvent.status,
+    status: dbEvent.status || 'upcoming', // Default to upcoming if status is null
     creator: {
       boardNumber: 'N/A', // These fields may not be available in the database
       callsign: 'System',
@@ -200,9 +277,11 @@ export function convertDatabaseEventToAppEvent(dbEvent: Event): any {
       declined: [],
       tentative: []
     },
-    eventType: dbEvent.type as any,
-    discordMessageId: dbEvent.discord_message_id,
-    discordEventId: dbEvent.discord_event_id
+    eventType: dbEvent.event_type || dbEvent.type,
+    discordEventId: dbEvent.discord_event_id,
+    cycleId: dbEvent.cycle_id,
+    guildId: dbEvent.discord_guild_id,
+    imageUrl: dbEvent.image_url
   };
 }
 

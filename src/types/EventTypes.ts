@@ -19,11 +19,11 @@ export interface Cycle {
 
 export interface Event {
     id: string;
-    title: string;
-    description: string;
-    datetime: string;
-    endDatetime?: string;
-    status: 'upcoming' | 'past';
+    title: string; // Maps to name in database
+    description: string | null;
+    datetime: string; // Maps to start_datetime in database
+    endDatetime?: string | null; // Maps to end_datetime in database
+    status: string | null;
     creator: {
       boardNumber: string;
       callsign: string;
@@ -31,25 +31,27 @@ export interface Event {
     };
     attendance: {
       accepted: Array<{
-        boardNumber: string;
+        boardNumber?: string;
         callsign: string;
         billet?: string;
+        discord_id?: string;
       }>;
       declined: Array<{
-        boardNumber: string;
+        boardNumber?: string;
         callsign: string;
         billet?: string;
+        discord_id?: string;
       }>;
       tentative: Array<{
-        boardNumber: string;
+        boardNumber?: string;
         callsign: string;
         billet?: string;
+        discord_id?: string;
       }>;
     };
-    cycleId?: string; // Reference to parent cycle
-    eventType?: EventType; // Type of event
-    restrictedTo?: string[];
-    discordMessageId?: string; // ID of the message in Discord for tracking responses
-    discordEventId?: string; // ID of the event in Discord
-    imageUrl?: string; // URL to the image stored in Supabase Storage
+    cycleId?: string | null; // Maps to cycle_id in database
+    eventType?: EventType | string | null; // Maps to event_type or type in database
+    guildId?: string | null; // Maps to discord_guild_id in database
+    discordEventId?: string | null; // ID of the event in Discord
+    imageUrl?: string | null; // Maps to image_url in database
   }
