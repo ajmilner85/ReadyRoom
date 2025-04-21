@@ -13,8 +13,8 @@ import type { Event } from '../../types/EventTypes';
 import type { Pilot } from '../../types/PilotTypes';
 import type { MissionCommanderInfo } from '../../types/MissionCommanderTypes';
 import type { Flight, ExtractedFlight } from '../../types/FlightData';
-import { CommsPlanEntry, generateInitialCommsData } from '../../types/CommsTypes';
-import { SAMPLE_EVENTS } from '../../data/sampleEvents';
+// Import supabase client and fetch events function
+import { supabase, fetchEvents } from '../../utils/supabaseClient';
 import { getMissionCommanderCandidates, findPilotInFlights } from '../../utils/dragDropUtils';
 import { useDragDrop } from '../../utils/useDragDrop';
 import { loadAssignedPilots, saveAssignedPilots, loadMissionCommander, saveMissionCommander, loadExtractedFlights, saveExtractedFlights, loadPrepFlights, savePrepFlights, loadSelectedEvent, saveSelectedEvent } from '../../utils/localStorageUtils';
@@ -53,6 +53,62 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [allPilotQualifications, setAllPilotQualifications] = useState<Record<string, any[]>>({});
+    // Add state for events
+  const [events, setEvents] = useState<Event[]>([]);
+  
+  // Fetch events on component mount
+  useEffect(() => {
+    loadEventsForCurrentGuild();
+  }, []);
+  
+  // Fetch events filtered by Discord guild ID
+  const loadEventsForCurrentGuild = async () => {
+    try {
+      // First get the Discord guild ID from squadron settings
+      const { data: settingsData, error: settingsError } = await supabase
+        .from('squadron_settings')
+        .select('value')
+        .eq('key', 'discord_guild_id')
+        .single();
+      
+      if (settingsError) {
+        console.warn('Error fetching Discord guild ID:', settingsError.message);
+        return;
+      }
+      
+      if (!settingsData?.value) {
+        console.warn('No Discord guild ID found in squadron settings');
+        return;
+      }
+      
+      const guildId = settingsData.value;
+      console.log('Using Discord guild ID for filtering events:', guildId);
+      
+      // Fetch events for this guild
+      const { events: guildEvents, error } = await fetchEvents(undefined, guildId);
+      
+      if (error) {
+        console.error('Error fetching events:', error);
+        return;
+      }
+      
+      if (guildEvents && guildEvents.length > 0) {
+        console.log(`Fetched ${guildEvents.length} events for guild ${guildId}`);
+        // Events are already sorted in reverse chronological order by the query
+        setEvents(guildEvents);
+        
+        // If there's no selected event yet but we have events, select the most recent one
+        if (!selectedEvent && guildEvents.length > 0) {
+          setSelectedEventWrapper(guildEvents[0]);
+        }
+      } else {
+        console.log('No events found for guild:', guildId);
+        setEvents([]);
+      }
+    } catch (err: any) {
+      console.error('Failed to fetch events:', err.message);
+    }
+  };
   
   // Fetch pilots from Supabase when component mounts
   useEffect(() => {
@@ -553,10 +609,9 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
               <p className="text-red-500">{loadError}</p>
             </div>
           ) : (
-            <>
-              <MissionDetails 
+            <>              <MissionDetails 
                 width={CARD_WIDTH} 
-                events={SAMPLE_EVENTS}
+                events={events} 
                 selectedEvent={selectedEvent}
                 onEventSelect={setSelectedEventWrapper}
                 missionCommander={missionCommander}
