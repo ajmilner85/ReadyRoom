@@ -20,6 +20,20 @@ export async function getAllEvents(): Promise<{ data: Event[] | null; error: any
 }
 
 /**
+ * Fetch all events for a specific Discord guild
+ * @param guildId The Discord guild/server ID
+ */
+export async function getEventsByGuildId(guildId: string): Promise<{ data: Event[] | null; error: any }> {
+  const { data, error } = await supabase
+    .from('events')
+    .select('*')
+    .eq('discord_guild_id', guildId)
+    .order('start_datetime', { ascending: false });  // Reverse chronological order
+
+  return { data, error };
+}
+
+/**
  * Fetch a single event by ID
  */
 export async function getEventById(id: string): Promise<{ data: Event | null; error: any }> {
@@ -161,4 +175,40 @@ export async function updateAttendance(attendance: any): Promise<{ data: any | n
   // This would need to be reworked for the new structure if needed
   console.warn('updateAttendance is not implemented for discord_event_attendance');
   return { data: null, error: new Error('Not implemented') };
+}
+
+/**
+ * Convert a database event to application Event type
+ * @param dbEvent The event from the database
+ */
+export function convertDatabaseEventToAppEvent(dbEvent: Event): any {
+  // Map the database event to the application event type structure
+  return {
+    id: dbEvent.id,
+    title: dbEvent.name,
+    description: dbEvent.description || '',
+    datetime: dbEvent.start_datetime || dbEvent.date, // Use start_datetime if available, fall back to date
+    endDatetime: dbEvent.end_datetime,
+    status: dbEvent.status,
+    creator: {
+      boardNumber: 'N/A', // These fields may not be available in the database
+      callsign: 'System',
+      billet: ''
+    },
+    attendance: {
+      accepted: [],
+      declined: [],
+      tentative: []
+    },
+    eventType: dbEvent.type as any,
+    discordMessageId: dbEvent.discord_message_id,
+    discordEventId: dbEvent.discord_event_id
+  };
+}
+
+/**
+ * Convert multiple database events to application Event type
+ */
+export function convertDatabaseEventsToAppEvents(dbEvents: Event[]): any[] {
+  return dbEvents.map(convertDatabaseEventToAppEvent);
 }
