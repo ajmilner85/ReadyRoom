@@ -7,7 +7,7 @@ import CyclesList from './events/CyclesList';
 import CycleDialog from './events/CycleDialog';
 import { DeleteDivisionDialog } from './dialogs/DeleteDivisionDialog';
 import type { Event, Cycle, CycleType } from '../../types/EventTypes';
-import { fetchCycles, createCycle, updateCycle, deleteCycle, 
+import { supabase, fetchCycles, createCycle, updateCycle, deleteCycle, 
          fetchEvents, createEvent, updateEvent, deleteEvent } from '../../utils/supabaseClient';
 import { deleteDiscordMessage } from '../../utils/discordService';
 import LoadingSpinner from './LoadingSpinner';
@@ -22,9 +22,11 @@ const EventsManagement: React.FC = () => {
   const [cycles, setCycles] = useState<Cycle[]>([]);
   const [loading, setLoading] = useState({
     cycles: false,
-    events: false
+    events: false,
+    initial: true // Add initial loading state to prevent flash of unfiltered content
   });
   const [error, setError] = useState<string | null>(null);
+  const [discordGuildId, setDiscordGuildId] = useState<string | null>(null);
   
   // Get WebSocket context
   const { lastEventUpdate } = useWebSocket();
@@ -49,9 +51,33 @@ const EventsManagement: React.FC = () => {
 
   // Fetch cycles and events on component mount
   useEffect(() => {
-    loadCycles();
-    loadEvents();
+    fetchDiscordGuildId().then(() => {
+      loadCycles();
+    });
   }, []);
+
+  // Fetch Discord guild ID from squadron settings
+  const fetchDiscordGuildId = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('squadron_settings')
+        .select('value')
+        .eq('key', 'discord_guild_id')
+        .single();
+      
+      if (error) {
+        console.warn('Error fetching Discord guild ID:', error.message);
+        return;
+      }
+      
+      if (data?.value) {
+        setDiscordGuildId(data.value);
+        console.log('Using Discord guild ID for filtering:', data.value);
+      }
+    } catch (err: any) {
+      console.warn('Failed to get Discord guild ID:', err.message);
+    }
+  };
 
   // Fetch events when selected cycle changes
   useEffect(() => {
@@ -102,28 +128,66 @@ const EventsManagement: React.FC = () => {
     
     setEvents(updatedEvents);
   }, [lastEventUpdate]); // Only depend on lastEventUpdate, not events or selectedEvent
-
+  
   // Load cycles from database
   const loadCycles = async () => {
     setLoading(prev => ({ ...prev, cycles: true }));
     try {
-      const { cycles: fetchedCycles, error } = await fetchCycles();
+      // When fetching cycles, filter by Discord guild ID if available
+      const { data: settingsData } = await supabase
+        .from('squadron_settings')
+        .select('value')
+        .eq('key', 'discord_guild_id')
+        .single();
+      const guildId = settingsData?.value || null;
+      setDiscordGuildId(guildId);
+      
+      // Pass the guild ID to fetchCycles to filter by guild
+      const { cycles: fetchedCycles, error } = await fetchCycles(guildId);
+      
       if (error) {
         throw error;
       }
+      
       setCycles(fetchedCycles);
+      
+      // Auto-select the active cycle with the earliest start date
+      if (fetchedCycles.length > 0) {
+        const activeCycles = fetchedCycles.filter(cycle => cycle.status === 'active');
+        
+        if (activeCycles.length > 0) {
+          // Sort active cycles by start date (ascending) and select the earliest one
+          const sortedActiveCycles = [...activeCycles].sort((a, b) => 
+            new Date(a.startDate).getTime() - new Date(b.startDate).getTime()
+          );
+          
+          const cycleToSelect = sortedActiveCycles[0];
+          setSelectedCycle(cycleToSelect);
+          
+          // Load events for this cycle
+          await loadEvents(cycleToSelect.id);
+        } else {
+          // No active cycles, but we're done loading
+          setLoading(prev => ({ ...prev, events: false, initial: false }));
+        }
+      } else {
+        // No cycles at all, but we're done loading
+        setLoading(prev => ({ ...prev, events: false, initial: false }));
+      }
     } catch (err: any) {
       setError(`Failed to load cycles: ${err.message}`);
+      // Even if there's an error, we're done with initial loading
+      setLoading(prev => ({ ...prev, initial: false }));
     } finally {
       setLoading(prev => ({ ...prev, cycles: false }));
     }
-  };
-
-  // Load events from database
+  };  
+    // Load events from database
   const loadEvents = async (cycleId?: string) => {
     setLoading(prev => ({ ...prev, events: true }));
     try {
-      const { events: fetchedEvents, error } = await fetchEvents(cycleId);
+      // Always filter by Discord guild ID, whether or not a cycle is selected
+      const { events: fetchedEvents, error } = await fetchEvents(cycleId, discordGuildId || undefined);
       if (error) {
         throw error;
       }
@@ -131,7 +195,8 @@ const EventsManagement: React.FC = () => {
       // Load Discord message IDs from localStorage
       const storedMap = localStorage.getItem('eventDiscordMessageIds');
       const eventDiscordMap = storedMap ? JSON.parse(storedMap) : {};
-        // Attach Discord message IDs to events
+      
+      // Attach Discord message IDs to events
       const eventsWithDiscordIds = fetchedEvents.map(event => {
         // Cast to any to access potential database fields that might not be in the TypeScript type
         const eventObj = event as any;
@@ -147,10 +212,20 @@ const EventsManagement: React.FC = () => {
         };
       });
       
+      // Create a properly ordered and filtered list of events
       setEvents(eventsWithDiscordIds);
       
-      // If we had a selected event and it's still in the list, update it
-      if (selectedEvent) {
+      // Auto-select the latest event if there are events and we have a selected cycle
+      if (eventsWithDiscordIds.length > 0 && cycleId) {
+        // Find the latest event by datetime (descending order)
+        const sortedEvents = [...eventsWithDiscordIds].sort((a, b) => 
+          new Date(b.datetime).getTime() - new Date(a.datetime).getTime()
+        );
+        
+        // Select the latest event (first in sorted array)
+        setSelectedEvent(sortedEvents[0]);
+      } else if (selectedEvent) {
+        // If we had a selected event and it's still in the list, update it
         const updatedSelectedEvent = eventsWithDiscordIds.find(e => e.id === selectedEvent.id);
         if (updatedSelectedEvent) {
           setSelectedEvent(updatedSelectedEvent);
@@ -159,10 +234,28 @@ const EventsManagement: React.FC = () => {
           setSelectedEvent(null);
         }
       }
+      
+      // Only update filtered events directly here if we're in the initial loading
+      // Otherwise the filteredEvents useEffect will handle it
+      if (loading.initial) {
+        // This prevents the flash of unfiltered events on initial load
+        if (cycleId) {
+          const filtered = eventsWithDiscordIds.filter(event => event.cycleId === cycleId);
+          setFilteredEvents(filtered);
+        } else {
+          setFilteredEvents([]);
+        }
+      }
     } catch (err: any) {
       setError(`Failed to load events: ${err.message}`);
+      setFilteredEvents([]); // Clear filtered events on error
     } finally {
-      setLoading(prev => ({ ...prev, events: false }));
+      // Turn off events loading and also the initial loading state
+      setLoading(prev => ({ 
+        ...prev, 
+        events: false, 
+        initial: false // Mark initial loading as complete when events are loaded
+      }));
     }
   };
 
@@ -180,7 +273,7 @@ const EventsManagement: React.FC = () => {
   }) => {
     try {
       // Determine event type based on cycle
-      let eventType = undefined;
+      let eventType: any = undefined; // Using any to avoid TypeScript error
       if (selectedCycle) {
         if (selectedCycle.type === 'Training') {
           eventType = 'Hop';
@@ -189,13 +282,13 @@ const EventsManagement: React.FC = () => {
         } else if (selectedCycle.type === 'Cruise-Mission') {
           eventType = 'Episode';
         }
-      }
-
-      const { event, error } = await createEvent({
+      }      
+      const { error } = await createEvent({
         ...eventData,
         status: 'upcoming',
         cycleId: selectedCycle?.id,
-        eventType
+        eventType,
+        discordGuildId: discordGuildId || undefined
       });
 
       if (error) throw error;
@@ -222,7 +315,7 @@ const EventsManagement: React.FC = () => {
     if (!editingEvent) return;
     
     try {
-      const { event, error } = await updateEvent(editingEvent.id, eventData);
+      const { error } = await updateEvent(editingEvent.id, eventData);
       if (error) throw error;
       
       // Reload events to get the latest data
@@ -239,7 +332,7 @@ const EventsManagement: React.FC = () => {
     setIsDeleteCycle(false);
     setShowDeleteDialog(true);
   };
-
+  
   // Cycle handlers
   const handleCreateCycle = async (cycleData: {
     name: string;
@@ -264,9 +357,11 @@ const EventsManagement: React.FC = () => {
         status = 'completed';
       }
 
-      const { cycle, error } = await createCycle({
+      // Include the Discord guild ID with the cycle data
+      const { error } = await createCycle({
         ...cycleData,
-        status
+        status,
+        discordGuildId: discordGuildId || undefined
       });
       
       if (error) throw error;
@@ -342,6 +437,7 @@ const EventsManagement: React.FC = () => {
     setIsDeleteCycle(true);
     setShowDeleteDialog(true);
   };
+  
   const confirmDelete = async () => {
     try {
       if (isDeleteCycle && cycleToDelete) {
@@ -355,7 +451,8 @@ const EventsManagement: React.FC = () => {
         }
         
         // Reload cycles
-        await loadCycles();      } else if (eventToDelete) {
+        await loadCycles();      
+      } else if (eventToDelete) {
         console.log(`[DEBUG] Starting deletion for event:`, eventToDelete);
         console.log(`[DEBUG] Event JSON:`, JSON.stringify(eventToDelete));
         console.log(`[DEBUG] All event properties:`, Object.keys(eventToDelete));
@@ -419,11 +516,21 @@ const EventsManagement: React.FC = () => {
       return () => clearTimeout(timer);
     }
   }, [error]);
-
-  // Filter events when a cycle is selected
-  const filteredEvents = selectedCycle 
-    ? events.filter(event => event.cycleId === selectedCycle.id)
-    : events;
+  // Initialize a state specifically for filtered events to avoid flash of unfiltered content
+  const [filteredEvents, setFilteredEvents] = useState<Event[]>([]);
+  
+  // Effect to filter events when events or selected cycle changes
+  useEffect(() => {
+    // Only filter and show events when not in initial loading state
+    if (loading.initial) return;
+    
+    if (selectedCycle) {
+      const filtered = events.filter(event => event.cycleId === selectedCycle.id);
+      setFilteredEvents(filtered);
+    } else {
+      setFilteredEvents([]); // Don't show any events if no cycle is selected
+    }
+  }, [events, selectedCycle, loading.initial]);
 
   return (
     <div 
@@ -455,114 +562,142 @@ const EventsManagement: React.FC = () => {
         </div>
       )}
 
-      <div 
-        style={{
-          display: 'flex',
-          gap: '20px',
-          justifyContent: 'center',
-          minHeight: 'calc(100vh - 40px)',
-          position: 'relative',
-          zIndex: 1,
-          maxWidth: '2240px',
-          width: 'min(100%, 2240px)',
-          boxSizing: 'border-box',
-          overflow: 'visible',
-          padding: '15px',
-          margin: '-15px',
-        }}
-      >
-        {/* Cycles List */}
-        <div style={{ 
-          width: CARD_WIDTH, 
-          minWidth: '350px', 
-          height: 'calc(100vh - 40px)',
-          boxSizing: 'border-box',
-          overflowY: 'visible'
-        }}>
-          {loading.cycles ? (
-            <div style={{
-              display: 'flex',
-              justifyContent: 'center',
-              alignItems: 'center',
-              height: '100%',
-              backgroundColor: '#FFFFFF',
-              boxShadow: '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)',
-              borderRadius: '8px'
-            }}>
-              <LoadingSpinner />
-            </div>
-          ) : (
-            <CyclesList
-              cycles={cycles}
-              selectedCycle={selectedCycle}
-              onCycleSelect={setSelectedCycle}
-              onNewCycle={() => {
-                setEditingCycle(null);
-                setShowCycleDialog(true);
-              }}
-              onEditCycle={handleEditCycleClick}
-              onDeleteCycle={handleDeleteCycle}
-            />
-          )}
+      {loading.initial ? (
+        /* Display a single loading spinner during initial data fetch */
+        <div 
+          style={{
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            height: 'calc(100vh - 40px)',
+            width: '100%',
+          }}
+        >
+          <div style={{
+            backgroundColor: '#FFFFFF',
+            boxShadow: '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)',
+            borderRadius: '8px',
+            padding: '40px 80px',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: '20px'
+          }}>
+            <LoadingSpinner />
+            <div>Loading events data...</div>
+          </div>
         </div>
-        
-        {/* Events List */}
-        <div style={{ 
-          width: CARD_WIDTH, 
-          minWidth: '350px', 
-          height: 'calc(100vh - 40px)',
-          boxSizing: 'border-box',
-          overflowY: 'visible'
-        }}>
-          {loading.events ? (
-            <div style={{
-              display: 'flex',
-              justifyContent: 'center',
-              alignItems: 'center',
-              height: '100%',
-              backgroundColor: '#FFFFFF',
-              boxShadow: '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)',
-              borderRadius: '8px'
-            }}>
-              <LoadingSpinner />
-            </div>
-          ) : (
-            <EventsList
-              events={filteredEvents}
-              selectedEvent={selectedEvent}
-              onEventSelect={setSelectedEvent}
-              onNewEvent={() => {
-                setEditingEvent(null);
-                setShowEventDialog(true);
-              }}
-              onEditEvent={handleEditEventClick}
-              onDeleteEvent={handleDeleteEvent}
-            />
-          )}
+      ) : (
+        /* Only render the main content when initial loading is complete */
+        <div 
+          style={{
+            display: 'flex',
+            gap: '20px',
+            justifyContent: 'center',
+            minHeight: 'calc(100vh - 40px)',
+            position: 'relative',
+            zIndex: 1,
+            maxWidth: '2240px',
+            width: 'min(100%, 2240px)',
+            boxSizing: 'border-box',
+            overflow: 'visible',
+            padding: '15px',
+            margin: '-15px',
+          }}
+        >
+          {/* Cycles List */}
+          <div style={{ 
+            width: CARD_WIDTH, 
+            minWidth: '350px', 
+            height: 'calc(100vh - 40px)',
+            boxSizing: 'border-box',
+            overflowY: 'visible'
+          }}>
+            {loading.cycles ? (
+              <div style={{
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                height: '100%',
+                backgroundColor: '#FFFFFF',
+                boxShadow: '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)',
+                borderRadius: '8px'
+              }}>
+                <LoadingSpinner />
+              </div>
+            ) : (
+              <CyclesList
+                cycles={cycles}
+                selectedCycle={selectedCycle}
+                onCycleSelect={setSelectedCycle}
+                onNewCycle={() => {
+                  setEditingCycle(null);
+                  setShowCycleDialog(true);
+                }}
+                onEditCycle={handleEditCycleClick}
+                onDeleteCycle={handleDeleteCycle}
+              />
+            )}
+          </div>
+          
+          {/* Events List */}
+          <div style={{ 
+            width: CARD_WIDTH, 
+            minWidth: '350px', 
+            height: 'calc(100vh - 40px)',
+            boxSizing: 'border-box',
+            overflowY: 'visible'
+          }}>
+            {loading.events ? (
+              <div style={{
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                height: '100%',
+                backgroundColor: '#FFFFFF',
+                boxShadow: '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)',
+                borderRadius: '8px'
+              }}>
+                <LoadingSpinner />
+              </div>
+            ) : (
+              <EventsList
+                events={filteredEvents}
+                selectedEvent={selectedEvent}
+                onEventSelect={setSelectedEvent}
+                onNewEvent={() => {
+                  setEditingEvent(null);
+                  setShowEventDialog(true);
+                }}
+                onEditEvent={handleEditEventClick}
+                onDeleteEvent={handleDeleteEvent}
+              />
+            )}
+          </div>
+          
+          {/* Event Details */}
+          <div style={{ 
+            width: CARD_WIDTH, 
+            minWidth: '350px', 
+            height: 'calc(100vh - 40px)',
+            boxSizing: 'border-box',
+            overflowY: 'visible'
+          }}>
+            <EventDetails event={selectedEvent} />
+          </div>
+          
+          {/* Event Attendance */}
+          <div style={{ 
+            width: CARD_WIDTH, 
+            minWidth: '350px', 
+            height: 'calc(100vh - 40px)',
+            boxSizing: 'border-box',
+            overflowY: 'visible'
+          }}>
+            <EventAttendance event={selectedEvent} />
+          </div>
         </div>
-        
-        {/* Event Details */}
-        <div style={{ 
-          width: CARD_WIDTH, 
-          minWidth: '350px', 
-          height: 'calc(100vh - 40px)',
-          boxSizing: 'border-box',
-          overflowY: 'visible'
-        }}>
-          <EventDetails event={selectedEvent} />
-        </div>
-        
-        {/* Event Attendance */}
-        <div style={{ 
-          width: CARD_WIDTH, 
-          minWidth: '350px', 
-          height: 'calc(100vh - 40px)',
-          boxSizing: 'border-box',
-          overflowY: 'visible'
-        }}>
-          <EventAttendance event={selectedEvent} />
-        </div>
-      </div>
+      )}
 
       {showEventDialog && (
         <EventDialog

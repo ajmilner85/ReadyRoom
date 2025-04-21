@@ -1,17 +1,10 @@
 In Progress:
-- Event Management
-	- Add image to event
-	- Post image to Discord
-	- Filter events by selected Discord server
-	- Reminder messages
-	- Direct message reminder messages
-	- Change buttons to use emojis instead of text?
 - Misson Preparation	
 	- Associate mission with event
 	- Create database table(s) for storing mission data
 	- Filter available pilots list by event attendance
 	- Attendance overrides
-	- Misson content ()
+
 
 Next:
 - Mission Preparation
@@ -25,10 +18,15 @@ Next:
 		- GCI
 	- Create comms card
 	- Export kneeboards
+	- Misson content (.miz file, briefing presentation, images, kneeboards)
 
 High Priority:
 - Refactor and reorganize codebase
-
+- Event Management
+	- Reminder messages
+	- Direct message reminder messages
+	- Change buttons to use emojis instead of text?
+	- Thumbnail icons for Cycles
 
 Medium Priority:
 	- Simplified, OpenKneeboard compatible dynamic page for live kneeboard updates, last minute coordination
@@ -78,6 +76,7 @@ Unprioritized:
 	- Mission Preparation
 			- Loadouts (Complicated due to DCS use of CLSIDs)
 			- Push, IP, Get Well points for En Route/Tasking Section
+			- Save .miz file with Flight Assignments/Board Numbers/Custom Liveries
 	- Mission Coordination
 		- Refactor flight card storage area
 			- Sort flights by size (Single > 4-ship)
@@ -210,3 +209,7 @@ Complete
 	- Sync to Discord/Discord Pilots Integration to pull member list from selected squadron only
 	- Publish and delete events to/from selected server only
 	- Record attendance from selected server only
+- Event Management
+	- Add image to event
+	- Post image to Discord
+	- Filter events by selected Discord server 

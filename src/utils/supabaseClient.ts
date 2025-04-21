@@ -59,11 +59,18 @@ export const onAuthStateChange = (callback: (event: string, session: any) => voi
 };
 
 // Cycles API
-export const fetchCycles = async () => {
-  const { data, error } = await supabase
+export const fetchCycles = async (discordGuildId?: string) => {
+  let query = supabase
     .from('cycles')
     .select('*')
     .order('start_date', { ascending: false });
+
+  // If a Discord guild ID is provided, filter cycles for that guild
+  if (discordGuildId) {
+    query = query.eq('discord_guild_id', discordGuildId);
+  }
+
+  const { data, error } = await query;
 
   if (error) {
     console.error('Error fetching cycles:', error);
@@ -90,7 +97,7 @@ export const fetchCycles = async () => {
   return { cycles, error: null };
 };
 
-export const createCycle = async (cycle: Omit<Cycle, 'id' | 'creator'>) => {
+export const createCycle = async (cycle: Omit<Cycle, 'id' | 'creator'> & { discordGuildId?: string }) => {
   const { user, error: userError } = await getCurrentUser();
   if (userError || !user) {
     return { cycle: null, error: userError || new Error('User not authenticated') };
@@ -107,6 +114,7 @@ export const createCycle = async (cycle: Omit<Cycle, 'id' | 'creator'>) => {
       type: cycle.type,
       status: cycle.status,
       restricted_to: cycle.restrictedTo,
+      discord_guild_id: cycle.discordGuildId, // Add Discord guild ID
       creator_id: user.id,
       // Optional user profile info
       creator_call_sign: user.user_metadata?.callsign,
@@ -195,7 +203,8 @@ export const deleteCycle = async (cycleId: string) => {
 };
 
 // Events API
-export const fetchEvents = async (cycleId?: string) => {  let query = supabase.from('events').select(`
+export const fetchEvents = async (cycleId?: string, discordGuildId?: string) => {  
+  let query = supabase.from('events').select(`
     id,
     name,
     start_datetime,
@@ -206,14 +215,19 @@ export const fetchEvents = async (cycleId?: string) => {  let query = supabase.f
     event_type,
     cycle_id,
     discord_event_id,
+    discord_guild_id,
     image_url,
     created_at,
     updated_at
   `);
-
   // If a cycle ID is provided, filter events for that cycle
   if (cycleId) {
     query = query.eq('cycle_id', cycleId);
+  }
+  
+  // If a Discord guild ID is provided, filter events for that guild
+  if (discordGuildId) {
+    query = query.eq('discord_guild_id', discordGuildId);
   }
 
   const { data, error } = await query.order('start_datetime', { ascending: false });
@@ -254,7 +268,7 @@ export const fetchEvents = async (cycleId?: string) => {  let query = supabase.f
   return { events, error: null };
 };
 
-export const createEvent = async (event: Omit<Event, 'id' | 'creator' | 'attendance'>) => {
+export const createEvent = async (event: Omit<Event, 'id' | 'creator' | 'attendance'> & { discordGuildId?: string }) => {
   const { user, error: userError } = await getCurrentUser();
   if (userError || !user) {
     return { event: null, error: userError || new Error('User not authenticated') };
@@ -267,10 +281,11 @@ export const createEvent = async (event: Omit<Event, 'id' | 'creator' | 'attenda
       name: event.title, // Frontend uses 'title', DB field is 'name'
       description: event.description,
       start_datetime: event.datetime, // Frontend uses 'datetime', DB uses 'start_datetime'
-      end_datetime: event.end_datetime, // Pass end datetime if available
+      end_datetime: event.endDatetime, // Pass end datetime if available
       status: event.status,
       event_type: event.eventType,
-      cycle_id: event.cycleId
+      cycle_id: event.cycleId,
+      discord_guild_id: event.discordGuildId // Add Discord guild ID
       // No restricted_to or creator fields in the DB schema
     })
     .select()
