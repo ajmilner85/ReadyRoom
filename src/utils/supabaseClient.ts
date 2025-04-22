@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { Database } from '../types/supabase';
-import { Cycle, Event, EventType } from '../types/EventTypes';
+import { Cycle, CycleType, Event, EventType } from '../types/EventTypes';
 
 // Replace these with your actual Supabase URL and anon key
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
@@ -76,7 +76,6 @@ export const fetchCycles = async (discordGuildId?: string) => {
     console.error('Error fetching cycles:', error);
     return { cycles: [], error };
   }
-
   // Transform database cycles to frontend format
   const cycles: Cycle[] = data.map(dbCycle => ({
     id: dbCycle.id,
@@ -84,8 +83,8 @@ export const fetchCycles = async (discordGuildId?: string) => {
     description: dbCycle.description || '',
     startDate: dbCycle.start_date,
     endDate: dbCycle.end_date,
-    type: dbCycle.type,
-    status: dbCycle.status,
+    type: dbCycle.type as CycleType,
+    status: dbCycle.status as 'active' | 'completed' | 'upcoming',
     restrictedTo: dbCycle.restricted_to || [],
     creator: {
       boardNumber: dbCycle.creator_board_number || '',
@@ -102,7 +101,6 @@ export const createCycle = async (cycle: Omit<Cycle, 'id' | 'creator'> & { disco
   if (userError || !user) {
     return { cycle: null, error: userError || new Error('User not authenticated') };
   }
-
   // Map from frontend format to database format
   const { data, error } = await supabase
     .from('cycles')
@@ -114,7 +112,7 @@ export const createCycle = async (cycle: Omit<Cycle, 'id' | 'creator'> & { disco
       type: cycle.type,
       status: cycle.status,
       restricted_to: cycle.restrictedTo,
-      discord_guild_id: cycle.discordGuildId, // Add Discord guild ID
+      discord_guild_id: cycle.discordGuildId || '', // Add Discord guild ID with empty string fallback
       creator_id: user.id,
       // Optional user profile info
       creator_call_sign: user.user_metadata?.callsign,
@@ -136,8 +134,8 @@ export const createCycle = async (cycle: Omit<Cycle, 'id' | 'creator'> & { disco
     description: data.description || '',
     startDate: data.start_date,
     endDate: data.end_date,
-    type: data.type,
-    status: data.status,
+    type: data.type as CycleType,
+    status: data.status as 'active' | 'completed' | 'upcoming',
     restrictedTo: data.restricted_to || [],
     creator: {
       boardNumber: data.creator_board_number || '',
@@ -180,8 +178,8 @@ export const updateCycle = async (cycleId: string, updates: Partial<Omit<Cycle, 
     description: data.description || '',
     startDate: data.start_date,
     endDate: data.end_date,
-    type: data.type,
-    status: data.status,
+    type: data.type as CycleType,
+    status: data.status as 'active' | 'completed' | 'upcoming',
     restrictedTo: data.restricted_to || [],
     creator: {
       boardNumber: data.creator_board_number || '',
@@ -229,13 +227,13 @@ export const fetchEvents = async (cycleId?: string, discordGuildId?: string) => 
   if (discordGuildId) {
     query = query.eq('discord_guild_id', discordGuildId);
   }
-
   const { data, error } = await query.order('start_datetime', { ascending: false });
 
   if (error) {
     console.error('Error fetching events:', error);
     return { events: [], error };
   }
+  
   // Transform database events to frontend format without attendance data
   // We'll fetch attendance separately based on discord_event_id
   const events: Event[] = data.map(dbEvent => {
@@ -245,7 +243,7 @@ export const fetchEvents = async (cycleId?: string, discordGuildId?: string) => 
       title: dbEvent.name, // DB field is 'name', frontend uses 'title'
       description: dbEvent.description || '',
       datetime: dbEvent.start_datetime, // DB field is 'start_datetime', frontend uses 'datetime'
-      endDatetime: dbEvent.end_datetime, // Include end datetime with correct camelCase
+      endDatetime: dbEvent.end_datetime, // Map end_datetime from DB to endDatetime in frontend
       status: dbEvent.status || 'upcoming',
       eventType: dbEvent.event_type as EventType | undefined,
       cycleId: dbEvent.cycle_id || undefined,
@@ -273,7 +271,6 @@ export const createEvent = async (event: Omit<Event, 'id' | 'creator' | 'attenda
   if (userError || !user) {
     return { event: null, error: userError || new Error('User not authenticated') };
   }
-
   // Map from frontend format to database format
   const { data, error } = await supabase
     .from('events')
@@ -285,7 +282,7 @@ export const createEvent = async (event: Omit<Event, 'id' | 'creator' | 'attenda
       status: event.status,
       event_type: event.eventType,
       cycle_id: event.cycleId,
-      discord_guild_id: event.discordGuildId // Add Discord guild ID
+      discord_guild_id: event.discordGuildId || '' // Add Discord guild ID with empty string fallback
       // No restricted_to or creator fields in the DB schema
     })
     .select()
@@ -295,14 +292,13 @@ export const createEvent = async (event: Omit<Event, 'id' | 'creator' | 'attenda
     console.error('Error creating event:', error);
     return { event: null, error };
   }
-
   // Transform to frontend format
   const newEvent: Event = {
     id: data.id,
     title: data.name, // DB field is 'name', frontend uses 'title'
     description: data.description || '',
     datetime: data.start_datetime, // DB field is 'start_datetime', frontend uses 'datetime'
-    end_datetime: data.end_datetime, // Include end datetime if available
+    endDatetime: data.end_datetime, // Map end_datetime from DB to endDatetime in frontend
     status: data.status || 'upcoming',
     eventType: data.event_type as EventType | undefined,
     cycleId: data.cycle_id || undefined,
@@ -325,15 +321,14 @@ export const createEvent = async (event: Omit<Event, 'id' | 'creator' | 'attenda
 export const updateEvent = async (eventId: string, updates: Partial<Omit<Event, 'id' | 'creator' | 'attendance'>>) => {
   // Map from frontend format to database format
   const dbUpdates: any = {};
-  
   if (updates.title !== undefined) dbUpdates.name = updates.title; // Frontend uses 'title', DB field is 'name'
   if (updates.description !== undefined) dbUpdates.description = updates.description;
   if (updates.datetime !== undefined) dbUpdates.start_datetime = updates.datetime; // Frontend uses 'datetime', DB uses 'start_datetime'
-  if (updates.end_datetime !== undefined) dbUpdates.end_datetime = updates.end_datetime; // Include end datetime
+  if (updates.endDatetime !== undefined) dbUpdates.end_datetime = updates.endDatetime; // Frontend uses 'endDatetime', DB uses 'end_datetime'
   if (updates.status !== undefined) dbUpdates.status = updates.status;
-  if (updates.eventType !== undefined) dbUpdates.event_type = updates.eventType;
-  if (updates.cycleId !== undefined) dbUpdates.cycle_id = updates.cycleId;
-  if (updates.discordEventId !== undefined) dbUpdates.discord_event_id = updates.discordEventId;
+  if ((updates as any).eventType !== undefined) dbUpdates.event_type = (updates as any).eventType;
+  if ((updates as any).cycleId !== undefined) dbUpdates.cycle_id = (updates as any).cycleId;
+  if ((updates as any).discordEventId !== undefined) dbUpdates.discord_event_id = (updates as any).discordEventId;
   // No restricted_to in the DB schema
 
   const { data, error } = await supabase
@@ -354,7 +349,6 @@ export const updateEvent = async (eventId: string, updates: Partial<Omit<Event, 
     declined: [],
     tentative: []
   };
-
   // If there's a Discord event ID, fetch attendance from discord_event_attendance
   if (data.discord_event_id) {
     const { data: attendanceData, error: attendanceError } = await supabase
@@ -362,36 +356,35 @@ export const updateEvent = async (eventId: string, updates: Partial<Omit<Event, 
       .select('*')
       .eq('discord_event_id', data.discord_event_id);
 
-    if (!attendanceError && attendanceData) {
-      // Process attendance data
+    if (!attendanceError && attendanceData) {      // Process attendance data
       attendanceData.forEach(record => {
         const attendee = {
-          boardNumber: record.board_number || '',
-          callsign: record.call_sign || '',
-          billet: record.billet || undefined
+          boardNumber: '', // Not available in schema
+          callsign: record.discord_username || '', // Using discord_username instead of call_sign
+          discord_id: record.discord_id // Include discord_id from the schema
         };
 
-        if (record.status === 'accepted') {
-          attendance.accepted.push(attendee);
-        } else if (record.status === 'declined') {
-          attendance.declined.push(attendee);
-        } else if (record.status === 'tentative') {
-          attendance.tentative.push(attendee);
+        // Use user_response instead of status
+        if (record.user_response === 'accepted') {
+          (attendance.accepted as any[]).push(attendee);
+        } else if (record.user_response === 'declined') {
+          (attendance.declined as any[]).push(attendee);
+        } else if (record.user_response === 'tentative') {
+          (attendance.tentative as any[]).push(attendee);
         }
       });
     } else if (attendanceError) {
       console.error('Error fetching attendance:', attendanceError);
     }
   }
-
   // Transform to frontend format
   const updatedEvent: Event = {
     id: data.id,
     title: data.name, // DB field is 'name', frontend uses 'title'
     description: data.description || '',
     datetime: data.start_datetime, // DB field is 'start_datetime', frontend uses 'datetime'
-    end_datetime: data.end_datetime, // Include end datetime if available
-    status: data.status || 'upcoming',
+    endDatetime: data.end_datetime, // Use endDatetime (camelCase) for frontend consistency
+    status: (data.status as string) || 'upcoming',
     eventType: data.event_type as EventType | undefined,
     cycleId: data.cycle_id || undefined,
     discordEventId: data.discord_event_id || undefined,
@@ -423,19 +416,19 @@ export const updateEventAttendance = async (eventId: string, status: 'accepted' 
     return { error: userError || new Error('User not authenticated') };
   }
 
-  // Get user profile for additional info
-  const { data: userProfile } = await supabase
-    .from('user_profiles')
-    .select('callsign, board_number, billet')
-    .eq('user_id', user.id)
-    .single();
-
+  // Get user metadata from auth, instead of trying to use a user_profiles table
+  // which might not exist in your database schema
+  const userData = {
+    callsign: user.user_metadata?.callsign,
+    boardNumber: user.user_metadata?.board_number,
+    billet: user.user_metadata?.billet
+  };
   // Check if attendance record already exists
   const { data: existingAttendance } = await supabase
     .from('discord_event_attendance')
     .select('*')
-    .eq('event_id', eventId)
-    .eq('user_id', user.id)
+    .eq('discord_event_id', eventId)  // Assuming we're using discord_event_id instead of event_id
+    .eq('discord_id', user.id)        // Assuming we're using discord_id instead of user_id
     .single();
 
   let error;
@@ -445,10 +438,9 @@ export const updateEventAttendance = async (eventId: string, status: 'accepted' 
     const { error: updateError } = await supabase
       .from('discord_event_attendance')
       .update({
-        status,
-        call_sign: userProfile?.callsign || user.user_metadata?.callsign,
-        board_number: userProfile?.board_number || user.user_metadata?.board_number,
-        billet: userProfile?.billet || user.user_metadata?.billet
+        user_response: status,  // Using user_response instead of status
+        discord_username: userData.callsign || ''  // Using discord_username instead of call_sign
+        // Removed board_number and billet as they might not exist in your schema
       })
       .eq('id', existingAttendance.id);
     
@@ -458,12 +450,10 @@ export const updateEventAttendance = async (eventId: string, status: 'accepted' 
     const { error: insertError } = await supabase
       .from('discord_event_attendance')
       .insert({
-        event_id: eventId,
-        user_id: user.id,
-        status,
-        call_sign: userProfile?.callsign || user.user_metadata?.callsign,
-        board_number: userProfile?.board_number || user.user_metadata?.board_number,
-        billet: userProfile?.billet || user.user_metadata?.billet
+        discord_event_id: eventId,  // Using discord_event_id instead of event_id
+        discord_id: user.id,         // Using discord_id instead of user_id
+        user_response: status,       // Using user_response instead of status
+        discord_username: userData.callsign || ''  // Using discord_username instead of call_sign
       });
     
     error = insertError;
@@ -506,29 +496,28 @@ export const fetchEventAttendance = async (eventId: string) => {
       error: attendanceError 
     };
   }
-
   // Process attendance data into the expected format
   const attendance = {
     accepted: [],
     declined: [],
     tentative: []
   };
-
   // If we have attendance records, process them
   if (attendanceData && attendanceData.length > 0) {
     attendanceData.forEach(record => {
       const attendee = {
-        boardNumber: record.board_number || '',
-        callsign: record.call_sign || '',
-        billet: record.billet || undefined
+        boardNumber: '', // These fields don't appear to exist in your schema
+        callsign: record.discord_username || '', // Using discord_username instead
+        discord_id: record.discord_id
       };
 
-      if (record.status === 'accepted') {
-        attendance.accepted.push(attendee);
-      } else if (record.status === 'declined') {
-        attendance.declined.push(attendee);
-      } else if (record.status === 'tentative') {
-        attendance.tentative.push(attendee);
+      // Use user_response instead of status
+      if (record.user_response === 'accepted') {
+        (attendance.accepted as any[]).push(attendee);
+      } else if (record.user_response === 'declined') {
+        (attendance.declined as any[]).push(attendee);
+      } else if (record.user_response === 'tentative') {
+        (attendance.tentative as any[]).push(attendee);
       }
     });
   }
