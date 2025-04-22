@@ -24,6 +24,11 @@ export interface Event {
     datetime: string; // Maps to start_datetime in database
     endDatetime?: string | null; // Maps to end_datetime in database
     status: string | null;
+    eventType?: EventType | undefined; // Maps to event_type in database
+    cycleId?: string | undefined; // Maps to cycle_id in database
+    discordEventId?: string | undefined; // Maps to discord_event_id in database
+    imageUrl?: string | undefined; // Maps to image_url in database
+    restrictedTo?: string[]; // Used in code but not in database schema
     creator: {
       boardNumber: string;
       callsign: string;
@@ -49,9 +54,4 @@ export interface Event {
         discord_id?: string;
       }>;
     };
-    cycleId?: string | null; // Maps to cycle_id in database
-    eventType?: EventType | string | null; // Maps to event_type or type in database
-    guildId?: string | null; // Maps to discord_guild_id in database
-    discordEventId?: string | null; // ID of the event in Discord
-    imageUrl?: string | null; // Maps to image_url in database
-  }
+}
