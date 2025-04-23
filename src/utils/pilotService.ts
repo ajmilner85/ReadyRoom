@@ -1,9 +1,5 @@
 import { supabase } from './supabaseClient';
-import type { Database } from '../types/supabase';
-
-export type Pilot = Database['public']['Tables']['pilots']['Row'];
-export type NewPilot = Database['public']['Tables']['pilots']['Insert'];
-export type UpdatePilot = Database['public']['Tables']['pilots']['Update'];
+import { Pilot, NewPilot, UpdatePilot, Role } from './pilotTypes';
 
 /**
  * Fetch all pilots from the database
@@ -19,14 +15,15 @@ export async function getAllPilots(): Promise<{ data: Pilot[] | null; error: any
         name
       )
     `)
-    .order('boardNumber', { ascending: true });
-
+    .order('boardNumber', { ascending: true });  // Explicitly cast data to Pilot[] to ensure TypeScript recognizes our custom properties
+  const pilotData = (data as unknown as Pilot[]) || null;
+  
   // Transform the data to include role as a string property
-  if (data) {
+  if (pilotData) {
     // Log raw data for debugging
-    console.log('Raw data from Supabase:', data.slice(0, 3));
+    console.log('Raw data from Supabase:', pilotData.slice(0, 3));
     
-    await Promise.all(data.map(async (pilot) => {
+    await Promise.all(pilotData.map(async (pilot) => {
       // Check if pilot has role_id but the join didn't work
       if (pilot.role_id && (!pilot.roles || !pilot.roles.name)) {
         console.log(`Pilot ${pilot.callsign} has role_id (${pilot.role_id}) but no joined role data`);
@@ -54,13 +51,13 @@ export async function getAllPilots(): Promise<{ data: Pilot[] | null; error: any
       }
     }));
   }
-
-  console.log('getAllPilots processed data:', data && data.map(p => ({
+  
+  console.log('getAllPilots processed data:', pilotData && pilotData.map((p: Pilot) => ({
     callsign: p.callsign,
     role: p.role || 'No role'
   })));
   
-  return { data, error };
+  return { data: pilotData, error };
 }
 
 /**
@@ -196,7 +193,7 @@ export async function updatePilotRoles(
   console.warn('updatePilotRoles is deprecated. Please use updatePilotRole instead.');
   const { data, error } = await supabase
     .from('pilots')
-    .update({ roles })
+    .update({ role_id: roles }) // Changed from 'roles' to 'role_id' as that's what exists in the schema
     .eq('id', id)
     .select()
     .single();
@@ -329,7 +326,14 @@ export async function getPilotRole(pilotId: string): Promise<{
       throw roleError;
     }
     
-    return { data: role || null, error: null };
+    // Ensure created_at is always a string if role exists
+    return { 
+      data: role ? {
+        ...role,
+        created_at: role.created_at || ''
+      } as Role : null, 
+      error: null 
+    };
   } catch (error) {
     console.error('Error in getPilotRole:', error);
     return { data: null, error };
@@ -475,9 +479,11 @@ export async function getPilotAssignedRoles(pilotId: string): Promise<{
     if (roleError) {
       throw roleError;
     }
-    
-    return { 
-      data: role ? [role] : [], 
+      return { 
+      data: role ? [{
+        ...role,
+        created_at: role.created_at || ''  // Ensure created_at is always a string
+      }] : [], 
       error: null
     };
   } catch (error) {

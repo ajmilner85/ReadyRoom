@@ -198,18 +198,16 @@ const RosterManagement: React.FC = () => {
         setPilots(prevPilots => 
           prevPilots.map(pilot => 
             pilot.id === pilotId 
-              ? { ...pilot, discordUsername: '', discordID: null, discord_original_id: null } 
+              ? { ...pilot, discordUsername: '' } 
               : pilot
           )
         );
-        
+          
         // If this was the selected pilot, update that too
         if (selectedPilot && selectedPilot.id === pilotId) {
           setSelectedPilot({
             ...selectedPilot,
-            discordUsername: '',
-            discordID: null,
-            discord_original_id: null
+            discordUsername: ''
           });
         }
 
@@ -972,7 +970,7 @@ const RosterManagement: React.FC = () => {
       };
       
       // Update pilot basic info
-      const { data, error } = await updatePilot(actualPilotId, updatePayload);
+      const { error } = await updatePilot(actualPilotId, updatePayload);
       
       if (error) {
         throw new Error(error.message || 'Failed to update pilot');
@@ -1101,9 +1099,9 @@ const RosterManagement: React.FC = () => {
               }
             }
             
-            // Set role if available from the join
-            if (pilot.role_name) {
-              legacyPilot.role = pilot.role_name;
+            // Set role using the role property from data if available
+            if (pilot.roles && pilot.roles.name) {
+              legacyPilot.role = pilot.roles.name;
             }
             
             return legacyPilot;
@@ -1182,7 +1180,6 @@ const RosterManagement: React.FC = () => {
         isOpen={isDiscordImportOpen} 
         onClose={() => setIsDiscordImportOpen(false)}
         onComplete={handleDiscordSyncComplete}
-        selectedPilotId={selectedPilot?.id} // Pass the selectedPilotId to track
       />
       
       {loading && !pilots.length ? (

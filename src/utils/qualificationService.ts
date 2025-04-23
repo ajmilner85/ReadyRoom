@@ -6,14 +6,14 @@ export interface Qualification {
   id: string;
   name: string;
   code: string;
-  color?: string; // Color for the qualification badge
+  color?: string | null; // Color for the qualification badge
   requirements: any; // JSON data for requirements
   category: string | null;
   is_expirable: boolean;
   validity_period: number | null; // In days
   active: boolean;
   created_at?: string;
-  updated_at?: string;
+  updated_at?: string | null;
 }
 
 // Cache for storing pilot qualification data to avoid duplicate requests
@@ -168,7 +168,7 @@ export async function archiveQualification(id: string): Promise<{ data: Qualific
  */
 export async function getQualificationUsageCount(qualificationId: string): Promise<{ count: number; error: any }> {
   try {
-    const { data, error, count } = await supabase
+    const { error, count } = await supabase
       .from('pilot_qualifications')
       .select('id', { count: 'exact' })
       .eq('qualification_id', qualificationId);
@@ -313,7 +313,7 @@ async function getActualPilotId(pilotId: string): Promise<string> {
 export async function getPilotQualifications(pilotId: string): Promise<{ data: any[] | null; error: any }> {
   try {
     // If there's already a pending request for this pilotId, return that promise
-    if (pendingRequests[pilotId]) {
+    if (Object.prototype.hasOwnProperty.call(pendingRequests, pilotId)) {
       return pendingRequests[pilotId];
     }
     

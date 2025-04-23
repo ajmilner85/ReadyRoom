@@ -37,6 +37,7 @@ QOL:
 - Add user_settings table to supabase
 
 Cosmetic:
+- Remove placeholder text for aircraft icons on mission preparation page
 - Add loading indicators to all pages
 - Get server emoji's for event responses etc.
 - Mission Coordination

@@ -23,17 +23,18 @@ export interface Qualification {
   dateAchieved: string;
 }
 
-// Legacy Pilot interface
+// Pilot interface with standardized identifiers
 export interface Pilot {
-  id: string;
+  id: string;                 // Primary identifier - Supabase UUID
+  discordId?: string;         // Discord user ID (previously stored in id)
   callsign: string;
-  boardNumber: string;
+  boardNumber: string;        // Not a unique identifier, just a display property
   status: PilotStatus;
-  status_id?: string; // Added to support new status system
+  status_id?: string;         // Foreign key to statuses table
   billet: string;
   qualifications: Qualification[];
   discordUsername: string;
-  role?: string; // Added role field to display in the UI
+  role?: string;              // Role name for display in the UI
 }
 
 // Supabase Pilot interface - matches our database schema
@@ -53,14 +54,19 @@ export interface SupabasePilot {
   role?: string; // Added for runtime property set in pilotService.ts
 }
 
-// Convert legacy pilot format to Supabase format
-export function convertLegacyPilotToSupabase(pilot: Pilot): Omit<SupabasePilot, 'created_at' | 'updated_at'> {
+/**
+ * @deprecated This function is deprecated and should not be used for new development.
+ * All new pilot entries should be created directly using the Supabase schema format.
+ * Use pilotDataUtils.ts functions instead for working with pilot data.
+ */
+export function convertPilotToSupabase(pilot: Pilot): Omit<SupabasePilot, 'created_at' | 'updated_at'> {
+  console.warn('convertPilotToSupabase is deprecated and should not be used for new code');
   return {
     id: pilot.id,
     callsign: pilot.callsign,
     boardNumber: parseInt(pilot.boardNumber),
     discordId: pilot.discordUsername,
-    discord_original_id: pilot.id,
+    discord_original_id: pilot.discordId, // Use the standardized discordId property
     qualifications: pilot.qualifications.map(q => q.type),
     roles: {
       squadron: pilot.billet,
@@ -71,14 +77,20 @@ export function convertLegacyPilotToSupabase(pilot: Pilot): Omit<SupabasePilot, 
   };
 }
 
-// Convert Supabase pilot format to legacy format (for backwards compatibility)
+/**
+ * @deprecated This function is deprecated and should not be used for new development.
+ * Your application should work directly with SupabasePilot objects.
+ * Use pilotDataUtils.ts functions instead for working with pilot data.
+ */
 export function convertSupabasePilotToLegacy(pilot: SupabasePilot): Pilot {
+  console.warn('convertSupabasePilotToLegacy is deprecated - use pilotDataUtils.ts instead');
   return {
-    id: pilot.id, // Always use the database UUID as the ID
+    id: pilot.id,                        // Use Supabase UUID as the primary ID
+    discordId: pilot.discord_original_id, // Store Discord ID in dedicated field
     callsign: pilot.callsign,
     boardNumber: pilot.boardNumber.toString(),
-    status: 'Provisional', // Default, should be updated with actual value
-    status_id: pilot.status_id, // Include status_id if available
+    status: 'Provisional',               // Default, should be updated with actual value
+    status_id: pilot.status_id,          // Include status_id if available
     billet: pilot.roles?.squadron || '',
     qualifications: (pilot.qualifications || []).map((q, index) => ({
       id: `${pilot.id}-${index}`,
@@ -86,6 +98,6 @@ export function convertSupabasePilotToLegacy(pilot: SupabasePilot): Pilot {
       dateAchieved: new Date().toISOString().split('T')[0]
     })),
     discordUsername: pilot.discordId || '', // Use discordId (username) for display
-    role: pilot.role_name || pilot.role // Check for both role_name and role properties
+    role: pilot.role_name || pilot.role   // Check for both role_name and role properties
   };
 }
