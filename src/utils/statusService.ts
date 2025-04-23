@@ -65,7 +65,7 @@ export async function deleteStatus(id: string): Promise<{ success: boolean; erro
  * Returns the number of pilots currently using this status ID
  */
 export async function getStatusUsageCount(statusId: string): Promise<{ count: number; error: any }> {
-  const { data, error, count } = await supabase
+  const { error, count } = await supabase
     .from('pilots')
     .select('id', { count: 'exact' })
     .eq('status_id', statusId);

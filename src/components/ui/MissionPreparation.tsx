@@ -8,10 +8,11 @@ import Communications from './mission prep/Communications';
 import PilotDragOverlay from './mission-execution/PilotDragOverlay';
 import { getAllPilots } from '../../utils/pilotService';
 import { getPilotQualifications } from '../../utils/qualificationService';
-import { convertSupabasePilotToLegacy } from '../../types/PilotTypes';
 import type { Event } from '../../types/EventTypes';
-import type { Pilot } from '../../types/PilotTypes';
+import { Pilot } from '../../types/PilotTypes';
 import type { MissionCommanderInfo } from '../../types/MissionCommanderTypes';
+// Use our new adapter utilities for the transition to Supabase as source of truth
+import { fetchPilotsWithAdapter, getActivePilots } from './mission-prep-pilot-adapter';
 import type { Flight, ExtractedFlight } from '../../types/FlightData';
 // Import supabase client and fetch events function
 import { supabase, fetchEvents } from '../../utils/supabaseClient';
@@ -109,49 +110,22 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
       console.error('Failed to fetch events:', err.message);
     }
   };
-  
-  // Fetch pilots from Supabase when component mounts
+    // Fetch pilots from Supabase when component mounts  
   useEffect(() => {
     const fetchPilots = async () => {
       setIsLoading(true);
       try {
-        const { data, error } = await getAllPilots();
+        // Use our adapter utility to handle the fetching and conversion in one step
+        // This isolates the Supabase-specific logic and type handling
+        const legacyPilots = await fetchPilotsWithAdapter(getAllPilots);
         
-        if (error) {
-          throw new Error(error.message);
-        }
-
-        if (data && data.length > 0) {
-          // Convert Supabase format to the format our UI expects
-          const convertedPilots = data.map(pilot => {
-            const legacyPilot = convertSupabasePilotToLegacy(pilot);
-            if (pilot.discord_original_id) {
-              legacyPilot.id = pilot.discord_original_id;
-            }
-            
-            // Store supabase_id consistently for qualification lookups
-            legacyPilot.supabase_id = pilot.id;
-            
-            // Set status based on squadron role if not set
-            if (!legacyPilot.status) {
-              const role = pilot.roles?.squadron?.toLowerCase() || '';
-              if (role.includes('co')) {
-                legacyPilot.status = 'Command';
-              } else if (role.includes('xo')) {
-                legacyPilot.status = 'Command';
-              } else if (role.includes('oic')) {
-                legacyPilot.status = 'Staff';
-              } else if (role.includes('ret')) {
-                legacyPilot.status = 'Retired';
-              }
-            }
-            return legacyPilot;
-          });
-          setPilots(convertedPilots);
+        if (legacyPilots.length > 0) {
+          // Set pilots state to the adapted legacy format
+          setPilots(legacyPilots);
           
           // After fetching pilots, also fetch their qualifications
-          await fetchAllPilotQualifications(convertedPilots);
-
+          await fetchAllPilotQualifications(legacyPilots);
+          
           setLoadError(null);
         } else {
           // No pilots in database
@@ -168,10 +142,9 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
 
     fetchPilots();
   }, []);
-  
-  // Function to fetch qualifications for all pilots
+    // Function to fetch qualifications for all pilots
   const fetchAllPilotQualifications = async (pilotsList: Pilot[]) => {
-    if (pilotsList.length === 0) return;
+    if (!pilotsList || pilotsList.length === 0) return;
     
     try {
       const qualMap: Record<string, any[]> = {};
@@ -182,8 +155,9 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
       
       // Fetch qualifications for each pilot
       for (const pilot of pilotsList) {
-        // Always prioritize the Supabase UUID if available
-        const pilotId = pilot.supabase_id || pilot.id;
+        // Use the id property (Supabase UUID) for qualification lookups
+        // This is the key to making Supabase the source of truth
+        const pilotId = pilot.id;
         
         if (!pilotId) {
           console.warn(`Skipping qualification fetch for pilot with no ID: ${pilot.callsign} (${pilot.boardNumber})`);
@@ -193,14 +167,12 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
         // Create a promise for fetching this pilot's qualifications
         const fetchPromise = async () => {
           const { data, error } = await getPilotQualifications(pilotId);
-          
-          if (error) {
+            if (error) {
             console.warn(`Error fetching qualifications for ${pilot.callsign} with ID ${pilotId}:`, error);
           } else if (data) {
-            // Store in qualMap using all available pilot identifiers for easier lookup
+            // Store in qualMap using pilot ID and board number for easier lookup
             qualMap[pilot.boardNumber] = data;
             qualMap[pilot.id] = data;
-            if (pilot.supabase_id) qualMap[pilot.supabase_id] = data;
             
             // Only log if we actually found qualifications
             if (data.length > 0) {
@@ -210,7 +182,6 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
             // Initialize empty arrays to avoid undefined checks later
             qualMap[pilot.boardNumber] = [];
             qualMap[pilot.id] = [];
-            if (pilot.supabase_id) qualMap[pilot.supabase_id] = [];
           }
         };
         
@@ -227,12 +198,16 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
       console.error('Error fetching all pilot qualifications:', err);
     }
   };
-  
   // Filter out inactive and retired pilots
   const activePilots = useMemo(() => {
-    return pilots.filter(pilot => 
+    if (!pilots || pilots.length === 0) return [];
+    
+    // Add a type parameter to the filter for better type safety
+    return pilots.filter((pilot: Pilot) => 
       pilot.status !== 'Inactive' && pilot.status !== 'Retired'
     );
+    // TODO: In the future, when fully migrated to using SupabasePilot directly:
+    // return supabasePilots.filter(isPilotActive);
   }, [pilots]);
   
   // Use the external state if provided, otherwise use local state
@@ -303,7 +278,6 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
     assignedPilots,
     setAssignedPilots
   });
-
   // Get mission commander candidates with additional flight info
   const getMissionCommanderCandidatesWrapper = useCallback(() => {
     const candidates = getMissionCommanderCandidates(assignedPilots);
@@ -391,11 +365,10 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
     };
 
     // Function to get pilot's highest qualification priority 
-    const getPilotPriority = (pilot: Pilot): number => {
-      // Get pilot qualifications from the database
+    const getPilotPriority = (pilot: Pilot): number => {      // Get pilot qualifications from the database using the primary ID or board number
       const pilotQuals = allPilotQualifications[pilot.id] || 
                         allPilotQualifications[pilot.boardNumber] || 
-                        allPilotQualifications[pilot.supabase_id || ""] || [];
+                        [];
       
       // Default priority if no qualifications are found
       let highestPriority = 10; // Default lower than wingman

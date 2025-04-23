@@ -44,12 +44,11 @@ export async function publishEventToDiscord(event: Event): Promise<PublishEventR
     
     // Function to attempt the publish request
     const attemptPublish = async (retryCount: number = 0): Promise<PublishEventResponse> => {
-      try {
-        // Use the datetime field as the startTime if startTime is not provided
-        const startTime = event.startTime || event.datetime;
+      try {        // Use the datetime field as the startTime
+        const startTime = event.datetime;
         
         // Calculate an endTime 1 hour after startTime if not provided
-        let endTime = event.endTime || event.endDatetime;
+        let endTime = event.endDatetime;
         if (!endTime && startTime) {
           const startDate = new Date(startTime);
           const endDate = new Date(startDate.getTime() + 60 * 60 * 1000); // Add 1 hour
@@ -419,11 +418,10 @@ export async function deleteDiscordMessage(eventOrMessageId: Event | string, gui
     if (!guildId || !channelId) {
       try {
         console.log(`[DEBUG] Looking up server/channel info for message: ${discordMessageId}`);
-        
-        // First try to get IDs from the events table
+          // First try to get IDs from the events table
         const { data: eventData, error: eventError } = await supabase
           .from('events')
-          .select('id, discord_guild_id, discord_channel_id, discord_event_id')
+          .select('id, discord_event_id, discordEventId')
           .eq('discord_event_id', discordMessageId)
           .single();
           
@@ -435,34 +433,36 @@ export async function deleteDiscordMessage(eventOrMessageId: Event | string, gui
         if (!eventError && eventData) {
           console.log(`[DEBUG] Found event with message ID ${discordMessageId}: ${JSON.stringify(eventData)}`);
           
-          if (!guildId && eventData.discord_guild_id) {
-            guildId = eventData.discord_guild_id;
+          // Note: It appears discord_guild_id and discord_channel_id might not exist in your schema
+          // Using type checking to safely access potentially non-existent properties
+          if (!guildId && 'discord_guild_id' in eventData) {
+            guildId = eventData['discord_guild_id'] as string;
             console.log(`[DEBUG] Using guild ID from events table: ${guildId}`);
           }
           
-          if (!channelId && eventData.discord_channel_id) {
-            channelId = eventData.discord_channel_id;
+          if (!channelId && 'discord_channel_id' in eventData) {
+            channelId = eventData['discord_channel_id'] as string;
             console.log(`[DEBUG] Using channel ID from events table: ${channelId}`);
           }
-        } else {
-          // If not found with discord_event_id, try looking up with discordMessageId as the field name
+        } else {          // If not found with discord_event_id, try looking up with discordMessageId as the field name
           console.log(`[DEBUG] Trying alternative lookup with field 'discordMessageId'`);
           const { data: altEventData, error: altEventError } = await supabase
             .from('events')
-            .select('id, discord_guild_id, discord_channel_id, discordMessageId')
+            .select('id, discordMessageId, discordEventId')
             .eq('discordMessageId', discordMessageId)
             .single();
             
           if (!altEventError && altEventData) {
             console.log(`[DEBUG] Found event with alt field lookup: ${JSON.stringify(altEventData)}`);
             
-            if (!guildId && altEventData.discord_guild_id) {
-              guildId = altEventData.discord_guild_id;
+            // Safe access with type checking for alternative lookup as well
+            if (!guildId && 'discord_guild_id' in altEventData) {
+              guildId = altEventData['discord_guild_id'] as string;
               console.log(`[DEBUG] Using guild ID from alternative lookup: ${guildId}`);
             }
             
-            if (!channelId && altEventData.discord_channel_id) {
-              channelId = altEventData.discord_channel_id;
+            if (!channelId && 'discord_channel_id' in altEventData) {
+              channelId = altEventData['discord_channel_id'] as string;
               console.log(`[DEBUG] Using channel ID from alternative lookup: ${channelId}`);
             }
           } else if (altEventError) {
@@ -623,32 +623,16 @@ export async function syncDiscordAttendance(eventId: string, discordMessageId: s
     }
     
     // For each attendee, update or create attendance record in the database
-    for (const attendee of attendanceData.attendees) {
-      // Get pilot by Discord user ID
-      const { data: pilots, error: pilotError } = await supabase
-        .from('pilots')
-        .select('id')
-        .eq('discord_id', attendee.userId)
-        .single();
-        
-      if (pilotError || !pilots) {
-        continue;
-      }
-      
-      // Map Discord status to local attendance status
-      let status = 'confirmed';
-      if (attendee.status === 'maybe') status = 'tentative';
-      if (attendee.status === 'no') status = 'declined';
-      
-      // Upsert attendance record
-      const { error } = await supabase
-        .from('event_attendance')
+    for (const attendee of attendanceData.attendees) {      // We don't need to look up pilots anymore since we're storing Discord data directly
+      // Just record the Discord attendance directly
+      console.log(`[DEBUG] Recording Discord attendance for user ${attendee.username} with status ${attendee.status}`);// Upsert attendance record to discord_event_attendance table with the correct schema
+      await supabase
+        .from('discord_event_attendance')
         .upsert({
-          event_id: eventId,
-          pilot_id: pilots.id,
-          status: status,
-          discord_synced: true,
-          last_synced: new Date().toISOString()
+          discord_event_id: discordMessageId,
+          discord_id: attendee.userId,
+          discord_username: attendee.username,
+          user_response: attendee.status
         });
     }
     

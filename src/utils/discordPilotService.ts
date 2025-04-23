@@ -1,5 +1,5 @@
 import { supabase } from './supabaseClient';
-import type { Pilot, SupabasePilot } from '../types/PilotTypes';
+import type { Pilot } from '../types/PilotTypes'; // Removed unused SupabasePilot import
 import { convertSupabasePilotToLegacy } from '../types/PilotTypes';
 
 export interface DiscordMember {
@@ -62,12 +62,17 @@ export async function fetchDiscordGuildMembers(): Promise<DiscordMember[]> {
       return [];
     }
 
-    // Process the discord members to extract board numbers, callsigns, and roles
-    const members = data.members.map((member: any) => {
+  // Process the discord members to extract board numbers, callsigns, and roles
+    const members = data.members.map((member: {
+      id: string;
+      username: string;
+      displayName: string;
+      roles?: string[];
+      isBot?: boolean;
+    }) => {
       // Extract board number and callsign from display name
       // Example formats: "123 Callsign", "123/Callsign", "123 | Callsign", etc.
       const boardNumberMatch = member.displayName.match(/^(\d{3})[\s|\/\-_]+(.+)$/);
-      
       return {
         id: member.id,
         username: member.username,
@@ -82,7 +87,7 @@ export async function fetchDiscordGuildMembers(): Promise<DiscordMember[]> {
     });
     
     // Filter out bot users
-    return members.filter(member => !member.isBot);
+    return members.filter((member: DiscordMember) => !member.isBot);
   } catch (error) {
     console.error('Error fetching Discord guild members:', error);
     throw error;
@@ -158,23 +163,6 @@ async function getStatusIdByName(statusName: string): Promise<string> {
       .single();
       
     return firstStatus?.id || '';
-  }
-  
-  return data.id;
-}
-
-/**
- * Helper function to get role ID by name
- */
-async function getRoleIdByName(roleName: string): Promise<string | null> {
-  const { data, error } = await supabase
-    .from('roles')
-    .select('id')
-    .eq('name', roleName)
-    .single();
-    
-  if (error || !data) {
-    return null;
   }
   
   return data.id;
@@ -463,12 +451,16 @@ export async function processPilotMatches(matches: DiscordPilotMatch[]): Promise
         if (match.roleId) {
           // Check if the role can be assigned based on status rules
           const statusToCheck = match.statusId || currentPilot.status_id;
-          const roleAssignable = await canAssignRole(match.roleId, statusToCheck, pilotId);
           
-          if (roleAssignable) {
-            updates.role_id = match.roleId;
-          } else {
-            console.log(`Cannot assign role to pilot ${pilotId} due to status constraints or exclusivity rules`);
+          // Make sure both roleId and statusToCheck are strings before calling canAssignRole
+          if (typeof match.roleId === 'string' && typeof statusToCheck === 'string') {
+            const roleAssignable = await canAssignRole(match.roleId, statusToCheck, pilotId);
+            
+            if (roleAssignable) {
+              updates.role_id = match.roleId;
+            } else {
+              console.log(`Cannot assign role to pilot ${pilotId} due to status constraints or exclusivity rules`);
+            }
           }
         }
         

@@ -41,8 +41,19 @@ class TransverseMercator {
   }
 }
 
+// Define valid theatre types to fix the indexing issue
+export type DcsTheatre = 
+  | 'PersianGulf'
+  | 'Falklands'
+  | 'Caucasus'
+  | 'MarianaIslands'
+  | 'Nevada'
+  | 'Normandy'
+  | 'Syria'
+  | 'SinaiMap';
+
 // DCS Theatre projection constants
-const PROJECTION_DEFS = {
+const PROJECTION_DEFS: Record<DcsTheatre, TransverseMercator> = {
   PersianGulf: new TransverseMercator(57, 75755.99999999645, -2894933.0000000377, 0.9996),
   Falklands: new TransverseMercator(-57, 147639.99999997593, 5815417.000000032, 0.9996),
   Caucasus: new TransverseMercator(33, -99516.99999997323, -4998114.999999984, 0.9996),
@@ -57,11 +68,16 @@ const PROJECTION_DEFS = {
  * Get projection definition for a specific theatre
  */
 function getProjectionForTheatre(theatre: string): string {
-  const projection = PROJECTION_DEFS[theatre];
-  if (!projection) {
+  // Type guard to check if the theatre is a valid DcsTheatre
+  const isValidTheatre = (t: string): t is DcsTheatre => {
+    return t in PROJECTION_DEFS;
+  };
+
+  if (!isValidTheatre(theatre)) {
     throw new Error(`TransverseMercator not known for ${theatre}`);
   }
-  return projection.toProj4String();
+
+  return PROJECTION_DEFS[theatre].toProj4String();
 }
 
 /**
