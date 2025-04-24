@@ -100,17 +100,39 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
     setAssignedPilots({});
     setMissionCommander(null);
   }, [setAssignedPilots, setMissionCommander]);
-
   // Auto-assign pilots to flights according to priority rules
-  const handleAutoAssign = useCallback(() => {
+  const handleAutoAssign = useCallback((attendingPilotIds?: string[]) => {
     if (!prepFlights || prepFlights.length === 0) {
       console.log("Cannot auto-assign: no flights available");
       return;
     }
 
+    // Filter pilots to only include those who are attending the event if attendingPilotIds is provided
+    let pilotsToAssign = activePilots;
+    
+    if (attendingPilotIds && attendingPilotIds.length > 0) {
+      console.log("Filtering pilots by attendance, considering only", attendingPilotIds.length, "attending pilots");
+      pilotsToAssign = activePilots.filter(pilot => {
+        // Match by discord ID
+        const discordId = pilot.discordId || 
+                        (pilot as any).discord_original_id ||
+                        (pilot as any).discord_id;
+        
+        const isAttending = discordId && attendingPilotIds.includes(discordId);
+        
+        if (isAttending) {
+          console.log(`Including attending pilot ${pilot.callsign} (${pilot.boardNumber})`);
+        }
+        
+        return isAttending;
+      });
+      
+      console.log(`Auto-assigning with ${pilotsToAssign.length} attending pilots out of ${activePilots.length} total`);
+    }
+
     const { newAssignments, suggestedMissionCommander } = autoAssignPilots(
       prepFlights, 
-      activePilots, 
+      pilotsToAssign, 
       assignedPilots, 
       allPilotQualifications
     );
