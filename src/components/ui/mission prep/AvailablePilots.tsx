@@ -5,13 +5,14 @@ import { Filter } from 'lucide-react';
 import { useDraggable } from '@dnd-kit/core';
 import type { Pilot, QualificationType } from '../../../types/PilotTypes';
 import type { Event } from '../../../types/EventTypes';
+import { supabase } from '../../../utils/supabaseClient';
 
 interface AvailablePilotsProps {
   width: string;
   pilots: Pilot[];
   selectedEvent: Event | null;
   assignedPilots?: Record<string, Pilot[]>;
-  onAutoAssign?: () => void;
+  onAutoAssign?: (attendingPilotIds?: string[]) => void;
   onClearAssignments?: () => void;
   pilotQualifications?: Record<string, any[]>;
 }
@@ -178,6 +179,70 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [showOnlyAttending, setShowOnlyAttending] = useState(false);
   const [selectedQualifications, setSelectedQualifications] = useState<QualificationType[]>([]);
+  const [discordEventAttendance, setDiscordEventAttendance] = useState<any[]>([]);  // Fetch event attendance data using polling, matching the approach in EventAttendance.tsx
+  useEffect(() => {
+    let pollInterval: NodeJS.Timeout | null = null;
+    
+    const fetchEventAttendance = async () => {
+      if (!selectedEvent?.id) {
+        setDiscordEventAttendance([]);
+        return;
+      }
+      
+      try {
+        console.log(`Fetching attendance for event ${selectedEvent.id}`);
+        
+        // Use the same API endpoint as the EventAttendance component
+        const response = await fetch(`http://localhost:3001/api/events/${selectedEvent.id}/attendance`);
+        
+        if (!response.ok) {
+          throw new Error(`Failed to fetch attendance: ${response.statusText}`);
+        }
+        
+        const data = await response.json();
+        console.log('Fetched event attendance:', data);
+        
+        // Transform the attendance data to match the format we need for filtering
+        // We'll create an array of objects with discord_id and response fields
+        const attendanceRecords = [
+          ...data.accepted.map((attendee: any) => ({ 
+            discord_id: attendee.discord_id,
+            response: 'accepted'
+          })),
+          ...data.tentative.map((attendee: any) => ({ 
+            discord_id: attendee.discord_id, 
+            response: 'tentative'
+          })),
+          ...data.declined.map((attendee: any) => ({ 
+            discord_id: attendee.discord_id, 
+            response: 'declined'
+          }))
+        ].filter(record => record.discord_id); // Filter out any without discord_id
+        
+        setDiscordEventAttendance(attendanceRecords);
+      } catch (err) {
+        console.error('Error fetching event attendance:', err);
+        setDiscordEventAttendance([]);
+      }
+    };
+    
+    // Initial fetch
+    fetchEventAttendance();
+    
+    // Set up polling at the same interval as EventAttendance
+    if (selectedEvent?.id) {
+      pollInterval = setInterval(fetchEventAttendance, 5000); // 5 seconds
+      console.log('Set up attendance polling interval');
+    }
+    
+    // Clean up interval when component unmounts or event changes
+    return () => {
+      if (pollInterval) {
+        clearInterval(pollInterval);
+        console.log('Cleaned up attendance polling interval');
+      }
+    };
+  }, [selectedEvent?.id]); // Changed dependency to id instead of discordEventId
 
   const allQualifications = useMemo(() => {
     const qualSet = new Set<QualificationType>();
@@ -215,31 +280,114 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
       return mappedType === qualType;
     });
   };
-
   const filteredPilots = useMemo(() => {
     let filtered = [...pilots];
-
+    
+    console.log('--- FILTERING PILOTS ---');
+    console.log('Total pilots before filtering:', pilots.length);
+    console.log('ShowOnlyAttending:', showOnlyAttending);
+    console.log('Selected Event:', selectedEvent);
+    console.log('Discord Event Attendance data count:', discordEventAttendance.length);
+    
+    if (pilots.length > 0) {
+      console.log('Sample pilot structure:', Object.keys(pilots[0]));
+      console.log('Sample pilot full object:', pilots[0]);
+    }
+    
     if (showOnlyAttending && selectedEvent) {
-      const attendingBoardNumbers = [
-        ...selectedEvent.attendance.accepted,
-        ...selectedEvent.attendance.tentative
-      ].map(p => p.boardNumber);
-      filtered = filtered.filter(pilot => 
-        attendingBoardNumbers.includes(pilot.boardNumber)
-      );
+      console.log('Filtering by attendance...');
+      
+      if (selectedEvent.discordEventId && discordEventAttendance.length > 0) {
+        console.log('Using fetched Discord Attendance Data');
+          // Inspect the structure of the attendance record to understand the field names
+        if (discordEventAttendance.length > 0) {
+          console.log('First attendance record structure:', Object.keys(discordEventAttendance[0]));
+          console.log('First attendance record full data:', discordEventAttendance[0]);
+        }
+        
+        // Filter to get only accepted/tentative responses, checking all possible field names
+        const attendingDiscordIds = discordEventAttendance
+          .filter(record => {
+            // Check all possible field names for the response status
+            const responseValue = record.response || record.user_response || record.status;
+            const isAttending = responseValue === 'accepted' || 
+                             responseValue === 'tentative' ||
+                             responseValue === 'yes' ||
+                             responseValue === 'maybe';
+            console.log(`Discord User ${record.discord_id || record.user_id} response: ${responseValue}, attending: ${isAttending}`);
+            return isAttending;
+          })
+          .map(record => record.discord_id || record.user_id);
+        
+        console.log('Attending Discord IDs:', attendingDiscordIds);
+        
+        const beforeFilterCount = filtered.length;
+        filtered = filtered.filter(pilot => {
+          // Log all properties of each pilot to debug field names
+          const pilotProps = Object.keys(pilot);
+          const discordId = 
+            pilot.discordId || 
+            (pilot as any).discord_original_id ||
+            (pilot as any).discord_id;
+            
+          const isAttending = discordId && attendingDiscordIds.includes(discordId);
+          
+          console.log(`Pilot ${pilot.callsign} (${pilot.boardNumber}): props=${pilotProps.join(',')}`);
+          console.log(`Pilot ${pilot.callsign} discordId=${discordId}, isAttending=${isAttending}`);
+          
+          return isAttending;
+        });
+        
+        console.log(`Filtered by Discord attendance: ${beforeFilterCount} -> ${filtered.length} pilots`);
+      } else if (selectedEvent.attendance && 
+                (selectedEvent.attendance.accepted?.length > 0 || 
+                selectedEvent.attendance.tentative?.length > 0)) {
+        // Fallback to the regular attendance format if available
+        console.log('Using regular attendance data');
+        
+        const attendingBoardNumbers = [
+          ...(selectedEvent.attendance.accepted || []),
+          ...(selectedEvent.attendance.tentative || [])
+        ]
+        .filter(p => p.boardNumber)
+        .map(p => p.boardNumber);
+        
+        console.log('Attending Board Numbers:', attendingBoardNumbers);
+        
+        const beforeFilterCount = filtered.length;
+        filtered = filtered.filter(pilot => {
+          const isAttending = attendingBoardNumbers.includes(pilot.boardNumber);
+          console.log(`Pilot ${pilot.callsign} (${pilot.boardNumber}): isAttending=${isAttending}`);
+          return isAttending;
+        });
+        console.log(`Filtered by regular attendance: ${beforeFilterCount} -> ${filtered.length} pilots`);
+      } else {
+        console.log('No attendance data available for filtering');
+        // If filtering is on but no attendance data, show no pilots
+        filtered = [];
+      }
     }
 
     if (selectedQualifications.length > 0) {
+      console.log('Filtering by qualifications:', selectedQualifications);
+      
+      const beforeFilterCount = filtered.length;
       filtered = filtered.filter(pilot => {
         // Only use database qualifications for filtering
         const pilotId = pilot.id || pilot.boardNumber;
-        return selectedQualifications.some(qualType => 
+        const hasQual = selectedQualifications.some(qualType => 
           hasDatabaseQualification(pilotId, qualType) || 
           hasDatabaseQualification(pilot.boardNumber, qualType)
         );
+        
+        console.log(`Pilot ${pilot.callsign} (${pilot.boardNumber}) has selected qualifications: ${hasQual}`);
+        return hasQual;
       });
+      console.log(`Filtered by qualifications: ${beforeFilterCount} -> ${filtered.length} pilots`);
     }
 
+    console.log('Final filtered pilots count:', filtered.length);
+    
     return filtered.sort((a, b) => {
       if (a.role && b.role) {
         return a.role.localeCompare(b.role);
@@ -250,7 +398,7 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
       
       return 0;
     });
-  }, [pilots, selectedEvent, showOnlyAttending, selectedQualifications, pilotQualifications, hasDatabaseQualification]);
+  }, [pilots, selectedEvent, showOnlyAttending, selectedQualifications, pilotQualifications, hasDatabaseQualification, discordEventAttendance]);
 
   const groupedPilots = useMemo(() => {
     const result: Record<QualificationType, Pilot[]> = QUALIFICATION_ORDER.reduce((acc, qual) => {
@@ -449,32 +597,65 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
                   <QualificationBadge type={qual} />
                 </button>
               ))}
+            </div>            <div style={{ position: 'relative', display: 'inline-block' }}>
+              <button
+                onClick={() => setShowOnlyAttending(!showOnlyAttending)}
+                disabled={!selectedEvent}
+                title={selectedEvent 
+                  ? (showOnlyAttending 
+                    ? "Show all pilots" 
+                    : "Show only pilots attending event") 
+                  : "Select an event to filter by attendance"}
+                style={{
+                  padding: '4px',
+                  borderRadius: '4px',
+                  cursor: selectedEvent ? 'pointer' : 'not-allowed',
+                  background: showOnlyAttending ? '#EFF6FF' : 'white',
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                  border: showOnlyAttending ? '1px solid #2563EB' : '1px solid transparent',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  transition: 'all 0.1s ease',
+                  color: showOnlyAttending ? '#2563EB' : selectedEvent ? '#64748B' : '#A1A1AA',
+                  opacity: selectedEvent ? 1 : 0.6,
+                }}
+                onMouseEnter={(e) => {
+                  if (selectedEvent) {
+                    e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.15)';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (selectedEvent) {
+                    e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
+                  }
+                }}
+              >
+                <Filter size={16} />
+              </button>              {showOnlyAttending && selectedEvent && (
+                <div style={{
+                  position: 'absolute',
+                  top: '-8px',
+                  right: '-8px',
+                  background: '#2563EB',
+                  color: 'white',
+                  borderRadius: '50%',
+                  width: '16px',
+                  height: '16px',
+                  fontSize: '10px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontWeight: 'bold',
+                }}>
+                  {discordEventAttendance.length > 0
+                    ? discordEventAttendance.filter(record => 
+                        record.response === 'accepted' || record.response === 'tentative'
+                      ).length
+                    : (selectedEvent.attendance.accepted.length + selectedEvent.attendance.tentative.length)}
+                </div>
+              )}
             </div>
-
-            <button
-              onClick={() => setShowOnlyAttending(!showOnlyAttending)}
-              style={{
-                padding: '4px',
-                borderRadius: '4px',
-                cursor: 'pointer',
-                background: showOnlyAttending ? '#EFF6FF' : 'white',
-                boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-                border: 'none',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                transition: 'all 0.1s ease',
-                color: showOnlyAttending ? '#2563EB' : '#64748B'
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.15)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
-              }}
-            >
-              <Filter size={16} />
-            </button>
           </div>
         </div>
 
@@ -577,9 +758,35 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
             display: 'flex',
             justifyContent: 'space-around',
             padding: '0 16px'
-          }}>
-            <button
-              onClick={onAutoAssign}
+          }}>            <button
+              onClick={() => {
+                // Pass attendance data to onAutoAssign if available
+                if (onAutoAssign) {
+                  // Get attending pilot IDs
+                  let attendingPilotIds: string[] = [];
+                  
+                  if (selectedEvent && discordEventAttendance.length > 0) {
+                    // Get attending Discord IDs from the fetched attendance data
+                    attendingPilotIds = discordEventAttendance
+                      .filter(record => {
+                        const responseValue = record.response || record.user_response || record.status;
+                        return responseValue === 'accepted' || responseValue === 'tentative' || 
+                               responseValue === 'yes' || responseValue === 'maybe';
+                      })
+                      .map(record => record.discord_id || record.user_id);
+                  } else if (selectedEvent?.attendance) {
+                    // Fallback to the regular attendance format if available
+                    const attendees = [
+                      ...(selectedEvent.attendance.accepted || []),
+                      ...(selectedEvent.attendance.tentative || [])
+                    ].filter(p => p.discord_id);
+                    
+                    attendingPilotIds = attendees.map(a => a.discord_id as string);
+                  }
+                  
+                  onAutoAssign(attendingPilotIds);
+                }
+              }}
               style={{
                 display: 'flex',
                 alignItems: 'center',
