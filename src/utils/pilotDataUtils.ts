@@ -2,7 +2,9 @@
  * Utility functions for working with pilot data directly from Supabase
  * without needing to convert to legacy formats
  */
-import { SupabasePilot, PilotStatus, Pilot, convertSupabasePilotToLegacy } from '../types/PilotTypes';
+import { SupabasePilot, PilotStatus, Pilot, convertSupabasePilotToLegacy, QualificationType } from '../types/PilotTypes';
+import { supabase } from './supabaseClient';
+import { getPilotQualifications } from './qualificationService';
 
 /**
  * Adapter function to safely prepare Supabase pilot data for use in components
@@ -130,4 +132,374 @@ export function getPilotRoleName(pilot: SupabasePilot): string {
  */
 export function getPilotKey(pilot: SupabasePilot): string {
   return `${pilot.id}-${formatBoardNumber(pilot)}`;
+}
+
+/**
+ * Fetches pilots directly from Supabase
+ * @returns Promise with array of SupabasePilot objects and any error
+ */
+export async function fetchSupabasePilots() {
+  try {
+    const { data, error } = await supabase
+      .from('pilots')
+      .select(`
+        *,
+        roles:role_id(*),
+        status:status_id(*)
+      `)
+      .order('boardNumber', { ascending: true });
+    
+    if (error) {
+      console.error('Error fetching pilots:', error);
+      return { pilots: [], error };
+    }
+    
+    return { 
+      pilots: data as SupabasePilot[],
+      error: null 
+    };
+  } catch (err: any) {
+    console.error('Exception fetching pilots:', err);
+    return { 
+      pilots: [], 
+      error: err 
+    };
+  }
+}
+
+/**
+ * Filter function to get only active pilots from a list of SupabasePilot objects
+ * @param pilots Array of SupabasePilot objects
+ * @returns Array of active SupabasePilot objects
+ */
+export function filterActivePilots(pilots: SupabasePilot[]): SupabasePilot[] {
+  return pilots.filter(isPilotActive);
+}
+
+/**
+ * Get full pilot data with qualifications included
+ * @param pilotId The UUID of the pilot in Supabase
+ * @returns Complete pilot data with qualifications
+ */
+export async function getPilotWithQualifications(pilotId: string) {
+  if (!pilotId) {
+    return { pilot: null, error: new Error('No pilot ID provided') };
+  }
+  
+  try {
+    // Fetch base pilot data
+    const { data: pilotData, error: pilotError } = await supabase
+      .from('pilots')
+      .select(`
+        *,
+        roles:role_id(*),
+        status:status_id(*)
+      `)
+      .eq('id', pilotId)
+      .single();
+      
+    if (pilotError || !pilotData) {
+      return { pilot: null, error: pilotError || new Error('Pilot not found') };
+    }
+    
+    // Fetch qualifications for this pilot
+    const { data: qualData, error: qualError } = await getPilotQualifications(pilotId);
+    
+    if (qualError) {
+      // Return pilot without qualifications if there was an error
+      return { 
+        pilot: pilotData as SupabasePilot,
+        error: qualError
+      };
+    }
+    
+    // Map qualification data to the string array format expected in SupabasePilot
+    const qualStrings = qualData ? qualData.map(q => q.name || q.type) : [];
+    
+    // Combine pilot data with qualifications
+    const pilotWithQuals = {
+      ...pilotData,
+      qualifications: qualStrings
+    } as SupabasePilot;
+    
+    return {
+      pilot: pilotWithQuals,
+      error: null
+    };
+  } catch (err: any) {
+    return { pilot: null, error: err };
+  }
+}
+
+/**
+ * Maps from Supabase pilot data to the shape needed for AssignedPilot
+ * This helps transition from legacy Pilot to SupabasePilot while
+ * maintaining compatibility with components that expect AssignedPilot
+ * 
+ * @param pilot SupabasePilot to transform
+ * @param dashNumber Optional dash number to assign
+ * @returns Pilot object with AssignedPilot compatible structure
+ */
+export function createAssignedPilotFromSupabase(
+  pilot: SupabasePilot, 
+  dashNumber?: string
+) {
+  // Convert qualifications from strings to Qualification objects
+  const qualifications = (pilot.qualifications || []).map((q, index) => ({
+    id: `${pilot.id}-${index}`,
+    type: q as QualificationType,
+    dateAchieved: new Date().toISOString().split('T')[0]
+  }));
+
+  return {
+    id: pilot.id,
+    callsign: pilot.callsign,
+    boardNumber: formatBoardNumber(pilot),
+    status: determinePilotStatus(pilot),
+    dashNumber: dashNumber || '',
+    // Add other properties needed for AssignedPilot
+    qualifications,
+    billet: getPilotRoleName(pilot),
+    discordUsername: pilot.discordId || ''
+  };
+}
+
+/**
+ * Sort pilots by priority based on their qualifications
+ * Useful for auto-assignment features
+ * 
+ * @param pilots Array of SupabasePilot objects
+ * @param qualificationPriorities Optional map of qualification names to priority values (lower = higher priority)
+ * @returns Sorted array of pilots with highest priority first
+ */
+export function sortPilotsByQualificationPriority(
+  pilots: SupabasePilot[],
+  qualificationPriorities?: Record<string, number>
+): SupabasePilot[] {
+  // Default qualification priorities if not provided
+  const priorities = qualificationPriorities || {
+    "mission commander": 1,
+    "strike lead": 2,
+    "instructor": 3,
+    "section lead": 4,
+    "flight lead": 5,
+    "lso": 6,
+    "cq": 7,
+    "night cq": 8,
+    "wingman": 9
+  };
+
+  // Helper function to calculate a pilot's priority score
+  const getPilotPriority = (pilot: SupabasePilot): number => {
+    const pilotQuals = pilot.qualifications || [];
+    
+    // Default priority if no qualifications match our priority list
+    let highestPriority = 10; // Default lower than wingman
+    
+    // Check all qualifications for this pilot
+    for (const qual of pilotQuals) {
+      // Skip if not a string
+      if (typeof qual !== 'string') continue;
+      
+      const qualName = qual.toLowerCase();
+      
+      // Check if qualification matches any priority pattern
+      for (const [pattern, priority] of Object.entries(priorities)) {
+        if (qualName.includes(pattern) && priority < highestPriority) {
+          highestPriority = priority;
+        }
+      }
+    }
+    
+    return highestPriority;
+  };
+  
+  // Return a new sorted array
+  return [...pilots].sort((a, b) => getPilotPriority(a) - getPilotPriority(b));
+}
+
+/**
+ * Group pilots by qualification type for easier organization
+ * 
+ * @param pilots Array of SupabasePilot objects
+ * @returns Object with pilots grouped by qualification category
+ */
+export function groupPilotsByQualification(
+  pilots: SupabasePilot[]
+): Record<string, SupabasePilot[]> {
+  const groups: Record<string, SupabasePilot[]> = {
+    flightLeads: [],
+    instructors: [],
+    missionCommanders: [],
+    sectionLeads: [],
+    wingmen: [],
+    other: []
+  };
+  
+  pilots.forEach(pilot => {
+    const quals = pilot.qualifications || [];
+    let categorized = false;
+    
+    // Check for qualifications (case insensitive)
+    const hasQual = (pattern: string) => {
+      return quals.some(q => {
+        if (typeof q !== 'string') return false;
+        return q.toLowerCase().includes(pattern.toLowerCase());
+      });
+    };
+    
+    if (hasQual('mission commander')) {
+      groups.missionCommanders.push(pilot);
+      categorized = true;
+    }
+    
+    if (hasQual('instructor')) {
+      groups.instructors.push(pilot);
+      categorized = true;
+    }
+    
+    if (hasQual('flight lead')) {
+      groups.flightLeads.push(pilot);
+      categorized = true;
+    }
+    
+    if (hasQual('section lead')) {
+      groups.sectionLeads.push(pilot);
+      categorized = true;
+    }
+    
+    if (hasQual('wingman')) {
+      groups.wingmen.push(pilot);
+      categorized = true;
+    }
+    
+    // If pilot doesn't fit into any category
+    if (!categorized) {
+      groups.other.push(pilot);
+    }
+  });
+  
+  return groups;
+}
+
+/**
+ * Check if a pilot has a specific qualification
+ * 
+ * @param pilot The SupabasePilot to check
+ * @param qualificationName The name or partial name of the qualification to check for
+ * @returns Boolean indicating if the pilot has the qualification
+ */
+export function pilotHasQualification(
+  pilot: SupabasePilot,
+  qualificationName: string
+): boolean {
+  if (!pilot.qualifications || pilot.qualifications.length === 0) {
+    return false;
+  }
+  
+  return pilot.qualifications.some(qual => {
+    if (typeof qual !== 'string') return false;
+    return qual.toLowerCase().includes(qualificationName.toLowerCase());
+  });
+}
+
+/**
+ * Get the highest qualification level for a pilot
+ * 
+ * @param pilot The SupabasePilot to check
+ * @returns The highest qualification name found
+ */
+export function getHighestQualification(pilot: SupabasePilot): string {
+  if (!pilot.qualifications || pilot.qualifications.length === 0) {
+    return 'None';
+  }
+  
+  // Priority order (highest to lowest)
+  const qualPriority = [
+    'mission commander',
+    'strike lead',
+    'instructor',
+    'section lead',
+    'flight lead',
+    'lso',
+    'wingman'
+  ];
+  
+  for (const priority of qualPriority) {
+    if (pilotHasQualification(pilot, priority)) {
+      // Find the full qualification name that matches
+      const matchingQual = pilot.qualifications.find(q => {
+        if (typeof q !== 'string') return false;
+        return q.toLowerCase().includes(priority);
+      });
+      
+      return typeof matchingQual === 'string' ? matchingQual : priority;
+    }
+  }
+  
+  // If no priority qualification is found, return the first qualification name
+  const firstQual = pilot.qualifications[0];
+  return typeof firstQual === 'string' ? firstQual : 'None';
+}
+
+/**
+ * Creates a lookup map of pilot data indexed by boardNumber
+ * This makes it much easier to find pilots by their board number
+ * 
+ * @param pilots Array of SupabasePilot objects
+ * @returns Record object with board numbers as keys and pilots as values
+ */
+export function createPilotBoardNumberMap(
+  pilots: SupabasePilot[]
+): Record<string, SupabasePilot> {
+  const pilotMap: Record<string, SupabasePilot> = {};
+  
+  pilots.forEach(pilot => {
+    pilotMap[formatBoardNumber(pilot)] = pilot;
+  });
+  
+  return pilotMap;
+}
+
+/**
+ * Convert a flight assignment structure from using legacy Pilot to using SupabasePilot
+ * Useful for migrating components from the old to new structure
+ * 
+ * @param legacyAssignments Record with flight IDs as keys and arrays of AssignedPilot as values
+ * @param pilotMap Map of board numbers to SupabasePilot objects
+ * @returns A new object with the same structure but using SupabasePilot objects
+ */
+export function convertFlightAssignmentsToSupabase(
+  legacyAssignments: Record<string, any[]>,
+  pilotMap: Record<string, SupabasePilot>
+): Record<string, any[]> {
+  const result: Record<string, any[]> = {};
+  
+  // Process each flight in the assignments
+  Object.keys(legacyAssignments).forEach(flightId => {
+    const pilots = legacyAssignments[flightId];
+    
+    // Convert each assigned pilot to use SupabasePilot
+    result[flightId] = pilots.map(assignedPilot => {
+      const boardNumber = typeof assignedPilot.boardNumber === 'string' ? 
+        assignedPilot.boardNumber : assignedPilot.boardNumber.toString();
+      
+      // Find the pilot in our map
+      const supabasePilot = pilotMap[boardNumber];
+      
+      if (!supabasePilot) {
+        // If pilot not found, return the original assignment
+        console.warn(`Pilot with board number ${boardNumber} not found in pilot map`);
+        return assignedPilot;
+      }
+      
+      // Create a new assignment with the Supabase pilot data and dash number
+      return {
+        ...createAssignedPilotFromSupabase(supabasePilot, assignedPilot.dashNumber),
+        dashNumber: assignedPilot.dashNumber
+      };
+    });
+  });
+  
+  return result;
 }

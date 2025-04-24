@@ -11,7 +11,7 @@ import {
   CommsPlanEntry, 
   generateInitialCommsData 
 } from '../../../types/CommsTypes';
-import { Flight } from '../../../types/FlightData';
+import { Flight, FlightMember } from '../../../types/FlightData';
 import { saveToLocalStorage, loadFromLocalStorage, STORAGE_KEYS } from '../../../utils/localStorageUtils';
 
 interface CommunicationsProps {
@@ -171,7 +171,7 @@ const Communications: React.FC<CommunicationsProps> = ({
     
     // Convert flight assignments to Flight objects
     const transferFlights: Flight[] = flights.map(flight => {
-      const assigned = assignedPilots[flight.id] || [];
+      const assigned = assignedPilots?.[flight.id] || [];
       
       // Find matching extracted flight directly from extractedFlights by callsign and flight number
       const matchingExtractedFlight = extractedFlights.find(ef => {
@@ -181,8 +181,8 @@ const Communications: React.FC<CommunicationsProps> = ({
       });
       
       // Create a FlightMember for each assigned pilot
-      const members = flight.pilots.map(pilot => {
-        const assignedPilot = assigned.find(p => p.dashNumber === pilot.dashNumber);
+      const members = flight.pilots.map((pilot: any) => {
+        const assignedPilot = assigned.find((p: any) => p.dashNumber === pilot.dashNumber);
         
         // Default fuel value - will use this if we can't find a match
         let fuelValue = 5.0;
@@ -213,13 +213,13 @@ const Communications: React.FC<CommunicationsProps> = ({
           fuel: fuelValue,
           pilotCallsign: assignedPilot?.callsign || ""
         };
-      }).filter(member => member.boardNumber !== ""); // Only include members with assigned board numbers
+      }).filter((member: any) => member.boardNumber !== ""); // Only include members with assigned board numbers
       
       // Only include flights that have at least one assigned pilot
       if (members.length === 0) return null;
       
       // Calculate the low state as the minimum fuel among all members
-      const lowState = Math.min(...members.map(m => m.fuel));
+      const lowState = Math.min(...members.map((m: FlightMember) => m.fuel));
       
       return {
         id: `transferred-${flight.id}-${Date.now()}`,
