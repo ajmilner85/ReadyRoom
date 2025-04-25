@@ -49,12 +49,17 @@ interface PilotEntryProps {
   pilotQualifications?: any[];
 }
 
-const PilotEntry: React.FC<PilotEntryProps> = ({ pilot, isAssigned = false, currentFlightId, pilotQualifications }) => {
+const PilotEntry: React.FC<PilotEntryProps> = ({ pilot, isAssigned = false, currentFlightId, pilotQualifications }) => {  // Make sure we explicitly include attendanceStatus in drag data
+  // This is needed because the property might not be enumerable or might get lost during drag operations
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: `pilot-${pilot.boardNumber}`,
     data: {
       type: 'Pilot',
-      pilot,
+      pilot: {
+        ...pilot,
+        // Explicitly ensure attendanceStatus is included
+        attendanceStatus: pilot.attendanceStatus
+      },
       currentFlightId
     },
     disabled: false
@@ -304,19 +309,53 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
       const mappedType = mapQualificationNameToType(qual.qualification?.name || '');
       return mappedType === qualType;
     });
-  };
+  };  // Apply attendance status to all pilots first, regardless of filtering
+  const pilotsWithAttendanceStatus = useMemo(() => {
+    if (!selectedEvent || !discordEventAttendance.length) {
+      return pilots;
+    }
+
+    return pilots.map(pilot => {
+      const pilotCopy = { ...pilot };
+      
+      // Get Discord ID from various possible properties
+      const discordId = 
+        pilotCopy.discordId || 
+        (pilotCopy as any).discord_original_id ||
+        (pilotCopy as any).discord_id;
+      
+      if (discordId) {
+        // Find this pilot's attendance record if any
+        const attendanceRecord = discordEventAttendance.find(record => 
+          (record.discord_id || record.user_id) === discordId
+        );
+        
+        if (attendanceRecord) {
+          const responseValue = attendanceRecord.response || attendanceRecord.user_response || attendanceRecord.status;
+          if (responseValue === 'tentative' || responseValue === 'maybe') {
+            (pilotCopy as any).attendanceStatus = 'tentative';
+          } else if (responseValue === 'accepted' || responseValue === 'yes') {
+            (pilotCopy as any).attendanceStatus = 'accepted';
+          }
+        }
+      }
+      
+      return pilotCopy;
+    });
+  }, [pilots, selectedEvent, discordEventAttendance]);
+
   const filteredPilots = useMemo(() => {
-    let filtered = [...pilots];
+    let filtered = [...pilotsWithAttendanceStatus];
     
     console.log('--- FILTERING PILOTS ---');
-    console.log('Total pilots before filtering:', pilots.length);
+    console.log('Total pilots before filtering:', filtered.length);
     console.log('ShowOnlyAttending:', showOnlyAttending);
     console.log('Selected Event:', selectedEvent);
     console.log('Discord Event Attendance data count:', discordEventAttendance.length);
     
-    if (pilots.length > 0) {
-      console.log('Sample pilot structure:', Object.keys(pilots[0]));
-      console.log('Sample pilot full object:', pilots[0]);
+    if (filtered.length > 0) {
+      console.log('Sample pilot structure:', Object.keys(filtered[0]));
+      console.log('Sample pilot full object:', filtered[0]);
     }
     
     if (showOnlyAttending && selectedEvent) {
@@ -324,37 +363,20 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
       
       if (selectedEvent.discordEventId && discordEventAttendance.length > 0) {
         console.log('Using fetched Discord Attendance Data');
-          // Inspect the structure of the attendance record to understand the field names
-        if (discordEventAttendance.length > 0) {
-          console.log('First attendance record structure:', Object.keys(discordEventAttendance[0]));
-          console.log('First attendance record full data:', discordEventAttendance[0]);
-        }
-          // Get accepted and tentative responses, tracking which pilots are tentative
-        const attendanceMap: Record<string, 'accepted' | 'tentative'> = {};
         
-        discordEventAttendance.forEach(record => {
-          // Check all possible field names for the response status
-          const responseValue = record.response || record.user_response || record.status;
-          const discordId = record.discord_id || record.user_id;
-          
-          if (!discordId) return;
-          
-          if (responseValue === 'accepted' || responseValue === 'yes') {
-            attendanceMap[discordId] = 'accepted';
-            console.log(`Discord User ${discordId} response: ${responseValue}, attending: accepted`);
-          } else if (responseValue === 'tentative' || responseValue === 'maybe') {
-            attendanceMap[discordId] = 'tentative';
-            console.log(`Discord User ${discordId} response: ${responseValue}, attending: tentative`);
-          }
-        });
-        
-        const attendingDiscordIds = Object.keys(attendanceMap);
+        // Get attending Discord IDs
+        const attendingDiscordIds = discordEventAttendance
+          .filter(record => {
+            const responseValue = record.response || record.user_response || record.status;
+            return responseValue === 'accepted' || responseValue === 'yes' || 
+                  responseValue === 'tentative' || responseValue === 'maybe';
+          })
+          .map(record => record.discord_id || record.user_id);
         
         console.log('Attending Discord IDs:', attendingDiscordIds);
-          const beforeFilterCount = filtered.length;
+        
+        const beforeFilterCount = filtered.length;
         filtered = filtered.filter(pilot => {
-          // Log all properties of each pilot to debug field names
-          const pilotProps = Object.keys(pilot);
           const discordId = 
             pilot.discordId || 
             (pilot as any).discord_original_id ||
@@ -362,12 +384,6 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
             
           const isAttending = discordId && attendingDiscordIds.includes(discordId);
           
-          // Mark if this pilot is tentative
-          if (isAttending && discordId) {
-            (pilot as any).attendanceStatus = attendanceMap[discordId];
-          }
-          
-          console.log(`Pilot ${pilot.callsign} (${pilot.boardNumber}): props=${pilotProps.join(',')}`);
           console.log(`Pilot ${pilot.callsign} discordId=${discordId}, isAttending=${isAttending}, status=${(pilot as any).attendanceStatus || 'unknown'}`);
           
           return isAttending;
@@ -667,29 +683,7 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
                 }}
               >
                 <Filter size={16} />
-              </button>              {showOnlyAttending && selectedEvent && (
-                <div style={{
-                  position: 'absolute',
-                  top: '-8px',
-                  right: '-8px',
-                  background: '#2563EB',
-                  color: 'white',
-                  borderRadius: '50%',
-                  width: '16px',
-                  height: '16px',
-                  fontSize: '10px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontWeight: 'bold',
-                }}>
-                  {discordEventAttendance.length > 0
-                    ? discordEventAttendance.filter(record => 
-                        record.response === 'accepted' || record.response === 'tentative'
-                      ).length
-                    : (selectedEvent.attendance.accepted.length + selectedEvent.attendance.tentative.length)}
-                </div>
-              )}
+              </button>              {/* Removed attendance counter badge */}
             </div>
           </div>
         </div>
