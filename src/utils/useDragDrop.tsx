@@ -6,6 +6,7 @@ import { removePilotFromAllFlights, swapPilots, handleMissionCommanderCheck } fr
 
 interface AssignedPilot extends Pilot {
   dashNumber: string;
+  attendanceStatus?: 'accepted' | 'tentative';
 }
 
 interface UseDragDropProps {
@@ -54,14 +55,18 @@ export const useDragDrop = ({
       document.body.classList.remove('dragging');
     };
   }, []);
-
   const handleDragStart = (event: DragStartEvent) => {
-    if (event.active.data.current?.type === 'Pilot') {
+    if (event.active.data.current?.type === 'Pilot') {      
       const pilotData = event.active.data.current;
+      console.log('[DEBUG] Drag Start - Pilot Data:', JSON.stringify(pilotData.pilot));
+      console.log('[DEBUG] Drag Start - Attendance Status:', pilotData.pilot.attendanceStatus);
+      
       const pilot: AssignedPilot = {
         ...pilotData.pilot,
-        dashNumber: pilotData.pilot.dashNumber || ''
+        dashNumber: pilotData.pilot.dashNumber || '',
+        attendanceStatus: pilotData.pilot.attendanceStatus
       };
+      console.log('[DEBUG] Drag Start - Created AssignedPilot:', JSON.stringify(pilot));
       setDraggedPilot(pilot);
       setDragSource(pilotData.currentFlightId ? 'tile' : 'list');
       document.body.classList.add('dragging');
@@ -143,15 +148,15 @@ export const useDragDrop = ({
           
           // Remove the displaced pilot from any position
           updatedPilots = removePilotFromAllFlights(displacedPilot.boardNumber, updatedPilots);
-          
-          // Add the dragged pilot to the target position
+            // Add the dragged pilot to the target position
           if (!updatedPilots[flightIdPart]) {
             updatedPilots[flightIdPart] = [];
           }
           
           updatedPilots[flightIdPart].push({
             ...pilot,
-            dashNumber
+            dashNumber,
+            attendanceStatus: pilot.attendanceStatus
           });
           
           // If the dragged pilot came from a tile, put the displaced pilot back in that position
@@ -205,14 +210,16 @@ export const useDragDrop = ({
           // No pilot in target position, simply add to the target position
           if (!updatedPilots[flightIdPart]) {
             updatedPilots[flightIdPart] = [];
-          }
-          
-          updatedPilots[flightIdPart].push({
+          }          updatedPilots[flightIdPart].push({
             ...pilot,
-            dashNumber
+            dashNumber,
+            // Explicitly preserve the attendance status
+            attendanceStatus: pilot.attendanceStatus
           });
           
-          console.log('Added pilot to empty position:', updatedPilots);
+          console.log('[DEBUG] Added pilot to empty position:', updatedPilots);
+          console.log('[DEBUG] Pilot attendance status being added:', pilot.attendanceStatus);
+          console.log('[DEBUG] Updated pilots in this flight:', updatedPilots[flightIdPart]);
           
           // Apply the pilots update first, then check for mission commander
           setAssignedPilots(updatedPilots);

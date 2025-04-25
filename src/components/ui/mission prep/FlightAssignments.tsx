@@ -21,6 +21,7 @@ interface Flight {
 // Extended Pilot type with dashNumber for flight assignments
 interface AssignedPilot extends Pilot {
   dashNumber: string;
+  attendanceStatus?: 'accepted' | 'tentative';
 }
 
 // Add mission commander interface
@@ -234,13 +235,10 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
       const dashNumberStr = dashNumber.toString();
       
       // Find the position with matching dashNumber
-      const index = updatedPilots.findIndex(p => p.dashNumber === dashNumberStr);
-      
-      if (index !== -1) {
+      const index = updatedPilots.findIndex(p => p.dashNumber === dashNumberStr);      if (index !== -1) {
         updatedPilots[index] = {
-          dashNumber: dashNumberStr,
-          boardNumber: assignedPilot.boardNumber,
-          callsign: assignedPilot.callsign
+          ...assignedPilot,  // Spread all properties from the assigned pilot
+          dashNumber: dashNumberStr // Ensure the dashNumber is properly set
         };
       }
     });

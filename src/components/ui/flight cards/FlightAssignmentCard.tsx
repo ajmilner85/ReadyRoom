@@ -21,6 +21,7 @@ interface FlightAssignmentCardProps {
     boardNumber: string;
     callsign: string;
     dashNumber: string;
+    attendanceStatus?: 'accepted' | 'tentative';
   }>;
   midsA?: string;
   midsB?: string;
@@ -258,7 +259,7 @@ const FlightAssignmentCard: React.FC<FlightAssignmentCardProps> = ({
 
 // New component to handle droppable empty tiles
 interface DroppableAircraftTileProps {
-  pilot: { boardNumber: string; callsign: string; dashNumber: string; };
+  pilot: { boardNumber: string; callsign: string; dashNumber: string; attendanceStatus?: 'accepted' | 'tentative'; };
   flightId: string;
   dashNumber: string;
   flightNumber: string;
@@ -309,9 +310,9 @@ const DroppableAircraftTile = memo<DroppableAircraftTileProps>(({
       }}
       data-drop-id={dropId}
       data-flight-id={flightId} // Add a data attribute for debugging
-    >
-      <AircraftTile
+    >      <AircraftTile
         {...pilot}
+        attendanceStatus={pilot.attendanceStatus}
         flightId={flightId}
         flightNumber={flightNumber}
         flightCallsign={flightCallsign}
