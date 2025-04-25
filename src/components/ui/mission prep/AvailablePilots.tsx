@@ -43,7 +43,7 @@ const mapQualificationNameToType = (name: string): QualificationType => {
 };
 
 interface PilotEntryProps {
-  pilot: Pilot;
+  pilot: Pilot & { attendanceStatus?: 'accepted' | 'tentative' };
   isAssigned?: boolean;
   currentFlightId?: string;
   pilotQualifications?: any[];
@@ -139,14 +139,39 @@ const PilotEntry: React.FC<PilotEntryProps> = ({ pilot, isAssigned = false, curr
         color: '#646F7E'
       }}>
         {pilot.boardNumber}
-      </span>
-      <span style={{
+      </span>      <div style={{
+        display: 'flex',
+        alignItems: 'center',
         width: '120px',
-        fontSize: '16px',
-        fontWeight: 700
+        gap: '4px'
       }}>
-        {pilot.callsign}
-      </span>
+        <span style={{
+          fontSize: '16px',
+          fontWeight: 700,
+          whiteSpace: 'nowrap',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis'
+        }}>
+          {pilot.callsign}
+        </span>
+        {pilot.attendanceStatus === 'tentative' && (
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: '16px',
+            height: '16px',
+            borderRadius: '50%',
+            backgroundColor: '#5865F2', // Blurple color
+            color: 'white',
+            fontSize: '10px',
+            fontWeight: 'bold',
+            flexShrink: 0
+          }}>
+            ?
+          </div>
+        )}
+      </div>
       <span style={{
         fontSize: '16px',
         fontWeight: 300,
@@ -304,24 +329,29 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
           console.log('First attendance record structure:', Object.keys(discordEventAttendance[0]));
           console.log('First attendance record full data:', discordEventAttendance[0]);
         }
+          // Get accepted and tentative responses, tracking which pilots are tentative
+        const attendanceMap: Record<string, 'accepted' | 'tentative'> = {};
         
-        // Filter to get only accepted/tentative responses, checking all possible field names
-        const attendingDiscordIds = discordEventAttendance
-          .filter(record => {
-            // Check all possible field names for the response status
-            const responseValue = record.response || record.user_response || record.status;
-            const isAttending = responseValue === 'accepted' || 
-                             responseValue === 'tentative' ||
-                             responseValue === 'yes' ||
-                             responseValue === 'maybe';
-            console.log(`Discord User ${record.discord_id || record.user_id} response: ${responseValue}, attending: ${isAttending}`);
-            return isAttending;
-          })
-          .map(record => record.discord_id || record.user_id);
+        discordEventAttendance.forEach(record => {
+          // Check all possible field names for the response status
+          const responseValue = record.response || record.user_response || record.status;
+          const discordId = record.discord_id || record.user_id;
+          
+          if (!discordId) return;
+          
+          if (responseValue === 'accepted' || responseValue === 'yes') {
+            attendanceMap[discordId] = 'accepted';
+            console.log(`Discord User ${discordId} response: ${responseValue}, attending: accepted`);
+          } else if (responseValue === 'tentative' || responseValue === 'maybe') {
+            attendanceMap[discordId] = 'tentative';
+            console.log(`Discord User ${discordId} response: ${responseValue}, attending: tentative`);
+          }
+        });
+        
+        const attendingDiscordIds = Object.keys(attendanceMap);
         
         console.log('Attending Discord IDs:', attendingDiscordIds);
-        
-        const beforeFilterCount = filtered.length;
+          const beforeFilterCount = filtered.length;
         filtered = filtered.filter(pilot => {
           // Log all properties of each pilot to debug field names
           const pilotProps = Object.keys(pilot);
@@ -332,8 +362,13 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
             
           const isAttending = discordId && attendingDiscordIds.includes(discordId);
           
+          // Mark if this pilot is tentative
+          if (isAttending && discordId) {
+            (pilot as any).attendanceStatus = attendanceMap[discordId];
+          }
+          
           console.log(`Pilot ${pilot.callsign} (${pilot.boardNumber}): props=${pilotProps.join(',')}`);
-          console.log(`Pilot ${pilot.callsign} discordId=${discordId}, isAttending=${isAttending}`);
+          console.log(`Pilot ${pilot.callsign} discordId=${discordId}, isAttending=${isAttending}, status=${(pilot as any).attendanceStatus || 'unknown'}`);
           
           return isAttending;
         });

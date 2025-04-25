@@ -16,6 +16,7 @@ interface AircraftTileProps {
   verticalOffset?: number; // New prop for vertical positioning
   flightId?: string; // Add this prop for drag handling
   isMissionCommander?: boolean; // Add prop for mission commander status
+  attendanceStatus?: 'accepted' | 'tentative'; // Add prop for attendance status
 }
 
 const AircraftTile: React.FC<AircraftTileProps> = ({
@@ -31,10 +32,21 @@ const AircraftTile: React.FC<AircraftTileProps> = ({
   midsB = '',
   verticalOffset = 0,
   flightId,
-  isMissionCommander = false
+  isMissionCommander = false,
+  attendanceStatus
 }) => {
   // Track local drag state
   const [localDragging, setLocalDragging] = useState(false);
+  
+  // Debug logging for attendance status
+  React.useEffect(() => {
+    if (!isEmpty && callsign) {
+      console.log('[DEBUG] AircraftTile rendered for pilot:', callsign, 
+        '- boardNumber:', boardNumber,
+        '- attendanceStatus:', attendanceStatus,
+        '- should show tentative badge:', attendanceStatus === 'tentative');
+    }
+  }, [callsign, isEmpty, attendanceStatus, boardNumber]);
 
   // Component styling constants
   const PURPLE = '#5B4E61';
@@ -253,9 +265,7 @@ const AircraftTile: React.FC<AircraftTileProps> = ({
               }}
             >
               {isEmpty ? '' : boardNumber} {/* Removed '-' placeholder */}
-            </div>
-
-            {/* Pilot callsign */}
+            </div>            {/* Pilot callsign with tentative badge if applicable */}
             <div
               style={{
                 fontFamily: 'Inter',
@@ -264,10 +274,35 @@ const AircraftTile: React.FC<AircraftTileProps> = ({
                 lineHeight: '17px',
                 textAlign: 'center',
                 color: isEmpty ? TEXT_GRAY : PURE_BLACK,
-                marginTop: '-1px' // Adjusted from 1px to -1px to move up 2px more
+                marginTop: '-1px', // Adjusted from 1px to -1px to move up 2px more
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                gap: '4px'
               }}
-            >
-              {isEmpty ? '' : callsign} {/* Removed '-' placeholder */}
+            >              {!isEmpty && console.log('[DEBUG] AircraftTile rendering - callsign:', callsign, 'attendanceStatus:', attendanceStatus)}
+              {isEmpty ? '' : (
+                <>
+                  {attendanceStatus === 'tentative' && (
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      width: '14px',
+                      height: '14px',
+                      borderRadius: '50%',
+                      backgroundColor: '#5865F2', // Blurple color
+                      color: 'white',
+                      fontSize: '9px',
+                      fontWeight: 'bold',
+                      flexShrink: 0
+                    }}>
+                      ?
+                    </div>
+                  )}
+                  <span>{callsign}</span>
+                </>
+              )}
             </div>
           </div>
 

@@ -75,9 +75,16 @@ export const autoAssignPilots = (
     
     return highestPriority;
   };
-
-  // Sort pilots by priority (highest priority first)
+  // Sort pilots by priority (highest priority first) and attendance status (tentative last)
   const sortedPilots = [...availablePilots].sort((a, b) => {
+    // First prioritize by tentative status - put tentative pilots last
+    const aIsTentative = (a as any)?.attendanceStatus === 'tentative';
+    const bIsTentative = (b as any)?.attendanceStatus === 'tentative';
+    
+    if (aIsTentative && !bIsTentative) return 1;  // a is tentative, b is not, so b comes first
+    if (!aIsTentative && bIsTentative) return -1; // b is tentative, a is not, so a comes first
+    
+    // If both have same tentative status, sort by qualification priority
     return getPilotPriority(a) - getPilotPriority(b);
   });
 
