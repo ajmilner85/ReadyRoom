@@ -112,6 +112,13 @@ const AircraftTile: React.FC<AircraftTileProps> = ({
   // IMPORTANT: Force re-render when attendanceStatus changes
   const [renderKey, setRenderKey] = useState(Date.now());
   
+  // Add debug effect to log attendance status changes
+  useEffect(() => {
+    if (!isEmpty && attendanceStatus) {
+      console.log(`[TENTATIVE-DEBUG] AircraftTile attendance status for ${callsign} (${boardNumber}): ${attendanceStatus}`);
+    }
+  }, [callsign, boardNumber, attendanceStatus, isEmpty]);
+  
   useEffect(() => {
     // Update the render key whenever attendance status changes
     setRenderKey(Date.now());
@@ -284,8 +291,7 @@ const AircraftTile: React.FC<AircraftTileProps> = ({
               }}
             >
               {isEmpty ? '' : (
-                <>
-                  {attendanceStatus === 'tentative' && (
+                <>                  {attendanceStatus === 'tentative' && (
                     <div style={{
                       display: 'flex',
                       alignItems: 'center',

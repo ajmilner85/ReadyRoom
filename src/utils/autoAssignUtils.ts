@@ -24,6 +24,12 @@ export const autoAssignPilots = (
   newAssignments: Record<string, AssignedPilot[]>,
   suggestedMissionCommander: MissionCommanderInfo | null
 } => {
+  // DEBUG: Log attendance status of available pilots
+  console.log('[TENTATIVE-DEBUG] Pilots to auto-assign with attendance status:');
+  availablePilots.forEach(pilot => {
+    console.log(`[TENTATIVE-DEBUG] - ${pilot.callsign} (${pilot.boardNumber}): ${(pilot as any).attendanceStatus || 'undefined'}`);
+  });
+
   if (!flights || flights.length === 0 || !availablePilots || availablePilots.length === 0) {
     console.log("Cannot auto-assign: no flights or pilots available");
     return {
@@ -118,12 +124,17 @@ export const autoAssignPilots = (
     }    // Find highest priority available pilot
     for (const pilot of sortedPilots) {
       if (!isPilotAssigned(pilot.id) && !isPilotAssigned(pilot.boardNumber)) {
-        newAssignments[flightId].push({
+        const assignedPilot = {
           ...pilot,
           dashNumber: "1",  // Assign as flight lead (1-1)
           // Preserve attendance status if it exists
           attendanceStatus: (pilot as any).attendanceStatus
-        });
+        };
+        
+        // Add debug for position 1
+        console.log(`[TENTATIVE-DEBUG] Assigning to position 1 (${flightId}): ${pilot.callsign} with attendance status: ${(pilot as any).attendanceStatus || 'undefined'}`);
+        
+        newAssignments[flightId].push(assignedPilot);
         break;
       }
     }
@@ -163,17 +174,22 @@ export const autoAssignPilots = (
     // Initialize assignment array if it doesn't exist yet
     if (!newAssignments[flightId]) {
       newAssignments[flightId] = [];
-    }
-
-    // Check 1-2 position
+    }    // Check 1-2 position
     if (!newAssignments[flightId]?.some(p => p.dashNumber === "2")) {
       // Find first available pilot
       for (const pilot of sortedPilots) {
         if (!isPilotAssigned(pilot.id) && !isPilotAssigned(pilot.boardNumber)) {
-          newAssignments[flightId].push({
+          const assignedPilot = {
             ...pilot,
-            dashNumber: "2"  // Assign as wingman (1-2)
-          });
+            dashNumber: "2",  // Assign as wingman (1-2)
+            // Preserve attendance status if it exists
+            attendanceStatus: (pilot as any).attendanceStatus
+          };
+          
+          // Add debug for position 2
+          console.log(`[TENTATIVE-DEBUG] Assigning to position 2 (${flightId}): ${pilot.callsign} with attendance status: ${(pilot as any).attendanceStatus || 'undefined'}`);
+          
+          newAssignments[flightId].push(assignedPilot);
           break;
         }
       }
@@ -184,13 +200,28 @@ export const autoAssignPilots = (
       // Find first available pilot
       for (const pilot of sortedPilots) {
         if (!isPilotAssigned(pilot.id) && !isPilotAssigned(pilot.boardNumber)) {
-          newAssignments[flightId].push({
+          const assignedPilot = {
             ...pilot, 
-            dashNumber: "4"  // Assign as wingman (1-4)
-          });
+            dashNumber: "4",  // Assign as wingman (1-4)
+            // Preserve attendance status if it exists
+            attendanceStatus: (pilot as any).attendanceStatus
+          };
+          
+          // Add debug for position 4
+          console.log(`[TENTATIVE-DEBUG] Assigning to position 4 (${flightId}): ${pilot.callsign} with attendance status: ${(pilot as any).attendanceStatus || 'undefined'}`);
+          
+          newAssignments[flightId].push(assignedPilot);
           break;
         }
       }
+    }
+  }
+
+  // Add debug for final assigned pilots
+  console.log('[TENTATIVE-DEBUG] Final assigned pilots with attendance status:');
+  for (const flightId in newAssignments) {
+    for (const pilot of newAssignments[flightId]) {
+      console.log(`[TENTATIVE-DEBUG] - ${flightId} position ${pilot.dashNumber}: ${pilot.callsign} with status: ${pilot.attendanceStatus || 'undefined'}`);
     }
   }
 
