@@ -89,9 +89,20 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
       onFlightsChange(flights);
     }
   }, [flights, onFlightsChange]);
-  
-  // Force re-render when assignedPilots changes to update attendance status badges
+    // Force re-render when assignedPilots changes to update attendance status badges
   useEffect(() => {
+    // Add debug logging for attendance status
+    console.log('[TENTATIVE-DEBUG] AssignedPilots changed, updating attendance badges');
+    
+    // Log any tentative pilots
+    for (const flightId in assignedPilots) {
+      for (const pilot of assignedPilots[flightId]) {
+        if (pilot.attendanceStatus === 'tentative') {
+          console.log(`[TENTATIVE-DEBUG] Found tentative pilot in flight ${flightId}: ${pilot.callsign}`);
+        }
+      }
+    }
+    
     // Create a copy of current flights to trigger a re-render
     setFlights(currentFlights => [...currentFlights]);
   }, [assignedPilots]);

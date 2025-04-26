@@ -99,8 +99,7 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
   const handleClearAssignments = useCallback(() => {
     setAssignedPilots({});
     setMissionCommander(null);
-  }, [setAssignedPilots, setMissionCommander]);
-  // Auto-assign pilots to flights according to priority rules
+  }, [setAssignedPilots, setMissionCommander]);  // Auto-assign pilots to flights according to priority rules
   const handleAutoAssign = useCallback((attendingPilotIds?: string[]) => {
     if (!prepFlights || prepFlights.length === 0) {
       console.log("Cannot auto-assign: no flights available");
@@ -111,7 +110,11 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
     let pilotsToAssign = activePilots;
     
     if (attendingPilotIds && attendingPilotIds.length > 0) {
-      console.log("Filtering pilots by attendance, considering only", attendingPilotIds.length, "attending pilots");
+      console.log("Filtering pilots by attendance, considering only", attendingPilotIds.length, "attending pilots");      // First, get attendance information from the event data
+      const eventAttendance = selectedEvent?.attendance;
+        // Check for enhanced attendance info from AvailablePilots
+      const pilotAttendanceInfo = (attendingPilotIds as any).pilotAttendanceInfo || [];
+      
       pilotsToAssign = activePilots.filter(pilot => {
         // Match by discord ID
         const discordId = pilot.discordId || 
@@ -121,21 +124,45 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
         const isAttending = discordId && attendingPilotIds.includes(discordId);
         
         if (isAttending) {
-          console.log(`Including attending pilot ${pilot.callsign} (${pilot.boardNumber})`);
+          // First check if we have enhanced attendance info from AvailablePilots
+          const attendanceInfo = pilotAttendanceInfo.find((info: any) => info.id === discordId);
+          if (attendanceInfo && attendanceInfo.status) {
+            (pilot as any).attendanceStatus = attendanceInfo.status;
+            console.log(`Using enhanced attendance info for ${pilot.callsign}: ${attendanceInfo.status}`);
+          }
+          // Then check if pilot already has attendance status
+          else if ((pilot as any).attendanceStatus) {
+            // Keep the existing attendance status
+            console.log(`Preserving existing attendance status for ${pilot.callsign}: ${(pilot as any).attendanceStatus}`);
+          } 
+          // Then look for this pilot in tentative attendees from the event data as a fallback
+          else if (eventAttendance?.tentative?.some((a: any) => a.discord_id === discordId)) {
+            (pilot as any).attendanceStatus = 'tentative';
+          } else {
+            (pilot as any).attendanceStatus = 'accepted'; // Default for attending
+          }
+          
+          console.log(`Including attending pilot ${pilot.callsign} (${pilot.boardNumber}) with status: ${(pilot as any).attendanceStatus}`);
         }
         
         return isAttending;
       });
       
       console.log(`Auto-assigning with ${pilotsToAssign.length} attending pilots out of ${activePilots.length} total`);
-    }
-
-    const { newAssignments, suggestedMissionCommander } = autoAssignPilots(
+    }    const { newAssignments, suggestedMissionCommander } = autoAssignPilots(
       prepFlights, 
       pilotsToAssign, 
       assignedPilots, 
       allPilotQualifications
     );
+    
+    // Debug new assignments for attendance status
+    console.log('[TENTATIVE-DEBUG] Checking MissionPreparation received assignments:');
+    for (const flightId in newAssignments) {
+      for (const pilot of newAssignments[flightId]) {
+        console.log(`[TENTATIVE-DEBUG] - Flight ${flightId}, position ${pilot.dashNumber}: ${pilot.callsign} with status: ${pilot.attendanceStatus || 'undefined'}`);
+      }
+    }
     
     // Update the assignments
     setAssignedPilots(newAssignments);
@@ -143,10 +170,10 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
     // Set mission commander if we found a suitable pilot
     if (suggestedMissionCommander) {
       setMissionCommander(suggestedMissionCommander);
-    }
-  }, [
+    }}, [
     prepFlights,
     activePilots,
+    selectedEvent,
     assignedPilots,
     allPilotQualifications,
     setAssignedPilots,

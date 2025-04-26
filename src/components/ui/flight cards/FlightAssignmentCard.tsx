@@ -1,4 +1,4 @@
-import React, { useState, memo } from 'react';
+import React, { useState, memo, useEffect } from 'react';
 import { useDroppable } from '@dnd-kit/core';
 import AircraftTile from './AircraftTile';
 import { Edit2, Trash2 } from 'lucide-react';
@@ -42,6 +42,16 @@ const FlightAssignmentCard: React.FC<FlightAssignmentCardProps> = ({
   missionCommander
 }) => {
   const [isHovered, setIsHovered] = useState(false);
+
+  // Add debug to check pilots with attendance status
+  useEffect(() => {
+    console.log(`[TENTATIVE-DEBUG] FlightAssignmentCard ${id} (${callsign} ${flightNumber}) received pilots:`);
+    pilots.forEach(pilot => {
+      if (pilot.attendanceStatus) {
+        console.log(`[TENTATIVE-DEBUG] - Position ${pilot.dashNumber}: ${pilot.callsign} with attendance status: ${pilot.attendanceStatus}`);
+      }
+    });
+  }, [id, callsign, flightNumber, pilots]);
 
   const getPilotByDashNumber = (dashNumber: string) => {
     return pilots.find(p => p.dashNumber === dashNumber) || {

@@ -738,31 +738,67 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
             display: 'flex',
             justifyContent: 'space-around',
             padding: '0 16px'
-          }}>            <button
-              onClick={() => {
+          }}>            <button              onClick={() => {
                 // Pass attendance data to onAutoAssign if available
                 if (onAutoAssign) {
-                  // Get attending pilot IDs
-                  let attendingPilotIds: string[] = [];
+                  // Instead of just passing IDs, let's pass the pilots with attendance status
                   
-                  if (selectedEvent && discordEventAttendance.length > 0) {
-                    // Get attending Discord IDs from the fetched attendance data
-                    attendingPilotIds = discordEventAttendance
-                      .filter(record => {
-                        const responseValue = record.response || record.user_response || record.status;
+                  // Get the pilots with attendance status that are already prepared
+                  const pilotsToAssign = pilotsWithAttendanceStatus.filter(pilot => {
+                    // Match by discord ID
+                    const discordId = pilot.discordId || 
+                                    (pilot as any).discord_original_id ||
+                                    (pilot as any).discord_id;
+                    
+                    // Check if this pilot is attending based on discord event attendance
+                    if (selectedEvent && discordEventAttendance.length > 0) {
+                      const attendanceRecord = discordEventAttendance.find(record => 
+                        (record.discord_id || record.user_id) === discordId
+                      );
+                      
+                      if (attendanceRecord) {
+                        const responseValue = attendanceRecord.response || attendanceRecord.user_response || attendanceRecord.status;
                         return responseValue === 'accepted' || responseValue === 'tentative' || 
                                responseValue === 'yes' || responseValue === 'maybe';
-                      })
-                      .map(record => record.discord_id || record.user_id);
-                  } else if (selectedEvent?.attendance) {
-                    // Fallback to the regular attendance format if available
-                    const attendees = [
-                      ...(selectedEvent.attendance.accepted || []),
-                      ...(selectedEvent.attendance.tentative || [])
-                    ].filter(p => p.discord_id);
+                      }
+                    } else if (selectedEvent?.attendance) {
+                      // Check if this pilot is in the attendees list from the event attendance data
+                      const allAttendees = [
+                        ...(selectedEvent.attendance.accepted || []),
+                        ...(selectedEvent.attendance.tentative || [])
+                      ];
+                      
+                      return allAttendees.some(a => a.discord_id === discordId);
+                    }
                     
-                    attendingPilotIds = attendees.map(a => a.discord_id as string);
-                  }
+                    return false;
+                  });
+                    // Create an array of objects that include both pilot ID and attendance status
+                  const attendingPilotInfo = pilotsToAssign.map(pilot => {
+                    const discordId = pilot.discordId || 
+                                     (pilot as any).discord_original_id ||
+                                     (pilot as any).discord_id;
+                    
+                    // Explicitly include attendance status
+                    return {
+                      id: discordId,
+                      status: (pilot as any).attendanceStatus || 'accepted'
+                    };
+                  }).filter(info => info.id); // Remove any undefined/null values
+                  
+                  // For backwards compatibility, also extract just the IDs
+                  const attendingPilotIds = attendingPilotInfo.map(info => info.id);
+                  
+                  console.log('[DEBUG] Auto-assigning with attendance status:', 
+                    pilotsToAssign.map(p => ({
+                      callsign: p.callsign,
+                      attendanceStatus: (p as any).attendanceStatus
+                    }))
+                  );
+                  
+                  // Pass both the IDs and detailed attendance information
+                  // Note: We attach the detailed info to the array object itself as a property
+                  (attendingPilotIds as any).pilotAttendanceInfo = attendingPilotInfo;
                   
                   onAutoAssign(attendingPilotIds);
                 }
