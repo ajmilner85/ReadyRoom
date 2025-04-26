@@ -54,19 +54,15 @@ export const useDragDrop = ({
       document.head.removeChild(styleElement);
       document.body.classList.remove('dragging');
     };
-  }, []);
-  const handleDragStart = (event: DragStartEvent) => {
+  }, []);  const handleDragStart = (event: DragStartEvent) => {
     if (event.active.data.current?.type === 'Pilot') {      
       const pilotData = event.active.data.current;
-      console.log('[DEBUG] Drag Start - Pilot Data:', JSON.stringify(pilotData.pilot));
-      console.log('[DEBUG] Drag Start - Attendance Status:', pilotData.pilot.attendanceStatus);
       
       const pilot: AssignedPilot = {
         ...pilotData.pilot,
         dashNumber: pilotData.pilot.dashNumber || '',
         attendanceStatus: pilotData.pilot.attendanceStatus
       };
-      console.log('[DEBUG] Drag Start - Created AssignedPilot:', JSON.stringify(pilot));
       setDraggedPilot(pilot);
       setDragSource(pilotData.currentFlightId ? 'tile' : 'list');
       document.body.classList.add('dragging');
@@ -121,12 +117,7 @@ export const useDragDrop = ({
         const dashNumber = overId.substring(positionIndex + 10);
         
         // Use currentFlightId from the active element's data
-        const currentFlightId = active.data.current.currentFlightId;
-
-        // Debug the extracted IDs
-        console.log('Dropping pilot:', pilot.callsign, 'from:', currentFlightId, 'to flight:', flightIdPart, 'position:', dashNumber);
-
-        // First ensure the pilot is completely removed from any flights they might be in
+        const currentFlightId = active.data.current.currentFlightId;        // First ensure the pilot is completely removed from any flights they might be in
         // This is important to prevent duplicates
         let updatedPilots = removePilotFromAllFlights(pilot.boardNumber, assignedPilots);
 

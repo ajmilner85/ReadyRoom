@@ -83,13 +83,18 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
       initializedRef.current = true;
     }
   }, [initialFlights]);
-
-  // Notify parent component when flights change
+  // Notify parent component when flights change or when assigned pilots change
   useEffect(() => {
     if (onFlightsChange) {
       onFlightsChange(flights);
     }
   }, [flights, onFlightsChange]);
+  
+  // Force re-render when assignedPilots changes to update attendance status badges
+  useEffect(() => {
+    // Create a copy of current flights to trigger a re-render
+    setFlights(currentFlights => [...currentFlights]);
+  }, [assignedPilots]);
 
   // Parse a group name into callsign and flight number
   const parseGroupName = (name: string): { callsign: string; flightNumber: string } => {
@@ -216,16 +221,15 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
   }, []);
 
   // Get unique existing callsigns for the dialog suggestions
-  const existingCallsigns = [...new Set(flights.map(flight => flight.callsign))];
-
-  // Transform assigned pilots into the format needed for display
+  const existingCallsigns = [...new Set(flights.map(flight => flight.callsign))];  // Transform assigned pilots into the format needed for display
   const getUpdatedFlightPilots = (flight: Flight) => {
-    const assigned = assignedPilots[flight.id] || [];
+    const assigned = assignedPilots?.[flight.id] || [];
     // Create a fresh array with empty positions
     const updatedPilots = flight.pilots.map(p => ({
       boardNumber: "",
       callsign: "",
-      dashNumber: p.dashNumber
+      dashNumber: p.dashNumber,
+      attendanceStatus: undefined as 'accepted' | 'tentative' | undefined
     }));
     
     // Place each assigned pilot in their designated position by dashNumber
@@ -235,10 +239,11 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
       const dashNumberStr = dashNumber.toString();
       
       // Find the position with matching dashNumber
-      const index = updatedPilots.findIndex(p => p.dashNumber === dashNumberStr);      if (index !== -1) {
-        updatedPilots[index] = {
+      const index = updatedPilots.findIndex(p => p.dashNumber === dashNumberStr);      
+      if (index !== -1) {        updatedPilots[index] = {
           ...assignedPilot,  // Spread all properties from the assigned pilot
-          dashNumber: dashNumberStr // Ensure the dashNumber is properly set
+          dashNumber: dashNumberStr, // Ensure the dashNumber is properly set
+          attendanceStatus: assignedPilot.attendanceStatus // Explicitly copy the attendance status
         };
       }
     });
