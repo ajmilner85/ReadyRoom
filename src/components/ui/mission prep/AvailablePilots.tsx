@@ -218,10 +218,7 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
         setDiscordEventAttendance([]);
         return;
       }
-      
-      try {
-        console.log(`Fetching attendance for event ${selectedEvent.id}`);
-        
+        try {
         // Use the same API endpoint as the EventAttendance component
         const response = await fetch(`http://localhost:3001/api/events/${selectedEvent.id}/attendance`);
         
@@ -230,7 +227,6 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
         }
         
         const data = await response.json();
-        console.log('Fetched event attendance:', data);
         
         // Transform the attendance data to match the format we need for filtering
         // We'll create an array of objects with discord_id and response fields
@@ -249,27 +245,22 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
           }))
         ].filter(record => record.discord_id); // Filter out any without discord_id
         
-        setDiscordEventAttendance(attendanceRecords);
-      } catch (err) {
-        console.error('Error fetching event attendance:', err);
+        setDiscordEventAttendance(attendanceRecords);      } catch (err) {
         setDiscordEventAttendance([]);
       }
     };
     
     // Initial fetch
     fetchEventAttendance();
-    
-    // Set up polling at the same interval as EventAttendance
+      // Set up polling at the same interval as EventAttendance
     if (selectedEvent?.id) {
       pollInterval = setInterval(fetchEventAttendance, 5000); // 5 seconds
-      console.log('Set up attendance polling interval');
     }
     
     // Clean up interval when component unmounts or event changes
     return () => {
       if (pollInterval) {
         clearInterval(pollInterval);
-        console.log('Cleaned up attendance polling interval');
       }
     };
   }, [selectedEvent?.id]); // Changed dependency to id instead of discordEventId
@@ -343,27 +334,11 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
       return pilotCopy;
     });
   }, [pilots, selectedEvent, discordEventAttendance]);
-
   const filteredPilots = useMemo(() => {
     let filtered = [...pilotsWithAttendanceStatus];
     
-    console.log('--- FILTERING PILOTS ---');
-    console.log('Total pilots before filtering:', filtered.length);
-    console.log('ShowOnlyAttending:', showOnlyAttending);
-    console.log('Selected Event:', selectedEvent);
-    console.log('Discord Event Attendance data count:', discordEventAttendance.length);
-    
-    if (filtered.length > 0) {
-      console.log('Sample pilot structure:', Object.keys(filtered[0]));
-      console.log('Sample pilot full object:', filtered[0]);
-    }
-    
     if (showOnlyAttending && selectedEvent) {
-      console.log('Filtering by attendance...');
-      
       if (selectedEvent.discordEventId && discordEventAttendance.length > 0) {
-        console.log('Using fetched Discord Attendance Data');
-        
         // Get attending Discord IDs
         const attendingDiscordIds = discordEventAttendance
           .filter(record => {
@@ -372,8 +347,6 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
                   responseValue === 'tentative' || responseValue === 'maybe';
           })
           .map(record => record.discord_id || record.user_id);
-        
-        console.log('Attending Discord IDs:', attendingDiscordIds);
         
         const beforeFilterCount = filtered.length;
         filtered = filtered.filter(pilot => {
@@ -384,18 +357,11 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
             
           const isAttending = discordId && attendingDiscordIds.includes(discordId);
           
-          console.log(`Pilot ${pilot.callsign} discordId=${discordId}, isAttending=${isAttending}, status=${(pilot as any).attendanceStatus || 'unknown'}`);
-          
           return isAttending;
-        });
-        
-        console.log(`Filtered by Discord attendance: ${beforeFilterCount} -> ${filtered.length} pilots`);
-      } else if (selectedEvent.attendance && 
+        });      } else if (selectedEvent.attendance && 
                 (selectedEvent.attendance.accepted?.length > 0 || 
                 selectedEvent.attendance.tentative?.length > 0)) {
         // Fallback to the regular attendance format if available
-        console.log('Using regular attendance data');
-        
         const attendingBoardNumbers = [
           ...(selectedEvent.attendance.accepted || []),
           ...(selectedEvent.attendance.tentative || [])
@@ -403,26 +369,15 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
         .filter(p => p.boardNumber)
         .map(p => p.boardNumber);
         
-        console.log('Attending Board Numbers:', attendingBoardNumbers);
-        
-        const beforeFilterCount = filtered.length;
         filtered = filtered.filter(pilot => {
           const isAttending = attendingBoardNumbers.includes(pilot.boardNumber);
-          console.log(`Pilot ${pilot.callsign} (${pilot.boardNumber}): isAttending=${isAttending}`);
           return isAttending;
         });
-        console.log(`Filtered by regular attendance: ${beforeFilterCount} -> ${filtered.length} pilots`);
       } else {
-        console.log('No attendance data available for filtering');
         // If filtering is on but no attendance data, show no pilots
         filtered = [];
       }
-    }
-
-    if (selectedQualifications.length > 0) {
-      console.log('Filtering by qualifications:', selectedQualifications);
-      
-      const beforeFilterCount = filtered.length;
+    }    if (selectedQualifications.length > 0) {
       filtered = filtered.filter(pilot => {
         // Only use database qualifications for filtering
         const pilotId = pilot.id || pilot.boardNumber;
@@ -431,13 +386,9 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
           hasDatabaseQualification(pilot.boardNumber, qualType)
         );
         
-        console.log(`Pilot ${pilot.callsign} (${pilot.boardNumber}) has selected qualifications: ${hasQual}`);
         return hasQual;
       });
-      console.log(`Filtered by qualifications: ${beforeFilterCount} -> ${filtered.length} pilots`);
     }
-
-    console.log('Final filtered pilots count:', filtered.length);
     
     return filtered.sort((a, b) => {
       if (a.role && b.role) {
