@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import aircraftIcon from '../../../assets/Aircraft Icon.svg';
 import { useDraggable } from '@dnd-kit/core';
 
@@ -38,16 +38,6 @@ const AircraftTile: React.FC<AircraftTileProps> = ({
   // Track local drag state
   const [localDragging, setLocalDragging] = useState(false);
   
-  // Debug logging for attendance status
-  React.useEffect(() => {
-    if (!isEmpty && callsign) {
-      console.log('[DEBUG] AircraftTile rendered for pilot:', callsign, 
-        '- boardNumber:', boardNumber,
-        '- attendanceStatus:', attendanceStatus,
-        '- should show tentative badge:', attendanceStatus === 'tentative');
-    }
-  }, [callsign, isEmpty, attendanceStatus, boardNumber]);
-
   // Component styling constants
   const PURPLE = '#5B4E61';
   const LIGHT_PURPLE = '#82728C'; // For the 1-3 accent
@@ -87,7 +77,8 @@ const AircraftTile: React.FC<AircraftTileProps> = ({
       pilot: isEmpty ? null : {
         boardNumber,
         callsign,
-        dashNumber
+        dashNumber,
+        attendanceStatus // CRITICAL FIX: Include attendance status in drag data
       },
       currentFlightId: flightId
     },
@@ -95,7 +86,7 @@ const AircraftTile: React.FC<AircraftTileProps> = ({
   });
 
   // Update local dragging state
-  React.useEffect(() => {
+  useEffect(() => {
     if (isDragging !== localDragging) {
       setLocalDragging(isDragging);
     }
@@ -118,9 +109,18 @@ const AircraftTile: React.FC<AircraftTileProps> = ({
     return '10px';
   };
 
+  // IMPORTANT: Force re-render when attendanceStatus changes
+  const [renderKey, setRenderKey] = useState(Date.now());
+  
+  useEffect(() => {
+    // Update the render key whenever attendance status changes
+    setRenderKey(Date.now());
+  }, [attendanceStatus]);
+
   return (
     <div 
       className="aircraft-tile-container"
+      key={`tile-${boardNumber}-${callsign}-${attendanceStatus}-${renderKey}`}
       style={{
         position: 'relative',
         width: '92px', // All tiles should be 92px wide
@@ -265,7 +265,9 @@ const AircraftTile: React.FC<AircraftTileProps> = ({
               }}
             >
               {isEmpty ? '' : boardNumber} {/* Removed '-' placeholder */}
-            </div>            {/* Pilot callsign with tentative badge if applicable */}
+            </div>
+            
+            {/* Pilot callsign with tentative badge if applicable */}
             <div
               style={{
                 fontFamily: 'Inter',
@@ -280,7 +282,7 @@ const AircraftTile: React.FC<AircraftTileProps> = ({
                 alignItems: 'center',
                 gap: '4px'
               }}
-            >              {!isEmpty && console.log('[DEBUG] AircraftTile rendering - callsign:', callsign, 'attendanceStatus:', attendanceStatus)}
+            >
               {isEmpty ? '' : (
                 <>
                   {attendanceStatus === 'tentative' && (

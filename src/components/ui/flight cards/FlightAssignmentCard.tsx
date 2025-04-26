@@ -272,8 +272,8 @@ interface DroppableAircraftTileProps {
   verticalOffset?: number; // Add the verticalOffset prop
 }
 
-// Memoize the DroppableAircraftTile component to prevent unnecessary re-renders
-const DroppableAircraftTile = memo<DroppableAircraftTileProps>(({
+// Do NOT memoize this component to ensure it updates when attendance status changes
+const DroppableAircraftTile: React.FC<DroppableAircraftTileProps> = ({
   pilot,
   flightId,
   dashNumber,
@@ -289,6 +289,15 @@ const DroppableAircraftTile = memo<DroppableAircraftTileProps>(({
   const isEmpty = !pilot.boardNumber && !pilot.callsign;
   // Use the complete flight ID to ensure unique drop targets
   const dropId = `flight-${flightId}-position-${dashNumber}`;
+  
+  // Force component to update when attendance status changes
+  const [key, setKey] = useState(Date.now());
+  
+  // This effect ensures the component re-renders when attendance status changes
+  React.useEffect(() => {
+    // Generate a new key whenever pilot's attendance status changes
+    setKey(Date.now());
+  }, [pilot.attendanceStatus]);
   
   const { setNodeRef, isOver } = useDroppable({
     id: dropId,
@@ -310,9 +319,13 @@ const DroppableAircraftTile = memo<DroppableAircraftTileProps>(({
       }}
       data-drop-id={dropId}
       data-flight-id={flightId} // Add a data attribute for debugging
-    >      <AircraftTile
-        {...pilot}
-        attendanceStatus={pilot.attendanceStatus}
+      key={`${flightId}-${dashNumber}-${key}`} // Add a key that changes when attendance status changes
+    >
+      <AircraftTile
+        boardNumber={pilot.boardNumber}
+        callsign={pilot.callsign}
+        dashNumber={pilot.dashNumber}
+        attendanceStatus={pilot.attendanceStatus} // Explicitly pass attendance status
         flightId={flightId}
         flightNumber={flightNumber}
         flightCallsign={flightCallsign}
@@ -338,9 +351,9 @@ const DroppableAircraftTile = memo<DroppableAircraftTileProps>(({
       )}
     </div>
   );
-});
+};
 
-// Add display name for memoized component
+// Add display name for component
 DroppableAircraftTile.displayName = 'DroppableAircraftTile';
 
 export default memo(FlightAssignmentCard);

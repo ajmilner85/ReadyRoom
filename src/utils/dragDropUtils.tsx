@@ -63,11 +63,11 @@ export const swapPilots = (
   // Remove any pilot currently in the target position
   updated[target.flightId] = updated[target.flightId]
     .filter(p => p.dashNumber !== target.dashNumber);
-  
-  // Add source pilot to target position
+    // Add source pilot to target position with preserved attendance status
   updated[target.flightId].push({
     ...source.pilot,
-    dashNumber: target.dashNumber
+    dashNumber: target.dashNumber,
+    attendanceStatus: source.pilot.attendanceStatus // Explicitly preserve attendance status
   });
   
   // If target had a pilot and it's a different pilot than source,
@@ -79,7 +79,8 @@ export const swapPilots = (
     
     updated[source.flightId].push({
       ...target.currentPilot,
-      dashNumber: source.pilot.dashNumber
+      dashNumber: source.pilot.dashNumber,
+      attendanceStatus: target.currentPilot.attendanceStatus // Explicitly preserve attendance status
     });
   }
   

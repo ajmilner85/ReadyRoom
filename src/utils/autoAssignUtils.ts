@@ -4,6 +4,7 @@ import type { MissionCommanderInfo } from '../types/MissionCommanderTypes';
 
 interface AssignedPilot extends Pilot {
   dashNumber: string;
+  attendanceStatus?: 'accepted' | 'tentative';
 }
 
 /**
@@ -114,14 +115,14 @@ export const autoAssignPilots = (
     // Initialize assignment array if it doesn't exist yet
     if (!newAssignments[flightId]) {
       newAssignments[flightId] = [];
-    }
-
-    // Find highest priority available pilot
+    }    // Find highest priority available pilot
     for (const pilot of sortedPilots) {
       if (!isPilotAssigned(pilot.id) && !isPilotAssigned(pilot.boardNumber)) {
         newAssignments[flightId].push({
           ...pilot,
-          dashNumber: "1"  // Assign as flight lead (1-1)
+          dashNumber: "1",  // Assign as flight lead (1-1)
+          // Preserve attendance status if it exists
+          attendanceStatus: (pilot as any).attendanceStatus
         });
         break;
       }
@@ -143,11 +144,12 @@ export const autoAssignPilots = (
     }
 
     // Find highest priority available pilot
-    for (const pilot of sortedPilots) {
-      if (!isPilotAssigned(pilot.id) && !isPilotAssigned(pilot.boardNumber)) {
+    for (const pilot of sortedPilots) {      if (!isPilotAssigned(pilot.id) && !isPilotAssigned(pilot.boardNumber)) {
         newAssignments[flightId].push({
           ...pilot,
-          dashNumber: "3"  // Assign as section lead (1-3)
+          dashNumber: "3",  // Assign as section lead (1-3)
+          // Preserve attendance status if it exists
+          attendanceStatus: (pilot as any).attendanceStatus
         });
         break;
       }
