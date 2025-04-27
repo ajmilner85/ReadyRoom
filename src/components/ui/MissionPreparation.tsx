@@ -1,5 +1,5 @@
 // filepath: c:\Users\ajmil\OneDrive\Desktop\pri-fly\src\components\ui\MissionPreparationRefactored.tsx
-import React, { useCallback, useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { DndContext, DragOverlay } from '@dnd-kit/core';
 import { restrictToWindowEdges } from '@dnd-kit/modifiers';
 import MissionDetails from './mission prep/MissionDetails';
@@ -9,15 +9,23 @@ import Communications from './mission prep/Communications';
 import PilotDragOverlay from './mission-execution/PilotDragOverlay';
 import type { Flight, ExtractedFlight } from '../../types/FlightData';
 import type { MissionCommanderInfo } from '../../types/MissionCommanderTypes';
-import type { Pilot } from '../../types/PilotTypes';
+import type { Pilot } from '../../types/PilotTypes'; // Ensure Pilot is imported if not already
 import { useDragDrop } from '../../utils/useDragDrop';
+import type { Event } from '../../types/EventTypes'; // Ensure Event type is imported
 import { autoAssignPilots } from '../../utils/autoAssignUtils';
 import { getMissionCommanderCandidatesWithFlightInfo } from '../../utils/missionCommanderUtils';
 import { useMissionPrepData } from '../../hooks/useMissionPrepData';
 import { useMissionPrepState } from '../../hooks/useMissionPrepState';
 
+// Define the structure for the polled attendance data
+interface RealtimeAttendanceRecord {
+  discord_id: string;
+  response: 'accepted' | 'declined' | 'tentative';
+}
+
 interface AssignedPilot extends Pilot {
   dashNumber: string;
+  attendanceStatus?: 'accepted' | 'tentative'; // Add attendanceStatus here
 }
 
 interface MissionPreparationProps {
@@ -77,6 +85,8 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
     onPrepFlightsChange
   );
 
+  const [realtimeAttendanceData, setRealtimeAttendanceData] = useState<RealtimeAttendanceRecord[]>([]);
+
   // Use custom hook for drag and drop functionality
   const { draggedPilot, dragSource, handleDragStart, handleDragEnd } = useDragDrop({
     missionCommander,
@@ -99,93 +109,158 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
   const handleClearAssignments = useCallback(() => {
     setAssignedPilots({});
     setMissionCommander(null);
-  }, [setAssignedPilots, setMissionCommander]);  // Auto-assign pilots to flights according to priority rules
-  const handleAutoAssign = useCallback((attendingPilotIds?: string[]) => {
-    if (!prepFlights || prepFlights.length === 0) {
+  }, [setAssignedPilots, setMissionCommander]);  // Function to handle auto-assignment logic
+  const handleAutoAssign = useCallback((attendingPilotInfo?: { id: string; status: 'accepted' | 'tentative' }[]) => { // Updated signature
+    console.log('[DEBUG] handleAutoAssign called with:', attendingPilotInfo);
+    if (!prepFlights || prepFlights.length === 0) { // Use prepFlights from state
       console.log("Cannot auto-assign: no flights available");
       return;
     }
 
-    // Filter pilots to only include those who are attending the event if attendingPilotIds is provided
-    let pilotsToAssign = activePilots;
-    
-    if (attendingPilotIds && attendingPilotIds.length > 0) {
-      console.log("Filtering pilots by attendance, considering only", attendingPilotIds.length, "attending pilots");      // First, get attendance information from the event data
-      const eventAttendance = selectedEvent?.attendance;
-        // Check for enhanced attendance info from AvailablePilots
-      const pilotAttendanceInfo = (attendingPilotIds as any).pilotAttendanceInfo || [];
-      
-      pilotsToAssign = activePilots.filter(pilot => {
-        // Match by discord ID
-        const discordId = pilot.discordId || 
-                        (pilot as any).discord_original_id ||
-                        (pilot as any).discord_id;
-        
-        const isAttending = discordId && attendingPilotIds.includes(discordId);
-        
-        if (isAttending) {
-          // First check if we have enhanced attendance info from AvailablePilots
-          const attendanceInfo = pilotAttendanceInfo.find((info: any) => info.id === discordId);
-          if (attendanceInfo && attendanceInfo.status) {
-            (pilot as any).attendanceStatus = attendanceInfo.status;
-            console.log(`Using enhanced attendance info for ${pilot.callsign}: ${attendanceInfo.status}`);
-          }
-          // Then check if pilot already has attendance status
-          else if ((pilot as any).attendanceStatus) {
-            // Keep the existing attendance status
-            console.log(`Preserving existing attendance status for ${pilot.callsign}: ${(pilot as any).attendanceStatus}`);
-          } 
-          // Then look for this pilot in tentative attendees from the event data as a fallback
-          else if (eventAttendance?.tentative?.some((a: any) => a.discord_id === discordId)) {
-            (pilot as any).attendanceStatus = 'tentative';
-          } else {
-            (pilot as any).attendanceStatus = 'accepted'; // Default for attending
-          }
-          
-          console.log(`Including attending pilot ${pilot.callsign} (${pilot.boardNumber}) with status: ${(pilot as any).attendanceStatus}`);
-        }
-        
-        return isAttending;
+    // Filter available pilots based on the provided attendingPilotInfo
+    let pilotsToAssign = activePilots; // Start with all active pilots
+
+    if (attendingPilotInfo && attendingPilotInfo.length > 0) {
+      console.log("[DEBUG] Filtering pilots by attendance info:", attendingPilotInfo);
+      pilotsToAssign = activePilots.filter(p => {
+        // Prefer UUID (p.id) if available, fallback to discordId or boardNumber
+        const pilotIdentifier = p.id || p.discordId || (p as any).discord_original_id || p.boardNumber;
+        if (!pilotIdentifier) return false; // Cannot assign if no identifier
+
+        const attendance = attendingPilotInfo.find(info => info.id === pilotIdentifier);
+        // Include only pilots marked as 'accepted' or 'tentative'
+        return attendance && (attendance.status === 'accepted' || attendance.status === 'tentative');
+      }).map(p => {
+        // Add the attendance status to the pilot object for sorting/assignment logic
+        const pilotIdentifier = p.id || p.discordId || (p as any).discord_original_id || p.boardNumber;
+        const attendance = attendingPilotInfo.find(info => info.id === pilotIdentifier);
+        return {
+          ...p,
+          attendanceStatus: attendance?.status as 'accepted' | 'tentative' | undefined
+        };
       });
-      
-      console.log(`Auto-assigning with ${pilotsToAssign.length} attending pilots out of ${activePilots.length} total`);
-    }    const { newAssignments, suggestedMissionCommander } = autoAssignPilots(
-      prepFlights, 
-      pilotsToAssign, 
-      assignedPilots, 
+      console.log(`[DEBUG] Filtered ${pilotsToAssign.length} pilots for auto-assignment based on attendance.`);
+    } else {
+       console.log("[DEBUG] No attendance info provided to handleAutoAssign, using all active pilots.");
+       // Ensure attendanceStatus is undefined if no specific info is passed
+       pilotsToAssign = activePilots.map(p => ({ ...p, attendanceStatus: undefined }));
+    }
+
+
+    // Call the utility function
+    const { newAssignments, suggestedMissionCommander } = autoAssignPilots(
+      prepFlights, // Use prepFlights from state
+      pilotsToAssign, // Use the filtered list
+      assignedPilots,
       allPilotQualifications
     );
-    
-    // Debug new assignments for attendance status
-    console.log('[TENTATIVE-DEBUG] Checking MissionPreparation received assignments:');
-    for (const flightId in newAssignments) {
-      for (const pilot of newAssignments[flightId]) {
-        console.log(`[TENTATIVE-DEBUG] - Flight ${flightId}, position ${pilot.dashNumber}: ${pilot.callsign} with status: ${pilot.attendanceStatus || 'undefined'}`);
-      }
-    }
-    
-    // Update the assignments
+
+    // Update state
     setAssignedPilots(newAssignments);
-    
-    // Set mission commander if we found a suitable pilot
     if (suggestedMissionCommander) {
       setMissionCommander(suggestedMissionCommander);
-    }}, [
-    prepFlights,
-    activePilots,
-    selectedEvent,
-    assignedPilots,
-    allPilotQualifications,
-    setAssignedPilots,
-    setMissionCommander
-  ]);
-  
+    }
+  }, [prepFlights, activePilots, assignedPilots, allPilotQualifications, setAssignedPilots, setMissionCommander]); // Added prepFlights dependency
+
+
   // Reset the processed flag when component unmounts
   useEffect(() => {
     return () => {
       resetProcessedFlag();
     };
   }, [resetProcessedFlag]);
+
+  // --- BEGIN NEW POLLING LOGIC ---
+  useEffect(() => {
+    let pollInterval: NodeJS.Timeout | null = null;
+
+    const fetchEventAttendance = async () => {
+      if (!selectedEvent?.id) {
+        setRealtimeAttendanceData([]);
+        return;
+      }
+      try {
+        const response = await fetch(`http://localhost:3001/api/events/${selectedEvent.id}/attendance`);
+        if (!response.ok) {
+          throw new Error(`Failed to fetch attendance: ${response.statusText}`);
+        }
+        const data = await response.json();
+
+        // Transform data into the RealtimeAttendanceRecord format
+        const attendanceRecords: RealtimeAttendanceRecord[] = [
+          ...data.accepted.map((attendee: any) => ({ discord_id: attendee.discord_id, response: 'accepted' })),
+          ...data.tentative.map((attendee: any) => ({ discord_id: attendee.discord_id, response: 'tentative' })),
+          ...data.declined.map((attendee: any) => ({ discord_id: attendee.discord_id, response: 'declined' }))
+        ].filter(record => record.discord_id); // Filter out any without discord_id
+
+        setRealtimeAttendanceData(attendanceRecords);
+      } catch (err) {
+        console.error("Error fetching realtime attendance:", err);
+        setRealtimeAttendanceData([]); // Clear data on error
+      }
+    };
+
+    // Initial fetch
+    fetchEventAttendance();
+
+    // Set up polling every 5 seconds
+    pollInterval = setInterval(fetchEventAttendance, 5000);
+
+    // Clean up interval when component unmounts or event changes
+    return () => {
+      if (pollInterval) {
+        clearInterval(pollInterval);
+      }
+    };
+  }, [selectedEvent?.id]); // Re-run polling if the selected event ID changes
+  // --- END NEW POLLING LOGIC ---
+
+  // --- BEGIN EFFECT TO UPDATE ASSIGNED PILOTS ---
+  useEffect(() => {
+    if (realtimeAttendanceData.length === 0 || Object.keys(assignedPilots).length === 0) {
+      return; // No attendance data or no assignments to update
+    }
+
+    let needsUpdate = false;
+    const updatedAssignments: Record<string, AssignedPilot[]> = {};
+
+    // Iterate through existing assignments
+    for (const flightId in assignedPilots) {
+      updatedAssignments[flightId] = assignedPilots[flightId].map(pilot => {
+        const discordId = pilot.discordId || (pilot as any).discord_original_id || (pilot as any).discord_id;
+        if (!discordId) return pilot; // Cannot update if no discord ID
+
+        // Find the realtime status for this pilot
+        const realtimeRecord = realtimeAttendanceData.find(record => record.discord_id === discordId);
+        const realtimeStatus = realtimeRecord?.response; // 'accepted', 'tentative', or undefined if not found/declined
+
+        // Determine the status to set (default to 'accepted' if attending but not tentative)
+        let newStatus: 'accepted' | 'tentative' | undefined = undefined;
+        if (realtimeStatus === 'tentative') {
+          newStatus = 'tentative';
+        } else if (realtimeStatus === 'accepted') {
+          newStatus = 'accepted';
+        }
+        // Pilots who declined or are not in the list will have undefined status
+
+        // Compare with current status and update if different
+        if (pilot.attendanceStatus !== newStatus) {
+          console.log(`[TENTATIVE-DEBUG] Updating ${pilot.callsign} in flight ${flightId} from ${pilot.attendanceStatus} to ${newStatus}`);
+          needsUpdate = true;
+          return { ...pilot, attendanceStatus: newStatus }; // Create new pilot object with updated status
+        }
+        return pilot; // No change needed
+      });
+    }
+
+    // If any pilot's status changed, update the state
+    if (needsUpdate) {
+      console.log("[TENTATIVE-DEBUG] Applying updated attendance statuses to assignedPilots state.");
+      setAssignedPilots(updatedAssignments);
+    }
+  }, [realtimeAttendanceData, assignedPilots, setAssignedPilots]);
+  // --- END EFFECT TO UPDATE ASSIGNED PILOTS ---
+
 
   return (
     <DndContext
@@ -238,16 +313,17 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
                 setMissionCommander={setMissionCommander}
                 onExtractedFlights={handleExtractedFlights}
               />
-              <AvailablePilots 
+              <AvailablePilots
                 width={CARD_WIDTH}
-                pilots={activePilots}
+                pilots={activePilots} // Use activePilots from useMissionPrepData
                 selectedEvent={selectedEvent}
                 assignedPilots={assignedPilots}
-                onAutoAssign={handleAutoAssign}
+                onAutoAssign={handleAutoAssign} // Pass the updated handler
                 onClearAssignments={handleClearAssignments}
                 pilotQualifications={allPilotQualifications}
+                realtimeAttendanceData={realtimeAttendanceData} // Pass down polled data
               />
-              <FlightAssignments 
+              <FlightAssignments
                 width={CARD_WIDTH} 
                 assignedPilots={assignedPilots}
                 missionCommander={missionCommander}
