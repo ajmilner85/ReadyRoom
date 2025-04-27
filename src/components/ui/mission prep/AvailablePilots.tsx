@@ -23,10 +23,17 @@ interface AvailablePilotsProps {
   realtimeAttendanceData: RealtimeAttendanceRecord[];
 }
 
+// These should match the updated QualificationType
 const QUALIFICATION_ORDER: QualificationType[] = [
   'FAC(A)', 'TL', '4FL', '2FL', 'WQ', 'T/O', 'NATOPS', 'DFL', 'DTL'
-]; // These should now match the updated QualificationType
+];
 
+// Recognized qualification types for grouping
+const RECOGNIZED_QUALIFICATIONS: QualificationType[] = [
+  ...QUALIFICATION_ORDER,
+  'Strike Lead', 'Instructor Pilot', 'LSO', 'Flight Lead', 'Section Lead', 
+  'CQ', 'Night CQ', 'Wingman'
+];
 
 interface PilotEntryProps {
   pilot: Pilot & { attendanceStatus?: 'accepted' | 'tentative' };
@@ -184,7 +191,6 @@ const PilotEntry: React.FC<PilotEntryProps> = ({ pilot, isAssigned = false, curr
   );
 };
 
-
 const AvailablePilots: React.FC<AvailablePilotsProps> = ({
   width,
   pilots,
@@ -199,35 +205,47 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
   const [showOnlyAttending, setShowOnlyAttending] = useState(false);
   const [selectedQualifications, setSelectedQualifications] = useState<QualificationType[]>([]);
 
-  // Simplified allQualifications derivation, assuming mapQualificationNameToType is not needed if types match
-   const allQualifications = useMemo(() => {
+  // Get all available qualifications from the pilots' data
+  const allQualifications = useMemo(() => {
     const qualSet = new Set<QualificationType>();
+    
+    // Always ensure we have Wingman category available for unqualified pilots
+    qualSet.add('Wingman');
+    
+    // Add all qualifications from pilots' data
     Object.values(pilotQualifications).forEach(qualArray => {
       if (Array.isArray(qualArray)) {
         qualArray.forEach(qual => {
           if (qual.qualification && qual.qualification.name) {
             // Directly use the name if it's a valid QualificationType
             const qualName = qual.qualification.name as QualificationType;
-             // Check if it's one of the defined types before adding
-            if ([...QUALIFICATION_ORDER, 'Wingman', 'Strike Lead', 'Instructor Pilot', 'LSO', 'Flight Lead', 'Section Lead', 'CQ', 'Night CQ'].includes(qualName)) {
-               qualSet.add(qualName);
+            // Check if it's one of the recognized types before adding
+            if (RECOGNIZED_QUALIFICATIONS.includes(qualName)) {
+              qualSet.add(qualName);
             }
           }
         });
       }
     });
-    // Ensure QUALIFICATION_ORDER items are prioritized, then add others
+    
+    // Create ordered list: QUALIFICATION_ORDER first, then others alphabetically, Wingman last
     const orderedQuals = QUALIFICATION_ORDER.filter(q => qualSet.has(q));
-    const otherQuals = Array.from(qualSet).filter(q => !QUALIFICATION_ORDER.includes(q));
-    // Add Wingman if present, ensuring it's last unless it's the only one
-    const wingmanPresent = qualSet.has('Wingman');
-    const finalQuals = [...orderedQuals, ...otherQuals.filter(q => q !== 'Wingman')];
-    if (wingmanPresent) finalQuals.push('Wingman');
+    const otherQuals = Array.from(qualSet).filter(q => 
+      !QUALIFICATION_ORDER.includes(q) && q !== 'Wingman'
+    ).sort();
+    
+    // Combine in proper order
+    const finalQuals = [...orderedQuals, ...otherQuals];
+    
+    // Ensure Wingman is last
+    if (qualSet.has('Wingman')) {
+      finalQuals.push('Wingman');
+    }
 
     return finalQuals;
   }, [pilotQualifications]);
 
-
+  // Toggle a qualification for filtering
   const toggleQualification = (qual: QualificationType) => {
     setSelectedQualifications(prev =>
       prev.includes(qual)
@@ -235,6 +253,8 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
         : [...prev, qual]
     );
   };
+
+  // Check if a pilot has a specific qualification
   const hasDatabaseQualification = (pilotIdOrBoardNumber: string, qualType: QualificationType) => {
     const pilotQuals = pilotQualifications[pilotIdOrBoardNumber] || [];
     return pilotQuals.some(qual => {
@@ -243,14 +263,17 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
     });
   };
 
+  // Add attendance status to pilots based on realtime data
   const pilotsWithAttendanceStatus = useMemo(() => {
     if (!selectedEvent || !realtimeAttendanceData || realtimeAttendanceData.length === 0) {
       // If no event or no realtime data, return pilots without status updates
       return pilots.map(p => ({ ...p, attendanceStatus: undefined }));
     }
+    
     return pilots.map(pilot => {
       const pilotCopy = { ...pilot, attendanceStatus: undefined as ('accepted' | 'tentative' | undefined) };
       const discordId = pilotCopy.discordId || (pilotCopy as any).discord_original_id || (pilotCopy as any).discord_id;
+      
       if (discordId) {
         const attendanceRecord = realtimeAttendanceData.find(record => record.discord_id === discordId);
         if (attendanceRecord) {
@@ -262,13 +285,17 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
     });
   }, [pilots, selectedEvent, realtimeAttendanceData]);
 
+  // Filter pilots based on attendance and selected qualifications
   const filteredPilots = useMemo(() => {
     let filtered = [...pilotsWithAttendanceStatus];
+    
+    // Filter by attendance if that option is selected
     if (showOnlyAttending && selectedEvent) {
       if (realtimeAttendanceData.length > 0) {
         const attendingDiscordIds = realtimeAttendanceData
           .filter(record => record.response === 'accepted' || record.response === 'tentative')
           .map(record => record.discord_id);
+          
         filtered = filtered.filter(pilot => {
           const discordId = pilot.discordId || (pilot as any).discord_original_id || (pilot as any).discord_id;
           return discordId && attendingDiscordIds.includes(discordId);
@@ -277,6 +304,8 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
         filtered = [];
       }
     }
+    
+    // Filter by selected qualifications
     if (selectedQualifications.length > 0) {
       filtered = filtered.filter(pilot => {
         const pilotIdKey = pilot.id || pilot.boardNumber;
@@ -284,12 +313,15 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
         return hasQual;
       });
     }
+    
+    // Sort alphabetically by callsign
     return filtered.sort((a, b) => (a.callsign || '').localeCompare(b.callsign || ''));
   }, [pilotsWithAttendanceStatus, selectedEvent, showOnlyAttending, selectedQualifications, pilotQualifications, hasDatabaseQualification, realtimeAttendanceData]);
 
-
+  // Check if a pilot is assigned to a flight
   const isPilotAssignedToFlight = (pilot: Pilot): { isAssigned: boolean; flightId?: string } => {
     if (!assignedPilots) return { isAssigned: false };
+    
     for (const flightId in assignedPilots) {
       const flightPilots = assignedPilots[flightId];
       if (flightPilots.some((p: any) => (p.id && p.id === pilot.id) || p.boardNumber === pilot.boardNumber)) {
@@ -299,50 +331,65 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
     return { isAssigned: false };
   };
 
+  // Group pilots by their highest qualification
   const groupedPilots = useMemo(() => {
-    const result: Record<string, Pilot[]> = {}; // Use string index signature
-
-    // Create the order ensuring Wingman is at the end if present
+    const result: Record<string, Pilot[]> = {};
+    
+    // Start with all qualification categories
     const groupOrder = [...allQualifications];
+    
+    // Make sure Wingman is last (for unqualified pilots)
     if (groupOrder.includes('Wingman')) {
-      // Remove Wingman from its current position
       const wingmanIndex = groupOrder.indexOf('Wingman');
       groupOrder.splice(wingmanIndex, 1);
-      // Add it to the end
+      groupOrder.push('Wingman');
+    } else {
+      // Add Wingman if not present
       groupOrder.push('Wingman');
     }
     
-    // Initialize groups based on our order
-    groupOrder.forEach(qual => { result[qual] = []; });
+    // Initialize all groups
+    groupOrder.forEach(qual => { 
+      result[qual] = []; 
+    });
     
+    // Assign each pilot to their highest qualification group
     filteredPilots.forEach(pilot => {
+      // Default to Wingman if no other qualification matches
       let highestQual: QualificationType = 'Wingman';
       const pilotIdKey = pilot.id || pilot.boardNumber;
       const pilotDbQuals = pilotQualifications[pilotIdKey] || [];
 
+      // Get qualification names from pilot data
       if (pilotDbQuals.length > 0) {
-        const mappedTypes = pilotDbQuals
+        const pilotQualNames = pilotDbQuals
           .filter(q => q.qualification && q.qualification.name)
-          .map(q => q.qualification.name as QualificationType);
+          .map(q => q.qualification.name as QualificationType)
+          .filter(name => groupOrder.includes(name));
         
+        // Find the highest qualification based on the group order
         for (const qual of groupOrder) {
-          if (mappedTypes.includes(qual)) {
+          if (pilotQualNames.includes(qual)) {
             highestQual = qual;
-            break;
+            break; // Found the highest one
           }
         }
       }
-
-      // Add pilot to the determined group (ensure group exists)
-      if (!result[highestQual]) { result[highestQual] = []; }
+      
+      // Add pilot to the appropriate group
+      if (!result[highestQual]) {
+        result[highestQual] = []; // Create group if it doesn't exist
+      }
       result[highestQual].push(pilot);
     });
     
-    return { groups: result, order: groupOrder }; // Return both groups and the order
+    return { 
+      groups: result, 
+      order: groupOrder 
+    };
   }, [filteredPilots, pilotQualifications, allQualifications]);
 
-
-    // Set up some style attributes for drag operations
+  // Set up some style attributes for drag operations
   useEffect(() => {
     const originalOverflow = document.body.style.overflowX;
     
