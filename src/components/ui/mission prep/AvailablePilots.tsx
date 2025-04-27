@@ -5,42 +5,35 @@ import { Filter } from 'lucide-react';
 import { useDraggable } from '@dnd-kit/core';
 import type { Pilot, QualificationType } from '../../../types/PilotTypes';
 import type { Event } from '../../../types/EventTypes';
-import { supabase } from '../../../utils/supabaseClient';
+
+// Define the structure for the polled attendance data (matching MissionPreparation)
+interface RealtimeAttendanceRecord {
+  discord_id: string;
+  response: 'accepted' | 'declined' | 'tentative';
+}
 
 interface AvailablePilotsProps {
   width: string;
   pilots: Pilot[];
   selectedEvent: Event | null;
-  assignedPilots?: Record<string, Pilot[]>;
-  onAutoAssign?: (attendingPilotIds?: string[]) => void;
-  onClearAssignments?: () => void;
+  assignedPilots?: Record<string, any>;
+  onAutoAssign: (attendingPilotInfo?: { id: string; status: 'accepted' | 'tentative' }[]) => void;
+  onClearAssignments: () => void;
   pilotQualifications?: Record<string, any[]>;
+  realtimeAttendanceData: RealtimeAttendanceRecord[];
 }
 
+// These should match the updated QualificationType
 const QUALIFICATION_ORDER: QualificationType[] = [
-  'Strike Lead',
-  'Instructor Pilot',
-  'LSO',
-  'Flight Lead',
-  'Section Lead',
-  'CQ',
-  'Night CQ',
-  'Wingman'
+  'FAC(A)', 'TL', '4FL', '2FL', 'WQ', 'T/O', 'NATOPS', 'DFL', 'DTL'
 ];
 
-const DISPLAY_ORDER = QUALIFICATION_ORDER.filter(qual => qual !== 'Wingman');
-
-const mapQualificationNameToType = (name: string): QualificationType => {
-  const lowerName = name.toLowerCase();
-  if (lowerName.includes('strike lead')) return 'Strike Lead';
-  if (lowerName.includes('instructor')) return 'Instructor Pilot';
-  if (lowerName.includes('lso')) return 'LSO';
-  if (lowerName.includes('flight lead')) return 'Flight Lead';
-  if (lowerName.includes('section lead')) return 'Section Lead';
-  if (lowerName.includes('carrier qual') || lowerName === 'cq') return 'CQ';
-  if (lowerName.includes('night') && lowerName.includes('cq')) return 'Night CQ';
-  return 'Wingman';
-};
+// Recognized qualification types for grouping
+const RECOGNIZED_QUALIFICATIONS: QualificationType[] = [
+  ...QUALIFICATION_ORDER,
+  'Strike Lead', 'Instructor Pilot', 'LSO', 'Flight Lead', 'Section Lead', 
+  'CQ', 'Night CQ', 'Wingman'
+];
 
 interface PilotEntryProps {
   pilot: Pilot & { attendanceStatus?: 'accepted' | 'tentative' };
@@ -49,10 +42,10 @@ interface PilotEntryProps {
   pilotQualifications?: any[];
 }
 
-const PilotEntry: React.FC<PilotEntryProps> = ({ pilot, isAssigned = false, currentFlightId, pilotQualifications }) => {  // Make sure we explicitly include attendanceStatus in drag data
-  // This is needed because the property might not be enumerable or might get lost during drag operations
+const PilotEntry: React.FC<PilotEntryProps> = ({ pilot, isAssigned = false, currentFlightId, pilotQualifications }) => {  
+  // Make sure we explicitly include attendanceStatus in drag data
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
-    id: `pilot-${pilot.boardNumber}`,
+    id: `pilot-${pilot.id || pilot.boardNumber}`,
     data: {
       type: 'Pilot',
       pilot: {
@@ -62,14 +55,14 @@ const PilotEntry: React.FC<PilotEntryProps> = ({ pilot, isAssigned = false, curr
       },
       currentFlightId
     },
-    disabled: false
+    disabled: isAssigned
   });
   
   const originalStyle = useRef<CSSStyleDeclaration | null>(null);
   
   useEffect(() => {
     if (isDragging) {
-      const element = document.getElementById(`pilot-${pilot.boardNumber}`);
+      const element = document.getElementById(`pilot-${pilot.id || pilot.boardNumber}`);
       if (element) {
         originalStyle.current = window.getComputedStyle(element);
         element.style.transform = 'none';
@@ -78,14 +71,14 @@ const PilotEntry: React.FC<PilotEntryProps> = ({ pilot, isAssigned = false, curr
         element.style.opacity = '0.4';
       }
     } else if (originalStyle.current) {
-      const element = document.getElementById(`pilot-${pilot.boardNumber}`);
+      const element = document.getElementById(`pilot-${pilot.id || pilot.boardNumber}`);
       if (element) {
         element.style.opacity = isAssigned ? '0.5' : '1';
         element.style.zIndex = '1';
       }
       originalStyle.current = null;
     }
-  }, [isDragging, pilot.boardNumber, isAssigned]);
+  }, [isDragging, pilot.id, pilot.boardNumber, isAssigned]);
 
   const style: React.CSSProperties = {
     display: 'flex',
@@ -114,7 +107,7 @@ const PilotEntry: React.FC<PilotEntryProps> = ({ pilot, isAssigned = false, curr
           return (
             <QualificationBadge 
               key={`db-${pq.qualification.id}-${index}`}
-              type={pq.qualification.name}
+              type={pq.qualification.name as QualificationType}
               code={pq.qualification.code}
               color={pq.qualification.color}
             />
@@ -129,7 +122,7 @@ const PilotEntry: React.FC<PilotEntryProps> = ({ pilot, isAssigned = false, curr
 
   return (
     <div
-      id={`pilot-${pilot.boardNumber}`}
+      id={`pilot-${pilot.id || pilot.boardNumber}`}
       ref={setNodeRef}
       style={style}
       {...(isAssigned ? {} : { ...listeners, ...attributes })}
@@ -144,7 +137,8 @@ const PilotEntry: React.FC<PilotEntryProps> = ({ pilot, isAssigned = false, curr
         color: '#646F7E'
       }}>
         {pilot.boardNumber}
-      </span>      <div style={{
+      </span>
+      <div style={{
         display: 'flex',
         alignItems: 'center',
         width: '120px',
@@ -197,270 +191,205 @@ const PilotEntry: React.FC<PilotEntryProps> = ({ pilot, isAssigned = false, curr
   );
 };
 
-const AvailablePilots: React.FC<AvailablePilotsProps> = ({ 
+const AvailablePilots: React.FC<AvailablePilotsProps> = ({
   width,
   pilots,
   selectedEvent,
   assignedPilots = {},
   onAutoAssign,
   onClearAssignments,
-  pilotQualifications = {}
+  pilotQualifications = {},
+  realtimeAttendanceData
 }) => {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [showOnlyAttending, setShowOnlyAttending] = useState(false);
   const [selectedQualifications, setSelectedQualifications] = useState<QualificationType[]>([]);
-  const [discordEventAttendance, setDiscordEventAttendance] = useState<any[]>([]);  // Fetch event attendance data using polling, matching the approach in EventAttendance.tsx
-  useEffect(() => {
-    let pollInterval: NodeJS.Timeout | null = null;
-    
-    const fetchEventAttendance = async () => {
-      if (!selectedEvent?.id) {
-        setDiscordEventAttendance([]);
-        return;
-      }
-        try {
-        // Use the same API endpoint as the EventAttendance component
-        const response = await fetch(`http://localhost:3001/api/events/${selectedEvent.id}/attendance`);
-        
-        if (!response.ok) {
-          throw new Error(`Failed to fetch attendance: ${response.statusText}`);
-        }
-        
-        const data = await response.json();
-        
-        // Transform the attendance data to match the format we need for filtering
-        // We'll create an array of objects with discord_id and response fields
-        const attendanceRecords = [
-          ...data.accepted.map((attendee: any) => ({ 
-            discord_id: attendee.discord_id,
-            response: 'accepted'
-          })),
-          ...data.tentative.map((attendee: any) => ({ 
-            discord_id: attendee.discord_id, 
-            response: 'tentative'
-          })),
-          ...data.declined.map((attendee: any) => ({ 
-            discord_id: attendee.discord_id, 
-            response: 'declined'
-          }))
-        ].filter(record => record.discord_id); // Filter out any without discord_id
-        
-        setDiscordEventAttendance(attendanceRecords);      } catch (err) {
-        setDiscordEventAttendance([]);
-      }
-    };
-    
-    // Initial fetch
-    fetchEventAttendance();
-      // Set up polling at the same interval as EventAttendance
-    if (selectedEvent?.id) {
-      pollInterval = setInterval(fetchEventAttendance, 5000); // 5 seconds
-    }
-    
-    // Clean up interval when component unmounts or event changes
-    return () => {
-      if (pollInterval) {
-        clearInterval(pollInterval);
-      }
-    };
-  }, [selectedEvent?.id]); // Changed dependency to id instead of discordEventId
 
+  // Get all available qualifications from the pilots' data
   const allQualifications = useMemo(() => {
     const qualSet = new Set<QualificationType>();
     
+    // Always ensure we have Wingman category available for unqualified pilots
+    qualSet.add('Wingman');
+    
+    // Add all qualifications from pilots' data
     Object.values(pilotQualifications).forEach(qualArray => {
       if (Array.isArray(qualArray)) {
         qualArray.forEach(qual => {
           if (qual.qualification && qual.qualification.name) {
-            const mappedType = mapQualificationNameToType(qual.qualification.name);
-            qualSet.add(mappedType);
+            // Directly use the name if it's a valid QualificationType
+            const qualName = qual.qualification.name as QualificationType;
+            // Check if it's one of the recognized types before adding
+            if (RECOGNIZED_QUALIFICATIONS.includes(qualName)) {
+              qualSet.add(qualName);
+            }
           }
         });
       }
     });
     
-    // Don't fall back to legacy qualifications
+    // Create ordered list: QUALIFICATION_ORDER first, then others alphabetically, Wingman last
+    const orderedQuals = QUALIFICATION_ORDER.filter(q => qualSet.has(q));
+    const otherQuals = Array.from(qualSet).filter(q => 
+      !QUALIFICATION_ORDER.includes(q) && q !== 'Wingman'
+    ).sort();
     
-    return Array.from(qualSet).sort((a, b) => 
-      QUALIFICATION_ORDER.indexOf(a) - QUALIFICATION_ORDER.indexOf(b)
-    );
+    // Combine in proper order
+    const finalQuals = [...orderedQuals, ...otherQuals];
+    
+    // Ensure Wingman is last
+    if (qualSet.has('Wingman')) {
+      finalQuals.push('Wingman');
+    }
+
+    return finalQuals;
   }, [pilotQualifications]);
 
+  // Toggle a qualification for filtering
   const toggleQualification = (qual: QualificationType) => {
-    setSelectedQualifications(prev => 
-      prev.includes(qual) 
+    setSelectedQualifications(prev =>
+      prev.includes(qual)
         ? prev.filter(q => q !== qual)
         : [...prev, qual]
     );
   };
 
-  const hasDatabaseQualification = (pilotId: string, qualType: QualificationType) => {
-    const pilotQuals = pilotQualifications[pilotId] || [];
+  // Check if a pilot has a specific qualification
+  const hasDatabaseQualification = (pilotIdOrBoardNumber: string, qualType: QualificationType) => {
+    const pilotQuals = pilotQualifications[pilotIdOrBoardNumber] || [];
     return pilotQuals.some(qual => {
-      const mappedType = mapQualificationNameToType(qual.qualification?.name || '');
+      const mappedType = qual.qualification?.name as QualificationType;
       return mappedType === qualType;
     });
-  };  // Apply attendance status to all pilots first, regardless of filtering
-  const pilotsWithAttendanceStatus = useMemo(() => {
-    if (!selectedEvent || !discordEventAttendance.length) {
-      return pilots;
-    }
+  };
 
+  // Add attendance status to pilots based on realtime data
+  const pilotsWithAttendanceStatus = useMemo(() => {
+    if (!selectedEvent || !realtimeAttendanceData || realtimeAttendanceData.length === 0) {
+      // If no event or no realtime data, return pilots without status updates
+      return pilots.map(p => ({ ...p, attendanceStatus: undefined }));
+    }
+    
     return pilots.map(pilot => {
-      const pilotCopy = { ...pilot };
-      
-      // Get Discord ID from various possible properties
-      const discordId = 
-        pilotCopy.discordId || 
-        (pilotCopy as any).discord_original_id ||
-        (pilotCopy as any).discord_id;
+      const pilotCopy = { ...pilot, attendanceStatus: undefined as ('accepted' | 'tentative' | undefined) };
+      const discordId = pilotCopy.discordId || (pilotCopy as any).discord_original_id || (pilotCopy as any).discord_id;
       
       if (discordId) {
-        // Find this pilot's attendance record if any
-        const attendanceRecord = discordEventAttendance.find(record => 
-          (record.discord_id || record.user_id) === discordId
-        );
-        
+        const attendanceRecord = realtimeAttendanceData.find(record => record.discord_id === discordId);
         if (attendanceRecord) {
-          const responseValue = attendanceRecord.response || attendanceRecord.user_response || attendanceRecord.status;
-          if (responseValue === 'tentative' || responseValue === 'maybe') {
-            (pilotCopy as any).attendanceStatus = 'tentative';
-          } else if (responseValue === 'accepted' || responseValue === 'yes') {
-            (pilotCopy as any).attendanceStatus = 'accepted';
-          }
+          if (attendanceRecord.response === 'tentative') pilotCopy.attendanceStatus = 'tentative';
+          else if (attendanceRecord.response === 'accepted') pilotCopy.attendanceStatus = 'accepted';
         }
       }
-      
       return pilotCopy;
     });
-  }, [pilots, selectedEvent, discordEventAttendance]);
+  }, [pilots, selectedEvent, realtimeAttendanceData]);
+
+  // Filter pilots based on attendance and selected qualifications
   const filteredPilots = useMemo(() => {
     let filtered = [...pilotsWithAttendanceStatus];
     
+    // Filter by attendance if that option is selected
     if (showOnlyAttending && selectedEvent) {
-      if (selectedEvent.discordEventId && discordEventAttendance.length > 0) {
-        // Get attending Discord IDs
-        const attendingDiscordIds = discordEventAttendance
-          .filter(record => {
-            const responseValue = record.response || record.user_response || record.status;
-            return responseValue === 'accepted' || responseValue === 'yes' || 
-                  responseValue === 'tentative' || responseValue === 'maybe';
-          })
-          .map(record => record.discord_id || record.user_id);
-        
-        const beforeFilterCount = filtered.length;
-        filtered = filtered.filter(pilot => {
-          const discordId = 
-            pilot.discordId || 
-            (pilot as any).discord_original_id ||
-            (pilot as any).discord_id;
-            
-          const isAttending = discordId && attendingDiscordIds.includes(discordId);
+      if (realtimeAttendanceData.length > 0) {
+        const attendingDiscordIds = realtimeAttendanceData
+          .filter(record => record.response === 'accepted' || record.response === 'tentative')
+          .map(record => record.discord_id);
           
-          return isAttending;
-        });      } else if (selectedEvent.attendance && 
-                (selectedEvent.attendance.accepted?.length > 0 || 
-                selectedEvent.attendance.tentative?.length > 0)) {
-        // Fallback to the regular attendance format if available
-        const attendingBoardNumbers = [
-          ...(selectedEvent.attendance.accepted || []),
-          ...(selectedEvent.attendance.tentative || [])
-        ]
-        .filter(p => p.boardNumber)
-        .map(p => p.boardNumber);
-        
         filtered = filtered.filter(pilot => {
-          const isAttending = attendingBoardNumbers.includes(pilot.boardNumber);
-          return isAttending;
+          const discordId = pilot.discordId || (pilot as any).discord_original_id || (pilot as any).discord_id;
+          return discordId && attendingDiscordIds.includes(discordId);
         });
       } else {
-        // If filtering is on but no attendance data, show no pilots
         filtered = [];
       }
-    }    if (selectedQualifications.length > 0) {
+    }
+    
+    // Filter by selected qualifications
+    if (selectedQualifications.length > 0) {
       filtered = filtered.filter(pilot => {
-        // Only use database qualifications for filtering
-        const pilotId = pilot.id || pilot.boardNumber;
-        const hasQual = selectedQualifications.some(qualType => 
-          hasDatabaseQualification(pilotId, qualType) || 
-          hasDatabaseQualification(pilot.boardNumber, qualType)
-        );
-        
+        const pilotIdKey = pilot.id || pilot.boardNumber;
+        const hasQual = selectedQualifications.some(qualType => hasDatabaseQualification(pilotIdKey, qualType));
         return hasQual;
       });
     }
     
-    return filtered.sort((a, b) => {
-      if (a.role && b.role) {
-        return a.role.localeCompare(b.role);
-      }
-      
-      if (a.role) return -1;
-      if (b.role) return 1;
-      
-      return 0;
-    });
-  }, [pilots, selectedEvent, showOnlyAttending, selectedQualifications, pilotQualifications, hasDatabaseQualification, discordEventAttendance]);
+    // Sort alphabetically by callsign
+    return filtered.sort((a, b) => (a.callsign || '').localeCompare(b.callsign || ''));
+  }, [pilotsWithAttendanceStatus, selectedEvent, showOnlyAttending, selectedQualifications, pilotQualifications, hasDatabaseQualification, realtimeAttendanceData]);
 
-  const groupedPilots = useMemo(() => {
-    const result: Record<QualificationType, Pilot[]> = QUALIFICATION_ORDER.reduce((acc, qual) => {
-      acc[qual] = [];
-      return acc;
-    }, {} as Record<QualificationType, Pilot[]>);
-    
-    filteredPilots.forEach(pilot => {
-      let highestQual: QualificationType = 'Wingman';
-      
-      const pilotDbQuals = pilotQualifications[pilot.id] || pilotQualifications[pilot.boardNumber] || [];
-      
-      if (pilotDbQuals.length > 0) {
-        const mappedTypes = pilotDbQuals.map(q => mapQualificationNameToType(q.qualification?.name || ''));
-        
-        for (const qual of QUALIFICATION_ORDER) {
-          if (mappedTypes.includes(qual)) {
-            highestQual = qual;
-            break;
-          }
-        }
-      }
-      // Don't fall back to legacy qualifications, just use Wingman as default
-      
-      result[highestQual].push(pilot);
-    });
-    
-    return result;
-  }, [filteredPilots, pilotQualifications]);
-
+  // Check if a pilot is assigned to a flight
   const isPilotAssignedToFlight = (pilot: Pilot): { isAssigned: boolean; flightId?: string } => {
-    for (const [flightId, flightPilots] of Object.entries(assignedPilots)) {
-      if (flightPilots.some(p => p.boardNumber === pilot.boardNumber)) {
-        return { isAssigned: true, flightId };
+    if (!assignedPilots) return { isAssigned: false };
+    
+    for (const flightId in assignedPilots) {
+      const flightPilots = assignedPilots[flightId];
+      if (flightPilots.some((p: any) => (p.id && p.id === pilot.id) || p.boardNumber === pilot.boardNumber)) {
+        return { isAssigned: true, flightId: flightId };
       }
     }
     return { isAssigned: false };
   };
 
-  useEffect(() => {
-    const preventHorizontalScroll = (e: WheelEvent) => {
-      if (document.body.classList.contains('dragging')) {
-        const container = scrollContainerRef.current;
-        if (container) {
-          container.scrollTop += e.deltaY;
-          e.preventDefault();
+  // Group pilots by their highest qualification
+  const groupedPilots = useMemo(() => {
+    const result: Record<string, Pilot[]> = {};
+    
+    // Start with all qualification categories
+    const groupOrder = [...allQualifications];
+    
+    // Make sure Wingman is last (for unqualified pilots)
+    if (groupOrder.includes('Wingman')) {
+      const wingmanIndex = groupOrder.indexOf('Wingman');
+      groupOrder.splice(wingmanIndex, 1);
+      groupOrder.push('Wingman');
+    } else {
+      // Add Wingman if not present
+      groupOrder.push('Wingman');
+    }
+    
+    // Initialize all groups
+    groupOrder.forEach(qual => { 
+      result[qual] = []; 
+    });
+    
+    // Assign each pilot to their highest qualification group
+    filteredPilots.forEach(pilot => {
+      // Default to Wingman if no other qualification matches
+      let highestQual: QualificationType = 'Wingman';
+      const pilotIdKey = pilot.id || pilot.boardNumber;
+      const pilotDbQuals = pilotQualifications[pilotIdKey] || [];
+
+      // Get qualification names from pilot data
+      if (pilotDbQuals.length > 0) {
+        const pilotQualNames = pilotDbQuals
+          .filter(q => q.qualification && q.qualification.name)
+          .map(q => q.qualification.name as QualificationType)
+          .filter(name => groupOrder.includes(name));
+        
+        // Find the highest qualification based on the group order
+        for (const qual of groupOrder) {
+          if (pilotQualNames.includes(qual)) {
+            highestQual = qual;
+            break; // Found the highest one
+          }
         }
       }
-    };
-
-    const container = scrollContainerRef.current;
-    if (container) {
-      container.addEventListener('wheel', preventHorizontalScroll);
       
-      return () => {
-        container.removeEventListener('wheel', preventHorizontalScroll);
-      };
-    }
-  }, []);
+      // Add pilot to the appropriate group
+      if (!result[highestQual]) {
+        result[highestQual] = []; // Create group if it doesn't exist
+      }
+      result[highestQual].push(pilot);
+    });
+    
+    return { 
+      groups: result, 
+      order: groupOrder 
+    };
+  }, [filteredPilots, pilotQualifications, allQualifications]);
 
+  // Set up some style attributes for drag operations
   useEffect(() => {
     const originalOverflow = document.body.style.overflowX;
     
@@ -599,7 +528,8 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
                   <QualificationBadge type={qual} />
                 </button>
               ))}
-            </div>            <div style={{ position: 'relative', display: 'inline-block' }}>
+            </div>
+            <div style={{ position: 'relative', display: 'inline-block' }}>
               <button
                 onClick={() => setShowOnlyAttending(!showOnlyAttending)}
                 disabled={!selectedEvent}
@@ -634,7 +564,7 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
                 }}
               >
                 <Filter size={16} />
-              </button>              {/* Removed attendance counter badge */}
+              </button>
             </div>
           </div>
         </div>
@@ -653,8 +583,8 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
             margin: '0 -10px'
           }}
         >
-          {[...DISPLAY_ORDER, 'Wingman' as QualificationType].map(qualification => {
-            const qualPilots = groupedPilots[qualification] || [];
+          {groupedPilots.order.map(qualification => {
+            const qualPilots = groupedPilots.groups[qualification] || [];
             if (qualPilots.length === 0) return null;
 
             return (
@@ -703,17 +633,16 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
                 }}>
                   {qualPilots.map(pilot => {
                     const assignment = isPilotAssignedToFlight(pilot);
-                    // Get qualifications for this specific pilot
-                    const pilotId = pilot.id || pilot.boardNumber;
-                    const pilotDbQuals = pilotQualifications[pilotId] || [];
+                    const pilotIdKey = pilot.id || pilot.boardNumber;
+                    const specificPilotQuals = pilotQualifications[pilotIdKey] || [];
                     
                     return (
                       <PilotEntry 
-                        key={`${pilot.boardNumber}-${assignment.isAssigned ? 'assigned' : 'available'}`}
+                        key={pilot.id || pilot.boardNumber}
                         pilot={pilot} 
                         isAssigned={assignment.isAssigned}
                         currentFlightId={assignment.flightId}
-                        pilotQualifications={pilotDbQuals}
+                        pilotQualifications={specificPilotQuals}
                       />
                     );
                   })}
@@ -738,69 +667,19 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
             display: 'flex',
             justifyContent: 'space-around',
             padding: '0 16px'
-          }}>            <button              onClick={() => {
-                // Pass attendance data to onAutoAssign if available
+          }}>
+            <button
+              onClick={() => {
                 if (onAutoAssign) {
-                  // Instead of just passing IDs, let's pass the pilots with attendance status
-                  
-                  // Get the pilots with attendance status that are already prepared
-                  const pilotsToAssign = pilotsWithAttendanceStatus.filter(pilot => {
-                    // Match by discord ID
-                    const discordId = pilot.discordId || 
-                                    (pilot as any).discord_original_id ||
-                                    (pilot as any).discord_id;
-                    
-                    // Check if this pilot is attending based on discord event attendance
-                    if (selectedEvent && discordEventAttendance.length > 0) {
-                      const attendanceRecord = discordEventAttendance.find(record => 
-                        (record.discord_id || record.user_id) === discordId
-                      );
-                      
-                      if (attendanceRecord) {
-                        const responseValue = attendanceRecord.response || attendanceRecord.user_response || attendanceRecord.status;
-                        return responseValue === 'accepted' || responseValue === 'tentative' || 
-                               responseValue === 'yes' || responseValue === 'maybe';
-                      }
-                    } else if (selectedEvent?.attendance) {
-                      // Check if this pilot is in the attendees list from the event attendance data
-                      const allAttendees = [
-                        ...(selectedEvent.attendance.accepted || []),
-                        ...(selectedEvent.attendance.tentative || [])
-                      ];
-                      
-                      return allAttendees.some(a => a.discord_id === discordId);
-                    }
-                    
-                    return false;
-                  });
-                    // Create an array of objects that include both pilot ID and attendance status
-                  const attendingPilotInfo = pilotsToAssign.map(pilot => {
-                    const discordId = pilot.discordId || 
-                                     (pilot as any).discord_original_id ||
-                                     (pilot as any).discord_id;
-                    
-                    // Explicitly include attendance status
-                    return {
-                      id: discordId,
-                      status: (pilot as any).attendanceStatus || 'accepted'
-                    };
-                  }).filter(info => info.id); // Remove any undefined/null values
-                  
-                  // For backwards compatibility, also extract just the IDs
-                  const attendingPilotIds = attendingPilotInfo.map(info => info.id);
-                  
-                  console.log('[DEBUG] Auto-assigning with attendance status:', 
-                    pilotsToAssign.map(p => ({
-                      callsign: p.callsign,
-                      attendanceStatus: (p as any).attendanceStatus
+                  // Pass attendance data to onAutoAssign
+                  const attendingPilotInfo = pilotsWithAttendanceStatus
+                    .filter(pilot => pilot.attendanceStatus === 'accepted' || pilot.attendanceStatus === 'tentative')
+                    .map(pilot => ({
+                      id: pilot.id || pilot.discordId || (pilot as any).discord_original_id || pilot.boardNumber,
+                      status: pilot.attendanceStatus as 'accepted' | 'tentative'
                     }))
-                  );
-                  
-                  // Pass both the IDs and detailed attendance information
-                  // Note: We attach the detailed info to the array object itself as a property
-                  (attendingPilotIds as any).pilotAttendanceInfo = attendingPilotInfo;
-                  
-                  onAutoAssign(attendingPilotIds);
+                    .filter(info => info.id && info.status);
+                  onAutoAssign(attendingPilotInfo);
                 }
               }}
               style={{
