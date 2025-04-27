@@ -1,46 +1,33 @@
-import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { Card } from '../card';
-import QualificationBadge from '../QualificationBadge';
-import { Filter } from 'lucide-react';
+import React, { useState, useMemo, useRef } from 'react';
 import { useDraggable } from '@dnd-kit/core';
+import { Filter } from 'lucide-react';
 import type { Pilot, QualificationType } from '../../../types/PilotTypes';
 import type { Event } from '../../../types/EventTypes';
-import { supabase } from '../../../utils/supabaseClient';
+import QualificationBadge from '../QualificationBadge';
+import { Card } from '../card';
+
+// Define the structure for the polled attendance data (matching MissionPreparation)
+interface RealtimeAttendanceRecord {
+  discord_id: string;
+  response: 'accepted' | 'declined' | 'tentative';
+}
 
 interface AvailablePilotsProps {
   width: string;
-  pilots: Pilot[];
-  selectedEvent: Event | null;
-  assignedPilots?: Record<string, Pilot[]>;
-  onAutoAssign?: (attendingPilotIds?: string[]) => void;
-  onClearAssignments?: () => void;
-  pilotQualifications?: Record<string, any[]>;
+  pilots: Pilot[]; // Use the imported Pilot type
+  selectedEvent: Event | null; // Use the imported Event type
+  assignedPilots?: Record<string, any>;
+  onAutoAssign: (attendingPilotInfo?: { id: string; status: 'accepted' | 'tentative' }[]) => void; // Updated signature
+  onClearAssignments: () => void;
+  pilotQualifications?: Record<string, any[]>; // Keep as any[] for now
+  realtimeAttendanceData: RealtimeAttendanceRecord[]; // Add prop for receiving polled data
 }
 
+
 const QUALIFICATION_ORDER: QualificationType[] = [
-  'Strike Lead',
-  'Instructor Pilot',
-  'LSO',
-  'Flight Lead',
-  'Section Lead',
-  'CQ',
-  'Night CQ',
-  'Wingman'
-];
+  'FAC(A)', 'TL', '4FL', '2FL', 'WQ', 'T/O', 'NATOPS', 'DFL', 'DTL'
+]; // These should now match the updated QualificationType
 
-const DISPLAY_ORDER = QUALIFICATION_ORDER.filter(qual => qual !== 'Wingman');
-
-const mapQualificationNameToType = (name: string): QualificationType => {
-  const lowerName = name.toLowerCase();
-  if (lowerName.includes('strike lead')) return 'Strike Lead';
-  if (lowerName.includes('instructor')) return 'Instructor Pilot';
-  if (lowerName.includes('lso')) return 'LSO';
-  if (lowerName.includes('flight lead')) return 'Flight Lead';
-  if (lowerName.includes('section lead')) return 'Section Lead';
-  if (lowerName.includes('carrier qual') || lowerName === 'cq') return 'CQ';
-  if (lowerName.includes('night') && lowerName.includes('cq')) return 'Night CQ';
-  return 'Wingman';
-};
 
 interface PilotEntryProps {
   pilot: Pilot & { attendanceStatus?: 'accepted' | 'tentative' };
@@ -49,540 +36,250 @@ interface PilotEntryProps {
   pilotQualifications?: any[];
 }
 
-const PilotEntry: React.FC<PilotEntryProps> = ({ pilot, isAssigned = false, currentFlightId, pilotQualifications }) => {  // Make sure we explicitly include attendanceStatus in drag data
-  // This is needed because the property might not be enumerable or might get lost during drag operations
-  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
-    id: `pilot-${pilot.boardNumber}`,
+const PilotEntry: React.FC<PilotEntryProps> = ({ pilot, isAssigned = false, currentFlightId, pilotQualifications = [] }) => {
+  const { attributes, listeners, setNodeRef, isDragging, transform } = useDraggable({
+    id: `pilot-${pilot.id || pilot.boardNumber}`,
     data: {
       type: 'Pilot',
-      pilot: {
-        ...pilot,
-        // Explicitly ensure attendanceStatus is included
-        attendanceStatus: pilot.attendanceStatus
-      },
-      currentFlightId
+      pilot: { ...pilot, attendanceStatus: pilot.attendanceStatus },
+      currentFlightId: isAssigned ? currentFlightId : undefined,
     },
-    disabled: false
+    disabled: isAssigned,
   });
-  
-  const originalStyle = useRef<CSSStyleDeclaration | null>(null);
-  
-  useEffect(() => {
-    if (isDragging) {
-      const element = document.getElementById(`pilot-${pilot.boardNumber}`);
-      if (element) {
-        originalStyle.current = window.getComputedStyle(element);
-        element.style.transform = 'none';
-        element.style.transition = 'none';
-        element.style.zIndex = '1';
-        element.style.opacity = '0.4';
-      }
-    } else if (originalStyle.current) {
-      const element = document.getElementById(`pilot-${pilot.boardNumber}`);
-      if (element) {
-        element.style.opacity = isAssigned ? '0.5' : '1';
-        element.style.zIndex = '1';
-      }
-      originalStyle.current = null;
-    }
-  }, [isDragging, pilot.boardNumber, isAssigned]);
 
-  const style: React.CSSProperties = {
-    display: 'flex',
-    alignItems: 'center',
-    height: '24px',
-    marginBottom: '10px',
-    transition: 'background-color 0.2s ease, opacity 0.2s ease',
-    borderRadius: '8px',
-    padding: '0 10px',
+  // Simplified style, closer to original intent potentially
+  const style = transform ? {
+    transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
+    zIndex: 999,
+    cursor: 'grabbing',
+    boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+  } : {
     cursor: isAssigned ? 'default' : 'grab',
-    position: 'relative',
-    left: 0,
-    width: 'calc(100% - 20px)',
-    zIndex: 1,
-    maxWidth: '100%',
-    overflow: 'hidden',
-    opacity: isAssigned ? 0.5 : 1,
   };
 
   const renderQualificationBadges = () => {
     const dbQualifications = pilotQualifications || [];
-    
+
     if (dbQualifications && dbQualifications.length > 0) {
-      return dbQualifications.map((pq, index) => {
-        if (pq.qualification) {
-          return (
-            <QualificationBadge 
-              key={`db-${pq.qualification.id}-${index}`}
-              type={pq.qualification.name}
-              code={pq.qualification.code}
-              color={pq.qualification.color}
-            />
-          );
-        }
-        return null;
-      }).filter(badge => badge !== null);
+      // Filter and map qualifications based on the actual structure
+      return dbQualifications
+        .filter(pq => pq.qualification) // Ensure qualification object exists
+        .map((pq, index) => (
+          <QualificationBadge
+            key={`db-${pq.qualification.id}-${index}`}
+            type={pq.qualification.name as QualificationType} // Cast name to QualificationType
+            code={pq.qualification.code}
+            color={pq.qualification.color}
+          />
+        ))
+        .filter(badge => badge !== null);
     }
-    
     return [];
   };
 
+  // Reverted Card structure slightly, closer to potential original
   return (
     <div
-      id={`pilot-${pilot.boardNumber}`}
+      id={`pilot-${pilot.id || pilot.boardNumber}`}
       ref={setNodeRef}
       style={style}
       {...(isAssigned ? {} : { ...listeners, ...attributes })}
-      data-dragging={isDragging ? 'true' : 'false'}
-      data-assigned={isAssigned ? 'true' : 'false'}
+      className={`p-2 mb-2 flex items-center justify-between rounded shadow-sm ${isAssigned ? 'bg-gray-200 opacity-70' : 'bg-white hover:bg-gray-50'}`} // Applied styles directly
+      title={isAssigned ? `Assigned to Flight ${currentFlightId}` : `Available: ${pilot.callsign}`}
     >
-      <span style={{
-        width: '62px',
-        textAlign: 'center',
-        fontSize: '16px',
-        fontWeight: 400,
-        color: '#646F7E'
-      }}>
-        {pilot.boardNumber}
-      </span>      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        width: '120px',
-        gap: '4px'
-      }}>
-        <span style={{
-          fontSize: '16px',
-          fontWeight: 700,
-          whiteSpace: 'nowrap',
-          overflow: 'hidden',
-          textOverflow: 'ellipsis'
-        }}>
-          {pilot.callsign}
-        </span>
+      <div className="flex items-center">
         {pilot.attendanceStatus === 'tentative' && (
           <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            width: '16px',
-            height: '16px',
-            borderRadius: '50%',
-            backgroundColor: '#5865F2', // Blurple color
-            color: 'white',
-            fontSize: '10px',
-            fontWeight: 'bold',
-            flexShrink: 0
-          }}>
-            ?
-          </div>
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: '14px',
+              height: '14px',
+              borderRadius: '50%',
+              backgroundColor: '#5865F2', // Blurple
+              color: 'white',
+              fontSize: '9px',
+              fontWeight: 'bold',
+              marginRight: '6px',
+              flexShrink: 0
+            }}>?</div>
         )}
+        <span className="font-semibold mr-2">{pilot.callsign}</span>
+        <span className="text-sm text-gray-500">({pilot.boardNumber})</span>
       </div>
-      <span style={{
-        fontSize: '16px',
-        fontWeight: 300,
-        color: '#646F7E'
-      }}>
-        {pilot.billet}
-      </span>
-      
-      <div style={{
-        display: 'flex',
-        gap: '4px',
-        marginLeft: 'auto',
-        height: '24px'
-      }}>
+      <div className="flex space-x-1">
         {renderQualificationBadges()}
       </div>
     </div>
   );
 };
 
-const AvailablePilots: React.FC<AvailablePilotsProps> = ({ 
+
+const AvailablePilots: React.FC<AvailablePilotsProps> = ({
   width,
   pilots,
   selectedEvent,
   assignedPilots = {},
   onAutoAssign,
   onClearAssignments,
-  pilotQualifications = {}
+  pilotQualifications = {},
+  realtimeAttendanceData
 }) => {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [showOnlyAttending, setShowOnlyAttending] = useState(false);
   const [selectedQualifications, setSelectedQualifications] = useState<QualificationType[]>([]);
-  const [discordEventAttendance, setDiscordEventAttendance] = useState<any[]>([]);  // Fetch event attendance data using polling, matching the approach in EventAttendance.tsx
-  useEffect(() => {
-    let pollInterval: NodeJS.Timeout | null = null;
-    
-    const fetchEventAttendance = async () => {
-      if (!selectedEvent?.id) {
-        setDiscordEventAttendance([]);
-        return;
-      }
-        try {
-        // Use the same API endpoint as the EventAttendance component
-        const response = await fetch(`http://localhost:3001/api/events/${selectedEvent.id}/attendance`);
-        
-        if (!response.ok) {
-          throw new Error(`Failed to fetch attendance: ${response.statusText}`);
-        }
-        
-        const data = await response.json();
-        
-        // Transform the attendance data to match the format we need for filtering
-        // We'll create an array of objects with discord_id and response fields
-        const attendanceRecords = [
-          ...data.accepted.map((attendee: any) => ({ 
-            discord_id: attendee.discord_id,
-            response: 'accepted'
-          })),
-          ...data.tentative.map((attendee: any) => ({ 
-            discord_id: attendee.discord_id, 
-            response: 'tentative'
-          })),
-          ...data.declined.map((attendee: any) => ({ 
-            discord_id: attendee.discord_id, 
-            response: 'declined'
-          }))
-        ].filter(record => record.discord_id); // Filter out any without discord_id
-        
-        setDiscordEventAttendance(attendanceRecords);      } catch (err) {
-        setDiscordEventAttendance([]);
-      }
-    };
-    
-    // Initial fetch
-    fetchEventAttendance();
-      // Set up polling at the same interval as EventAttendance
-    if (selectedEvent?.id) {
-      pollInterval = setInterval(fetchEventAttendance, 5000); // 5 seconds
-    }
-    
-    // Clean up interval when component unmounts or event changes
-    return () => {
-      if (pollInterval) {
-        clearInterval(pollInterval);
-      }
-    };
-  }, [selectedEvent?.id]); // Changed dependency to id instead of discordEventId
 
-  const allQualifications = useMemo(() => {
+  // Simplified allQualifications derivation, assuming mapQualificationNameToType is not needed if types match
+   const allQualifications = useMemo(() => {
     const qualSet = new Set<QualificationType>();
-    
     Object.values(pilotQualifications).forEach(qualArray => {
       if (Array.isArray(qualArray)) {
         qualArray.forEach(qual => {
           if (qual.qualification && qual.qualification.name) {
-            const mappedType = mapQualificationNameToType(qual.qualification.name);
-            qualSet.add(mappedType);
+            // Directly use the name if it's a valid QualificationType
+            const qualName = qual.qualification.name as QualificationType;
+             // Check if it's one of the defined types before adding
+            if ([...QUALIFICATION_ORDER, 'Wingman', 'Strike Lead', 'Instructor Pilot', 'LSO', 'Flight Lead', 'Section Lead', 'CQ', 'Night CQ'].includes(qualName)) {
+               qualSet.add(qualName);
+            }
           }
         });
       }
     });
-    
-    // Don't fall back to legacy qualifications
-    
-    return Array.from(qualSet).sort((a, b) => 
-      QUALIFICATION_ORDER.indexOf(a) - QUALIFICATION_ORDER.indexOf(b)
-    );
+    // Ensure QUALIFICATION_ORDER items are prioritized, then add others
+    const orderedQuals = QUALIFICATION_ORDER.filter(q => qualSet.has(q));
+    const otherQuals = Array.from(qualSet).filter(q => !QUALIFICATION_ORDER.includes(q));
+    // Add Wingman if present, ensuring it's last unless it's the only one
+    const wingmanPresent = qualSet.has('Wingman');
+    const finalQuals = [...orderedQuals, ...otherQuals.filter(q => q !== 'Wingman')];
+    if (wingmanPresent) finalQuals.push('Wingman');
+
+    return finalQuals;
   }, [pilotQualifications]);
 
+
   const toggleQualification = (qual: QualificationType) => {
-    setSelectedQualifications(prev => 
-      prev.includes(qual) 
+    setSelectedQualifications(prev =>
+      prev.includes(qual)
         ? prev.filter(q => q !== qual)
         : [...prev, qual]
     );
   };
 
-  const hasDatabaseQualification = (pilotId: string, qualType: QualificationType) => {
-    const pilotQuals = pilotQualifications[pilotId] || [];
-    return pilotQuals.some(qual => {
-      const mappedType = mapQualificationNameToType(qual.qualification?.name || '');
-      return mappedType === qualType;
-    });
-  };  // Apply attendance status to all pilots first, regardless of filtering
-  const pilotsWithAttendanceStatus = useMemo(() => {
-    if (!selectedEvent || !discordEventAttendance.length) {
-      return pilots;
-    }
+  // Simplified hasDatabaseQualification
+  const hasDatabaseQualification = (pilotIdOrBoardNumber: string, qualType: QualificationType) => {
+    const pilotQuals = pilotQualifications[pilotIdOrBoardNumber] || [];
+    return pilotQuals.some(qual => qual.qualification?.name === qualType);
+  };
 
+
+  const pilotsWithAttendanceStatus = useMemo(() => {
+    if (!selectedEvent || !realtimeAttendanceData || realtimeAttendanceData.length === 0) {
+      // If no event or no realtime data, return pilots without status updates
+      return pilots.map(p => ({ ...p, attendanceStatus: undefined }));
+    }
     return pilots.map(pilot => {
-      const pilotCopy = { ...pilot };
-      
-      // Get Discord ID from various possible properties
-      const discordId = 
-        pilotCopy.discordId || 
-        (pilotCopy as any).discord_original_id ||
-        (pilotCopy as any).discord_id;
-      
+      const pilotCopy = { ...pilot, attendanceStatus: undefined as ('accepted' | 'tentative' | undefined) };
+      const discordId = pilotCopy.discordId || (pilotCopy as any).discord_original_id || (pilotCopy as any).discord_id;
       if (discordId) {
-        // Find this pilot's attendance record if any
-        const attendanceRecord = discordEventAttendance.find(record => 
-          (record.discord_id || record.user_id) === discordId
-        );
-        
+        const attendanceRecord = realtimeAttendanceData.find(record => record.discord_id === discordId);
         if (attendanceRecord) {
-          const responseValue = attendanceRecord.response || attendanceRecord.user_response || attendanceRecord.status;
-          if (responseValue === 'tentative' || responseValue === 'maybe') {
-            (pilotCopy as any).attendanceStatus = 'tentative';
-          } else if (responseValue === 'accepted' || responseValue === 'yes') {
-            (pilotCopy as any).attendanceStatus = 'accepted';
-          }
+          if (attendanceRecord.response === 'tentative') pilotCopy.attendanceStatus = 'tentative';
+          else if (attendanceRecord.response === 'accepted') pilotCopy.attendanceStatus = 'accepted';
         }
       }
-      
       return pilotCopy;
     });
-  }, [pilots, selectedEvent, discordEventAttendance]);
+  }, [pilots, selectedEvent, realtimeAttendanceData]);
+
   const filteredPilots = useMemo(() => {
     let filtered = [...pilotsWithAttendanceStatus];
-    
     if (showOnlyAttending && selectedEvent) {
-      if (selectedEvent.discordEventId && discordEventAttendance.length > 0) {
-        // Get attending Discord IDs
-        const attendingDiscordIds = discordEventAttendance
-          .filter(record => {
-            const responseValue = record.response || record.user_response || record.status;
-            return responseValue === 'accepted' || responseValue === 'yes' || 
-                  responseValue === 'tentative' || responseValue === 'maybe';
-          })
-          .map(record => record.discord_id || record.user_id);
-        
-        const beforeFilterCount = filtered.length;
+      if (realtimeAttendanceData.length > 0) {
+        const attendingDiscordIds = realtimeAttendanceData
+          .filter(record => record.response === 'accepted' || record.response === 'tentative')
+          .map(record => record.discord_id);
         filtered = filtered.filter(pilot => {
-          const discordId = 
-            pilot.discordId || 
-            (pilot as any).discord_original_id ||
-            (pilot as any).discord_id;
-            
-          const isAttending = discordId && attendingDiscordIds.includes(discordId);
-          
-          return isAttending;
-        });      } else if (selectedEvent.attendance && 
-                (selectedEvent.attendance.accepted?.length > 0 || 
-                selectedEvent.attendance.tentative?.length > 0)) {
-        // Fallback to the regular attendance format if available
-        const attendingBoardNumbers = [
-          ...(selectedEvent.attendance.accepted || []),
-          ...(selectedEvent.attendance.tentative || [])
-        ]
-        .filter(p => p.boardNumber)
-        .map(p => p.boardNumber);
-        
-        filtered = filtered.filter(pilot => {
-          const isAttending = attendingBoardNumbers.includes(pilot.boardNumber);
-          return isAttending;
+          const discordId = pilot.discordId || (pilot as any).discord_original_id || (pilot as any).discord_id;
+          return discordId && attendingDiscordIds.includes(discordId);
         });
       } else {
-        // If filtering is on but no attendance data, show no pilots
         filtered = [];
       }
-    }    if (selectedQualifications.length > 0) {
+    }
+    if (selectedQualifications.length > 0) {
       filtered = filtered.filter(pilot => {
-        // Only use database qualifications for filtering
-        const pilotId = pilot.id || pilot.boardNumber;
-        const hasQual = selectedQualifications.some(qualType => 
-          hasDatabaseQualification(pilotId, qualType) || 
-          hasDatabaseQualification(pilot.boardNumber, qualType)
-        );
-        
+        const pilotIdKey = pilot.id || pilot.boardNumber;
+        const hasQual = selectedQualifications.some(qualType => hasDatabaseQualification(pilotIdKey, qualType));
         return hasQual;
       });
     }
-    
-    return filtered.sort((a, b) => {
-      if (a.role && b.role) {
-        return a.role.localeCompare(b.role);
-      }
-      
-      if (a.role) return -1;
-      if (b.role) return 1;
-      
-      return 0;
-    });
-  }, [pilots, selectedEvent, showOnlyAttending, selectedQualifications, pilotQualifications, hasDatabaseQualification, discordEventAttendance]);
+    return filtered.sort((a, b) => (a.callsign || '').localeCompare(b.callsign || ''));
+  }, [pilotsWithAttendanceStatus, selectedEvent, showOnlyAttending, selectedQualifications, pilotQualifications, hasDatabaseQualification, realtimeAttendanceData]);
 
-  const groupedPilots = useMemo(() => {
-    const result: Record<QualificationType, Pilot[]> = QUALIFICATION_ORDER.reduce((acc, qual) => {
-      acc[qual] = [];
-      return acc;
-    }, {} as Record<QualificationType, Pilot[]>);
-    
-    filteredPilots.forEach(pilot => {
-      let highestQual: QualificationType = 'Wingman';
-      
-      const pilotDbQuals = pilotQualifications[pilot.id] || pilotQualifications[pilot.boardNumber] || [];
-      
-      if (pilotDbQuals.length > 0) {
-        const mappedTypes = pilotDbQuals.map(q => mapQualificationNameToType(q.qualification?.name || ''));
-        
-        for (const qual of QUALIFICATION_ORDER) {
-          if (mappedTypes.includes(qual)) {
-            highestQual = qual;
-            break;
-          }
-        }
-      }
-      // Don't fall back to legacy qualifications, just use Wingman as default
-      
-      result[highestQual].push(pilot);
-    });
-    
-    return result;
-  }, [filteredPilots, pilotQualifications]);
 
   const isPilotAssignedToFlight = (pilot: Pilot): { isAssigned: boolean; flightId?: string } => {
-    for (const [flightId, flightPilots] of Object.entries(assignedPilots)) {
-      if (flightPilots.some(p => p.boardNumber === pilot.boardNumber)) {
-        return { isAssigned: true, flightId };
+    if (!assignedPilots) return { isAssigned: false };
+    for (const flightId in assignedPilots) {
+      const flightPilots = assignedPilots[flightId];
+      if (flightPilots.some((p: any) => (p.id && p.id === pilot.id) || p.boardNumber === pilot.boardNumber)) {
+        return { isAssigned: true, flightId: flightId };
       }
     }
     return { isAssigned: false };
   };
 
-  useEffect(() => {
-    const preventHorizontalScroll = (e: WheelEvent) => {
-      if (document.body.classList.contains('dragging')) {
-        const container = scrollContainerRef.current;
-        if (container) {
-          container.scrollTop += e.deltaY;
-          e.preventDefault();
+
+  // Simplified groupedPilots logic
+  const groupedPilots = useMemo(() => {
+    const result: Record<string, Pilot[]> = {}; // Use string index signature
+    // Use allQualifications for the order, ensuring Wingman is last if present
+    const groupOrder = allQualifications.includes('Wingman')
+      ? [...allQualifications.filter(q => q !== 'Wingman'), 'Wingman']
+      : [...allQualifications];
+
+    groupOrder.forEach(qual => { result[qual] = []; }); // Initialize groups based on available quals
+
+    filteredPilots.forEach(pilot => {
+      let highestQual: QualificationType = 'Wingman';
+      const pilotIdKey = pilot.id || pilot.boardNumber;
+      const pilotDbQuals = pilotQualifications[pilotIdKey] || [];
+
+      if (pilotDbQuals.length > 0) {
+        const pilotQualNames = pilotDbQuals
+          .map(q => q.qualification?.name as QualificationType)
+          .filter(name => name && allQualifications.includes(name)); // Get valid qualification names present in allQualifications
+
+        // Find the highest qualification based on the groupOrder
+        for (const qual of groupOrder) {
+          if (pilotQualNames.includes(qual)) {
+            highestQual = qual;
+            break;
+          }
         }
       }
-    };
+      // Add pilot to the determined group (ensure group exists)
+      if (!result[highestQual]) { result[highestQual] = []; }
+      result[highestQual].push(pilot);
+    });
+    return { groups: result, order: groupOrder }; // Return both groups and the order
+  }, [filteredPilots, pilotQualifications, allQualifications]);
 
-    const container = scrollContainerRef.current;
-    if (container) {
-      container.addEventListener('wheel', preventHorizontalScroll);
-      
-      return () => {
-        container.removeEventListener('wheel', preventHorizontalScroll);
-      };
-    }
-  }, []);
 
-  useEffect(() => {
-    const originalOverflow = document.body.style.overflowX;
-    
-    const styleElement = document.createElement('style');
-    styleElement.textContent = `
-      .pilots-container, 
-      .pilots-container * {
-        overflow-x: hidden !important;
-        max-width: ${width};
-        scrollbar-width: thin;
-      }
-      
-      .pilots-scroll-container {
-        overflow-y: auto;
-        overflow-x: hidden !important;
-        scrollbar-width: thin;
-        width: 100%;
-        contain: strict;
-        scrollbar-gutter: stable;
-      }
-      
-      .qualification-group {
-        overflow-x: hidden !important;
-        width: 100%;
-        position: relative;
-      }
-      
-      body.dragging .pilots-scroll-container {
-        overflow-x: hidden !important;
-        transform: translateZ(0);
-        will-change: transform;
-      }
-      
-      [data-dragging="true"] {
-        pointer-events: auto !important;
-        z-index: 9999 !important;
-      }
-    `;
-    document.head.appendChild(styleElement);
-    
-    const handleDragStart = () => {
-      document.body.style.overflowX = 'hidden';
-      
-      const containers = document.querySelectorAll('.pilots-scroll-container, .qualification-group');
-      containers.forEach(container => {
-        if (container instanceof HTMLElement) {
-          container.style.overflowX = 'hidden';
-          container.style.maxWidth = width;
-        }
-      });
-    };
-    
-    const handleDragEnd = () => {
-      document.body.style.overflowX = originalOverflow;
-    };
-    
-    document.addEventListener('dragstart', handleDragStart);
-    document.addEventListener('dragend', handleDragEnd);
-    
-    return () => {
-      document.removeEventListener('dragstart', handleDragStart);
-      document.removeEventListener('dragend', handleDragEnd);
-      document.body.style.overflowX = originalOverflow;
-      document.head.removeChild(styleElement);
-    };
-  }, [width, assignedPilots]);
-
+  // Restore main structure using Card and simplified styles
   return (
-    <div className="pilots-container" style={{ 
-      width,
-      maxWidth: width,
-      overflow: 'visible',
-      position: 'relative',
-      padding: '10px',
-      margin: '-10px',
-      height: '100%'
-    }}>
-      <Card 
-        style={{
-          width: '100%',
-          height: '100%',
-          backgroundColor: '#FFFFFF',
-          boxShadow: '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)',
-          borderRadius: '8px',
-          padding: '24px',
-          display: 'flex',
-          flexDirection: 'column',
-          position: 'relative',
-          overflow: 'visible',
-          boxSizing: 'border-box'
-        }}
-      >
-        <div style={{
-          width: '100%',
-          textAlign: 'center',
-          marginBottom: '16px'
-        }}>
-          <span style={{
-            fontFamily: 'Inter',
-            fontStyle: 'normal',
-            fontWeight: 300,
-            fontSize: '20px',
-            lineHeight: '24px',
-            color: '#64748B',
-            textTransform: 'uppercase'
-          }}>
-            Available Pilots
-          </span>
-        </div>
+    <Card className="flex flex-col" style={{ width, height: '100%', overflow: 'hidden' }}>
+      {/* Header */}
+      <div className="p-4 border-b text-center mb-4">
+        <span className="font-light text-xl text-slate-500 uppercase tracking-wider">
+          Available Pilots
+        </span>
+      </div>
 
-        <div className="mb-4">
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '4px'
-          }}>
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '4px',
-              flex: 1
-            }}>
+      {/* Filters */}
+      <div className="mb-4 px-4 flex justify-between items-center">
+         {/* Qualification Filter Buttons */}
+         <div className="flex items-center gap-1 flex-wrap flex-1">
               {allQualifications.map(qual => (
                 <button
                   key={qual}
@@ -595,284 +292,116 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
                     opacity: selectedQualifications.length === 0 || selectedQualifications.includes(qual) ? 1 : 0.3,
                     transition: 'opacity 0.2s ease'
                   }}
+                  title={`Filter by ${qual}`}
                 >
+                  {/* Ensure QualificationBadge receives a valid type */}
                   <QualificationBadge type={qual} />
                 </button>
               ))}
-            </div>            <div style={{ position: 'relative', display: 'inline-block' }}>
+         </div>
+         {/* Attendance Filter Button */}
+         <div className="relative inline-block ml-2">
               <button
                 onClick={() => setShowOnlyAttending(!showOnlyAttending)}
                 disabled={!selectedEvent}
-                title={selectedEvent 
-                  ? (showOnlyAttending 
-                    ? "Show all pilots" 
-                    : "Show only pilots attending event") 
+                title={selectedEvent
+                  ? (showOnlyAttending
+                    ? "Show all pilots"
+                    : "Show only pilots attending event")
                   : "Select an event to filter by attendance"}
                 style={{
                   padding: '4px',
                   borderRadius: '4px',
                   cursor: selectedEvent ? 'pointer' : 'not-allowed',
                   background: showOnlyAttending ? '#EFF6FF' : 'white',
-                  boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-                  border: showOnlyAttending ? '1px solid #2563EB' : '1px solid transparent',
+                  boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)', // Subtle shadow
+                  border: '1px solid #D1D5DB',
                   display: 'flex',
                   alignItems: 'center',
-                  justifyContent: 'center',
-                  transition: 'all 0.1s ease',
-                  color: showOnlyAttending ? '#2563EB' : selectedEvent ? '#64748B' : '#A1A1AA',
-                  opacity: selectedEvent ? 1 : 0.6,
-                }}
-                onMouseEnter={(e) => {
-                  if (selectedEvent) {
-                    e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.15)';
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  if (selectedEvent) {
-                    e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
-                  }
+                  justifyContent: 'center'
                 }}
               >
-                <Filter size={16} />
-              </button>              {/* Removed attendance counter badge */}
-            </div>
-          </div>
-        </div>
+                <Filter size={16} color={showOnlyAttending ? '#2563EB' : '#64748B'} />
+              </button>
+         </div>
+      </div>
 
-        <div 
-          ref={scrollContainerRef}
-          className="pilots-scroll-container" 
-          style={{ 
-            flex: 1,
-            overflowY: 'auto',
-            overflowX: 'hidden',
-            width: '100%',
-            position: 'relative',
-            padding: '0 10px',
-            boxSizing: 'border-box',
-            margin: '0 -10px'
-          }}
-        >
-          {[...DISPLAY_ORDER, 'Wingman' as QualificationType].map(qualification => {
-            const qualPilots = groupedPilots[qualification] || [];
-            if (qualPilots.length === 0) return null;
+      {/* Pilot List - Simplified scroll container */}
+      <div
+        ref={scrollContainerRef}
+        className="flex-1 overflow-y-auto px-4" // Use Tailwind for padding/overflow
+      >
+        {/* Map over qualification groups using the order from groupedPilots */}
+        {groupedPilots.order.map(qualification => {
+          const qualPilots = groupedPilots.groups[qualification] || [];
+          if (qualPilots.length === 0) return null;
 
-            return (
-              <div key={qualification} className="qualification-group" style={{ 
-                width: '100%',
-                overflowX: 'hidden',
-                position: 'relative'
-              }}>
-                <div 
-                  style={{
-                    position: 'relative',
-                    textAlign: 'center',
-                    margin: '20px 0'
-                  }}
-                >
-                  <div 
-                    style={{
-                      position: 'absolute',
-                      left: 0,
-                      right: 0,
-                      top: '50%',
-                      height: '1px',
-                      backgroundColor: '#E2E8F0'
-                    }}
-                  />
-                  <span 
-                    style={{
-                      position: 'relative',
-                      backgroundColor: '#FFFFFF',
-                      padding: '0 16px',
-                      color: '#646F7E',
-                      fontSize: '12px',
-                      fontFamily: 'Inter',
-                      fontWeight: 300,
-                      textTransform: 'uppercase'
-                    }}
-                  >
-                    {qualification}
-                  </span>
-                </div>
-
-                <div style={{ 
-                  width: '100%', 
-                  position: 'relative', 
-                  overflowX: 'hidden' 
-                }}>
-                  {qualPilots.map(pilot => {
-                    const assignment = isPilotAssignedToFlight(pilot);
-                    // Get qualifications for this specific pilot
-                    const pilotId = pilot.id || pilot.boardNumber;
-                    const pilotDbQuals = pilotQualifications[pilotId] || [];
-                    
-                    return (
-                      <PilotEntry 
-                        key={`${pilot.boardNumber}-${assignment.isAssigned ? 'assigned' : 'available'}`}
-                        pilot={pilot} 
-                        isAssigned={assignment.isAssigned}
-                        currentFlightId={assignment.flightId}
-                        pilotQualifications={pilotDbQuals}
-                      />
-                    );
-                  })}
-                </div>
+          return (
+            <div key={qualification} className="mb-4"> {/* Group spacing */}
+              {/* Group Divider - Simplified */}
+              <div className="relative text-center my-3">
+                 <div className="absolute inset-0 flex items-center" aria-hidden="true">
+                    <div className="w-full border-t border-gray-300" />
+                 </div>
+                 <div className="relative flex justify-center">
+                    <span className="bg-white px-3 text-sm text-gray-500 uppercase"> {/* Match Card background */}
+                      {qualification}
+                    </span>
+                 </div>
               </div>
-            );
-          })}
-        </div>
 
-        <div style={{
-          marginTop: 'auto',
-          width: '100%',
-        }}>
-          <div style={{
-            borderTop: '1px solid #E2E8F0',
-            marginTop: '16px',
-            marginBottom: '16px',
-            width: '100%'
-          }}></div>
-
-          <div style={{
-            display: 'flex',
-            justifyContent: 'space-around',
-            padding: '0 16px'
-          }}>            <button              onClick={() => {
-                // Pass attendance data to onAutoAssign if available
-                if (onAutoAssign) {
-                  // Instead of just passing IDs, let's pass the pilots with attendance status
-                  
-                  // Get the pilots with attendance status that are already prepared
-                  const pilotsToAssign = pilotsWithAttendanceStatus.filter(pilot => {
-                    // Match by discord ID
-                    const discordId = pilot.discordId || 
-                                    (pilot as any).discord_original_id ||
-                                    (pilot as any).discord_id;
-                    
-                    // Check if this pilot is attending based on discord event attendance
-                    if (selectedEvent && discordEventAttendance.length > 0) {
-                      const attendanceRecord = discordEventAttendance.find(record => 
-                        (record.discord_id || record.user_id) === discordId
-                      );
-                      
-                      if (attendanceRecord) {
-                        const responseValue = attendanceRecord.response || attendanceRecord.user_response || attendanceRecord.status;
-                        return responseValue === 'accepted' || responseValue === 'tentative' || 
-                               responseValue === 'yes' || responseValue === 'maybe';
-                      }
-                    } else if (selectedEvent?.attendance) {
-                      // Check if this pilot is in the attendees list from the event attendance data
-                      const allAttendees = [
-                        ...(selectedEvent.attendance.accepted || []),
-                        ...(selectedEvent.attendance.tentative || [])
-                      ];
-                      
-                      return allAttendees.some(a => a.discord_id === discordId);
-                    }
-                    
-                    return false;
-                  });
-                    // Create an array of objects that include both pilot ID and attendance status
-                  const attendingPilotInfo = pilotsToAssign.map(pilot => {
-                    const discordId = pilot.discordId || 
-                                     (pilot as any).discord_original_id ||
-                                     (pilot as any).discord_id;
-                    
-                    // Explicitly include attendance status
-                    return {
-                      id: discordId,
-                      status: (pilot as any).attendanceStatus || 'accepted'
-                    };
-                  }).filter(info => info.id); // Remove any undefined/null values
-                  
-                  // For backwards compatibility, also extract just the IDs
-                  const attendingPilotIds = attendingPilotInfo.map(info => info.id);
-                  
-                  console.log('[DEBUG] Auto-assigning with attendance status:', 
-                    pilotsToAssign.map(p => ({
-                      callsign: p.callsign,
-                      attendanceStatus: (p as any).attendanceStatus
-                    }))
+              {/* Pilot Entries */}
+              <div>
+                {qualPilots.map(pilot => {
+                  const assignment = isPilotAssignedToFlight(pilot);
+                  const pilotIdKey = pilot.id || pilot.boardNumber;
+                  const specificPilotQuals = pilotQualifications[pilotIdKey] || [];
+                  return (
+                    <PilotEntry
+                      key={pilot.id || pilot.boardNumber}
+                      pilot={pilot}
+                      isAssigned={assignment.isAssigned}
+                      currentFlightId={assignment.flightId}
+                      pilotQualifications={specificPilotQuals}
+                    />
                   );
-                  
-                  // Pass both the IDs and detailed attendance information
-                  // Note: We attach the detailed info to the array object itself as a property
-                  (attendingPilotIds as any).pilotAttendanceInfo = attendingPilotInfo;
-                  
-                  onAutoAssign(attendingPilotIds);
-                }
-              }}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '8px',
-                padding: '8px 16px',
-                backgroundColor: '#FFFFFF',
-                color: '#64748B',
-                borderRadius: '8px',
-                border: '1px solid #CBD5E1',
-                cursor: 'pointer',
-                transition: 'background-color 0.2s ease',
-                fontFamily: 'Inter',
-                fontSize: '14px',
-                fontWeight: 400,
-                flex: '0 0 40%',
-                margin: '0 8px'
-              }}
-              onMouseEnter={e => {
-                e.currentTarget.style.backgroundColor = '#F8FAFC';
-              }}
-              onMouseLeave={e => {
-                e.currentTarget.style.backgroundColor = '#FFFFFF';
-              }}
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M9 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-4" />
-                <line x1="14" y1="15" x2="20" y2="9" />
-                <path d="M9 15h4.5c.28 0 .5-.22.5-.5v-4c0-.28-.22-.5-.5-.5H9" />
-                <line x1="5" y1="9" x2="5" y2="15" />
-              </svg>
-              Auto Assign
-            </button>
-            <button
-              onClick={onClearAssignments}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '8px',
-                padding: '8px 16px',
-                backgroundColor: '#FFFFFF',
-                color: '#64748B',
-                borderRadius: '8px',
-                border: '1px solid #CBD5E1',
-                cursor: 'pointer',
-                transition: 'background-color 0.2s ease',
-                fontFamily: 'Inter',
-                fontSize: '14px',
-                fontWeight: 400,
-                flex: '0 0 40%',
-                margin: '0 8px'
-              }}
-              onMouseEnter={e => {
-                e.currentTarget.style.backgroundColor = '#F8FAFC';
-              }}
-              onMouseLeave={e => {
-                e.currentTarget.style.backgroundColor = '#FFFFFF';
-              }}
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M3 6h18" />
-                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-              </svg>
-              Clear Assignments
-            </button>
-          </div>
-        </div>
-      </Card>
-    </div>
+                })}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Footer */}
+      <div className="p-4 border-t flex justify-between">
+        {/* Auto-Assign Button */}
+         <button
+            onClick={() => {
+              if (onAutoAssign) {
+                const attendingPilotInfo = pilotsWithAttendanceStatus
+                  .filter(pilot => pilot.attendanceStatus === 'accepted' || pilot.attendanceStatus === 'tentative')
+                  .map(pilot => ({
+                    id: pilot.id || pilot.discordId || (pilot as any).discord_original_id || pilot.boardNumber,
+                    status: pilot.attendanceStatus as 'accepted' | 'tentative'
+                  }))
+                  .filter(info => info.id && info.status);
+                onAutoAssign(attendingPilotInfo);
+              }
+            }}
+            disabled={!selectedEvent || pilotsWithAttendanceStatus.filter(p => p.attendanceStatus === 'accepted' || p.attendanceStatus === 'tentative').length === 0}
+            className={`px-4 py-2 rounded ${(!selectedEvent || pilotsWithAttendanceStatus.filter(p => p.attendanceStatus === 'accepted' || p.attendanceStatus === 'tentative').length === 0) ? 'bg-gray-300 cursor-not-allowed' : 'bg-blue-500 text-white hover:bg-blue-600'}`}
+          >
+            Auto-Assign
+          </button>
+        {/* Clear Button */}
+         <button
+            onClick={onClearAssignments}
+            className="px-4 py-2 rounded bg-red-500 text-white hover:bg-red-600"
+          >
+            Clear All
+          </button>
+      </div>
+    </Card>
   );
 };
 
