@@ -6,7 +6,17 @@ export type QualificationType =
   | 'Section Lead' // Formerly '2-Ship'
   | 'CQ' 
   | 'Night CQ'
-  | 'Wingman';  // Added Wingman as a valid qualification type
+  | 'Wingman'  // Added Wingman as a valid qualification type
+  // Added missing types based on usage in AvailablePilots.tsx
+  | 'FAC(A)'
+  | 'TL'
+  | '4FL'
+  | '2FL'
+  | 'WQ'
+  | 'T/O'
+  | 'NATOPS'
+  | 'DFL'
+  | 'DTL';
 
 // Legacy status type - maintained for compatibility
 export type PilotStatus = 'Command' | 'Staff' | 'Cadre' | 'Provisional' | 'Inactive' | 'Retired' | 'On Leave' | 'AWOL';
