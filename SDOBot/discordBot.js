@@ -51,12 +51,11 @@ function notifyEventUpdate(eventId, eventData) {
 }
 
 // Function to load event responses from database
-async function loadEventResponses() {
-  try {
+async function loadEventResponses() {  try {
     // Get all events with Discord message IDs from the database
     const { data, error } = await supabase
       .from('events')
-      .select('id, name, description, start_datetime, end_datetime, discord_event_id, discord_guild_id')
+      .select('id, name, description, start_datetime, end_datetime, discord_event_id, discord_guild_id, image_url')
       .not('discord_event_id', 'is', null);
     
     if (error) {
@@ -92,8 +91,7 @@ async function loadEventResponses() {
         console.error(`Error loading attendance for event ${event.discord_event_id}:`, attendanceError);
         continue;
       }
-      
-      // Format event data
+        // Format event data
       const eventData = {
         title: event.name,
         description: event.description || '',
@@ -102,7 +100,8 @@ async function loadEventResponses() {
           end: event.end_datetime ? new Date(event.end_datetime) : new Date(new Date(event.start_datetime).getTime() + (60 * 60 * 1000))
         },
         guildId: event.discord_guild_id,
-        channelId: channelId,
+        channelId: channelId,        // Store image URL from the database
+        imageUrl: event.image_url || null,
         accepted: [],
         declined: [],
         tentative: []
@@ -405,13 +404,36 @@ client.on('interactionCreate', async interaction => {
   const eventId = message.id;
   const displayName = interaction.member.displayName;
   const userId = user.id;
-  
-  // Get event data
-  const eventData = eventResponses.get(eventId);
+    // Get event data from memory cache
+  let eventData = eventResponses.get(eventId);
   if (!eventData) {
-    console.log(`No event data found for message ID: ${eventId}`);
-    await interaction.reply({ content: 'Sorry, this event is no longer active. Please contact an administrator.', ephemeral: true });
-    return;
+    console.log(`No event data found in memory for message ID: ${eventId}, attempting to retrieve from database...`);
+    
+    // Try to get event data from the database
+    const { event, error: eventError } = await getEventByDiscordId(eventId);
+    if (!eventError && event) {
+      console.log(`Found event data in database for message ID: ${eventId}`);
+      // Create minimal event data structure from database record
+      eventData = {
+        title: event.name || event.title || 'Event',
+        description: event.description || '',        eventTime: {
+          start: event.start_datetime ? new Date(event.start_datetime) : new Date(),
+          end: event.end_datetime ? new Date(event.end_datetime) : new Date(new Date().getTime() + (60 * 60 * 1000))
+        },
+        imageUrl: event.image_url,
+        guildId: event.discord_guild_id,
+        accepted: [],
+        declined: [],
+        tentative: []
+      };
+      
+      // Store in memory for future interactions
+      eventResponses.set(eventId, eventData);
+    } else {
+      console.log(`Could not find event data for message ID: ${eventId} in database either`);
+      await interaction.reply({ content: 'Sorry, this event is no longer active. Please contact an administrator.', ephemeral: true });
+      return;
+    }
   }
   
   // Map Discord status to database response type

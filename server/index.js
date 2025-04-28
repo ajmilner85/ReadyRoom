@@ -66,6 +66,10 @@ app.head('/api/health', (req, res) => {
     // Login the persistent client
     await discordClient.login(process.env.BOT_TOKEN);
     console.log('Discord client connection established successfully');
+    
+    // Log that the bot has been restarted (useful for debugging)
+    console.log(`[STARTUP] Discord bot initialized at ${new Date().toISOString()}`);
+    console.log('[STARTUP] Note: Previously cached event data will be reloaded from database');
   } catch (error) {
     console.error('Failed to initialize Discord:', error);
   }
@@ -242,17 +246,25 @@ app.post('/api/events/publish', async (req, res) => {
       // Call the Discord bot to publish the event, passing both the guild ID, channel ID, and image URL if available
     const result = await publishEventToDiscord(title, description || '', eventTime, guildId, channelId, imageUrl);
     console.log('[DEBUG] Discord publish result:', result);
-    
-    // If eventId was provided, update the event in Supabase with the Discord message ID and guild ID
+      // If eventId was provided, update the event in Supabase with the Discord message ID, guild ID and image URL
     // Don't try to store the channelId in the events table as it doesn't have that column
     if (eventId && result.messageId) {
       console.log(`[DEBUG] Updating event ${eventId} with Discord message ID ${result.messageId} and guild ID ${result.guildId}`);
+      
+      // Include the image URL in the database update to persist it across restarts
+      const updateData = { 
+        discord_event_id: result.messageId,
+        discord_guild_id: result.guildId
+      };
+      
+      // Store the image URL if provided
+      if (imageUrl) {
+        updateData.image_url = imageUrl;
+      }
+      
       const { error: updateError } = await supabase
         .from('events')
-        .update({ 
-          discord_event_id: result.messageId,
-          discord_guild_id: result.guildId
-        })
+        .update(updateData)
         .eq('id', eventId);
       
       if (updateError) {

@@ -1,8 +1,9 @@
 In Progress:
 - Misson Preparation	
 	- Create database table(s) for storing mission data
-	- Attendance overrides
+	- Attendance overrides and roll call
 	- Fix filter button badge positioning
+	- Indicator for assigned pilots who responded not attending
 
 
 Next:
