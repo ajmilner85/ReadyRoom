@@ -169,8 +169,7 @@ export interface Database {
             referencedColumns: ["id"]
           }
         ]
-      }
-      discord_event_attendance: {
+      }      discord_event_attendance: {
         Row: {
           id: string
           created_at: string
@@ -179,6 +178,7 @@ export interface Database {
           discord_id: string | null
           discord_username: string | null
           user_response: string
+          roll_call_response: string | null
         }
         Insert: {
           id?: string
@@ -188,6 +188,7 @@ export interface Database {
           discord_id?: string | null
           discord_username?: string | null
           user_response: string
+          roll_call_response?: string | null
         }
         Update: {
           id?: string
@@ -197,6 +198,7 @@ export interface Database {
           discord_id?: string | null
           discord_username?: string | null
           user_response?: string
+          roll_call_response?: string | null
         }
         Relationships: []
       }
