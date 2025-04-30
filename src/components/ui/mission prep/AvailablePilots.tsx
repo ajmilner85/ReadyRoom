@@ -1,15 +1,18 @@
+// filepath: c:\Users\ajmil\OneDrive\Desktop\pri-fly\src\components\ui\mission prep\AvailablePilots.tsx
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Card } from '../card';
 import QualificationBadge from '../QualificationBadge';
-import { Filter } from 'lucide-react';
+import { Filter, ClipboardCheck } from 'lucide-react';
 import { useDraggable } from '@dnd-kit/core';
 import type { Pilot, QualificationType } from '../../../types/PilotTypes';
 import type { Event } from '../../../types/EventTypes';
+import { supabase } from '../../../utils/supabaseClient';
 
 // Define the structure for the polled attendance data (matching MissionPreparation)
 interface RealtimeAttendanceRecord {
   discord_id: string;
   response: 'accepted' | 'declined' | 'tentative';
+  roll_call_response?: 'Present' | 'Absent' | 'Tentative'; // Add roll call response
 }
 
 interface AvailablePilotsProps {
@@ -36,13 +39,23 @@ const RECOGNIZED_QUALIFICATIONS: QualificationType[] = [
 ];
 
 interface PilotEntryProps {
-  pilot: Pilot & { attendanceStatus?: 'accepted' | 'tentative' };
+  pilot: Pilot & { 
+    attendanceStatus?: 'accepted' | 'tentative';
+    rollCallStatus?: 'Present' | 'Absent' | 'Tentative';
+  };
   isAssigned?: boolean;
   currentFlightId?: string;
   pilotQualifications?: any[];
-}
-
-const PilotEntry: React.FC<PilotEntryProps> = ({ pilot, isAssigned = false, currentFlightId, pilotQualifications }) => {  
+  isRollCallMode?: boolean;
+  onRollCallResponse?: (pilotId: string, response: 'Present' | 'Absent' | 'Tentative') => void;
+}  const PilotEntry: React.FC<PilotEntryProps> = ({ 
+  pilot, 
+  isAssigned = false, 
+  currentFlightId, 
+  pilotQualifications,
+  isRollCallMode = false,
+  onRollCallResponse
+}) => {  
   // Make sure we explicitly include attendanceStatus in drag data
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: `pilot-${pilot.id || pilot.boardNumber}`,
@@ -51,11 +64,12 @@ const PilotEntry: React.FC<PilotEntryProps> = ({ pilot, isAssigned = false, curr
       pilot: {
         ...pilot,
         // Explicitly ensure attendanceStatus is included
-        attendanceStatus: pilot.attendanceStatus
+        attendanceStatus: pilot.attendanceStatus,
+        rollCallStatus: pilot.rollCallStatus
       },
       currentFlightId
     },
-    disabled: isAssigned
+    disabled: isRollCallMode // Only disable dragging in roll call mode, regardless of assignment
   });
   
   const originalStyle = useRef<CSSStyleDeclaration | null>(null);
@@ -79,7 +93,6 @@ const PilotEntry: React.FC<PilotEntryProps> = ({ pilot, isAssigned = false, curr
       originalStyle.current = null;
     }
   }, [isDragging, pilot.id, pilot.boardNumber, isAssigned]);
-
   const style: React.CSSProperties = {
     display: 'flex',
     alignItems: 'center',
@@ -88,17 +101,21 @@ const PilotEntry: React.FC<PilotEntryProps> = ({ pilot, isAssigned = false, curr
     transition: 'background-color 0.2s ease, opacity 0.2s ease',
     borderRadius: '8px',
     padding: '0 10px',
-    cursor: isAssigned ? 'default' : 'grab',
+    cursor: isRollCallMode ? 'default' : (isAssigned ? 'default' : 'grab'), // Change cursor when in roll call mode
     position: 'relative',
     left: 0,
     width: 'calc(100% - 20px)',
     zIndex: 1,
     maxWidth: '100%',
     overflow: 'hidden',
-    opacity: isAssigned ? 0.5 : 1,
+    opacity: (isRollCallMode || !isAssigned) ? 1 : 0.5, // No opacity reduction in roll call mode
   };
 
   const renderQualificationBadges = () => {
+    if (isRollCallMode) {
+      return null; // Don't show qualification badges in roll call mode
+    }
+    
     const dbQualifications = pilotQualifications || [];
     
     if (dbQualifications && dbQualifications.length > 0) {
@@ -120,12 +137,98 @@ const PilotEntry: React.FC<PilotEntryProps> = ({ pilot, isAssigned = false, curr
     return [];
   };
 
+  const renderRollCallButtons = () => {
+    if (!isRollCallMode) return null;
+    
+    const pilotId = pilot.id || pilot.boardNumber;
+    const currentRollCallStatus = pilot.rollCallStatus;
+    
+    // Define button styles
+    const baseButtonStyle: React.CSSProperties = {
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      width: '28px',
+      height: '24px',
+      borderRadius: '4px',
+      border: '1px solid #CBD5E1',
+      backgroundColor: '#FFFFFF',
+      cursor: 'pointer',
+      transition: 'all 0.2s ease',
+      marginLeft: '4px'
+    };
+
+    // Present button (checkmark)
+    const isPresentActive = currentRollCallStatus === 'Present';
+    const presentButtonStyle: React.CSSProperties = {
+      ...baseButtonStyle,
+      backgroundColor: isPresentActive ? '#22C55E' : '#FFFFFF',
+      borderColor: isPresentActive ? '#22C55E' : '#CBD5E1',
+      color: isPresentActive ? 'white' : '#64748B',
+    };
+
+    // Absent button (X)
+    const isAbsentActive = currentRollCallStatus === 'Absent';
+    const absentButtonStyle: React.CSSProperties = {
+      ...baseButtonStyle,
+      backgroundColor: isAbsentActive ? '#EF4444' : '#FFFFFF',
+      borderColor: isAbsentActive ? '#EF4444' : '#CBD5E1',
+      color: isAbsentActive ? 'white' : '#64748B',
+    };
+
+    // Tentative button (?)
+    const isTentativeActive = currentRollCallStatus === 'Tentative';
+    const tentativeButtonStyle: React.CSSProperties = {
+      ...baseButtonStyle,
+      backgroundColor: isTentativeActive ? '#5865F2' : '#FFFFFF', // Blurple color
+      borderColor: isTentativeActive ? '#5865F2' : '#CBD5E1',
+      color: isTentativeActive ? 'white' : '#64748B',
+    };
+
+    return (
+      <div style={{ display: 'flex', marginLeft: 'auto', gap: '4px' }}>
+        {/* Present button */}
+        <button 
+          style={presentButtonStyle}
+          onClick={(e) => {
+            e.stopPropagation();
+            if (onRollCallResponse) onRollCallResponse(pilotId, 'Present');
+          }}
+        >
+          ✓
+        </button>
+        
+        {/* Absent button */}
+        <button 
+          style={absentButtonStyle}
+          onClick={(e) => {
+            e.stopPropagation();
+            if (onRollCallResponse) onRollCallResponse(pilotId, 'Absent');
+          }}
+        >
+          ✗
+        </button>
+        
+        {/* Tentative button */}
+        <button 
+          style={tentativeButtonStyle}
+          onClick={(e) => {
+            e.stopPropagation();
+            if (onRollCallResponse) onRollCallResponse(pilotId, 'Tentative');
+          }}
+        >
+          ?
+        </button>
+      </div>
+    );
+  };
+
   return (
     <div
       id={`pilot-${pilot.id || pilot.boardNumber}`}
       ref={setNodeRef}
       style={style}
-      {...(isAssigned ? {} : { ...listeners, ...attributes })}
+      {...(isAssigned || isRollCallMode ? {} : { ...listeners, ...attributes })} // Don't add drag handlers in roll call mode
       data-dragging={isDragging ? 'true' : 'false'}
       data-assigned={isAssigned ? 'true' : 'false'}
     >
@@ -153,7 +256,7 @@ const PilotEntry: React.FC<PilotEntryProps> = ({ pilot, isAssigned = false, curr
         }}>
           {pilot.callsign}
         </span>
-        {pilot.attendanceStatus === 'tentative' && (
+        {pilot.attendanceStatus === 'tentative' && !isRollCallMode && (
           <div style={{
             display: 'flex',
             alignItems: 'center',
@@ -179,14 +282,16 @@ const PilotEntry: React.FC<PilotEntryProps> = ({ pilot, isAssigned = false, curr
         {pilot.billet}
       </span>
       
-      <div style={{
-        display: 'flex',
-        gap: '4px',
-        marginLeft: 'auto',
-        height: '24px'
-      }}>
-        {renderQualificationBadges()}
-      </div>
+      {isRollCallMode ? renderRollCallButtons() : (
+        <div style={{
+          display: 'flex',
+          gap: '4px',
+          marginLeft: 'auto',
+          height: '24px'
+        }}>
+          {renderQualificationBadges()}
+        </div>
+      )}
     </div>
   );
 };
@@ -204,6 +309,97 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [showOnlyAttending, setShowOnlyAttending] = useState(false);
   const [selectedQualifications, setSelectedQualifications] = useState<QualificationType[]>([]);
+  const [isRollCallMode, setIsRollCallMode] = useState(false);
+  const [rollCallResponses, setRollCallResponses] = useState<Record<string, 'Present' | 'Absent' | 'Tentative'>>({});  // Handle Roll Call response
+  const handleRollCallResponse = async (pilotId: string, response: 'Present' | 'Absent' | 'Tentative') => {
+    // Update local state
+    setRollCallResponses(prev => {
+      const newResponses = {...prev};
+      // If the response is the same as current, toggle it off
+      if (prev[pilotId] === response) {
+        delete newResponses[pilotId];
+      } else {
+        // Otherwise set the new response
+        newResponses[pilotId] = response;
+      }
+      return newResponses;
+    });// Only update the database if we have a selected event
+    if (!selectedEvent || !selectedEvent.id) {
+      console.log('Cannot update roll call response: No event selected');
+      return;
+    }
+
+    // Ensure we have a Discord event ID
+    if (!selectedEvent.discordEventId) {
+      console.log('Cannot update roll call response: Event has no Discord event ID');
+      return;
+    }
+    
+    // Find the pilot's Discord ID
+    const pilot = pilots.find(p => p.id === pilotId || p.boardNumber === pilotId);
+    if (!pilot) {
+      console.log(`Cannot find pilot with ID ${pilotId}`);
+      return;
+    }
+    
+    const discordId = pilot.discordId || (pilot as any).discord_original_id || (pilot as any).discord_id;
+    if (!discordId) {
+      console.log(`Pilot ${pilot.callsign} has no Discord ID`);
+      return;
+    }
+    
+    try {
+      // Check if there's an existing attendance record
+      const { data: existingRecord, error: fetchError } = await supabase
+        .from('discord_event_attendance')
+        .select('*')
+        .eq('discord_event_id', selectedEvent.discordEventId)
+        .eq('discord_id', discordId)
+        .maybeSingle();
+      
+      if (fetchError && fetchError.code !== 'PGRST116') {
+        console.error('Error checking for existing attendance record:', fetchError);
+        return;
+      }      // If the response is being toggled off (removed), set to null
+      const responseValue = rollCallResponses[pilotId] === response ? null : response;
+      
+      if (existingRecord) {
+        // Update existing record
+        const { error: updateError } = await supabase
+          .from('discord_event_attendance')
+          .update({
+            roll_call_response: responseValue,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', existingRecord.id);
+        
+        if (updateError) {
+          console.error('Error updating roll call response:', updateError);
+        } else {
+          console.log(`Updated roll call response for ${pilot.callsign} to ${responseValue || 'null'}`);
+        }
+      } else {
+        // Create new record
+        const { error: insertError } = await supabase
+          .from('discord_event_attendance')
+          .insert({
+            discord_event_id: selectedEvent.discordEventId,
+            discord_id: discordId,
+            discord_username: pilot.callsign,
+            user_response: 'accepted', // Default to accepted when creating a new entry via roll call
+            roll_call_response: response
+          });
+        
+        if (insertError) {
+          console.error('Error inserting roll call response:', insertError);
+        } else {
+          console.log(`Created roll call response for ${pilot.callsign}: ${response}`);
+        }
+      }
+    } catch (error) {
+      console.error('Unexpected error in roll call response:', error);
+    }
+  };
 
   // Get all available qualifications from the pilots' data
   const allQualifications = useMemo(() => {
@@ -271,7 +467,11 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
     }
     
     return pilots.map(pilot => {
-      const pilotCopy = { ...pilot, attendanceStatus: undefined as ('accepted' | 'tentative' | undefined) };
+      const pilotCopy = { 
+        ...pilot, 
+        attendanceStatus: undefined as ('accepted' | 'tentative' | undefined) 
+      };
+      const pilotId = pilotCopy.id || pilotCopy.boardNumber;
       const discordId = pilotCopy.discordId || (pilotCopy as any).discord_original_id || (pilotCopy as any).discord_id;
       
       if (discordId) {
@@ -281,9 +481,15 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
           else if (attendanceRecord.response === 'accepted') pilotCopy.attendanceStatus = 'accepted';
         }
       }
+
+      // Add roll call status if available
+      if (pilotId && rollCallResponses[pilotId]) {
+        (pilotCopy as any).rollCallStatus = rollCallResponses[pilotId];
+      }
+
       return pilotCopy;
     });
-  }, [pilots, selectedEvent, realtimeAttendanceData]);
+  }, [pilots, selectedEvent, realtimeAttendanceData, rollCallResponses]);
 
   // Filter pilots based on attendance and selected qualifications
   const filteredPilots = useMemo(() => {
@@ -329,63 +535,95 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
       }
     }
     return { isAssigned: false };
-  };
-
-  // Group pilots by their highest qualification
+  };  // Group pilots by their highest qualification or attendance status
   const groupedPilots = useMemo(() => {
-    const result: Record<string, Pilot[]> = {};
+    // Initialize result object to hold grouped pilots
+    const resultGroups: Record<string, Pilot[]> = {};
+    let groupingOrder: string[] = [];
     
-    // Start with all qualification categories
-    const groupOrder = [...allQualifications];
-    
-    // Make sure Wingman is last (for unqualified pilots)
-    if (groupOrder.includes('Wingman')) {
-      const wingmanIndex = groupOrder.indexOf('Wingman');
-      groupOrder.splice(wingmanIndex, 1);
-      groupOrder.push('Wingman');
-    } else {
-      // Add Wingman if not present
-      groupOrder.push('Wingman');
-    }
-    
-    // Initialize all groups
-    groupOrder.forEach(qual => { 
-      result[qual] = []; 
-    });
-    
-    // Assign each pilot to their highest qualification group
-    filteredPilots.forEach(pilot => {
-      // Default to Wingman if no other qualification matches
-      let highestQual: QualificationType = 'Wingman';
-      const pilotIdKey = pilot.id || pilot.boardNumber;
-      const pilotDbQuals = pilotQualifications[pilotIdKey] || [];
-
-      // Get qualification names from pilot data
-      if (pilotDbQuals.length > 0) {
-        const pilotQualNames = pilotDbQuals
-          .filter(q => q.qualification && q.qualification.name)
-          .map(q => q.qualification.name as QualificationType)
-          .filter(name => groupOrder.includes(name));
+    if (isRollCallMode) {
+      // In roll call mode, group by Discord attendance response (user_response)
+      const attendanceGroups = ['accepted', 'tentative', 'declined', 'No Response'];
+      groupingOrder = attendanceGroups;
+      
+      // Initialize all groups
+      attendanceGroups.forEach(group => {
+        resultGroups[group] = [];
+      });
+      
+      // Sort pilots based on their Discord attendance status (not roll call status)
+      filteredPilots.forEach(pilot => {
+        const discordId = pilot.discordId || (pilot as any).discord_original_id || (pilot as any).discord_id;
         
-        // Find the highest qualification based on the group order
-        for (const qual of groupOrder) {
-          if (pilotQualNames.includes(qual)) {
-            highestQual = qual;
-            break; // Found the highest one
+        // Find the attendance record for this pilot
+        const attendanceRecord = realtimeAttendanceData.find(record => record.discord_id === discordId);
+        
+        if (attendanceRecord) {
+          if (attendanceRecord.response === 'accepted') {
+            resultGroups['accepted'].push(pilot);
+          } else if (attendanceRecord.response === 'tentative') {
+            resultGroups['tentative'].push(pilot);
+          } else if (attendanceRecord.response === 'declined') {
+            resultGroups['declined'].push(pilot);
+          } else {
+            resultGroups['No Response'].push(pilot);
           }
+        } else {
+          // No attendance record for this pilot
+          resultGroups['No Response'].push(pilot);
         }
+      });
+    } else {
+      // Regular mode - group by qualifications
+      const qualTypeOrder = [...allQualifications];
+      
+      // Make sure Wingman is last (for unqualified pilots)
+      if (qualTypeOrder.includes('Wingman')) {
+        const wingmanIndex = qualTypeOrder.indexOf('Wingman');
+        qualTypeOrder.splice(wingmanIndex, 1);
+        qualTypeOrder.push('Wingman');
+      } else {
+        // Add Wingman if not present
+        qualTypeOrder.push('Wingman');
       }
       
-      // Add pilot to the appropriate group
-      if (!result[highestQual]) {
-        result[highestQual] = []; // Create group if it doesn't exist
-      }
-      result[highestQual].push(pilot);
-    });
-    
-    return { 
-      groups: result, 
-      order: groupOrder 
+      groupingOrder = qualTypeOrder;
+      
+      // Initialize all groups
+      qualTypeOrder.forEach(qual => { 
+        resultGroups[qual] = []; 
+      });
+      
+      // Assign each pilot to their highest qualification group
+      filteredPilots.forEach(pilot => {
+        // Default to Wingman if no other qualification matches
+        let highestQual: QualificationType = 'Wingman';
+        const pilotIdKey = pilot.id || pilot.boardNumber;
+        const pilotDbQuals = pilotQualifications[pilotIdKey] || [];
+
+        // Get qualification names from pilot data
+        if (pilotDbQuals.length > 0) {
+          const pilotQualNames = pilotDbQuals
+            .filter(q => q.qualification && q.qualification.name)
+            .map(q => q.qualification.name as QualificationType)
+            .filter(name => qualTypeOrder.includes(name));
+          
+          // Find the highest qualification based on the group order
+          for (const qual of qualTypeOrder) {
+            if (pilotQualNames.includes(qual as QualificationType)) {
+              highestQual = qual as QualificationType;
+              break; // Found the highest one
+            }
+          }
+        }
+        
+        // Add pilot to the appropriate group
+        resultGroups[highestQual].push(pilot);
+      });
+    }
+      return { 
+      groups: resultGroups, 
+      order: groupingOrder 
     };
   }, [filteredPilots, pilotQualifications, allQualifications]);
 
@@ -457,6 +695,26 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
     };
   }, [width, assignedPilots]);
 
+  // Define button style for Roll Call button
+  const rollCallButtonStyle = {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '8px',
+    padding: '8px 16px',
+    backgroundColor: isRollCallMode ? '#EFF6FF' : '#FFFFFF',
+    color: isRollCallMode ? '#2563EB' : '#64748B',
+    borderRadius: '8px',
+    border: isRollCallMode ? '1px solid #2563EB' : '1px solid #CBD5E1',
+    cursor: 'pointer',
+    transition: 'background-color 0.2s ease',
+    fontFamily: 'Inter',
+    fontSize: '14px',
+    fontWeight: 400,
+    flex: '0 0 25%',
+    margin: '0 8px'
+  };
+
   return (
     <div className="pilots-container" style={{ 
       width,
@@ -516,12 +774,13 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
                 <button
                   key={qual}
                   onClick={() => toggleQualification(qual)}
+                  disabled={isRollCallMode}
                   style={{
                     padding: 0,
                     background: 'none',
                     border: 'none',
-                    cursor: 'pointer',
-                    opacity: selectedQualifications.length === 0 || selectedQualifications.includes(qual) ? 1 : 0.3,
+                    cursor: isRollCallMode ? 'default' : 'pointer',
+                    opacity: isRollCallMode ? 0.3 : (selectedQualifications.length === 0 || selectedQualifications.includes(qual) ? 1 : 0.3),
                     transition: 'opacity 0.2s ease'
                   }}
                 >
@@ -532,16 +791,19 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
             <div style={{ position: 'relative', display: 'inline-block' }}>
               <button
                 onClick={() => setShowOnlyAttending(!showOnlyAttending)}
-                disabled={!selectedEvent}
-                title={selectedEvent 
-                  ? (showOnlyAttending 
-                    ? "Show all pilots" 
-                    : "Show only pilots attending event") 
-                  : "Select an event to filter by attendance"}
+                disabled={!selectedEvent || isRollCallMode}
+                title={
+                  isRollCallMode ? "Exit Roll Call mode to use filter" :
+                  selectedEvent 
+                    ? (showOnlyAttending 
+                      ? "Show all pilots" 
+                      : "Show only pilots attending event") 
+                    : "Select an event to filter by attendance"
+                }
                 style={{
                   padding: '4px',
                   borderRadius: '4px',
-                  cursor: selectedEvent ? 'pointer' : 'not-allowed',
+                  cursor: (selectedEvent && !isRollCallMode) ? 'pointer' : 'not-allowed',
                   background: showOnlyAttending ? '#EFF6FF' : 'white',
                   boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
                   border: showOnlyAttending ? '1px solid #2563EB' : '1px solid transparent',
@@ -550,15 +812,15 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
                   justifyContent: 'center',
                   transition: 'all 0.1s ease',
                   color: showOnlyAttending ? '#2563EB' : selectedEvent ? '#64748B' : '#A1A1AA',
-                  opacity: selectedEvent ? 1 : 0.6,
+                  opacity: (selectedEvent && !isRollCallMode) ? 1 : 0.6,
                 }}
                 onMouseEnter={(e) => {
-                  if (selectedEvent) {
+                  if (selectedEvent && !isRollCallMode) {
                     e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.15)';
                   }
                 }}
                 onMouseLeave={(e) => {
-                  if (selectedEvent) {
+                  if (selectedEvent && !isRollCallMode) {
                     e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
                   }
                 }}
@@ -582,13 +844,12 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
             boxSizing: 'border-box',
             margin: '0 -10px'
           }}
-        >
-          {groupedPilots.order.map(qualification => {
-            const qualPilots = groupedPilots.groups[qualification] || [];
-            if (qualPilots.length === 0) return null;
+        >          {groupedPilots.order.map((groupName: string) => {
+            const pilotsInGroup = groupedPilots.groups[groupName] || [];
+            if (pilotsInGroup.length === 0) return null;
 
             return (
-              <div key={qualification} className="qualification-group" style={{ 
+              <div key={groupName} className="qualification-group" style={{ 
                 width: '100%',
                 overflowX: 'hidden',
                 position: 'relative'
@@ -609,8 +870,7 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
                       height: '1px',
                       backgroundColor: '#E2E8F0'
                     }}
-                  />
-                  <span 
+                  />                  <span 
                     style={{
                       position: 'relative',
                       backgroundColor: '#FFFFFF',
@@ -622,27 +882,37 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
                       textTransform: 'uppercase'
                     }}
                   >
-                    {qualification}
+                    {/* Display friendly names for attendance statuses in roll call mode */}
+                    {isRollCallMode 
+                      ? (groupName === 'accepted' ? 'Attending' :
+                         groupName === 'tentative' ? 'Tentative' :
+                         groupName === 'declined' ? 'Declined' :
+                         'No Response')
+                      : groupName}
                   </span>
-                </div>
-
-                <div style={{ 
+                </div>                <div style={{ 
                   width: '100%', 
                   position: 'relative', 
                   overflowX: 'hidden' 
-                }}>
-                  {qualPilots.map(pilot => {
+                }}>                  {pilotsInGroup.map((pilot: Pilot) => {
+                    // In roll call mode, we still track assignment but don't visually dim the pilot
                     const assignment = isPilotAssignedToFlight(pilot);
                     const pilotIdKey = pilot.id || pilot.boardNumber;
                     const specificPilotQuals = pilotQualifications[pilotIdKey] || [];
+                    const pilotWithRollCall = {
+                      ...pilot,
+                      rollCallStatus: rollCallResponses[pilotIdKey]
+                    };
                     
                     return (
                       <PilotEntry 
-                        key={pilot.id || pilot.boardNumber}
-                        pilot={pilot} 
+                        key={pilotIdKey}
+                        pilot={pilotWithRollCall} 
                         isAssigned={assignment.isAssigned}
                         currentFlightId={assignment.flightId}
                         pilotQualifications={specificPilotQuals}
+                        isRollCallMode={isRollCallMode}
+                        onRollCallResponse={handleRollCallResponse}
                       />
                     );
                   })}
@@ -661,13 +931,37 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
             marginTop: '16px',
             marginBottom: '16px',
             width: '100%'
-          }}></div>
-
-          <div style={{
+          }}></div>          <div style={{
             display: 'flex',
             justifyContent: 'space-around',
-            padding: '0 16px'
+            padding: '0' // Removed padding completely as requested
           }}>
+            {/* Roll Call Button */}            <button
+              onClick={() => {
+                if (!isRollCallMode && selectedQualifications.length > 0) {
+                  // Clear any qualification filters before entering roll call mode
+                  setSelectedQualifications([]);
+                }
+                if (!isRollCallMode && showOnlyAttending) {
+                  // Disable attendance filter before entering roll call mode
+                  setShowOnlyAttending(false);
+                }
+                // Toggle roll call mode
+                setIsRollCallMode(!isRollCallMode);
+              }}
+              style={rollCallButtonStyle}
+              onMouseEnter={e => {
+                e.currentTarget.style.backgroundColor = isRollCallMode ? '#DBEAFE' : '#F8FAFC';
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.backgroundColor = isRollCallMode ? '#EFF6FF' : '#FFFFFF';
+              }}
+            >
+              <ClipboardCheck size={16} />
+              Roll Call
+            </button>
+            
+            {/* Auto Assign Button */}
             <button
               onClick={() => {
                 if (onAutoAssign) {
@@ -697,7 +991,7 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
                 fontFamily: 'Inter',
                 fontSize: '14px',
                 fontWeight: 400,
-                flex: '0 0 40%',
+                flex: '0 0 30%',
                 margin: '0 8px'
               }}
               onMouseEnter={e => {
@@ -715,6 +1009,8 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
               </svg>
               Auto Assign
             </button>
+            
+            {/* Clear Assignments Button */}
             <button
               onClick={onClearAssignments}
               style={{
@@ -732,7 +1028,7 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
                 fontFamily: 'Inter',
                 fontSize: '14px',
                 fontWeight: 400,
-                flex: '0 0 40%',
+                flex: '0 0 30%',
                 margin: '0 8px'
               }}
               onMouseEnter={e => {
@@ -745,8 +1041,7 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M3 6h18" />
                 <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-              </svg>
-              Clear Assignments
+              </svg>              Unassign All
             </button>
           </div>
         </div>
