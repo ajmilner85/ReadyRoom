@@ -270,7 +270,9 @@ interface PilotEntryProps {
           }
           
           return shouldShowBadge && (
-            <div style={{
+            <div 
+              key={`badge-${pilot.id || pilot.boardNumber}-${pilot.rollCallStatus || ''}-${pilot.attendanceStatus || ''}`} // Moved key here
+              style={{
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -282,7 +284,7 @@ interface PilotEntryProps {
               fontSize: '10px',
               fontWeight: 'bold',
               flexShrink: 0,
-              key: `badge-${pilot.id || pilot.boardNumber}-${pilot.rollCallStatus || ''}-${pilot.attendanceStatus || ''}` // Add key to force re-render
+              // Removed key from style object
             }}>
               ?
             </div>
