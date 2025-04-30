@@ -22,6 +22,7 @@ interface FlightAssignmentCardProps {
     callsign: string;
     dashNumber: string;
     attendanceStatus?: 'accepted' | 'tentative';
+    rollCallStatus?: 'Present' | 'Absent' | 'Tentative';
   }>;
   midsA?: string;
   midsB?: string;
@@ -269,7 +270,13 @@ const FlightAssignmentCard: React.FC<FlightAssignmentCardProps> = ({
 
 // New component to handle droppable empty tiles
 interface DroppableAircraftTileProps {
-  pilot: { boardNumber: string; callsign: string; dashNumber: string; attendanceStatus?: 'accepted' | 'tentative'; };
+  pilot: { 
+    boardNumber: string; 
+    callsign: string; 
+    dashNumber: string; 
+    attendanceStatus?: 'accepted' | 'tentative';
+    rollCallStatus?: 'Present' | 'Absent' | 'Tentative'; 
+  };
   flightId: string;
   dashNumber: string;
   flightNumber: string;
@@ -302,12 +309,16 @@ const DroppableAircraftTile: React.FC<DroppableAircraftTileProps> = ({
   
   // Force component to update when attendance status changes
   const [key, setKey] = useState(Date.now());
-  
-  // This effect ensures the component re-renders when attendance status changes
+  // This effect ensures the component re-renders when attendance status or roll call status changes
   React.useEffect(() => {
-    // Generate a new key whenever pilot's attendance status changes
+    // Generate a new key whenever pilot's status changes
     setKey(Date.now());
-  }, [pilot.attendanceStatus]);
+    
+    // Debug logging for roll call status
+    if (pilot.rollCallStatus) {
+      console.log(`[ROLL-CALL-DEBUG] DroppableAircraftTile ${flightId}-${dashNumber} has roll call status: ${pilot.rollCallStatus} for ${pilot.callsign}`);
+    }
+  }, [pilot.attendanceStatus, pilot.rollCallStatus, flightId, dashNumber, pilot.callsign]);
   
   const { setNodeRef, isOver } = useDroppable({
     id: dropId,
@@ -330,12 +341,12 @@ const DroppableAircraftTile: React.FC<DroppableAircraftTileProps> = ({
       data-drop-id={dropId}
       data-flight-id={flightId} // Add a data attribute for debugging
       key={`${flightId}-${dashNumber}-${key}`} // Add a key that changes when attendance status changes
-    >
-      <AircraftTile
+    >      <AircraftTile
         boardNumber={pilot.boardNumber}
         callsign={pilot.callsign}
         dashNumber={pilot.dashNumber}
-        attendanceStatus={pilot.attendanceStatus} // Explicitly pass attendance status
+        attendanceStatus={pilot.attendanceStatus} // Discord attendance status
+        rollCallStatus={pilot.rollCallStatus} // Roll call attendance status (higher priority)
         flightId={flightId}
         flightNumber={flightNumber}
         flightCallsign={flightCallsign}

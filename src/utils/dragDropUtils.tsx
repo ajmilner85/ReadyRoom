@@ -4,6 +4,7 @@ import type { MissionCommanderInfo } from '../types/MissionCommanderTypes';
 interface AssignedPilot extends Pilot {
   dashNumber: string;
   attendanceStatus?: 'accepted' | 'tentative';
+  rollCallStatus?: 'Present' | 'Absent' | 'Tentative';
 }
 
 // Find a pilot by board number across all flights

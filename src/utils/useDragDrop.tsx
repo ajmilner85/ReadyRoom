@@ -57,11 +57,11 @@ export const useDragDrop = ({
   }, []);  const handleDragStart = (event: DragStartEvent) => {
     if (event.active.data.current?.type === 'Pilot') {      
       const pilotData = event.active.data.current;
-      
-      const pilot: AssignedPilot = {
+        const pilot: AssignedPilot = {
         ...pilotData.pilot,
         dashNumber: pilotData.pilot.dashNumber || '',
-        attendanceStatus: pilotData.pilot.attendanceStatus
+        attendanceStatus: pilotData.pilot.attendanceStatus,
+        rollCallStatus: pilotData.pilot.rollCallStatus
       };
       setDraggedPilot(pilot);
       setDragSource(pilotData.currentFlightId ? 'tile' : 'list');
