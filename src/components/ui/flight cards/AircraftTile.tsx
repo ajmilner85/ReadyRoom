@@ -294,30 +294,34 @@ const AircraftTile: React.FC<AircraftTileProps> = ({
             >              {isEmpty ? '' : (
                 <>                  {/* Show tentative badge - prioritizing roll call response over Discord response */}
                   {(() => {
-                    // Calculate whether to show the badge and log the reasoning
+                    // Calculate whether to show the badge using the same logic as AvailablePilots
                     const isTentativeRollCall = rollCallStatus === 'Tentative';
                     const isTentativeDiscord = attendanceStatus === 'tentative';
+                    // Roll call status overrides Discord status if it's Present or Absent
                     const isRollCallOverriding = rollCallStatus === 'Present' || rollCallStatus === 'Absent';
                     
-                    const shouldShowBadge = isTentativeRollCall || (isTentativeDiscord && !isRollCallOverriding);
+                    const shouldShowBadge = !isEmpty && (isTentativeRollCall || (isTentativeDiscord && !isRollCallOverriding));
                     
-                    if (callsign && !isEmpty) {
-                      console.log(`[BADGE-DEBUG] ${callsign}: RollCall=${rollCallStatus}, Discord=${attendanceStatus}, ShowBadge=${shouldShowBadge}`);
+                    // Debug log
+                    if (!isEmpty && (rollCallStatus || attendanceStatus) && (callsign === 'MIRAGE' || callsign === 'VIKING')) {
+                       console.log(`[BADGE-DEBUG] AircraftTile ${callsign}: RollCall=${rollCallStatus || 'none'}, Discord=${attendanceStatus || 'none'}, ShowBadge=${shouldShowBadge}`);
                     }
-                    
+
                     return shouldShowBadge && (
-                      <div style={{
+                      <div 
+                        key={`tile-badge-${boardNumber}-${rollCallStatus || ''}-${attendanceStatus || ''}`} // Unique key for the badge itself
+                        style={{
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        width: '14px',
+                        width: '14px', // Slightly smaller badge for tile
                         height: '14px',
                         borderRadius: '50%',
                         backgroundColor: '#5865F2', // Blurple color
                         color: 'white',
-                        fontSize: '9px',
+                        fontSize: '9px', // Smaller font
                         fontWeight: 'bold',
-                        flexShrink: 0
+                        flexShrink: 0 // Prevent shrinking
                       }}>
                         ?
                       </div>
