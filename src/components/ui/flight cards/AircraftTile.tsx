@@ -16,7 +16,8 @@ interface AircraftTileProps {
   verticalOffset?: number; // New prop for vertical positioning
   flightId?: string; // Add this prop for drag handling
   isMissionCommander?: boolean; // Add prop for mission commander status
-  attendanceStatus?: 'accepted' | 'tentative'; // Add prop for attendance status
+  attendanceStatus?: 'accepted' | 'tentative'; // Discord attendance status
+  rollCallStatus?: 'Present' | 'Absent' | 'Tentative'; // Roll call attendance status
 }
 
 const AircraftTile: React.FC<AircraftTileProps> = ({
@@ -33,7 +34,8 @@ const AircraftTile: React.FC<AircraftTileProps> = ({
   verticalOffset = 0,
   flightId,
   isMissionCommander = false,
-  attendanceStatus
+  attendanceStatus,
+  rollCallStatus
 }) => {
   // Track local drag state
   const [localDragging, setLocalDragging] = useState(false);
@@ -111,23 +113,23 @@ const AircraftTile: React.FC<AircraftTileProps> = ({
 
   // IMPORTANT: Force re-render when attendanceStatus changes
   const [renderKey, setRenderKey] = useState(Date.now());
-  
   // Add debug effect to log attendance status changes
   useEffect(() => {
-    if (!isEmpty && attendanceStatus) {
-      console.log(`[TENTATIVE-DEBUG] AircraftTile attendance status for ${callsign} (${boardNumber}): ${attendanceStatus}`);
+    if (!isEmpty && (attendanceStatus || rollCallStatus)) {
+      console.log(`[TENTATIVE-DEBUG] AircraftTile for ${callsign} (${boardNumber}): Discord=${attendanceStatus || 'none'}, RollCall=${rollCallStatus || 'none'}`);
+      // Force a re-render by updating the key when either status changes
+      setRenderKey(Date.now());
     }
-  }, [callsign, boardNumber, attendanceStatus, isEmpty]);
-  
-  useEffect(() => {
-    // Update the render key whenever attendance status changes
+  }, [callsign, boardNumber, attendanceStatus, rollCallStatus, isEmpty]);
+    useEffect(() => {
+    // Update the render key whenever attendance status or roll call status changes
     setRenderKey(Date.now());
-  }, [attendanceStatus]);
+  }, [attendanceStatus, rollCallStatus]);
 
   return (
     <div 
       className="aircraft-tile-container"
-      key={`tile-${boardNumber}-${callsign}-${attendanceStatus}-${renderKey}`}
+      key={`tile-${boardNumber}-${callsign}-${attendanceStatus}-${rollCallStatus}-${renderKey}`}
       style={{
         position: 'relative',
         width: '92px', // All tiles should be 92px wide
@@ -289,25 +291,38 @@ const AircraftTile: React.FC<AircraftTileProps> = ({
                 alignItems: 'center',
                 gap: '4px'
               }}
-            >
-              {isEmpty ? '' : (
-                <>                  {attendanceStatus === 'tentative' && (
-                    <div style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      width: '14px',
-                      height: '14px',
-                      borderRadius: '50%',
-                      backgroundColor: '#5865F2', // Blurple color
-                      color: 'white',
-                      fontSize: '9px',
-                      fontWeight: 'bold',
-                      flexShrink: 0
-                    }}>
-                      ?
-                    </div>
-                  )}
+            >              {isEmpty ? '' : (
+                <>                  {/* Show tentative badge - prioritizing roll call response over Discord response */}
+                  {(() => {
+                    // Calculate whether to show the badge and log the reasoning
+                    const isTentativeRollCall = rollCallStatus === 'Tentative';
+                    const isTentativeDiscord = attendanceStatus === 'tentative';
+                    const isRollCallOverriding = rollCallStatus === 'Present' || rollCallStatus === 'Absent';
+                    
+                    const shouldShowBadge = isTentativeRollCall || (isTentativeDiscord && !isRollCallOverriding);
+                    
+                    if (callsign && !isEmpty) {
+                      console.log(`[BADGE-DEBUG] ${callsign}: RollCall=${rollCallStatus}, Discord=${attendanceStatus}, ShowBadge=${shouldShowBadge}`);
+                    }
+                    
+                    return shouldShowBadge && (
+                      <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        width: '14px',
+                        height: '14px',
+                        borderRadius: '50%',
+                        backgroundColor: '#5865F2', // Blurple color
+                        color: 'white',
+                        fontSize: '9px',
+                        fontWeight: 'bold',
+                        flexShrink: 0
+                      }}>
+                        ?
+                      </div>
+                    );
+                  })()}
                   <span>{callsign}</span>
                 </>
               )}

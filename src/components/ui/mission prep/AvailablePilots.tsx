@@ -6,7 +6,7 @@ import { Filter, ClipboardCheck } from 'lucide-react';
 import { useDraggable } from '@dnd-kit/core';
 import type { Pilot, QualificationType } from '../../../types/PilotTypes';
 import type { Event } from '../../../types/EventTypes';
-import { supabase } from '../../../utils/supabaseClient';
+import { updateRollCallResponse, syncRollCallResponses } from '../../../utils/rollCallUtils';
 
 // Define the structure for the polled attendance data (matching MissionPreparation)
 interface RealtimeAttendanceRecord {
@@ -255,24 +255,39 @@ interface PilotEntryProps {
           textOverflow: 'ellipsis'
         }}>
           {pilot.callsign}
-        </span>
-        {pilot.attendanceStatus === 'tentative' && !isRollCallMode && (
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            width: '16px',
-            height: '16px',
-            borderRadius: '50%',
-            backgroundColor: '#5865F2', // Blurple color
-            color: 'white',
-            fontSize: '10px',
-            fontWeight: 'bold',
-            flexShrink: 0
-          }}>
-            ?
-          </div>
-        )}
+        </span>        {/* Show tentative badge - prioritizing roll call response over Discord response */}
+        {(() => {
+          // Calculate whether to show the badge and log the reasoning
+          const isTentativeRollCall = pilot.rollCallStatus === 'Tentative';
+          const isTentativeDiscord = pilot.attendanceStatus === 'tentative';
+          const isRollCallOverriding = pilot.rollCallStatus === 'Present' || pilot.rollCallStatus === 'Absent';
+          
+          const shouldShowBadge = isTentativeRollCall || (isTentativeDiscord && !isRollCallOverriding);
+          
+          // Debug logging for badge status - simplified 
+          if ((pilot.rollCallStatus || pilot.attendanceStatus) && (pilot.callsign === 'MIRAGE' || pilot.callsign === 'VIKING')) {
+            console.log(`[BADGE-DEBUG] AvailablePilots ${pilot.callsign}: RollCall=${pilot.rollCallStatus || 'none'}, Discord=${pilot.attendanceStatus || 'none'}, ShowBadge=${shouldShowBadge}`);
+          }
+          
+          return shouldShowBadge && (
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: '16px',
+              height: '16px',
+              borderRadius: '50%',
+              backgroundColor: '#5865F2', // Blurple color
+              color: 'white',
+              fontSize: '10px',
+              fontWeight: 'bold',
+              flexShrink: 0,
+              key: `badge-${pilot.id || pilot.boardNumber}-${pilot.rollCallStatus || ''}-${pilot.attendanceStatus || ''}` // Add key to force re-render
+            }}>
+              ?
+            </div>
+          );
+        })()}
       </div>
       <span style={{
         fontSize: '16px',
@@ -312,7 +327,11 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
   const [isRollCallMode, setIsRollCallMode] = useState(false);
   const [rollCallResponses, setRollCallResponses] = useState<Record<string, 'Present' | 'Absent' | 'Tentative'>>({});  // Handle Roll Call response
   const handleRollCallResponse = async (pilotId: string, response: 'Present' | 'Absent' | 'Tentative') => {
-    // Update local state
+    // Determine if this is a toggle (same response clicked twice) or new selection
+    const isToggleOff = rollCallResponses[pilotId] === response;
+    const responseValue = isToggleOff ? null : response;
+    
+    // Update local state immediately for better UX
     setRollCallResponses(prev => {
       const newResponses = {...prev};
       // If the response is the same as current, toggle it off
@@ -323,7 +342,9 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
         newResponses[pilotId] = response;
       }
       return newResponses;
-    });// Only update the database if we have a selected event
+    });
+    
+    // Only update the database if we have a selected event
     if (!selectedEvent || !selectedEvent.id) {
       console.log('Cannot update roll call response: No event selected');
       return;
@@ -347,58 +368,14 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
       console.log(`Pilot ${pilot.callsign} has no Discord ID`);
       return;
     }
-    
-    try {
-      // Check if there's an existing attendance record
-      const { data: existingRecord, error: fetchError } = await supabase
-        .from('discord_event_attendance')
-        .select('*')
-        .eq('discord_event_id', selectedEvent.discordEventId)
-        .eq('discord_id', discordId)
-        .maybeSingle();
-      
-      if (fetchError && fetchError.code !== 'PGRST116') {
-        console.error('Error checking for existing attendance record:', fetchError);
-        return;
-      }      // If the response is being toggled off (removed), set to null
-      const responseValue = rollCallResponses[pilotId] === response ? null : response;
-      
-      if (existingRecord) {
-        // Update existing record
-        const { error: updateError } = await supabase
-          .from('discord_event_attendance')
-          .update({
-            roll_call_response: responseValue,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', existingRecord.id);
-        
-        if (updateError) {
-          console.error('Error updating roll call response:', updateError);
-        } else {
-          console.log(`Updated roll call response for ${pilot.callsign} to ${responseValue || 'null'}`);
-        }
-      } else {
-        // Create new record
-        const { error: insertError } = await supabase
-          .from('discord_event_attendance')
-          .insert({
-            discord_event_id: selectedEvent.discordEventId,
-            discord_id: discordId,
-            discord_username: pilot.callsign,
-            user_response: 'accepted', // Default to accepted when creating a new entry via roll call
-            roll_call_response: response
-          });
-        
-        if (insertError) {
-          console.error('Error inserting roll call response:', insertError);
-        } else {
-          console.log(`Created roll call response for ${pilot.callsign}: ${response}`);
-        }
-      }
-    } catch (error) {
-      console.error('Unexpected error in roll call response:', error);
-    }
+
+    // Use the utility function to update the roll call response    
+    await updateRollCallResponse(
+      selectedEvent.discordEventId, 
+      discordId,
+      pilot.callsign,
+      responseValue
+    );
   };
 
   // Get all available qualifications from the pilots' data
@@ -465,26 +442,27 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
       // If no event or no realtime data, return pilots without status updates
       return pilots.map(p => ({ ...p, attendanceStatus: undefined }));
     }
-    
-    return pilots.map(pilot => {
+      return pilots.map(pilot => {
       const pilotCopy = { 
         ...pilot, 
-        attendanceStatus: undefined as ('accepted' | 'tentative' | undefined) 
+        attendanceStatus: undefined as ('accepted' | 'tentative' | undefined),
+        rollCallStatus: undefined as ('Present' | 'Absent' | 'Tentative' | undefined)
       };
       const pilotId = pilotCopy.id || pilotCopy.boardNumber;
       const discordId = pilotCopy.discordId || (pilotCopy as any).discord_original_id || (pilotCopy as any).discord_id;
       
+      // Add roll call status first (higher priority)
+      if (pilotId && rollCallResponses[pilotId]) {
+        pilotCopy.rollCallStatus = rollCallResponses[pilotId];
+      }
+      
+      // Then add Discord attendance status (lower priority)
       if (discordId) {
         const attendanceRecord = realtimeAttendanceData.find(record => record.discord_id === discordId);
         if (attendanceRecord) {
           if (attendanceRecord.response === 'tentative') pilotCopy.attendanceStatus = 'tentative';
           else if (attendanceRecord.response === 'accepted') pilotCopy.attendanceStatus = 'accepted';
         }
-      }
-
-      // Add roll call status if available
-      if (pilotId && rollCallResponses[pilotId]) {
-        (pilotCopy as any).rollCallStatus = rollCallResponses[pilotId];
       }
 
       return pilotCopy;
@@ -695,6 +673,39 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
     };
   }, [width, assignedPilots]);
 
+  // Effect to sync roll call responses whenever the selected event changes
+  useEffect(() => {
+    const syncRollCall = async () => {
+      if (selectedEvent?.discordEventId) {
+        try {
+          const discordIdToRollCallMap = await syncRollCallResponses(selectedEvent.discordEventId);
+          
+          // Map Discord IDs to pilot IDs
+          const pilotRollCallResponses: Record<string, 'Present' | 'Absent' | 'Tentative'> = {};
+          
+          // For each pilot, check if they have a roll call response
+          pilots.forEach(pilot => {
+            const pilotId = pilot.id || pilot.boardNumber;
+            const discordId = pilot.discordId || (pilot as any).discord_original_id || (pilot as any).discord_id;
+            
+            if (discordId && discordIdToRollCallMap[discordId]) {
+              pilotRollCallResponses[pilotId] = discordIdToRollCallMap[discordId];
+            }
+          });
+          
+          // Update the state with all roll call responses
+          setRollCallResponses(pilotRollCallResponses);
+          
+          console.log('[ROLL-CALL-DEBUG] Synced roll call responses for event:', selectedEvent.id);
+        } catch (error) {
+          console.error('Error syncing roll call responses:', error);
+        }
+      }
+    };
+    
+    syncRollCall();
+  }, [selectedEvent, pilots]);
+
   // Define button style for Roll Call button
   const rollCallButtonStyle = {
     display: 'flex',
@@ -714,6 +725,14 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
     flex: '0 0 25%',
     margin: '0 8px'
   };
+
+  // Add a useEffect to update the pilot entries when roll call status changes
+  useEffect(() => {
+    // Force re-render of the entire list when roll call responses change
+    console.log('[ROLL-CALL-DEBUG] Roll call responses updated, refreshing pilot list');
+    
+    // No need to do anything else - the state change will trigger a re-render
+  }, [rollCallResponses]);
 
   return (
     <div className="pilots-container" style={{ 

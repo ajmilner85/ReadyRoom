@@ -21,11 +21,13 @@ import { useMissionPrepState } from '../../hooks/useMissionPrepState';
 interface RealtimeAttendanceRecord {
   discord_id: string;
   response: 'accepted' | 'declined' | 'tentative';
+  roll_call_response?: 'Present' | 'Absent' | 'Tentative';
 }
 
 interface AssignedPilot extends Pilot {
   dashNumber: string;
-  attendanceStatus?: 'accepted' | 'tentative'; // Add attendanceStatus here
+  attendanceStatus?: 'accepted' | 'tentative'; // Discord attendance status
+  rollCallStatus?: 'Present' | 'Absent' | 'Tentative'; // Roll call attendance status
 }
 
 interface MissionPreparationProps {
@@ -222,9 +224,7 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
     }
 
     let needsUpdate = false;
-    const updatedAssignments: Record<string, AssignedPilot[]> = {};
-
-    // Iterate through existing assignments
+    const updatedAssignments: Record<string, AssignedPilot[]> = {};    // Iterate through existing assignments
     for (const flightId in assignedPilots) {
       updatedAssignments[flightId] = assignedPilots[flightId].map(pilot => {
         const discordId = pilot.discordId || (pilot as any).discord_original_id || (pilot as any).discord_id;
@@ -232,7 +232,12 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
 
         // Find the realtime status for this pilot
         const realtimeRecord = realtimeAttendanceData.find(record => record.discord_id === discordId);
+        
+        // Get Discord attendance status
         const realtimeStatus = realtimeRecord?.response; // 'accepted', 'tentative', or undefined if not found/declined
+        
+        // Get roll call status if available
+        const rollCallStatus = realtimeRecord?.roll_call_response;
 
         // Determine the status to set (default to 'accepted' if attending but not tentative)
         let newStatus: 'accepted' | 'tentative' | undefined = undefined;
@@ -241,13 +246,34 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
         } else if (realtimeStatus === 'accepted') {
           newStatus = 'accepted';
         }
-        // Pilots who declined or are not in the list will have undefined status
-
-        // Compare with current status and update if different
-        if (pilot.attendanceStatus !== newStatus) {
-          console.log(`[TENTATIVE-DEBUG] Updating ${pilot.callsign} in flight ${flightId} from ${pilot.attendanceStatus} to ${newStatus}`);
+        // Pilots who declined or are not in the list will have undefined status        // Track if we need to update the pilot's data
+        let shouldUpdatePilot = false;
+        let updatedPilot = { ...pilot };
+        
+        // Compare Discord attendance status and update if different
+        if (updatedPilot.attendanceStatus !== newStatus) {
+          console.log(`[TENTATIVE-DEBUG] Updating ${pilot.callsign} Discord status in flight ${flightId} from ${updatedPilot.attendanceStatus} to ${newStatus}`);
+          updatedPilot.attendanceStatus = newStatus;
+          shouldUpdatePilot = true;
+        }
+        
+        // Check if roll call status needs updating
+        if (rollCallStatus && updatedPilot.rollCallStatus !== rollCallStatus) {
+          console.log(`[ROLL-CALL-DEBUG] Updating ${pilot.callsign} Roll Call status in flight ${flightId} from ${updatedPilot.rollCallStatus} to ${rollCallStatus}`);
+          updatedPilot.rollCallStatus = rollCallStatus;
+          shouldUpdatePilot = true;
+        }
+        
+        // Check if roll call status needs updating
+        if (rollCallStatus && updatedPilot.rollCallStatus !== rollCallStatus) {
+          console.log(`[TENTATIVE-DEBUG] Updating ${pilot.callsign} Roll Call status in flight ${flightId} from ${updatedPilot.rollCallStatus} to ${rollCallStatus}`);
+          updatedPilot.rollCallStatus = rollCallStatus;
+          shouldUpdatePilot = true;
+        }
+        
+        if (shouldUpdatePilot) {
           needsUpdate = true;
-          return { ...pilot, attendanceStatus: newStatus }; // Create new pilot object with updated status
+          return updatedPilot;
         }
         return pilot; // No change needed
       });
