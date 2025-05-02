@@ -45,6 +45,9 @@ export interface Pilot {
   qualifications: Qualification[];
   discordUsername: string;
   role?: string;              // Role name for display in the UI
+  // Add attendance statuses
+  attendanceStatus?: 'accepted' | 'tentative'; // From Discord event response
+  rollCallStatus?: 'Present' | 'Absent' | 'Tentative'; // From Roll Call UI
 }
 
 // Supabase Pilot interface - matches our database schema
