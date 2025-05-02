@@ -5,6 +5,7 @@ import type { MissionCommanderInfo } from '../types/MissionCommanderTypes';
 interface AssignedPilot extends Pilot {
   dashNumber: string;
   attendanceStatus?: 'accepted' | 'tentative';
+  rollCallStatus?: 'Present' | 'Absent' | 'Tentative'; // Add rollCallStatus
 }
 
 /**
@@ -25,9 +26,9 @@ export const autoAssignPilots = (
   suggestedMissionCommander: MissionCommanderInfo | null
 } => {
   // DEBUG: Log attendance status of available pilots
-  console.log('[TENTATIVE-DEBUG] Pilots to auto-assign with attendance status:');
+  console.log('[ROLL-CALL-DEBUG] Pilots to auto-assign with statuses:');
   availablePilots.forEach(pilot => {
-    console.log(`[TENTATIVE-DEBUG] - ${pilot.callsign} (${pilot.boardNumber}): ${(pilot as any).attendanceStatus || 'undefined'}`);
+    console.log(`[ROLL-CALL-DEBUG] - ${pilot.callsign} (${pilot.boardNumber}): Discord: ${pilot.attendanceStatus || 'undefined'}, RollCall: ${pilot.rollCallStatus || 'undefined'}`);
   });
 
   if (!flights || flights.length === 0 || !availablePilots || availablePilots.length === 0) {
@@ -84,13 +85,16 @@ export const autoAssignPilots = (
   };
   // Sort pilots by priority (highest priority first) and attendance status (tentative last)
   const sortedPilots = [...availablePilots].sort((a, b) => {
-    // First prioritize by tentative status - put tentative pilots last
-    const aIsTentative = (a as any)?.attendanceStatus === 'tentative';
-    const bIsTentative = (b as any)?.attendanceStatus === 'tentative';
-    
+    // Determine effective status, prioritizing rollCallStatus
+    const effectiveStatusA = a.rollCallStatus ? (a.rollCallStatus === 'Tentative' ? 'tentative' : 'accepted') : a.attendanceStatus;
+    const effectiveStatusB = b.rollCallStatus ? (b.rollCallStatus === 'Tentative' ? 'tentative' : 'accepted') : b.attendanceStatus;
+
+    const aIsTentative = effectiveStatusA === 'tentative';
+    const bIsTentative = effectiveStatusB === 'tentative';
+
     if (aIsTentative && !bIsTentative) return 1;  // a is tentative, b is not, so b comes first
     if (!aIsTentative && bIsTentative) return -1; // b is tentative, a is not, so a comes first
-    
+
     // If both have same tentative status, sort by qualification priority
     return getPilotPriority(a) - getPilotPriority(b);
   });
@@ -124,16 +128,17 @@ export const autoAssignPilots = (
     }    // Find highest priority available pilot
     for (const pilot of sortedPilots) {
       if (!isPilotAssigned(pilot.id) && !isPilotAssigned(pilot.boardNumber)) {
-        const assignedPilot = {
+        const assignedPilot: AssignedPilot = {
           ...pilot,
           dashNumber: "1",  // Assign as flight lead (1-1)
-          // Preserve attendance status if it exists
-          attendanceStatus: (pilot as any).attendanceStatus
+          // Preserve both statuses
+          attendanceStatus: pilot.attendanceStatus,
+          rollCallStatus: pilot.rollCallStatus
         };
-        
+
         // Add debug for position 1
-        console.log(`[TENTATIVE-DEBUG] Assigning to position 1 (${flightId}): ${pilot.callsign} with attendance status: ${(pilot as any).attendanceStatus || 'undefined'}`);
-        
+        console.log(`[ROLL-CALL-DEBUG] Assigning to position 1 (${flightId}): ${pilot.callsign} with Discord: ${pilot.attendanceStatus || 'undefined'}, RollCall: ${pilot.rollCallStatus || 'undefined'}`);
+
         newAssignments[flightId].push(assignedPilot);
         break;
       }
@@ -159,9 +164,12 @@ export const autoAssignPilots = (
         newAssignments[flightId].push({
           ...pilot,
           dashNumber: "3",  // Assign as section lead (1-3)
-          // Preserve attendance status if it exists
-          attendanceStatus: (pilot as any).attendanceStatus
+          // Preserve both statuses
+          attendanceStatus: pilot.attendanceStatus,
+          rollCallStatus: pilot.rollCallStatus
         });
+        // Add debug for position 3
+        console.log(`[ROLL-CALL-DEBUG] Assigning to position 3 (${flightId}): ${pilot.callsign} with Discord: ${pilot.attendanceStatus || 'undefined'}, RollCall: ${pilot.rollCallStatus || 'undefined'}`);
         break;
       }
     }
@@ -179,16 +187,17 @@ export const autoAssignPilots = (
       // Find first available pilot
       for (const pilot of sortedPilots) {
         if (!isPilotAssigned(pilot.id) && !isPilotAssigned(pilot.boardNumber)) {
-          const assignedPilot = {
+          const assignedPilot: AssignedPilot = {
             ...pilot,
             dashNumber: "2",  // Assign as wingman (1-2)
-            // Preserve attendance status if it exists
-            attendanceStatus: (pilot as any).attendanceStatus
+            // Preserve both statuses
+            attendanceStatus: pilot.attendanceStatus,
+            rollCallStatus: pilot.rollCallStatus
           };
-          
+
           // Add debug for position 2
-          console.log(`[TENTATIVE-DEBUG] Assigning to position 2 (${flightId}): ${pilot.callsign} with attendance status: ${(pilot as any).attendanceStatus || 'undefined'}`);
-          
+          console.log(`[ROLL-CALL-DEBUG] Assigning to position 2 (${flightId}): ${pilot.callsign} with Discord: ${pilot.attendanceStatus || 'undefined'}, RollCall: ${pilot.rollCallStatus || 'undefined'}`);
+
           newAssignments[flightId].push(assignedPilot);
           break;
         }
@@ -200,16 +209,17 @@ export const autoAssignPilots = (
       // Find first available pilot
       for (const pilot of sortedPilots) {
         if (!isPilotAssigned(pilot.id) && !isPilotAssigned(pilot.boardNumber)) {
-          const assignedPilot = {
-            ...pilot, 
+          const assignedPilot: AssignedPilot = {
+            ...pilot,
             dashNumber: "4",  // Assign as wingman (1-4)
-            // Preserve attendance status if it exists
-            attendanceStatus: (pilot as any).attendanceStatus
+            // Preserve both statuses
+            attendanceStatus: pilot.attendanceStatus,
+            rollCallStatus: pilot.rollCallStatus
           };
-          
+
           // Add debug for position 4
-          console.log(`[TENTATIVE-DEBUG] Assigning to position 4 (${flightId}): ${pilot.callsign} with attendance status: ${(pilot as any).attendanceStatus || 'undefined'}`);
-          
+          console.log(`[ROLL-CALL-DEBUG] Assigning to position 4 (${flightId}): ${pilot.callsign} with Discord: ${pilot.attendanceStatus || 'undefined'}, RollCall: ${pilot.rollCallStatus || 'undefined'}`);
+
           newAssignments[flightId].push(assignedPilot);
           break;
         }
@@ -218,10 +228,10 @@ export const autoAssignPilots = (
   }
 
   // Add debug for final assigned pilots
-  console.log('[TENTATIVE-DEBUG] Final assigned pilots with attendance status:');
+  console.log('[ROLL-CALL-DEBUG] Final assigned pilots with statuses:');
   for (const flightId in newAssignments) {
     for (const pilot of newAssignments[flightId]) {
-      console.log(`[TENTATIVE-DEBUG] - ${flightId} position ${pilot.dashNumber}: ${pilot.callsign} with status: ${pilot.attendanceStatus || 'undefined'}`);
+      console.log(`[ROLL-CALL-DEBUG] - ${flightId} position ${pilot.dashNumber}: ${pilot.callsign} with Discord: ${pilot.attendanceStatus || 'undefined'}, RollCall: ${pilot.rollCallStatus || 'undefined'}`);
     }
   }
 
