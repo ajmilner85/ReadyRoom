@@ -372,6 +372,7 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
                 pilots={activePilots} // Use activePilots from useMissionPrepData
                 selectedEvent={selectedEvent}
                 assignedPilots={assignedPilots}
+                setAssignedPilots={setAssignedPilots} // *** ADD THIS PROP ***
                 onAutoAssign={handleAutoAssign} // Pass the updated handler
                 onClearAssignments={handleClearAssignments}
                 pilotQualifications={allPilotQualifications}
