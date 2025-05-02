@@ -46,7 +46,7 @@ export interface Pilot {
   discordUsername: string;
   role?: string;              // Role name for display in the UI
   // Add attendance statuses
-  attendanceStatus?: 'accepted' | 'tentative'; // From Discord event response
+  attendanceStatus?: 'accepted' | 'tentative' | 'declined'; // From Discord event response - ADDED 'declined'
   rollCallStatus?: 'Present' | 'Absent' | 'Tentative'; // From Roll Call UI
 }
 

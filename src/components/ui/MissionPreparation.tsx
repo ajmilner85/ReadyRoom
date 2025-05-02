@@ -26,7 +26,7 @@ interface RealtimeAttendanceRecord {
 
 interface AssignedPilot extends Pilot {
   dashNumber: string;
-  attendanceStatus?: 'accepted' | 'tentative'; // Discord attendance status
+  attendanceStatus?: 'accepted' | 'tentative' | 'declined'; // Discord attendance status - ADDED 'declined'
   rollCallStatus?: 'Present' | 'Absent' | 'Tentative'; // Roll call attendance status
 }
 
@@ -210,18 +210,16 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
 
   // --- BEGIN EFFECT TO UPDATE ASSIGNED PILOTS ---
   useEffect(() => {
-    // Handle case where attendance data is empty or not yet loaded
-    if (realtimeAttendanceData.length === 0) {
-      // Check if any assigned pilot currently has a status that needs clearing
+    // Check if realtimeAttendanceData is available
+    if (!realtimeAttendanceData || realtimeAttendanceData.length === 0) {
+      // If no attendance data, clear any existing statuses from assignedPilots
+      const hasAssignedPilots = Object.keys(assignedPilots).length > 0;
       let needsClearing = false;
-      const clearedAssignments: Record<string, AssignedPilot[]> = {}; // Start with an empty object
-      let hasAssignedPilots = false; // Track if there are any assignments at all
+      const clearedAssignments: Record<string, AssignedPilot[]> = {};
 
       for (const flightId in assignedPilots) {
-        hasAssignedPilots = true;
-        let flightNeedsClearing = false;
         const originalFlightPilots = assignedPilots[flightId];
-        // Map to potentially create a new array for the flight
+        let flightNeedsClearing = false;
         const clearedFlightPilots = originalFlightPilots.map(pilot => {
           // If either status exists, it needs clearing
           if (pilot.attendanceStatus !== undefined || pilot.rollCallStatus !== undefined) {
@@ -263,17 +261,19 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
         const realtimeRecord = discordId ? realtimeAttendanceData.find(record => record.discord_id === discordId) : undefined;
         
         // Get Discord attendance status from the record
-        const realtimeStatus = realtimeRecord?.response; // 'accepted', 'tentative', or undefined
+        const realtimeStatus = realtimeRecord?.response; // 'accepted', 'tentative', or 'declined'
         
         // Get roll call status from the record - DO NOT USE THIS for updating state, only for potential logging if needed
         // const rollCallStatus = realtimeRecord?.roll_call_response; 
 
         // Determine the new Discord status based on the record
-        let newDiscordStatus: 'accepted' | 'tentative' | undefined = undefined;
+        let newDiscordStatus: 'accepted' | 'tentative' | 'declined' | undefined = undefined; // ADDED 'declined'
         if (realtimeStatus === 'tentative') {
           newDiscordStatus = 'tentative';
         } else if (realtimeStatus === 'accepted') {
           newDiscordStatus = 'accepted';
+        } else if (realtimeStatus === 'declined') { // ADDED handling for 'declined'
+          newDiscordStatus = 'declined';
         }
         
         let shouldUpdatePilot = false;

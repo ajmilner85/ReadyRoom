@@ -16,7 +16,7 @@ interface AircraftTileProps {
   verticalOffset?: number; // New prop for vertical positioning
   flightId?: string; // Add this prop for drag handling
   isMissionCommander?: boolean; // Add prop for mission commander status
-  attendanceStatus?: 'accepted' | 'tentative'; // Discord attendance status
+  attendanceStatus?: 'accepted' | 'tentative' | 'declined'; // Discord attendance status - ADDED 'declined'
   rollCallStatus?: 'Present' | 'Absent' | 'Tentative'; // Roll call attendance status
 }
 
@@ -292,40 +292,77 @@ const AircraftTile: React.FC<AircraftTileProps> = ({
                 gap: '4px'
               }}
             >              {isEmpty ? '' : (
-                <>                  {/* Show tentative badge - prioritizing roll call response over Discord response */}
+                <>                  {/* Show status badge - prioritizing Absent/Declined over Tentative */}
                   {(() => {
-                    // Calculate whether to show the badge using the same logic as AvailablePilots
-                    const isTentativeRollCall = rollCallStatus === 'Tentative';
+                    // Calculate badge conditions
+                    const isDeclinedDiscord = attendanceStatus === 'declined';
+                    const isAbsentRollCall = rollCallStatus === 'Absent';
                     const isTentativeDiscord = attendanceStatus === 'tentative';
-                    // Roll call status overrides Discord status if it's Present or Absent
-                    const isRollCallOverriding = rollCallStatus === 'Present' || rollCallStatus === 'Absent';
+                    const isTentativeRollCall = rollCallStatus === 'Tentative';
                     
-                    const shouldShowBadge = !isEmpty && (isTentativeRollCall || (isTentativeDiscord && !isRollCallOverriding));
-                    
+                    // Roll call status overrides Discord status if it's Present, Absent, or Tentative
+                    const isRollCallOverriding = rollCallStatus === 'Present' || rollCallStatus === 'Absent' || rollCallStatus === 'Tentative';
+
+                    const shouldShowAbsentDeclinedBadge = !isEmpty && (isAbsentRollCall || (isDeclinedDiscord && !isRollCallOverriding));
+                    const shouldShowTentativeBadge = !isEmpty && (isTentativeRollCall || (isTentativeDiscord && !isRollCallOverriding));
+
                     // Debug log
                     if (!isEmpty && (rollCallStatus || attendanceStatus) && (callsign === 'MIRAGE' || callsign === 'VIKING')) {
-                       console.log(`[BADGE-DEBUG] AircraftTile ${callsign}: RollCall=${rollCallStatus || 'none'}, Discord=${attendanceStatus || 'none'}, ShowBadge=${shouldShowBadge}`);
+                       console.log(`[BADGE-DEBUG] AircraftTile ${callsign}: RollCall=${rollCallStatus || 'none'}, Discord=${attendanceStatus || 'none'}, ShowAbsent=${shouldShowAbsentDeclinedBadge}, ShowTentative=${shouldShowTentativeBadge}`);
                     }
 
-                    return shouldShowBadge && (
-                      <div 
-                        key={`tile-badge-${boardNumber}-${rollCallStatus || ''}-${attendanceStatus || ''}`} // Unique key for the badge itself
-                        style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        width: '14px', // Slightly smaller badge for tile
-                        height: '14px',
-                        borderRadius: '50%',
-                        backgroundColor: '#5865F2', // Blurple color
-                        color: 'white',
-                        fontSize: '9px', // Smaller font
-                        fontWeight: 'bold',
-                        flexShrink: 0 // Prevent shrinking
-                      }}>
-                        ?
-                      </div>
-                    );
+                    // Render Absent/Declined badge if needed
+                    if (shouldShowAbsentDeclinedBadge) {
+                      return (
+                        <div
+                          key={`tile-badge-absent-${boardNumber}-${rollCallStatus || ''}-${attendanceStatus || ''}`} // Unique key
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            width: '14px',
+                            height: '14px',
+                            borderRadius: '50%',
+                            backgroundColor: '#DC2626', // Red color for absent/declined
+                            color: 'white',
+                            fontSize: '10px', // Slightly larger for 'x'
+                            fontWeight: 'bold',
+                            lineHeight: '14px', // Center 'x' vertically
+                            flexShrink: 0,
+                            position: 'relative', // Needed for positioning the content
+                            top: '-1px',          // Shift content 1px up
+                            left: '1px'           // Shift content 1px right
+                          }}>
+                          x
+                        </div>
+                      );
+                    }
+
+                    // Render Tentative badge if needed (and Absent/Declined isn't shown)
+                    if (shouldShowTentativeBadge) {
+                      return (
+                        <div
+                          key={`tile-badge-tentative-${boardNumber}-${rollCallStatus || ''}-${attendanceStatus || ''}`} // Unique key
+                          style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          width: '14px', // Slightly smaller badge for tile
+                          height: '14px',
+                          borderRadius: '50%',
+                          backgroundColor: '#5865F2', // Blurple color
+                          color: 'white',
+                          fontSize: '9px', // Smaller font
+                          fontWeight: 'bold',
+                          flexShrink: 0 // Prevent shrinking
+                        }}>
+                          ?
+                        </div>
+                      );
+                    }
+
+                    // No badge needed
+                    return null;
                   })()}
                   <span>{callsign}</span>
                 </>
