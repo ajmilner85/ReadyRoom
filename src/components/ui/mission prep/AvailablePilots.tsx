@@ -986,15 +986,18 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
             <button
               onClick={() => {
                 if (onAutoAssign) {
-                  // Pass attendance data to onAutoAssign
-                  const attendingPilotInfo = pilotsWithAttendanceStatus
-                    .filter(pilot => pilot.attendanceStatus === 'accepted' || pilot.attendanceStatus === 'tentative')
+                  // Prepare pilot data including both Discord and Roll Call statuses
+                  const pilotsForAutoAssign = pilotsWithAttendanceStatus
                     .map(pilot => ({
-                      id: pilot.id || pilot.discordId || (pilot as any).discord_original_id || pilot.boardNumber,
-                      status: pilot.attendanceStatus as 'accepted' | 'tentative'
-                    }))
-                    .filter(info => info.id && info.status);
-                  onAutoAssign(attendingPilotInfo);
+                      // Include all necessary pilot fields for autoAssignUtils
+                      ...pilot, 
+                      // Ensure both statuses are explicitly passed
+                      attendanceStatus: pilot.attendanceStatus, 
+                      rollCallStatus: pilot.rollCallStatus 
+                    }));
+                  
+                  // Pass the enriched pilot data array directly
+                  onAutoAssign(pilotsForAutoAssign);
                 }
               }}
               style={{

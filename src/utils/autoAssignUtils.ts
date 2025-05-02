@@ -41,6 +41,25 @@ export const autoAssignPilots = (
 
   console.log("Auto-assigning pilots to flights...");
 
+  // --- NEW: Filter pilots based on assignable statuses ---
+  const assignablePilots = availablePilots.filter(pilot => {
+    const rollCall = pilot.rollCallStatus;
+    const discord = pilot.attendanceStatus;
+    // Include Present, Accepted, Tentative (Roll Call), Tentative (Discord)
+    return rollCall === 'Present' || discord === 'accepted' || rollCall === 'Tentative' || discord === 'tentative';
+  });
+
+  console.log(`[ROLL-CALL-DEBUG] Filtered ${assignablePilots.length} pilots eligible for assignment:`, assignablePilots.map(p => p.callsign));
+
+  // Check if there are any assignable pilots left after filtering
+  if (assignablePilots.length === 0) {
+    console.log("No pilots with assignable status found.");
+    return {
+      newAssignments: { ...assignedPilots }, // Return current state if no one is assignable
+      suggestedMissionCommander: null
+    };
+  }
+
   // Create a new assignment map from the existing one
   const newAssignments: Record<string, AssignedPilot[]> = { ...assignedPilots };
 
@@ -83,23 +102,36 @@ export const autoAssignPilots = (
     
     return highestPriority;
   };
-  // Sort pilots by priority (highest priority first) and attendance status (tentative last)
-  const sortedPilots = [...availablePilots].sort((a, b) => {
-    // Determine effective status, prioritizing rollCallStatus
-    const effectiveStatusA = a.rollCallStatus ? (a.rollCallStatus === 'Tentative' ? 'tentative' : 'accepted') : a.attendanceStatus;
-    const effectiveStatusB = b.rollCallStatus ? (b.rollCallStatus === 'Tentative' ? 'tentative' : 'accepted') : b.attendanceStatus;
 
-    const aIsTentative = effectiveStatusA === 'tentative';
-    const bIsTentative = effectiveStatusB === 'tentative';
+  // --- NEW: Helper function for status priority ---
+  const getPilotStatusPriority = (pilot: Pilot): number => {
+    const rollCall = pilot.rollCallStatus;
+    const discord = pilot.attendanceStatus;
 
-    if (aIsTentative && !bIsTentative) return 1;  // a is tentative, b is not, so b comes first
-    if (!aIsTentative && bIsTentative) return -1; // b is tentative, a is not, so a comes first
+    // UPDATED: Treat Present and Accepted as equal top priority (1)
+    if (rollCall === 'Present' || discord === 'accepted') return 1; 
+    // UPDATED: Tentative Roll Call is next priority (2)
+    if (rollCall === 'Tentative') return 2;
+    // UPDATED: Tentative Discord is next priority (3)
+    if (discord === 'tentative') return 3;
+    
+    return 4; // Fallback for pilots who somehow passed filtering but have no valid status
+  };
 
-    // If both have same tentative status, sort by qualification priority
-    return getPilotPriority(a) - getPilotPriority(b);
+  // --- UPDATED: Sort pilots by status priority, then qualification priority ---
+  const sortedPilots = [...assignablePilots].sort((a, b) => {
+    const statusPriorityA = getPilotStatusPriority(a);
+    const statusPriorityB = getPilotStatusPriority(b);
+
+    if (statusPriorityA !== statusPriorityB) {
+      return statusPriorityA - statusPriorityB; // Lower status number = higher priority
+    }
+
+    // If status priority is the same, sort by qualification priority
+    return getPilotPriority(a) - getPilotPriority(b); // Lower qualification number = higher priority
   });
 
-  console.log("Sorted pilots by priority:", sortedPilots.map(p => p.callsign));
+  console.log("Sorted pilots by status and qualification priority:", sortedPilots.map(p => `${p.callsign} (S:${getPilotStatusPriority(p)}, Q:${getPilotPriority(p)})`));
 
   // Function to check if a pilot is already assigned
   const isPilotAssigned = (pilotId: string): boolean => {

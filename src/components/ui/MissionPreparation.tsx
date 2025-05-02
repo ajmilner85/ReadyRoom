@@ -112,48 +112,36 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
     setAssignedPilots({});
     setMissionCommander(null);
   }, [setAssignedPilots, setMissionCommander]);  // Function to handle auto-assignment logic
-  const handleAutoAssign = useCallback((attendingPilotInfo?: { id: string; status: 'accepted' | 'tentative' }[]) => { // Updated signature
-    console.log('[DEBUG] handleAutoAssign called with:', attendingPilotInfo);
-    if (!prepFlights || prepFlights.length === 0) { // Use prepFlights from state
+  // UPDATED SIGNATURE: Accept full pilot objects, including statuses
+  const handleAutoAssign = useCallback((pilotsForAssignment?: Pilot[]) => { 
+    console.log('[DEBUG] handleAutoAssign called with pilots:', pilotsForAssignment?.map(p => ({ callsign: p.callsign, discord: (p as any).attendanceStatus, rollCall: (p as any).rollCallStatus }))); // Log received pilots and statuses
+    
+    if (!prepFlights || prepFlights.length === 0) { 
       console.log("Cannot auto-assign: no flights available");
       return;
     }
 
-    // Filter available pilots based on the provided attendingPilotInfo
-    let pilotsToAssign = activePilots; // Start with all active pilots
+    // Use the provided pilots directly. If none provided, auto-assign shouldn't run or should use a default set.
+    // Let's assume AvailablePilots always provides the correct list based on its filters/state.
+    const pilotsToAssign = pilotsForAssignment && pilotsForAssignment.length > 0 
+      ? pilotsForAssignment 
+      : []; // If no pilots are passed, assign no one.
 
-    if (attendingPilotInfo && attendingPilotInfo.length > 0) {
-      console.log("[DEBUG] Filtering pilots by attendance info:", attendingPilotInfo);
-      pilotsToAssign = activePilots.filter(p => {
-        // Prefer UUID (p.id) if available, fallback to discordId or boardNumber
-        const pilotIdentifier = p.id || p.discordId || (p as any).discord_original_id || p.boardNumber;
-        if (!pilotIdentifier) return false; // Cannot assign if no identifier
-
-        const attendance = attendingPilotInfo.find(info => info.id === pilotIdentifier);
-        // Include only pilots marked as 'accepted' or 'tentative'
-        return attendance && (attendance.status === 'accepted' || attendance.status === 'tentative');
-      }).map(p => {
-        // Add the attendance status to the pilot object for sorting/assignment logic
-        const pilotIdentifier = p.id || p.discordId || (p as any).discord_original_id || p.boardNumber;
-        const attendance = attendingPilotInfo.find(info => info.id === pilotIdentifier);
-        return {
-          ...p,
-          attendanceStatus: attendance?.status as 'accepted' | 'tentative' | undefined
-        };
-      });
-      console.log(`[DEBUG] Filtered ${pilotsToAssign.length} pilots for auto-assignment based on attendance.`);
-    } else {
-       console.log("[DEBUG] No attendance info provided to handleAutoAssign, using all active pilots.");
-       // Ensure attendanceStatus is undefined if no specific info is passed
-       pilotsToAssign = activePilots.map(p => ({ ...p, attendanceStatus: undefined }));
+    if (pilotsToAssign.length === 0) {
+      console.log("[DEBUG] No pilots provided or available for auto-assignment.");
+      // Optionally clear existing assignments or just return
+      // setAssignedPilots({}); 
+      // setMissionCommander(null);
+      return;
     }
 
+    console.log(`[DEBUG] Using ${pilotsToAssign.length} pilots for auto-assignment.`);
 
-    // Call the utility function
+    // Call the utility function - autoAssignPilots needs to handle the statuses internally
     const { newAssignments, suggestedMissionCommander } = autoAssignPilots(
-      prepFlights, // Use prepFlights from state
-      pilotsToAssign, // Use the filtered list
-      assignedPilots,
+      prepFlights, 
+      pilotsToAssign, // Pass the prepared list with statuses
+      assignedPilots, // Pass current assignments for context
       allPilotQualifications
     );
 
@@ -162,7 +150,10 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
     if (suggestedMissionCommander) {
       setMissionCommander(suggestedMissionCommander);
     }
-  }, [prepFlights, activePilots, assignedPilots, allPilotQualifications, setAssignedPilots, setMissionCommander]); // Added prepFlights dependency
+    // Dependencies: prepFlights changes, allPilotQualifications changes, or the functions to update state change.
+    // assignedPilots is needed by autoAssignPilots for context.
+    // activePilots is no longer directly used here for filtering.
+  }, [prepFlights, assignedPilots, allPilotQualifications, setAssignedPilots, setMissionCommander]); 
 
 
   // Reset the processed flag when component unmounts
@@ -219,70 +210,107 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
 
   // --- BEGIN EFFECT TO UPDATE ASSIGNED PILOTS ---
   useEffect(() => {
-    if (realtimeAttendanceData.length === 0 || Object.keys(assignedPilots).length === 0) {
-      return; // No attendance data or no assignments to update
+    // Handle case where attendance data is empty or not yet loaded
+    if (realtimeAttendanceData.length === 0) {
+      // Check if any assigned pilot currently has a status that needs clearing
+      let needsClearing = false;
+      const clearedAssignments: Record<string, AssignedPilot[]> = {}; // Start with an empty object
+      let hasAssignedPilots = false; // Track if there are any assignments at all
+
+      for (const flightId in assignedPilots) {
+        hasAssignedPilots = true;
+        let flightNeedsClearing = false;
+        const originalFlightPilots = assignedPilots[flightId];
+        // Map to potentially create a new array for the flight
+        const clearedFlightPilots = originalFlightPilots.map(pilot => {
+          // If either status exists, it needs clearing
+          if (pilot.attendanceStatus !== undefined || pilot.rollCallStatus !== undefined) {
+            flightNeedsClearing = true;
+            // Return a new pilot object with statuses cleared
+            return { ...pilot, attendanceStatus: undefined, rollCallStatus: undefined };
+          }
+          // Otherwise, return the original pilot object
+          return pilot;
+        });
+
+        // If this flight needed clearing, use the new array; otherwise, use the original
+        clearedAssignments[flightId] = flightNeedsClearing ? clearedFlightPilots : originalFlightPilots;
+        if (flightNeedsClearing) {
+          needsClearing = true; // Mark that at least one flight was modified
+        }
+      }
+
+      // Only update state if there were assignments and clearing was needed
+      if (hasAssignedPilots && needsClearing) {
+        console.log("[TENTATIVE-DEBUG] Clearing stale attendance statuses from assignedPilots state.");
+        setAssignedPilots(clearedAssignments); // Update with the potentially modified object
+      }
+      return; // Stop processing since there's no attendance data
     }
 
-    let needsUpdate = false;
-    const updatedAssignments: Record<string, AssignedPilot[]> = {};    // Iterate through existing assignments
+    // --- Process updates when realtimeAttendanceData is present ---
+    let needsOverallUpdate = false;
+    // Start with a shallow copy of the top-level object for potential modification
+    const nextAssignedPilots: Record<string, AssignedPilot[]> = { ...assignedPilots };
+
     for (const flightId in assignedPilots) {
-      updatedAssignments[flightId] = assignedPilots[flightId].map(pilot => {
+      let flightNeedsUpdate = false;
+      const originalFlightPilots = assignedPilots[flightId];
+      // Map to potentially create a new array for the flight
+      const updatedFlightPilots = originalFlightPilots.map(pilot => {
         const discordId = pilot.discordId || (pilot as any).discord_original_id || (pilot as any).discord_id;
-        if (!discordId) return pilot; // Cannot update if no discord ID
-
         // Find the realtime status for this pilot
-        const realtimeRecord = realtimeAttendanceData.find(record => record.discord_id === discordId);
+        const realtimeRecord = discordId ? realtimeAttendanceData.find(record => record.discord_id === discordId) : undefined;
         
-        // Get Discord attendance status
-        const realtimeStatus = realtimeRecord?.response; // 'accepted', 'tentative', or undefined if not found/declined
+        // Get Discord attendance status from the record
+        const realtimeStatus = realtimeRecord?.response; // 'accepted', 'tentative', or undefined
         
-        // Get roll call status if available
-        const rollCallStatus = realtimeRecord?.roll_call_response;
+        // Get roll call status from the record - DO NOT USE THIS for updating state, only for potential logging if needed
+        // const rollCallStatus = realtimeRecord?.roll_call_response; 
 
-        // Determine the status to set (default to 'accepted' if attending but not tentative)
-        let newStatus: 'accepted' | 'tentative' | undefined = undefined;
+        // Determine the new Discord status based on the record
+        let newDiscordStatus: 'accepted' | 'tentative' | undefined = undefined;
         if (realtimeStatus === 'tentative') {
-          newStatus = 'tentative';
+          newDiscordStatus = 'tentative';
         } else if (realtimeStatus === 'accepted') {
-          newStatus = 'accepted';
+          newDiscordStatus = 'accepted';
         }
-        // Pilots who declined or are not in the list will have undefined status        // Track if we need to update the pilot's data
+        
         let shouldUpdatePilot = false;
-        let updatedPilot = { ...pilot };
-        
-        // Compare Discord attendance status and update if different
-        if (updatedPilot.attendanceStatus !== newStatus) {
-          console.log(`[TENTATIVE-DEBUG] Updating ${pilot.callsign} Discord status in flight ${flightId} from ${updatedPilot.attendanceStatus} to ${newStatus}`);
-          updatedPilot.attendanceStatus = newStatus;
+        let updatedPilot = { ...pilot }; 
+
+        // Compare current Discord attendance status with the new one
+        if (updatedPilot.attendanceStatus !== newDiscordStatus) {
+          console.log(`[TENTATIVE-DEBUG] Updating ${pilot.callsign} Discord status in flight ${flightId} from ${updatedPilot.attendanceStatus} to ${newDiscordStatus}`);
+          updatedPilot.attendanceStatus = newDiscordStatus;
           shouldUpdatePilot = true;
         }
-        
-        // Check if roll call status needs updating
-        if (rollCallStatus && updatedPilot.rollCallStatus !== rollCallStatus) {
-          console.log(`[ROLL-CALL-DEBUG] Updating ${pilot.callsign} Roll Call status in flight ${flightId} from ${updatedPilot.rollCallStatus} to ${rollCallStatus}`);
-          updatedPilot.rollCallStatus = rollCallStatus;
-          shouldUpdatePilot = true;
-        }
-        
-        // Check if roll call status needs updating
-        if (rollCallStatus && updatedPilot.rollCallStatus !== rollCallStatus) {
-          console.log(`[TENTATIVE-DEBUG] Updating ${pilot.callsign} Roll Call status in flight ${flightId} from ${updatedPilot.rollCallStatus} to ${rollCallStatus}`);
-          updatedPilot.rollCallStatus = rollCallStatus;
-          shouldUpdatePilot = true;
-        }
-        
+
+        // REMOVED: Do not update rollCallStatus based on potentially stale fetched data
+        // if (updatedPilot.rollCallStatus !== rollCallStatus) { 
+        //   updatedPilot.rollCallStatus = rollCallStatus;
+        //   shouldUpdatePilot = true;
+        // }
+
+        // If ONLY Discord status changed, return the modified pilot object
         if (shouldUpdatePilot) {
-          needsUpdate = true;
-          return updatedPilot;
+          flightNeedsUpdate = true; 
+          return updatedPilot; 
         }
-        return pilot; // No change needed
+        return pilot; 
       });
+
+      // If any pilot in this flight was updated, replace the flight's array in our copied object
+      if (flightNeedsUpdate) {
+        nextAssignedPilots[flightId] = updatedFlightPilots; // Assign the newly created array
+        needsOverallUpdate = true; // Mark that the top-level object has changed
+      }
     }
 
-    // If any pilot's status changed, update the state
-    if (needsUpdate) {
+    // If any flight array was replaced, update the state with the new top-level object
+    if (needsOverallUpdate) {
       console.log("[TENTATIVE-DEBUG] Applying updated attendance statuses to assignedPilots state.");
-      setAssignedPilots(updatedAssignments);
+      setAssignedPilots(nextAssignedPilots); // This is now guaranteed to be a new object reference
     }
   }, [realtimeAttendanceData, assignedPilots, setAssignedPilots]);
   // --- END EFFECT TO UPDATE ASSIGNED PILOTS ---
