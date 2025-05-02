@@ -27,12 +27,13 @@ export const EventDialog: React.FC<EventDialogProps> = ({
   onSave,
   onCancel,
   initialData
-}) => {  const [title, setTitle] = useState(initialData?.title || '');
+}) => {  
+  const [title, setTitle] = useState(initialData?.title || '');
   const [description, setDescription] = useState(initialData?.description || '');
-  const [datetime, setDatetime] = useState(initialData?.datetime || '');
-  const [durationHours, setDurationHours] = useState(initialData ? 0 : 1); // Default to 1 hour for new events
+  const [datetime, setDatetime] = useState(initialData?.datetime ? new Date(initialData.datetime).toISOString().slice(0, 16) : '');
+  const [durationHours, setDurationHours] = useState(1); // Default to 1 hour for new events
   const [durationMinutes, setDurationMinutes] = useState(0);
-  const [endDatetime, setEndDatetime] = useState('');
+  const [endDatetime, setEndDatetime] = useState(initialData?.endDatetime ? new Date(initialData.endDatetime).toISOString().slice(0, 16) : '');
   const [restrictedTo, setRestrictedTo] = useState<string[]>(initialData?.restrictedTo || []);
   const [error, setError] = useState('');
   
@@ -47,7 +48,6 @@ export const EventDialog: React.FC<EventDialogProps> = ({
         
         setDurationHours(Math.floor(totalMinutes / 60));
         setDurationMinutes(totalMinutes % 60);
-        setEndDatetime(initialData.endDatetime);
       }
     }
   }, [initialData]);
