@@ -37,12 +37,7 @@ const Communications: React.FC<CommunicationsProps> = ({
   onTransferToMission,
   flights = [],
   extractedFlights = []
-}) => {
-  // Initialize state with data from localStorage if available
-  const [selectedEncryption, setSelectedEncryption] = useState<number | null>(() => {
-    return loadFromLocalStorage<number | null>(STORAGE_KEYS.ENCRYPTION_CHANNEL, null);
-  });
-  
+}) => {  // Initialize state with data from localStorage if available
   const [commsData, setCommsData] = useState<CommsPlanEntry[]>(() => {
     return loadFromLocalStorage<CommsPlanEntry[]>(STORAGE_KEYS.COMMS_PLAN, generateInitialCommsData());
   });
@@ -52,19 +47,10 @@ const Communications: React.FC<CommunicationsProps> = ({
   const [hoveredRow, setHoveredRow] = useState<number | null>(null);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
 
-  // Save encryption channel to localStorage whenever it changes
-  useEffect(() => {
-    saveToLocalStorage(STORAGE_KEYS.ENCRYPTION_CHANNEL, selectedEncryption);
-  }, [selectedEncryption]);
-
   // Save comms plan to localStorage whenever it changes
   useEffect(() => {
     saveToLocalStorage(STORAGE_KEYS.COMMS_PLAN, commsData);
   }, [commsData]);
-
-  const handleEncryptionSelect = (number: number) => {
-    setSelectedEncryption(number === selectedEncryption ? null : number);
-  };
 
   const startEditing = () => {
     setIsEditing(true);
@@ -232,51 +218,9 @@ const Communications: React.FC<CommunicationsProps> = ({
         formation: members.length > 1 ? "group" : "single"
       };
     }).filter(Boolean) as Flight[];
-    
-    onTransferToMission(transferFlights);
+      onTransferToMission(transferFlights);
     setShowConfirmDialog(false);
   };
-
-  const renderEncryptionCard = () => (
-    <Card style={styles.cardBase}>
-      <div style={styles.sectionHeader}>
-        <span style={styles.headerLabel}>Encryption Channel</span>
-      </div>
-      <div style={{
-        ...styles.encryptionContainer,
-        display: 'flex',
-        justifyContent: 'center',
-        gap: 'calc(var(--encryption-button-size, 40px) / 2)' // Space between buttons is half of button width
-      }}>
-        {[1, 2, 3, 4, 5, 6].map((number) => (
-          <button
-            key={number}
-            onClick={() => handleEncryptionSelect(number)}
-            style={{
-              ...styles.encryptionButton,
-              backgroundColor: selectedEncryption === number ? '#F24607' : '#FFFFFF',
-              color: selectedEncryption === number ? '#FFFFFF' : '#64748B',
-              width: 'var(--encryption-button-size, 40px)',
-              height: 'var(--encryption-button-size, 40px)',
-              flexShrink: 0,
-            }}
-            onMouseEnter={e => {
-              if (selectedEncryption !== number) {
-                e.currentTarget.style.backgroundColor = '#F8FAFC';
-              }
-            }}
-            onMouseLeave={e => {
-              if (selectedEncryption !== number) {
-                e.currentTarget.style.backgroundColor = '#FFFFFF';
-              }
-            }}
-          >
-            {number}
-          </button>
-        ))}
-      </div>
-    </Card>
-  );
 
   const renderCommsPlanTable = () => (
     <table className="w-full" style={{ tableLayout: 'auto' }}>
@@ -368,7 +312,6 @@ const Communications: React.FC<CommunicationsProps> = ({
       </tbody>
     </table>
   );
-
   return (
     <div style={{ 
       display: 'flex', 
@@ -376,8 +319,6 @@ const Communications: React.FC<CommunicationsProps> = ({
       gap: '20px',
       width
     }}>
-      {renderEncryptionCard()}
-
       <Card style={styles.cardBase}>
         <div style={{
           width: '100%',

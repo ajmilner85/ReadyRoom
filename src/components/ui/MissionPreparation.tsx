@@ -1,4 +1,4 @@
-// filepath: c:\Users\ajmil\OneDrive\Desktop\pri-fly\src\components\ui\MissionPreparationRefactored.tsx
+// filepath: c:\Users\ajmil\OneDrive\Desktop\pri-fly\src\components\ui\MissionPreparation.tsx
 import React, { useCallback, useEffect, useState } from 'react';
 import { DndContext, DragOverlay } from '@dnd-kit/core';
 import { restrictToWindowEdges } from '@dnd-kit/modifiers';
@@ -6,6 +6,7 @@ import MissionDetails from './mission prep/MissionDetails';
 import AvailablePilots from './mission prep/AvailablePilots';
 import FlightAssignments from './mission prep/FlightAssignments';
 import Communications from './mission prep/Communications';
+import MissionSupportAssignments from './mission prep/MissionSupportAssignments.jsx';
 import PilotDragOverlay from './mission-execution/PilotDragOverlay';
 import type { Flight, ExtractedFlight } from '../../types/FlightData';
 import type { MissionCommanderInfo } from '../../types/MissionCommanderTypes';
@@ -386,13 +387,24 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
                 onFlightsChange={handleFlightsChange}
                 initialFlights={prepFlights}
               />
-              <Communications 
-                width={CARD_WIDTH} 
-                assignedPilots={assignedPilots}
-                onTransferToMission={onTransferToMission}
-                flights={prepFlights}
-                extractedFlights={extractedFlights}
-              />
+              <div style={{ 
+                display: 'flex', 
+                flexDirection: 'column', 
+                gap: '20px', 
+                width: CARD_WIDTH 
+              }}>
+                <MissionSupportAssignments
+                  width={CARD_WIDTH}
+                  assignedPilots={assignedPilots}
+                />
+                <Communications 
+                  width={CARD_WIDTH} 
+                  assignedPilots={assignedPilots}
+                  onTransferToMission={onTransferToMission}
+                  flights={prepFlights}
+                  extractedFlights={extractedFlights}
+                />
+              </div>
             </>
           )}
         </div>

@@ -1,12 +1,4 @@
 In Progress:
-- Misson Preparation	
-	- Create database table(s) for storing mission data
-	- Fix filter button badge positioning and add badges to display total pilots of each qualification type
-
-Known Issues
-
-
-Next:
 - Mission Preparation
 	- Mission support role slots
 		- Mission commander (Done)
@@ -19,6 +11,14 @@ Next:
 	- Create comms card
 	- Export kneeboards
 	- Misson content (.miz file, briefing presentation, images, kneeboards)
+
+
+Known Issues
+
+
+Next:
+- Misson Preparation	
+	- Create database table(s) for storing mission data (after all features implemented)
 	
 
 High Priority:
@@ -36,6 +36,8 @@ Medium Priority:
 QOL:
 - Implement light/dark mode
 - Add user_settings table to supabase
+- Mission Preparation
+	- Fix filter button badge positioning and add badges to display total pilots of each qualification type
 
 Cosmetic:
 - Remove placeholder text for aircraft icons on mission preparation page

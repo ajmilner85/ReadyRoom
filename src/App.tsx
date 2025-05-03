@@ -8,15 +8,21 @@ import SingleFlightCard from './components/ui/flight cards/SingleFlightCard';
 import FuelStateDialog from './components/ui/dialogs/FuelStateDialog';
 import PositionReportDialog from './components/ui/dialogs/PositionReportDialog';
 import NavigationBar from './components/ui/NavigationBar';
-import type { AssignedPilot } from './types/PilotTypes';
+import type { Pilot } from './types/PilotTypes';
+
+// Define AssignedPilot here since it's not exported from PilotTypes
+interface AssignedPilot extends Pilot {
+  dashNumber: string;
+  attendanceStatus?: 'accepted' | 'tentative' | 'declined';
+  rollCallStatus?: 'Present' | 'Absent' | 'Tentative';
+}
 import type { MissionCommanderInfo } from './types/MissionCommanderTypes';
 import type { ExtractedFlight } from './types/FlightData';
 import { loadAssignedPilots, saveMissionCommander, saveAssignedPilots, loadMissionCommander, loadExtractedFlights, saveExtractedFlights, loadPrepFlights, savePrepFlights } from './utils/localStorageUtils';
 
-// Lazy load components that aren't needed immediately
 const RosterManagement = React.lazy(() => import('./components/ui/RosterManagement'));
 const EventsManagement = React.lazy(() => import('./components/ui/EventsManagement'));
-const MissionPreparation = React.lazy(() => import('./components/ui/MissionPreparation'));
+const MissionPreparation = React.lazy(() => import('./components/ui/MissionPreparation.jsx'));
 const Settings = React.lazy(() => import('./components/settings/Settings'));
 
 const App: React.FC = () => {
