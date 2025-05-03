@@ -25,15 +25,14 @@ const AddSupportRoleDialog: React.FC<AddSupportRoleDialogProps> = ({
     'MARSHALL', 'TOWER', 'LSO', 'AWACS', 'OLYMPUS', 'GCI'
   ];
   
-  // Combine existing callsigns and default callsigns
-  // Remove duplicates and sort alphabetically
-  const allSuggestions = [...new Set([
-    ...existingCallsigns,
-    ...callsignSuggestions
-  ])].sort();
-
   // Update filtered suggestions when callsign input changes
   useEffect(() => {
+    // Calculate suggestions inside the effect to avoid dependency issues
+    const allSuggestions = [...new Set([
+      ...existingCallsigns,
+      ...callsignSuggestions
+    ])].sort();
+    
     if (!callsign.trim()) {
       setFilteredSuggestions([]);
     } else {
@@ -43,7 +42,7 @@ const AddSupportRoleDialog: React.FC<AddSupportRoleDialogProps> = ({
       setFilteredSuggestions(filtered.slice(0, 5)); // Limit to 5 suggestions
     }
     setActiveIndex(-1);
-  }, [callsign, allSuggestions]);
+  }, [callsign, existingCallsigns]); // Remove allSuggestions from dependencies
 
   // Initialize callsign from initialCallsign prop when component mounts
   useEffect(() => {
@@ -75,7 +74,7 @@ const AddSupportRoleDialog: React.FC<AddSupportRoleDialogProps> = ({
     }
   };
 
-  const handleSubmit = (e?: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     if (e) {
       e.preventDefault();
       e.stopPropagation();
@@ -213,52 +212,49 @@ const AddSupportRoleDialog: React.FC<AddSupportRoleDialogProps> = ({
               ))}
             </ul>
           )}
+          {error && (
+            <p style={{ 
+              color: '#DC2626', 
+              fontSize: '12px', 
+              marginTop: '4px',
+              marginBottom: '0'
+            }}>
+              {error}
+            </p>
+          )}
         </div>
-
-        {error && (
-          <div style={{
-            color: '#EF4444',
-            fontSize: '12px',
-            marginBottom: '16px'
-          }}>
-            {error}
-          </div>
-        )}
-
-        <div style={{
-          display: 'flex',
-          justifyContent: 'flex-end',
-          gap: '8px'
-        }}>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
           <button
             type="button"
             onClick={onCancel}
             style={{
               padding: '8px 16px',
+              backgroundColor: '#F8FAFC',
               border: '1px solid #CBD5E1',
               borderRadius: '4px',
-              backgroundColor: 'white',
               color: '#64748B',
-              cursor: 'pointer'
+              cursor: 'pointer',
+              fontSize: '14px'
             }}
           >
             Cancel
           </button>
           <button
             type="submit"
-            disabled={!callsign.trim()}
             style={{
               padding: '8px 16px',
+              backgroundColor: '#2563EB',
               border: 'none',
               borderRadius: '4px',
-              backgroundColor: !callsign.trim() ? '#CBD5E1' : '#2563EB',
               color: 'white',
-              cursor: !callsign.trim() ? 'not-allowed' : 'pointer'
+              cursor: 'pointer',
+              fontSize: '14px'
             }}
           >
-            {initialCallsign ? 'Update' : 'Add'}
+            Save
           </button>
-        </div>      </form>
+        </div>
+      </form>
     </div>
   );
 };

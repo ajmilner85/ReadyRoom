@@ -22,7 +22,7 @@ import { loadAssignedPilots, saveMissionCommander, saveAssignedPilots, loadMissi
 
 const RosterManagement = React.lazy(() => import('./components/ui/RosterManagement'));
 const EventsManagement = React.lazy(() => import('./components/ui/EventsManagement'));
-const MissionPreparation = React.lazy(() => import('./components/ui/MissionPreparation.jsx'));
+const MissionPreparation = React.lazy(() => import('./components/ui/MissionPreparation'));
 const Settings = React.lazy(() => import('./components/settings/Settings'));
 
 const App: React.FC = () => {

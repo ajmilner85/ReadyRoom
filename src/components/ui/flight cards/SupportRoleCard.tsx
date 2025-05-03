@@ -35,36 +35,11 @@ const SupportRoleCard: React.FC<SupportRoleCardProps> = ({
       }}
     >
       <div>
-        <div style={{
-          fontWeight: 600,
-          fontSize: '16px',
-          marginBottom: '4px'
-        }}>
+        <div style={{ fontWeight: 600, fontSize: '16px', marginBottom: '4px' }}>
           {callsign}
         </div>
-        
-        <div style={{
-          fontSize: '14px',
-          color: assignedPilot ? '#1E293B' : '#94A3B8'
-        }}>
+        <div style={{ fontSize: '14px', color: assignedPilot ? '#1E293B' : '#94A3B8' }}>
           {assignedPilot ? assignedPilot.callsign : 'Unassigned'}
-          
-          {/* Show status badge if a pilot is assigned and has a status */}
-          {assignedPilot && assignedPilot.attendanceStatus && (
-            <span style={{
-              display: 'inline-block',
-              marginLeft: '8px',
-              padding: '2px 6px',
-              borderRadius: '4px',
-              fontSize: '12px',
-              backgroundColor: assignedPilot.attendanceStatus === 'tentative' ? '#FEF3C7' : 
-                              assignedPilot.attendanceStatus === 'declined' ? '#FEE2E2' : '#DCFCE7',
-              color: assignedPilot.attendanceStatus === 'tentative' ? '#92400E' : 
-                    assignedPilot.attendanceStatus === 'declined' ? '#B91C1C' : '#166534'
-            }}>
-              {assignedPilot.attendanceStatus.charAt(0).toUpperCase() + assignedPilot.attendanceStatus.slice(1)}
-            </span>
-          )}
         </div>
       </div>
       
@@ -92,17 +67,12 @@ const SupportRoleCard: React.FC<SupportRoleCardProps> = ({
             fontSize: '12px',
             padding: '4px 8px'
           }}
-        >          Delete
+        >
+          Delete
         </button>
       </div>
     </div>
   );
 };
-
-export default SupportRoleCard;
-
-export default SupportRoleCard;
-
-export default SupportRoleCard;
 
 export default SupportRoleCard;

@@ -1,4 +1,3 @@
-// filepath: c:\Users\ajmil\OneDrive\Desktop\pri-fly\src\components\ui\MissionPreparation.tsx
 import React, { useCallback, useEffect, useState } from 'react';
 import { DndContext, DragOverlay } from '@dnd-kit/core';
 import { restrictToWindowEdges } from '@dnd-kit/modifiers';
@@ -6,13 +5,13 @@ import MissionDetails from './mission prep/MissionDetails';
 import AvailablePilots from './mission prep/AvailablePilots';
 import FlightAssignments from './mission prep/FlightAssignments';
 import Communications from './mission prep/Communications';
-import MissionSupportAssignments from './mission prep/MissionSupportAssignments.jsx';
+import MissionSupportAssignments from './mission prep/MissionSupportAssignments';
 import PilotDragOverlay from './mission-execution/PilotDragOverlay';
 import type { Flight, ExtractedFlight } from '../../types/FlightData';
 import type { MissionCommanderInfo } from '../../types/MissionCommanderTypes';
-import type { Pilot } from '../../types/PilotTypes'; // Ensure Pilot is imported if not already
+import type { Pilot } from '../../types/PilotTypes';
 import { useDragDrop } from '../../utils/useDragDrop';
-import type { Event } from '../../types/EventTypes'; // Ensure Event type is imported
+import type { Event } from '../../types/EventTypes';
 import { autoAssignPilots } from '../../utils/autoAssignUtils';
 import { getMissionCommanderCandidatesWithFlightInfo } from '../../utils/missionCommanderUtils';
 import { useMissionPrepData } from '../../hooks/useMissionPrepData';
@@ -27,8 +26,8 @@ interface RealtimeAttendanceRecord {
 
 interface AssignedPilot extends Pilot {
   dashNumber: string;
-  attendanceStatus?: 'accepted' | 'tentative' | 'declined'; // Discord attendance status - ADDED 'declined'
-  rollCallStatus?: 'Present' | 'Absent' | 'Tentative'; // Roll call attendance status
+  attendanceStatus?: 'accepted' | 'tentative' | 'declined';
+  rollCallStatus?: 'Present' | 'Absent' | 'Tentative';
 }
 
 interface MissionPreparationProps {
@@ -66,6 +65,7 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
     loadError,
     allPilotQualifications
   } = useMissionPrepData();
+  
   // Use custom hook to manage state
   const {
     assignedPilots,
@@ -112,31 +112,24 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
   const handleClearAssignments = useCallback(() => {
     setAssignedPilots({});
     setMissionCommander(null);
-  }, [setAssignedPilots, setMissionCommander]);  // Function to handle auto-assignment logic
-  // UPDATED SIGNATURE: Accept full pilot objects, including statuses
+  }, [setAssignedPilots, setMissionCommander]);
+
+  // Function to handle auto-assignment logic
   const handleAutoAssign = useCallback((pilotsForAssignment?: Pilot[]) => { 
-    console.log('[DEBUG] handleAutoAssign called with pilots:', pilotsForAssignment?.map(p => ({ callsign: p.callsign, discord: (p as any).attendanceStatus, rollCall: (p as any).rollCallStatus }))); // Log received pilots and statuses
-    
     if (!prepFlights || prepFlights.length === 0) { 
       console.log("Cannot auto-assign: no flights available");
       return;
     }
 
     // Use the provided pilots directly. If none provided, auto-assign shouldn't run or should use a default set.
-    // Let's assume AvailablePilots always provides the correct list based on its filters/state.
     const pilotsToAssign = pilotsForAssignment && pilotsForAssignment.length > 0 
       ? pilotsForAssignment 
       : []; // If no pilots are passed, assign no one.
 
     if (pilotsToAssign.length === 0) {
       console.log("[DEBUG] No pilots provided or available for auto-assignment.");
-      // Optionally clear existing assignments or just return
-      // setAssignedPilots({}); 
-      // setMissionCommander(null);
       return;
     }
-
-    console.log(`[DEBUG] Using ${pilotsToAssign.length} pilots for auto-assignment.`);
 
     // Call the utility function - autoAssignPilots needs to handle the statuses internally
     const { newAssignments, suggestedMissionCommander } = autoAssignPilots(
@@ -151,11 +144,7 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
     if (suggestedMissionCommander) {
       setMissionCommander(suggestedMissionCommander);
     }
-    // Dependencies: prepFlights changes, allPilotQualifications changes, or the functions to update state change.
-    // assignedPilots is needed by autoAssignPilots for context.
-    // activePilots is no longer directly used here for filtering.
-  }, [prepFlights, assignedPilots, allPilotQualifications, setAssignedPilots, setMissionCommander]); 
-
+  }, [prepFlights, assignedPilots, allPilotQualifications, setAssignedPilots, setMissionCommander]);
 
   // Reset the processed flag when component unmounts
   useEffect(() => {
@@ -185,12 +174,12 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
           ...data.accepted.map((attendee: any) => ({ discord_id: attendee.discord_id, response: 'accepted' })),
           ...data.tentative.map((attendee: any) => ({ discord_id: attendee.discord_id, response: 'tentative' })),
           ...data.declined.map((attendee: any) => ({ discord_id: attendee.discord_id, response: 'declined' }))
-        ].filter(record => record.discord_id); // Filter out any without discord_id
+        ].filter(record => record.discord_id);
 
         setRealtimeAttendanceData(attendanceRecords);
       } catch (err) {
         console.error("Error fetching realtime attendance:", err);
-        setRealtimeAttendanceData([]); // Clear data on error
+        setRealtimeAttendanceData([]);
       }
     };
 
@@ -206,7 +195,7 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
         clearInterval(pollInterval);
       }
     };
-  }, [selectedEvent?.id]); // Re-run polling if the selected event ID changes
+  }, [selectedEvent?.id]);
   // --- END NEW POLLING LOGIC ---
 
   // --- BEGIN EFFECT TO UPDATE ASSIGNED PILOTS ---
@@ -287,12 +276,6 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
           shouldUpdatePilot = true;
         }
 
-        // REMOVED: Do not update rollCallStatus based on potentially stale fetched data
-        // if (updatedPilot.rollCallStatus !== rollCallStatus) { 
-        //   updatedPilot.rollCallStatus = rollCallStatus;
-        //   shouldUpdatePilot = true;
-        // }
-
         // If ONLY Discord status changed, return the modified pilot object
         if (shouldUpdatePilot) {
           flightNeedsUpdate = true; 
@@ -315,7 +298,6 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
     }
   }, [realtimeAttendanceData, assignedPilots, setAssignedPilots]);
   // --- END EFFECT TO UPDATE ASSIGNED PILOTS ---
-
 
   return (
     <DndContext
@@ -370,14 +352,14 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
               />
               <AvailablePilots
                 width={CARD_WIDTH}
-                pilots={activePilots} // Use activePilots from useMissionPrepData
+                pilots={activePilots}
                 selectedEvent={selectedEvent}
                 assignedPilots={assignedPilots}
-                setAssignedPilots={setAssignedPilots} // *** ADD THIS PROP ***
-                onAutoAssign={handleAutoAssign} // Pass the updated handler
+                setAssignedPilots={setAssignedPilots}
+                onAutoAssign={handleAutoAssign}
                 onClearAssignments={handleClearAssignments}
                 pilotQualifications={allPilotQualifications}
-                realtimeAttendanceData={realtimeAttendanceData} // Pass down polled data
+                realtimeAttendanceData={realtimeAttendanceData}
               />
               <FlightAssignments
                 width={CARD_WIDTH} 

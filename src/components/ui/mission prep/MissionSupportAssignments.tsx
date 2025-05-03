@@ -1,7 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import { Card } from '../card';
-import AddSupportRoleDialog from '../dialogs/AddSupportRoleDialog.jsx';
-import SupportRoleCard from '../flight cards/SupportRoleCard.jsx';
+import AddSupportRoleDialog from '../dialogs/AddSupportRoleDialog';
+import SupportRoleCard from '../flight cards/SupportRoleCard';
 import type { Pilot } from '../../../types/PilotTypes';
 
 interface SupportRole {
@@ -83,11 +83,11 @@ const MissionSupportAssignments: React.FC<MissionSupportAssignmentsProps> = ({
   }, [creationOrderCounter, editRoleId]);
 
   // Close the dialog without adding a role
-  const handleCancelAddRole = () => {
+  const handleCancelAddRole = useCallback(() => {
     setShowAddDialog(false);
     setEditRoleId(null);
     setInitialEditCallsign("");
-  };
+  }, []);
 
   // Handle deleting a support role
   const handleDeleteRole = useCallback((id: string) => {
@@ -100,6 +100,7 @@ const MissionSupportAssignments: React.FC<MissionSupportAssignmentsProps> = ({
     setInitialEditCallsign(callsign);
     setShowAddDialog(true);
   }, []);
+  
   // Get unique existing callsigns for the dialog suggestions
   const existingCallsigns = supportRoles.map(role => role.callsign);
 
@@ -111,7 +112,8 @@ const MissionSupportAssignments: React.FC<MissionSupportAssignmentsProps> = ({
       margin: '-10px',
       paddingBottom: '20px',
       height: '100%',
-    }}>      <Card 
+    }}>
+      <Card 
         style={{
           width: '100%',
           boxShadow: '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)',
@@ -141,7 +143,8 @@ const MissionSupportAssignments: React.FC<MissionSupportAssignmentsProps> = ({
             textTransform: 'uppercase'
           }}>
             Mission Support Assignments
-          </span>        </div>
+          </span>
+        </div>
         <div className="flex-1" style={{ overflowY: 'auto' }}>
           <div className="space-y-4">
             {supportRoles.map(role => (
@@ -218,8 +221,7 @@ const MissionSupportAssignments: React.FC<MissionSupportAssignmentsProps> = ({
             initialCallsign={initialEditCallsign}
             title={editRoleId ? "Edit Support Role" : "Add Support Role"}
           />
-        </>
-      )}
+        </>      )}
     </div>
   );
 };
