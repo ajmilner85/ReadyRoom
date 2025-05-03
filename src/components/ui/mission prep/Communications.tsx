@@ -311,8 +311,7 @@ const Communications: React.FC<CommunicationsProps> = ({
         ))}
       </tbody>
     </table>
-  );
-  return (
+  );  return (
     <div style={{ 
       display: 'flex', 
       flexDirection: 'column', 
