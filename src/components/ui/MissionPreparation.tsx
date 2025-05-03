@@ -368,18 +368,17 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
                 extractedFlights={extractedFlights}
                 onFlightsChange={handleFlightsChange}
                 initialFlights={prepFlights}
-              />
-              <div style={{ 
+              />              <div style={{ 
                 display: 'flex', 
                 flexDirection: 'column', 
                 gap: '20px', 
-                width: CARD_WIDTH 
+                width: CARD_WIDTH,
+                height: '100%' // Ensure the container takes full height
               }}>
                 <MissionSupportAssignments
                   width={CARD_WIDTH}
                   assignedPilots={assignedPilots}
-                />
-                <Communications 
+                />                <Communications 
                   width={CARD_WIDTH} 
                   assignedPilots={assignedPilots}
                   onTransferToMission={onTransferToMission}

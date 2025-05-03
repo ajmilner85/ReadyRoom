@@ -103,19 +103,20 @@ const MissionSupportAssignments: React.FC<MissionSupportAssignmentsProps> = ({
   
   // Get unique existing callsigns for the dialog suggestions
   const existingCallsigns = supportRoles.map(role => role.callsign);
-
-  return (
-    <div style={{ 
+  return (    <div style={{ 
       width, 
       position: 'relative',
       padding: '10px',
       margin: '-10px',
-      paddingBottom: '20px',
-      height: '100%',
+      paddingBottom: '0',
+      flex: '1 1 auto', // Allow element to grow and shrink
+      display: 'flex',
+      flexDirection: 'column',
     }}>
       <Card 
         style={{
           width: '100%',
+          height: '100%',
           boxShadow: '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)',
           borderRadius: '8px',
           padding: '24px',
@@ -144,8 +145,10 @@ const MissionSupportAssignments: React.FC<MissionSupportAssignmentsProps> = ({
           }}>
             Mission Support Assignments
           </span>
-        </div>
-        <div className="flex-1" style={{ overflowY: 'auto' }}>
+        </div>        <div className="flex-1" style={{ 
+          overflowY: 'auto',
+          flexGrow: 1 // Ensure it takes available space
+        }}>
           <div className="space-y-4">
             {supportRoles.map(role => (
               <SupportRoleCard
