@@ -1,7 +1,17 @@
 import React, { useState, useEffect } from 'react';
+import { supabase, fetchCarriers } from '../../../utils/supabaseClient';
+import { SupportRoleType, DEFAULT_CARRIER_POSITIONS } from '../../../types/SupportRoleTypes';
+import { AddSupportRoleDialogData } from '../../../types/DialogTypes';
+
+interface CarrierOption {
+  id: string;
+  name: string;
+  hull: string;
+  callsign: string;
+}
 
 interface AddSupportRoleDialogProps {
-  onSave: (data: { callsign: string }) => void;
+  onSave: (data: AddSupportRoleDialogData) => void;
   onCancel: () => void;
   existingCallsigns?: string[];
   initialCallsign?: string;
@@ -15,18 +25,43 @@ const AddSupportRoleDialog: React.FC<AddSupportRoleDialogProps> = ({
   initialCallsign = '',
   title = 'Add Support Role'
 }) => {
+  const [roleType, setRoleType] = useState<SupportRoleType>(SupportRoleType.CUSTOM);
   const [callsign, setCallsign] = useState(initialCallsign);
+  const [carriers, setCarriers] = useState<CarrierOption[]>([]);
+  const [selectedCarrierId, setSelectedCarrierId] = useState<string>('');
   const [error, setError] = useState('');
   const [filteredSuggestions, setFilteredSuggestions] = useState<string[]>([]);
   const [activeIndex, setActiveIndex] = useState(-1);
   
-  // Example support role callsign suggestions from To-do List.txt
+  // Example support role callsign suggestions for custom roles
   const callsignSuggestions = [
     'MARSHALL', 'TOWER', 'LSO', 'AWACS', 'OLYMPUS', 'GCI'
   ];
   
-  // Update filtered suggestions when callsign input changes
+  // Fetch carriers on component mount
   useEffect(() => {
+    const getCarriers = async () => {
+      try {
+        const carrierData = await fetchCarriers();
+        setCarriers(carrierData);
+        if (carrierData.length > 0) {
+          setSelectedCarrierId(carrierData[0].id);
+        }
+      } catch (error) {
+        console.error('Error fetching carriers:', error);
+      }
+    };
+    
+    getCarriers();
+  }, []);
+  
+  // Update filtered suggestions when callsign input changes (for custom roles)
+  useEffect(() => {
+    if (roleType !== SupportRoleType.CUSTOM) {
+      setFilteredSuggestions([]);
+      return;
+    }
+    
     // Calculate suggestions inside the effect to avoid dependency issues
     const allSuggestions = [...new Set([
       ...existingCallsigns,
@@ -42,7 +77,7 @@ const AddSupportRoleDialog: React.FC<AddSupportRoleDialogProps> = ({
       setFilteredSuggestions(filtered.slice(0, 5)); // Limit to 5 suggestions
     }
     setActiveIndex(-1);
-  }, [callsign, existingCallsigns]); // Remove allSuggestions from dependencies
+  }, [callsign, existingCallsigns, roleType]);
 
   // Initialize callsign from initialCallsign prop when component mounts
   useEffect(() => {
@@ -50,30 +85,52 @@ const AddSupportRoleDialog: React.FC<AddSupportRoleDialogProps> = ({
       setCallsign(initialCallsign);
     }
   }, [initialCallsign]);
-
   const validateAndSave = () => {
     try {
-      const trimmedCallsign = callsign.trim().toUpperCase();
-      
-      if (!trimmedCallsign) {
-        setError('Please enter a callsign');
-        return false;
-      }
+      if (roleType === SupportRoleType.CARRIER_AIR_OPS) {
+        if (!selectedCarrierId) {
+          setError('Please select a carrier');
+          return false;
+        }
+        
+        const selectedCarrier = carriers.find(c => c.id === selectedCarrierId);
+        if (!selectedCarrier) {
+          setError('Selected carrier not found');
+          return false;
+        }        
+        onSave({
+          type: SupportRoleType.CARRIER_AIR_OPS,
+          callsign: `${selectedCarrier.name} ${selectedCarrier.hull} "${selectedCarrier.callsign}"`,
+          carrierId: selectedCarrierId,
+          positions: DEFAULT_CARRIER_POSITIONS
+        });
+        return true;
+      } else {
+        // Custom role type
+        const trimmedCallsign = callsign.trim().toUpperCase();
+        
+        if (!trimmedCallsign) {
+          setError('Please enter a callsign');
+          return false;
+        }
 
-      if (trimmedCallsign.length > 15) {
-        setError('Callsign must be 15 characters or less');
-        return false;
-      }
+        if (trimmedCallsign.length > 15) {
+          setError('Callsign must be 15 characters or less');
+          return false;
+        }
 
-      onSave({ callsign: trimmedCallsign });
-      return true;
+        onSave({ 
+          type: SupportRoleType.CUSTOM,
+          callsign: trimmedCallsign 
+        });
+        return true;
+      }
     } catch (err) {
       console.error('Error adding support role:', err);
       setError('An unexpected error occurred');
       return false;
     }
   };
-
   const handleSubmit = (e: React.FormEvent) => {
     if (e) {
       e.preventDefault();
@@ -83,8 +140,8 @@ const AddSupportRoleDialog: React.FC<AddSupportRoleDialogProps> = ({
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    // Handle keyboard navigation for suggestions
-    if (filteredSuggestions.length > 0) {
+    // Only handle keyboard navigation for custom role suggestions
+    if (roleType === SupportRoleType.CUSTOM && filteredSuggestions.length > 0) {
       if (e.key === 'ArrowDown') {
         e.preventDefault();
         setActiveIndex(prev => (prev + 1) % filteredSuggestions.length);
@@ -125,6 +182,18 @@ const AddSupportRoleDialog: React.FC<AddSupportRoleDialogProps> = ({
     }
   };
 
+  const handleRoleTypeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const newType = e.target.value as SupportRoleType;
+    setRoleType(newType);
+    // Reset any errors
+    setError('');
+  };
+
+  const handleCarrierChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setSelectedCarrierId(e.target.value);
+    // Reset any errors
+    setError('');
+  };
   return (
     <div style={{
       position: 'absolute',
@@ -149,12 +218,8 @@ const AddSupportRoleDialog: React.FC<AddSupportRoleDialogProps> = ({
         {title}
       </h2>
       <form onSubmit={handleSubmit}>
-        <div style={{ 
-          marginBottom: '16px', 
-          position: 'relative',
-          boxSizing: 'border-box',
-          paddingRight: '0' // Ensure no extra padding
-        }}>
+        {/* Support Role Type Selection */}
+        <div style={{ marginBottom: '16px' }}>
           <label style={{
             display: 'block',
             marginBottom: '8px',
@@ -162,67 +227,143 @@ const AddSupportRoleDialog: React.FC<AddSupportRoleDialogProps> = ({
             fontSize: '14px',
             color: '#64748B'
           }}>
-            Support Role (max 15 characters)
+            Support Role Type
           </label>
-          <input
-            type="text"
-            value={callsign}
-            onChange={handleInputChange}
-            onKeyDown={handleKeyDown}
-            placeholder="Enter support role callsign"
-            maxLength={15}
+          <select
+            value={roleType}
+            onChange={handleRoleTypeChange}
             style={{
               width: '100%',
               padding: '8px',
               border: '1px solid #CBD5E1',
               borderRadius: '4px',
               fontSize: '14px',
-              boxSizing: 'border-box' // Include padding and border in width calculation
+              boxSizing: 'border-box'
             }}
-            autoFocus
-          />
-          {filteredSuggestions.length > 0 && (
-            <ul style={{
-              position: 'absolute',
-              width: '100%',
-              backgroundColor: 'white',
-              border: '1px solid #CBD5E1',
-              borderRadius: '4px',
-              marginTop: '4px',
-              padding: '0',
-              maxHeight: '200px',
-              overflowY: 'auto',
-              listStyle: 'none',
-              zIndex: 10,
-              boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
-            }}>
-              {filteredSuggestions.map((suggestion, index) => (
-                <li
-                  key={suggestion}
-                  onClick={() => selectSuggestion(suggestion)}
-                  style={{
-                    padding: '8px 12px',
-                    cursor: 'pointer',
-                    backgroundColor: index === activeIndex ? '#EFF6FF' : 'transparent',
-                  }}
-                  onMouseEnter={() => setActiveIndex(index)}
-                >
-                  {suggestion}
-                </li>
-              ))}
-            </ul>
-          )}
-          {error && (
-            <p style={{ 
-              color: '#DC2626', 
-              fontSize: '12px', 
-              marginTop: '4px',
-              marginBottom: '0'
-            }}>
-              {error}
-            </p>
-          )}
+          >
+            {Object.values(SupportRoleType).map(type => (
+              <option key={type} value={type}>{type}</option>
+            ))}
+          </select>
         </div>
+
+        {/* Carrier Selection for Carrier Air Ops */}
+        {roleType === SupportRoleType.CARRIER_AIR_OPS && (
+          <div style={{ marginBottom: '16px' }}>
+            <label style={{
+              display: 'block',
+              marginBottom: '8px',
+              fontFamily: 'Inter',
+              fontSize: '14px',
+              color: '#64748B'
+            }}>
+              Select Carrier
+            </label>
+            <select
+              value={selectedCarrierId}
+              onChange={handleCarrierChange}
+              style={{
+                width: '100%',
+                padding: '8px',
+                border: '1px solid #CBD5E1',
+                borderRadius: '4px',
+                fontSize: '14px',
+                boxSizing: 'border-box'
+              }}
+            >              {carriers.length === 0 ? (
+                <option value="">Loading carriers...</option>
+              ) : (
+                carriers.map(carrier => (
+                  <option key={carrier.id} value={carrier.id}>
+                    USS {carrier.name} {carrier.hull} "{carrier.callsign}"
+                  </option>
+                ))
+              )}
+            </select>
+          </div>
+        )}
+
+        {/* Custom Role Callsign Input */}
+        {roleType === SupportRoleType.CUSTOM && (
+          <div style={{ 
+            marginBottom: '16px', 
+            position: 'relative',
+            boxSizing: 'border-box',
+            paddingRight: '0'
+          }}>
+            <label style={{
+              display: 'block',
+              marginBottom: '8px',
+              fontFamily: 'Inter',
+              fontSize: '14px',
+              color: '#64748B'
+            }}>
+              Support Role (max 15 characters)
+            </label>
+            <input
+              type="text"
+              value={callsign}
+              onChange={handleInputChange}
+              onKeyDown={handleKeyDown}
+              placeholder="Enter support role callsign"
+              maxLength={15}
+              style={{
+                width: '100%',
+                padding: '8px',
+                border: '1px solid #CBD5E1',
+                borderRadius: '4px',
+                fontSize: '14px',
+                boxSizing: 'border-box'
+              }}
+              autoFocus
+            />
+            {filteredSuggestions.length > 0 && (
+              <ul style={{
+                position: 'absolute',
+                width: '100%',
+                backgroundColor: 'white',
+                border: '1px solid #CBD5E1',
+                borderRadius: '4px',
+                marginTop: '4px',
+                padding: '0',
+                maxHeight: '200px',
+                overflowY: 'auto',
+                listStyle: 'none',
+                zIndex: 10,
+                boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+              }}>
+                {filteredSuggestions.map((suggestion, index) => (
+                  <li
+                    key={suggestion}
+                    onClick={() => selectSuggestion(suggestion)}
+                    style={{
+                      padding: '8px 12px',
+                      cursor: 'pointer',
+                      backgroundColor: index === activeIndex ? '#EFF6FF' : 'transparent',
+                    }}
+                    onMouseEnter={() => setActiveIndex(index)}
+                  >
+                    {suggestion}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
+
+        {/* Error Message */}
+        {error && (
+          <p style={{ 
+            color: '#DC2626', 
+            fontSize: '12px', 
+            marginTop: '4px',
+            marginBottom: '16px'
+          }}>
+            {error}
+          </p>
+        )}
+
+        {/* Action Buttons */}
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
           <button
             type="button"
