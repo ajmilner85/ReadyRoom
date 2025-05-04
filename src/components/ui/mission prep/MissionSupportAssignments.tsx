@@ -160,19 +160,43 @@ const MissionSupportAssignments: React.FC<MissionSupportAssignmentsProps> = ({
     if (carriersLoading || (allCarriers.length > 0 && carrierMap.size === 0)) {
       console.log(`[SYNC_EFFECT] Skipping sync: carriersLoading=${carriersLoading}, allCarriers.length=${allCarriers.length}, carrierMap.size=${carrierMap.size}`);
       return; 
-    }
-    // Also wait if assignedPilots is empty
+    }    // Also wait if assignedPilots is empty
     if (!assignedPilots || Object.keys(assignedPilots).length === 0) {
        console.log("[SYNC_EFFECT] Skipping sync: assignedPilots is empty or null.");
-       // Ensure roles are cleared if assignedPilots becomes empty after initial load
-       setSupportRoles(prev => (prev.length > 0 ? [] : prev));
+       // When "Unassign All" is clicked, don't clear the support roles - just empty their pilots
+       setSupportRoles(prev => {
+         if (prev.length > 0) {
+           return prev.map(role => ({
+             ...role,
+             pilots: [
+               { boardNumber: "", callsign: "", dashNumber: "1" },
+               { boardNumber: "", callsign: "", dashNumber: "2" },
+               { boardNumber: "", callsign: "", dashNumber: "3" },
+               { boardNumber: "", callsign: "", dashNumber: "4" }
+             ]
+           }));
+         }
+         return prev;
+       });
        return;
-    }
-    
-    console.log("[SYNC_EFFECT] Running sync. Current carrierMap keys:", Array.from(carrierMap.keys())); 
+    }console.log("[SYNC_EFFECT] Running sync. Current carrierMap keys:", Array.from(carrierMap.keys())); 
 
-    setSupportRoles(prevRoles => {
-      const updatedRoles: SupportRole[] = [];
+      setSupportRoles(prevRoles => {
+        // If there are no assigned pilots but we have existing support roles,
+        // we should return the existing roles with empty pilot slots instead of building new ones
+        if (Object.keys(assignedPilots).length === 0 && prevRoles.length > 0) {
+          return prevRoles.map(role => ({
+            ...role,
+            pilots: [
+              { boardNumber: "", callsign: "", dashNumber: "1" },
+              { boardNumber: "", callsign: "", dashNumber: "2" },
+              { boardNumber: "", callsign: "", dashNumber: "3" },
+              { boardNumber: "", callsign: "", dashNumber: "4" }
+            ]
+          }));
+        }
+
+        const updatedRoles: SupportRole[] = [];
       const processedRoleIds = new Set<string>(); 
       let maxOrder = -1; 
 
