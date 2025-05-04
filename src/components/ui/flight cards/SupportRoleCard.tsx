@@ -3,12 +3,13 @@ import React from 'react';
 interface SupportRoleCardProps {
   id: string;
   callsign: string;
-  assignedPilot?: {
+  pilots?: Array<{
     boardNumber: string;
     callsign: string;
+    dashNumber: string;
     attendanceStatus?: 'accepted' | 'tentative' | 'declined';
     rollCallStatus?: 'Present' | 'Absent' | 'Tentative';
-  };
+  }>;
   onDeleteRole: (id: string) => void;
   onEditRole: (id: string, callsign: string) => void;
 }
@@ -16,10 +17,13 @@ interface SupportRoleCardProps {
 const SupportRoleCard: React.FC<SupportRoleCardProps> = ({
   id,
   callsign,
-  assignedPilot,
+  pilots = [],
   onDeleteRole,
   onEditRole
 }) => {
+  // Find the first assigned pilot if any
+  const assignedPilot = pilots.find(p => p.boardNumber && p.callsign);
+
   return (
     <div 
       style={{

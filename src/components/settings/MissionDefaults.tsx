@@ -6,7 +6,7 @@ interface MissionDefaultsProps {
   setError?: (error: string | null) => void;
 }
 
-const MissionDefaults: React.FC<MissionDefaultsProps> = ({ error, setError }) => {
+const MissionDefaults: React.FC<MissionDefaultsProps> = () => {
   // State for fuel settings
   const [bingoFuel, setBingoFuel] = useState(3.0);
   const [jokerFuel, setJokerFuel] = useState(5.0);
@@ -16,9 +16,9 @@ const MissionDefaults: React.FC<MissionDefaultsProps> = ({ error, setError }) =>
   
   // State for comms plan
   const [commsEntries, setCommsEntries] = useState([
-    { channel: 1, name: 'Base', freq: '251.000', tacan: '—' },
-    { channel: 2, name: 'Tower', freq: '340.200', tacan: '—' },
-    { channel: 3, name: 'Strike', freq: '377.800', tacan: '—' }
+    { channel: 1, name: 'Base', freq: '251.000', tacan: '—', ils: '—', kyFill: '—' },
+    { channel: 2, name: 'Tower', freq: '340.200', tacan: '—', ils: '—', kyFill: '—' },
+    { channel: 3, name: 'Strike', freq: '377.800', tacan: '—', ils: '—', kyFill: '—' }
   ]);
   
   // Handler for selecting encryption channel
@@ -95,6 +95,8 @@ const MissionDefaults: React.FC<MissionDefaultsProps> = ({ error, setError }) =>
                   <th className="p-2 text-sm font-medium text-slate-500">Name</th>
                   <th className="p-2 text-sm font-medium text-slate-500">Freq</th>
                   <th className="p-2 text-sm font-medium text-slate-500">TACAN</th>
+                  <th className="p-2 text-sm font-medium text-slate-500">ILS</th>
+                  <th className="p-2 text-sm font-medium text-slate-500">KY Fill</th>
                 </tr>
               </thead>
               <tbody>
@@ -104,6 +106,8 @@ const MissionDefaults: React.FC<MissionDefaultsProps> = ({ error, setError }) =>
                     <td className="p-2">{entry.name}</td>
                     <td className="p-2">{entry.freq}</td>
                     <td className="p-2">{entry.tacan}</td>
+                    <td className="p-2">{entry.ils || "——"}</td>
+                    <td className="p-2">{entry.kyFill || "——"}</td>
                   </tr>
                 ))}
               </tbody>

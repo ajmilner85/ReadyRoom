@@ -15,6 +15,18 @@ export const isValidTACAN = (tacan: string): boolean => {
   return pattern.test(tacan);
 };
 
+export const isValidILS = (ils: string): boolean => {
+  if (ils === '——' || ils === '') return true;
+  const ilsNum = parseInt(ils, 10);
+  return !isNaN(ilsNum) && Number.isInteger(ilsNum) && ilsNum >= 1 && ilsNum <= 20;
+};
+
+export const isValidKYFill = (kyFill: string): boolean => {
+  if (kyFill === '——' || kyFill === '') return true;
+  const kyFillNum = parseInt(kyFill, 10);
+  return !isNaN(kyFillNum) && Number.isInteger(kyFillNum) && kyFillNum >= 1 && kyFillNum <= 6;
+};
+
 export const hasFrequencyConflict = (freq: string, entries: CommsPlanEntry[], currentIndex: number): boolean => {
   if (freq === '——' || freq === '') return false;
   const currentFreq = parseFloat(freq);

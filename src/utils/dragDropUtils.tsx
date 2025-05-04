@@ -7,6 +7,33 @@ interface AssignedPilot extends Pilot {
   rollCallStatus?: 'Present' | 'Absent' | 'Tentative';
 }
 
+// Utility to clean up role IDs by removing duplicated prefixes
+export const cleanRoleId = (roleId: string): string => {
+  if (!roleId.startsWith('support-')) return roleId;
+  
+  // Check for and fix duplicated prefixes
+  if (roleId.startsWith('support-support-')) {
+    return 'support-' + roleId.substring(16); // Skip the duplicated prefix
+  }
+  
+  // Handle any other case of multiple prefixes
+  let count = 0;
+  let currentIndex = 0;
+  
+  while (roleId.indexOf('support-', currentIndex) !== -1) {
+    currentIndex = roleId.indexOf('support-', currentIndex) + 8;
+    count++;
+  }
+  
+  if (count > 1) {
+    // Extract the unique part after all the support- prefixes
+    const uniquePart = roleId.substring(8 * count);
+    return 'support-' + uniquePart;
+  }
+  
+  return roleId;
+};
+
 // Find a pilot by board number across all flights
 export const findPilotInFlights = (
   boardNumber: string, 
@@ -31,7 +58,11 @@ export const removePilotFromAllFlights = (
   // Check all flights for this pilot
   Object.keys(updated).forEach(flightId => {
     // Remove this pilot from the flight
-    updated[flightId] = updated[flightId].filter(p => p.boardNumber !== boardNumber);
+    updated[flightId] = updated[flightId].filter(p => {
+      // Make sure we're comparing strings properly
+      const pilotBoardNumber = p.boardNumber?.trim() || '';
+      return pilotBoardNumber !== boardNumber;
+    });
     
     // If flight is now empty, remove it
     if (updated[flightId].length === 0) {
@@ -137,6 +168,8 @@ export const handleMissionCommanderCheck = (
 };
 
 // Check if a pilot is eligible to be mission commander based on their qualifications
+// This function is kept for future use when we implement qualification-based mission commander selection
+/* 
 const isEligibleForMissionCommander = (pilot: Pilot): boolean => {
   // Add null check to prevent errors when qualifications is undefined
   if (!pilot.qualifications) {
@@ -147,6 +180,7 @@ const isEligibleForMissionCommander = (pilot: Pilot): boolean => {
     qual.type === 'Flight Lead' || qual.type === 'Strike Lead' || qual.type === 'Instructor Pilot'
   );
 };
+*/
 
 // Get candidates for mission commander from all pilots
 export const getMissionCommanderCandidates = (
@@ -155,7 +189,7 @@ export const getMissionCommanderCandidates = (
   // Filter to get only assigned pilots who are in -1 position
   const candidates: Array<{ boardNumber: string; callsign: string; }> = [];
   
-  Object.entries(assignedPilots).forEach(([flightId, flightPilots]) => {
+  Object.entries(assignedPilots).forEach(([, flightPilots]) => {
     // Ensure the flight array exists and has pilots
     if (!flightPilots || !Array.isArray(flightPilots)) {
       return;
