@@ -4,6 +4,46 @@ import AddSupportRoleDialog from '../dialogs/AddSupportRoleDialog';
 import SupportRoleAssignmentCard from '../flight cards/SupportRoleAssignmentCard';
 import type { Pilot } from '../../../types/PilotTypes';
 import { cleanRoleId } from '../../../utils/dragDropUtils';
+import { SupportRoleType } from '../../../types/SupportRoleTypes';
+
+// Utility function to extract carrier information from roleId or callsign
+const extractCarrierInfo = (roleId: string, callsign: string): { hull?: string; name?: string } => {
+  // Check if the roleId or callsign contains carrier information
+  // Example format: "CVN-72-ABRAHAM-LINCOLN" or "CVN72-ABRAHAM-LINCOLN"
+  
+  // First, normalize callsign and roleId
+  const normalizedCallsign = callsign.toUpperCase();
+  const normalizedRoleId = roleId.toUpperCase();
+  
+  // Try to match carrier pattern in callsign first
+  const callsignMatch = normalizedCallsign.match(/^(CVN-?\d+)[\s-]+(.*?)$/);
+  if (callsignMatch) {
+    return {
+      hull: callsignMatch[1].includes('-') ? callsignMatch[1] : `CVN-${callsignMatch[1].substring(3)}`,
+      name: callsignMatch[2].replace(/-/g, ' ').trim()
+    };
+  }
+  
+  // Try to match in roleId if not found in callsign
+  const roleIdParts = normalizedRoleId.split('-');
+  for (let i = 0; i < roleIdParts.length - 1; i++) {
+    if (roleIdParts[i].startsWith('CVN') && roleIdParts[i].length >= 4) {
+      // Found a potential hull number
+      const hullPart = roleIdParts[i];
+      const hull = hullPart.includes('-') ? hullPart : `CVN-${hullPart.substring(3)}`;
+      // Try to extract name from the following parts
+      if (i + 1 < roleIdParts.length) {
+        const nameParts = roleIdParts.slice(i + 1);
+        const name = nameParts.join(' ').trim();
+        if (name) {
+          return { hull, name };
+        }
+      }
+    }
+  }
+  
+  return {};
+};
 
 interface SupportRole {
   id: string;
@@ -16,6 +56,10 @@ interface SupportRole {
     rollCallStatus?: 'Present' | 'Absent' | 'Tentative';
   }>;
   creationOrder: number;
+  carrier?: {
+    hull?: string;
+    name?: string;
+  };
 }
 
 // Extended Pilot type with additional properties for assignment
@@ -44,11 +88,14 @@ const MissionSupportAssignments: React.FC<MissionSupportAssignmentsProps> = ({
     if (editRoleId) {
       // Update an existing role's callsign
       setSupportRoles(prevRoles => {
-        const updatedRoles = prevRoles.map(role => {
-          if (role.id === editRoleId) {
+        const updatedRoles = prevRoles.map(role => {          if (role.id === editRoleId) {
+            // Preserve carrier info if it exists, or extract from the new callsign
+            const updatedCarrier = role.carrier || extractCarrierInfo(role.id, callsign);
+            
             return {
               ...role,
-              callsign: callsign.toUpperCase()
+              callsign: callsign.toUpperCase(),
+              carrier: updatedCarrier
             };
           }
           return role;
@@ -70,8 +117,7 @@ const MissionSupportAssignments: React.FC<MissionSupportAssignmentsProps> = ({
       // Make sure we don't have duplicated prefixes
       if (newRoleId.startsWith('support-support-')) {
         newRoleId = 'support-' + newRoleId.substring(16);
-      }
-      
+      }      
       const newRole: SupportRole = {
         id: newRoleId,
         callsign: callsign.toUpperCase(),
@@ -81,7 +127,8 @@ const MissionSupportAssignments: React.FC<MissionSupportAssignmentsProps> = ({
           { boardNumber: "", callsign: "", dashNumber: "3" },
           { boardNumber: "", callsign: "", dashNumber: "4" }
         ],
-        creationOrder: creationOrderCounter
+        creationOrder: creationOrderCounter,
+        carrier: extractCarrierInfo(newRoleId, callsign)
       };
   
       // Add the new role and sort by creation order
@@ -185,7 +232,6 @@ const MissionSupportAssignments: React.FC<MissionSupportAssignmentsProps> = ({
               ...pilot,
               dashNumber: pilot.dashNumber || (idx + 1).toString()
             }));
-          
             // Create a new role with these pilots
             const newRole: SupportRole = {
               id: roleId,
@@ -196,7 +242,8 @@ const MissionSupportAssignments: React.FC<MissionSupportAssignmentsProps> = ({
                 { boardNumber: "", callsign: "", dashNumber: "3" },
                 { boardNumber: "", callsign: "", dashNumber: "4" }
               ],
-              creationOrder: creationOrderCounter + updatedRoles.length
+              creationOrder: creationOrderCounter + updatedRoles.length,
+              carrier: extractCarrierInfo(roleId, callsign)
             };
             
             // Place each pilot in their correct dashNumber position
@@ -285,12 +332,12 @@ const MissionSupportAssignments: React.FC<MissionSupportAssignmentsProps> = ({
                 .map(p => `${p.boardNumber}:${p.dashNumber}`)
                 .join('-');
                 
-              return (
-                <SupportRoleAssignmentCard
+              return (                <SupportRoleAssignmentCard
                   key={`${role.id}:${pilotsKey}`}
                   id={role.id}
                   callsign={role.callsign}
                   pilots={role.pilots}
+                  carrier={role.carrier}
                   onDeleteRole={handleDeleteRole}
                   onEditRole={handleEditRole}
                 />

@@ -92,15 +92,14 @@ const AddSupportRoleDialog: React.FC<AddSupportRoleDialogProps> = ({
           setError('Please select a carrier');
           return false;
         }
-        
-        const selectedCarrier = carriers.find(c => c.id === selectedCarrierId);
+          const selectedCarrier = carriers.find(c => c.id === selectedCarrierId);
         if (!selectedCarrier) {
           setError('Selected carrier not found');
           return false;
         }        
         onSave({
           type: SupportRoleType.CARRIER_AIR_OPS,
-          callsign: `${selectedCarrier.name} ${selectedCarrier.hull} "${selectedCarrier.callsign}"`,
+          callsign: `${selectedCarrier.hull} ${selectedCarrier.name}`,
           carrierId: selectedCarrierId,
           positions: DEFAULT_CARRIER_POSITIONS
         });
@@ -275,7 +274,7 @@ const AddSupportRoleDialog: React.FC<AddSupportRoleDialogProps> = ({
               ) : (
                 carriers.map(carrier => (
                   <option key={carrier.id} value={carrier.id}>
-                    USS {carrier.name} {carrier.hull} "{carrier.callsign}"
+                    {carrier.hull} {carrier.name}
                   </option>
                 ))
               )}
