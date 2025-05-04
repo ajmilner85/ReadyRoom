@@ -2,9 +2,9 @@ In Progress:
 - Mission Preparation
 	- Mission support role slots
 		- Mission commander (Done)
-		- Marshall
-		- Tower
-		- LSO
+		- Marshall (Done)
+		- Tower (Done)
+		- LSO (Done)
 		- AWACS
 		- Olympus
 		- GCI
@@ -14,7 +14,7 @@ In Progress:
 
 
 Known Issues
-
+- Pressing the Unassign All button when no pilot is assigned to a slot in a mission support group results in the group being deleted
 
 Next:
 - Misson Preparation	

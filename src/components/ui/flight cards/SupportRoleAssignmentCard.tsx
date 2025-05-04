@@ -28,11 +28,10 @@ const SupportRoleAssignmentCard: React.FC<SupportRoleAssignmentCardProps> = ({
   carrier,
   onDeleteRole,
   onEditRole
-}) => {
-  const [isHovered, setIsHovered] = useState(false);
+}) => {  const [isHovered, setIsHovered] = useState(false);
   
   // Use memoization to prevent unnecessary recalculations and re-renders
-  const { filledPilots, isRoleEmpty } = useMemo(() => {
+  const { filledPilots } = useMemo(() => {
     // Create a stable filled pilots array that doesn't change on each render
     const filled = [...pilots];
     while (filled.length < 4) {
@@ -43,10 +42,7 @@ const SupportRoleAssignmentCard: React.FC<SupportRoleAssignmentCardProps> = ({
       });
     }
     
-    // Check if the role is empty by verifying no pilots have a board number
-    const isEmpty = filled.every(p => !p.boardNumber || p.boardNumber.trim() === "");
-    
-    return { filledPilots: filled, isRoleEmpty: isEmpty };
+    return { filledPilots: filled };
   }, [pilots]);
   
   return (
@@ -111,11 +107,10 @@ const SupportRoleAssignmentCard: React.FC<SupportRoleAssignmentCardProps> = ({
               e.currentTarget.style.background = 'white';
             }}
           >
-            <Edit2 size={14} color="#64748B" />
-          </button>
+            <Edit2 size={14} color="#64748B" />          </button>
           
-          {/* Delete button - only shown for empty roles */}
-          {isRoleEmpty && (
+          {/* Delete button - Only show when explicitly approved by parent component with onDeleteRole */}
+          {onDeleteRole && (
             <button
               onClick={() => onDeleteRole?.(id)}
               style={{
