@@ -524,3 +524,18 @@ export const fetchEventAttendance = async (eventId: string) => {
 
   return { attendance, error: null };
 };
+
+// Carrier data fetching
+export const fetchCarriers = async () => {
+  const { data, error } = await supabase
+    .from('carriers')
+    .select('*')
+    .order('name');
+  
+  if (error) {
+    console.error('Error fetching carriers:', error);
+    return [];
+  }
+  
+  return data || [];
+};
