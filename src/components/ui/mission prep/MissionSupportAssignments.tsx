@@ -1,18 +1,20 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { Card } from '../card';
 import AddSupportRoleDialog from '../dialogs/AddSupportRoleDialog';
-import SupportRoleCard from '../flight cards/SupportRoleCard';
+import SupportRoleAssignmentCard from '../flight cards/SupportRoleAssignmentCard';
 import type { Pilot } from '../../../types/PilotTypes';
+import { cleanRoleId } from '../../../utils/dragDropUtils';
 
 interface SupportRole {
   id: string;
   callsign: string;
-  assignedPilot?: {
+  pilots: Array<{
     boardNumber: string;
     callsign: string;
+    dashNumber: string;
     attendanceStatus?: 'accepted' | 'tentative' | 'declined';
     rollCallStatus?: 'Present' | 'Absent' | 'Tentative';
-  };
+  }>;
   creationOrder: number;
 }
 
@@ -37,7 +39,6 @@ const MissionSupportAssignments: React.FC<MissionSupportAssignmentsProps> = ({
   const [editRoleId, setEditRoleId] = useState<string | null>(null);
   const [initialEditCallsign, setInitialEditCallsign] = useState("");
   const [creationOrderCounter, setCreationOrderCounter] = useState(0);
-
   // Function to handle adding a new support role
   const handleAddSupportRole = useCallback(({ callsign }: { callsign: string }) => {
     if (editRoleId) {
@@ -56,16 +57,30 @@ const MissionSupportAssignments: React.FC<MissionSupportAssignmentsProps> = ({
         // Re-sort roles by creation order
         return updatedRoles.sort((a, b) => a.creationOrder - b.creationOrder);
       });
-      
-      // Reset edit state
+        // Reset edit state
       setEditRoleId(null);
       setInitialEditCallsign("");
-    } else {
-      // Add a new support role
+    } else {// Add a new support role with a clean ID
+      // The ID should be support-{callsign}-{timestamp}
+      // This makes it easier to identify the role by its callsign
+      const cleanCallsign = callsign.toLowerCase().replace(/[^a-z0-9]/g, '');
+      const timestamp = Date.now().toString();
+      let newRoleId = `support-${cleanCallsign}-${timestamp}`;
+      
+      // Make sure we don't have duplicated prefixes
+      if (newRoleId.startsWith('support-support-')) {
+        newRoleId = 'support-' + newRoleId.substring(16);
+      }
+      
       const newRole: SupportRole = {
-        id: `support-${Date.now().toString()}`,
+        id: newRoleId,
         callsign: callsign.toUpperCase(),
-        assignedPilot: undefined,
+        pilots: [
+          { boardNumber: "", callsign: "", dashNumber: "1" },
+          { boardNumber: "", callsign: "", dashNumber: "2" },
+          { boardNumber: "", callsign: "", dashNumber: "3" },
+          { boardNumber: "", callsign: "", dashNumber: "4" }
+        ],
         creationOrder: creationOrderCounter
       };
   
@@ -100,10 +115,125 @@ const MissionSupportAssignments: React.FC<MissionSupportAssignmentsProps> = ({
     setInitialEditCallsign(callsign);
     setShowAddDialog(true);
   }, []);
-  
-  // Get unique existing callsigns for the dialog suggestions
+    // Get unique existing callsigns for the dialog suggestions
   const existingCallsigns = supportRoles.map(role => role.callsign);
-  return (    <div style={{ 
+  // Convert assignedPilots to supportRoles format if needed
+  useEffect(() => {
+    if (!assignedPilots) return;
+      // Update support roles with assigned pilots
+    setSupportRoles(prevRoles => {
+      const updatedRoles = [...prevRoles];
+      const updatedRolesMap = new Map<string, SupportRole>();
+      
+      // First, collect all existing roles in a map for easy lookup
+      updatedRoles.forEach(role => {
+        updatedRolesMap.set(role.id, role);
+      });
+      
+      // Update each role with its pilots from assignedPilots
+      for (const [roleId, rolePilots] of Object.entries(assignedPilots)) {
+        if (roleId.startsWith('support-')) {
+          const role = updatedRolesMap.get(roleId);
+          
+          if (role) {
+            // Sort by dashNumber to ensure consistent order 
+            const sortedPilots = [...rolePilots]
+              .filter(p => p.boardNumber && p.boardNumber.trim() !== "") // Only include pilots with board numbers
+              .sort((a, b) => {
+                const aNum = parseInt(a.dashNumber) || 999;
+                const bNum = parseInt(b.dashNumber) || 999;
+                return aNum - bNum;
+              });
+            
+            // Create a new array with empty slots for unused positions
+            const newPilots = [
+              { boardNumber: "", callsign: "", dashNumber: "1" },
+              { boardNumber: "", callsign: "", dashNumber: "2" },
+              { boardNumber: "", callsign: "", dashNumber: "3" },
+              { boardNumber: "", callsign: "", dashNumber: "4" }
+            ];
+            
+            // Place each pilot in their correct dashNumber position
+            sortedPilots.forEach(pilot => {
+              const posIndex = parseInt(pilot.dashNumber) - 1;
+              if (posIndex >= 0 && posIndex < 4) {
+                newPilots[posIndex] = pilot;
+              }
+            });
+                // Update the role with new pilots
+            role.pilots = newPilots;
+          } else {
+            // This is a support role in assignedPilots that doesn't exist in our state
+            // Create a new role
+            const cleanedRoleId = cleanRoleId(roleId);
+            
+            // Extract a meaningful callsign
+            let callsign = 'SUPPORT';
+            const parts = cleanedRoleId.substring(8).split('-');
+            if (parts.length > 0 && parts[0]) {
+              callsign = parts[0].toUpperCase();
+            }
+            
+            // Sort pilots by dashNumber for consistent display
+            const sortedPilots = [...rolePilots].sort((a, b) => {
+              const aNum = parseInt(a.dashNumber) || 999;
+              const bNum = parseInt(b.dashNumber) || 999;
+              return aNum - bNum;
+            });
+                // Make sure each pilot has a correct dashNumber
+            const validatedPilots = sortedPilots.map((pilot, idx) => ({
+              ...pilot,
+              dashNumber: pilot.dashNumber || (idx + 1).toString()
+            }));
+          
+            // Create a new role with these pilots
+            const newRole: SupportRole = {
+              id: roleId,
+              callsign: callsign,
+              pilots: [
+                { boardNumber: "", callsign: "", dashNumber: "1" },
+                { boardNumber: "", callsign: "", dashNumber: "2" },
+                { boardNumber: "", callsign: "", dashNumber: "3" },
+                { boardNumber: "", callsign: "", dashNumber: "4" }
+              ],
+              creationOrder: creationOrderCounter + updatedRoles.length
+            };
+            
+            // Place each pilot in their correct dashNumber position
+            validatedPilots.forEach(pilot => {
+              const posIndex = parseInt(pilot.dashNumber) - 1;
+              if (posIndex >= 0 && posIndex < 4) {
+                newRole.pilots[posIndex] = pilot;
+              }
+            });
+            
+            // Add the new role to our map and array
+            updatedRolesMap.set(roleId, newRole);
+            updatedRoles.push(newRole);
+          }
+        }
+      }
+      
+      // Find roles that exist in supportRoles but no longer exist in assignedPilots
+      // These need to have their pilots cleared (but we keep the role for now)
+      updatedRoles.forEach(role => {
+        if (role.id.startsWith('support-') && !assignedPilots[role.id]) {
+          // Clear all pilots from this role
+          role.pilots = [
+            { boardNumber: "", callsign: "", dashNumber: "1" },
+            { boardNumber: "", callsign: "", dashNumber: "2" },
+            { boardNumber: "", callsign: "", dashNumber: "3" },
+            { boardNumber: "", callsign: "", dashNumber: "4" }
+          ];
+        }
+      });
+      
+      // Return the updated roles sorted by creation order
+      return updatedRoles.sort((a, b) => a.creationOrder - b.creationOrder);
+    });
+  }, [assignedPilots, creationOrderCounter]);  // Debug logging to track support role updates has been removed to prevent infinite update loops
+
+  return (<div style={{ 
       width, 
       position: 'relative',
       padding: '10px',
@@ -148,18 +278,24 @@ const MissionSupportAssignments: React.FC<MissionSupportAssignmentsProps> = ({
         </div>        <div className="flex-1" style={{ 
           overflowY: 'auto',
           flexGrow: 1 // Ensure it takes available space
-        }}>
-          <div className="space-y-4">
-            {supportRoles.map(role => (
-              <SupportRoleCard
-                key={role.id}
-                id={role.id}
-                callsign={role.callsign}
-                assignedPilot={role.assignedPilot}
-                onDeleteRole={handleDeleteRole}
-                onEditRole={handleEditRole}
-              />
-            ))}
+        }}>          <div className="space-y-4">            {supportRoles.map(role => {
+              // Generate a stable key that correctly reflects current state
+              const pilotsKey = role.pilots
+                .filter(p => p.boardNumber?.trim())
+                .map(p => `${p.boardNumber}:${p.dashNumber}`)
+                .join('-');
+                
+              return (
+                <SupportRoleAssignmentCard
+                  key={`${role.id}:${pilotsKey}`}
+                  id={role.id}
+                  callsign={role.callsign}
+                  pilots={role.pilots}
+                  onDeleteRole={handleDeleteRole}
+                  onEditRole={handleEditRole}
+                />
+              );
+            })}
           </div>
         </div>
         <div style={{

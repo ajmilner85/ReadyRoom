@@ -5,6 +5,8 @@ import { styles } from '../../../styles/commsStyles';
 import { 
   isValidFrequency, 
   isValidTACAN, 
+  isValidILS,
+  isValidKYFill,
   hasFrequencyConflict 
 } from '../../../utils/commsUtils';
 import { 
@@ -82,6 +84,18 @@ const Communications: React.FC<CommunicationsProps> = ({
       const numValue = parseFloat(value);
       if (!isNaN(numValue) && isValidFrequency(value)) {
         processedValue = numValue.toFixed(3);
+      }
+    } else if (field === 'ils' && value !== '——') {
+      // Make sure ILS is an integer between 1-20
+      const ilsNum = parseInt(value, 10);
+      if (!isNaN(ilsNum) && isValidILS(value)) {
+        processedValue = ilsNum.toString();
+      }
+    } else if (field === 'kyFill' && value !== '——') {
+      // Make sure KY Fill is an integer between 1-6
+      const kyFillNum = parseInt(value, 10);
+      if (!isNaN(kyFillNum) && isValidKYFill(value)) {
+        processedValue = kyFillNum.toString();
       }
     }
 
@@ -225,10 +239,12 @@ const Communications: React.FC<CommunicationsProps> = ({
   const renderCommsPlanTable = () => (
     <table className="w-full" style={{ tableLayout: 'auto' }}>
       <colgroup>
-        <col style={{ width: '80px' }} />
+        <col style={{ width: '50px' }} />
         <col />
-        <col style={{ width: '120px' }} />
-        <col style={{ width: '100px' }} />
+        <col style={{ width: '80px' }} />
+        <col style={{ width: '70px' }} />
+        <col style={{ width: '45px' }} />
+        <col style={{ width: '75px' }} />
       </colgroup>
       <thead>
         <tr>
@@ -236,6 +252,8 @@ const Communications: React.FC<CommunicationsProps> = ({
           <th style={{ ...styles.tableHeader, textAlign: 'left' }}>Name</th>
           <th style={{ ...styles.tableHeader, textAlign: 'left' }}>Freq</th>
           <th style={{ ...styles.tableHeader, textAlign: 'center' }}>TACAN</th>
+          <th style={{ ...styles.tableHeader, textAlign: 'center' }}>ILS</th>
+          <th style={{ ...styles.tableHeader, textAlign: 'center' }}>KY Fill</th>
         </tr>
       </thead>
       <tbody>
@@ -304,6 +322,44 @@ const Communications: React.FC<CommunicationsProps> = ({
               ) : (
                 <span style={row.tacan === '——' ? styles.tableCellPlaceholder : undefined}>
                   {row.tacan}
+                </span>
+              )}
+            </td>
+            <td style={{
+              ...styles.tableCell,
+              textAlign: 'center',
+              color: isEditing && !isValidILS(row.ils) ? '#DC2626' : 
+                     row.ils === '——' ? '#94A3B8' : 'inherit'
+            }}>
+              {isEditing ? (
+                <input
+                  type="text"
+                  value={row.ils === '——' ? '' : row.ils}
+                  onChange={(e) => handleCellEdit(index, 'ils', e.target.value)}
+                  style={{...styles.tableInput, textAlign: 'center'}}
+                />
+              ) : (
+                <span style={row.ils === '——' ? styles.tableCellPlaceholder : undefined}>
+                  {row.ils}
+                </span>
+              )}
+            </td>
+            <td style={{
+              ...styles.tableCell,
+              textAlign: 'center',
+              color: isEditing && !isValidKYFill(row.kyFill) ? '#DC2626' : 
+                     row.kyFill === '——' ? '#94A3B8' : 'inherit'
+            }}>
+              {isEditing ? (
+                <input
+                  type="text"
+                  value={row.kyFill === '——' ? '' : row.kyFill}
+                  onChange={(e) => handleCellEdit(index, 'kyFill', e.target.value)}
+                  style={{...styles.tableInput, textAlign: 'center'}}
+                />
+              ) : (
+                <span style={row.kyFill === '——' ? styles.tableCellPlaceholder : undefined}>
+                  {row.kyFill}
                 </span>
               )}
             </td>
