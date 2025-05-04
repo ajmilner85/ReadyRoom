@@ -2,7 +2,6 @@ import React, { useState, memo, useMemo } from 'react';
 import { useDroppable } from '@dnd-kit/core';
 import AircraftTile from './AircraftTile';
 import { Edit2, Trash2 } from 'lucide-react';
-import type { Pilot } from '../../../types/PilotTypes';
 
 interface SupportRoleAssignmentCardProps {
   id: string;
@@ -14,6 +13,10 @@ interface SupportRoleAssignmentCardProps {
     attendanceStatus?: 'accepted' | 'tentative' | 'declined';
     rollCallStatus?: 'Present' | 'Absent' | 'Tentative';
   }>;
+  carrier?: {
+    hull?: string;  // Hull number (e.g., "CVN-72")
+    name?: string;  // Carrier name (e.g., "Abraham Lincoln")
+  };
   onDeleteRole?: (id: string) => void;
   onEditRole?: (id: string, callsign: string) => void;
 }
@@ -22,6 +25,7 @@ const SupportRoleAssignmentCard: React.FC<SupportRoleAssignmentCardProps> = ({
   id,
   callsign,
   pilots,
+  carrier,
   onDeleteRole,
   onEditRole
 }) => {
@@ -43,7 +47,9 @@ const SupportRoleAssignmentCard: React.FC<SupportRoleAssignmentCardProps> = ({
     const isEmpty = filled.every(p => !p.boardNumber || p.boardNumber.trim() === "");
     
     return { filledPilots: filled, isRoleEmpty: isEmpty };
-  }, [pilots]);  return (
+  }, [pilots]);
+  
+  return (
     <div
       style={{
         position: 'relative',
@@ -59,10 +65,13 @@ const SupportRoleAssignmentCard: React.FC<SupportRoleAssignmentCardProps> = ({
         transition: 'all 0.2s ease-in-out',
         display: 'flex',
         flexDirection: 'column',
-        marginBottom: '10px' // Add consistent spacing between cards
-      }}onMouseEnter={() => setIsHovered(true)}
+        marginBottom: '10px', // Add consistent spacing between cards
+        minHeight: '174px' // Set minimum height for the card
+      }}
+      onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
-    >      {/* Hover controls (edit and delete) */}
+    >
+      {/* Hover controls (edit and delete) */}
       {isHovered && (
         <div
           style={{
@@ -103,7 +112,9 @@ const SupportRoleAssignmentCard: React.FC<SupportRoleAssignmentCardProps> = ({
             }}
           >
             <Edit2 size={14} color="#64748B" />
-          </button>          {/* Delete button - only shown for empty roles */}
+          </button>
+          
+          {/* Delete button - only shown for empty roles */}
           {isRoleEmpty && (
             <button
               onClick={() => onDeleteRole?.(id)}
@@ -121,7 +132,8 @@ const SupportRoleAssignmentCard: React.FC<SupportRoleAssignmentCardProps> = ({
                 color: '#64748B',
                 width: '24px',
                 height: '24px'
-              }}              title="Delete support role"
+              }}
+              title="Delete support role"
               onMouseEnter={(e) => {
                 e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.15)';
                 e.currentTarget.style.background = '#F8FAFC';
@@ -141,40 +153,57 @@ const SupportRoleAssignmentCard: React.FC<SupportRoleAssignmentCardProps> = ({
       <div style={{
         display: 'flex',
         justifyContent: 'center',
-        alignItems: 'flex-start',
+        alignItems: 'center',
         position: 'relative',
-        height: '137px', // Fixed height for tile container
-        marginBottom: '0' // No margin needed
-      }}>      {/* Map all four position slots evenly */}
-        {filledPilots.map((pilot, index) => (
-          <DroppableAircraftTile
-            key={`${id}-position-${index+1}`}
-            pilot={pilot}
-            roleId={id}
-            dashNumber={(index+1).toString()}
-            roleName={callsign}
-            verticalOffset={index * 10} // Staggered vertical layout
-          />
-        ))}
-      </div>
-
-      {/* Role name at the bottom of the card */}
+        height: '102px', // Adjusted to match required tile height
+        marginBottom: '10px', // Add some margin to separate from role name
+        gap: '15px' // Consistent gap between tiles
+      }}>
+        {/* Map all four position slots evenly */}
+        {filledPilots.map((pilot, index) => {
+          // Get dash number
+          const dashNumber = (index + 1).toString();
+          
+          // Determine position name based on index
+          let positionName = "UNKNOWN";
+          switch (index) {
+            case 0: positionName = "AIR BOSS"; break;
+            case 1: positionName = "MINI BOSS"; break;
+            case 2: positionName = "MARSHALL"; break;
+            case 3: positionName = "PADDLES"; break;
+          }
+          
+          return (
+            <DroppableAircraftTile
+              key={`${id}-position-${dashNumber}`}
+              pilot={pilot}
+              roleId={id}
+              dashNumber={dashNumber}
+              roleName={positionName} // Use the specific position name here
+            />
+          );
+        })}
+      </div>      {/* Role name at the bottom of the card */}
       <div style={{
         display: 'flex',
         justifyContent: 'center',
         alignItems: 'center',
         width: '100%',
-        height: '22px', // Just enough for the text
-        marginBottom: '0' // No bottom margin
+        height: '28px', // Increased height for potential two-line display
+        marginBottom: '5px', // Add some bottom margin
+        marginTop: 'auto' // Push to bottom of available space
       }}>
         <div style={{
-          fontSize: '18px',
+          fontSize: '16px',
           fontWeight: 600,
           color: '#1E1E1E',
           textAlign: 'center',
-          lineHeight: '22px' // Add line height to control text block height
-        }}>
-          {callsign}
+          lineHeight: '18px', // Adjusted for potential multi-line
+          overflow: 'hidden',
+          textOverflow: 'ellipsis'        }}>
+          {carrier && carrier.hull && carrier.name ? 
+            `${carrier.hull} ${carrier.name}` : 
+            callsign}
         </div>
       </div>
     </div>
@@ -193,17 +222,15 @@ interface DroppableAircraftTileProps {
   roleId: string;
   dashNumber: string;
   roleName: string;
-  verticalOffset?: number;
 }
 
 // Component for droppable aircraft tiles
-const DroppableAircraftTile: React.FC<DroppableAircraftTileProps> = ({
+const DroppableAircraftTile = React.memo(({
   pilot,
   roleId,
   dashNumber,
-  roleName,
-  verticalOffset = 0
-}) => {
+  roleName
+}: DroppableAircraftTileProps) => {
   // Improved empty check using useMemo to prevent recalculations
   const { isEmpty, dropId } = React.useMemo(() => {
     const pilotBoardNumber = pilot?.boardNumber?.trim() || '';
@@ -223,13 +250,14 @@ const DroppableAircraftTile: React.FC<DroppableAircraftTileProps> = ({
       currentPilot: !isEmpty ? pilot : undefined
     }
   });
-
+  
   return (
     <div 
       ref={setNodeRef} 
       style={{ 
-        position: 'relative', 
-        marginRight: parseInt(dashNumber) !== 4 ? '15px' : '0',
+        position: 'relative',
+        width: '92px',
+        height: '102px',
         zIndex: isOver ? 10 : 1
       }}
       data-drop-id={dropId}
@@ -238,7 +266,8 @@ const DroppableAircraftTile: React.FC<DroppableAircraftTileProps> = ({
       data-pilot-callsign={pilot.callsign || ''}
       data-dash-number={dashNumber}
       data-is-empty={isEmpty ? 'true' : 'false'}
-    >      <AircraftTile
+    >
+      <AircraftTile
         boardNumber={isEmpty ? "" : pilot.boardNumber}
         callsign={isEmpty ? "" : pilot.callsign}
         dashNumber={dashNumber}
@@ -246,9 +275,9 @@ const DroppableAircraftTile: React.FC<DroppableAircraftTileProps> = ({
         rollCallStatus={isEmpty ? undefined : pilot.rollCallStatus}
         flightId={roleId}
         flightNumber=""
-        flightCallsign={roleName}
+        flightCallsign={roleName} // Use the position name passed from parent
         isEmpty={isEmpty}
-        verticalOffset={verticalOffset}
+        iconType="personnel"
       />
       {isOver && (
         <div style={{
@@ -264,7 +293,7 @@ const DroppableAircraftTile: React.FC<DroppableAircraftTileProps> = ({
       )}
     </div>
   );
-};
+});
 
 DroppableAircraftTile.displayName = 'DroppableSupportRoleTile';
 
