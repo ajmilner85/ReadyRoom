@@ -1,5 +1,6 @@
 export enum SupportRoleType {
   CARRIER_AIR_OPS = 'Carrier Air Ops',
+  COMMAND_CONTROL = 'Command & Control',
   GCI = 'GCI', // Ground Control Intercept
   AWACS = 'AWACS', // Airborne Warning and Control System
   TANKER_CONTROL = 'Tanker Control',
@@ -35,4 +36,10 @@ export const DEFAULT_CARRIER_POSITIONS = [
   { name: 'MINI BOSS', id: 'miniboss' },
   { name: 'MARSHALL', id: 'marshall' },
   { name: 'PADDLES', id: 'paddles' }
+];
+
+// Default positions for command & control
+export const DEFAULT_COMMAND_CONTROL_POSITIONS = [
+  { name: 'AWACS', id: 'awacs' },
+  { name: 'OLYMPUS', id: 'olympus' }
 ];
