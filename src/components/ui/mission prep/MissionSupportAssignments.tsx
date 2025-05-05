@@ -32,6 +32,11 @@ interface SupportRole {
     name?: string;
     carrierId?: string; 
   };
+  slots?: Array<{
+    type: string;
+    name: string;
+    id: string;
+  }>;
 }
 
 // Extended Pilot type with additional properties for assignment
@@ -84,54 +89,126 @@ const MissionSupportAssignments: React.FC<MissionSupportAssignmentsProps> = ({
     console.log("[CARRIER_MAP] Memoized carrierMap updated. Size:", map.size, "Keys:", Array.from(map.keys())); // Log map update
     return map;
   }, [allCarriers]); // Depends only on allCarriers
-
   // Function to handle adding or updating a support role
   const handleAddOrUpdateSupportRole = useCallback((data: AddSupportRoleDialogData) => {
-    const { hull, name, carrierId } = data;
-    const displayCallsign = `${hull} ${name}`.toUpperCase();
+    if (data.type === SupportRoleType.CARRIER_AIR_OPS) {
+      const { hull, name, carrierId } = data;
+      const displayCallsign = `${hull} ${name}`.toUpperCase();
 
-    if (editRoleId) {
-      // Update an existing role
-      setSupportRoles(prevRoles => {
-        const updatedRoles = prevRoles.map(role => {
-          if (role.id === editRoleId) {
-            return {
-              ...role,
-              callsign: displayCallsign,
-              carrier: { hull, name, carrierId } // Update carrier info
-            };
-          }
-          return role;
+      if (editRoleId) {
+        // Update an existing role
+        setSupportRoles(prevRoles => {
+          const updatedRoles = prevRoles.map(role => {
+            if (role.id === editRoleId) {
+              return {
+                ...role,
+                callsign: displayCallsign,
+                carrier: { hull, name, carrierId } // Update carrier info
+              };
+            }
+            return role;
+          });
+          return updatedRoles.sort((a, b) => a.creationOrder - b.creationOrder);
         });
-        return updatedRoles.sort((a, b) => a.creationOrder - b.creationOrder);
-      });
-      setEditRoleId(null);
-    } else {
-      // Add a new support role
-      const timestamp = Date.now().toString();
-      const newRoleId = `support-carrier-${carrierId}-${timestamp}`;
+        setEditRoleId(null);
+      } else {
+        // Add a new support role
+        const timestamp = Date.now().toString();
+        const newRoleId = `support-carrier-${carrierId}-${timestamp}`;
 
-      const newRole: SupportRole = {
-        id: newRoleId,
-        callsign: displayCallsign,
-        pilots: [
-          { boardNumber: "", callsign: "", dashNumber: "1" },
-          { boardNumber: "", callsign: "", dashNumber: "2" },
-          { boardNumber: "", callsign: "", dashNumber: "3" },
-          { boardNumber: "", callsign: "", dashNumber: "4" }
-        ],
-        creationOrder: creationOrderCounter,
-        carrier: { hull, name, carrierId }
-      };
+        const newRole: SupportRole = {
+          id: newRoleId,
+          callsign: displayCallsign,
+          pilots: [
+            { boardNumber: "", callsign: "", dashNumber: "1" },
+            { boardNumber: "", callsign: "", dashNumber: "2" },
+            { boardNumber: "", callsign: "", dashNumber: "3" },
+            { boardNumber: "", callsign: "", dashNumber: "4" }
+          ],
+          creationOrder: creationOrderCounter,
+          carrier: { hull, name, carrierId }
+        };
 
-      setSupportRoles(prev => {
-        const updatedRoles = [...prev, newRole];
-        return updatedRoles.sort((a, b) => a.creationOrder - b.creationOrder);
-      });
+        setSupportRoles(prev => {
+          const updatedRoles = [...prev, newRole];
+          return updatedRoles.sort((a, b) => a.creationOrder - b.creationOrder);
+        });
+      }
+    } else if (data.type === SupportRoleType.COMMAND_CONTROL) {
+      const { callsign, slots } = data;
+      
+      if (editRoleId) {
+        // Update an existing Command & Control role
+        setSupportRoles(prevRoles => {
+          const updatedRoles = prevRoles.map(role => {
+            if (role.id === editRoleId) {
+              // Get the existing role's pilots to determine if we need to resize
+              const existingPilots = role.pilots || [];
+              const newSlots = slots || [];
+              
+              // Create a new pilots array matching the slots length
+              // This ensures the number of pilots matches exactly the number of slots
+              let updatedPilots = [...existingPilots];
+              
+              // Resize pilots array if needed
+              if (newSlots.length !== existingPilots.length) {
+                if (newSlots.length > existingPilots.length) {
+                  // Add empty slots if needed
+                  while (updatedPilots.length < newSlots.length) {
+                    updatedPilots.push({
+                      boardNumber: "",
+                      callsign: "",
+                      dashNumber: (updatedPilots.length + 1).toString()
+                    });
+                  }
+                } else {
+                  // Truncate if reducing slots
+                  updatedPilots = updatedPilots.slice(0, newSlots.length);
+                }
+              }
+              
+              return {
+                ...role,
+                callsign: callsign || 'COMMAND & CONTROL',
+                pilots: updatedPilots,
+                slots: newSlots // Now safe to store slots
+              };
+            }
+            return role;
+          });
+          return updatedRoles.sort((a, b) => a.creationOrder - b.creationOrder);
+        });
+        setEditRoleId(null);
+      } else {
+        // Add a new Command & Control role
+        const timestamp = Date.now().toString();
+        const newRoleId = `support-command-control-${timestamp}`;
 
-      setCreationOrderCounter(counter => counter + 1);
+        // Create pilots array based on number of slots - exactly matching slots
+        const newSlots = slots || [];
+        const pilotCount = newSlots.length || 1; // Ensure at least one slot
+        const pilots = Array(pilotCount).fill(0).map((_, i) => ({ 
+          boardNumber: "", 
+          callsign: "", 
+          dashNumber: (i + 1).toString() 
+        }));
+
+        const newRole: SupportRole = {
+          id: newRoleId,
+          callsign: callsign || 'COMMAND & CONTROL',
+          pilots: pilots,
+          slots: newSlots, // Store the slots
+          creationOrder: creationOrderCounter
+        };
+
+        setSupportRoles(prev => {
+          const updatedRoles = [...prev, newRole];
+          return updatedRoles.sort((a, b) => a.creationOrder - b.creationOrder);
+        });
+      }
     }
 
+    setCreationOrderCounter(counter => counter + 1);
     setShowAddDialog(false);
   }, [creationOrderCounter, editRoleId]);
 
@@ -145,11 +222,10 @@ const MissionSupportAssignments: React.FC<MissionSupportAssignmentsProps> = ({
   const handleDeleteRole = useCallback((id: string) => {
     setSupportRoles(prevRoles => prevRoles.filter(role => role.id !== id));
   }, []);
-
   // Handle initiating the edit of a support role
   const handleEditRole = useCallback((id: string) => {
     setEditRoleId(id);
-    // We don't need to pass the callsign anymore
+    // Set appropriate dialog title based on role type
     setShowAddDialog(true);
   }, []);
 
@@ -166,15 +242,33 @@ const MissionSupportAssignments: React.FC<MissionSupportAssignmentsProps> = ({
        // When "Unassign All" is clicked, don't clear the support roles - just empty their pilots
        setSupportRoles(prev => {
          if (prev.length > 0) {
-           return prev.map(role => ({
-             ...role,
-             pilots: [
-               { boardNumber: "", callsign: "", dashNumber: "1" },
-               { boardNumber: "", callsign: "", dashNumber: "2" },
-               { boardNumber: "", callsign: "", dashNumber: "3" },
-               { boardNumber: "", callsign: "", dashNumber: "4" }
-             ]
-           }));
+           return prev.map(role => {
+             const isCommandControl = role.id.includes('command-control');
+             
+             if (isCommandControl) {
+               // Use the role's slots length if available, otherwise default to a reasonable length
+               const slotsLength = role.slots?.length || 1;
+               return {
+                 ...role,
+                 pilots: Array(slotsLength).fill(0).map((_, i) => ({
+                   boardNumber: "",
+                   callsign: "",
+                   dashNumber: (i + 1).toString()
+                 }))
+               };
+             } else {
+               // Standard 4 slots for Carrier Air Ops
+               return {
+                 ...role,
+                 pilots: [
+                   { boardNumber: "", callsign: "", dashNumber: "1" },
+                   { boardNumber: "", callsign: "", dashNumber: "2" },
+                   { boardNumber: "", callsign: "", dashNumber: "3" },
+                   { boardNumber: "", callsign: "", dashNumber: "4" }
+                 ]
+               };
+             }
+           });
          }
          return prev;
        });
@@ -198,9 +292,7 @@ const MissionSupportAssignments: React.FC<MissionSupportAssignmentsProps> = ({
 
         const updatedRoles: SupportRole[] = [];
       const processedRoleIds = new Set<string>(); 
-      let maxOrder = -1; 
-
-      // Process roles from assignedPilots
+      let maxOrder = -1;      // Process roles from assignedPilots
       for (const [roleId, rolePilots] of Object.entries(assignedPilots)) {
         if (!roleId.startsWith('support-')) continue; 
 
@@ -210,8 +302,9 @@ const MissionSupportAssignments: React.FC<MissionSupportAssignmentsProps> = ({
         if (existingRole) {
           // Update existing role - Ensure carrier info is preserved or updated if needed
           targetRole = { ...existingRole }; 
+          
           // If existing role somehow lacks carrier info but should have it, try reconstructing
-          if (!targetRole.carrier?.carrierId && targetRole.id.startsWith('support-carrier-')) {
+          if (roleId.startsWith('support-carrier-') && !targetRole.carrier?.carrierId) {
              const idPart = cleanRoleId(targetRole.id).substring(16);
              const lastHyphenIndex = idPart.lastIndexOf('-');
              if (lastHyphenIndex > 0 && lastHyphenIndex === 36 && idPart.length > 37) {
@@ -262,6 +355,9 @@ const MissionSupportAssignments: React.FC<MissionSupportAssignmentsProps> = ({
                const potentialId = idPart.split('-')[0]; 
                carrierInfo = { carrierId: potentialId }; 
             }
+          } else if (cleanedRoleId.startsWith('support-command-control-')) {
+            // Handle Command & Control roles
+            callsign = 'COMMAND & CONTROL';
           } else {
             // Handle legacy formats (best effort, might need adjustment)
             const parts = cleanedRoleId.substring(8).split('-');
@@ -280,15 +376,19 @@ const MissionSupportAssignments: React.FC<MissionSupportAssignmentsProps> = ({
             }
           }
           
+          // Create the appropriate pilots array based on role type
+          const pilotSlots = cleanedRoleId.startsWith('support-command-control-') ? 2 : 4;
+
+          const defaultPilots = Array(pilotSlots).fill(0).map((_, i) => ({ 
+            boardNumber: "", 
+            callsign: "", 
+            dashNumber: (i + 1).toString() 
+          }));
+          
           targetRole = {
             id: roleId,
             callsign: callsign,
-            pilots: [
-              { boardNumber: "", callsign: "", dashNumber: "1" },
-              { boardNumber: "", callsign: "", dashNumber: "2" },
-              { boardNumber: "", callsign: "", dashNumber: "3" },
-              { boardNumber: "", callsign: "", dashNumber: "4" }
-            ],
+            pilots: defaultPilots,
             creationOrder: creationOrder,
             carrier: carrierInfo
           };
@@ -301,24 +401,36 @@ const MissionSupportAssignments: React.FC<MissionSupportAssignmentsProps> = ({
             const aNum = parseInt(a.dashNumber) || 999;
             const bNum = parseInt(b.dashNumber) || 999;
             return aNum - bNum;
-          });
+          });       // Ensure type matches
+        const isCommandControl = roleId.includes('command-control');
+        let newPilots;
 
-        const newPilots: SupportRole['pilots'] = [ // Ensure type matches
-          { boardNumber: "", callsign: "", dashNumber: "1" },
-          { boardNumber: "", callsign: "", dashNumber: "2" },
-          { boardNumber: "", callsign: "", dashNumber: "3" },
-          { boardNumber: "", callsign: "", dashNumber: "4" }
-        ];
+        if (isCommandControl) {
+          // For Command & Control, use the exact number of slots from the role's configuration
+          // or default to 1 if no slots are defined
+          const numSlots = targetRole.slots?.length || 1;
+          newPilots = Array(numSlots).fill(0).map((_, i) => ({
+            boardNumber: "",
+            callsign: "",
+            dashNumber: (i + 1).toString()
+          }));
+        } else {
+          // For Carrier Air Ops, always use 4 slots
+          newPilots = [
+            { boardNumber: "", callsign: "", dashNumber: "1" },
+            { boardNumber: "", callsign: "", dashNumber: "2" },
+            { boardNumber: "", callsign: "", dashNumber: "3" },
+            { boardNumber: "", callsign: "", dashNumber: "4" }
+          ];
+        }
 
         sortedPilots.forEach(pilot => {
           const posIndex = parseInt(pilot.dashNumber) - 1;
-          if (posIndex >= 0 && posIndex < 4) {
+          if (posIndex >= 0 && posIndex < newPilots.length) {
             newPilots[posIndex] = {
               boardNumber: pilot.boardNumber || "",
               callsign: pilot.callsign || "",
-              dashNumber: pilot.dashNumber || (posIndex + 1).toString(),
-              attendanceStatus: pilot.attendanceStatus,
-              rollCallStatus: pilot.rollCallStatus
+              dashNumber: pilot.dashNumber || (posIndex + 1).toString()
             };
           }
         });
@@ -415,9 +527,10 @@ const MissionSupportAssignments: React.FC<MissionSupportAssignmentsProps> = ({
                   <SupportRoleAssignmentCard
                     key={`${role.id}:${pilotsKey}`}
                     id={role.id}
-                    callsign={role.callsign} // Should now be correct
+                    callsign={role.callsign}
                     pilots={role.pilots}
                     carrier={role.carrier}
+                    slots={role.slots}
                     onDeleteRole={handleDeleteRole}
                     onEditRole={handleEditRole}
                   />
@@ -480,12 +593,15 @@ const MissionSupportAssignments: React.FC<MissionSupportAssignmentsProps> = ({
             backgroundColor: 'rgba(0, 0, 0, 0.5)',
             zIndex: 1000
           }} onClick={handleCancelAddRole} />
-          
-          {/* Dialog - Props updated */} 
+            {/* Dialog - Set title based on whether editing and role type */}
           <AddSupportRoleDialog
-            onSave={handleAddOrUpdateSupportRole} // Use the combined handler
+            onSave={handleAddOrUpdateSupportRole}
             onCancel={handleCancelAddRole}
-            title={editRoleId ? "Edit Carrier Air Ops Role" : "Add Carrier Air Ops Role"}
+            title={editRoleId 
+              ? (editRoleId.includes('command-control') 
+                 ? "Edit Command & Control Role" 
+                 : "Edit Carrier Air Ops Role")
+              : "Add Support Role"}
           />
         </>      )}
     </div>

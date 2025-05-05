@@ -1,11 +1,19 @@
 import { SupportRoleType } from './SupportRoleTypes';
 
-export interface AddSupportRoleDialogData {
-  type: SupportRoleType.CARRIER_AIR_OPS; // Only support Carrier Air Ops for now
-  hull: string;
+export interface CommandControlSlot {
+  type: 'AWACS' | 'OLYMPUS' | 'GCI' | 'JTAC';
   name: string;
-  carrierId: string;
-  // Removed 'callsign' and 'positions' as they are derived or fixed
+  id: string;
+}
+
+export interface AddSupportRoleDialogData {
+  type: SupportRoleType;
+  hull?: string;
+  name?: string;
+  carrierId?: string;
+  callsign?: string;
+  slots?: CommandControlSlot[];
+  // Removed 'positions' as they are derived or fixed
 }
 
 // ... other dialog types ...
