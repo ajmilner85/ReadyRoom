@@ -336,24 +336,22 @@ export const useDragDrop = ({
             dashNumber,
             existingAtPosition: existingPilotAtPosition,
             updatedPilotsAtRole: updatedPilots[roleIdPart] || []
-          });
-          
-          // Initialize the support role array if it doesn't exist
-          if (!updatedPilots[roleIdPart]) {
-            updatedPilots[roleIdPart] = [];
-          }
-          
-          // Remove any existing pilot at this dashNumber (if exists)
-          if (existingPilotAtPosition) {
-            // Remove the existing pilot from this position
-            updatedPilots[roleIdPart] = updatedPilots[roleIdPart].filter(p => p.dashNumber !== dashNumber);
-          }
-            // Add the pilot to the role with the correct dashNumber
-          updatedPilots[roleIdPart].push({
-            ...pilot,
-            dashNumber, // Use the dashNumber from the target position
-            attendanceStatus: pilot.attendanceStatus
-          });
+          });            // Initialize the support role array if it doesn't exist
+            if (!updatedPilots[roleIdPart]) {
+              updatedPilots[roleIdPart] = [];
+            }
+            
+            // Remove any existing pilot at this dashNumber (if exists)
+            if (existingPilotAtPosition) {
+              // Remove the existing pilot from this position
+              updatedPilots[roleIdPart] = updatedPilots[roleIdPart].filter(p => p.dashNumber !== dashNumber);
+            }
+              // Add the pilot to the role with the correct dashNumber
+            updatedPilots[roleIdPart].push({
+              ...pilot,
+              dashNumber, // Use the dashNumber from the target position
+              attendanceStatus: pilot.attendanceStatus
+            });
           
           // Sort the pilots by dashNumber for consistency
           updatedPilots[roleIdPart].sort((a, b) => {

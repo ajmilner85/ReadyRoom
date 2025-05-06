@@ -57,10 +57,10 @@ export const removePilotFromAllFlights = (
   
   // Check all flights for this pilot
   Object.keys(updated).forEach(flightId => {
-    const isCommandControl = flightId.includes('command-control');
+    const isSupportRole = flightId.startsWith('support-');
     
-    if (isCommandControl) {
-      // For Command & Control roles, we want to keep empty slots rather than removing them
+    if (isSupportRole) {
+      // For all support roles (Command Control or Carrier Air Ops), we want to keep empty slots rather than removing them
       // Replace the pilot with an empty one at the same position
       updated[flightId] = updated[flightId].map(p => {
         // Make sure we're comparing strings properly
@@ -78,7 +78,7 @@ export const removePilotFromAllFlights = (
         return p;
       });
     } else {
-      // For other roles, filter out the pilot
+      // For regular flights, filter out the pilot
       updated[flightId] = updated[flightId].filter(p => {
         // Make sure we're comparing strings properly
         const pilotBoardNumber = p.boardNumber?.trim() || '';
