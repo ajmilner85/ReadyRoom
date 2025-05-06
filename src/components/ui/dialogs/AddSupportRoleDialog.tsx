@@ -214,8 +214,7 @@ const AddSupportRoleDialog: React.FC<AddSupportRoleDialogProps> = ({
             fontFamily: 'Inter',
             fontSize: '18px',
             fontWeight: 500,
-            marginBottom: '16px',
-            color: '#1E293B'
+            marginBottom: '16px',            color: '#1E293B'
           }}>
             {title}
           </h2>

@@ -7,36 +7,13 @@ import { cleanRoleId } from '../../../utils/dragDropUtils';
 import { SupportRoleType } from '../../../types/SupportRoleTypes';
 import { AddSupportRoleDialogData } from '../../../types/DialogTypes';
 import { fetchCarriers } from '../../../utils/supabaseClient'; 
+import { SupportRole, saveSupportRoles, loadSupportRoles, ensureSupportRolesInAssignedPilots } from '../../../utils/supportRoleUtils';
 
 // Interface for fetched carrier data
 interface CarrierData {
   id: string;
   name: string;
   hull: string;
-}
-
-interface SupportRole {
-  id: string;
-  callsign: string; 
-  pilots: Array<{
-    boardNumber: string;
-    callsign: string;
-    dashNumber: string;
-    // Added missing optional properties
-    attendanceStatus?: 'accepted' | 'tentative' | 'declined';
-    rollCallStatus?: 'Present' | 'Absent' | 'Tentative';
-  }>;
-  creationOrder: number;
-  carrier?: {
-    hull?: string;
-    name?: string;
-    carrierId?: string; 
-  };
-  slots?: Array<{
-    type: string;
-    name: string;
-    id: string;
-  }>;
 }
 
 // Extended Pilot type with additional properties for assignment
@@ -49,18 +26,53 @@ interface AssignedPilot extends Pilot {
 interface MissionSupportAssignmentsProps {
   width: string;
   assignedPilots?: Record<string, AssignedPilot[]> | null;
+  setAssignedPilots?: (value: React.SetStateAction<Record<string, AssignedPilot[]>>) => void;
 }
 
 const MissionSupportAssignments: React.FC<MissionSupportAssignmentsProps> = ({ 
   width,
-  assignedPilots = {}
+  assignedPilots = {},
+  setAssignedPilots
 }) => {
-  const [supportRoles, setSupportRoles] = useState<SupportRole[]>([]);
-  const [showAddDialog, setShowAddDialog] = useState(false);
+  const [supportRoles, setSupportRoles] = useState<SupportRole[]>([]);  const [showAddDialog, setShowAddDialog] = useState(false);
   const [editRoleId, setEditRoleId] = useState<string | null>(null);
   const [creationOrderCounter, setCreationOrderCounter] = useState(0);
   const [allCarriers, setAllCarriers] = useState<CarrierData[]>([]); 
   const [carriersLoading, setCarriersLoading] = useState(true); 
+
+  // Initialize supportRoles from local storage
+  useEffect(() => {
+    const savedRoles = loadSupportRoles();
+    if (savedRoles && savedRoles.length > 0) {
+      setSupportRoles(savedRoles);
+      // Update the counter to be greater than the maximum order
+      const maxOrder = Math.max(...savedRoles.map(r => r.creationOrder), -1);
+      setCreationOrderCounter(maxOrder + 1);
+      console.log("[SUPPORT_ROLES] Loaded saved support roles:", savedRoles.length);
+    }
+  }, []); 
+  // Save supportRoles to local storage whenever they change
+  useEffect(() => {
+    if (supportRoles.length > 0) {
+      saveSupportRoles(supportRoles);
+      console.log("[SUPPORT_ROLES] Saved support roles:", supportRoles.length);
+    }
+  }, [supportRoles]);  // Whenever supportRoles change and assignedPilots exists, ensure empty support roles are preserved
+  useEffect(() => {
+    // Skip if no support roles or assigned pilots is external and can't be modified
+    if (supportRoles.length === 0 || !assignedPilots || !setAssignedPilots) return;
+    
+    // Use our utility to ensure empty support roles are preserved in assignedPilots
+    const assignedPilotsWithRoles = ensureSupportRolesInAssignedPilots(supportRoles, assignedPilots);
+
+    // If there were changes, update the parent component's state
+    if (Object.keys(assignedPilotsWithRoles).length !== Object.keys(assignedPilots).length) {
+      setAssignedPilots((prev) => {
+        return { ...prev, ...assignedPilotsWithRoles };
+      });
+      console.log("[SUPPORT_ROLES] Updated assignedPilots to preserve support roles");
+    }
+  }, [supportRoles, assignedPilots, setAssignedPilots]);
 
   // Fetch all carriers on component mount
   useEffect(() => {
@@ -217,10 +229,13 @@ const MissionSupportAssignments: React.FC<MissionSupportAssignmentsProps> = ({
     setShowAddDialog(false);
     setEditRoleId(null);
   }, []);
-
   // Handle deleting a support role
   const handleDeleteRole = useCallback((id: string) => {
-    setSupportRoles(prevRoles => prevRoles.filter(role => role.id !== id));
+    setSupportRoles(prevRoles => {
+      const updatedRoles = prevRoles.filter(role => role.id !== id);
+      console.log(`[SUPPORT_ROLES] Deleted role ${id}, remaining roles: ${updatedRoles.length}`);
+      return updatedRoles;
+    });
   }, []);
   // Handle initiating the edit of a support role
   const handleEditRole = useCallback((id: string) => {
@@ -231,68 +246,54 @@ const MissionSupportAssignments: React.FC<MissionSupportAssignmentsProps> = ({
 
 
   // Convert assignedPilots to supportRoles format, using fetched carrier data
-  useEffect(() => {
-    // Explicitly wait for carriers to finish loading AND map to have entries if carriers exist
+  useEffect(() => {    // Explicitly wait for carriers to finish loading AND map to have entries if carriers exist
     if (carriersLoading || (allCarriers.length > 0 && carrierMap.size === 0)) {
       console.log(`[SYNC_EFFECT] Skipping sync: carriersLoading=${carriersLoading}, allCarriers.length=${allCarriers.length}, carrierMap.size=${carrierMap.size}`);
       return; 
-    }    // Also wait if assignedPilots is empty
+    }
+    
+    // If assignedPilots is empty, just clear the pilots in existing support roles without removing the roles
     if (!assignedPilots || Object.keys(assignedPilots).length === 0) {
-       console.log("[SYNC_EFFECT] Skipping sync: assignedPilots is empty or null.");
-       // When "Unassign All" is clicked, don't clear the support roles - just empty their pilots
-       setSupportRoles(prev => {
-         if (prev.length > 0) {
-           return prev.map(role => {
-             const isCommandControl = role.id.includes('command-control');
-             
-             if (isCommandControl) {
-               // Use the role's slots length if available, otherwise default to a reasonable length
-               const slotsLength = role.slots?.length || 1;
-               return {
-                 ...role,
-                 pilots: Array(slotsLength).fill(0).map((_, i) => ({
-                   boardNumber: "",
-                   callsign: "",
-                   dashNumber: (i + 1).toString()
-                 }))
-               };
-             } else {
-               // Standard 4 slots for Carrier Air Ops
-               return {
-                 ...role,
-                 pilots: [
-                   { boardNumber: "", callsign: "", dashNumber: "1" },
-                   { boardNumber: "", callsign: "", dashNumber: "2" },
-                   { boardNumber: "", callsign: "", dashNumber: "3" },
-                   { boardNumber: "", callsign: "", dashNumber: "4" }
-                 ]
-               };
-             }
-           });
-         }
-         return prev;
-       });
-       return;
-    }console.log("[SYNC_EFFECT] Running sync. Current carrierMap keys:", Array.from(carrierMap.keys())); 
-
-      setSupportRoles(prevRoles => {
-        // If there are no assigned pilots but we have existing support roles,
-        // we should return the existing roles with empty pilot slots instead of building new ones
-        if (Object.keys(assignedPilots).length === 0 && prevRoles.length > 0) {
-          return prevRoles.map(role => ({
-            ...role,
-            pilots: [
-              { boardNumber: "", callsign: "", dashNumber: "1" },
-              { boardNumber: "", callsign: "", dashNumber: "2" },
-              { boardNumber: "", callsign: "", dashNumber: "3" },
-              { boardNumber: "", callsign: "", dashNumber: "4" }
-            ]
-          }));
+      console.log("[SYNC_EFFECT] assignedPilots is empty - preserving support roles with empty pilots");
+      setSupportRoles(prev => {
+        if (prev.length > 0) {
+          return prev.map(role => {
+            const isCommandControl = role.id.includes('command-control');
+            
+            if (isCommandControl) {
+              // Use the role's slots length if available, otherwise default to a reasonable length
+              const slotsLength = role.slots?.length || 1;
+              return {
+                ...role,
+                pilots: Array(slotsLength).fill(0).map((_, i) => ({
+                  boardNumber: "",
+                  callsign: "",
+                  dashNumber: (i + 1).toString()
+                }))
+              };
+            } else {
+              // Standard 4 slots for Carrier Air Ops
+              return {
+                ...role,
+                pilots: [
+                  { boardNumber: "", callsign: "", dashNumber: "1" },
+                  { boardNumber: "", callsign: "", dashNumber: "2" },
+                  { boardNumber: "", callsign: "", dashNumber: "3" },
+                  { boardNumber: "", callsign: "", dashNumber: "4" }
+                ]
+              };
+            }
+          });
         }
-
+        return prev;
+      });
+      return;
+    }
+    
+    console.log("[SYNC_EFFECT] Running sync. Current carrierMap keys:", Array.from(carrierMap.keys()));      setSupportRoles(prevRoles => {
         const updatedRoles: SupportRole[] = [];
-      const processedRoleIds = new Set<string>(); 
-      let maxOrder = -1;      // Process roles from assignedPilots
+        const processedRoleIds = new Set<string>(); 
+        let maxOrder = -1;// Process roles from assignedPilots
       for (const [roleId, rolePilots] of Object.entries(assignedPilots)) {
         if (!roleId.startsWith('support-')) continue; 
 
@@ -439,20 +440,28 @@ const MissionSupportAssignments: React.FC<MissionSupportAssignmentsProps> = ({
 
         updatedRoles.push(targetRole);
         processedRoleIds.add(roleId); 
-      }
-
-      // Add back roles from previous state not in assignedPilots (e.g., newly added, not saved yet)
+      }      // Add back roles from previous state not in assignedPilots (e.g., newly added, not saved yet)
       prevRoles.forEach(role => {
         if (!processedRoleIds.has(role.id)) {
            const roleToKeep = { ...role };
-           roleToKeep.pilots = [
-             { boardNumber: "", callsign: "", dashNumber: "1" },
-             { boardNumber: "", callsign: "", dashNumber: "2" },
-             { boardNumber: "", callsign: "", dashNumber: "3" },
-             { boardNumber: "", callsign: "", dashNumber: "4" }
-           ];
-          updatedRoles.push(roleToKeep);
-          maxOrder = Math.max(maxOrder, roleToKeep.creationOrder); 
+           // Keep the empty pilots structure but ensure it's never null or undefined
+           if (role.id.includes('command-control')) {
+             const slotsLength = role.slots?.length || 1;
+             roleToKeep.pilots = Array(slotsLength).fill(0).map((_, i) => ({
+               boardNumber: "",
+               callsign: "",
+               dashNumber: (i + 1).toString()
+             }));
+           } else {
+             roleToKeep.pilots = [
+               { boardNumber: "", callsign: "", dashNumber: "1" },
+               { boardNumber: "", callsign: "", dashNumber: "2" },
+               { boardNumber: "", callsign: "", dashNumber: "3" },
+               { boardNumber: "", callsign: "", dashNumber: "4" }
+             ];
+           }
+           updatedRoles.push(roleToKeep);
+           maxOrder = Math.max(maxOrder, roleToKeep.creationOrder); 
         }
       });
 

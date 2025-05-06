@@ -378,7 +378,9 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
                 <MissionSupportAssignments
                   width={CARD_WIDTH}
                   assignedPilots={assignedPilots}
-                />                <Communications 
+                  setAssignedPilots={setAssignedPilots}
+                />
+                <Communications 
                   width={CARD_WIDTH} 
                   assignedPilots={assignedPilots}
                   onTransferToMission={onTransferToMission}
