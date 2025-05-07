@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { supabase, fetchEvents } from '../utils/supabaseClient';
 import { getAllPilots } from '../utils/pilotService';
 import { getPilotQualifications } from '../utils/qualificationService';
-import { fetchPilotsWithAdapter } from '../components/ui/mission-prep-pilot-adapter';
+import { adaptSupabasePilots } from '../utils/pilotDataUtils';
 import { loadSelectedEvent, saveSelectedEvent } from '../utils/localStorageUtils';
 import type { Event } from '../types/EventTypes';
 import type { Pilot } from '../types/PilotTypes';
@@ -123,16 +123,21 @@ export const useMissionPrepData = () => {
       console.error('Error fetching all pilot qualifications:', err);
     }
   };
-
   // Fetch pilots from Supabase when component mounts
   const fetchPilots = async () => {
     setIsLoading(true);
     try {
-      // Use our adapter utility to handle the fetching and conversion in one step
-      // This isolates the Supabase-specific logic and type handling
-      const legacyPilots = await fetchPilotsWithAdapter(getAllPilots);
+      // Fetch data directly and adapt to legacy format
+      const { data, error } = await getAllPilots();
       
-      if (legacyPilots.length > 0) {
+      if (error) {
+        throw new Error(error.message);
+      }
+      
+      if (data && data.length > 0) {
+        // Adapt the data to legacy format
+        const legacyPilots = adaptSupabasePilots(data);
+        
         // Set pilots state to the adapted legacy format
         setPilots(legacyPilots);
         

@@ -57,16 +57,38 @@ export const removePilotFromAllFlights = (
   
   // Check all flights for this pilot
   Object.keys(updated).forEach(flightId => {
-    // Remove this pilot from the flight
-    updated[flightId] = updated[flightId].filter(p => {
-      // Make sure we're comparing strings properly
-      const pilotBoardNumber = p.boardNumber?.trim() || '';
-      return pilotBoardNumber !== boardNumber;
-    });
+    const isSupportRole = flightId.startsWith('support-');
     
-    // If flight is now empty, remove it
-    if (updated[flightId].length === 0) {
-      delete updated[flightId];
+    if (isSupportRole) {
+      // For all support roles (Command Control or Carrier Air Ops), we want to keep empty slots rather than removing them
+      // Replace the pilot with an empty one at the same position
+      updated[flightId] = updated[flightId].map(p => {
+        // Make sure we're comparing strings properly
+        const pilotBoardNumber = p.boardNumber?.trim() || '';
+        if (pilotBoardNumber === boardNumber) {
+          // Return an empty pilot with the same dash number
+          // Make sure we maintain the AssignedPilot type
+          const emptyPilot: AssignedPilot = {
+            ...p, // Keep all original properties
+            boardNumber: "", // Empty board number
+            callsign: "",    // Empty callsign
+          };
+          return emptyPilot;
+        }
+        return p;
+      });
+    } else {
+      // For regular flights, filter out the pilot
+      updated[flightId] = updated[flightId].filter(p => {
+        // Make sure we're comparing strings properly
+        const pilotBoardNumber = p.boardNumber?.trim() || '';
+        return pilotBoardNumber !== boardNumber;
+      });
+      
+      // If flight is now empty, remove it
+      if (updated[flightId].length === 0) {
+        delete updated[flightId];
+      }
     }
   });
   

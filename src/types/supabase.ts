@@ -9,6 +9,36 @@ export type Json =
 export interface Database {
   public: {
     Tables: {
+      carriers: {
+        Row: {
+          callsign: string
+          created_at: string | null
+          hull: string
+          id: string
+          name: string
+          tacan_channel: string
+          tacan_identifier: string
+        }
+        Insert: {
+          callsign: string
+          created_at?: string | null
+          hull: string
+          id?: string
+          name: string
+          tacan_channel: string
+          tacan_identifier: string
+        }
+        Update: {
+          callsign?: string
+          created_at?: string | null
+          hull?: string
+          id?: string
+          name?: string
+          tacan_channel?: string
+          tacan_identifier?: string
+        }
+        Relationships: []
+      }
       pilots: {
         Row: {
           id: string

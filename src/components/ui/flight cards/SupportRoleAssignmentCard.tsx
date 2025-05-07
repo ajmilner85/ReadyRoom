@@ -2,7 +2,6 @@ import React, { useState, memo, useMemo } from 'react';
 import { useDroppable } from '@dnd-kit/core';
 import AircraftTile from './AircraftTile';
 import { Edit2, Trash2 } from 'lucide-react';
-import type { Pilot } from '../../../types/PilotTypes';
 
 interface SupportRoleAssignmentCardProps {
   id: string;
@@ -14,6 +13,15 @@ interface SupportRoleAssignmentCardProps {
     attendanceStatus?: 'accepted' | 'tentative' | 'declined';
     rollCallStatus?: 'Present' | 'Absent' | 'Tentative';
   }>;
+  carrier?: {
+    hull?: string;  // Hull number (e.g., "CVN-72")
+    name?: string;  // Carrier name (e.g., "Abraham Lincoln")
+  };
+  slots?: Array<{
+    type: string;
+    name: string;
+    id: string;
+  }>;
   onDeleteRole?: (id: string) => void;
   onEditRole?: (id: string, callsign: string) => void;
 }
@@ -22,28 +30,86 @@ const SupportRoleAssignmentCard: React.FC<SupportRoleAssignmentCardProps> = ({
   id,
   callsign,
   pilots,
+  carrier,
+  slots,
   onDeleteRole,
   onEditRole
-}) => {
-  const [isHovered, setIsHovered] = useState(false);
-  
-  // Use memoization to prevent unnecessary recalculations and re-renders
-  const { filledPilots, isRoleEmpty } = useMemo(() => {
+}) => {  const [isHovered, setIsHovered] = useState(false);
+    // Use memoization to prevent unnecessary recalculations and re-renders
+  const { filledPilots, isCommandControl, slotNames, hasAssignedPilots } = useMemo(() => {
+    // Determine if this is a Command & Control role
+    const isCommandControl = id.includes('command-control');
+    
     // Create a stable filled pilots array that doesn't change on each render
     const filled = [...pilots];
-    while (filled.length < 4) {
-      filled.push({
-        boardNumber: "",
-        callsign: "",
-        dashNumber: (filled.length + 1).toString()
-      });
+    
+    // Check if any pilots are assigned (non-empty)
+    const hasAssignedPilots = filled.some(p => p.boardNumber?.trim());
+    
+    // Don't add empty slots - use exactly what was provided
+    // This fixes issues #2 and #3 where empty slots were appearing
+    
+    // For Command & Control, check if we have slots configuration
+    // and make sure the pilots array matches that length
+    if (isCommandControl) {
+      // If slots are defined, use their length
+      if (slots && slots.length > 0) {
+        // For Command & Control with defined slots:
+        // 1. Keep the original pilots array if it has pilots
+        // 2. Only create a new pilots array if the slots length doesn't match
+        if (filled.length !== slots.length) {
+          // If lengths don't match, create a new one with the correct length
+          console.log(`Command & Control card ${id}: Resizing pilots array from ${filled.length} to ${slots.length} based on slots`);
+          return {
+            filledPilots: Array(slots.length).fill(0).map((_, i) => {
+              // Try to keep existing pilots if possible
+              if (i < filled.length && filled[i].boardNumber?.trim()) {
+                return filled[i];
+              }
+              return {
+                boardNumber: "",
+                callsign: "", 
+                dashNumber: (i + 1).toString()
+              };
+            }),
+            isCommandControl,
+            slotNames: slots.map(slot => slot.name),
+            hasAssignedPilots
+          };
+        }
+      } else {
+        // No slots defined, but we're a Command & Control role
+        // Use the pilots length as is - don't artificially expand it
+        console.log(`Command & Control card ${id}: No slots defined, using existing pilots length: ${filled.length}`);
+      }
     }
     
-    // Check if the role is empty by verifying no pilots have a board number
-    const isEmpty = filled.every(p => !p.boardNumber || p.boardNumber.trim() === "");
+    // Create slot names array based on the role type
+    let slotNames: string[] = [];
     
-    return { filledPilots: filled, isRoleEmpty: isEmpty };
-  }, [pilots]);  return (
+    if (isCommandControl) {
+      // For Command & Control roles
+      if (slots && slots.length > 0) {
+        // Use slot names provided in the slots array
+        slotNames = slots.map(slot => slot.name);
+        console.log(`Using custom slot names for role ${id}:`, slotNames);
+      } else {
+        // Default names based on position
+        const defaultTypes = ['AWACS', 'OLYMPUS', 'GCI', 'JTAC'];
+        slotNames = filled.map((_, index) => {
+          return defaultTypes[index % defaultTypes.length];
+        });
+        console.log(`Using default slot names for role ${id}:`, slotNames);
+      }
+    } else {
+      // Default carrier position names
+      slotNames = ['AIR BOSS', 'MINI BOSS', 'MARSHALL', 'PADDLES'];
+    }
+    
+    return { filledPilots: filled, isCommandControl, slotNames, hasAssignedPilots };
+  }, [pilots, id, slots]);
+  
+  return (
     <div
       style={{
         position: 'relative',
@@ -59,10 +125,13 @@ const SupportRoleAssignmentCard: React.FC<SupportRoleAssignmentCardProps> = ({
         transition: 'all 0.2s ease-in-out',
         display: 'flex',
         flexDirection: 'column',
-        marginBottom: '10px' // Add consistent spacing between cards
-      }}onMouseEnter={() => setIsHovered(true)}
+        marginBottom: '10px', // Add consistent spacing between cards
+        minHeight: '174px' // Set minimum height for the card
+      }}
+      onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
-    >      {/* Hover controls (edit and delete) */}
+    >
+      {/* Hover controls (edit and delete) */}
       {isHovered && (
         <div
           style={{
@@ -102,36 +171,43 @@ const SupportRoleAssignmentCard: React.FC<SupportRoleAssignmentCardProps> = ({
               e.currentTarget.style.background = 'white';
             }}
           >
-            <Edit2 size={14} color="#64748B" />
-          </button>          {/* Delete button - only shown for empty roles */}
-          {isRoleEmpty && (
+            <Edit2 size={14} color="#64748B" />          </button>
+          
+          {/* Delete button - Only show when explicitly approved by parent component with onDeleteRole */}
+          {onDeleteRole && (
             <button
-              onClick={() => onDeleteRole?.(id)}
+              onClick={() => !hasAssignedPilots && onDeleteRole?.(id)}
               style={{
                 padding: '4px',
                 borderRadius: '4px',
-                cursor: 'pointer',
-                background: 'white',
-                boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                cursor: hasAssignedPilots ? 'not-allowed' : 'pointer',
+                background: hasAssignedPilots ? '#F1F5F9' : 'white',
+                boxShadow: hasAssignedPilots ? 'none' : '0 2px 4px rgba(0,0,0,0.1)',
                 border: 'none',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 transition: 'all 0.1s ease',
-                color: '#64748B',
+                color: hasAssignedPilots ? '#CBD5E1' : '#64748B',
                 width: '24px',
                 height: '24px'
-              }}              title="Delete support role"
+              }}
+              title={hasAssignedPilots ? "Remove all pilots first" : "Delete support role"}
               onMouseEnter={(e) => {
-                e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.15)';
-                e.currentTarget.style.background = '#F8FAFC';
+                if (!hasAssignedPilots) {
+                  e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.15)';
+                  e.currentTarget.style.background = '#F8FAFC';
+                }
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
-                e.currentTarget.style.background = 'white';
+                if (!hasAssignedPilots) {
+                  e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
+                  e.currentTarget.style.background = 'white';
+                }
               }}
+              disabled={hasAssignedPilots}
             >
-              <Trash2 size={14} color="#64748B" />
+              <Trash2 size={14} color={hasAssignedPilots ? "#CBD5E1" : "#64748B"} />
             </button>
           )}
         </div>
@@ -141,40 +217,51 @@ const SupportRoleAssignmentCard: React.FC<SupportRoleAssignmentCardProps> = ({
       <div style={{
         display: 'flex',
         justifyContent: 'center',
-        alignItems: 'flex-start',
+        alignItems: 'center',
         position: 'relative',
-        height: '137px', // Fixed height for tile container
-        marginBottom: '0' // No margin needed
-      }}>      {/* Map all four position slots evenly */}
-        {filledPilots.map((pilot, index) => (
-          <DroppableAircraftTile
-            key={`${id}-position-${index+1}`}
-            pilot={pilot}
-            roleId={id}
-            dashNumber={(index+1).toString()}
-            roleName={callsign}
-            verticalOffset={index * 10} // Staggered vertical layout
-          />
-        ))}
-      </div>
-
-      {/* Role name at the bottom of the card */}
+        height: '102px', // Adjusted to match required tile height
+        marginBottom: '10px', // Add some margin to separate from role name
+        gap: '15px' // Consistent gap between tiles
+      }}>
+        {/* Map all position slots evenly */}
+        {filledPilots.map((pilot, index) => {
+          // Get dash number
+          const dashNumber = (index + 1).toString();
+          
+          // Use the slot name from our memoized array
+          const positionName = slotNames[index] || "UNKNOWN";
+          
+          return (
+            <DroppableAircraftTile
+              key={`${id}-position-${dashNumber}`}
+              pilot={pilot}
+              roleId={id}
+              dashNumber={dashNumber}
+              roleName={positionName} // Use the specific position name here
+            />
+          );
+        })}
+      </div>      {/* Role name at the bottom of the card */}
       <div style={{
         display: 'flex',
         justifyContent: 'center',
         alignItems: 'center',
         width: '100%',
-        height: '22px', // Just enough for the text
-        marginBottom: '0' // No bottom margin
+        height: '28px', // Increased height for potential two-line display
+        marginBottom: '5px', // Add some bottom margin
+        marginTop: 'auto' // Push to bottom of available space
       }}>
         <div style={{
-          fontSize: '18px',
+          fontSize: '16px',
           fontWeight: 600,
           color: '#1E1E1E',
           textAlign: 'center',
-          lineHeight: '22px' // Add line height to control text block height
-        }}>
-          {callsign}
+          lineHeight: '18px', // Adjusted for potential multi-line
+          overflow: 'hidden',
+          textOverflow: 'ellipsis'        }}>
+          {carrier && carrier.hull && carrier.name ? 
+            `${carrier.hull} ${carrier.name}` : 
+            callsign}
         </div>
       </div>
     </div>
@@ -193,17 +280,15 @@ interface DroppableAircraftTileProps {
   roleId: string;
   dashNumber: string;
   roleName: string;
-  verticalOffset?: number;
 }
 
 // Component for droppable aircraft tiles
-const DroppableAircraftTile: React.FC<DroppableAircraftTileProps> = ({
+const DroppableAircraftTile = React.memo(({
   pilot,
   roleId,
   dashNumber,
-  roleName,
-  verticalOffset = 0
-}) => {
+  roleName
+}: DroppableAircraftTileProps) => {
   // Improved empty check using useMemo to prevent recalculations
   const { isEmpty, dropId } = React.useMemo(() => {
     const pilotBoardNumber = pilot?.boardNumber?.trim() || '';
@@ -223,13 +308,14 @@ const DroppableAircraftTile: React.FC<DroppableAircraftTileProps> = ({
       currentPilot: !isEmpty ? pilot : undefined
     }
   });
-
+  
   return (
     <div 
       ref={setNodeRef} 
       style={{ 
-        position: 'relative', 
-        marginRight: parseInt(dashNumber) !== 4 ? '15px' : '0',
+        position: 'relative',
+        width: '92px',
+        height: '102px',
         zIndex: isOver ? 10 : 1
       }}
       data-drop-id={dropId}
@@ -238,7 +324,8 @@ const DroppableAircraftTile: React.FC<DroppableAircraftTileProps> = ({
       data-pilot-callsign={pilot.callsign || ''}
       data-dash-number={dashNumber}
       data-is-empty={isEmpty ? 'true' : 'false'}
-    >      <AircraftTile
+    >
+      <AircraftTile
         boardNumber={isEmpty ? "" : pilot.boardNumber}
         callsign={isEmpty ? "" : pilot.callsign}
         dashNumber={dashNumber}
@@ -246,9 +333,9 @@ const DroppableAircraftTile: React.FC<DroppableAircraftTileProps> = ({
         rollCallStatus={isEmpty ? undefined : pilot.rollCallStatus}
         flightId={roleId}
         flightNumber=""
-        flightCallsign={roleName}
+        flightCallsign={roleName} // Use the position name passed from parent
         isEmpty={isEmpty}
-        verticalOffset={verticalOffset}
+        iconType="personnel"
       />
       {isOver && (
         <div style={{
@@ -264,7 +351,7 @@ const DroppableAircraftTile: React.FC<DroppableAircraftTileProps> = ({
       )}
     </div>
   );
-};
+});
 
 DroppableAircraftTile.displayName = 'DroppableSupportRoleTile';
 
