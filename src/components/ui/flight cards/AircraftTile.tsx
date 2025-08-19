@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import aircraftIcon from '../../../assets/Aircraft Icon.svg';
+import flightDeckPersonnelIcon from '../../../assets/Flight Deck Personnel Icon.png';
 import { useDraggable } from '@dnd-kit/core';
 
 interface AircraftTileProps {
@@ -18,6 +19,7 @@ interface AircraftTileProps {
   isMissionCommander?: boolean; // Add prop for mission commander status
   attendanceStatus?: 'accepted' | 'tentative' | 'declined'; // Discord attendance status - ADDED 'declined'
   rollCallStatus?: 'Present' | 'Absent' | 'Tentative'; // Roll call attendance status
+  iconType?: 'aircraft' | 'personnel'; // Add prop to specify icon type
 }
 
 const AircraftTile: React.FC<AircraftTileProps> = ({
@@ -35,7 +37,8 @@ const AircraftTile: React.FC<AircraftTileProps> = ({
   flightId,
   isMissionCommander = false,
   attendanceStatus,
-  rollCallStatus
+  rollCallStatus,
+  iconType = 'aircraft'
 }) => {
   // Track local drag state
   const [localDragging, setLocalDragging] = useState(false);
@@ -155,10 +158,14 @@ const AircraftTile: React.FC<AircraftTileProps> = ({
           color: TEXT_GRAY, // Changed color to match spec
           marginBottom: '8px', // Restored from 6px back to 8px
           width: '100%'
-        }}
-      >
-        {/* Only include callsign for flight lead (1-1) */}
-        {isFlightLead ? `${flightCallsign} ${flightNumber}-${dashNumber}` : `${flightNumber}-${dashNumber}`}
+        }}      >
+        {/* Display logic based on iconType */}
+        {iconType === 'personnel' 
+          ? flightCallsign // For personnel, show the position name (AIR BOSS, MINI BOSS, etc.)
+          : isFlightLead 
+            ? `${flightCallsign} ${flightNumber}-${dashNumber}` // For flight lead aircraft
+            : `${flightNumber}-${dashNumber}` // For other aircraft
+        }
       </div>
 
       {/* Main tile background with shadow wrapper */}
@@ -244,20 +251,18 @@ const AircraftTile: React.FC<AircraftTileProps> = ({
               position: 'relative', // Added for absolute positioning of children
               marginTop: '-5px' // Pull everything up slightly
             }}
-          >
-            {/* Aircraft icon - faded when empty */}
-            <img
-              src={aircraftIcon}
-              alt="Aircraft"
+          >            {/* Aircraft/Personnel icon - faded when empty */}            <img
+              src={iconType === 'personnel' ? flightDeckPersonnelIcon : aircraftIcon}
+              alt={iconType === 'personnel' ? "Flight Deck Personnel" : "Aircraft"}
               style={{
                 width: '34px',
-                height: '46px',
+                height: iconType === 'personnel' ? '34px' : '46px', // Make personnel icon square
                 filter: isEmpty 
                   ? 'drop-shadow(0px 4px 4px rgba(0, 0, 0, 0.1)) opacity(0.5)' 
                   : 'drop-shadow(0px 4px 4px rgba(0, 0, 0, 0.1))',
                 opacity: isEmpty ? 0.5 : 1,
                 marginTop: '6px', // Increased from 5px to shift down by 1px
-                marginBottom: '2px'
+                marginBottom: iconType === 'personnel' ? '8px' : '2px' // Add more bottom margin for personnel icon
               }}
             />
 

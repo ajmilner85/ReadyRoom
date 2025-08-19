@@ -10,7 +10,8 @@ const STORAGE_KEYS = {
   MISSION_COMMANDER: 'prifly-mission-commander',
   EXTRACTED_FLIGHTS: 'prifly-extracted-flights',
   PREP_FLIGHTS: 'prifly-prep-flights',
-  SELECTED_EVENT: 'prifly-selected-event'
+  SELECTED_EVENT: 'prifly-selected-event',
+  SUPPORT_ROLES: 'prifly-support-roles'
 };
 
 /**
