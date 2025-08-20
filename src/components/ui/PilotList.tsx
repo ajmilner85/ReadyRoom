@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import QualificationBadge from './QualificationBadge';
-import type { Pilot, QualificationType, SupabasePilot } from '../../types/PilotTypes';
+import type { Pilot, QualificationType } from '../../types/PilotTypes';
 
 interface PilotListProps {
   pilots: Pilot[];
@@ -22,7 +22,7 @@ const PilotList: React.FC<PilotListProps> = ({ pilots }) => {
     pilots.forEach(pilot => {
       console.log(
         `Pilot ${pilot.callsign} (${pilot.boardNumber}) - ` +
-        `Role: "${pilot.role || 'No role'}", ` + 
+        `Role: "${pilot.roles?.[0]?.role?.name || 'No role'}", ` + 
         `Billet: "${pilot.billet || 'No billet'}"`
       );
     });
@@ -132,7 +132,7 @@ const PilotList: React.FC<PilotListProps> = ({ pilots }) => {
                   color: '#646F7E'
                 }}>
                   {/* Display role information instead of billet */}
-                  {pilot.role || ''}
+                  {pilot.roles?.[0]?.role?.name || ''}
                 </span>
                 
                 {/* Qualification badges */}

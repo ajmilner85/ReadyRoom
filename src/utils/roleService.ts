@@ -192,24 +192,28 @@ export async function updateRole(id: string, updates: Partial<Omit<Role, 'id' | 
  */
 export async function deleteRole(id: string): Promise<{ success: boolean; error: any }> {
   try {
-    // First check if any pilots are using this role as their primary role
+    // Check if any pilots are currently assigned this role in pilot_roles table
     const { data: pilotsWithRole, error: checkError } = await supabase
-      .from('pilots')
-      .select('id, callsign')
-      .eq('primary_role_id', id);
+      .from('pilot_roles')
+      .select(`
+        pilot_id,
+        pilots:pilot_id (id, callsign)
+      `)
+      .eq('role_id', id)
+      .is('end_date', null); // Only check active role assignments
     
     if (checkError) {
       return { success: false, error: checkError };
     }
     
-    // If pilots are using this role as primary role, prevent deletion
+    // If pilots are using this role, prevent deletion
     // Add null check before accessing pilotsWithRole.length
     if (pilotsWithRole && pilotsWithRole.length > 0) {
-      const pilotNames = pilotsWithRole.map(p => p.callsign).join(', ');
+      const pilotNames = pilotsWithRole.map(p => p.pilots?.callsign || 'Unknown').join(', ');
       return { 
         success: false, 
         error: {
-          message: `Cannot delete role: It is assigned as the primary role for the following pilots: ${pilotNames}`,
+          message: `Cannot delete role: It is currently assigned to the following pilots: ${pilotNames}`,
           details: pilotNames,
           code: "foreign_key_violation"
         } 
@@ -254,33 +258,22 @@ export async function deleteRole(id: string): Promise<{ success: boolean; error:
 
 /**
  * Get the usage count of a role
- * Returns the number of pilots currently assigned this role
+ * Returns the number of pilots currently assigned this role (active assignments only)
  */
 export async function getRoleUsageCount(roleId: string): Promise<{ count: number; error: any }> {
   try {
-    // Check pilot_roles junction table
-    // Using any type to work around potential schema issues
-    const { count: junctionCount, error: junctionError } = await (supabase as any)
+    // Check pilot_roles junction table for active assignments only
+    const { count, error } = await supabase
       .from('pilot_roles')
       .select('id', { count: 'exact' })
-      .eq('role_id', roleId);
+      .eq('role_id', roleId)
+      .or('end_date.is.null,end_date.gt.' + new Date().toISOString());
 
-    if (junctionError) {
-      return { count: 0, error: junctionError };
+    if (error) {
+      return { count: 0, error };
     }
 
-    // Check primary_role_id in pilots table
-    const { count: primaryCount, error: primaryError } = await supabase
-      .from('pilots')
-      .select('id', { count: 'exact' })
-      .eq('primary_role_id', roleId);
-
-    if (primaryError) {
-      return { count: junctionCount || 0, error: primaryError };
-    }
-
-    // Return the sum of both counts
-    return { count: (junctionCount || 0) + (primaryCount || 0), error: null };
+    return { count: count || 0, error: null };
   } catch (e) {
     console.error('Error in getRoleUsageCount:', e);
     return { count: 0, error: e };
@@ -288,53 +281,51 @@ export async function getRoleUsageCount(roleId: string): Promise<{ count: number
 }
 
 /**
- * Assign a role to a pilot
+ * Assign a role to a pilot using the pilot_roles join table
  */
-export async function assignRoleToPilot(pilotId: string, roleId: string): Promise<{ data: any; error: any }> {
+export async function assignRoleToPilot(
+  pilotId: string, 
+  roleId: string, 
+  isActing: boolean = false,
+  effectiveDate: string = new Date().toISOString().split('T')[0]
+): Promise<{ data: any; error: any }> {
   try {
-    // First check if the role is exclusive - try both column cases
+    // First check if the role is exclusive
     const { data: roleData, error: roleError } = await supabase
       .from('roles')
-      .select('"isExclusive", isexclusive')
+      .select('isExclusive')
       .eq('id', roleId)
       .single();
     
     if (roleError) {
       throw roleError;
     }
-      // Check if roleData exists and is a valid object
-    let isExclusive = false;
-    if (roleData && typeof roleData === 'object') {
-      // Cast to any to safely access properties that TypeScript might not recognize
-      const roleDataAny = roleData as any;
-      
-      // Safely access properties with type checking
-      if (roleDataAny.isExclusive !== undefined && typeof roleDataAny.isExclusive === 'boolean') {
-        isExclusive = roleDataAny.isExclusive;
-      } else if (roleDataAny.isexclusive !== undefined && typeof roleDataAny.isexclusive === 'boolean') {
-        isExclusive = roleDataAny.isexclusive;
-      }
-    }
     
-    // If the role is exclusive, begin a transaction to remove it from any other users
-    if (isExclusive) {
-      // Remove this role from any other pilots
-      // Using any type to work around potential schema issues
-      const { error: removeError } = await (supabase as any)
+    // If the role is exclusive, end existing assignments of this role
+    if (roleData?.isExclusive) {
+      const { error: endExistingError } = await supabase
         .from('pilot_roles')
-        .delete()
-        .eq('role_id', roleId);
+        .update({ 
+          end_date: new Date().toISOString().split('T')[0],
+          updated_at: new Date().toISOString()
+        })
+        .eq('role_id', roleId)
+        .is('end_date', null);
         
-      if (removeError) {
-        throw removeError;
+      if (endExistingError) {
+        throw endExistingError;
       }
     }
     
-    // Now assign the role to the specified pilot
-    // Using any type to work around potential schema issues
-    const { data, error } = await (supabase as any)
+    // Create new role assignment
+    const { data, error } = await supabase
       .from('pilot_roles')
-      .insert({ pilot_id: pilotId, role_id: roleId })
+      .insert({ 
+        pilot_id: pilotId, 
+        role_id: roleId,
+        effective_date: effectiveDate,
+        is_acting: isActing
+      })
       .select();
       
     return { data, error };
@@ -345,16 +336,20 @@ export async function assignRoleToPilot(pilotId: string, roleId: string): Promis
 }
 
 /**
- * Remove a role from a pilot
+ * Remove a role from a pilot (end the role assignment)
  */
 export async function removeRoleFromPilot(pilotId: string, roleId: string): Promise<{ success: boolean; error: any }> {
   try {
-    // Using any type to work around potential schema issues
-    const { error } = await (supabase as any)
+    // End the role assignment by setting end_date
+    const { error } = await supabase
       .from('pilot_roles')
-      .delete()
+      .update({ 
+        end_date: new Date().toISOString().split('T')[0],
+        updated_at: new Date().toISOString()
+      })
       .eq('pilot_id', pilotId)
-      .eq('role_id', roleId);
+      .eq('role_id', roleId)
+      .is('end_date', null);
       
     return { success: !error, error };
   } catch (e) {
@@ -364,76 +359,52 @@ export async function removeRoleFromPilot(pilotId: string, roleId: string): Prom
 }
 
 /**
- * Get all roles assigned to a pilot
+ * Get all active roles assigned to a pilot
  */
 export async function getPilotRoles(pilotId: string): Promise<{ data: Role[] | null; error: any }> {
   try {
-    // First get all role_ids for this pilot in a separate query
-    // Using any type to work around potential schema issues
-    const { data: pilotRoleData, error: pilotRoleError } = await (supabase as any)
+    // Get active pilot roles with role details
+    const { data: pilotRoles, error: pilotRoleError } = await supabase
       .from('pilot_roles')
-      .select('role_id')
-      .eq('pilot_id', pilotId);
+      .select(`
+        role_id,
+        effective_date,
+        end_date,
+        is_acting,
+        roles:role_id (
+          id,
+          name,
+          isExclusive,
+          compatible_statuses,
+          order,
+          created_at
+        )
+      `)
+      .eq('pilot_id', pilotId)
+      .or('end_date.is.null,end_date.gt.' + new Date().toISOString())
+      .order('effective_date', { ascending: false });
       
-    if (pilotRoleError || !pilotRoleData || pilotRoleData.length === 0) {
-      return { data: [], error: pilotRoleError };
+    if (pilotRoleError) {
+      throw pilotRoleError;
     }
     
-    const roleIds = pilotRoleData.map((record: any) => record.role_id);
-    
-    // Use a separate query to get role details, avoiding problematic type casting
-    const { data: roles, error: rolesError } = await supabase
-      .from('roles')
-      .select('id, name, "isExclusive", compatible_statuses, order, created_at')
-      .in('id', roleIds)
-      .order('order', { ascending: true });
-      
-    if (rolesError) {
-      // Try with lowercase field name as a fallback
-      const { data: rolesAlt, error: rolesErrorAlt } = await supabase
-        .from('roles')
-        .select('id, name, isexclusive as "isExclusive", compatible_statuses, order, created_at')
-        .in('id', roleIds)
-        .order('order', { ascending: true });
-        
-      if (rolesErrorAlt) {
-        throw rolesErrorAlt;
-      }
-      
-      // Handle potential parser errors by validating each result item
-      const validRolesAlt: Role[] = [];
-      if (Array.isArray(rolesAlt)) {
-        rolesAlt.forEach(item => {
-          if (item && 
-              typeof item === 'object' && 
-              'id' in item && 
-              'name' in item && 
-              ('isExclusive' in item || 'isexclusive' in item) && 
-              'compatible_statuses' in item && 
-              'order' in item) {
-            validRolesAlt.push(item as unknown as Role);
-          }
-        });
-      }
-      return { data: validRolesAlt, error: null };
+    if (!pilotRoles || pilotRoles.length === 0) {
+      return { data: [], error: null };
     }
     
-    // Handle potential parser errors by validating each result item
-    const validRoles: Role[] = [];
-    if (Array.isArray(roles)) {
-      roles.forEach(item => {
-        if (item && 
-            typeof item === 'object' && 
-            'id' in item && 
-            'name' in item && 
-            ('isExclusive' in item || 'isexclusive' in item) && 
-            'compatible_statuses' in item && 
-            'order' in item) {
-          validRoles.push(item as unknown as Role);
-        }
-      });
-    }
-    return { data: validRoles, error: null };
+    // Transform to Role format
+    const roles: Role[] = pilotRoles
+      .filter(pr => pr.roles && pr.roles.id)
+      .map(pr => ({
+        id: pr.roles!.id,
+        name: pr.roles!.name,
+        isExclusive: pr.roles!.isExclusive,
+        compatible_statuses: pr.roles!.compatible_statuses,
+        order: pr.roles!.order,
+        created_at: pr.roles!.created_at
+      }));
+    
+    return { data: roles, error: null };
   } catch (e) {
     console.error('Error in getPilotRoles:', e);
     return { data: null, error: e };

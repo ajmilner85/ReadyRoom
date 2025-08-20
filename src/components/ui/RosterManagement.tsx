@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Pilot, convertSupabasePilotToLegacy } from '../../types/PilotTypes';
+import { Pilot } from '../../types/PilotTypes';
 import { 
   getAllPilots, 
   getPilotByDiscordOriginalId, 
@@ -125,60 +125,21 @@ const RosterManagement: React.FC = () => {
   // Function to refresh a specific pilot's details
   const refreshSelectedPilot = async (pilotId: string) => {
     try {
-      // Get the actual UUID if this is a Discord ID
-      const actualPilotId = await getActualPilotId(pilotId);
+      // Just refresh all pilots instead of trying to update a single pilot
+      // This ensures we get the correct role data from getAllPilots()
+      await refreshPilots();
       
-      // Get the pilot's updated details
-      const { data, error } = await supabase
-        .from('pilots')
-        .select(`
-          *,
-          roles:role_id (
-            id,
-            name
-          )
-        `)
-        .eq('id', actualPilotId)
-        .single();
+      // Find the pilot in the refreshed data and update selection
+      // Use setTimeout to ensure state update has completed
+      setTimeout(() => {
+        const refreshedPilot = pilots.find(p => p.id === pilotId);
+        if (refreshedPilot) {
+          setSelectedPilot(refreshedPilot);
+          fetchPilotRoles(refreshedPilot.id);
+          fetchPilotQualifications(refreshedPilot.id);
+        }
+      }, 100);
       
-      if (error) {
-        throw new Error(error.message);
-      }
-      
-      if (data) {
-        // Convert to our UI format
-        const updatedPilot = convertSupabasePilotToLegacy(data as any);
-        
-        // Use the discord_original_id as the main ID if available (for backwards compatibility)
-        if (data.discord_original_id) {
-          updatedPilot.id = data.discord_original_id;
-        }
-        
-        // Set status based on status_id
-        if (data.status_id && statusMap[data.status_id]) {
-          updatedPilot.status = statusMap[data.status_id].name as any;
-          updatedPilot.status_id = data.status_id;
-        }
-        
-        // Set role if available
-        if (data.roles?.name) {
-          updatedPilot.role = data.roles.name;
-        }
-        
-        // Update the pilot in our state
-        setPilots(prevPilots => prevPilots.map(p => 
-          p.id === pilotId ? updatedPilot : p
-        ));
-        
-        // Update selected pilot state
-        setSelectedPilot(updatedPilot);
-        
-        // Also update role and qualification states
-        if (updatedPilot) {
-          fetchPilotRoles(updatedPilot.id);
-          fetchPilotQualifications(updatedPilot.id);
-        }
-      }
     } catch (err: any) {
       console.error('Error refreshing selected pilot:', err);
     }
@@ -252,19 +213,29 @@ const RosterManagement: React.FC = () => {
       }
 
       if (data && data.length > 0) {
-        // Convert Supabase format to the format our UI expects
+        // Use the pilot data directly from getAllPilots() - it already has roles included
         const convertedPilots = data.map(pilot => {
-          // Use the discord_original_id as the main ID if available
-          const legacyPilot = convertSupabasePilotToLegacy(pilot as any);
-          if (pilot.discord_original_id) {
-            legacyPilot.id = pilot.discord_original_id;
-          }
-
-          // Set status based on status_id if available
-          if (pilot.status_id && statusMap[pilot.status_id]) {
-            legacyPilot.status = statusMap[pilot.status_id].name as any;
-            legacyPilot.status_id = pilot.status_id;
-          }
+          // Create the pilot object with all necessary properties
+          const legacyPilot: Pilot = {
+            id: pilot.discord_original_id || pilot.id,
+            callsign: pilot.callsign,
+            boardNumber: pilot.boardNumber.toString(), // Convert to string for legacy compatibility
+            discordId: pilot.discordId || undefined, // Handle null case
+            status_id: pilot.status_id || undefined, // Handle null case
+            qualifications: (pilot.qualifications || []).map((q, index) => ({
+              id: `${pilot.id}-${index}`,
+              type: q as any,
+              dateAchieved: new Date().toISOString().split('T')[0]
+            })), // Convert strings to Qualification objects
+            // Set status based on status_id if available
+            status: pilot.status_id && statusMap[pilot.status_id] 
+              ? statusMap[pilot.status_id].name as any 
+              : 'Provisional' as any,
+            billet: '', // Default empty billet
+            discordUsername: pilot.discordId || '', // Use discordId for display
+            roles: pilot.roles as any, // KEEP THE ROLES - cast to avoid type conflicts
+          };
+          
           return legacyPilot;
         });
         setPilots(convertedPilots);
@@ -336,15 +307,16 @@ const RosterManagement: React.FC = () => {
       
       // Create a new converted pilot object to immediately add to the UI
       if (data) {
-        const newConvertedPilot = convertSupabasePilotToLegacy(data as any);
+        // Just refresh all pilots to get the new one with correct role data
+        await refreshPilots();
         
-        // Add status name from the status_id
-        if (newConvertedPilot.status_id && statusMap[newConvertedPilot.status_id]) {
-          newConvertedPilot.status = statusMap[newConvertedPilot.status_id].name as any;
-        }
-        
-        // Immediately update the pilots list in state with the new pilot
-        setPilots(prevPilots => [...prevPilots, newConvertedPilot]);
+        // Find and select the newly created pilot
+        setTimeout(() => {
+          const newPilot = pilots.find(p => p.callsign === data.callsign);
+          if (newPilot) {
+            setSelectedPilot(newPilot);
+          }
+        }, 100);
         
         // Reset states
         setIsAddingNewPilot(false);
@@ -357,8 +329,6 @@ const RosterManagement: React.FC = () => {
           qualifications: []
         });
         
-        // Select the newly created pilot
-        setSelectedPilot(newConvertedPilot);
       } else {
         // If no data returned, just refresh the full list
         const fetchPilotsData = async () => {
@@ -369,18 +339,8 @@ const RosterManagement: React.FC = () => {
               throw new Error(error.message);
             }
             if (data) {
-              const convertedPilots = data.map(pilot => {
-                const legacyPilot = convertSupabasePilotToLegacy(pilot as any);
-                if (pilot.discord_original_id) {
-                  legacyPilot.id = pilot.discord_original_id;
-                }
-                if (pilot.status_id && statusMap[pilot.status_id]) {
-                  legacyPilot.status = statusMap[pilot.status_id].name as any;
-                  legacyPilot.status_id = pilot.status_id;
-                }
-                return legacyPilot;
-              });
-              setPilots(convertedPilots);
+              // Just use refreshPilots() instead of manual conversion
+              await refreshPilots();
             }
           } catch (err: any) {
             console.error('Error refreshing pilots:', err);
@@ -495,34 +455,30 @@ const RosterManagement: React.FC = () => {
         actualPilotId = pilotData.id; // Use the actual UUID from the database
       }
       
-      // Fetch the pilot to get their role_id
-      const { data: pilotData, error: pilotError } = await supabase
-        .from('pilots')
-        .select('role_id')
-        .eq('id', actualPilotId)
-        .single();
-      
-      if (pilotError) {
-        throw new Error(pilotError.message);
+      // Get pilot's role assignments from the join table
+      const { data: roleAssignments, error: roleError } = await supabase
+        .from('pilot_roles')
+        .select(`
+          *,
+          roles:role_id (
+            id,
+            name,
+            isExclusive,
+            compatible_statuses,
+            order
+          )
+        `)
+        .eq('pilot_id', actualPilotId)
+        .is('end_date', null)  // Only active roles
+        .order('effective_date', { ascending: false })
+        .limit(1);
+        
+      if (roleError) {
+        throw new Error(roleError.message);
       }
       
-      // If the pilot has a role assigned, find the role details
-      if (pilotData && pilotData.role_id) {
-        const { data: roleData, error: roleError } = await supabase
-          .from('roles')
-          .select('*')
-          .eq('id', pilotData.role_id)
-          .single();
-          
-        if (roleError) {
-          throw new Error(roleError.message);
-        }
-        
-        if (roleData) {
-          setPilotRoles([roleData]);
-        } else {
-          setPilotRoles([]);
-        }
+      if (roleAssignments && roleAssignments.length > 0 && roleAssignments[0].roles) {
+        setPilotRoles([roleAssignments[0].roles]);
       } else {
         setPilotRoles([]);
       }
@@ -594,11 +550,12 @@ const RosterManagement: React.FC = () => {
 
       // For each exclusive role, check if it's already assigned to any pilot
       for (const role of exclusiveRoles) {
-        // Query for all pilots with this role assigned
+        // Query for all active role assignments for this role
         const { data, error } = await supabase
-          .from('pilots')
-          .select('id')
-          .eq('role_id', role.id);
+          .from('pilot_roles')
+          .select('pilot_id')
+          .eq('role_id', role.id)
+          .is('end_date', null); // Only active assignments
           
         if (error) {
           console.error('Error checking role assignments:', error);
@@ -610,7 +567,7 @@ const RosterManagement: React.FC = () => {
         if (data && data.length > 0) {
           // Check if the role is assigned to the current pilot
           const isAssignedToCurrentPilot = currentPilotId && 
-            data.some(pilot => pilot.id === currentPilotId);
+            data.some(assignment => assignment.pilot_id === currentPilotId);
           
           // If the role is not assigned to the current pilot, disable it
           if (!isAssignedToCurrentPilot) {
@@ -635,24 +592,34 @@ const RosterManagement: React.FC = () => {
       // Get the actual UUID
       const actualPilotId = await getActualPilotId(selectedPilot.id);
       
-      // If empty selection, remove the role
+      // If empty selection, remove the current role
       if (!roleId || roleId === "") {
         console.log("Removing role (empty selection)");
         
-        // Update the pilot's role to null - using explicit null value
-        const { error } = await supabase
-          .from('pilots')
-          .update({ role_id: null })
-          .eq('id', actualPilotId);
-        
-        if (error) {
-          console.error("Error setting role to null:", error);
-          throw new Error(error.message);
+        // Get current pilot roles and end them
+        const currentRoles = pilotRoles || [];
+        if (currentRoles.length > 0) {
+          // End all current role assignments
+          const endDate = new Date().toISOString().split('T')[0];
+          const { error } = await supabase
+            .from('pilot_roles')
+            .update({ 
+              end_date: endDate,
+              updated_at: new Date().toISOString()
+            })
+            .eq('pilot_id', actualPilotId)
+            .is('end_date', null);
+          
+          if (error) {
+            console.error("Error ending role assignments:", error);
+            throw new Error(error.message);
+          }
         }
         
         // Update local state
         setPilotRoles([]);
-        updatePilotRoleInList(selectedPilot.id, null);
+        // Refresh pilot data to get updated role information from database
+        await refreshPilots();
         
         // Refresh exclusive role assignments after removing a role
         fetchExclusiveRoleAssignments();
@@ -663,11 +630,12 @@ const RosterManagement: React.FC = () => {
       const selectedRole = roles.find(r => r.id === roleId);
       
       if (selectedRole?.isExclusive) {
-        // For exclusive roles, check if it's already assigned to someone else
+        // For exclusive roles, check if it's already assigned to someone else using pilot_roles table
         const { data, error } = await supabase
-          .from('pilots')
-          .select('id')
-          .eq('role_id', roleId);
+          .from('pilot_roles')
+          .select('pilot_id')
+          .eq('role_id', roleId)
+          .or('end_date.is.null,end_date.gt.' + new Date().toISOString());
           
         if (error) {
           throw new Error(`Error checking role assignments: ${error.message}`);
@@ -675,7 +643,7 @@ const RosterManagement: React.FC = () => {
         
         // If assigned to someone other than the current pilot, prevent assignment
         if (data && data.length > 0) {
-          const assignedToOthers = data.some(pilot => pilot.id !== actualPilotId);
+          const assignedToOthers = data.some(assignment => assignment.pilot_id !== actualPilotId);
           
           if (assignedToOthers) {
             alert(`Cannot assign this role. It is exclusive and already assigned to another pilot.`);
@@ -687,20 +655,22 @@ const RosterManagement: React.FC = () => {
       // Get the role name to update the UI immediately
       const roleToAssign = roles.find(r => r.id === roleId);
       
-      // Update the pilot's role directly
-      const { error } = await supabase
-        .from('pilots')
-        .update({ role_id: roleId })
-        .eq('id', actualPilotId);
+      // Assign the role using the new pilot_roles table
+      const { success, error: assignError } = await updatePilotRole(actualPilotId, roleId);
       
-      if (error) {
-        throw new Error(error.message);
+      if (!success || assignError) {
+        throw new Error(assignError?.message || 'Failed to assign role');
       }
       
-      // If successful, update local state
+      // If successful, refresh pilot data instead of updating local state
       if (roleToAssign) {
         setPilotRoles([roleToAssign]);
-        updatePilotRoleInList(selectedPilot.id, roleToAssign.name || null);
+        
+        // Small delay to ensure database commit before refresh
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        // Refresh pilot data to get updated role information from database
+        await refreshPilots();
       }
       
       // Refresh exclusive role assignments after making an assignment
@@ -711,24 +681,6 @@ const RosterManagement: React.FC = () => {
     } finally {
       setUpdatingRoles(false);
     }
-  };
-
-  // Update the role displayed in the pilot list
-  const updatePilotRoleInList = (pilotId: string, roleName: string | null) => {
-    setPilots(prevPilots => prevPilots.map(p => {
-      if (p.id === pilotId) {
-        return { ...p, role: roleName || '' };
-      }
-      return p;
-    }));
-    
-    // Also update selected pilot if it's the one being changed
-    if (selectedPilot && selectedPilot.id === pilotId) {
-      setSelectedPilot(prev => prev ? { ...prev, role: roleName || '' } : null);
-    }
-    
-    // Refresh the exclusive role assignments to reflect the change
-    fetchExclusiveRoleAssignments();
   };
 
   // Function to fetch all available qualifications
@@ -976,22 +928,28 @@ const RosterManagement: React.FC = () => {
         throw new Error(error.message || 'Failed to update pilot');
       }
       
-      // Handle role updates - including removal case
-      if (!updatedPilot.role || updatedPilot.role === '') {
-        // If no role is selected, explicitly set role_id to null
+      // Handle role updates - check pilot roles array instead of role field
+      const currentRole = updatedPilot.roles?.[0]?.role;
+      if (!currentRole || !currentRole.id) {
+        // If no role is selected, end any existing role assignments
         console.log("Save changes: Removing role for pilot", actualPilotId);
-        const { error: nullRoleError } = await supabase
-          .from('pilots')
-          .update({ role_id: null })
-          .eq('id', actualPilotId);
+        const { error: endRoleError } = await supabase
+          .from('pilot_roles')
+          .update({ 
+            end_date: new Date().toISOString().split('T')[0],
+            updated_at: new Date().toISOString()
+          })
+          .eq('pilot_id', actualPilotId)
+          .is('end_date', null);
         
-        if (nullRoleError) {
-          console.error("Error setting role to null during save:", nullRoleError);
-          throw new Error(nullRoleError.message || 'Failed to remove pilot role');
+        if (endRoleError) {
+          console.error("Error ending role assignments during save:", endRoleError);
+          throw new Error(endRoleError.message || 'Failed to remove pilot role');
         }
       } else {
-        // Find the role ID based on the role name
-        const matchingRole = roles.find(r => r.name === updatedPilot.role);
+        // Find the role ID based on the current role
+        const currentRoleName = currentRole.name;
+        const matchingRole = roles.find(r => r.name === currentRoleName);
         const roleId = matchingRole?.id || null;
         
         if (roleId) {
@@ -1066,59 +1024,7 @@ const RosterManagement: React.FC = () => {
   useEffect(() => {
     // Fetch pilots from Supabase
     const fetchPilots = async () => {
-      setLoading(true);
-      try {
-        const { data, error } = await getAllPilots();
-        
-        if (error) {
-          throw new Error(error.message);
-        }
-
-        if (data && data.length > 0) {
-          // Convert Supabase format to the format our UI expects
-          const convertedPilots = data.map(pilot => {
-            // Use the discord_original_id as the main ID if available (for backwards compatibility)
-            const legacyPilot = convertSupabasePilotToLegacy(pilot as any);
-            if (pilot.discord_original_id) {
-              legacyPilot.id = pilot.discord_original_id;
-            }
-
-            // Set status based on status_id if available
-            if (pilot.status_id && statusMap[pilot.status_id]) {
-              legacyPilot.status = statusMap[pilot.status_id].name as any;
-              legacyPilot.status_id = pilot.status_id;
-            } else {
-              // Fallback to role-based status for backward compatibility
-              const role = pilot.roles ? (pilot.roles as any).squadron?.toLowerCase() || '' : '';
-              if (role.includes('co') || role.includes('xo')) {
-                legacyPilot.status = 'Command';
-              } else if (role.includes('oic')) {
-                legacyPilot.status = 'Staff';
-              } else if (role.includes('ret')) {
-                legacyPilot.status = 'Retired';
-              }
-            }
-            
-            // Set role using the role property from data if available
-            if (pilot.roles && pilot.roles.name) {
-              legacyPilot.role = pilot.roles.name;
-            }
-            
-            return legacyPilot;
-          });
-          setPilots(convertedPilots);
-        } else {
-          // No pilots in database
-          setPilots([]);
-          setError('No pilots found in the database');
-        }
-      } catch (err: any) {
-        console.error('Error fetching pilots:', err);
-        setError(err.message);
-        setPilots([]);
-      } finally {
-        setLoading(false);
-      }
+      await refreshPilots();
     };
 
     // Only fetch pilots when we have the status map

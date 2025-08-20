@@ -49,7 +49,6 @@ export interface Database {
           updated_at: string | null
           discord_original_id?: string | null
           qualifications?: string[] | null
-          role_id?: string | null
           status_id?: string | null
         }
         Insert: {
@@ -59,7 +58,6 @@ export interface Database {
           discordId?: string | null
           discord_original_id?: string | null
           qualifications?: string[] | null
-          role_id?: string | null
           status_id?: string | null
           created_at?: string
           updated_at?: string | null
@@ -70,19 +68,11 @@ export interface Database {
           discordId?: string | null
           discord_original_id?: string | null
           qualifications?: string[] | null
-          role_id?: string | null
           status_id?: string | null
           created_at?: string
           updated_at?: string | null
         }
         Relationships: [
-          {
-            foreignKeyName: "pilots_primary_role_id_fkey"
-            columns: ["role_id"]
-            isOneToOne: false
-            referencedRelation: "roles"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "pilots_status_id_fkey"
             columns: ["status_id"]
@@ -199,7 +189,8 @@ export interface Database {
             referencedColumns: ["id"]
           }
         ]
-      }      discord_event_attendance: {
+      }
+      discord_event_attendance: {
         Row: {
           id: string
           created_at: string
@@ -399,6 +390,54 @@ export interface Database {
           updated_at?: string | null
         }
         Relationships: []
+      }
+      pilot_roles: {
+        Row: {
+          id: string
+          pilot_id: string
+          role_id: string | null
+          created_at: string
+          effective_date: string
+          is_acting: boolean
+          end_date: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          id?: string
+          pilot_id: string
+          role_id?: string | null
+          created_at?: string
+          effective_date: string
+          is_acting?: boolean
+          end_date?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          id?: string
+          pilot_id?: string
+          role_id?: string | null
+          created_at?: string
+          effective_date?: string
+          is_acting?: boolean
+          end_date?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pilot_roles_pilot_id_fkey"
+            columns: ["pilot_id"]
+            isOneToOne: false
+            referencedRelation: "pilots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pilot_roles_role_id_fkey"
+            columns: ["role_id"]
+            isOneToOne: false
+            referencedRelation: "roles"
+            referencedColumns: ["id"]
+          }
+        ]
       }
     }
     Views: {

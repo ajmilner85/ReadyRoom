@@ -1,6 +1,7 @@
 import { supabase } from './supabaseClient';
 import type { Pilot } from '../types/PilotTypes'; // Removed unused SupabasePilot import
 import { convertSupabasePilotToLegacy } from '../types/PilotTypes';
+import { updatePilotRole } from './pilotService';
 
 export interface DiscordMember {
   id: string;
@@ -202,14 +203,15 @@ async function canAssignRole(
     
     // If role is exclusive, check if it's already assigned to someone else
     if (role.isExclusive) {
-      const { data: assignedPilots } = await supabase
-        .from('pilots')
-        .select('id')
-        .eq('role_id', roleId);
+      const { data: assignedRoles } = await supabase
+        .from('pilot_roles')
+        .select('pilot_id')
+        .eq('role_id', roleId)
+        .or('end_date.is.null,end_date.gt.' + new Date().toISOString());
         
-      if (assignedPilots && assignedPilots.length > 0) {
+      if (assignedRoles && assignedRoles.length > 0) {
         // If no pilotId provided or if assigned to someone else
-        if (!pilotId || !assignedPilots.some(p => p.id === pilotId)) {
+        if (!pilotId || !assignedRoles.some(pr => pr.pilot_id === pilotId)) {
           return false;
         }
       }
@@ -457,7 +459,11 @@ export async function processPilotMatches(matches: DiscordPilotMatch[]): Promise
             const roleAssignable = await canAssignRole(match.roleId, statusToCheck, pilotId);
             
             if (roleAssignable) {
-              updates.role_id = match.roleId;
+              // Use the new pilot_roles system instead of direct role_id
+              const { success } = await updatePilotRole(pilotId, match.roleId);
+              if (!success) {
+                console.log(`Failed to assign role to pilot ${pilotId} using pilot_roles table`);
+              }
             } else {
               console.log(`Cannot assign role to pilot ${pilotId} due to status constraints or exclusivity rules`);
             }
@@ -501,6 +507,8 @@ export async function processPilotMatches(matches: DiscordPilotMatch[]): Promise
         const statusId = match.statusId || await getStatusIdByName(match.discordMember.status || 'Provisional');
         newPilot.status_id = statusId;
         
+        let shouldAssignRole = false;
+        
         // Handle role assignment separately after checking compatibility
         // Only add role if one is selected and the status is compatible
         if (match.roleId) {
@@ -523,20 +531,22 @@ export async function processPilotMatches(matches: DiscordPilotMatch[]): Promise
             if (statusData && (statusData.name === 'Command' || statusData.name === 'Staff')) {
               // Check if this role is exclusive and already assigned
               if (roleData && roleData.isExclusive) {
-                const { data: assignedPilots } = await supabase
-                  .from('pilots')
-                  .select('id')
-                  .eq('role_id', match.roleId);
+                const { data: assignedRoles } = await supabase
+                  .from('pilot_roles')
+                  .select('pilot_id')
+                  .eq('role_id', match.roleId)
+                  .or('end_date.is.null,end_date.gt.' + new Date().toISOString());
                   
-                // If no one has this role yet, we can assign it
-                if (!assignedPilots || assignedPilots.length === 0) {
-                  newPilot.role_id = match.roleId;
+                // If no one has this role yet, we can assign it later
+                if (!assignedRoles || assignedRoles.length === 0) {
+                  // We'll assign the role after creating the pilot
+                  shouldAssignRole = true;
                 } else {
                   console.log(`Cannot assign exclusive role ${roleData.name} - it's already assigned to another pilot.`);
                 }
               } else if (roleData) {
-                // Non-exclusive role can be assigned directly
-                newPilot.role_id = match.roleId;
+                // Non-exclusive role can be assigned
+                shouldAssignRole = true;
               }
             } else {
               console.log(`Cannot assign role to a pilot with status: ${statusData?.name || 'Unknown'}`);
@@ -548,12 +558,22 @@ export async function processPilotMatches(matches: DiscordPilotMatch[]): Promise
         }
         
         // Create the pilot
-        const { error: createError } = await supabase
+        const { data: createdPilot, error: createError } = await supabase
           .from('pilots')
-          .insert(newPilot);
+          .insert(newPilot)
+          .select()
+          .single();
           
         if (createError) {
           throw createError;
+        }
+        
+        // Assign role if determined it should be assigned
+        if (shouldAssignRole && match.roleId && createdPilot) {
+          const { success } = await updatePilotRole(createdPilot.id, match.roleId);
+          if (!success) {
+            console.log(`Failed to assign role to newly created pilot ${createdPilot.id}`);
+          }
         }
         
         result.created++;

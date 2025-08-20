@@ -33,6 +33,25 @@ export interface Qualification {
   dateAchieved: string;
 }
 
+// Interface for pilot role assignments from the join table
+export interface PilotRoleAssignment {
+  id: string;
+  pilot_id: string;
+  role_id: string | null;
+  effective_date: string;
+  is_acting: boolean;
+  end_date: string | null;
+  created_at: string;
+  updated_at: string | null;
+  role?: {
+    id: string;
+    name: string;
+    isExclusive: boolean;
+    compatible_statuses: string[];
+    order: number;
+  };
+}
+
 // Pilot interface with standardized identifiers
 export interface Pilot {
   id: string;                 // Primary identifier - Supabase UUID
@@ -44,7 +63,8 @@ export interface Pilot {
   billet: string;
   qualifications: Qualification[];
   discordUsername: string;
-  role?: string;              // Role name for display in the UI
+  // Removed role field - UI should get role from roles array only
+  roles?: PilotRoleAssignment[]; // Array of role assignments from join table (single role per pilot)
   // Add attendance statuses
   attendanceStatus?: 'accepted' | 'tentative' | 'declined'; // From Discord event response - ADDED 'declined'
   rollCallStatus?: 'Present' | 'Absent' | 'Tentative'; // From Roll Call UI
@@ -62,7 +82,6 @@ export interface SupabasePilot {
   created_at?: string;
   updated_at?: string;
   status_id?: string; // Foreign key to statuses table
-  primary_role_id?: string; // Foreign key to roles table
   role_name?: string; // Added to store the role name from the join
   role?: string; // Added for runtime property set in pilotService.ts
 }
@@ -111,6 +130,6 @@ export function convertSupabasePilotToLegacy(pilot: SupabasePilot): Pilot {
       dateAchieved: new Date().toISOString().split('T')[0]
     })),
     discordUsername: pilot.discordId || '', // Use discordId (username) for display
-    role: pilot.role_name || pilot.role   // Check for both role_name and role properties
+    // Removed role field - UI should get role from roles array only
   };
 }

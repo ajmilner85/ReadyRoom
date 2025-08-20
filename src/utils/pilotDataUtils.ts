@@ -28,7 +28,6 @@ export function adaptSupabasePilots(pilots: any[]): Pilot[] {
         qualifications: pilot.qualifications || [],
         roles: pilot.roles || {},
         updated_at: pilot.updated_at || undefined,
-        role_id: pilot.role_id || undefined,
         status_id: pilot.status_id || undefined,
         // Ensure these properties exist to match SupabasePilot interface
         boardNumber: typeof pilot.boardNumber === 'number' ? pilot.boardNumber : 
@@ -118,13 +117,25 @@ export function getPilotDisplayName(pilot: SupabasePilot): string {
 }
 
 /**
- * Gets the primary role name for a pilot
+ * Gets the primary role name for a pilot from role data
  */
 export function getPilotRoleName(pilot: SupabasePilot): string {
-  // Check all the possible places where role name might be stored
-  return pilot.role_name || 
-         pilot.role || 
-         (pilot.roles?.squadron || '');
+  // If we have a role_name property (from join query), use it
+  if (pilot.role_name) {
+    return pilot.role_name;
+  }
+  
+  // If we have a role property (runtime set), use it
+  if (pilot.role) {
+    return pilot.role;
+  }
+  
+  // Check legacy roles object
+  if (pilot.roles?.squadron) {
+    return pilot.roles.squadron;
+  }
+  
+  return '';
 }
 
 /**
@@ -135,7 +146,7 @@ export function getPilotKey(pilot: SupabasePilot): string {
 }
 
 /**
- * Fetches pilots directly from Supabase
+ * Fetches pilots directly from Supabase with their role assignments
  * @returns Promise with array of SupabasePilot objects and any error
  */
 export async function fetchSupabasePilots() {
@@ -144,7 +155,20 @@ export async function fetchSupabasePilots() {
       .from('pilots')
       .select(`
         *,
-        roles:role_id(*),
+        pilot_roles!pilot_roles_pilot_id_fkey (
+          id,
+          role_id,
+          effective_date,
+          is_acting,
+          end_date,
+          roles:role_id (
+            id,
+            name,
+            isExclusive,
+            compatible_statuses,
+            order
+          )
+        ),
         status:status_id(*)
       `)
       .order('boardNumber', { ascending: true });
@@ -153,9 +177,28 @@ export async function fetchSupabasePilots() {
       console.error('Error fetching pilots:', error);
       return { pilots: [], error };
     }
+
+    // Transform the data to remove role field maintenance
+    const transformedPilots = (data || []).map((pilot: any) => {
+      // Find active (non-ended) role assignments
+      const activeRoles = pilot.pilot_roles?.filter((pr: any) => 
+        !pr.end_date || new Date(pr.end_date) > new Date()
+      ) || [];
+      
+      // Sort by effective_date to get the most recent role (single role only)
+      activeRoles.sort((a: any, b: any) => 
+        new Date(b.effective_date).getTime() - new Date(a.effective_date).getTime()
+      );
+      
+      // No role field - UI should get role from pilot_roles only
+      return {
+        ...pilot
+        // Removed role_name and role fields
+      };
+    });
     
     return { 
-      pilots: data as SupabasePilot[],
+      pilots: transformedPilots as SupabasePilot[],
       error: null 
     };
   } catch (err: any) {

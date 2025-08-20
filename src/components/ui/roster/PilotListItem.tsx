@@ -66,7 +66,7 @@ const PilotListItem: React.FC<PilotListItemProps> = ({
         {pilot.callsign}
       </span>
       <span style={pilotListStyles.role}>
-        {pilot.role || ''}
+        {pilot.roles?.[0]?.role?.name || ''}
       </span>
       
       <div style={pilotListStyles.badgeContainer}>
