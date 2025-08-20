@@ -1,0 +1,1 @@
+- Do not prompt me to run or refresh the application using npm run dev or npm run build, or open the Simple Browser in Visual Studio Code. If you need to test changes, please ask me to refresh my browser manually, and continue to work on the code. Only stop working if it is essentially to pause for testing.

@@ -78,11 +78,38 @@ export async function getAllPilots(): Promise<{ data: Pilot[] | null; error: any
       return { data: null, error: standingError };
     }
 
+    // Step 5: Fetch all active pilot squadron assignments
+    const { data: squadronAssignments, error: squadronError } = await supabase
+      .from('pilot_assignments')
+      .select(`
+        *,
+        org_squadrons (
+          id,
+          name,
+          designation,
+          wing_id,
+          tail_code,
+          established_date,
+          deactivated_date,
+          insignia_url,
+          carrier_id,
+          callsigns,
+          updated_at
+        )
+      `)
+      .is('end_date', null); // Only active assignments
+
+    if (squadronError) {
+      console.error('❌ Error fetching squadron assignments:', squadronError);
+      return { data: null, error: squadronError };
+    }
+
     console.log('✅ Fetched role assignments:', roleAssignments?.length);
     console.log('✅ Fetched status assignments:', statusAssignments?.length);
     console.log('✅ Fetched standing assignments:', standingAssignments?.length);
+    console.log('✅ Fetched squadron assignments:', squadronAssignments?.length);
 
-    // Step 5: Combine pilots with their assignments
+    // Step 6: Combine pilots with their assignments
     const pilotsWithAssignments = (pilotsData || []).map(pilot => {
       // Find this pilot's active role assignment
       const pilotRoleAssignments = (roleAssignments || []).filter(
@@ -103,6 +130,11 @@ export async function getAllPilots(): Promise<{ data: Pilot[] | null; error: any
         sta => sta.pilot_id === pilot.id
       );
 
+      // Find this pilot's active squadron assignment
+      const pilotSquadronAssignment = (squadronAssignments || []).find(
+        sqa => sqa.pilot_id === pilot.id
+      );
+
       const transformedPilot: Pilot = {
         ...pilot, // Spread all pilot properties from database
         roles: currentRoleAssignment ? [{
@@ -114,7 +146,18 @@ export async function getAllPilots(): Promise<{ data: Pilot[] | null; error: any
         currentStanding: pilotStandingAssignment?.standings || null,
         standing_id: pilotStandingAssignment?.standing_id || undefined,
         // Set legacy status field based on current status for backward compatibility
-        status: (pilotStatusAssignment?.statuses?.name as any) || 'Active'
+        status: (pilotStatusAssignment?.statuses?.name as any) || 'Active',
+        // Squadron assignment information (cast to any to extend Pilot interface)
+        currentSquadron: pilotSquadronAssignment?.org_squadrons || null,
+        squadronAssignment: pilotSquadronAssignment ? {
+          id: pilotSquadronAssignment.id,
+          pilot_id: pilotSquadronAssignment.pilot_id,
+          squadron_id: pilotSquadronAssignment.squadron_id,
+          start_date: pilotSquadronAssignment.start_date,
+          end_date: pilotSquadronAssignment.end_date || undefined,
+          created_at: pilotSquadronAssignment.created_at,
+          updated_at: pilotSquadronAssignment.updated_at || undefined
+        } : undefined
       };
 
       console.log(`✅ Transformed pilot ${pilot.callsign}:`, {
@@ -122,7 +165,8 @@ export async function getAllPilots(): Promise<{ data: Pilot[] | null; error: any
         callsign: pilot.callsign,
         currentRole: transformedPilot.roles?.[0]?.role?.name,
         currentStatus: transformedPilot.currentStatus?.name,
-        currentStanding: transformedPilot.currentStanding?.name
+        currentStanding: transformedPilot.currentStanding?.name,
+        currentSquadron: (transformedPilot as any).currentSquadron?.designation
       });
 
       return transformedPilot;
@@ -689,20 +733,74 @@ export async function updatePilotRole(
       throw roleError;
     }
     
-    // If the role is exclusive, end any existing assignments of this role
+    // If the role is exclusive, end any existing assignments of this role IN THE SAME SQUADRON
     if (roleData?.isExclusive) {
-      const { error: endExistingError } = await supabase
-        .from('pilot_roles')
-        .update({ 
-          end_date: new Date().toISOString().split('T')[0],
-          updated_at: new Date().toISOString()
-        })
-        .eq('role_id', roleId)
-        .is('end_date', null);
-      
-      if (endExistingError) {
-        throw endExistingError;
+      // Get the current pilot's squadron
+      const { data: currentPilotSquadron, error: squadronError } = await supabase
+        .from('pilot_assignments')
+        .select('squadron_id')
+        .eq('pilot_id', actualPilotId)
+        .is('end_date', null)
+        .single();
+        
+      if (squadronError && squadronError.code !== 'PGRST116') {
+        throw squadronError;
       }
+      
+      if (currentPilotSquadron?.squadron_id) {
+        // Get all pilots in the same squadron who have this role
+        const { data: sameSquadronPilots, error: sameSquadronError } = await supabase
+          .from('pilot_assignments')
+          .select('pilot_id')
+          .eq('squadron_id', currentPilotSquadron.squadron_id)
+          .is('end_date', null);
+          
+        if (sameSquadronError) {
+          throw sameSquadronError;
+        }
+        
+        if (sameSquadronPilots && sameSquadronPilots.length > 0) {
+          const sameSquadronPilotIds = sameSquadronPilots.map(p => p.pilot_id);
+          
+          // Get active pilots only (those with active status)
+          const { data: activePilots, error: activeError } = await supabase
+            .from('pilot_statuses')
+            .select(`
+              pilot_id,
+              statuses!inner (
+                isActive
+              )
+            `)
+            .in('pilot_id', sameSquadronPilotIds)
+            .eq('statuses.isActive', true)
+            .is('end_date', null);
+            
+          if (activeError) {
+            throw activeError;
+          }
+          
+          const activePilotIds = activePilots?.map(p => p.pilot_id) || [];
+          
+          // End the role assignments only for ACTIVE pilots in the same squadron
+          if (activePilotIds.length > 0) {
+            const { error: endExistingError } = await supabase
+              .from('pilot_roles')
+              .update({ 
+                end_date: new Date().toISOString().split('T')[0],
+                updated_at: new Date().toISOString()
+              })
+              .eq('role_id', roleId)
+              .in('pilot_id', activePilotIds)
+              .is('end_date', null);
+            
+            if (endExistingError) {
+              throw endExistingError;
+            }
+          }
+        }
+      }
+      // If pilot has no squadron, we don't end any existing assignments 
+      // (let the validation in RosterManagement handle this case)
     }
     
     // End any existing active roles for this pilot (single role per pilot)
@@ -747,6 +845,79 @@ export async function updatePilotRole(
     return { success: true, error: null };
   } catch (error) {
     console.error('Error updating pilot role:', error);
+    return { success: false, error };
+  }
+}
+
+/**
+ * Update a pilot's role without enforcing exclusive role constraints
+ * This is used when the user explicitly chooses to accept duplicate roles
+ * @param id The ID of the pilot to update (either UUID or Discord ID)
+ * @param roleId The ID of the role to set
+ * @param isActing Whether this is an acting role assignment
+ * @param effectiveDate The date the role becomes effective (defaults to today)
+ * @returns Success status and error if any
+ */
+export async function updatePilotRoleAllowDuplicates(
+  id: string, 
+  roleId: string,
+  isActing: boolean = false,
+  effectiveDate: string = new Date().toISOString().split('T')[0]
+): Promise<{ success: boolean; error: any }> {
+  try {
+    // First try to find the pilot by discord_original_id (for Discord IDs)
+    const { data: pilotByDiscordId } = await supabase
+      .from('pilots')
+      .select('id')
+      .eq('discord_original_id', id)
+      .single();
+    
+    // If found by Discord ID, use the actual UUID from the database
+    const actualPilotId = pilotByDiscordId ? pilotByDiscordId.id : id;
+    
+    // End any existing active roles for this pilot (single role per pilot)
+    // But do NOT end roles for other pilots (this is the key difference)
+    const { error: endPilotRolesError } = await supabase
+      .from('pilot_roles')
+      .update({ 
+        end_date: new Date().toISOString().split('T')[0],
+        updated_at: new Date().toISOString()
+      })
+      .eq('pilot_id', actualPilotId)
+      .is('end_date', null);
+    
+    if (endPilotRolesError) {
+      throw endPilotRolesError;
+    }
+    
+    // Create new role assignment (end_date defaults to NULL)
+    console.log('Creating new role assignment (allowing duplicates) with data:', {
+      pilot_id: actualPilotId,
+      role_id: roleId,
+      effective_date: effectiveDate,
+      is_acting: isActing
+    });
+    
+    const { data: insertData, error: insertError } = await supabase
+      .from('pilot_roles')
+      .insert({
+        pilot_id: actualPilotId,
+        role_id: roleId,
+        effective_date: effectiveDate,
+        is_acting: isActing
+        // end_date is intentionally omitted to default to NULL
+      })
+      .select(); // Add select to see what was inserted
+    
+    if (insertError) {
+      console.error('Error inserting role assignment (allowing duplicates):', insertError);
+      throw insertError;
+    }
+    
+    console.log('Successfully created role assignment (allowing duplicates):', insertData);
+    return { success: true, error: null };
+  } catch (error) {
+    console.error('Error updating pilot role (allowing duplicates):', error);
     return { success: false, error };
   }
 }

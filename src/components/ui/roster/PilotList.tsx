@@ -46,17 +46,27 @@ const PilotList: React.FC<PilotListProps> = ({
         return status ? status.isActive === activeStatusFilter : false;
       });
 
-  // Separate pilots into active and inactive groups
+  // Separate pilots into active, inactive, and needs attention groups
   const activePilots = filteredPilots.filter(pilot => {
     const status = pilot.currentStatus;
-    // If no status assigned, treat as active by default
-    return status ? status.isActive : true;
+    const standing = pilot.currentStanding;
+    // Must have both valid status and standing to be in active/inactive groups
+    return status && standing && status.isActive;
   });
 
   const inactivePilots = filteredPilots.filter(pilot => {
     const status = pilot.currentStatus;
-    // If no status assigned, don't include in inactive
-    return status ? !status.isActive : false;
+    const standing = pilot.currentStanding;
+    // Must have both valid status and standing to be in active/inactive groups
+    return status && standing && !status.isActive;
+  });
+
+  // Pilots that need attention: missing status, standing, or both
+  const needsAttentionPilots = filteredPilots.filter(pilot => {
+    const status = pilot.currentStatus;
+    const standing = pilot.currentStanding;
+    // Include pilots with missing status or standing
+    return !status || !standing;
   });
 
   // Group active pilots by standing
@@ -113,20 +123,41 @@ const PilotList: React.FC<PilotListProps> = ({
               const standingPilots = groupedActivePilots[standing];
               if (!standingPilots?.length) return null;
 
+              // Sort pilots within each standing by callsign
+              const sortedStandingPilots = [...standingPilots].sort((a, b) => 
+                a.callsign.localeCompare(b.callsign)
+              );
+
               return (
                 <div key={`active-${standing}`}>
                   {/* Standing subgroup */}
-                  <div style={{
-                    ...pilotListStyles.statusGroup,
-                    marginLeft: '16px',
-                    fontSize: '14px'
-                  }}>
-                    <div style={{...pilotListStyles.statusDivider, width: '80px'}} />
+                  <div 
+                    style={{
+                      position: 'relative',
+                      textAlign: 'center',
+                      margin: '20px 0'
+                    }}
+                  >
+                    <div 
+                      style={{
+                        position: 'absolute',
+                        left: 0,
+                        right: 0,
+                        top: '50%',
+                        height: '1px',
+                        backgroundColor: '#E2E8F0'
+                      }}
+                    />
                     <span 
                       style={{
-                        ...pilotListStyles.statusLabel,
-                        color: '#718096',
-                        fontSize: '14px'
+                        position: 'relative',
+                        backgroundColor: '#FFFFFF',
+                        padding: '0 16px',
+                        color: '#646F7E',
+                        fontSize: '12px',
+                        fontFamily: 'Inter',
+                        fontWeight: 300,
+                        textTransform: 'uppercase'
                       }}
                     >
                       {standing}
@@ -134,7 +165,7 @@ const PilotList: React.FC<PilotListProps> = ({
                   </div>
 
                   {/* Pilot entries */}
-                  {standingPilots.map(pilot => (
+                  {sortedStandingPilots.map(pilot => (
                     <PilotListItem
                       key={pilot.id}
                       pilot={pilot}
@@ -160,20 +191,41 @@ const PilotList: React.FC<PilotListProps> = ({
               const statusPilots = groupedInactivePilots[status];
               if (!statusPilots?.length) return null;
 
+              // Sort pilots within each status by callsign
+              const sortedStatusPilots = [...statusPilots].sort((a, b) => 
+                a.callsign.localeCompare(b.callsign)
+              );
+
               return (
                 <div key={`inactive-${status}`}>
                   {/* Status subgroup */}
-                  <div style={{
-                    ...pilotListStyles.statusGroup,
-                    marginLeft: '16px',
-                    fontSize: '14px'
-                  }}>
-                    <div style={{...pilotListStyles.statusDivider, width: '80px'}} />
+                  <div 
+                    style={{
+                      position: 'relative',
+                      textAlign: 'center',
+                      margin: '20px 0'
+                    }}
+                  >
+                    <div 
+                      style={{
+                        position: 'absolute',
+                        left: 0,
+                        right: 0,
+                        top: '50%',
+                        height: '1px',
+                        backgroundColor: '#E2E8F0'
+                      }}
+                    />
                     <span 
                       style={{
-                        ...pilotListStyles.statusLabel,
+                        position: 'relative',
+                        backgroundColor: '#FFFFFF',
+                        padding: '0 16px',
                         color: '#A0AEC0',
-                        fontSize: '14px'
+                        fontSize: '12px',
+                        fontFamily: 'Inter',
+                        fontWeight: 300,
+                        textTransform: 'uppercase'
                       }}
                     >
                       {status}
@@ -181,7 +233,7 @@ const PilotList: React.FC<PilotListProps> = ({
                   </div>
 
                   {/* Pilot entries */}
-                  {statusPilots.map(pilot => (
+                  {sortedStatusPilots.map(pilot => (
                     <PilotListItem
                       key={pilot.id}
                       pilot={pilot}
@@ -197,6 +249,62 @@ const PilotList: React.FC<PilotListProps> = ({
                 </div>
               );
             })}
+          </div>
+        )}
+
+        {/* Needs Attention Pilots Section */}
+        {needsAttentionPilots.length > 0 && (
+          <div>
+            {/* Needs Attention section header */}
+            <div 
+              style={{
+                position: 'relative',
+                textAlign: 'center',
+                margin: '20px 0'
+              }}
+            >
+              <div 
+                style={{
+                  position: 'absolute',
+                  left: 0,
+                  right: 0,
+                  top: '50%',
+                  height: '1px',
+                  backgroundColor: '#E2E8F0'
+                }}
+              />
+              <span 
+                style={{
+                  position: 'relative',
+                  backgroundColor: '#FFFFFF',
+                  padding: '0 16px',
+                  color: '#DC2626',
+                  fontSize: '12px',
+                  fontFamily: 'Inter',
+                  fontWeight: 300,
+                  textTransform: 'uppercase'
+                }}
+              >
+                Needs Attention
+              </span>
+            </div>
+
+            {/* Pilot entries - sorted by callsign */}
+            {[...needsAttentionPilots].sort((a, b) => 
+              a.callsign.localeCompare(b.callsign)
+            ).map(pilot => (
+              <PilotListItem
+                key={pilot.id}
+                pilot={pilot}
+                isSelected={selectedPilot?.id === pilot.id}
+                isHovered={hoveredPilot === pilot.id}
+                onSelect={() => setSelectedPilot && setSelectedPilot(pilot)}
+                onMouseEnter={() => setHoveredPilot(pilot.id)}
+                onMouseLeave={() => setHoveredPilot(null)}
+                pilotQualifications={allPilotQualifications[pilot.id] || []}
+                isDisabled={isAddingNewPilot}
+              />
+            ))}
           </div>
         )}
 

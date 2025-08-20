@@ -7,6 +7,7 @@ import {
   deletePilot, // Added import for deletePilot
   updatePilot,
   updatePilotRole,
+  updatePilotRoleAllowDuplicates, // Added import for allowing duplicate roles
   clearDiscordCredentials // Added import for clearDiscordCredentials
 } from '../../utils/pilotService';
 import { supabase } from '../../utils/supabaseClient';
@@ -15,6 +16,7 @@ import { getAllStatuses, Status } from '../../utils/statusService';
 import { getAllStandings, Standing } from '../../utils/standingService';
 import { assignPilotStatus, assignPilotStanding } from '../../utils/pilotStatusStandingService';
 import { getAllRoles, Role } from '../../utils/roleService';
+import { getAllSquadrons, assignPilotToSquadron, Squadron } from '../../utils/squadronService';
 import { 
   Qualification, 
   getAllQualifications, 
@@ -34,12 +36,25 @@ const RosterManagement: React.FC = () => {
   const [pilots, setPilots] = useState<Pilot[]>([]);
   const [statuses, setStatuses] = useState<Status[]>([]);
   const [standings, setStandings] = useState<Standing[]>([]);
+  const [squadrons, setSquadrons] = useState<Squadron[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [selectedPilot, setSelectedPilot] = useState<Pilot | null>(null);
   const [hoveredPilot, setHoveredPilot] = useState<string | null>(null);
   const [activeStatusFilter, setActiveStatusFilter] = useState<boolean | null>(null); // null means show all
   const [updatingStatus, setUpdatingStatus] = useState(false);
   const [updatingStanding, setUpdatingStanding] = useState(false);
+  const [updatingSquadron, setUpdatingSquadron] = useState(false);
+  
+  // Squadron conflict warning state
+  const [squadronConflictWarning, setSquadronConflictWarning] = useState<{
+    show: boolean;
+    pilotData: any;
+    conflictingPilot?: string;
+    conflictingRole?: string;
+    onAcceptDuplicate?: () => void;
+    onReplaceIncumbent?: () => void;
+    onCancel?: () => void;
+  }>({ show: false, pilotData: null });
   const [isAddingNewPilot, setIsAddingNewPilot] = useState(false);
   const [newPilot, setNewPilot] = useState<Partial<Pilot>>({
     id: '',
@@ -125,7 +140,7 @@ const RosterManagement: React.FC = () => {
   };
 
   // Function to refresh a specific pilot's details
-  const refreshSelectedPilot = async (pilotId: string) => {
+  const refreshSelectedPilot = async (_pilotId: string) => {
     try {
       // Just refresh all pilots instead of trying to update a single pilot
       // This ensures we get the correct role data from getAllPilots()
@@ -134,7 +149,12 @@ const RosterManagement: React.FC = () => {
       // Find the pilot in the refreshed data and update selection
       // Use setTimeout to ensure state update has completed
       setTimeout(() => {
-        const refreshedPilot = pilots.find(p => p.id === pilotId);
+        // Find pilot by UUID - need to handle the ID mapping properly
+        // The pilots array uses discord_original_id as the primary ID, but we have the actual UUID
+        const refreshedPilot = pilots.find(p => {
+          // Since pilots array uses discord_original_id as ID, we need to find by the original selectedPilot
+          return p.id === selectedPilot?.id;
+        });
         if (refreshedPilot) {
           setSelectedPilot(refreshedPilot);
           fetchPilotRoles(refreshedPilot.id);
@@ -235,7 +255,15 @@ const RosterManagement: React.FC = () => {
             billet: '', // Default empty billet
             discordUsername: pilot.discordId || '', // Use discordId for display
             roles: pilot.roles as any, // KEEP THE ROLES - cast to avoid type conflicts
+            // Add squadron assignment information
+            currentSquadron: (pilot as any).currentSquadron || undefined,
+            squadronAssignment: (pilot as any).squadronAssignment || undefined
           };
+          
+          // Debug logging for squadron data
+          if ((pilot as any).currentSquadron) {
+            console.log(`✅ Pilot ${pilot.callsign} has squadron: ${(pilot as any).currentSquadron.designation}`);
+          }
           
           return legacyPilot;
         });
@@ -434,6 +462,197 @@ const RosterManagement: React.FC = () => {
       setUpdatingStanding(false);
     }
   };
+
+  // Function to check for role conflicts when changing squadrons
+  const checkSquadronRoleConflicts = async (pilotId: string, newSquadronId: string): Promise<{
+    hasConflict: boolean;
+    conflictingPilot?: string;
+    conflictingRole?: string;
+  }> => {
+    if (!newSquadronId) return { hasConflict: false };
+    
+    try {
+      // Get the actual UUID
+      const actualPilotId = await getActualPilotId(pilotId);
+      
+      // Get the pilot's current role
+      const pilotRole = selectedPilot?.roles?.[0]?.role;
+      console.log('🔍 Checking squadron conflict for pilot role:', pilotRole);
+      
+      if (!pilotRole?.isExclusive) {
+        console.log('❌ Role is not exclusive, no conflict check needed');
+        return { hasConflict: false };
+      }
+      
+      console.log('✅ Role is exclusive, checking for conflicts in squadron:', newSquadronId);
+      
+      // Check if any pilot in the target squadron has the same exclusive role
+      const { data: squadronPilots, error } = await supabase
+        .from('pilot_assignments')
+        .select(`
+          pilot_id,
+          pilots!inner (
+            id,
+            callsign,
+            discord_original_id
+          )
+        `)
+        .eq('squadron_id', newSquadronId)
+        .is('end_date', null);
+        
+      if (error) {
+        console.error('❌ Error checking squadron pilots:', error);
+        return { hasConflict: false };
+      }
+      
+      console.log('📋 Squadron pilots found:', squadronPilots?.length || 0);
+      
+      if (!squadronPilots || squadronPilots.length === 0) {
+        console.log('❌ No pilots in target squadron');
+        return { hasConflict: false };
+      }
+      
+      // Get role assignments for all pilots in the target squadron
+      const squadronPilotIds = squadronPilots.map(p => p.pilot_id);
+      console.log('🎯 Checking role assignments for pilots:', squadronPilotIds);
+      console.log('🎯 Looking for role ID:', pilotRole.id);
+      
+      const { data: roleAssignments, error: roleError } = await supabase
+        .from('pilot_roles')
+        .select(`
+          pilot_id,
+          role_id,
+          roles!inner (
+            id,
+            name,
+            isExclusive
+          )
+        `)
+        .in('pilot_id', squadronPilotIds)
+        .eq('role_id', pilotRole.id)
+        .is('end_date', null);
+        
+      if (roleError) {
+        console.error('❌ Error checking role assignments:', roleError);
+        return { hasConflict: false };
+      }
+      
+      console.log('📝 Role assignments found:', roleAssignments?.length || 0, roleAssignments);
+      
+      // Find conflicts (excluding the current pilot and considering only active pilots)
+      const conflictingAssignments = roleAssignments?.filter(assignment => assignment.pilot_id !== actualPilotId) || [];
+      console.log('⚔️ Conflicting assignments (excluding current pilot):', conflictingAssignments.length);
+      
+      if (conflictingAssignments.length > 0) {
+        // Check if any of the conflicting pilots are active
+        const conflictingPilotIds = conflictingAssignments.map(assignment => assignment.pilot_id);
+        console.log('🔍 Checking if conflicting pilots are active:', conflictingPilotIds);
+        
+        const { data: activeConflictingPilots, error: activeError } = await supabase
+          .from('pilot_statuses')
+          .select(`
+            pilot_id,
+            statuses!inner (
+              isActive
+            )
+          `)
+          .in('pilot_id', conflictingPilotIds)
+          .eq('statuses.isActive', true)
+          .is('end_date', null);
+          
+        console.log('✅ Active conflicting pilots:', activeConflictingPilots?.length || 0, activeConflictingPilots);
+          
+        if (!activeError && activeConflictingPilots && activeConflictingPilots.length > 0) {
+          // Find the first active conflicting pilot
+          const activeConflictId = activeConflictingPilots[0].pilot_id;
+          const conflictingPilot = squadronPilots.find(p => p.pilot_id === activeConflictId);
+          
+          console.log('🚨 CONFLICT DETECTED with pilot:', conflictingPilot?.pilots?.callsign);
+          
+          return {
+            hasConflict: true,
+            conflictingPilot: conflictingPilot?.pilots?.callsign || 'Unknown',
+            conflictingRole: pilotRole.name
+          };
+        } else {
+          console.log('✅ No active conflicting pilots found');
+        }
+      } else {
+        console.log('✅ No conflicting assignments found');
+      }
+      
+      return { hasConflict: false };
+      
+    } catch (error) {
+      console.error('Error checking squadron role conflicts:', error);
+      return { hasConflict: false };
+    }
+  };
+
+  // Function to handle pilot squadron change
+  const handleSquadronChange = async (squadronId: string) => {
+    console.log('🚀 handleSquadronChange called with squadronId:', squadronId);
+    if (!selectedPilot) {
+      console.log('❌ No selected pilot');
+      return;
+    }
+    
+    console.log('👤 Selected pilot:', selectedPilot.callsign, 'Current role:', selectedPilot.roles?.[0]?.role?.name);
+    
+    // Check for role conflicts before proceeding
+    if (squadronId) {
+      console.log('🔍 Checking for role conflicts...');
+      const conflict = await checkSquadronRoleConflicts(selectedPilot.id, squadronId);
+      console.log('⚔️ Conflict check result:', conflict);
+      
+      if (conflict.hasConflict) {
+        console.log('🚨 Setting squadron conflict warning');
+        setSquadronConflictWarning({
+          show: true,
+          pilotData: { pilotId: selectedPilot.id, squadronId },
+          conflictingPilot: conflict.conflictingPilot,
+          conflictingRole: conflict.conflictingRole
+        });
+        return;
+      }
+    }
+    
+    console.log('✅ No conflicts found, proceeding with squadron change');
+    // Proceed with the squadron change
+    await executeSquadronChange(selectedPilot.id, squadronId);
+  };
+
+  // Function to execute the squadron change
+  const executeSquadronChange = async (pilotId: string, squadronId: string) => {
+    setUpdatingSquadron(true);
+    
+    try {
+      // Get the actual UUID
+      const actualPilotId = await getActualPilotId(pilotId);
+      
+      // Assign pilot to squadron (or unassign if squadronId is empty)
+      const { success, error } = await assignPilotToSquadron(
+        actualPilotId, 
+        squadronId || null
+      );
+      
+      if (error) {
+        throw new Error(error.message);
+      }
+      
+      if (success) {
+        // Refresh pilots to get updated squadron information
+        await refreshPilots();
+        
+        // Find the updated pilot by the actual pilot ID, not by the potentially Discord ID
+        await refreshSelectedPilot(actualPilotId);
+      }
+    } catch (err: any) {
+      console.error('Error updating pilot squadron:', err);
+    } finally {
+      setUpdatingSquadron(false);
+    }
+  };
   
   // Function to fetch pilot's assigned roles
   const fetchPilotRoles = async (pilotId: string) => {
@@ -553,12 +772,20 @@ const RosterManagement: React.FC = () => {
         currentPilotId = await getActualPilotId(selectedPilot.id);
       }
 
-      // For each exclusive role, check if it's already assigned to any pilot
+      // Get current pilot's squadron
+      const currentPilotSquadronId = (selectedPilot as any)?.currentSquadron?.id;
+
+      // For each exclusive role, check if it's already assigned to any pilot IN THE SAME SQUADRON
       for (const role of exclusiveRoles) {
-        // Query for all active role assignments for this role
+        // Query for all active role assignments for this role with pilot and squadron info
         const { data, error } = await supabase
           .from('pilot_roles')
-          .select('pilot_id')
+          .select(`
+            pilot_id,
+            pilots!inner (
+              id
+            )
+          `)
           .eq('role_id', role.id)
           .is('end_date', null); // Only active assignments
           
@@ -567,15 +794,59 @@ const RosterManagement: React.FC = () => {
           continue;
         }
         
-        // If there are assignments and none of them are to the current pilot,
-        // disable the role for the current pilot
         if (data && data.length > 0) {
-          // Check if the role is assigned to the current pilot
+          // Get squadron assignments for all pilots with this role
+          const pilotIds = data.map(assignment => assignment.pilot_id);
+          
+          const { data: squadronData, error: squadronError } = await supabase
+            .from('pilot_assignments')
+            .select('pilot_id, squadron_id')
+            .in('pilot_id', pilotIds)
+            .is('end_date', null);
+            
+          if (squadronError) {
+            console.error('Error checking squadron assignments:', squadronError);
+            continue;
+          }
+          
+          // Check if the role is assigned to someone else in the SAME squadron (considering only active pilots)
+          let conflictInSameSquadron = false;
+          if (squadronData && squadronData.length > 0) {
+            // Get pilot IDs that are in the same squadron but not the current pilot
+            const sameSquadronOtherPilots = squadronData
+              .filter(squadronAssignment => 
+                squadronAssignment.squadron_id === currentPilotSquadronId &&
+                squadronAssignment.pilot_id !== currentPilotId
+              )
+              .map(assignment => assignment.pilot_id);
+              
+            if (sameSquadronOtherPilots.length > 0) {
+              // Check if any of these pilots are active
+              const { data: activePilots, error: activeError } = await supabase
+                .from('pilot_statuses')
+                .select(`
+                  pilot_id,
+                  statuses!inner (
+                    isActive
+                  )
+                `)
+                .in('pilot_id', sameSquadronOtherPilots)
+                .eq('statuses.isActive', true)
+                .is('end_date', null);
+                
+              if (!activeError && activePilots && activePilots.length > 0) {
+                conflictInSameSquadron = true;
+              }
+            }
+          }
+          
+          // Check if the role is assigned to the current pilot (should remain enabled)
           const isAssignedToCurrentPilot = currentPilotId && 
             data.some(assignment => assignment.pilot_id === currentPilotId);
           
-          // If the role is not assigned to the current pilot, disable it
-          if (!isAssignedToCurrentPilot) {
+          // Disable the role if it's assigned to someone else in the same squadron
+          // OR if current pilot has no squadron and role is assigned to anyone
+          if (conflictInSameSquadron || (!currentPilotSquadronId && !isAssignedToCurrentPilot && data.length > 0)) {
             newDisabledRoles[role.id] = true;
           }
         }
@@ -635,7 +906,7 @@ const RosterManagement: React.FC = () => {
       const selectedRole = roles.find(r => r.id === roleId);
       
       if (selectedRole?.isExclusive) {
-        // For exclusive roles, check if it's already assigned to someone else using pilot_roles table
+        // For exclusive roles, check if it's already assigned to someone else IN THE SAME SQUADRON
         const { data, error } = await supabase
           .from('pilot_roles')
           .select('pilot_id')
@@ -646,13 +917,61 @@ const RosterManagement: React.FC = () => {
           throw new Error(`Error checking role assignments: ${error.message}`);
         }
         
-        // If assigned to someone other than the current pilot, prevent assignment
+        // If assigned to someone other than the current pilot, check squadron conflicts
         if (data && data.length > 0) {
-          const assignedToOthers = data.some(assignment => assignment.pilot_id !== actualPilotId);
+          const otherAssignments = data.filter(assignment => assignment.pilot_id !== actualPilotId);
           
-          if (assignedToOthers) {
-            alert(`Cannot assign this role. It is exclusive and already assigned to another pilot.`);
-            return;
+          if (otherAssignments.length > 0) {
+            // Get current pilot's squadron
+            const currentPilotSquadronId = (selectedPilot as any)?.currentSquadron?.id;
+            
+            // Get squadron assignments for pilots with this role
+            const otherPilotIds = otherAssignments.map(assignment => assignment.pilot_id);
+            
+            const { data: squadronData, error: squadronError } = await supabase
+              .from('pilot_assignments')
+              .select('pilot_id, squadron_id')
+              .in('pilot_id', otherPilotIds)
+              .is('end_date', null);
+              
+            if (squadronError) {
+              throw new Error(`Error checking squadron assignments: ${squadronError.message}`);
+            }
+            
+            // Check if any ACTIVE pilot with this role is in the same squadron
+            let conflictInSameSquadron = false;
+            if (squadronData && squadronData.length > 0) {
+              const conflictingPilotIds = squadronData
+                .filter(squadronAssignment => squadronAssignment.squadron_id === currentPilotSquadronId)
+                .map(assignment => assignment.pilot_id);
+                
+              if (conflictingPilotIds.length > 0) {
+                // Check if any of these pilots are active
+                const { data: activeConflictingPilots, error: activeConflictError } = await supabase
+                  .from('pilot_statuses')
+                  .select(`
+                    pilot_id,
+                    statuses!inner (
+                      isActive
+                    )
+                  `)
+                  .in('pilot_id', conflictingPilotIds)
+                  .eq('statuses.isActive', true)
+                  .is('end_date', null);
+                  
+                if (!activeConflictError && activeConflictingPilots && activeConflictingPilots.length > 0) {
+                  conflictInSameSquadron = true;
+                }
+              }
+            }
+            
+            if (conflictInSameSquadron) {
+              alert(`Cannot assign this role. It is exclusive and already assigned to another pilot in the same squadron.`);
+              return;
+            } else if (!currentPilotSquadronId) {
+              alert(`Cannot assign this role. Pilot must be assigned to a squadron first for exclusive role assignments.`);
+              return;
+            }
           }
         }
       }
@@ -914,7 +1233,108 @@ const RosterManagement: React.FC = () => {
     if (!updatedPilot) return { success: false, error: 'No pilot data provided' };
     
     try {
-      // Get actual pilot ID if this is a discord ID
+      // Get actual pilot ID if this is a discord ID (will be used in extracted function)
+      // const actualPilotId = await getActualPilotId(updatedPilot.id);
+      
+      // Check for squadron conflicts before saving if squadron has changed
+      const originalPilot = pilots.find(p => p.id === updatedPilot.id);
+      const squadronChanged = (originalPilot as any)?.currentSquadron?.id !== (updatedPilot as any)?.currentSquadron?.id;
+      
+      if (squadronChanged && (updatedPilot as any)?.currentSquadron?.id && updatedPilot.roles?.[0]?.role?.isExclusive) {
+        console.log('🔍 Checking for squadron role conflicts before save...');
+        const conflict = await checkSquadronRoleConflicts(updatedPilot.id, (updatedPilot as any).currentSquadron.id);
+        
+        if (conflict.hasConflict) {
+          console.log('🚨 Squadron conflict detected, showing dialog');
+          
+          return new Promise((resolve) => {
+            setSquadronConflictWarning({
+              show: true,
+              pilotData: updatedPilot,
+              conflictingPilot: conflict.conflictingPilot,
+              conflictingRole: conflict.conflictingRole,
+              onCancel: () => {
+                setSquadronConflictWarning({ show: false, pilotData: null });
+                resolve({ success: false, error: 'Save cancelled by user' });
+              },
+              onAcceptDuplicate: async () => {
+                setSquadronConflictWarning({ show: false, pilotData: null });
+                // Proceed with save, allowing duplicate roles
+                const result = await executeSavePilotChanges(updatedPilot, true);
+                resolve(result);
+              },
+              onReplaceIncumbent: async () => {
+                setSquadronConflictWarning({ show: false, pilotData: null });
+                // First remove the role from the conflicting pilot, then save
+                await removeRoleFromConflictingPilot((updatedPilot as any).currentSquadron!.id, updatedPilot.roles![0].role!.id);
+                const result = await executeSavePilotChanges(updatedPilot, false);
+                resolve(result);
+              }
+            });
+          });
+        }
+      }
+      
+      // No conflicts, proceed with normal save
+      return await executeSavePilotChanges(updatedPilot, false);
+    } catch (err: any) {
+      console.error('Error in handleSavePilotChanges:', err);
+      return { success: false, error: err.message || 'An error occurred while saving changes' };
+    }
+  };
+  
+  // Helper function to remove role from conflicting pilot
+  const removeRoleFromConflictingPilot = async (squadronId: string, roleId: string) => {
+    try {
+      // Get pilots in the squadron with this role
+      const { data: squadronPilots, error: squadronError } = await supabase
+        .from('pilot_assignments')
+        .select(`
+          pilot_id,
+          pilots (
+            id,
+            callsign
+          )
+        `)
+        .eq('squadron_id', squadronId)
+        .is('end_date', null);
+      
+      if (squadronError || !squadronPilots) return;
+      
+      const pilotIds = squadronPilots.map(p => p.pilot_id);
+      
+      // Get role assignments for these pilots
+      const { data: roleAssignments, error: roleError } = await supabase
+        .from('pilot_roles')
+        .select('pilot_id')
+        .eq('role_id', roleId)
+        .in('pilot_id', pilotIds)
+        .is('end_date', null);
+      
+      if (roleError || !roleAssignments || roleAssignments.length === 0) return;
+      
+      // End the role assignments for conflicting pilots
+      const { error: endError } = await supabase
+        .from('pilot_roles')
+        .update({ 
+          end_date: new Date().toISOString().split('T')[0],
+          updated_at: new Date().toISOString()
+        })
+        .eq('role_id', roleId)
+        .in('pilot_id', roleAssignments.map(r => r.pilot_id))
+        .is('end_date', null);
+      
+      if (endError) {
+        console.error('Error removing role from conflicting pilot:', endError);
+      }
+    } catch (error) {
+      console.error('Error in removeRoleFromConflictingPilot:', error);
+    }
+  };
+  
+  // Extracted save logic function
+  const executeSavePilotChanges = async (updatedPilot: Pilot, _allowDuplicates?: boolean): Promise<{ success: boolean; error?: string }> => {
+    try {
       const actualPilotId = await getActualPilotId(updatedPilot.id);
       
       // Prepare update payload - only include fields that can be updated directly
@@ -951,6 +1371,16 @@ const RosterManagement: React.FC = () => {
         }
       }
 
+      // Handle squadron updates via join table if squadron has changed
+      if ((updatedPilot as any)?.currentSquadron?.id || (updatedPilot as any)?.squadronAssignment?.squadron_id) {
+        const squadronId = (updatedPilot as any)?.currentSquadron?.id || (updatedPilot as any)?.squadronAssignment?.squadron_id;
+        const { error: squadronError } = await assignPilotToSquadron(actualPilotId, squadronId || null);
+        if (squadronError) {
+          console.error('Error updating pilot squadron during save:', squadronError);
+          // Don't throw here - pilot was saved, just squadron update failed
+        }
+      }
+
       // Handle role updates - check pilot roles array instead of role field
       const currentRole = updatedPilot.roles?.[0]?.role;
       if (!currentRole || !currentRole.id) {
@@ -976,8 +1406,10 @@ const RosterManagement: React.FC = () => {
         const roleId = matchingRole?.id || null;
         
         if (roleId) {
-          // Update to a specific role
-          const { error: roleError } = await updatePilotRole(actualPilotId, roleId);
+          // Update to a specific role - use appropriate function based on allowDuplicates
+          const { error: roleError } = _allowDuplicates 
+            ? await updatePilotRoleAllowDuplicates(actualPilotId, roleId)
+            : await updatePilotRole(actualPilotId, roleId);
           
           if (roleError) {
             throw new Error(roleError.message || 'Failed to update pilot role');
@@ -1011,10 +1443,11 @@ const RosterManagement: React.FC = () => {
     const fetchAllData = async () => {
       try {
         // Start all fetch operations in parallel
-        const [statusResult, standingResult, roleResult] = await Promise.all([
+        const [statusResult, standingResult, roleResult, squadronResult] = await Promise.all([
           getAllStatuses(),
           getAllStandings(), 
-          getAllRoles()
+          getAllRoles(),
+          getAllSquadrons()
         ]);
 
         // Handle statuses
@@ -1036,6 +1469,13 @@ const RosterManagement: React.FC = () => {
           console.error('Error fetching roles:', roleResult.error);
         } else if (roleResult.data) {
           setRoles(roleResult.data);
+        }
+
+        // Handle squadrons
+        if (squadronResult.error) {
+          console.error('Error fetching squadrons:', squadronResult.error);
+        } else if (squadronResult.data) {
+          setSquadrons(squadronResult.data);
         }
 
         // Fetch qualifications
@@ -1107,6 +1547,104 @@ const RosterManagement: React.FC = () => {
         onClose={() => setIsDiscordImportOpen(false)}
         onComplete={handleDiscordSyncComplete}
       />
+      
+      {/* Squadron conflict warning dialog */}
+      {squadronConflictWarning.show && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            width: '100%',
+            height: '100%',
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            zIndex: 1000,
+          }}
+        >
+          <div
+            style={{
+              backgroundColor: '#FFFFFF',
+              padding: '24px',
+              borderRadius: '8px',
+              width: '500px',
+              textAlign: 'center',
+            }}
+          >
+            <h2 style={{ fontSize: '18px', fontWeight: 600, marginBottom: '16px', color: '#374151' }}>
+              Role Conflict Detected
+            </h2>
+            <p style={{ marginBottom: '16px', color: '#374151', lineHeight: '1.5' }}>
+              The pilot <strong>{squadronConflictWarning.conflictingPilot}</strong> already has the{' '}
+              <strong>{squadronConflictWarning.conflictingRole}</strong> role in the target squadron.
+            </p>
+            <p style={{ marginBottom: '24px', color: '#64748B', fontSize: '14px' }}>
+              How would you like to proceed?
+            </p>
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px' }}>
+              <button
+                onClick={() => {
+                  squadronConflictWarning.onCancel?.();
+                  setSquadronConflictWarning({ show: false, pilotData: null });
+                }}
+                style={{
+                  flex: 1,
+                  padding: '10px 12px',
+                  borderRadius: '6px',
+                  border: '1px solid #D1D5DB',
+                  backgroundColor: '#F9FAFB',
+                  color: '#374151',
+                  cursor: 'pointer',
+                  fontSize: '13px',
+                  fontWeight: 500
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  squadronConflictWarning.onAcceptDuplicate?.();
+                  setSquadronConflictWarning({ show: false, pilotData: null });
+                }}
+                style={{
+                  flex: 1,
+                  padding: '10px 12px',
+                  borderRadius: '6px',
+                  border: '1px solid #2563EB',
+                  backgroundColor: '#2563EB',
+                  color: '#FFFFFF',
+                  cursor: 'pointer',
+                  fontSize: '13px',
+                  fontWeight: 500
+                }}
+              >
+                Accept Duplicate Roles
+              </button>
+              <button
+                onClick={() => {
+                  squadronConflictWarning.onReplaceIncumbent?.();
+                  setSquadronConflictWarning({ show: false, pilotData: null });
+                }}
+                style={{
+                  flex: 1,
+                  padding: '10px 12px',
+                  borderRadius: '6px',
+                  border: '1px solid #DC2626',
+                  backgroundColor: '#DC2626',
+                  color: '#FFFFFF',
+                  cursor: 'pointer',
+                  fontSize: '13px',
+                  fontWeight: 500
+                }}
+              >
+                Replace Incumbent
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       
       {loading && !pilots.length ? (
         <div style={rosterStyles.loading}>
@@ -1203,12 +1741,14 @@ const RosterManagement: React.FC = () => {
                 standings={standings}
                 roles={roles}
                 pilotRoles={pilotRoles}
+                squadrons={squadrons}
                 availableQualifications={availableQualifications}
                 pilotQualifications={pilotQualifications}
                 loadingRoles={loadingRoles}
                 updatingRoles={updatingRoles}
                 updatingStatus={updatingStatus}
                 updatingStanding={updatingStanding}
+                updatingSquadron={updatingSquadron}
                 loadingQualifications={loadingQualifications}
                 disabledRoles={disabledRoles}
                 selectedQualification={selectedQualification}
@@ -1220,6 +1760,7 @@ const RosterManagement: React.FC = () => {
                 handleStatusChange={(statusId) => handleNewPilotChange('status_id', statusId)}
                 handleStandingChange={(standingId) => handleNewPilotChange('standing_id', standingId)}
                 handleRoleChange={handleRoleChange}
+                handleSquadronChange={handleSquadronChange}
                 handleAddQualification={handleAddQualification}
                 handleRemoveQualification={handleRemoveQualification}
                 handleDeletePilot={handleDeletePilot}
@@ -1239,12 +1780,14 @@ const RosterManagement: React.FC = () => {
                 standings={standings}
                 roles={roles}
                 pilotRoles={pilotRoles}
+                squadrons={squadrons}
                 availableQualifications={availableQualifications}
                 pilotQualifications={pilotQualifications}
                 loadingRoles={loadingRoles}
                 updatingRoles={updatingRoles}
                 updatingStatus={updatingStatus}
                 updatingStanding={updatingStanding}
+                updatingSquadron={updatingSquadron}
                 loadingQualifications={loadingQualifications}
                 disabledRoles={disabledRoles}
                 selectedQualification={selectedQualification}
@@ -1256,6 +1799,7 @@ const RosterManagement: React.FC = () => {
                 handleStatusChange={handleStatusChange}
                 handleStandingChange={handleStandingChange}
                 handleRoleChange={handleRoleChange}
+                handleSquadronChange={handleSquadronChange}
                 handleAddQualification={handleAddQualification}
                 handleRemoveQualification={handleRemoveQualification}
                 handleDeletePilot={handleDeletePilot}

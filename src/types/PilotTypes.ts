@@ -81,6 +81,29 @@ export interface Pilot {
     name: string;
     order: number;
   };
+  // Squadron assignment information
+  currentSquadron?: {
+    id: string;
+    name: string;
+    designation: string;
+    wing_id: string;
+    tail_code?: string | null;
+    established_date?: string | null;
+    deactivated_date?: string | null;
+    insignia_url?: string | null;
+    carrier_id?: string | null;
+    callsigns?: any;
+    updated_at?: string | null;
+  };
+  squadronAssignment?: {
+    id: string;
+    pilot_id: string;
+    squadron_id: string;
+    start_date: string;
+    end_date?: string;
+    created_at: string;
+    updated_at?: string;
+  };
 }
 
 // Supabase Pilot interface - matches our database schema

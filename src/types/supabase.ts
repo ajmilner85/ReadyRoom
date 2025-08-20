@@ -532,6 +532,138 @@ export interface Database {
           }
         ]
       }
+      org_wings: {
+        Row: {
+          id: string
+          name: string
+          designation: string
+          established_date: string | null
+          deactivated_date: string | null
+          insignia_url: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          id?: string
+          name: string
+          designation: string
+          established_date?: string | null
+          deactivated_date?: string | null
+          insignia_url?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          id?: string
+          name?: string
+          designation?: string
+          established_date?: string | null
+          deactivated_date?: string | null
+          insignia_url?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      org_squadrons: {
+        Row: {
+          id: string
+          wing_id: string
+          name: string
+          established_date: string | null
+          deactivated_date: string | null
+          designation: string
+          insignia_url: string | null
+          carrier_id: string | null
+          tail_code: string | null
+          callsigns: Json | null
+          updated_at: string | null
+        }
+        Insert: {
+          id?: string
+          wing_id?: string
+          name: string
+          established_date?: string | null
+          deactivated_date?: string | null
+          designation: string
+          insignia_url?: string | null
+          carrier_id?: string | null
+          tail_code?: string | null
+          callsigns?: Json | null
+          updated_at?: string | null
+        }
+        Update: {
+          id?: string
+          wing_id?: string
+          name?: string
+          established_date?: string | null
+          deactivated_date?: string | null
+          designation?: string
+          insignia_url?: string | null
+          carrier_id?: string | null
+          tail_code?: string | null
+          callsigns?: Json | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "echelon4_squadrons_carrier_id_fkey"
+            columns: ["carrier_id"]
+            isOneToOne: false
+            referencedRelation: "carriers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "echelon4_squadrons_wing_id_fkey"
+            columns: ["wing_id"]
+            isOneToOne: false
+            referencedRelation: "org_wings"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      pilot_assignments: {
+        Row: {
+          id: string
+          created_at: string
+          pilot_id: string
+          squadron_id: string
+          start_date: string
+          end_date: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          id?: string
+          created_at?: string
+          pilot_id: string
+          squadron_id: string
+          start_date: string
+          end_date?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          id?: string
+          created_at?: string
+          pilot_id?: string
+          squadron_id?: string
+          start_date?: string
+          end_date?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pilot_assignments_pilot_id_fkey"
+            columns: ["pilot_id"]
+            isOneToOne: false
+            referencedRelation: "pilots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pilot_assignments_squadron_id_fkey"
+            columns: ["squadron_id"]
+            isOneToOne: false
+            referencedRelation: "org_squadrons"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
     }
     Views: {
       [_ in never]: never
