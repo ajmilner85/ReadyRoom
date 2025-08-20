@@ -60,6 +60,7 @@ export interface Pilot {
   boardNumber: string;        // Not a unique identifier, just a display property
   status: PilotStatus;
   status_id?: string;         // Foreign key to statuses table
+  standing_id?: string;       // Foreign key to standings table (through pilot_standings join)
   billet: string;
   qualifications: Qualification[];
   discordUsername: string;
@@ -68,6 +69,18 @@ export interface Pilot {
   // Add attendance statuses
   attendanceStatus?: 'accepted' | 'tentative' | 'declined'; // From Discord event response - ADDED 'declined'
   rollCallStatus?: 'Present' | 'Absent' | 'Tentative'; // From Roll Call UI
+  // New fields for current status and standing (populated from join tables)
+  currentStatus?: {
+    id: string;
+    name: string;
+    isActive: boolean;
+    order: number;
+  };
+  currentStanding?: {
+    id: string;
+    name: string;
+    order: number;
+  };
 }
 
 // Supabase Pilot interface - matches our database schema

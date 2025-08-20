@@ -49,7 +49,6 @@ export interface Database {
           updated_at: string | null
           discord_original_id?: string | null
           qualifications?: string[] | null
-          status_id?: string | null
         }
         Insert: {
           id?: string
@@ -58,7 +57,6 @@ export interface Database {
           discordId?: string | null
           discord_original_id?: string | null
           qualifications?: string[] | null
-          status_id?: string | null
           created_at?: string
           updated_at?: string | null
         }
@@ -68,13 +66,108 @@ export interface Database {
           discordId?: string | null
           discord_original_id?: string | null
           qualifications?: string[] | null
-          status_id?: string | null
           created_at?: string
           updated_at?: string | null
         }
+        Relationships: []
+      }
+      standings: {
+        Row: {
+          id: string
+          name: string
+          order: number
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          name: string
+          order: number
+          created_at?: string
+        }
+        Update: {
+          name?: string
+          order?: number
+          created_at?: string
+        }
+        Relationships: []
+      }
+      pilot_standings: {
+        Row: {
+          id: string
+          created_at: string
+          pilot_id: string
+          standing_id: string
+          start_date: string | null
+          end_date: string | null
+        }
+        Insert: {
+          id?: string
+          created_at?: string
+          pilot_id: string
+          standing_id: string
+          start_date?: string | null
+          end_date?: string | null
+        }
+        Update: {
+          id?: string
+          created_at?: string
+          pilot_id?: string
+          standing_id?: string
+          start_date?: string | null
+          end_date?: string | null
+        }
         Relationships: [
           {
-            foreignKeyName: "pilots_status_id_fkey"
+            foreignKeyName: "pilot_standings_pilot_id_fkey"
+            columns: ["pilot_id"]
+            isOneToOne: false
+            referencedRelation: "pilots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pilot_standings_standing_id_fkey"
+            columns: ["standing_id"]
+            isOneToOne: false
+            referencedRelation: "standings"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      pilot_statuses: {
+        Row: {
+          id: string
+          created_at: string
+          pilot_id: string
+          status_id: string
+          start_date: string | null
+          end_date: string | null
+        }
+        Insert: {
+          id?: string
+          created_at?: string
+          pilot_id: string
+          status_id: string
+          start_date?: string | null
+          end_date?: string | null
+        }
+        Update: {
+          id?: string
+          created_at?: string
+          pilot_id?: string
+          status_id?: string
+          start_date?: string | null
+          end_date?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pilot_statuses_pilot_id_fkey"
+            columns: ["pilot_id"]
+            isOneToOne: false
+            referencedRelation: "pilots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pilot_statuses_status_id_fkey"
             columns: ["status_id"]
             isOneToOne: false
             referencedRelation: "statuses"

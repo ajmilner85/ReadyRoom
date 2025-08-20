@@ -2,10 +2,10 @@ import { supabase } from './supabaseClient';
 import { Pilot, NewPilot, UpdatePilot } from './pilotTypes';
 
 /**
- * Fetch all pilots from the database with their role assignments
+ * Fetch all pilots from the database with their role assignments, status, and standing
  */
 export async function getAllPilots(): Promise<{ data: Pilot[] | null; error: any }> {
-  console.log('🔍 Fetching all pilots with roles...');
+  console.log('🔍 Fetching all pilots with roles, status, and standing...');
   
   try {
     // Step 1: Fetch all pilots
@@ -41,25 +41,67 @@ export async function getAllPilots(): Promise<{ data: Pilot[] | null; error: any
       return { data: null, error: rolesError };
     }
 
-    console.log('✅ Fetched role assignments:', roleAssignments?.length);
-    console.log('🔍 Sample role assignment:', roleAssignments?.[0]);
+    // Step 3: Fetch all active pilot status assignments
+    const { data: statusAssignments, error: statusError } = await supabase
+      .from('pilot_statuses')
+      .select(`
+        *,
+        statuses:status_id (
+          id,
+          name,
+          isActive,
+          order
+        )
+      `)
+      .is('end_date', null); // Only active statuses
 
-    // Step 3: Combine pilots with their role assignments
-    const pilotsWithRoles = (pilotsData || []).map(pilot => {
-      // Find this pilot's active role assignments
+    if (statusError) {
+      console.error('❌ Error fetching status assignments:', statusError);
+      return { data: null, error: statusError };
+    }
+
+    // Step 4: Fetch all active pilot standing assignments
+    const { data: standingAssignments, error: standingError } = await supabase
+      .from('pilot_standings')
+      .select(`
+        *,
+        standings:standing_id (
+          id,
+          name,
+          order
+        )
+      `)
+      .is('end_date', null); // Only active standings
+
+    if (standingError) {
+      console.error('❌ Error fetching standing assignments:', standingError);
+      return { data: null, error: standingError };
+    }
+
+    console.log('✅ Fetched role assignments:', roleAssignments?.length);
+    console.log('✅ Fetched status assignments:', statusAssignments?.length);
+    console.log('✅ Fetched standing assignments:', standingAssignments?.length);
+
+    // Step 5: Combine pilots with their assignments
+    const pilotsWithAssignments = (pilotsData || []).map(pilot => {
+      // Find this pilot's active role assignment
       const pilotRoleAssignments = (roleAssignments || []).filter(
         ra => ra.pilot_id === pilot.id
       );
-
-      console.log(`🔍 Pilot ${pilot.callsign} role assignments:`, pilotRoleAssignments);
-
-      // Sort by effective_date to get the most recent (single role only)
       pilotRoleAssignments.sort((a, b) => 
         new Date(b.effective_date).getTime() - new Date(a.effective_date).getTime()
       );
-
-      // Get the most recent active role
       const currentRoleAssignment = pilotRoleAssignments[0];
+
+      // Find this pilot's active status assignment
+      const pilotStatusAssignment = (statusAssignments || []).find(
+        sa => sa.pilot_id === pilot.id
+      );
+
+      // Find this pilot's active standing assignment
+      const pilotStandingAssignment = (standingAssignments || []).find(
+        sta => sta.pilot_id === pilot.id
+      );
 
       const transformedPilot: Pilot = {
         ...pilot, // Spread all pilot properties from database
@@ -67,21 +109,27 @@ export async function getAllPilots(): Promise<{ data: Pilot[] | null; error: any
           ...currentRoleAssignment,
           pilot_id: pilot.id,
           role: currentRoleAssignment.roles // This should be the role object
-        }] : null
+        }] : null,
+        currentStatus: pilotStatusAssignment?.statuses || null,
+        currentStanding: pilotStandingAssignment?.standings || null,
+        standing_id: pilotStandingAssignment?.standing_id || undefined,
+        // Set legacy status field based on current status for backward compatibility
+        status: (pilotStatusAssignment?.statuses?.name as any) || 'Active'
       };
 
       console.log(`✅ Transformed pilot ${pilot.callsign}:`, {
         id: pilot.id,
         callsign: pilot.callsign,
-        rolesCount: transformedPilot.roles?.length || 0,
-        currentRole: transformedPilot.roles?.[0]?.role?.name
+        currentRole: transformedPilot.roles?.[0]?.role?.name,
+        currentStatus: transformedPilot.currentStatus?.name,
+        currentStanding: transformedPilot.currentStanding?.name
       });
 
       return transformedPilot;
     });
 
     console.log('🎉 All pilots transformed successfully');
-    return { data: pilotsWithRoles as Pilot[], error: null };
+    return { data: pilotsWithAssignments as Pilot[], error: null };
 
   } catch (error) {
     console.error('❌ Unexpected error in getAllPilots:', error);
@@ -202,6 +250,106 @@ export async function createPilot(pilot: NewPilot): Promise<{ data: Pilot | null
 }
 
 /**
+ * Create a new pilot with status and standing assignments
+ */
+export async function createPilotWithStatusAndStanding(
+  pilotData: NewPilot,
+  statusId: string,
+  standingId: string
+): Promise<{ data: Pilot | null; error: any }> {
+  console.log('🔍 Creating new pilot with status and standing...');
+  
+  try {
+    // Check if board number already exists
+    const { data: existingPilot } = await supabase
+      .from('pilots')
+      .select('id')
+      .eq('boardNumber', pilotData.boardNumber)
+      .single();
+
+    if (existingPilot) {
+      return { 
+        data: null, 
+        error: { message: `Pilot with board number ${pilotData.boardNumber} already exists` } 
+      };
+    }
+
+    // Step 1: Create the pilot
+    const { data: newPilot, error: pilotError } = await supabase
+      .from('pilots')
+      .insert(pilotData)
+      .select()
+      .single();
+
+    if (pilotError || !newPilot) {
+      console.error('❌ Error creating pilot:', pilotError);
+      return { data: null, error: pilotError };
+    }
+
+    console.log('✅ Pilot created:', newPilot);
+
+    // Step 2: Assign status
+    const today = new Date().toISOString().split('T')[0];
+    
+    const { error: statusError } = await supabase
+      .from('pilot_statuses')
+      .insert({
+        pilot_id: newPilot.id,
+        status_id: statusId,
+        start_date: today,
+        end_date: null
+      });
+
+    if (statusError) {
+      console.error('❌ Error assigning status:', statusError);
+      // Try to delete the pilot since we couldn't assign status
+      await supabase.from('pilots').delete().eq('id', newPilot.id);
+      return { data: null, error: statusError };
+    }
+
+    console.log('✅ Status assigned');
+
+    // Step 3: Assign standing
+    const { error: standingError } = await supabase
+      .from('pilot_standings')
+      .insert({
+        pilot_id: newPilot.id,
+        standing_id: standingId,
+        start_date: today,
+        end_date: null
+      });
+
+    if (standingError) {
+      console.error('❌ Error assigning standing:', standingError);
+      // Try to delete the pilot and status since we couldn't assign standing
+      await supabase.from('pilot_statuses').delete().eq('pilot_id', newPilot.id);
+      await supabase.from('pilots').delete().eq('id', newPilot.id);
+      return { data: null, error: standingError };
+    }
+
+    console.log('✅ Standing assigned');
+
+    // Step 4: Fetch the complete pilot data with status and standing
+    const result = await getAllPilots();
+    if (result.error || !result.data) {
+      return { data: null, error: result.error };
+    }
+
+    const completePilot = result.data.find(p => p.id === newPilot.id);
+    if (!completePilot) {
+      return { data: null, error: new Error('Failed to fetch created pilot') };
+    }
+
+    console.log('🎉 Pilot created successfully with status and standing');
+    return { data: completePilot, error: null };
+
+  } catch (error) {
+    console.error('❌ Unexpected error in createPilotWithStatusAndStanding:', error);
+    return { data: null, error };
+  }
+}
+
+/**
  * Update an existing pilot
  * @param id The ID of the pilot to update
  * @param updates The pilot data to update
@@ -283,7 +431,7 @@ export async function updatePilotRoles(
 }
 
 /**
- * Update a pilot's status
+ * Update a pilot's status using the pilot_statuses join table
  * @param id The ID of the pilot to update (either UUID or Discord ID)
  * @param statusId The ID of the status to assign
  */
@@ -301,15 +449,19 @@ export async function updatePilotStatus(
   // If found by Discord ID, use the actual UUID from the database
   const actualId = pilotByDiscordId ? pilotByDiscordId.id : id;
   
-  // Now update using the correct UUID
-  const { data, error } = await supabase
-    .from('pilots')
-    .update({ status_id: statusId })
-    .eq('id', actualId)
-    .select()
-    .single();
-
-  return { data, error };
+  try {
+    // Use the pilotStatusStandingService to update the status
+    const { assignPilotStatus } = await import('./pilotStatusStandingService');
+    await assignPilotStatus(actualId, statusId);
+    
+    // Return the updated pilot
+    const { data: pilots } = await getAllPilots();
+    const updatedPilot = pilots?.find(p => p.id === actualId) || null;
+    
+    return { data: updatedPilot, error: null };
+  } catch (error) {
+    return { data: null, error };
+  }
 }
 
 /**
@@ -442,19 +594,20 @@ export async function canAssignRoleToPilot(
   roleId: string
 ): Promise<{ canAssign: boolean; reason?: string }> {
   try {
-    // First get the pilot's status
-    const { data: pilot, error: pilotError } = await supabase
-      .from('pilots')
+    // Get the pilot's current status from pilot_statuses join table
+    const { data: statusAssignment, error: pilotError } = await supabase
+      .from('pilot_statuses')
       .select('status_id')
-      .eq('id', pilotId)
+      .eq('pilot_id', pilotId)
+      .is('end_date', null)
       .single();
     
     if (pilotError) {
-      throw new Error(`Error fetching pilot data: ${pilotError.message}`);
-    }
-    
-    if (!pilot || !pilot.status_id) {
-      return { canAssign: false, reason: "Pilot has no status assigned" };
+      // If no status assignment found, allow role assignment
+      if (pilotError.code === 'PGRST116') {
+        return { canAssign: true };
+      }
+      throw new Error(`Error fetching pilot status: ${pilotError.message}`);
     }
     
     // Get the role details
@@ -478,11 +631,15 @@ export async function canAssignRoleToPilot(
     }
     
     // Check if pilot's status is compatible
-    // Ensure we're working with strings for comparison
-    const pilotStatusId = String(pilot.status_id);
+    const pilotStatusId = statusAssignment?.status_id;
+    if (!pilotStatusId) {
+      // If pilot has no status, allow assignment
+      return { canAssign: true };
+    }
+    
     const compatibleStatusIds = role.compatible_statuses.map(id => String(id));
     
-    if (!compatibleStatusIds.includes(pilotStatusId)) {
+    if (!compatibleStatusIds.includes(String(pilotStatusId))) {
       return { 
         canAssign: false, 
         reason: "Pilot's status is not compatible with this role" 

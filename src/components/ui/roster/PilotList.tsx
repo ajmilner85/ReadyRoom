@@ -1,6 +1,7 @@
 import React, { useRef } from 'react';
 import { Pilot } from '../../../types/PilotTypes';
 import { Status } from '../../../utils/statusService';
+import { Standing } from '../../../utils/standingService';
 import { pilotListStyles, rosterStyles } from '../../../styles/RosterManagementStyles';
 import StatusFilter from './StatusFilter';
 import PilotListItem from './PilotListItem';
@@ -8,7 +9,7 @@ import PilotListItem from './PilotListItem';
 interface PilotListProps {
   pilots: Pilot[];
   statuses: Status[];
-  statusMap: Record<string, Status>;
+  standings: Standing[];
   selectedPilot: Pilot | null;
   hoveredPilot: string | null;
   activeStatusFilter: boolean | null;
@@ -23,7 +24,7 @@ interface PilotListProps {
 const PilotList: React.FC<PilotListProps> = ({
   pilots,
   statuses,
-  statusMap,
+  standings,
   selectedPilot,
   hoveredPilot,
   activeStatusFilter,
@@ -41,22 +42,55 @@ const PilotList: React.FC<PilotListProps> = ({
   const filteredPilots = activeStatusFilter === null 
     ? pilots 
     : pilots.filter(pilot => {
-        const status = pilot.status_id ? statusMap[pilot.status_id] : null;
+        const status = pilot.currentStatus;
         return status ? status.isActive === activeStatusFilter : false;
       });
 
-  // Group pilots by status
-  const groupedPilots = filteredPilots.reduce((acc, pilot) => {
-    const status = pilot.status;
-    if (!acc[status]) {
-      acc[status] = [];
+  // Separate pilots into active and inactive groups
+  const activePilots = filteredPilots.filter(pilot => {
+    const status = pilot.currentStatus;
+    // If no status assigned, treat as active by default
+    return status ? status.isActive : true;
+  });
+
+  const inactivePilots = filteredPilots.filter(pilot => {
+    const status = pilot.currentStatus;
+    // If no status assigned, don't include in inactive
+    return status ? !status.isActive : false;
+  });
+
+  // Group active pilots by standing
+  const groupedActivePilots = activePilots.reduce((acc, pilot) => {
+    const standingName = pilot.currentStanding 
+      ? pilot.currentStanding.name 
+      : 'Unassigned';
+    if (!acc[standingName]) {
+      acc[standingName] = [];
     }
-    acc[status].push(pilot);
+    acc[standingName].push(pilot);
     return acc;
   }, {} as Record<string, Pilot[]>);
 
-  // Get status display order based on the order in the statuses table
-  const statusOrder = statuses
+  // Group inactive pilots by status
+  const groupedInactivePilots = inactivePilots.reduce((acc, pilot) => {
+    const statusName = pilot.currentStatus 
+      ? pilot.currentStatus.name 
+      : 'Unknown';
+    if (!acc[statusName]) {
+      acc[statusName] = [];
+    }
+    acc[statusName].push(pilot);
+    return acc;
+  }, {} as Record<string, Pilot[]>);
+
+  // Get standing display order based on the order in the standings table
+  const standingOrder = standings
+    .sort((a, b) => a.order - b.order)
+    .map(standing => standing.name);
+
+  // Get inactive status display order based on the order in the statuses table (only inactive ones)
+  const inactiveStatusOrder = statuses
+    .filter(status => !status.isActive)
     .sort((a, b) => a.order - b.order)
     .map(status => status.name);
 
@@ -72,53 +106,99 @@ const PilotList: React.FC<PilotListProps> = ({
         ref={rosterContentRef}
         style={pilotListStyles.content}
       >
-        {statusOrder.map(status => {
-          const statusPilots = groupedPilots[status];
-          if (!statusPilots?.length) return null;
+        {/* Active Pilots Section */}
+        {activePilots.length > 0 && (
+          <div>
+            {standingOrder.map(standing => {
+              const standingPilots = groupedActivePilots[standing];
+              if (!standingPilots?.length) return null;
 
-          // Find status object to determine if active/inactive
-          const statusObj = statuses.find(s => s.name === status);
-          const isActive = statusObj ? statusObj.isActive : true;
+              return (
+                <div key={`active-${standing}`}>
+                  {/* Standing subgroup */}
+                  <div style={{
+                    ...pilotListStyles.statusGroup,
+                    marginLeft: '16px',
+                    fontSize: '14px'
+                  }}>
+                    <div style={{...pilotListStyles.statusDivider, width: '80px'}} />
+                    <span 
+                      style={{
+                        ...pilotListStyles.statusLabel,
+                        color: '#718096',
+                        fontSize: '14px'
+                      }}
+                    >
+                      {standing}
+                    </span>
+                  </div>
 
-          return (
-            <div key={status}>
-              {/* Status group divider */}
-              <div style={pilotListStyles.statusGroup}>
-                <div style={pilotListStyles.statusDivider} />
-                <span 
-                  style={{
-                    ...pilotListStyles.statusLabel,
-                    color: isActive ? '#646F7E' : '#A0AEC0'
-                  }}
-                >
-                  {status}
-                  <span className={`inline-block w-2 h-2 rounded-full ${isActive ? 'bg-green-500' : 'bg-gray-400'}`}></span>
-                </span>
-              </div>
-
-              {/* Pilot entries */}
-              {statusPilots.map(pilot => (
-                <PilotListItem
-                  key={pilot.id}
-                  pilot={pilot}
-                  isSelected={selectedPilot?.id === pilot.id}
-                  isHovered={hoveredPilot === pilot.id}
-                  onSelect={() => setSelectedPilot && setSelectedPilot(pilot)}
-                  onMouseEnter={() => setHoveredPilot(pilot.id)}
-                  onMouseLeave={() => setHoveredPilot(null)}
-                  pilotQualifications={allPilotQualifications[pilot.id] || []}
-                  isDisabled={isAddingNewPilot}
-                />
-              ))}
-
-              {statusPilots.length === 0 && (
-                <div style={pilotListStyles.emptyList}>
-                  No pilots found.
+                  {/* Pilot entries */}
+                  {standingPilots.map(pilot => (
+                    <PilotListItem
+                      key={pilot.id}
+                      pilot={pilot}
+                      isSelected={selectedPilot?.id === pilot.id}
+                      isHovered={hoveredPilot === pilot.id}
+                      onSelect={() => setSelectedPilot && setSelectedPilot(pilot)}
+                      onMouseEnter={() => setHoveredPilot(pilot.id)}
+                      onMouseLeave={() => setHoveredPilot(null)}
+                      pilotQualifications={allPilotQualifications[pilot.id] || []}
+                      isDisabled={isAddingNewPilot}
+                    />
+                  ))}
                 </div>
-              )}
-            </div>
-          );
-        })}
+              );
+            })}
+          </div>
+        )}
+
+        {/* Inactive Pilots Section */}
+        {inactivePilots.length > 0 && (
+          <div>
+            {inactiveStatusOrder.map(status => {
+              const statusPilots = groupedInactivePilots[status];
+              if (!statusPilots?.length) return null;
+
+              return (
+                <div key={`inactive-${status}`}>
+                  {/* Status subgroup */}
+                  <div style={{
+                    ...pilotListStyles.statusGroup,
+                    marginLeft: '16px',
+                    fontSize: '14px'
+                  }}>
+                    <div style={{...pilotListStyles.statusDivider, width: '80px'}} />
+                    <span 
+                      style={{
+                        ...pilotListStyles.statusLabel,
+                        color: '#A0AEC0',
+                        fontSize: '14px'
+                      }}
+                    >
+                      {status}
+                    </span>
+                  </div>
+
+                  {/* Pilot entries */}
+                  {statusPilots.map(pilot => (
+                    <PilotListItem
+                      key={pilot.id}
+                      pilot={pilot}
+                      isSelected={selectedPilot?.id === pilot.id}
+                      isHovered={hoveredPilot === pilot.id}
+                      onSelect={() => setSelectedPilot && setSelectedPilot(pilot)}
+                      onMouseEnter={() => setHoveredPilot(pilot.id)}
+                      onMouseLeave={() => setHoveredPilot(null)}
+                      pilotQualifications={allPilotQualifications[pilot.id] || []}
+                      isDisabled={isAddingNewPilot}
+                    />
+                  ))}
+                </div>
+              );
+            })}
+          </div>
+        )}
 
         {filteredPilots.length === 0 && (
           <div style={pilotListStyles.emptyList}>

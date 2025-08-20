@@ -66,9 +66,10 @@ export async function deleteStatus(id: string): Promise<{ success: boolean; erro
  */
 export async function getStatusUsageCount(statusId: string): Promise<{ count: number; error: any }> {
   const { error, count } = await supabase
-    .from('pilots')
+    .from('pilot_statuses')
     .select('id', { count: 'exact' })
-    .eq('status_id', statusId);
+    .eq('status_id', statusId)
+    .is('end_date', null); // Only count active assignments
 
   return { count: count || 0, error };
 }
@@ -93,15 +94,13 @@ export async function initializeDefaultStatuses(): Promise<void> {
     return;
   }
 
-  // Default statuses as specified
+  // Default statuses for activity level (not organizational standing)
   const defaultStatuses = [
-    { name: 'Command', isActive: true, order: 10 },
-    { name: 'Staff', isActive: true, order: 20 },
-    { name: 'Cadre', isActive: true, order: 30 },
-    { name: 'Provisional', isActive: true, order: 40 },
-    { name: 'On Leave', isActive: false, order: 50 },
-    { name: 'AWOL', isActive: false, order: 60 },
-    { name: 'Retired', isActive: false, order: 70 }
+    { name: 'Active', isActive: true, order: 10 },
+    { name: 'On Leave', isActive: false, order: 20 },
+    { name: 'AWOL', isActive: false, order: 30 },
+    { name: 'Retired', isActive: false, order: 40 },
+    { name: 'Removed', isActive: false, order: 50 }
   ];
 
   try {

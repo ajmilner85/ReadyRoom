@@ -3,9 +3,11 @@ import { Card } from '../card';
 import { pilotDetailsStyles } from '../../../styles/RosterManagementStyles';
 import { Pilot } from '../../../types/PilotTypes';
 import { Status } from '../../../utils/statusService';
+import { Standing } from '../../../utils/standingService';
 import { Role } from '../../../utils/roleService';
 import { Qualification } from '../../../utils/qualificationService';
 import StatusSelector from './StatusSelector';
+import StandingSelector from './StandingSelector';
 import RoleSelector from './RoleSelector';
 import QualificationsManager from './QualificationsManager';
 import { Save, X, Trash2 } from 'lucide-react';
@@ -13,6 +15,7 @@ import { Save, X, Trash2 } from 'lucide-react';
 interface PilotDetailsProps {
   selectedPilot: Pilot | null;
   statuses: Status[];
+  standings: Standing[];
   roles: Role[];
   pilotRoles: Role[];
   availableQualifications: Qualification[];
@@ -20,6 +23,7 @@ interface PilotDetailsProps {
   loadingRoles: boolean;
   updatingRoles: boolean;
   updatingStatus: boolean;
+  updatingStanding: boolean;
   loadingQualifications: boolean;
   disabledRoles: Record<string, boolean>;
   selectedQualification: string;
@@ -29,6 +33,7 @@ interface PilotDetailsProps {
   setSelectedQualification: (id: string) => void;
   setQualificationAchievedDate: (date: string) => void;
   handleStatusChange: (statusId: string) => void;
+  handleStandingChange: (standingId: string) => void;
   handleRoleChange: (roleId: string) => void;
   handleAddQualification: () => void;
   handleRemoveQualification: (id: string) => void;
@@ -46,6 +51,7 @@ interface PilotDetailsProps {
 const PilotDetails: React.FC<PilotDetailsProps> = ({
   selectedPilot,
   statuses,
+  standings,
   roles,
   pilotRoles,
   availableQualifications,
@@ -53,6 +59,7 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
   loadingRoles,
   updatingRoles,
   updatingStatus,
+  updatingStanding,
   loadingQualifications,
   disabledRoles,
   selectedQualification,
@@ -62,6 +69,7 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
   setSelectedQualification,
   setQualificationAchievedDate,
   handleStatusChange,
+  handleStandingChange,
   handleRoleChange,
   handleAddQualification,
   handleRemoveQualification,
@@ -134,6 +142,19 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
     setEditError(null);
   };
 
+  const handleEditStandingChange = (standingId: string) => {
+    if (!editedPilot) return;
+
+    const standing = standings.find((s) => s.id === standingId);
+
+    setEditedPilot({
+      ...editedPilot,
+      currentStanding: standing || undefined,
+    });
+
+    setIsEdited(true);
+  };
+
   const handleEditStatusChange = (statusId: string) => {
     if (!editedPilot) return;
 
@@ -141,7 +162,7 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
 
     setEditedPilot({
       ...editedPilot,
-      status_id: statusId,
+      currentStatus: status || undefined,
       status: status?.name as any,
     });
 
@@ -300,9 +321,18 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
         <div style={{ ...sectionSpacingStyle, marginTop: '12px' }}>
           <StatusSelector
             statuses={statuses}
-            selectedStatusId={selectedPilot.status_id || ''}
+            selectedStatusId={selectedPilot.currentStatus?.id || ''}
             updatingStatus={updatingStatus}
             handleStatusChange={handleStatusChange}
+          />
+        </div>
+
+        <div style={{ ...sectionSpacingStyle, marginTop: '12px' }}>
+          <StandingSelector
+            standings={standings}
+            selectedStandingId={selectedPilot.currentStanding?.id || ''}
+            updatingStanding={updatingStanding}
+            handleStandingChange={handleStandingChange}
           />
         </div>
 
@@ -317,7 +347,7 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
           />
         </div>
 
-        <div style={{ marginTop: '16px', color: '#64748B', fontSize: '14px' }}>* Required fields</div>
+        <div style={{ marginTop: '16px', color: '#64748B', fontSize: '14px' }}>* Board Number, Callsign, Status, and Standing are required</div>
       </>
     );
   };
@@ -399,9 +429,18 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
         <div style={{ ...sectionSpacingStyle, marginTop: '20px' }}>
           <StatusSelector
             statuses={statuses}
-            selectedStatusId={editedPilot.status_id || ''}
+            selectedStatusId={editedPilot.currentStatus?.id || ''}
             updatingStatus={false}
             handleStatusChange={handleEditStatusChange}
+          />
+        </div>
+
+        <div style={{ ...sectionSpacingStyle, marginTop: '20px' }}>
+          <StandingSelector
+            standings={standings}
+            selectedStandingId={editedPilot.currentStanding?.id || ''}
+            updatingStanding={false}
+            handleStandingChange={handleEditStandingChange}
           />
         </div>
 
@@ -432,7 +471,8 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
                   isSavingNewPilot ||
                   !selectedPilot.callsign ||
                   !selectedPilot.boardNumber ||
-                  !selectedPilot.status_id
+                  !selectedPilot.status_id ||
+                  !selectedPilot.standing_id
                 }
                 style={{
                   ...exportButtonStyle,
@@ -440,14 +480,16 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
                     isSavingNewPilot ||
                     !selectedPilot.callsign ||
                     !selectedPilot.boardNumber ||
-                    !selectedPilot.status_id
+                    !selectedPilot.status_id ||
+                    !selectedPilot.standing_id
                       ? 'not-allowed'
                       : 'pointer',
                   opacity:
                     isSavingNewPilot ||
                     !selectedPilot.callsign ||
                     !selectedPilot.boardNumber ||
-                    !selectedPilot.status_id
+                    !selectedPilot.status_id ||
+                    !selectedPilot.standing_id
                       ? 0.7
                       : 1,
                 }}
@@ -456,7 +498,8 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
                     !isSavingNewPilot &&
                     selectedPilot.callsign &&
                     selectedPilot.boardNumber &&
-                    selectedPilot.status_id
+                    selectedPilot.status_id &&
+                    selectedPilot.standing_id
                   ) {
                     e.currentTarget.style.backgroundColor = '#F8FAFC';
                   }
@@ -466,7 +509,8 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
                     !isSavingNewPilot &&
                     selectedPilot.callsign &&
                     selectedPilot.boardNumber &&
-                    selectedPilot.status_id
+                    selectedPilot.status_id &&
+                    selectedPilot.standing_id
                   ) {
                     e.currentTarget.style.backgroundColor = '#FFFFFF';
                   }

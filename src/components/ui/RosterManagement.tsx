@@ -3,8 +3,7 @@ import { Pilot } from '../../types/PilotTypes';
 import { 
   getAllPilots, 
   getPilotByDiscordOriginalId, 
-  updatePilotStatus,
-  createPilot,
+  createPilotWithStatusAndStanding,
   deletePilot, // Added import for deletePilot
   updatePilot,
   updatePilotRole,
@@ -13,6 +12,8 @@ import {
 import { supabase } from '../../utils/supabaseClient';
 import { subscribeToTable } from '../../utils/supabaseClient';
 import { getAllStatuses, Status } from '../../utils/statusService';
+import { getAllStandings, Standing } from '../../utils/standingService';
+import { assignPilotStatus, assignPilotStanding } from '../../utils/pilotStatusStandingService';
 import { getAllRoles, Role } from '../../utils/roleService';
 import { 
   Qualification, 
@@ -32,13 +33,13 @@ const RosterManagement: React.FC = () => {
   // State for pilots and filtering
   const [pilots, setPilots] = useState<Pilot[]>([]);
   const [statuses, setStatuses] = useState<Status[]>([]);
-  const [statusMap, setStatusMap] = useState<Record<string, Status>>({});
+  const [standings, setStandings] = useState<Standing[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
   const [selectedPilot, setSelectedPilot] = useState<Pilot | null>(null);
   const [hoveredPilot, setHoveredPilot] = useState<string | null>(null);
   const [activeStatusFilter, setActiveStatusFilter] = useState<boolean | null>(null); // null means show all
   const [updatingStatus, setUpdatingStatus] = useState(false);
+  const [updatingStanding, setUpdatingStanding] = useState(false);
   const [isAddingNewPilot, setIsAddingNewPilot] = useState(false);
   const [newPilot, setNewPilot] = useState<Partial<Pilot>>({
     id: '',
@@ -46,6 +47,7 @@ const RosterManagement: React.FC = () => {
     boardNumber: '',
     discordUsername: '',
     status_id: '',
+    standing_id: '',
     qualifications: []
   });
   const [isSavingNewPilot, setIsSavingNewPilot] = useState(false);
@@ -213,7 +215,7 @@ const RosterManagement: React.FC = () => {
       }
 
       if (data && data.length > 0) {
-        // Use the pilot data directly from getAllPilots() - it already has roles included
+        // Use the pilot data directly from getAllPilots() - it already has the new structure
         const convertedPilots = data.map(pilot => {
           // Create the pilot object with all necessary properties
           const legacyPilot: Pilot = {
@@ -221,16 +223,15 @@ const RosterManagement: React.FC = () => {
             callsign: pilot.callsign,
             boardNumber: pilot.boardNumber.toString(), // Convert to string for legacy compatibility
             discordId: pilot.discordId || undefined, // Handle null case
-            status_id: pilot.status_id || undefined, // Handle null case
+            currentStatus: pilot.currentStatus || undefined,
+            currentStanding: pilot.currentStanding || undefined,
             qualifications: (pilot.qualifications || []).map((q, index) => ({
               id: `${pilot.id}-${index}`,
               type: q as any,
               dateAchieved: new Date().toISOString().split('T')[0]
             })), // Convert strings to Qualification objects
-            // Set status based on status_id if available
-            status: pilot.status_id && statusMap[pilot.status_id] 
-              ? statusMap[pilot.status_id].name as any 
-              : 'Provisional' as any,
+            // Set status based on currentStatus if available
+            status: pilot.currentStatus?.name || 'Provisional' as any,
             billet: '', // Default empty billet
             discordUsername: pilot.discordId || '', // Use discordId for display
             roles: pilot.roles as any, // KEEP THE ROLES - cast to avoid type conflicts
@@ -280,8 +281,8 @@ const RosterManagement: React.FC = () => {
 
   // Save new pilot
   const handleSaveNewPilot = async () => {
-    if (!newPilot.callsign || !newPilot.boardNumber || !newPilot.status_id) {
-      setSaveError('Board Number, Callsign, and Status are required.');
+    if (!newPilot.callsign || !newPilot.boardNumber || !newPilot.status_id || !newPilot.standing_id) {
+      setSaveError('Board Number, Callsign, Status, and Standing are required.');
       return;
     }
     
@@ -294,27 +295,29 @@ const RosterManagement: React.FC = () => {
         boardNumber: parseInt(newPilot.boardNumber),
         callsign: newPilot.callsign,
         discordId: newPilot.discordUsername || undefined, // Changed null to undefined
-        status_id: newPilot.status_id,
-        // Don't include roles directly - it was causing the schema error
+        // Don't include status_id directly - it will be assigned via the join table
       };
       
-      // Create the pilot in the database
-      const { data, error } = await createPilot(pilotData);
+      // Create the pilot in the database with status and standing
+      const { data, error } = await createPilotWithStatusAndStanding(
+        pilotData, 
+        newPilot.status_id,
+        newPilot.standing_id
+      );
       
       if (error) {
         throw new Error(error.message || 'Failed to create pilot');
       }
       
-      // Create a new converted pilot object to immediately add to the UI
+      // Refresh pilots to get the new one with correct status and standing data
       if (data) {
-        // Just refresh all pilots to get the new one with correct role data
         await refreshPilots();
         
         // Find and select the newly created pilot
         setTimeout(() => {
-          const newPilot = pilots.find(p => p.callsign === data.callsign);
-          if (newPilot) {
-            setSelectedPilot(newPilot);
+          const createdPilot = pilots.find(p => p.callsign === data.callsign);
+          if (createdPilot) {
+            setSelectedPilot(createdPilot);
           }
         }, 100);
         
@@ -391,42 +394,44 @@ const RosterManagement: React.FC = () => {
     setUpdatingStatus(true);
     
     try {
-      const { data, error } = await updatePilotStatus(selectedPilot.id, statusId);
+      const { data, error } = await assignPilotStatus(selectedPilot.id, statusId);
       
       if (error) {
         throw new Error(error.message);
       }
       
       if (data) {
-        // Update pilot in the local state
-        const updatedPilots = pilots.map(p => {
-          if (p.id === selectedPilot.id) {
-            const updatedPilot = { ...p };
-            updatedPilot.status_id = statusId;
-            updatedPilot.status = statusMap[statusId].name as any;
-            return updatedPilot;
-          }
-          return p;
-        });
-        
-        setPilots(updatedPilots);
-        
-        // Update selected pilot
-        if (selectedPilot) {
-          setSelectedPilot({
-            ...selectedPilot,
-            status_id: statusId,
-            status: statusMap[statusId].name as any
-          });
-          
-          // Refresh pilot roles to check compatibility
-          fetchPilotRoles(selectedPilot.id);
-        }
+        // Refresh pilots to get updated status information
+        await refreshPilots();
       }
     } catch (err: any) {
       console.error('Error updating pilot status:', err);
     } finally {
       setUpdatingStatus(false);
+    }
+  };
+
+  // Function to handle pilot standing change
+  const handleStandingChange = async (standingId: string) => {
+    if (!selectedPilot) return;
+    
+    setUpdatingStanding(true);
+    
+    try {
+      const { data, error } = await assignPilotStanding(selectedPilot.id, standingId);
+      
+      if (error) {
+        throw new Error(error.message);
+      }
+      
+      if (data) {
+        // Refresh pilots to get updated standing information
+        await refreshPilots();
+      }
+    } catch (err: any) {
+      console.error('Error updating pilot standing:', err);
+    } finally {
+      setUpdatingStanding(false);
     }
   };
   
@@ -916,9 +921,9 @@ const RosterManagement: React.FC = () => {
       const updatePayload: any = {
         callsign: updatedPilot.callsign,
         boardNumber: parseInt(updatedPilot.boardNumber),
-        discordId: updatedPilot.discordUsername || undefined,
-        status_id: updatedPilot.status_id
+        discordId: updatedPilot.discordUsername || undefined
         // Note: role is handled separately
+        // Note: status and standing are now handled via join tables, not direct updates
       };
       
       // Update pilot basic info
@@ -927,7 +932,25 @@ const RosterManagement: React.FC = () => {
       if (error) {
         throw new Error(error.message || 'Failed to update pilot');
       }
-      
+
+      // Handle status updates via join table if status has changed
+      if (updatedPilot.currentStatus?.id) {
+        const { error: statusError } = await assignPilotStatus(actualPilotId, updatedPilot.currentStatus.id);
+        if (statusError) {
+          console.error('Error updating pilot status during save:', statusError);
+          // Don't throw here - pilot was saved, just status update failed
+        }
+      }
+
+      // Handle standing updates via join table if standing has changed  
+      if (updatedPilot.currentStanding?.id) {
+        const { error: standingError } = await assignPilotStanding(actualPilotId, updatedPilot.currentStanding.id);
+        if (standingError) {
+          console.error('Error updating pilot standing during save:', standingError);
+          // Don't throw here - pilot was saved, just standing update failed
+        }
+      }
+
       // Handle role updates - check pilot roles array instead of role field
       const currentRole = updatedPilot.roles?.[0]?.role;
       if (!currentRole || !currentRole.id) {
@@ -984,66 +1007,63 @@ const RosterManagement: React.FC = () => {
   };
 
   useEffect(() => {
-    // Fetch all statuses, roles and qualifications
-    const fetchStatusesRolesAndQuals = async () => {
-      // Fetch statuses
-      const { data: statusData, error: statusError } = await getAllStatuses();
-      if (statusError) {
-        console.error('Error fetching statuses:', statusError);
-        return;
-      }
-      
-      if (statusData) {
-        setStatuses(statusData);
-        // Create a map for quick lookup
-        const map: Record<string, Status> = {};
-        statusData.forEach(status => {
-          map[status.id] = status;
-        });
-        setStatusMap(map);
-      }
-      
-      // Fetch roles
-      const { data: roleData, error: roleError } = await getAllRoles();
-      if (roleError) {
-        console.error('Error fetching roles:', roleError);
-        return;
-      }
-      
-      if (roleData) {
-        setRoles(roleData);
-      }
+    // Fetch all statuses, standings, roles, qualifications, and pilots simultaneously
+    const fetchAllData = async () => {
+      try {
+        // Start all fetch operations in parallel
+        const [statusResult, standingResult, roleResult] = await Promise.all([
+          getAllStatuses(),
+          getAllStandings(), 
+          getAllRoles()
+        ]);
 
-      // Fetch qualifications
-      await fetchAvailableQualifications();
+        // Handle statuses
+        if (statusResult.error) {
+          console.error('Error fetching statuses:', statusResult.error);
+        } else if (statusResult.data) {
+          setStatuses(statusResult.data);
+        }
+
+        // Handle standings
+        if (standingResult.error) {
+          console.error('Error fetching standings:', standingResult.error);
+        } else if (standingResult.data) {
+          setStandings(standingResult.data);
+        }
+        
+        // Handle roles
+        if (roleResult.error) {
+          console.error('Error fetching roles:', roleResult.error);
+        } else if (roleResult.data) {
+          setRoles(roleResult.data);
+        }
+
+        // Fetch qualifications
+        await fetchAvailableQualifications();
+
+        // Fetch pilots - no longer dependent on statusMap
+        await refreshPilots();
+        
+      } catch (err) {
+        console.error('Error fetching initial data:', err);
+        setLoading(false); // Ensure loading is stopped even on error
+      }
     };
 
-    fetchStatusesRolesAndQuals();
+    fetchAllData();
   }, []);
 
   useEffect(() => {
-    // Fetch pilots from Supabase
-    const fetchPilots = async () => {
-      await refreshPilots();
-    };
-
-    // Only fetch pilots when we have the status map
-    if (Object.keys(statusMap).length > 0) {
-      fetchPilots();
-    }
-
-    // Subscribe to real-time updates
+    // Subscribe to real-time updates for pilots table
     const subscription = subscribeToTable('pilots', () => {
       // Update the pilots list when changes occur
-      if (Object.keys(statusMap).length > 0) {
-        fetchPilots();
-      }
+      refreshPilots();
     });
 
     return () => {
       subscription.unsubscribe();
     };
-  }, [statusMap]); // Depend on statusMap to re-run when statuses are loaded
+  }, []); // No dependencies needed since refreshPilots doesn't depend on statusMap anymore
 
   useEffect(() => {
     // When pilots are loaded, fetch qualifications for all pilots
@@ -1091,10 +1111,6 @@ const RosterManagement: React.FC = () => {
       {loading && !pilots.length ? (
         <div style={rosterStyles.loading}>
           <div>Loading roster data...</div>
-        </div>
-      ) : error ? (
-        <div style={rosterStyles.error}>
-          Error loading roster data: {error}
         </div>
       ) : (
         <div style={rosterStyles.contentWrapper}>
@@ -1167,7 +1183,7 @@ const RosterManagement: React.FC = () => {
             <PilotList
               pilots={pilots}
               statuses={statuses}
-              statusMap={statusMap}
+              standings={standings}
               selectedPilot={selectedPilot}
               hoveredPilot={hoveredPilot}
               activeStatusFilter={activeStatusFilter}
@@ -1184,6 +1200,7 @@ const RosterManagement: React.FC = () => {
               <PilotDetails
                 selectedPilot={selectedPilot}
                 statuses={statuses}
+                standings={standings}
                 roles={roles}
                 pilotRoles={pilotRoles}
                 availableQualifications={availableQualifications}
@@ -1191,6 +1208,7 @@ const RosterManagement: React.FC = () => {
                 loadingRoles={loadingRoles}
                 updatingRoles={updatingRoles}
                 updatingStatus={updatingStatus}
+                updatingStanding={updatingStanding}
                 loadingQualifications={loadingQualifications}
                 disabledRoles={disabledRoles}
                 selectedQualification={selectedQualification}
@@ -1200,6 +1218,7 @@ const RosterManagement: React.FC = () => {
                 setSelectedQualification={setSelectedQualification}
                 setQualificationAchievedDate={setQualificationAchievedDate}
                 handleStatusChange={(statusId) => handleNewPilotChange('status_id', statusId)}
+                handleStandingChange={(standingId) => handleNewPilotChange('standing_id', standingId)}
                 handleRoleChange={handleRoleChange}
                 handleAddQualification={handleAddQualification}
                 handleRemoveQualification={handleRemoveQualification}
@@ -1217,6 +1236,7 @@ const RosterManagement: React.FC = () => {
               <PilotDetails
                 selectedPilot={selectedPilot}
                 statuses={statuses}
+                standings={standings}
                 roles={roles}
                 pilotRoles={pilotRoles}
                 availableQualifications={availableQualifications}
@@ -1224,6 +1244,7 @@ const RosterManagement: React.FC = () => {
                 loadingRoles={loadingRoles}
                 updatingRoles={updatingRoles}
                 updatingStatus={updatingStatus}
+                updatingStanding={updatingStanding}
                 loadingQualifications={loadingQualifications}
                 disabledRoles={disabledRoles}
                 selectedQualification={selectedQualification}
@@ -1233,6 +1254,7 @@ const RosterManagement: React.FC = () => {
                 setSelectedQualification={setSelectedQualification}
                 setQualificationAchievedDate={setQualificationAchievedDate}
                 handleStatusChange={handleStatusChange}
+                handleStandingChange={handleStandingChange}
                 handleRoleChange={handleRoleChange}
                 handleAddQualification={handleAddQualification}
                 handleRemoveQualification={handleRemoveQualification}

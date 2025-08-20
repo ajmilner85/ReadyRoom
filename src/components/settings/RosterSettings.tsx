@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Card } from '../ui/card';
 import { AlertCircle, Plus, Edit, Trash, Check, X, ToggleLeft, ToggleRight, Lock, Unlock, GripVertical, Clock, ArrowRight } from 'lucide-react';
 import { Status, getAllStatuses, createStatus, updateStatus, deleteStatus, getStatusUsageCount, initializeDefaultStatuses } from '../../utils/statusService';
+import { Standing, getAllStandings, createStanding, updateStanding, deleteStanding } from '../../utils/standingService';
 import { Role, getAllRoles, createRole, updateRole, deleteRole, getRoleUsageCount, initializeDefaultRoles } from '../../utils/roleService';
 import { Qualification, getAllQualifications, createQualification, updateQualification, deleteQualification, getQualificationUsageCount, initializeDefaultQualifications, archiveQualification } from '../../utils/qualificationService';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
@@ -27,6 +28,14 @@ const RosterSettings: React.FC<RosterSettingsProps> = ({ error, setError }) => {
   const [editingStatusName, setEditingStatusName] = useState('');
   const [editingStatusIsActive, setEditingStatusIsActive] = useState(true);
   const [statusUsage, setStatusUsage] = useState<Record<string, number>>({});
+
+  // Standing management state
+  const [standings, setStandings] = useState<Standing[]>([]);
+  const [newStandingName, setNewStandingName] = useState('');
+  const [isAddingStanding, setIsAddingStanding] = useState(false);
+  const [editingStandingId, setEditingStandingId] = useState<string | null>(null);
+  const [editingStandingName, setEditingStandingName] = useState('');
+  const [standingUsage, setStandingUsage] = useState<Record<string, number>>({});
 
   // Role management state
   const [roles, setRoles] = useState<Role[]>([]);
@@ -115,6 +124,30 @@ const RosterSettings: React.FC<RosterSettingsProps> = ({ error, setError }) => {
       }
     };
 
+    const fetchStandings = async () => {
+      try {
+        const { data, error } = await getAllStandings();
+        
+        if (error) {
+          throw new Error(error.message);
+        }
+        
+        if (data) {
+          setStandings(data);
+          
+          // TODO: Add usage count for standings when pilot_standings relationship is established
+          const usageCounts: Record<string, number> = {};
+          for (const standing of data) {
+            usageCounts[standing.id] = 0; // Placeholder until we have usage counting
+          }
+          setStandingUsage(usageCounts);
+        }
+      } catch (err: any) {
+        setLocalError(err.message);
+        console.error('Error fetching standings:', err);
+      }
+    };
+
     const fetchRoles = async () => {
       setLoading(true);
       try {
@@ -172,6 +205,7 @@ const RosterSettings: React.FC<RosterSettingsProps> = ({ error, setError }) => {
     };
 
     fetchStatuses();
+    fetchStandings();
     fetchRoles();
     fetchQualifications();
   }, [setError]);
@@ -306,6 +340,116 @@ const RosterSettings: React.FC<RosterSettingsProps> = ({ error, setError }) => {
       }
     } catch (err: any) {
       setErrorMessage(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Standing management functions
+  const handleAddStanding = async () => {
+    if (!newStandingName.trim()) {
+      setLocalError('Standing name cannot be empty');
+      return;
+    }
+    
+    setLoading(true);
+    try {
+      // Get the highest order number and add 10
+      const highestOrder = standings.length > 0 
+        ? Math.max(...standings.map(s => s.order))
+        : 0;
+        
+      const { data, error: createError } = await createStanding({
+        name: newStandingName.trim(),
+        order: highestOrder + 10
+      });
+      
+      if (createError) {
+        throw new Error(createError.message);
+      }
+      
+      if (data) {
+        setStandings([...standings, data]);
+        setStandingUsage({ ...standingUsage, [data.id]: 0 });
+        setNewStandingName('');
+        setIsAddingStanding(false);
+      }
+    } catch (err: any) {
+      setLocalError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Start editing a standing
+  const handleStartEditStanding = (standing: Standing) => {
+    setEditingStandingId(standing.id);
+    setEditingStandingName(standing.name);
+  };
+
+  // Cancel editing a standing
+  const handleCancelEditStanding = () => {
+    setEditingStandingId(null);
+    setEditingStandingName('');
+  };
+
+  // Save standing changes
+  const handleSaveStanding = async () => {
+    if (!editingStandingName.trim()) {
+      setLocalError('Standing name cannot be empty');
+      return;
+    }
+    
+    if (!editingStandingId) return;
+    
+    setLoading(true);
+    try {
+      const { data, error: updateError } = await updateStanding(editingStandingId, {
+        name: editingStandingName.trim()
+      });
+      
+      if (updateError) {
+        throw new Error(updateError.message);
+      }
+      
+      if (data) {
+        setStandings(standings.map(s => s.id === editingStandingId ? data : s));
+        setEditingStandingId(null);
+        setEditingStandingName('');
+      }
+    } catch (err: any) {
+      setLocalError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Delete a standing
+  const handleDeleteStanding = async (standingId: string) => {
+    const usageCount = standingUsage[standingId] || 0;
+    if (usageCount > 0) {
+      setLocalError(`Cannot delete standing: ${usageCount} pilot(s) currently assigned.`);
+      return;
+    }
+    
+    if (!confirm('Are you sure you want to delete this standing?')) {
+      return;
+    }
+    
+    setLoading(true);
+    try {
+      const { error: deleteError } = await deleteStanding(standingId);
+      
+      if (deleteError) {
+        throw new Error(deleteError.message);
+      }
+      
+      setStandings(standings.filter(s => s.id !== standingId));
+      const newStandingUsage = { ...standingUsage };
+      delete newStandingUsage[standingId];
+      setStandingUsage(newStandingUsage);
+    } catch (err: any) {
+      setLocalError(err.message);
     } finally {
       setLoading(false);
     }
@@ -838,6 +982,7 @@ const RosterSettings: React.FC<RosterSettingsProps> = ({ error, setError }) => {
           {/* Status Headers */}
           <div className="flex items-center justify-between p-2 border-b border-gray-200 mb-2">
             <div className="flex-1 font-medium text-sm text-slate-500">Status Name</div>
+            <div className="w-16 text-center text-sm text-slate-500">Order</div>
             <div className="w-24 text-center text-sm text-slate-500">Membership</div>
             <div className="w-20 text-center text-sm text-slate-500">Usage</div>
             <div className="w-24 text-center text-sm text-slate-500">Actions</div>
@@ -859,6 +1004,9 @@ const RosterSettings: React.FC<RosterSettingsProps> = ({ error, setError }) => {
                     className="flex-1 px-2 py-1 border border-gray-300 rounded mr-2"
                     placeholder="Status name"
                   />
+                  <div className="w-16 text-center text-sm text-slate-600">
+                    {status.order}
+                  </div>
                   <div className="w-24 flex justify-center">
                     <button
                       onClick={() => setEditingStatusIsActive(!editingStatusIsActive)}
@@ -897,6 +1045,9 @@ const RosterSettings: React.FC<RosterSettingsProps> = ({ error, setError }) => {
                 <>
                   <div className="flex-1 font-medium" style={{ fontFamily: 'Inter', fontSize: '14px', color: '#0F172A' }}>
                     {status.name}
+                  </div>
+                  <div className="w-16 text-center text-sm text-slate-600">
+                    {status.order}
                   </div>
                   <div className="w-24 flex justify-center">
                     <button
@@ -985,6 +1136,126 @@ const RosterSettings: React.FC<RosterSettingsProps> = ({ error, setError }) => {
           ) : (
             <button
               onClick={() => setIsAddingStatus(true)}
+              className="w-[119px] h-[30px] bg-white rounded-lg border border-slate-300 flex items-center justify-center mx-auto mt-6 text-2xl text-slate-500 hover:shadow-lg transition-shadow"
+            >
+              +
+            </button>
+          )}
+        </Card>
+
+        <Card className="p-4">
+          <h3 className="text-lg font-medium mb-3">Standings</h3>
+          <p className="text-sm text-slate-500 mb-4">
+            Define the organizational hierarchy standings available for pilots.
+          </p>
+          
+          {/* Standing Headers */}
+          <div className="flex items-center justify-between p-2 border-b border-gray-200 mb-2">
+            <div className="flex-1 font-medium text-sm text-slate-500">Standing Name</div>
+            <div className="w-16 text-center text-sm text-slate-500">Order</div>
+            <div className="w-20 text-center text-sm text-slate-500">Actions</div>
+          </div>
+
+          {/* Standing List */}
+          {standings.sort((a, b) => a.order - b.order).map(standing => (
+            <div key={standing.id} className="flex items-center justify-between p-2 border-b border-gray-100 last:border-b-0">
+              {editingStandingId === standing.id ? (
+                <>
+                  <input
+                    type="text"
+                    value={editingStandingName}
+                    onChange={(e) => setEditingStandingName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') handleSaveStanding();
+                      if (e.key === 'Escape') handleCancelEditStanding();
+                    }}
+                    className="flex-1 mr-2 px-3 py-1 border border-gray-300 rounded text-sm"
+                    placeholder="Standing name"
+                    autoFocus
+                  />
+                  <div className="w-16 text-center text-sm text-slate-600">{standing.order}</div>
+                  <div className="flex items-center space-x-1 w-20 justify-center">
+                    <button
+                      onClick={handleSaveStanding}
+                      disabled={loading}
+                      className="p-1 text-green-600 hover:text-green-800 disabled:opacity-50"
+                    >
+                      <Check size={16} />
+                    </button>
+                    <button
+                      onClick={handleCancelEditStanding}
+                      disabled={loading}
+                      className="p-1 text-gray-600 hover:text-gray-800 disabled:opacity-50"
+                    >
+                      <X size={16} />
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="flex-1 text-sm text-slate-800">{standing.name}</div>
+                  <div className="w-16 text-center text-sm text-slate-600">{standing.order}</div>
+                  <div className="flex items-center space-x-1 w-20 justify-center">
+                    <button
+                      onClick={() => handleStartEditStanding(standing)}
+                      disabled={loading}
+                      className="p-1 text-blue-600 hover:text-blue-800 disabled:opacity-50"
+                    >
+                      <Edit size={16} />
+                    </button>
+                    <button
+                      onClick={() => handleDeleteStanding(standing.id)}
+                      disabled={loading || (standingUsage[standing.id] || 0) > 0}
+                      className="p-1 text-red-600 hover:text-red-800 disabled:opacity-50"
+                      title={standingUsage[standing.id] > 0 ? `${standingUsage[standing.id]} pilot(s) assigned` : 'Delete standing'}
+                    >
+                      <Trash size={16} />
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          ))}
+
+          {/* Add Standing Form */}
+          {isAddingStanding ? (
+            <div className="mt-4 p-3 bg-gray-50 rounded-lg">
+              <div className="flex items-center space-x-2 mb-2">
+                <input
+                  type="text"
+                  value={newStandingName}
+                  onChange={(e) => setNewStandingName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleAddStanding();
+                    if (e.key === 'Escape') setIsAddingStanding(false);
+                  }}
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded text-sm"
+                  placeholder="Standing name"
+                  autoFocus
+                />
+              </div>
+              <div className="flex items-center space-x-2">
+                <button
+                  onClick={handleAddStanding}
+                  disabled={loading || !newStandingName.trim()}
+                  className="px-4 py-2 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 disabled:opacity-50"
+                >
+                  Add Standing
+                </button>
+                <button
+                  onClick={() => {
+                    setIsAddingStanding(false);
+                    setNewStandingName('');
+                  }}
+                  className="px-4 py-2 bg-gray-300 text-gray-700 rounded text-sm hover:bg-gray-400"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button
+              onClick={() => setIsAddingStanding(true)}
               className="w-[119px] h-[30px] bg-white rounded-lg border border-slate-300 flex items-center justify-center mx-auto mt-6 text-2xl text-slate-500 hover:shadow-lg transition-shadow"
             >
               +

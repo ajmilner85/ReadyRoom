@@ -426,33 +426,44 @@ export async function processPilotMatches(matches: DiscordPilotMatch[]): Promise
         
         console.log(`Updating pilot ${pilotId} with Discord ID ${match.discordMember.id} and Username ${match.discordMember.username}`);
         
-        // First get the current pilot data
-        const { data: currentPilot } = await supabase
+        // First get the current pilot data with status and standing information
+        const { data: pilotsWithStatus } = await supabase
           .from('pilots')
-          .select('*')
+          .select(`
+            *,
+            pilot_statuses!pilot_statuses_pilot_id_fkey(
+              status_id,
+              statuses:status_id(id, name, isActive)
+            )
+          `)
           .eq('id', pilotId)
           .single();
           
         // Check if we have a valid pilot
-        if (!currentPilot) {
+        if (!pilotsWithStatus) {
           throw new Error(`Pilot with ID ${pilotId} not found`);
         }
         
-        // Prepare updates object
+        const currentPilot = pilotsWithStatus;
+        const currentStatusId = currentPilot.pilot_statuses?.[0]?.status_id;
+        
+        // Prepare updates object for basic pilot information
         const updates: any = {
           discord_original_id: match.discordMember.id,
           discordId: match.discordMember.username
         };
         
-        // Update status if available and different
-        if (match.statusId && match.statusId !== currentPilot.status_id) {
-          updates.status_id = match.statusId;
+        // Handle status update separately using join table if status has changed
+        if (match.statusId && match.statusId !== currentStatusId) {
+          // Import and use the join table service to update status
+          const { assignPilotStatus } = await import('./pilotStatusStandingService');
+          await assignPilotStatus(pilotId, match.statusId);
         }
         
         // Update role if available and status is compatible
         if (match.roleId) {
           // Check if the role can be assigned based on status rules
-          const statusToCheck = match.statusId || currentPilot.status_id;
+          const statusToCheck = match.statusId || currentStatusId;
           
           // Make sure both roleId and statusToCheck are strings before calling canAssignRole
           if (typeof match.roleId === 'string' && typeof statusToCheck === 'string') {

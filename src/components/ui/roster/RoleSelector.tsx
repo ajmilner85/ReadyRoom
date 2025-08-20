@@ -48,7 +48,7 @@ const RoleSelector: React.FC<RoleSelectorProps> = ({
           value={selectedRoleId}
           onChange={handleChange}
           disabled={updatingRoles || loadingRoles}
-          style={{...pilotDetailsStyles.selector, width: '450px'}}
+          style={{...pilotDetailsStyles.selector, width: '450px', appearance: 'none' as const}}
         >
           <option value="">No Role</option>
           {roles
@@ -63,18 +63,6 @@ const RoleSelector: React.FC<RoleSelectorProps> = ({
               </option>
             ))}
         </select>
-        {(updatingRoles || loadingRoles) && (
-          <div style={{ marginLeft: '8px' }}>
-            <div style={{
-              width: '16px',
-              height: '16px',
-              border: '2px solid rgba(59, 130, 246, 0.3)',
-              borderTopColor: '#3B82F6',
-              borderRadius: '50%',
-              animation: 'spin 1s linear infinite'
-            }} />
-          </div>
-        )}
         <div style={pilotDetailsStyles.selectorArrow}>
           <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
             <path d="M6 8.5L2 4.5H10L6 8.5Z" fill="#64748B"/>

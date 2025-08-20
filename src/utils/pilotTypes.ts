@@ -16,6 +16,21 @@ export interface Pilot extends PilotBase {
   role?: string;
   // Include the roles property from join queries - array of role assignments
   roles?: PilotRoleAssignment[] | null;
+  // New fields for current status and standing (populated from join tables)
+  currentStatus?: {
+    id: string;
+    name: string;
+    isActive: boolean;
+    order: number;
+  } | null;
+  currentStanding?: {
+    id: string;
+    name: string;
+    order: number;
+  } | null;
+  // Additional fields for compatibility
+  standing_id?: string;
+  status?: string; // Legacy status field for backward compatibility - optional
 }
 
 export type NewPilot = Database['public']['Tables']['pilots']['Insert'];
