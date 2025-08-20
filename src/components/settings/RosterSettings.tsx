@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Card } from '../ui/card';
-import { AlertCircle, Plus, Edit, Trash, Check, X, ToggleLeft, ToggleRight, Lock, Unlock, GripVertical, Clock, ArrowRight } from 'lucide-react';
+import { AlertCircle, Edit, Trash, Check, X, ToggleLeft, ToggleRight, Lock, Unlock, GripVertical, Clock, ArrowRight } from 'lucide-react';
 import { Status, getAllStatuses, createStatus, updateStatus, deleteStatus, getStatusUsageCount, initializeDefaultStatuses } from '../../utils/statusService';
 import { Standing, getAllStandings, createStanding, updateStanding, deleteStanding } from '../../utils/standingService';
 import { Role, getAllRoles, createRole, updateRole, deleteRole, getRoleUsageCount, initializeDefaultRoles } from '../../utils/roleService';
@@ -163,7 +163,8 @@ const RosterSettings: React.FC<RosterSettingsProps> = ({ error, setError }) => {
           const sortedRoles = [...data].sort((a, b) => a.order - b.order);
           setRoles(sortedRoles);
           
-          await refreshRoleUsageCounts();
+          // Pass the fresh roles data directly to refreshRoleUsageCounts
+          await refreshRoleUsageCounts(sortedRoles);
         }
       } catch (err: any) {
         setErrorMessage(err.message);
@@ -456,13 +457,18 @@ const RosterSettings: React.FC<RosterSettingsProps> = ({ error, setError }) => {
   };
 
   // Role management functions
-  const refreshRoleUsageCounts = async () => {
+  const refreshRoleUsageCounts = async (rolesToCheck?: Role[]) => {
+    // Use provided roles or fall back to state roles
+    const rolesToUse = rolesToCheck || roles;
+    
     // Get usage count for each role
     const usageCounts: Record<string, number> = {};
-    for (const role of roles) {
+    for (const role of rolesToUse) {
       const { count, error: usageError } = await getRoleUsageCount(role.id);
       if (!usageError) {
         usageCounts[role.id] = count;
+      } else {
+        console.warn(`Error getting usage count for role ${role.name}:`, usageError);
       }
     }
     setRoleUsage(usageCounts);
