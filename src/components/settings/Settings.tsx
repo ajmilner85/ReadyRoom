@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Card } from '../ui/card';
 import LoginForm from '../ui/LoginForm';
-import { User, Users, Building, Plane, PaintBucket, ScrollText, Plus, Edit, Trash, Check, X, AlertCircle, ToggleLeft, ToggleRight, Lock, Unlock, GripVertical, Calendar, Clock, Tag, ArrowRight } from 'lucide-react';
+import { User, Users, Building, Plane, PaintBucket, ScrollText, Plus, Edit, Trash, Check, X, AlertCircle, ToggleLeft, ToggleRight, Lock, Unlock, GripVertical, Calendar, Clock, Tag, ArrowRight, Network } from 'lucide-react';
 
 // Import settings subpages
 import SquadronSettings from './SquadronSettings';
@@ -10,9 +10,10 @@ import Appearance from './Appearance';
 import UserAccounts from './UserAccounts';
 import RosterSettings from './RosterSettings';
 import DiscordIntegration from './DiscordIntegration';
+import OrganizationSettings from './OrganizationSettings';
 
 // Define the types of settings pages
-type SettingsPage = 'roster' | 'squadron' | 'mission' | 'appearance' | 'accounts' | 'discord';
+type SettingsPage = 'roster' | 'squadron' | 'organization' | 'mission' | 'appearance' | 'accounts' | 'discord';
 
 interface SettingsNavItem {
   id: SettingsPage;
@@ -31,6 +32,11 @@ const settingsNavItems: SettingsNavItem[] = [
     id: 'squadron',
     icon: <Building size={20} />,
     label: 'Squadron Administration'
+  },
+  {
+    id: 'organization',
+    icon: <Network size={20} />,
+    label: 'Organization'
   },
   {
     id: 'mission',
@@ -75,6 +81,8 @@ const Settings: React.FC = () => {
         return <RosterSettings error={error} setError={setError} />;
       case 'squadron':
         return <SquadronSettings error={error} setError={setError} />;
+      case 'organization':
+        return <OrganizationSettings error={error} setError={setError} />;
       case 'mission':
         return <MissionDefaults error={error} setError={setError} />;
       case 'appearance':
