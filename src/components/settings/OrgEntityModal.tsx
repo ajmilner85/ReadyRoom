@@ -651,7 +651,7 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
                     padding: '16px',
                     border: `1px solid ${errors.tail_code ? '#EF4444' : '#CBD5E1'}`,
                     borderRadius: '8px',
-                    fontSize: '64px',
+                    fontSize: '96px',
                     boxSizing: 'border-box',
                     height: '150px',
                     lineHeight: '64px',

@@ -2,21 +2,37 @@ import React, { useRef } from 'react';
 import { Pilot } from '../../../types/PilotTypes';
 import { Status } from '../../../utils/statusService';
 import { Standing } from '../../../utils/standingService';
+import { Squadron } from '../../../utils/squadronService';
+import { Role } from '../../../utils/roleService';
+import { Qualification } from '../../../utils/qualificationService';
 import { pilotListStyles, rosterStyles } from '../../../styles/RosterManagementStyles';
-import StatusFilter from './StatusFilter';
+import FilterDrawer from './FilterDrawer';
 import PilotListItem from './PilotListItem';
 
 interface PilotListProps {
   pilots: Pilot[];
   statuses: Status[];
   standings: Standing[];
+  squadrons: Squadron[];
+  roles: Role[];
+  qualifications: Qualification[];
   selectedPilot: Pilot | null;
   hoveredPilot: string | null;
-  activeStatusFilter: boolean | null;
+  selectedSquadronIds: string[];
+  selectedStatusIds: string[];
+  selectedStandingIds: string[];
+  selectedRoleIds: string[];
+  selectedQualificationIds: string[];
+  filtersEnabled: boolean;
   allPilotQualifications: Record<string, any[]>;
   setSelectedPilot?: (pilot: Pilot) => void;
   setHoveredPilot: (id: string | null) => void;
-  setActiveStatusFilter: (status: boolean | null) => void;
+  setSelectedSquadronIds: (ids: string[]) => void;
+  setSelectedStatusIds: (ids: string[]) => void;
+  setSelectedStandingIds: (ids: string[]) => void;
+  setSelectedRoleIds: (ids: string[]) => void;
+  setSelectedQualificationIds: (ids: string[]) => void;
+  setFiltersEnabled: (enabled: boolean) => void;
   onAddPilot: () => void;
   isAddingNewPilot?: boolean;
 }
@@ -25,26 +41,75 @@ const PilotList: React.FC<PilotListProps> = ({
   pilots,
   statuses,
   standings,
+  squadrons,
+  roles,
+  qualifications,
   selectedPilot,
   hoveredPilot,
-  activeStatusFilter,
+  selectedSquadronIds,
+  selectedStatusIds,
+  selectedStandingIds,
+  selectedRoleIds,
+  selectedQualificationIds,
+  filtersEnabled,
   allPilotQualifications,
   setSelectedPilot,
   setHoveredPilot,
-  setActiveStatusFilter,
+  setSelectedSquadronIds,
+  setSelectedStatusIds,
+  setSelectedStandingIds,
+  setSelectedRoleIds,
+  setSelectedQualificationIds,
+  setFiltersEnabled,
   onAddPilot,
   isAddingNewPilot = false
 }) => {
   const rosterContentRef = useRef<HTMLDivElement>(null);
   const rosterListRef = useRef<HTMLDivElement>(null);
 
-  // Filter pilots by active status if a filter is selected
-  const filteredPilots = activeStatusFilter === null 
-    ? pilots 
-    : pilots.filter(pilot => {
-        const status = pilot.currentStatus;
-        return status ? status.isActive === activeStatusFilter : false;
-      });
+  // Filter pilots by all selected filters (only when filters are enabled)
+  const filteredPilots = filtersEnabled ? pilots.filter(pilot => {
+    // Squadron filter
+    if (selectedSquadronIds.length > 0) {
+      if (!pilot.currentSquadron?.id) {
+        // Always include pilots without squadron assignment (like provisional pilots)
+      } else if (!selectedSquadronIds.includes(pilot.currentSquadron.id)) {
+        return false;
+      }
+    }
+    
+    // Status filter
+    if (selectedStatusIds.length > 0) {
+      if (!pilot.currentStatus?.id || !selectedStatusIds.includes(pilot.currentStatus.id)) {
+        return false;
+      }
+    }
+    
+    // Standing filter
+    if (selectedStandingIds.length > 0) {
+      if (!pilot.currentStanding?.id || !selectedStandingIds.includes(pilot.currentStanding.id)) {
+        return false;
+      }
+    }
+    
+    // Role filter
+    if (selectedRoleIds.length > 0) {
+      const pilotRoleIds = pilot.roles?.map(role => role.role?.id).filter(Boolean) || [];
+      if (!pilotRoleIds.some(roleId => selectedRoleIds.includes(roleId))) {
+        return false;
+      }
+    }
+    
+    // Qualification filter
+    if (selectedQualificationIds.length > 0) {
+      const pilotQualIds = allPilotQualifications[pilot.id]?.map(pq => pq.qualification?.id).filter(Boolean) || [];
+      if (!pilotQualIds.some(qualId => selectedQualificationIds.includes(qualId))) {
+        return false;
+      }
+    }
+    
+    return true;
+  }) : pilots;
 
   // Separate pilots into active, inactive, and needs attention groups
   const activePilots = filteredPilots.filter(pilot => {
@@ -106,10 +171,27 @@ const PilotList: React.FC<PilotListProps> = ({
 
   return (
     <div ref={rosterListRef} style={pilotListStyles.container}>
-      {/* Status filter tabs - now inside the card */}
-      <StatusFilter 
-        activeStatusFilter={activeStatusFilter}
-        setActiveStatusFilter={setActiveStatusFilter}
+      {/* Filter drawer */}
+      <FilterDrawer 
+        squadrons={squadrons}
+        statuses={statuses}
+        standings={standings}
+        roles={roles}
+        qualifications={qualifications}
+        pilots={pilots}
+        allPilotQualifications={allPilotQualifications}
+        selectedSquadronIds={selectedSquadronIds}
+        selectedStatusIds={selectedStatusIds}
+        selectedStandingIds={selectedStandingIds}
+        selectedRoleIds={selectedRoleIds}
+        selectedQualificationIds={selectedQualificationIds}
+        filtersEnabled={filtersEnabled}
+        setSelectedSquadronIds={setSelectedSquadronIds}
+        setSelectedStatusIds={setSelectedStatusIds}
+        setSelectedStandingIds={setSelectedStandingIds}
+        setSelectedRoleIds={setSelectedRoleIds}
+        setSelectedQualificationIds={setSelectedQualificationIds}
+        setFiltersEnabled={setFiltersEnabled}
       />
       
       <div 

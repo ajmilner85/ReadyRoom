@@ -1,6 +1,7 @@
 import React from 'react';
 import { Pilot } from '../../../types/PilotTypes';
 import QualificationBadge from '../QualificationBadge';
+import PilotIDBadgeSm from '../PilotIDBadgeSm';
 import { pilotListStyles } from '../../../styles/RosterManagementStyles';
 
 interface PilotListItemProps {
@@ -59,9 +60,13 @@ const PilotListItem: React.FC<PilotListItemProps> = ({
       onMouseLeave={onMouseLeave}
       className={isDisabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
     >
-      <span style={pilotListStyles.boardNumber}>
-        {pilot.boardNumber}
-      </span>
+      <div style={{ marginLeft: '-20px' }}>
+        <PilotIDBadgeSm 
+          squadronTailCode={pilot.currentSquadron?.tail_code}
+          boardNumber={pilot.boardNumber}
+          squadronInsigniaUrl={pilot.currentSquadron?.insignia_url}
+        />
+      </div>
       <span style={pilotListStyles.callsign}>
         {pilot.callsign}
       </span>
@@ -69,7 +74,7 @@ const PilotListItem: React.FC<PilotListItemProps> = ({
         {pilot.roles?.[0]?.role?.name || ''}
       </span>
       
-      <div style={pilotListStyles.badgeContainer}>
+      <div style={{...pilotListStyles.badgeContainer, marginRight: '-10px'}}>
         {renderQualificationBadges()}
       </div>
     </div>

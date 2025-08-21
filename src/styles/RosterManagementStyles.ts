@@ -76,7 +76,7 @@ export const pilotListStyles = {
   content: {
     flex: 1,
     overflowY: 'auto' as const,
-    padding: '10px 10px 0 10px',
+    padding: '2px 10px 0 10px',
     paddingRight: '20px',
   },
   statusGroup: {
@@ -113,7 +113,8 @@ export const pilotListStyles = {
     backgroundColor: isSelected ? '#EFF6FF' : isHovered ? 'rgba(100, 116, 139, 0.1)' : 'transparent',
     transition: 'background-color 0.2s ease',
     borderRadius: '8px',
-    padding: '0 10px'
+    padding: '4px 10px',
+    gap: '12px'
   }),
   boardNumber: {
     width: '62px',
@@ -123,9 +124,9 @@ export const pilotListStyles = {
     color: '#646F7E'
   },
   callsign: {
-    width: '120px',
     fontSize: '16px',
-    fontWeight: 700
+    fontWeight: 700,
+    flex: '0 0 120px'
   },
   role: {
     fontSize: '16px',

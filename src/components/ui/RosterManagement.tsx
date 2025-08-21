@@ -37,10 +37,17 @@ const RosterManagement: React.FC = () => {
   const [statuses, setStatuses] = useState<Status[]>([]);
   const [standings, setStandings] = useState<Standing[]>([]);
   const [squadrons, setSquadrons] = useState<Squadron[]>([]);
+  const [roles, setRoles] = useState<Role[]>([]);
+  const [qualifications, setQualifications] = useState<Qualification[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [selectedPilot, setSelectedPilot] = useState<Pilot | null>(null);
   const [hoveredPilot, setHoveredPilot] = useState<string | null>(null);
-  const [activeStatusFilter, setActiveStatusFilter] = useState<boolean | null>(null); // null means show all
+  const [selectedSquadronIds, setSelectedSquadronIds] = useState<string[]>([]); // empty means show all
+  const [selectedStatusIds, setSelectedStatusIds] = useState<string[]>([]);
+  const [selectedStandingIds, setSelectedStandingIds] = useState<string[]>([]);
+  const [selectedRoleIds, setSelectedRoleIds] = useState<string[]>([]);
+  const [selectedQualificationIds, setSelectedQualificationIds] = useState<string[]>([]);
+  const [filtersEnabled, setFiltersEnabled] = useState<boolean>(true);
   const [updatingStatus, setUpdatingStatus] = useState(false);
   const [updatingStanding, setUpdatingStanding] = useState(false);
   const [updatingSquadron, setUpdatingSquadron] = useState(false);
@@ -76,7 +83,6 @@ const RosterManagement: React.FC = () => {
   } | null>(null);
   
   // Role management state
-  const [roles, setRoles] = useState<Role[]>([]);
   const [pilotRoles, setPilotRoles] = useState<Role[]>([]);
   const [loadingRoles, setLoadingRoles] = useState(false);
   const [updatingRoles, setUpdatingRoles] = useState(false);
@@ -1015,6 +1021,7 @@ const RosterManagement: React.FC = () => {
         throw new Error(error.message);
       }
       if (data) {
+        setQualifications(data);
         setAvailableQualifications(data);
       }
     } catch (err: any) {
@@ -1722,13 +1729,26 @@ const RosterManagement: React.FC = () => {
               pilots={pilots}
               statuses={statuses}
               standings={standings}
+              squadrons={squadrons}
+              roles={roles}
+              qualifications={qualifications}
               selectedPilot={selectedPilot}
               hoveredPilot={hoveredPilot}
-              activeStatusFilter={activeStatusFilter}
+              selectedSquadronIds={selectedSquadronIds}
+              selectedStatusIds={selectedStatusIds}
+              selectedStandingIds={selectedStandingIds}
+              selectedRoleIds={selectedRoleIds}
+              selectedQualificationIds={selectedQualificationIds}
+              filtersEnabled={filtersEnabled}
               allPilotQualifications={allPilotQualifications}
               setSelectedPilot={isAddingNewPilot ? undefined : setSelectedPilot}
               setHoveredPilot={setHoveredPilot}
-              setActiveStatusFilter={setActiveStatusFilter}
+              setSelectedSquadronIds={setSelectedSquadronIds}
+              setSelectedStatusIds={setSelectedStatusIds}
+              setSelectedStandingIds={setSelectedStandingIds}
+              setSelectedRoleIds={setSelectedRoleIds}
+              setSelectedQualificationIds={setSelectedQualificationIds}
+              setFiltersEnabled={setFiltersEnabled}
               onAddPilot={handleAddPilot}
               isAddingNewPilot={isAddingNewPilot}
             />
