@@ -94,6 +94,7 @@ export async function getAllPilots(): Promise<{ data: Pilot[] | null; error: any
           insignia_url,
           carrier_id,
           callsigns,
+          color_palette,
           updated_at
         )
       `)

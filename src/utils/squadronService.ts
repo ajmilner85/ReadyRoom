@@ -10,6 +10,11 @@ export interface Squadron {
   insignia_url?: string | null;
   carrier_id?: string | null;
   callsigns?: any;
+  color_palette?: {
+    primary?: string;
+    secondary?: string;
+    accent?: string;
+  } | null;
   updated_at?: string | null;
 }
 

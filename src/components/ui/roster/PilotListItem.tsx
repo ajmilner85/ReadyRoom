@@ -25,6 +25,11 @@ const PilotListItem: React.FC<PilotListItemProps> = ({
   pilotQualifications,
   isDisabled = false
 }) => {
+  // Get squadron primary color for callsign styling
+  const getSquadronPrimaryColor = () => {
+    // Use squadron primary color from color_palette.primary if available, otherwise dark gray
+    return pilot.currentSquadron?.color_palette?.primary || '#374151';
+  };
   // Render qualification badges for the pilot
   const renderQualificationBadges = () => {
     if (!pilotQualifications || pilotQualifications.length === 0) {
@@ -67,7 +72,10 @@ const PilotListItem: React.FC<PilotListItemProps> = ({
           squadronInsigniaUrl={pilot.currentSquadron?.insignia_url}
         />
       </div>
-      <span style={pilotListStyles.callsign}>
+      <span style={{
+        ...pilotListStyles.callsign,
+        color: getSquadronPrimaryColor()
+      }}>
         {pilot.callsign}
       </span>
       <span style={pilotListStyles.role}>

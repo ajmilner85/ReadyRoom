@@ -172,6 +172,30 @@ const PilotList: React.FC<PilotListProps> = ({
     .sort((a, b) => a.order - b.order)
     .map(status => status.name);
 
+  // Helper function to sort pilots by role order, then alphabetically by callsign
+  const sortPilotsByRoleAndCallsign = (pilots: Pilot[]) => {
+    return [...pilots].sort((a, b) => {
+      // Get the primary role for each pilot (first role in their roles array)
+      const aRole = a.roles?.[0]?.role;
+      const bRole = b.roles?.[0]?.role;
+      
+      // If both have roles, sort by role order
+      if (aRole && bRole) {
+        const roleComparison = aRole.order - bRole.order;
+        if (roleComparison !== 0) {
+          return roleComparison;
+        }
+      }
+      
+      // If only one has a role, prioritize the one with a role (lower role.order means higher priority)
+      if (aRole && !bRole) return -1;
+      if (!aRole && bRole) return 1;
+      
+      // If roles are the same (or both have no role), sort alphabetically by callsign
+      return a.callsign.localeCompare(b.callsign);
+    });
+  };
+
   return (
     <div ref={rosterListRef} style={pilotListStyles.container}>
       {/* Filter drawer */}
@@ -208,10 +232,8 @@ const PilotList: React.FC<PilotListProps> = ({
               const standingPilots = groupedActivePilots[standing];
               if (!standingPilots?.length) return null;
 
-              // Sort pilots within each standing by callsign
-              const sortedStandingPilots = [...standingPilots].sort((a, b) => 
-                a.callsign.localeCompare(b.callsign)
-              );
+              // Sort pilots within each standing by role order, then callsign
+              const sortedStandingPilots = sortPilotsByRoleAndCallsign(standingPilots);
 
               return (
                 <div key={`active-${standing}`}>
@@ -276,10 +298,8 @@ const PilotList: React.FC<PilotListProps> = ({
               const statusPilots = groupedInactivePilots[status];
               if (!statusPilots?.length) return null;
 
-              // Sort pilots within each status by callsign
-              const sortedStatusPilots = [...statusPilots].sort((a, b) => 
-                a.callsign.localeCompare(b.callsign)
-              );
+              // Sort pilots within each status by role order, then callsign
+              const sortedStatusPilots = sortPilotsByRoleAndCallsign(statusPilots);
 
               return (
                 <div key={`inactive-${status}`}>
@@ -374,10 +394,8 @@ const PilotList: React.FC<PilotListProps> = ({
               </span>
             </div>
 
-            {/* Pilot entries - sorted by callsign */}
-            {[...needsAttentionPilots].sort((a, b) => 
-              a.callsign.localeCompare(b.callsign)
-            ).map(pilot => (
+            {/* Pilot entries - sorted by role order, then callsign */}
+            {sortPilotsByRoleAndCallsign(needsAttentionPilots).map(pilot => (
               <PilotListItem
                 key={pilot.id}
                 pilot={pilot}

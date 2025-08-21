@@ -48,6 +48,7 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
     wing_id: string;
     carrier_id: string;
     callsigns: string;
+    color_palette: any;
   }>({
     name: '',
     designation: '',
@@ -59,7 +60,14 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
     group_id: '',
     wing_id: '',
     carrier_id: '',
-    callsigns: ''
+    callsigns: '',
+    color_palette: {
+      neutral_light: '#F8FAFC',
+      neutral_dark: '#1E293B',
+      primary: '#2563EB',
+      secondary: '#64748B',
+      accent: '#059669'
+    }
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -85,7 +93,19 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
           wing_id: ('wing_id' in entity ? entity.wing_id : '') || '',
           carrier_id: ('carrier_id' in entity ? entity.carrier_id : '') || '',
           callsigns: ('callsigns' in entity ? JSON.stringify(entity.callsigns || {}) : '') || '{}',
-          color_palette: ('color_palette' in entity && entity.color_palette) ? entity.color_palette : {}
+          color_palette: ('color_palette' in entity && entity.color_palette) ? {
+            neutral_light: entity.color_palette.neutral_light || '#F8FAFC',
+            neutral_dark: entity.color_palette.neutral_dark || '#1E293B',
+            primary: entity.color_palette.primary || '#2563EB',
+            secondary: entity.color_palette.secondary || '#64748B',
+            accent: entity.color_palette.accent || '#059669'
+          } : {
+            neutral_light: '#F8FAFC',
+            neutral_dark: '#1E293B',
+            primary: '#2563EB',
+            secondary: '#64748B',
+            accent: '#059669'
+          }
         });
         
         // Parse existing callsigns for squadron
@@ -117,7 +137,13 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
           wing_id: '',
           carrier_id: '',
           callsigns: '{}',
-          color_palette: {}
+          color_palette: {
+            neutral_light: '#F8FAFC',
+            neutral_dark: '#1E293B',
+            primary: '#2563EB',
+            secondary: '#64748B',
+            accent: '#059669'
+          }
         });
       }
       setErrors({});
