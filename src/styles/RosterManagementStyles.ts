@@ -25,7 +25,8 @@ export const rosterStyles = {
     display: 'flex',
     gap: '20px',
     flex: 1,
-    maxHeight: 'calc(100vh - 40px)'
+    height: 'calc(100vh - 130px)',
+    overflow: 'visible'
   },
   loading: {
     display: 'flex',
@@ -54,10 +55,7 @@ export const rosterStyles = {
     color: '#64748B',
     display: 'flex',
     alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: '10px',
-    marginLeft: 'auto',
-    marginRight: 'auto'
+    justifyContent: 'center'
   }
 };
 
@@ -71,7 +69,8 @@ export const pilotListStyles = {
     flexDirection: 'column' as const,
     position: 'relative' as const,
     overflow: 'hidden',
-    maxHeight: 'calc(100vh - 40px)'
+    height: 'calc(100vh - 130px)',
+    boxSizing: 'border-box' as const
   },
   content: {
     flex: 1,
@@ -113,7 +112,7 @@ export const pilotListStyles = {
     backgroundColor: isSelected ? '#EFF6FF' : isHovered ? 'rgba(100, 116, 139, 0.1)' : 'transparent',
     transition: 'background-color 0.2s ease',
     borderRadius: '8px',
-    padding: '4px 10px',
+    padding: '2px 10px',
     gap: '12px'
   }),
   boardNumber: {
@@ -157,7 +156,8 @@ export const pilotDetailsStyles = {
     flexDirection: 'column' as const,
     position: 'relative' as const,
     overflowY: 'auto' as const,
-    maxHeight: 'calc(100vh - 60px)'
+    height: 'calc(100vh - 130px)',
+    boxSizing: 'border-box' as const
   },
   emptyState: {
     display: 'flex',

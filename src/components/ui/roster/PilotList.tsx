@@ -72,7 +72,10 @@ const PilotList: React.FC<PilotListProps> = ({
     // Squadron filter
     if (selectedSquadronIds.length > 0) {
       if (!pilot.currentSquadron?.id) {
-        // Always include pilots without squadron assignment (like provisional pilots)
+        // Only include unassigned pilots if "unassigned" is specifically selected
+        if (!selectedSquadronIds.includes('unassigned')) {
+          return false;
+        }
       } else if (!selectedSquadronIds.includes(pilot.currentSquadron.id)) {
         return false;
       }
@@ -402,8 +405,9 @@ const PilotList: React.FC<PilotListProps> = ({
         display: 'flex',
         justifyContent: 'center',
         alignItems: 'center',
-        marginTop: 'auto',
-        padding: '24px 0 16px 0',
+        padding: '18px',
+        position: 'relative',
+        zIndex: 5,
         borderTop: '1px solid #E2E8F0'
       }}>
         <button

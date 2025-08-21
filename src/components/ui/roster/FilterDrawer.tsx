@@ -60,6 +60,9 @@ const FilterDrawer: React.FC<FilterDrawerProps> = ({
 
   // Helper functions for calculating pilot counts
   const getSquadronPilotCount = (squadronId: string) => {
+    if (squadronId === 'unassigned') {
+      return pilots.filter(pilot => !pilot.currentSquadron?.id).length;
+    }
     return pilots.filter(pilot => pilot.currentSquadron?.id === squadronId).length;
   };
 
@@ -132,6 +135,17 @@ const FilterDrawer: React.FC<FilterDrawerProps> = ({
     selectedStandingIds.length > 0 || 
     selectedRoleIds.length > 0 || 
     selectedQualificationIds.length > 0;
+
+  // Create combined squadron list with "Unassigned" option at the bottom
+  const squadronsWithUnassigned = [
+    ...squadrons,
+    {
+      id: 'unassigned',
+      designation: 'Unassigned',
+      name: 'Pilots without squadron assignment',
+      insignia_url: null
+    }
+  ];
 
   return (
     <div style={{
@@ -286,15 +300,15 @@ const FilterDrawer: React.FC<FilterDrawerProps> = ({
               {/* Squadron Filter */}
               <FilterSection 
                 title="Squadron"
-                items={squadrons}
+                items={squadronsWithUnassigned}
                 selectedIds={selectedSquadronIds}
                 onToggle={toggleSquadron}
-                onSelectAll={() => setSelectedSquadronIds(squadrons.map(s => s.id))}
+                onSelectAll={() => setSelectedSquadronIds(squadronsWithUnassigned.map(s => s.id))}
                 onClearAll={() => setSelectedSquadronIds([])}
                 renderItem={(squadron, isSelected) => (
                   <>
                     <Checkbox isSelected={isSelected} />
-                    {squadron.insignia_url && (
+                    {squadron.insignia_url ? (
                       <div style={{
                         width: '20px',
                         height: '20px',
@@ -304,6 +318,19 @@ const FilterDrawer: React.FC<FilterDrawerProps> = ({
                         backgroundPosition: 'center',
                         flexShrink: 0
                       }} />
+                    ) : (
+                      <div style={{
+                        width: '20px',
+                        height: '20px',
+                        backgroundColor: '#E5E7EB',
+                        borderRadius: '3px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        flexShrink: 0
+                      }}>
+                        <span style={{ fontSize: '10px', color: '#6B7280' }}>?</span>
+                      </div>
                     )}
                     <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, flex: 1 }}>
                       <span style={{ fontSize: '12px', fontWeight: 500, fontFamily: 'Inter' }}>
