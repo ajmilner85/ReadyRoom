@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Save } from 'lucide-react';
+import { X, Save, Upload, Image as ImageIcon } from 'lucide-react';
+import { supabase } from '../../utils/supabaseClient';
 import {
   Command,
   Group,
@@ -62,6 +63,11 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
+  const [callsignsList, setCallsignsList] = useState<string[]>([]);
+  const [newCallsign, setNewCallsign] = useState('');
+  const [showDeactivateConfirm, setShowDeactivateConfirm] = useState(false);
 
   // Initialize form data when modal opens or entity changes
   useEffect(() => {
@@ -78,8 +84,25 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
           group_id: ('group_id' in entity ? entity.group_id : '') || '',
           wing_id: ('wing_id' in entity ? entity.wing_id : '') || '',
           carrier_id: ('carrier_id' in entity ? entity.carrier_id : '') || '',
-          callsigns: ('callsigns' in entity ? JSON.stringify(entity.callsigns || {}) : '') || '{}'
+          callsigns: ('callsigns' in entity ? JSON.stringify(entity.callsigns || {}) : '') || '{}',
+          color_palette: ('color_palette' in entity && entity.color_palette) ? entity.color_palette : {}
         });
+        
+        // Parse existing callsigns for squadron
+        if (entityType === 'squadron' && 'callsigns' in entity && entity.callsigns) {
+          try {
+            const parsed = entity.callsigns;
+            if (Array.isArray(parsed)) {
+              setCallsignsList(parsed);
+            } else {
+              setCallsignsList([]);
+            }
+          } catch {
+            setCallsignsList([]);
+          }
+        } else {
+          setCallsignsList([]);
+        }
       } else {
         // Reset form for create mode
         setFormData({
@@ -93,7 +116,8 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
           group_id: '',
           wing_id: '',
           carrier_id: '',
-          callsigns: '{}'
+          callsigns: '{}',
+          color_palette: {}
         });
       }
       setErrors({});
@@ -104,6 +128,100 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
     setFormData(prev => ({ ...prev, [field]: value }));
     if (errors[field]) {
       setErrors(prev => ({ ...prev, [field]: '' }));
+    }
+  };
+
+  // Handle image upload to Supabase storage
+  const uploadImageToStorage = async (file: File): Promise<string | null> => {
+    try {
+      setUploadingImage(true);
+      
+      // Generate unique filename
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${entityType}-${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+      const filePath = `insignias/${fileName}`;
+
+      // Upload file to Supabase storage
+      const { data, error } = await supabase.storage
+        .from('organization-assets')
+        .upload(filePath, file);
+
+      if (error) {
+        console.error('Upload error:', error);
+        throw error;
+      }
+
+      // Get public URL
+      const { data: urlData } = supabase.storage
+        .from('organization-assets')
+        .getPublicUrl(filePath);
+
+      return urlData.publicUrl;
+    } catch (error: any) {
+      console.error('Error uploading image:', error);
+      setErrors(prev => ({ ...prev, insignia_url: 'Failed to upload image: ' + error.message }));
+      return null;
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
+  // Handle file drop
+  const handleDrop = async (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setDragOver(false);
+
+    const files = Array.from(e.dataTransfer.files);
+    const imageFile = files.find(file => file.type.startsWith('image/'));
+
+    if (imageFile) {
+      const url = await uploadImageToStorage(imageFile);
+      if (url) {
+        handleInputChange('insignia_url', url);
+      }
+    } else {
+      setErrors(prev => ({ ...prev, insignia_url: 'Please drop an image file' }));
+    }
+  };
+
+  // Handle file input change
+  const handleFileInputChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const url = await uploadImageToStorage(file);
+      if (url) {
+        handleInputChange('insignia_url', url);
+      }
+    }
+  };
+
+  // Handle adding callsign
+  const addCallsign = () => {
+    const trimmed = newCallsign.trim().toUpperCase();
+    if (trimmed && !callsignsList.includes(trimmed)) {
+      const updated = [...callsignsList, trimmed];
+      setCallsignsList(updated);
+      setNewCallsign('');
+      
+      // Update form data with simplified array format
+      handleInputChange('callsigns', JSON.stringify(updated));
+    }
+  };
+
+  // Handle removing callsign
+  const removeCallsign = (index: number) => {
+    const updated = callsignsList.filter((_, i) => i !== index);
+    setCallsignsList(updated);
+    
+    // Update form data with simplified array format
+    handleInputChange('callsigns', JSON.stringify(updated));
+  };
+
+  // Handle callsign input key press
+  const handleCallsignKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      addCallsign();
     }
   };
 
@@ -152,7 +270,10 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
     // Validate callsigns JSON for squadrons
     if (entityType === 'squadron' && formData.callsigns) {
       try {
-        JSON.parse(formData.callsigns);
+        const parsed = JSON.parse(formData.callsigns);
+        if (!Array.isArray(parsed)) {
+          newErrors.callsigns = 'Callsigns must be an array';
+        }
       } catch {
         newErrors.callsigns = 'Callsigns must be valid JSON';
       }
@@ -190,7 +311,8 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
           group_id: formData.group_id || null,
           designation: formData.designation || null,
           tail_code: formData.tail_code || null,
-          carrier_id: formData.carrier_id || null
+          carrier_id: formData.carrier_id || null,
+          color_palette: formData.color_palette || null
         } as NewWing;
         break;
       case 'squadron':
@@ -200,7 +322,8 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
           designation: formData.designation.trim(),
           tail_code: formData.tail_code || null,
           carrier_id: formData.carrier_id || null,
-          callsigns: formData.callsigns ? JSON.parse(formData.callsigns) : null
+          callsigns: formData.callsigns ? JSON.parse(formData.callsigns) : null,
+          color_palette: formData.color_palette || null
         } as NewSquadron;
         break;
       default:
@@ -208,6 +331,19 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
     }
 
     onSave(saveData);
+  };
+
+  const handleDeactivate = () => {
+    if (!entity) return;
+    
+    const currentDate = new Date().toISOString().split('T')[0];
+    const entityData = {
+      ...entity,
+      deactivated_date: currentDate
+    };
+    
+    onSave(entityData);
+    setShowDeactivateConfirm(false);
   };
 
   if (!isOpen) return null;
@@ -487,126 +623,578 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
             </div>
           )}
 
-          {/* Tail Code (Wings and Squadrons) */}
+          {/* Tail Code and Insignia Grid (Wings and Squadrons) */}
           {(entityType === 'wing' || entityType === 'squadron') && (
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">
-                Tail Code
-              </label>
-              <input
-                type="text"
-                value={formData.tail_code}
-                onChange={(e) => handleInputChange('tail_code', e.target.value.toUpperCase())}
-                className={`w-full px-3 py-2 border rounded-md ${errors.tail_code ? 'border-red-500' : 'border-slate-300'}`}
-                placeholder="e.g., NK, AG"
-                maxLength={2}
-              />
-              {errors.tail_code && <p className="text-red-500 text-sm mt-1">{errors.tail_code}</p>}
-              <p className="text-sm text-slate-500 mt-1">2-character tail code for aircraft identification</p>
+            <div style={{ 
+              display: 'grid', 
+              gridTemplateColumns: '150px 150px 1fr', 
+              gap: '16px', 
+              marginBottom: '16px' 
+            }}>
+              {/* Tail Code */}
+              <div>
+                <label style={{
+                  display: 'block',
+                  marginBottom: '8px',
+                  fontSize: '14px',
+                  fontWeight: 500,
+                  color: '#64748B'
+                }}>
+                  Tail Code
+                </label>
+                <input
+                  type="text"
+                  value={formData.tail_code}
+                  onChange={(e) => handleInputChange('tail_code', e.target.value.toUpperCase())}
+                  style={{
+                    width: '150px',
+                    padding: '16px',
+                    border: `1px solid ${errors.tail_code ? '#EF4444' : '#CBD5E1'}`,
+                    borderRadius: '8px',
+                    fontSize: '64px',
+                    boxSizing: 'border-box',
+                    height: '150px',
+                    lineHeight: '64px',
+                    textAlign: 'center',
+                    fontFamily: "'USN Stencil', 'Courier New', monospace",
+                    fontWeight: 'normal',
+                    letterSpacing: '1px',
+                    textTransform: 'uppercase',
+                    backgroundColor: '#9DA6AA',
+                    color: '#575A58'
+                  }}
+                  placeholder="NK"
+                  maxLength={2}
+                />
+                {errors.tail_code && (
+                  <div style={{
+                    color: '#EF4444',
+                    fontSize: '12px',
+                    marginTop: '4px'
+                  }}>
+                    {errors.tail_code}
+                  </div>
+                )}
+              </div>
+              
+              {/* Insignia Image */}
+              <div>
+                <label style={{
+                  display: 'block',
+                  marginBottom: '8px',
+                  fontSize: '14px',
+                  fontWeight: 500,
+                  color: '#64748B'
+                }}>
+                  Insignia
+                </label>
+                
+                <div
+                  onDrop={handleDrop}
+                  onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+                  onDragLeave={() => setDragOver(false)}
+                  style={{
+                    border: `2px dashed ${dragOver ? '#2563EB' : '#CBD5E1'}`,
+                    borderRadius: '8px',
+                    padding: '16px',
+                    textAlign: 'center',
+                    backgroundColor: dragOver ? '#EFF6FF' : (formData.insignia_url ? '#9DA6AA' : '#F8FAFC'),
+                    cursor: uploadingImage ? 'wait' : 'pointer',
+                    transition: 'all 0.2s ease',
+                    height: '150px',
+                    width: '150px',
+                    boxSizing: 'border-box',
+                    display: 'flex',
+                    justifyContent: 'center',
+                    alignItems: 'center'
+                  }}
+                  onClick={() => {
+                    if (!uploadingImage) {
+                      document.getElementById('insignia-file-input')?.click();
+                    }
+                  }}
+                >
+                  {uploadingImage ? (
+                    <Upload size={32} color="#64748B" />
+                  ) : formData.insignia_url ? (
+                    <img 
+                      src={formData.insignia_url} 
+                      alt="Insignia preview" 
+                      style={{ 
+                        maxWidth: '100%', 
+                        maxHeight: '150px', 
+                        objectFit: 'contain'
+                      }} 
+                    />
+                  ) : (
+                    <Upload size={32} color="#64748B" />
+                  )}
+                </div>
+                
+                {/* Hint text below drag/drop area */}
+                <div style={{ 
+                  marginTop: '8px', 
+                  textAlign: 'center',
+                  width: '150px'
+                }}>
+                  {uploadingImage ? (
+                    <p style={{ color: '#64748B', fontSize: '14px', margin: 0 }}>
+                      Uploading image...
+                    </p>
+                  ) : formData.insignia_url ? (
+                    <p style={{ color: '#64748B', fontSize: '12px', margin: 0 }}>
+                      Click or drag to replace
+                    </p>
+                  ) : (
+                    <>
+                      <p style={{ color: '#64748B', fontSize: '12px', margin: '0 0 2px 0' }}>
+                        Drag & drop image here or click to browse
+                      </p>
+                      <p style={{ color: '#94A3B8', fontSize: '12px', margin: 0 }}>
+                        PNG, JPG, or SVG up to 500KB
+                      </p>
+                    </>
+                  )}
+                </div>
+                
+                {/* Hidden file input */}
+                <input
+                  id="insignia-file-input"
+                  type="file"
+                  accept="image/*"
+                  onChange={handleFileInputChange}
+                  style={{ display: 'none' }}
+                />
+                
+                {errors.insignia_url && (
+                  <div style={{
+                    color: '#EF4444',
+                    fontSize: '12px',
+                    marginTop: '4px'
+                  }}>
+                    {errors.insignia_url}
+                  </div>
+                )}
+              </div>
+              
+              {/* Color Palette */}
+              <div>
+                <label style={{
+                  display: 'block',
+                  marginBottom: '8px',
+                  fontSize: '14px',
+                  fontWeight: 500,
+                  color: '#64748B'
+                }}>
+                  Colors
+                </label>
+                
+                <div style={{
+                  border: '1px solid #CBD5E1',
+                  borderRadius: '8px',
+                  padding: '12px',
+                  backgroundColor: '#F8FAFC',
+                  height: '150px',
+                  width: '100%',
+                  boxSizing: 'border-box',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'center'
+                }}>
+                  {/* Color inputs */}
+                  {[
+                    { key: 'neutral_light', label: 'Neutral Light', defaultColor: '#F8FAFC' },
+                    { key: 'neutral_dark', label: 'Neutral Dark', defaultColor: '#1E293B' },
+                    { key: 'primary', label: 'Primary', defaultColor: '#2563EB' },
+                    { key: 'secondary', label: 'Secondary', defaultColor: '#64748B' },
+                    { key: 'accent', label: 'Accent', defaultColor: '#059669' }
+                  ].map((colorField, index) => (
+                    <div key={colorField.key} style={{ 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      gap: '6px',
+                      marginBottom: index < 4 ? '6px' : '0'
+                    }}>
+                      <div
+                        style={{
+                          width: '16px',
+                          height: '16px',
+                          borderRadius: '3px',
+                          backgroundColor: formData.color_palette?.[colorField.key] || colorField.defaultColor,
+                          border: '1px solid #CBD5E1',
+                          flexShrink: 0
+                        }}
+                      />
+                      <input
+                        type="text"
+                        value={(formData.color_palette?.[colorField.key] || colorField.defaultColor).replace('#', '')}
+                        onChange={(e) => {
+                          const value = e.target.value.replace(/[^0-9A-Fa-f]/g, '').slice(0, 6);
+                          const newPalette = {
+                            ...formData.color_palette,
+                            [colorField.key]: value ? `#${value}` : colorField.defaultColor
+                          };
+                          handleInputChange('color_palette', newPalette);
+                        }}
+                        placeholder="000000"
+                        maxLength={6}
+                        style={{
+                          width: '55px',
+                          padding: '2px 4px',
+                          border: '1px solid #CBD5E1',
+                          borderRadius: '3px',
+                          fontSize: '10px',
+                          fontFamily: 'monospace',
+                          textTransform: 'uppercase'
+                        }}
+                      />
+                      <span style={{
+                        fontSize: '10px',
+                        color: '#64748B',
+                        fontWeight: 400,
+                        flex: 1
+                      }}>
+                        {colorField.label}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
           )}
 
-          {/* Dates */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">
-                Established Date
-              </label>
-              <input
-                type="date"
-                value={formData.established_date}
-                onChange={(e) => handleInputChange('established_date', e.target.value)}
-                className="w-full px-3 py-2 border border-slate-300 rounded-md"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">
-                Deactivated Date
-              </label>
-              <input
-                type="date"
-                value={formData.deactivated_date}
-                onChange={(e) => handleInputChange('deactivated_date', e.target.value)}
-                className={`w-full px-3 py-2 border rounded-md ${errors.deactivated_date ? 'border-red-500' : 'border-slate-300'}`}
-              />
-              {errors.deactivated_date && <p className="text-red-500 text-sm mt-1">{errors.deactivated_date}</p>}
-            </div>
-          </div>
-
-          {/* Insignia URL */}
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
-              Insignia URL
+          {/* Established Date */}
+          <div style={{ marginBottom: '16px' }}>
+            <label style={{
+              display: 'block',
+              marginBottom: '8px',
+              fontSize: '14px',
+              fontWeight: 500,
+              color: '#64748B'
+            }}>
+              Established Date
             </label>
             <input
-              type="url"
-              value={formData.insignia_url}
-              onChange={(e) => handleInputChange('insignia_url', e.target.value)}
-              className="w-full px-3 py-2 border border-slate-300 rounded-md"
-              placeholder="https://example.com/insignia.png"
+              type="date"
+              value={formData.established_date}
+              onChange={(e) => handleInputChange('established_date', e.target.value)}
+              style={{
+                width: '100%',
+                padding: '8px',
+                border: '1px solid #CBD5E1',
+                borderRadius: '4px',
+                fontSize: '14px',
+                boxSizing: 'border-box',
+                height: '35px',
+                backgroundColor: 'white'
+              }}
             />
-            <p className="text-sm text-slate-500 mt-1">URL to the unit's insignia image</p>
           </div>
+
+          {/* Deactivated Date */}
+          <div style={{ marginBottom: '16px' }}>
+            <label style={{
+              display: 'block',
+              marginBottom: '8px',
+              fontSize: '14px',
+              fontWeight: 500,
+              color: '#64748B'
+            }}>
+              Deactivated Date
+            </label>
+            <input
+              type="date"
+              value={formData.deactivated_date}
+              onChange={(e) => handleInputChange('deactivated_date', e.target.value)}
+              style={{
+                width: '100%',
+                padding: '8px',
+                border: `1px solid ${errors.deactivated_date ? '#EF4444' : '#CBD5E1'}`,
+                borderRadius: '4px',
+                fontSize: '14px',
+                boxSizing: 'border-box',
+                height: '35px',
+                backgroundColor: 'white'
+              }}
+            />
+            {errors.deactivated_date && (
+              <div style={{
+                color: '#EF4444',
+                fontSize: '12px',
+                marginTop: '4px'
+              }}>
+                {errors.deactivated_date}
+              </div>
+            )}
+          </div>
+
 
           {/* Squadron Callsigns */}
           {entityType === 'squadron' && (
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">
-                Callsigns (JSON)
+            <div style={{ marginBottom: '16px' }}>
+              <label style={{
+                display: 'block',
+                marginBottom: '8px',
+                fontSize: '14px',
+                fontWeight: 500,
+                color: '#64748B'
+              }}>
+                Callsigns
               </label>
-              <textarea
-                value={formData.callsigns}
-                onChange={(e) => handleInputChange('callsigns', e.target.value)}
-                className={`w-full px-3 py-2 border rounded-md font-mono text-sm ${errors.callsigns ? 'border-red-500' : 'border-slate-300'}`}
-                rows={4}
-                placeholder='{"flight1": ["Alpha", "Bravo"], "flight2": ["Charlie", "Delta"]}'
-              />
-              {errors.callsigns && <p className="text-red-500 text-sm mt-1">{errors.callsigns}</p>}
-              <p className="text-sm text-slate-500 mt-1">JSON object containing squadron callsigns</p>
+              
+              {/* Callsign input */}
+              <div style={{ 
+                display: 'flex', 
+                gap: '8px', 
+                marginBottom: '12px' 
+              }}>
+                <input
+                  type="text"
+                  value={newCallsign}
+                  onChange={(e) => setNewCallsign(e.target.value)}
+                  onKeyPress={handleCallsignKeyPress}
+                  style={{
+                    flex: 1,
+                    padding: '8px',
+                    border: '1px solid #CBD5E1',
+                    borderRadius: '4px',
+                    fontSize: '14px',
+                    boxSizing: 'border-box',
+                    height: '35px'
+                  }}
+                  placeholder="Enter callsign (e.g., VIPER, EAGLE)"
+                />
+                <button
+                  type="button"
+                  onClick={addCallsign}
+                  disabled={!newCallsign.trim()}
+                  style={{
+                    padding: '8px 16px',
+                    border: 'none',
+                    borderRadius: '4px',
+                    backgroundColor: newCallsign.trim() ? '#2563EB' : '#CBD5E1',
+                    color: 'white',
+                    cursor: newCallsign.trim() ? 'pointer' : 'not-allowed',
+                    fontSize: '14px',
+                    height: '35px'
+                  }}
+                >
+                  Add
+                </button>
+              </div>
+              
+              {/* Callsigns tags */}
+              {callsignsList.length > 0 && (
+                <div style={{
+                  display: 'flex',
+                  flexWrap: 'wrap',
+                  gap: '8px',
+                  padding: '8px',
+                  border: '1px solid #E2E8F0',
+                  borderRadius: '4px',
+                  backgroundColor: '#F8FAFC',
+                  minHeight: '32px',
+                  alignItems: 'center'
+                }}>
+                  {callsignsList.map((callsign, index) => (
+                    <div
+                      key={index}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        padding: '0 8px',
+                        backgroundColor: formData.color_palette?.accent || '#2563EB',
+                        color: 'white',
+                        borderRadius: '8px',
+                        fontSize: '12px',
+                        fontWeight: 400,
+                        height: '24px'
+                      }}
+                    >
+                      <span>{callsign}</span>
+                      <button
+                        type="button"
+                        onClick={() => removeCallsign(index)}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          color: 'white',
+                          cursor: 'pointer',
+                          fontSize: '14px',
+                          lineHeight: 1,
+                          padding: '0',
+                          display: 'flex',
+                          alignItems: 'center'
+                        }}
+                      >
+                        <X size={12} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              
+              <p style={{ 
+                color: '#94A3B8', 
+                fontSize: '12px', 
+                marginTop: '4px' 
+              }}>
+                Add callsigns for this squadron. Press Enter or click Add.
+              </p>
+              
+              {errors.callsigns && (
+                <div style={{
+                  color: '#EF4444',
+                  fontSize: '12px',
+                  marginTop: '4px'
+                }}>
+                  {errors.callsigns}
+                </div>
+              )}
             </div>
           )}
         </div>
 
         <div style={{
           display: 'flex',
-          justifyContent: 'flex-end',
+          justifyContent: 'space-between',
           gap: '8px',
           padding: '16px 24px',
           borderTop: '1px solid #E2E8F0'
         }}>
-          <button
-            onClick={onClose}
-            style={{
-              padding: '8px 16px',
-              border: '1px solid #CBD5E1',
-              borderRadius: '4px',
-              backgroundColor: 'white',
-              color: '#64748B',
-              cursor: 'pointer',
-              fontSize: '14px'
-            }}
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handleSave}
-            style={{
-              padding: '8px 16px',
-              border: 'none',
-              borderRadius: '4px',
-              backgroundColor: '#2563EB',
-              color: 'white',
-              cursor: 'pointer',
-              fontSize: '14px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px'
-            }}
-          >
-            <Save size={16} />
-            {mode === 'create' ? 'Create' : 'Save'}
-          </button>
+          {/* Left side - Deactivate button (only in edit mode for active entities) */}
+          <div>
+            {mode === 'edit' && entity && !entity.deactivated_date && (
+              <button
+                onClick={() => setShowDeactivateConfirm(true)}
+                style={{
+                  padding: '8px 16px',
+                  border: '1px solid #DC2626',
+                  borderRadius: '4px',
+                  backgroundColor: 'white',
+                  color: '#DC2626',
+                  cursor: 'pointer',
+                  fontSize: '14px'
+                }}
+              >
+                Deactivate {entityType.charAt(0).toUpperCase() + entityType.slice(1)}
+              </button>
+            )}
+          </div>
+          
+          {/* Right side - Cancel and Save buttons */}
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button
+              onClick={onClose}
+              style={{
+                padding: '8px 16px',
+                border: '1px solid #CBD5E1',
+                borderRadius: '4px',
+                backgroundColor: 'white',
+                color: '#64748B',
+                cursor: 'pointer',
+                fontSize: '14px'
+              }}
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleSave}
+              style={{
+                padding: '8px 16px',
+                border: 'none',
+                borderRadius: '4px',
+                backgroundColor: '#2563EB',
+                color: 'white',
+                cursor: 'pointer',
+                fontSize: '14px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px'
+              }}
+            >
+              <Save size={16} />
+              {mode === 'create' ? 'Create' : 'Save'}
+            </button>
+          </div>
         </div>
+        
+        {/* Deactivate Confirmation Dialog */}
+        {showDeactivateConfirm && (
+          <div style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.7)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1
+          }}>
+            <div style={{
+              backgroundColor: 'white',
+              padding: '24px',
+              borderRadius: '8px',
+              boxShadow: '0px 10px 15px -3px rgba(0, 0, 0, 0.25)',
+              maxWidth: '400px',
+              width: '90%'
+            }}>
+              <h3 style={{
+                fontSize: '18px',
+                fontWeight: 600,
+                color: '#0F172A',
+                marginBottom: '16px'
+              }}>
+                Confirm Deactivation
+              </h3>
+              <p style={{
+                fontSize: '14px',
+                color: '#64748B',
+                marginBottom: '24px',
+                lineHeight: '1.5'
+              }}>
+                Are you sure you want to deactivate this {entityType}? This action will set the deactivated date to today and cannot be easily undone.
+              </p>
+              <div style={{
+                display: 'flex',
+                justifyContent: 'flex-end',
+                gap: '8px'
+              }}>
+                <button
+                  onClick={() => setShowDeactivateConfirm(false)}
+                  style={{
+                    padding: '8px 16px',
+                    border: '1px solid #CBD5E1',
+                    borderRadius: '4px',
+                    backgroundColor: 'white',
+                    color: '#64748B',
+                    cursor: 'pointer',
+                    fontSize: '14px'
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleDeactivate}
+                  style={{
+                    padding: '8px 16px',
+                    border: 'none',
+                    borderRadius: '4px',
+                    backgroundColor: '#DC2626',
+                    color: 'white',
+                    cursor: 'pointer',
+                    fontSize: '14px'
+                  }}
+                >
+                  Deactivate
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

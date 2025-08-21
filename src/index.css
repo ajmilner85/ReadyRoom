@@ -1,8 +1,35 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;700&display=swap');
 
+/* USN Stencil Font */
+@font-face {
+  font-family: 'USN Stencil';
+  src: url('/fonts/usn-stencil/USN_Stencil.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* MS33558 Font - Military specification font */
+@font-face {
+  font-family: 'MS33558';
+  src: url('/fonts/MS33558/MS33558.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Utility classes for military fonts */
+.font-usn-stencil {
+  font-family: 'USN Stencil', 'Courier New', monospace;
+}
+
+.font-ms33558 {
+  font-family: 'MS33558', 'Arial', sans-serif;
+}
  
 :root {
   --background: 0 0% 100%;
