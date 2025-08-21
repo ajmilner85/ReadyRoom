@@ -271,11 +271,20 @@ export async function getPilotByDiscordOriginalId(discordId: string): Promise<{ 
  * @param pilot The pilot data to add
  */
 export async function createPilot(pilot: NewPilot): Promise<{ data: Pilot | null; error: any }> {
-  // Check if board number already exists
+  // Check if board number already exists for active pilots only (exclude Retired/Removed)
   const { data: existingPilot } = await supabase
     .from('pilots')
-    .select('id')
+    .select(`
+      id,
+      pilot_statuses!inner (
+        statuses!inner (
+          name
+        )
+      )
+    `)
     .eq('boardNumber', pilot.boardNumber)
+    .not('pilot_statuses.statuses.name', 'in', '("Retired","Removed")')
+    .is('pilot_statuses.end_date', null)
     .single();
 
   if (existingPilot) {
@@ -305,11 +314,20 @@ export async function createPilotWithStatusAndStanding(
   console.log('🔍 Creating new pilot with status and standing...');
   
   try {
-    // Check if board number already exists
+    // Check if board number already exists for active pilots only (exclude Retired/Removed)
     const { data: existingPilot } = await supabase
       .from('pilots')
-      .select('id')
+      .select(`
+        id,
+        pilot_statuses!inner (
+          statuses!inner (
+            name
+          )
+        )
+      `)
       .eq('boardNumber', pilotData.boardNumber)
+      .not('pilot_statuses.statuses.name', 'in', '("Retired","Removed")')
+      .is('pilot_statuses.end_date', null)
       .single();
 
     if (existingPilot) {
@@ -400,16 +418,23 @@ export async function createPilotWithStatusAndStanding(
  * @param updates The pilot data to update
  */
 export async function updatePilot(id: string, updates: UpdatePilot): Promise<{ data: Pilot | null; error: any }> {
-  // If board number is being updated, check if it's unique
+  // If board number is being updated, check if it's unique among active pilots only
   if (updates.boardNumber) {
     const { data: existingPilots, error: checkError } = await supabase
       .from('pilots')
-      .select('id')
+      .select(`
+        id,
+        pilot_statuses!inner (
+          statuses!inner (
+            name
+          )
+        )
+      `)
       .eq('boardNumber', updates.boardNumber)
-      .neq('id', id);
+      .neq('id', id)
+      .not('pilot_statuses.statuses.name', 'in', '("Retired","Removed")')
+      .is('pilot_statuses.end_date', null);
 
-    // Don't use .single() as it causes errors when no records are found
-    // Instead, check if data exists and has length > 0
     if (checkError) {
       return { data: null, error: checkError };
     }

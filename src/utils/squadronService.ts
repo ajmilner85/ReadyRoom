@@ -114,9 +114,11 @@ export async function assignPilotToSquadron(
   startDate: string = new Date().toISOString().split('T')[0]
 ): Promise<{ success: boolean; error: any }> {
   console.log('🔄 Assigning pilot to squadron:', { pilotId, squadronId, startDate });
+  console.log('🔄 Squadron ID type:', typeof squadronId, 'Value:', squadronId);
   
   try {
     // End any existing active squadron assignments for this pilot
+    console.log('🔄 Ending existing assignments for pilot:', pilotId);
     const { error: endExistingError } = await supabase
       .from('pilot_assignments')
       .update({ 
@@ -133,6 +135,7 @@ export async function assignPilotToSquadron(
 
     // If squadronId is provided, create new assignment
     if (squadronId) {
+      console.log('🔄 Creating new assignment for squadron:', squadronId);
       const { error: insertError } = await supabase
         .from('pilot_assignments')
         .insert({
@@ -149,7 +152,23 @@ export async function assignPilotToSquadron(
 
       console.log('✅ Successfully assigned pilot to squadron');
     } else {
-      console.log('✅ Successfully removed pilot from squadron (unassigned)');
+      console.log('✅ Successfully removed pilot from squadron (unassigned) - no new assignment created');
+    }
+    
+    // Verify the assignment was actually updated/removed
+    const { data: verifyAssignments, error: verifyError } = await supabase
+      .from('pilot_assignments')
+      .select('id, pilot_id, squadron_id, end_date')
+      .eq('pilot_id', pilotId)
+      .order('created_at', { ascending: false })
+      .limit(3);
+    
+    if (verifyError) {
+      console.error('❌ Error verifying assignment:', verifyError);
+    } else {
+      console.log('🔍 Assignment verification for pilot', pilotId, ':', verifyAssignments);
+      const activeAssignments = verifyAssignments?.filter(a => !a.end_date) || [];
+      console.log('🔍 Active assignments:', activeAssignments);
     }
     
     return { success: true, error: null };

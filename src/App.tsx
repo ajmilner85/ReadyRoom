@@ -2,6 +2,7 @@ import React, { useState, Suspense, useEffect, useCallback } from 'react';
 import { DndContext, DragEndEvent, DragOverlay, DragStartEvent } from '@dnd-kit/core';
 import GridLayout from './components/layout/GridLayout';
 import { SectionProvider } from './components/layout/SectionContext';
+import { AppSettingsProvider } from './context/AppSettingsContext';
 import { splitFlight, divideFlight, updateFlightPosition, type Flight } from './types/FlightData';
 import FlightCard from './components/ui/flight cards/FlightCard';
 import SingleFlightCard from './components/ui/flight cards/SingleFlightCard';
@@ -377,12 +378,14 @@ const App: React.FC = () => {
   }, [currentView, hoveredFlightId, flights, showFuelDialog, showPositionDialog, hoveredBoardNumber, isHoveringBoardNumber]);
 
   return (
-    <SectionProvider>
-      <div style={{ display: 'grid', gridTemplateColumns: '100px 1fr' }} className="min-h-screen">
-        <NavigationBar onNavigate={handleNavigate} activeButton={activeButton} />
-        {renderMainContent()}
-      </div>
-    </SectionProvider>
+    <AppSettingsProvider>
+      <SectionProvider>
+        <div style={{ display: 'grid', gridTemplateColumns: '100px 1fr' }} className="min-h-screen">
+          <NavigationBar onNavigate={handleNavigate} activeButton={activeButton} />
+          {renderMainContent()}
+        </div>
+      </SectionProvider>
+    </AppSettingsProvider>
   );
 };
 

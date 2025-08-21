@@ -3,6 +3,7 @@ import { Pilot } from '../../../types/PilotTypes';
 import QualificationBadge from '../QualificationBadge';
 import PilotIDBadgeSm from '../PilotIDBadgeSm';
 import { pilotListStyles } from '../../../styles/RosterManagementStyles';
+import { useAppSettings } from '../../../context/AppSettingsContext';
 
 interface PilotListItemProps {
   pilot: Pilot;
@@ -25,8 +26,14 @@ const PilotListItem: React.FC<PilotListItemProps> = ({
   pilotQualifications,
   isDisabled = false
 }) => {
+  const { settings } = useAppSettings();
+  
   // Get squadron primary color for callsign styling
   const getSquadronPrimaryColor = () => {
+    // When setting is disabled, use black for assigned pilots, dark gray for unassigned
+    if (!settings.displayPilotsWithSquadronColors) {
+      return pilot.currentSquadron ? '#000000' : '#374151';
+    }
     // Use squadron primary color from color_palette.primary if available, otherwise dark gray
     return pilot.currentSquadron?.color_palette?.primary || '#374151';
   };

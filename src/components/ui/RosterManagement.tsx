@@ -146,27 +146,35 @@ const RosterManagement: React.FC = () => {
   };
 
   // Function to refresh a specific pilot's details
-  const refreshSelectedPilot = async (_pilotId: string) => {
+  const refreshSelectedPilot = async (pilotId: string) => {
     try {
-      // Just refresh all pilots instead of trying to update a single pilot
-      // This ensures we get the correct role data from getAllPilots()
+      // Refresh all pilots to get latest data
       await refreshPilots();
       
-      // Find the pilot in the refreshed data and update selection
-      // Use setTimeout to ensure state update has completed
-      setTimeout(() => {
-        // Find pilot by UUID - need to handle the ID mapping properly
-        // The pilots array uses discord_original_id as the primary ID, but we have the actual UUID
-        const refreshedPilot = pilots.find(p => {
-          // Since pilots array uses discord_original_id as ID, we need to find by the original selectedPilot
-          return p.id === selectedPilot?.id;
-        });
-        if (refreshedPilot) {
-          setSelectedPilot(refreshedPilot);
-          fetchPilotRoles(refreshedPilot.id);
-          fetchPilotQualifications(refreshedPilot.id);
-        }
-      }, 100);
+      // Wait for state to update and then find the updated pilot
+      // Use a longer timeout and multiple attempts to ensure reliability
+      let attempts = 0;
+      const maxAttempts = 5;
+      
+      const findAndUpdatePilot = () => {
+        setTimeout(() => {
+          const refreshedPilot = pilots.find(p => p.id === (selectedPilot?.id || pilotId));
+          
+          if (refreshedPilot) {
+            setSelectedPilot(refreshedPilot);
+            fetchPilotRoles(refreshedPilot.id);
+            fetchPilotQualifications(refreshedPilot.id);
+          } else if (attempts < maxAttempts) {
+            attempts++;
+            console.log(`Attempt ${attempts} to find refreshed pilot...`);
+            findAndUpdatePilot();
+          } else {
+            console.warn('Could not find refreshed pilot after', maxAttempts, 'attempts');
+          }
+        }, 200 * (attempts + 1)); // Increasing delay with each attempt
+      };
+      
+      findAndUpdatePilot();
       
     } catch (err: any) {
       console.error('Error refreshing selected pilot:', err);
@@ -636,10 +644,15 @@ const RosterManagement: React.FC = () => {
       // Get the actual UUID
       const actualPilotId = await getActualPilotId(pilotId);
       
-      // Assign pilot to squadron (or unassign if squadronId is empty)
+      // Normalize squadronId - treat empty string, 'null', or null as unassignment
+      const normalizedSquadronId = (squadronId && squadronId !== '' && squadronId !== 'null') ? squadronId : null;
+      
+      console.log('Executing squadron change:', { pilotId, squadronId, normalizedSquadronId });
+      
+      // Assign pilot to squadron (or unassign if squadronId is null)
       const { success, error } = await assignPilotToSquadron(
         actualPilotId, 
-        squadronId || null
+        normalizedSquadronId
       );
       
       if (error) {
@@ -647,11 +660,33 @@ const RosterManagement: React.FC = () => {
       }
       
       if (success) {
-        // Refresh pilots to get updated squadron information
-        await refreshPilots();
+        // Immediately update local state to reflect the change
+        const updatedSquadron = normalizedSquadronId ? squadrons.find(s => s.id === normalizedSquadronId) : null;
         
-        // Find the updated pilot by the actual pilot ID, not by the potentially Discord ID
-        await refreshSelectedPilot(actualPilotId);
+        setPilots(prevPilots => 
+          prevPilots.map(pilot => {
+            if (pilot.id === selectedPilot?.id) {
+              return {
+                ...pilot,
+                currentSquadron: updatedSquadron
+              } as Pilot;
+            }
+            return pilot;
+          })
+        );
+        
+        if (selectedPilot) {
+          setSelectedPilot(prev => ({
+            ...prev!,
+            currentSquadron: updatedSquadron
+          } as Pilot));
+        }
+        
+        // Also refresh from database to ensure consistency
+        setTimeout(async () => {
+          await refreshPilots();
+          await refreshSelectedPilot(actualPilotId);
+        }, 500);
       }
     } catch (err: any) {
       console.error('Error updating pilot squadron:', err);
@@ -1379,9 +1414,14 @@ const RosterManagement: React.FC = () => {
       }
 
       // Handle squadron updates via join table if squadron has changed
-      if ((updatedPilot as any)?.currentSquadron?.id || (updatedPilot as any)?.squadronAssignment?.squadron_id) {
-        const squadronId = (updatedPilot as any)?.currentSquadron?.id || (updatedPilot as any)?.squadronAssignment?.squadron_id;
-        const { error: squadronError } = await assignPilotToSquadron(actualPilotId, squadronId || null);
+      const originalPilot = pilots.find(p => p.id === updatedPilot.id);
+      const originalSquadronId = (originalPilot as any)?.currentSquadron?.id;
+      const newSquadronId = (updatedPilot as any)?.currentSquadron?.id || (updatedPilot as any)?.squadronAssignment?.squadron_id;
+      const squadronChanged = originalSquadronId !== newSquadronId;
+      
+      if (squadronChanged) {
+        console.log('🔄 Squadron changed during save:', { originalSquadronId, newSquadronId });
+        const { error: squadronError } = await assignPilotToSquadron(actualPilotId, newSquadronId || null);
         if (squadronError) {
           console.error('Error updating pilot squadron during save:', squadronError);
           // Don't throw here - pilot was saved, just squadron update failed

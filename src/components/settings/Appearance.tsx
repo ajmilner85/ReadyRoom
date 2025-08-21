@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Card } from '../ui/card';
+import { useAppSettings } from '../../context/AppSettingsContext';
 
 interface AppearanceProps {
   error?: string | null;
@@ -7,157 +7,191 @@ interface AppearanceProps {
 }
 
 const Appearance: React.FC<AppearanceProps> = ({ error, setError }) => {
-  // State for color scheme
-  const [primaryColor, setPrimaryColor] = useState('#5B4E61');
-  const [secondaryColor, setSecondaryColor] = useState('#82728C');
-  const [accentColor, setAccentColor] = useState('#F24607');
+  const { settings, updateSetting } = useAppSettings();
   
   // State for units of measure
   const [distanceUnit, setDistanceUnit] = useState('Nautical Miles');
   const [altitudeUnit, setAltitudeUnit] = useState('Feet');
   const [fuelUnit, setFuelUnit] = useState('Thousands of Pounds');
 
-  // Handler for color input changes
-  const handleColorChange = (setter: React.Dispatch<React.SetStateAction<string>>) => (e: React.ChangeEvent<HTMLInputElement>) => {
-    setter(e.target.value);
+  const containerStyle = {
+    backgroundColor: '#FFFFFF',
+    minHeight: '100vh',
+    padding: '40px',
+    boxSizing: 'border-box' as const
   };
 
-  // Handler for uploading a new logo
-  const handleLogoUpload = () => {
-    // This would typically open a file dialog and handle the upload
-    console.log('Logo upload functionality would go here');
+  const contentWrapperStyle = {
+    maxWidth: '800px',
+    margin: '0 auto'
+  };
+
+  const headerStyle = {
+    marginBottom: '40px'
+  };
+
+  const sectionStyle = {
+    paddingTop: '32px',
+    paddingBottom: '32px',
+    borderTop: '1px solid #E5E7EB',
+    marginTop: '32px'
+  };
+
+  const firstSectionStyle = {
+    paddingTop: '0',
+    paddingBottom: '32px',
+    marginTop: '0',
+    borderTop: 'none'
+  };
+
+  const fieldLabelStyle = {
+    fontSize: '14px',
+    fontWeight: 500,
+    color: '#374151',
+    marginBottom: '8px',
+    fontFamily: 'Inter'
+  };
+
+  const selectStyle = {
+    width: '100%',
+    padding: '10px 12px',
+    border: '1px solid #D1D5DB',
+    borderRadius: '6px',
+    fontSize: '14px',
+    fontFamily: 'Inter',
+    backgroundColor: '#FFFFFF',
+    color: '#374151',
+    outline: 'none',
+    transition: 'border-color 0.2s ease'
+  };
+
+  const toggleContainerStyle = {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: '16px 0'
   };
 
   return (
-    <div>
-      <h2 className="text-xl font-semibold mb-4">Appearance</h2>
-      <p className="text-slate-600 mb-6">
-        Configure squadron logos, colors, and default units of measure.
-      </p>
+    <div style={containerStyle}>
+      <div style={contentWrapperStyle}>
+        {/* Header */}
+        <div style={headerStyle}>
+          <h2 style={{ fontSize: '24px', fontWeight: 600, margin: 0, color: '#0F172A' }}>
+            Appearance
+          </h2>
+          <p style={{ fontSize: '14px', color: '#64748B', margin: '8px 0 0 0', fontFamily: 'Inter' }}>
+            Configure display options and default units of measure.
+          </p>
+        </div>
 
-      <div className="space-y-6">
-        <Card className="p-4">
-          <h3 className="text-lg font-medium mb-3">Squadron Logo</h3>
-          <div className="flex items-center space-x-6 mb-4">
-            <div className="w-32 h-32 border-2 border-dashed border-slate-300 rounded-lg flex items-center justify-center">
-              <img 
-                src="/src/assets/Stingrays Logo 80x80.png" 
-                alt="Squadron Logo" 
-                className="max-w-full max-h-full"
-              />
+        {/* Pilot Display Section */}
+        <div style={firstSectionStyle}>
+          <h3 style={{ fontSize: '18px', fontWeight: 600, color: '#0F172A', margin: '0 0 16px 0' }}>
+            Pilot Display
+          </h3>
+          <p style={{ fontSize: '14px', color: '#64748B', margin: '0 0 24px 0', fontFamily: 'Inter' }}>
+            Control how pilots are displayed throughout the application.
+          </p>
+          
+          <div style={toggleContainerStyle}>
+            <div style={{ flex: 1 }}>
+              <div style={fieldLabelStyle}>
+                Display pilots with squadron colors
+              </div>
+              <p style={{ 
+                fontSize: '12px', 
+                color: '#94A3B8', 
+                margin: 0, 
+                fontFamily: 'Inter',
+                lineHeight: '1.4'
+              }}>
+                When enabled, pilots are displayed using their squadron's primary color. Unassigned pilots always display in dark grey.
+              </p>
             </div>
-            <button 
-              className="px-4 py-2 bg-slate-100 text-slate-700 rounded hover:bg-slate-200"
-              onClick={handleLogoUpload}
+            <button
+              onClick={() => updateSetting('displayPilotsWithSquadronColors', !settings.displayPilotsWithSquadronColors)}
+              style={{
+                position: 'relative',
+                display: 'inline-flex',
+                height: '20px',
+                width: '36px',
+                alignItems: 'center',
+                borderRadius: '10px',
+                transition: 'background-color 0.2s ease',
+                border: 'none',
+                cursor: 'pointer',
+                outline: 'none',
+                marginLeft: '24px',
+                backgroundColor: settings.displayPilotsWithSquadronColors ? '#3B82F6' : '#D1D5DB',
+                padding: '2px'
+              }}
             >
-              Change Logo
+              <div
+                style={{
+                  height: '16px',
+                  width: '16px',
+                  borderRadius: '50%',
+                  backgroundColor: '#FFFFFF',
+                  transition: 'transform 0.15s ease-in-out',
+                  transform: settings.displayPilotsWithSquadronColors ? 'translateX(16px)' : 'translateX(0px)',
+                  boxShadow: '0 1px 2px rgba(0, 0, 0, 0.2)'
+                }}
+              />
             </button>
           </div>
-        </Card>
+        </div>
 
-        <Card className="p-4">
-          <h3 className="text-lg font-medium mb-3">Color Scheme</h3>
-          <p className="text-sm text-slate-500 mb-4">
-            Customize the application's color scheme.
-          </p>
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm text-slate-700 mb-1">Primary Color</label>
-              <div className="flex space-x-2">
-                <input 
-                  type="color" 
-                  value={primaryColor} 
-                  onChange={handleColorChange(setPrimaryColor)}
-                  className="w-16 h-10" 
-                />
-                <input 
-                  type="text" 
-                  value={primaryColor} 
-                  onChange={handleColorChange(setPrimaryColor)}
-                  className="p-2 border border-gray-200 rounded" 
-                />
-              </div>
-            </div>
-            <div>
-              <label className="block text-sm text-slate-700 mb-1">Secondary Color</label>
-              <div className="flex space-x-2">
-                <input 
-                  type="color" 
-                  value={secondaryColor} 
-                  onChange={handleColorChange(setSecondaryColor)}
-                  className="w-16 h-10" 
-                />
-                <input 
-                  type="text" 
-                  value={secondaryColor} 
-                  onChange={handleColorChange(setSecondaryColor)}
-                  className="p-2 border border-gray-200 rounded" 
-                />
-              </div>
-            </div>
-            <div>
-              <label className="block text-sm text-slate-700 mb-1">Accent Color</label>
-              <div className="flex space-x-2">
-                <input 
-                  type="color" 
-                  value={accentColor} 
-                  onChange={handleColorChange(setAccentColor)}
-                  className="w-16 h-10" 
-                />
-                <input 
-                  type="text" 
-                  value={accentColor} 
-                  onChange={handleColorChange(setAccentColor)}
-                  className="p-2 border border-gray-200 rounded" 
-                />
-              </div>
-            </div>
-          </div>
-        </Card>
-
-        <Card className="p-4">
-          <h3 className="text-lg font-medium mb-3">Units of Measure</h3>
-          <p className="text-sm text-slate-500 mb-4">
+        {/* Units of Measure Section */}
+        <div style={sectionStyle}>
+          <h3 style={{ fontSize: '18px', fontWeight: 600, color: '#0F172A', margin: '0 0 16px 0' }}>
+            Units of Measure
+          </h3>
+          <p style={{ fontSize: '14px', color: '#64748B', margin: '0 0 24px 0', fontFamily: 'Inter' }}>
             Set your preferred units of measurement.
           </p>
-          <div className="space-y-4">
+          
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '20px' }}>
             <div>
-              <label className="block text-sm text-slate-700 mb-1">Distance</label>
+              <label style={fieldLabelStyle}>Distance</label>
               <select 
-                className="w-full p-2 border border-gray-200 rounded"
+                style={selectStyle}
                 value={distanceUnit}
                 onChange={(e) => setDistanceUnit(e.target.value)}
               >
-                <option>Nautical Miles</option>
-                <option>Kilometers</option>
-                <option>Miles</option>
+                <option value="Nautical Miles">Nautical Miles</option>
+                <option value="Kilometers">Kilometers</option>
+                <option value="Miles">Miles</option>
               </select>
             </div>
+            
             <div>
-              <label className="block text-sm text-slate-700 mb-1">Altitude</label>
+              <label style={fieldLabelStyle}>Altitude</label>
               <select 
-                className="w-full p-2 border border-gray-200 rounded"
+                style={selectStyle}
                 value={altitudeUnit}
                 onChange={(e) => setAltitudeUnit(e.target.value)}
               >
-                <option>Feet</option>
-                <option>Meters</option>
+                <option value="Feet">Feet</option>
+                <option value="Meters">Meters</option>
               </select>
             </div>
+            
             <div>
-              <label className="block text-sm text-slate-700 mb-1">Fuel</label>
+              <label style={fieldLabelStyle}>Fuel</label>
               <select 
-                className="w-full p-2 border border-gray-200 rounded"
+                style={selectStyle}
                 value={fuelUnit}
                 onChange={(e) => setFuelUnit(e.target.value)}
               >
-                <option>Thousands of Pounds</option>
-                <option>Kilograms</option>
-                <option>Percent</option>
+                <option value="Thousands of Pounds">Thousands of Pounds</option>
+                <option value="Kilograms">Kilograms</option>
+                <option value="Percent">Percent</option>
               </select>
             </div>
           </div>
-        </Card>
+        </div>
+        
       </div>
     </div>
   );
