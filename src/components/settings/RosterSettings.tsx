@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { Card } from '../ui/card';
 import { AlertCircle, Edit, Trash, Check, X, ToggleLeft, ToggleRight, Lock, Unlock, GripVertical, Clock, ArrowRight } from 'lucide-react';
 import { Status, getAllStatuses, createStatus, updateStatus, deleteStatus, getStatusUsageCount, initializeDefaultStatuses } from '../../utils/statusService';
 import { Standing, getAllStandings, createStanding, updateStanding, deleteStanding } from '../../utils/standingService';
@@ -961,27 +960,81 @@ const RosterSettings: React.FC<RosterSettingsProps> = ({ error, setError }) => {
     );
   };
 
+  const containerStyle = {
+    backgroundColor: '#FFFFFF',
+    minHeight: '100vh',
+    padding: '40px',
+    boxSizing: 'border-box' as const
+  };
+
+  const contentWrapperStyle = {
+    maxWidth: '800px',
+    margin: '0 auto'
+  };
+
+  const headerStyle = {
+    marginBottom: '40px'
+  };
+
+  const sectionStyle = {
+    paddingTop: '32px',
+    paddingBottom: '32px',
+    borderTop: '1px solid #E5E7EB',
+    marginTop: '32px'
+  };
+
+  const firstSectionStyle = {
+    paddingTop: '0',
+    paddingBottom: '32px',
+    marginTop: '0',
+    borderTop: 'none'
+  };
+
   return (
-    <div>
-      <h2 className="text-xl font-semibold mb-4">Roster Settings</h2>
-      <p className="text-slate-600 mb-6">
-        Configure statuses, roles, and qualifications for squadron personnel.
-      </p>
-
-      {(error || localError) && (
-        <div className="p-4 mb-4 bg-red-100 border border-red-400 text-red-700 rounded relative flex items-center" role="alert">
-          <AlertCircle size={18} className="mr-2" />
-          <span>{error || localError}</span>
-          <button onClick={() => setErrorMessage(null)} className="absolute top-0 right-0 p-2">
-            <X size={16} />
-          </button>
+    <div style={containerStyle}>
+      <div style={contentWrapperStyle}>
+        {/* Header */}
+        <div style={headerStyle}>
+          <h2 style={{ fontSize: '24px', fontWeight: 600, margin: 0, color: '#0F172A' }}>
+            Roster Settings
+          </h2>
+          <p style={{ fontSize: '14px', color: '#64748B', margin: '8px 0 0 0', fontFamily: 'Inter' }}>
+            Configure statuses, roles, and qualifications for squadron personnel.
+          </p>
         </div>
-      )}
 
-      <div className="space-y-6">
-        <Card className="p-4">
-          <h3 className="text-lg font-medium mb-3">Statuses</h3>
-          <p className="text-sm text-slate-500 mb-4">
+        {(error || localError) && (
+          <div style={{
+            padding: '16px',
+            marginBottom: '24px',
+            backgroundColor: '#FEF2F2',
+            border: '1px solid #FECACA',
+            color: '#DC2626',
+            borderRadius: '6px',
+            display: 'flex',
+            alignItems: 'center',
+            fontFamily: 'Inter',
+            fontSize: '14px'
+          }} role="alert">
+            <AlertCircle size={18} style={{ marginRight: '8px' }} />
+            <span>{error || localError}</span>
+            <button onClick={() => setErrorMessage(null)} style={{
+              marginLeft: 'auto',
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              padding: '4px'
+            }}>
+              <X size={16} />
+            </button>
+          </div>
+        )}
+        {/* Statuses Section */}
+        <div style={firstSectionStyle}>
+          <h3 style={{ fontSize: '18px', fontWeight: 600, color: '#0F172A', margin: '0 0 16px 0' }}>
+            Statuses
+          </h3>
+          <p style={{ fontSize: '14px', color: '#64748B', margin: '0 0 24px 0', fontFamily: 'Inter' }}>
             Define the status options available for pilots in the squadron roster.
           </p>
           
@@ -1147,11 +1200,14 @@ const RosterSettings: React.FC<RosterSettingsProps> = ({ error, setError }) => {
               +
             </button>
           )}
-        </Card>
+        </div>
 
-        <Card className="p-4">
-          <h3 className="text-lg font-medium mb-3">Standings</h3>
-          <p className="text-sm text-slate-500 mb-4">
+        {/* Standings Section */}
+        <div style={sectionStyle}>
+          <h3 style={{ fontSize: '18px', fontWeight: 600, color: '#0F172A', margin: '0 0 16px 0' }}>
+            Standings
+          </h3>
+          <p style={{ fontSize: '14px', color: '#64748B', margin: '0 0 24px 0', fontFamily: 'Inter' }}>
             Define the organizational hierarchy standings available for pilots.
           </p>
           
@@ -1267,11 +1323,14 @@ const RosterSettings: React.FC<RosterSettingsProps> = ({ error, setError }) => {
               +
             </button>
           )}
-        </Card>
+        </div>
 
-        <Card className="p-4">
-          <h3 className="text-lg font-medium mb-3">Roles</h3>
-          <p className="text-sm text-slate-500 mb-4">
+        {/* Roles Section */}
+        <div style={sectionStyle}>
+          <h3 style={{ fontSize: '18px', fontWeight: 600, color: '#0F172A', margin: '0 0 16px 0' }}>
+            Roles
+          </h3>
+          <p style={{ fontSize: '14px', color: '#64748B', margin: '0 0 24px 0', fontFamily: 'Inter' }}>
             Define the role options available for pilots in the squadron roster. Drag roles to reorder them.
           </p>
           
@@ -1389,11 +1448,14 @@ const RosterSettings: React.FC<RosterSettingsProps> = ({ error, setError }) => {
               +
             </button>
           )}
-        </Card>
+        </div>
 
-        <Card className="p-4">
-          <h3 className="text-lg font-medium mb-3">Qualifications</h3>
-          <p className="text-sm text-slate-500 mb-4">
+        {/* Qualifications Section */}
+        <div style={sectionStyle}>
+          <h3 style={{ fontSize: '18px', fontWeight: 600, color: '#0F172A', margin: '0 0 16px 0' }}>
+            Qualifications
+          </h3>
+          <p style={{ fontSize: '14px', color: '#64748B', margin: '0 0 24px 0', fontFamily: 'Inter' }}>
             Define the qualifications that can be assigned to pilots.
           </p>
           
@@ -1738,7 +1800,8 @@ const RosterSettings: React.FC<RosterSettingsProps> = ({ error, setError }) => {
               +
             </button>
           )}
-        </Card>
+        </div>
+        
       </div>
     </div>
   );

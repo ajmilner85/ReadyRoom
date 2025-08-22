@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Card } from '../ui/card';
-import { AlertCircle, Check, X, Shield, Activity } from 'lucide-react';
+import { AlertCircle, Check, X } from 'lucide-react';
 import { DiscordServer, getAvailableDiscordServers, getServerChannels } from '../../utils/discordService';
 import { supabase } from '../../utils/supabaseClient';
 
@@ -216,33 +215,99 @@ const DiscordIntegration: React.FC<DiscordIntegrationProps> = ({ error: parentEr
     }
   };
 
+  const containerStyle = {
+    backgroundColor: '#FFFFFF',
+    minHeight: '100vh',
+    padding: '40px',
+    boxSizing: 'border-box' as const
+  };
+
+  const contentWrapperStyle = {
+    maxWidth: '800px',
+    margin: '0 auto'
+  };
+
+  const headerStyle = {
+    marginBottom: '40px'
+  };
+
+  const sectionStyle = {
+    paddingTop: '32px',
+    paddingBottom: '32px',
+    borderTop: '1px solid #E5E7EB',
+    marginTop: '32px'
+  };
+
+  const firstSectionStyle = {
+    paddingTop: '0',
+    paddingBottom: '32px',
+    marginTop: '0',
+    borderTop: 'none'
+  };
+
+
   return (
-    <div>
-      <h2 className="text-xl font-semibold mb-4">Discord Integration</h2>
-      <p className="text-slate-600 mb-6">
-        Configure Discord integration settings to connect with your squadron's Discord server.
-      </p>
-
-      {(parentError || localError) && (
-        <div className="p-4 mb-4 bg-red-100 border border-red-400 text-red-700 rounded relative flex items-center" role="alert">
-          <AlertCircle size={18} className="mr-2" />
-          <span>{parentError || localError}</span>
-          <button onClick={() => setErrorMessage(null)} className="absolute top-0 right-0 p-2">
-            <X size={16} />
-          </button>
+    <div style={containerStyle}>
+      <div style={contentWrapperStyle}>
+        {/* Header */}
+        <div style={headerStyle}>
+          <h2 style={{ fontSize: '24px', fontWeight: 600, margin: 0, color: '#0F172A' }}>
+            Discord Integration
+          </h2>
+          <p style={{ fontSize: '14px', color: '#64748B', margin: '8px 0 0 0', fontFamily: 'Inter' }}>
+            Configure Discord integration settings to connect with your squadron's Discord server.
+          </p>
         </div>
-      )}
 
-      {selectedServerId === savedServerId && selectedChannelId === savedChannelId && savedServerId && savedChannelId && (
-        <div className="p-4 mb-4 bg-green-100 border border-green-400 text-green-700 rounded relative flex items-center" role="alert">
-          <Check size={18} className="mr-2" />
-          <span>Discord settings saved successfully.</span>
-        </div>
-      )}
+        {(parentError || localError) && (
+          <div style={{
+            padding: '16px',
+            marginBottom: '24px',
+            backgroundColor: '#FEF2F2',
+            border: '1px solid #FECACA',
+            color: '#DC2626',
+            borderRadius: '6px',
+            display: 'flex',
+            alignItems: 'center',
+            fontFamily: 'Inter',
+            fontSize: '14px'
+          }} role="alert">
+            <AlertCircle size={18} style={{ marginRight: '8px' }} />
+            <span>{parentError || localError}</span>
+            <button onClick={() => setErrorMessage(null)} style={{
+              marginLeft: 'auto',
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              padding: '4px'
+            }}>
+              <X size={16} />
+            </button>
+          </div>
+        )}
 
-      <div className="space-y-6">
-        <Card className="p-6">
-          <h3 className="text-lg font-medium mb-3">Discord Bot Status</h3>
+        {selectedServerId === savedServerId && selectedChannelId === savedChannelId && savedServerId && savedChannelId && (
+          <div style={{
+            padding: '16px',
+            marginBottom: '24px',
+            backgroundColor: '#F0FDF4',
+            border: '1px solid #BBF7D0',
+            color: '#166534',
+            borderRadius: '6px',
+            display: 'flex',
+            alignItems: 'center',
+            fontFamily: 'Inter',
+            fontSize: '14px'
+          }} role="alert">
+            <Check size={18} style={{ marginRight: '8px' }} />
+            <span>Discord settings saved successfully.</span>
+          </div>
+        )}
+        {/* Discord Bot Status Section */}
+        <div style={firstSectionStyle}>
+          <h3 style={{ fontSize: '18px', fontWeight: 600, color: '#0F172A', margin: '0 0 16px 0' }}>
+            Discord Bot Status
+          </h3>
           
           <div className="flex items-center p-3 bg-slate-50 rounded-lg border border-slate-200">
             {/* Discord logo with status indicator */}
@@ -286,10 +351,13 @@ const DiscordIntegration: React.FC<DiscordIntegrationProps> = ({ error: parentEr
               </ol>
             </div>
           )}
-        </Card>
+        </div>
 
-        <Card className="p-6">
-          <h3 className="text-lg font-medium mb-3">Discord Server Configuration</h3>
+        {/* Discord Server Configuration Section */}
+        <div style={sectionStyle}>
+          <h3 style={{ fontSize: '18px', fontWeight: 600, color: '#0F172A', margin: '0 0 16px 0' }}>
+            Discord Server Configuration
+          </h3>
           
           {loading ? (
             <div className="text-center py-4">Loading available Discord servers...</div>
@@ -394,12 +462,15 @@ const DiscordIntegration: React.FC<DiscordIntegrationProps> = ({ error: parentEr
               </a>
             </div>
           )}
-        </Card>
+        </div>
 
-        <Card className="p-6">
-          <h3 className="text-lg font-medium mb-3">Required Discord Channels</h3>
+        {/* Required Discord Channels Section */}
+        <div style={sectionStyle}>
+          <h3 style={{ fontSize: '18px', fontWeight: 600, color: '#0F172A', margin: '0 0 16px 0' }}>
+            Required Discord Channels
+          </h3>
           
-          <p className="text-sm text-slate-600 mb-4">
+          <p style={{ fontSize: '14px', color: '#64748B', margin: '0 0 24px 0', fontFamily: 'Inter' }}>
             The bot requires specific channels to work properly. Make sure these channels exist on your Discord server.
           </p>
           
@@ -432,7 +503,8 @@ const DiscordIntegration: React.FC<DiscordIntegrationProps> = ({ error: parentEr
               </div>
             </div>
           </div>
-        </Card>
+        </div>
+        
       </div>
     </div>
   );

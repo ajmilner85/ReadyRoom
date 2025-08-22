@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { Card } from '../ui/card';
 import LoginForm from '../ui/LoginForm';
 
 interface UserAccountsProps {
@@ -47,53 +46,110 @@ const UserAccounts: React.FC<UserAccountsProps> = ({ error, setError }) => {
     // This would open a modal to edit permission settings
   };
 
-  return (
-    <div>
-      <h2 className="text-xl font-semibold mb-4">User Accounts</h2>
-      <p className="text-slate-600 mb-6">
-        Manage user accounts, access levels, and permissions.
-      </p>
+  const containerStyle = {
+    backgroundColor: '#FFFFFF',
+    minHeight: '100vh',
+    padding: '40px',
+    boxSizing: 'border-box' as const
+  };
 
-      <div className="space-y-6">
-        <Card className="p-4">
-          <h3 className="text-lg font-medium mb-3">Authentication</h3>
-          <div className="mb-6">
+  const contentWrapperStyle = {
+    maxWidth: '800px',
+    margin: '0 auto'
+  };
+
+  const headerStyle = {
+    marginBottom: '40px'
+  };
+
+  const sectionStyle = {
+    paddingTop: '32px',
+    paddingBottom: '32px',
+    borderTop: '1px solid #E5E7EB',
+    marginTop: '32px'
+  };
+
+  const firstSectionStyle = {
+    paddingTop: '0',
+    paddingBottom: '32px',
+    marginTop: '0',
+    borderTop: 'none'
+  };
+
+  return (
+    <div style={containerStyle}>
+      <div style={contentWrapperStyle}>
+        {/* Header */}
+        <div style={headerStyle}>
+          <h2 style={{ fontSize: '24px', fontWeight: 600, margin: 0, color: '#0F172A' }}>
+            User Accounts
+          </h2>
+          <p style={{ fontSize: '14px', color: '#64748B', margin: '8px 0 0 0', fontFamily: 'Inter' }}>
+            Manage user accounts, access levels, and permissions.
+          </p>
+        </div>
+        {/* Authentication Section */}
+        <div style={firstSectionStyle}>
+          <h3 style={{ fontSize: '18px', fontWeight: 600, color: '#0F172A', margin: '0 0 16px 0' }}>
+            Authentication
+          </h3>
+          <div style={{ marginBottom: '24px' }}>
             <LoginForm onLoginStateChange={handleLoginStateChange} />
           </div>
-        </Card>
+        </div>
 
         {isLoggedIn && (
           <>
-            <Card className="p-4">
-              <h3 className="text-lg font-medium mb-3">User Management</h3>
-              <p className="text-sm text-slate-500 mb-4">
+            {/* User Management Section */}
+            <div style={sectionStyle}>
+              <h3 style={{ fontSize: '18px', fontWeight: 600, color: '#0F172A', margin: '0 0 16px 0' }}>
+                User Management
+              </h3>
+              <p style={{ fontSize: '14px', color: '#64748B', margin: '0 0 24px 0', fontFamily: 'Inter' }}>
                 Manage users and their access levels.
               </p>
-              <div className="overflow-x-auto">
-                <table className="w-full">
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', fontFamily: 'Inter' }}>
                   <thead>
-                    <tr className="text-left bg-slate-50">
-                      <th className="p-2 text-sm font-medium text-slate-500">Username</th>
-                      <th className="p-2 text-sm font-medium text-slate-500">Role</th>
-                      <th className="p-2 text-sm font-medium text-slate-500">Status</th>
-                      <th className="p-2 text-sm font-medium text-slate-500">Last Login</th>
-                      <th className="p-2 text-sm font-medium text-slate-500">Actions</th>
+                    <tr style={{ textAlign: 'left', backgroundColor: '#F8FAFC' }}>
+                      <th style={{ padding: '8px', fontSize: '12px', fontWeight: 500, color: '#64748B' }}>Username</th>
+                      <th style={{ padding: '8px', fontSize: '12px', fontWeight: 500, color: '#64748B' }}>Role</th>
+                      <th style={{ padding: '8px', fontSize: '12px', fontWeight: 500, color: '#64748B' }}>Status</th>
+                      <th style={{ padding: '8px', fontSize: '12px', fontWeight: 500, color: '#64748B' }}>Last Login</th>
+                      <th style={{ padding: '8px', fontSize: '12px', fontWeight: 500, color: '#64748B' }}>Actions</th>
                     </tr>
                   </thead>
                   <tbody>
                     {users.map((user) => (
-                      <tr key={user.username} className="border-b">
-                        <td className="p-2">{user.username}</td>
-                        <td className="p-2">{user.role}</td>
-                        <td className="p-2">
-                          <span className="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs">
+                      <tr key={user.username} style={{ borderBottom: '1px solid #E5E7EB' }}>
+                        <td style={{ padding: '8px', fontSize: '14px' }}>{user.username}</td>
+                        <td style={{ padding: '8px', fontSize: '14px' }}>{user.role}</td>
+                        <td style={{ padding: '8px', fontSize: '14px' }}>
+                          <span style={{
+                            padding: '4px 8px',
+                            backgroundColor: '#DCFCE7',
+                            color: '#166534',
+                            borderRadius: '12px',
+                            fontSize: '12px',
+                            fontFamily: 'Inter'
+                          }}>
                             {user.status}
                           </span>
                         </td>
-                        <td className="p-2">{user.lastLogin}</td>
-                        <td className="p-2">
+                        <td style={{ padding: '8px', fontSize: '14px' }}>{user.lastLogin}</td>
+                        <td style={{ padding: '8px', fontSize: '14px' }}>
                           <button 
-                            className="px-2 py-1 bg-slate-100 text-slate-700 rounded text-xs mr-1"
+                            style={{
+                              padding: '4px 8px',
+                              backgroundColor: '#F8FAFC',
+                              color: '#374151',
+                              border: '1px solid #D1D5DB',
+                              borderRadius: '4px',
+                              fontSize: '12px',
+                              fontFamily: 'Inter',
+                              cursor: 'pointer',
+                              marginRight: '4px'
+                            }}
                             onClick={() => handleEditUser(user.username)}
                           >
                             Edit
@@ -105,37 +161,77 @@ const UserAccounts: React.FC<UserAccountsProps> = ({ error, setError }) => {
                 </table>
               </div>
               <button 
-                className="mt-4 px-4 py-2 bg-slate-100 text-slate-700 rounded hover:bg-slate-200"
+                style={{
+                  marginTop: '16px',
+                  padding: '10px 16px',
+                  backgroundColor: '#F8FAFC',
+                  color: '#374151',
+                  border: '1px solid #D1D5DB',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  fontFamily: 'Inter',
+                  transition: 'background-color 0.2s ease'
+                }}
                 onClick={handleAddUser}
+                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#F1F5F9'}
+                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#F8FAFC'}
               >
                 Add New User
               </button>
-            </Card>
+            </div>
 
-            <Card className="p-4">
-              <h3 className="text-lg font-medium mb-3">Permission Levels</h3>
-              <p className="text-sm text-slate-500 mb-4">
+            {/* Permission Levels Section */}
+            <div style={sectionStyle}>
+              <h3 style={{ fontSize: '18px', fontWeight: 600, color: '#0F172A', margin: '0 0 16px 0' }}>
+                Permission Levels
+              </h3>
+              <p style={{ fontSize: '14px', color: '#64748B', margin: '0 0 24px 0', fontFamily: 'Inter' }}>
                 Configure access levels and permissions.
               </p>
-              <div className="space-y-3">
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 {permissionLevels.map((permission) => (
-                  <div key={permission.name} className="flex items-center justify-between p-3 border border-gray-200 rounded">
+                  <div key={permission.name} style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '12px',
+                    border: '1px solid #E5E7EB',
+                    borderRadius: '6px'
+                  }}>
                     <div>
-                      <div className="font-medium">{permission.name}</div>
-                      <p className="text-xs text-slate-500">{permission.description}</p>
+                      <div style={{ fontWeight: 500, fontSize: '14px', fontFamily: 'Inter', color: '#0F172A' }}>
+                        {permission.name}
+                      </div>
+                      <p style={{ fontSize: '12px', color: '#64748B', fontFamily: 'Inter', margin: '4px 0 0 0' }}>
+                        {permission.description}
+                      </p>
                     </div>
                     <button 
-                      className="px-3 py-1 bg-slate-100 text-slate-700 rounded text-sm"
+                      style={{
+                        padding: '6px 12px',
+                        backgroundColor: '#F8FAFC',
+                        color: '#374151',
+                        border: '1px solid #D1D5DB',
+                        borderRadius: '4px',
+                        fontSize: '14px',
+                        fontFamily: 'Inter',
+                        cursor: 'pointer',
+                        transition: 'background-color 0.2s ease'
+                      }}
                       onClick={() => handleEditPermission(permission.name)}
+                      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#F1F5F9'}
+                      onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#F8FAFC'}
                     >
                       Edit
                     </button>
                   </div>
                 ))}
               </div>
-            </Card>
+            </div>
           </>
         )}
+        
       </div>
     </div>
   );

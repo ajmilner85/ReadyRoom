@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { Card } from '../ui/card';
 import { AlertCircle, Edit, Trash, X, Eye, EyeOff } from 'lucide-react';
 import {
   Command,
@@ -320,54 +319,131 @@ const OrganizationSettings: React.FC<OrganizationSettingsProps> = ({ error, setE
     marginRight: 'auto'
   };
 
-  return (
-    <div>
-      <div className="flex justify-between items-center mb-4">
-        <div>
-          <h2 className="text-xl font-semibold">Organization</h2>
-          <p className="text-slate-600">
-            Configure your organizational hierarchy and entities.
-          </p>
-        </div>
-        
-        <button
-          onClick={() => setShowInactive(!showInactive)}
-          className="flex items-center gap-2 px-3 py-2 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors"
-          title={showInactive ? "Hide inactive entities" : "Show inactive entities"}
-        >
-          {showInactive ? <EyeOff size={16} /> : <Eye size={16} />}
-          <span className="text-sm">
-            {showInactive ? 'Hide Inactive' : 'Show Inactive'}
-          </span>
-        </button>
-      </div>
+  const containerStyle = {
+    backgroundColor: '#FFFFFF',
+    minHeight: '100vh',
+    padding: '40px',
+    boxSizing: 'border-box' as const
+  };
 
-      {(error || localError) && (
-        <div className="p-4 mb-4 bg-red-100 border border-red-400 text-red-700 rounded relative flex items-center" role="alert">
-          <AlertCircle size={18} className="mr-2" />
-          <span>{error || localError}</span>
-          <button onClick={() => setErrorMessage(null)} className="absolute top-0 right-0 p-2">
-            <X size={16} />
+  const contentWrapperStyle = {
+    maxWidth: '800px',
+    margin: '0 auto'
+  };
+
+  const headerStyle = {
+    marginBottom: '40px',
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start'
+  };
+
+  const sectionStyle = {
+    paddingTop: '32px',
+    paddingBottom: '32px',
+    borderTop: '1px solid #E5E7EB',
+    marginTop: '32px'
+  };
+
+  const firstSectionStyle = {
+    paddingTop: '0',
+    paddingBottom: '32px',
+    marginTop: '0',
+    borderTop: 'none'
+  };
+
+  return (
+    <div style={containerStyle}>
+      <div style={contentWrapperStyle}>
+        {/* Header */}
+        <div style={headerStyle}>
+          <div>
+            <h2 style={{ fontSize: '24px', fontWeight: 600, margin: 0, color: '#0F172A' }}>
+              Organization
+            </h2>
+            <p style={{ fontSize: '14px', color: '#64748B', margin: '8px 0 0 0', fontFamily: 'Inter' }}>
+              Configure your organizational hierarchy and entities.
+            </p>
+          </div>
+          
+          <button
+            onClick={() => setShowInactive(!showInactive)}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              padding: '8px 12px',
+              backgroundColor: '#FFFFFF',
+              border: '1px solid #D1D5DB',
+              borderRadius: '6px',
+              cursor: 'pointer',
+              fontSize: '14px',
+              fontFamily: 'Inter',
+              color: '#374151',
+              transition: 'background-color 0.2s ease'
+            }}
+            title={showInactive ? "Hide inactive entities" : "Show inactive entities"}
+            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#F8FAFC'}
+            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#FFFFFF'}
+          >
+            {showInactive ? <EyeOff size={16} /> : <Eye size={16} />}
+            <span>
+              {showInactive ? 'Hide Inactive' : 'Show Inactive'}
+            </span>
           </button>
         </div>
-      )}
 
-      {loading && (
-        <div className="text-center py-4 text-slate-500">
-          Loading organization data...
-        </div>
-      )}
+        {(error || localError) && (
+          <div style={{
+            padding: '16px',
+            marginBottom: '24px',
+            backgroundColor: '#FEF2F2',
+            border: '1px solid #FECACA',
+            color: '#DC2626',
+            borderRadius: '6px',
+            display: 'flex',
+            alignItems: 'center',
+            fontFamily: 'Inter',
+            fontSize: '14px'
+          }} role="alert">
+            <AlertCircle size={18} style={{ marginRight: '8px' }} />
+            <span>{error || localError}</span>
+            <button onClick={() => setErrorMessage(null)} style={{
+              marginLeft: 'auto',
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              padding: '4px'
+            }}>
+              <X size={16} />
+            </button>
+          </div>
+        )}
 
-      {!loading && (
-        <div className="space-y-6">
-          {/* Commands Level */}
-          <Card className="p-4">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-medium">Commands</h3>
-              <span className="text-sm text-slate-500">
-                {filterEntities(commands).length} active
-              </span>
-            </div>
+        {loading && (
+          <div style={{
+            textAlign: 'center',
+            padding: '32px 0',
+            color: '#64748B',
+            fontFamily: 'Inter',
+            fontSize: '14px'
+          }}>
+            Loading organization data...
+          </div>
+        )}
+
+        {!loading && (
+          <>
+            {/* Commands Level */}
+            <div style={firstSectionStyle}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                <h3 style={{ fontSize: '18px', fontWeight: 600, color: '#0F172A', margin: 0 }}>
+                  Commands
+                </h3>
+                <span style={{ fontSize: '14px', color: '#64748B', fontFamily: 'Inter' }}>
+                  {filterEntities(commands).length} active
+                </span>
+              </div>
             
             {filterEntities(commands).length === 0 ? (
               <div className="text-center py-8 text-slate-500">
@@ -437,16 +513,18 @@ const OrganizationSettings: React.FC<OrganizationSettingsProps> = ({ error, setE
                 </button>
               </>
             )}
-          </Card>
-
-          {/* Groups Level */}
-          <Card className="p-4">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-medium">Groups</h3>
-              <span className="text-sm text-slate-500">
-                {filterEntities(groups).length} active
-              </span>
             </div>
+
+            {/* Groups Level */}
+            <div style={sectionStyle}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                <h3 style={{ fontSize: '18px', fontWeight: 600, color: '#0F172A', margin: 0 }}>
+                  Groups
+                </h3>
+                <span style={{ fontSize: '14px', color: '#64748B', fontFamily: 'Inter' }}>
+                  {filterEntities(groups).length} active
+                </span>
+              </div>
             
             {filterEntities(groups).length === 0 ? (
               <div className="text-center py-8 text-slate-500">
@@ -521,16 +599,18 @@ const OrganizationSettings: React.FC<OrganizationSettingsProps> = ({ error, setE
                 </button>
               </>
             )}
-          </Card>
-
-          {/* Wings Level */}
-          <Card className="p-4">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-medium">Wings</h3>
-              <span className="text-sm text-slate-500">
-                {filterEntities(wings).length} active
-              </span>
             </div>
+
+            {/* Wings Level */}
+            <div style={sectionStyle}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                <h3 style={{ fontSize: '18px', fontWeight: 600, color: '#0F172A', margin: 0 }}>
+                  Wings
+                </h3>
+                <span style={{ fontSize: '14px', color: '#64748B', fontFamily: 'Inter' }}>
+                  {filterEntities(wings).length} active
+                </span>
+              </div>
             
             {(() => {
               const filtered = filterEntities(wings);
@@ -621,16 +701,18 @@ const OrganizationSettings: React.FC<OrganizationSettingsProps> = ({ error, setE
                 </button>
               </>
             )}
-          </Card>
-
-          {/* Squadrons Level */}
-          <Card className="p-4">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-medium">Squadrons</h3>
-              <span className="text-sm text-slate-500">
-                {filterEntities(squadrons).length} active
-              </span>
             </div>
+
+            {/* Squadrons Level */}
+            <div style={sectionStyle}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                <h3 style={{ fontSize: '18px', fontWeight: 600, color: '#0F172A', margin: 0 }}>
+                  Squadrons
+                </h3>
+                <span style={{ fontSize: '14px', color: '#64748B', fontFamily: 'Inter' }}>
+                  {filterEntities(squadrons).length} active
+                </span>
+              </div>
             
             {filterEntities(squadrons).length === 0 ? (
               <div className="text-center py-8 text-slate-500">
@@ -715,10 +797,9 @@ const OrganizationSettings: React.FC<OrganizationSettingsProps> = ({ error, setE
                 </button>
               </>
             )}
-          </Card>
-
-        </div>
-      )}
+            </div>
+          </>
+        )}
 
       {/* Modal for creating/editing entities */}
       <OrgEntityModal
@@ -775,6 +856,8 @@ const OrganizationSettings: React.FC<OrganizationSettingsProps> = ({ error, setE
           </div>
         </div>
       )}
+
+      </div>
     </div>
   );
 };

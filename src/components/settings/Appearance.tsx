@@ -6,7 +6,7 @@ interface AppearanceProps {
   setError?: (error: string | null) => void;
 }
 
-const Appearance: React.FC<AppearanceProps> = ({ error, setError }) => {
+const Appearance: React.FC<AppearanceProps> = () => {
   const { settings, updateSetting } = useAppSettings();
   
   // State for units of measure

@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { Card } from '../ui/card';
 
 interface SquadronSettingsProps {
   error?: string | null;
@@ -27,116 +26,181 @@ const SquadronSettings: React.FC<SquadronSettingsProps> = ({ error, setError }) 
     });
   };
 
-  return (
-    <div>
-      <h2 className="text-xl font-semibold mb-4">Squadron Administration</h2>
-      <p className="text-slate-600 mb-6">
-        Configure squadron name, board number selection criteria, and aircraft types flown.
-      </p>
+  const containerStyle = {
+    backgroundColor: '#FFFFFF',
+    minHeight: '100vh',
+    padding: '40px',
+    boxSizing: 'border-box' as const
+  };
 
-      <div className="space-y-6">
-        <Card className="p-4">
-          <h3 className="text-lg font-medium mb-3">Squadron Identity</h3>
-          <div className="space-y-4">
+  const contentWrapperStyle = {
+    maxWidth: '800px',
+    margin: '0 auto'
+  };
+
+  const headerStyle = {
+    marginBottom: '40px'
+  };
+
+  const sectionStyle = {
+    paddingTop: '32px',
+    paddingBottom: '32px',
+    borderTop: '1px solid #E5E7EB',
+    marginTop: '32px'
+  };
+
+  const firstSectionStyle = {
+    paddingTop: '0',
+    paddingBottom: '32px',
+    marginTop: '0',
+    borderTop: 'none'
+  };
+
+  const fieldLabelStyle = {
+    fontSize: '14px',
+    fontWeight: 500,
+    color: '#374151',
+    marginBottom: '8px',
+    fontFamily: 'Inter'
+  };
+
+  const inputStyle = {
+    width: '100%',
+    padding: '10px 12px',
+    border: '1px solid #D1D5DB',
+    borderRadius: '6px',
+    fontSize: '14px',
+    fontFamily: 'Inter',
+    backgroundColor: '#FFFFFF',
+    color: '#374151',
+    outline: 'none',
+    transition: 'border-color 0.2s ease'
+  };
+
+  return (
+    <div style={containerStyle}>
+      <div style={contentWrapperStyle}>
+        {/* Header */}
+        <div style={headerStyle}>
+          <h2 style={{ fontSize: '24px', fontWeight: 600, margin: 0, color: '#0F172A' }}>
+            Squadron Administration
+          </h2>
+          <p style={{ fontSize: '14px', color: '#64748B', margin: '8px 0 0 0', fontFamily: 'Inter' }}>
+            Configure squadron name, board number selection criteria, and aircraft types flown.
+          </p>
+        </div>
+        {/* Squadron Identity Section */}
+        <div style={firstSectionStyle}>
+          <h3 style={{ fontSize: '18px', fontWeight: 600, color: '#0F172A', margin: '0 0 16px 0' }}>
+            Squadron Identity
+          </h3>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
             <div>
-              <label className="block text-sm text-slate-700 mb-1">Squadron Name</label>
+              <label style={fieldLabelStyle}>Squadron Name</label>
               <input 
                 type="text" 
-                className="w-full p-2 border border-gray-200 rounded" 
+                style={inputStyle}
                 placeholder="VFA-26 Stingrays"
                 value={squadronName}
                 onChange={(e) => setSquadronName(e.target.value)}
               />
             </div>
             <div>
-              <label className="block text-sm text-slate-700 mb-1">Squadron Callsign</label>
+              <label style={fieldLabelStyle}>Squadron Callsign</label>
               <input 
                 type="text" 
-                className="w-full p-2 border border-gray-200 rounded" 
+                style={inputStyle}
                 placeholder="Stingrays" 
                 value={squadronCallsign}
                 onChange={(e) => setSquadronCallsign(e.target.value)}
               />
             </div>
           </div>
-        </Card>
+        </div>
 
-        <Card className="p-4">
-          <h3 className="text-lg font-medium mb-3">Aircraft Types</h3>
-          <p className="text-sm text-slate-500 mb-4">
+        {/* Aircraft Types Section */}
+        <div style={sectionStyle}>
+          <h3 style={{ fontSize: '18px', fontWeight: 600, color: '#0F172A', margin: '0 0 16px 0' }}>
+            Aircraft Types
+          </h3>
+          <p style={{ fontSize: '14px', color: '#64748B', margin: '0 0 24px 0', fontFamily: 'Inter' }}>
             Select the aircraft types flown by your squadron.
           </p>
-          <div className="space-y-2">
-            <div className="flex items-center">
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+            <div style={{ display: 'flex', alignItems: 'center' }}>
               <input 
                 type="checkbox" 
                 id="fa18c" 
-                className="mr-2" 
+                style={{ marginRight: '8px' }}
                 checked={aircraftTypes.fa18c}
                 onChange={() => handleAircraftTypeToggle('fa18c')}
               />
-              <label htmlFor="fa18c">F/A-18C Hornet</label>
+              <label htmlFor="fa18c" style={{ fontSize: '14px', fontFamily: 'Inter' }}>F/A-18C Hornet</label>
             </div>
-            <div className="flex items-center">
+            <div style={{ display: 'flex', alignItems: 'center' }}>
               <input 
                 type="checkbox" 
                 id="fa18e" 
-                className="mr-2"
+                style={{ marginRight: '8px' }}
                 checked={aircraftTypes.fa18e}
                 onChange={() => handleAircraftTypeToggle('fa18e')}
               />
-              <label htmlFor="fa18e">F/A-18E Super Hornet</label>
+              <label htmlFor="fa18e" style={{ fontSize: '14px', fontFamily: 'Inter' }}>F/A-18E Super Hornet</label>
             </div>
-            <div className="flex items-center">
+            <div style={{ display: 'flex', alignItems: 'center' }}>
               <input 
                 type="checkbox" 
                 id="f14b" 
-                className="mr-2"
+                style={{ marginRight: '8px' }}
                 checked={aircraftTypes.f14b}
                 onChange={() => handleAircraftTypeToggle('f14b')}
               />
-              <label htmlFor="f14b">F-14B Tomcat</label>
+              <label htmlFor="f14b" style={{ fontSize: '14px', fontFamily: 'Inter' }}>F-14B Tomcat</label>
             </div>
-            <div className="flex items-center">
+            <div style={{ display: 'flex', alignItems: 'center' }}>
               <input 
                 type="checkbox" 
                 id="f16c" 
-                className="mr-2"
+                style={{ marginRight: '8px' }}
                 checked={aircraftTypes.f16c}
                 onChange={() => handleAircraftTypeToggle('f16c')}
               />
-              <label htmlFor="f16c">F-16C Viper</label>
+              <label htmlFor="f16c" style={{ fontSize: '14px', fontFamily: 'Inter' }}>F-16C Viper</label>
             </div>
           </div>
-        </Card>
+        </div>
 
-        <Card className="p-4">
-          <h3 className="text-lg font-medium mb-3">Board Number Format</h3>
-          <p className="text-sm text-slate-500 mb-4">
+        {/* Board Number Format Section */}
+        <div style={sectionStyle}>
+          <h3 style={{ fontSize: '18px', fontWeight: 600, color: '#0F172A', margin: '0 0 16px 0' }}>
+            Board Number Format
+          </h3>
+          <p style={{ fontSize: '14px', color: '#64748B', margin: '0 0 24px 0', fontFamily: 'Inter' }}>
             Configure how board numbers are assigned to squadron personnel.
           </p>
-          <div>
-            <label className="block text-sm text-slate-700 mb-1">Board Number Prefix</label>
+          <div style={{ marginBottom: '20px' }}>
+            <label style={fieldLabelStyle}>Board Number Prefix</label>
             <input 
               type="text" 
-              className="w-full p-2 border border-gray-200 rounded mb-4" 
+              style={{ ...inputStyle, width: '60px' }}
               placeholder="2" 
               value={boardNumberPrefix}
               onChange={(e) => setBoardNumberPrefix(e.target.value.slice(0, 1))}
               maxLength={1}
             />
           </div>
-          <div className="flex items-center mb-2">
+          <div style={{ display: 'flex', alignItems: 'center' }}>
             <input 
               type="checkbox" 
               id="autoAssignBoard" 
-              className="mr-2"
+              style={{ marginRight: '8px' }}
               checked={autoAssignBoardNumbers}
               onChange={() => setAutoAssignBoardNumbers(!autoAssignBoardNumbers)}
             />
-            <label htmlFor="autoAssignBoard">Auto-assign board numbers to new pilots</label>
+            <label htmlFor="autoAssignBoard" style={{ fontSize: '14px', fontFamily: 'Inter' }}>Auto-assign board numbers to new pilots</label>
           </div>
-        </Card>
+        </div>
+        
       </div>
     </div>
   );
