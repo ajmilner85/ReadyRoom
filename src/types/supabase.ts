@@ -664,6 +664,47 @@ export interface Database {
           }
         ]
       }
+      user_profiles: {
+        Row: {
+          id: string
+          auth_user_id: string
+          discord_id: string | null
+          discord_username: string | null
+          discord_guilds: string[] | null
+          pilot_id: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          auth_user_id: string
+          discord_id?: string | null
+          discord_username?: string | null
+          discord_guilds?: string[] | null
+          pilot_id?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          auth_user_id?: string
+          discord_id?: string | null
+          discord_username?: string | null
+          discord_guilds?: string[] | null
+          pilot_id?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_profiles_pilot_id_fkey"
+            columns: ["pilot_id"]
+            isOneToOne: false
+            referencedRelation: "pilots"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
     }
     Views: {
       [_ in never]: never

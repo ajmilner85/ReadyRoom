@@ -356,7 +356,12 @@ const OrganizationSettings: React.FC<OrganizationSettingsProps> = ({ error, setE
     <div style={containerStyle}>
       <div style={contentWrapperStyle}>
         {/* Header */}
-        <div style={headerStyle}>
+        <div style={{
+          marginBottom: '40px',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'flex-start'
+        }}>
           <div>
             <h2 style={{ fontSize: '24px', fontWeight: 600, margin: 0, color: '#0F172A' }}>
               Organization

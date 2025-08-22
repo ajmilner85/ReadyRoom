@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Save, Upload, Image as ImageIcon } from 'lucide-react';
 import { supabase } from '../../utils/supabaseClient';
+import SquadronDiscordSettings from './SquadronDiscordSettings';
 import {
   Command,
   Group,
@@ -36,6 +37,9 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
   onSave,
   onClose
 }) => {
+  // Tab state for squadron modals
+  const [activeTab, setActiveTab] = useState<'general' | 'discord'>('general');
+  
   const [formData, setFormData] = useState<{
     name: string;
     designation: string;
@@ -442,12 +446,60 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
           </button>
         </div>
 
+        {/* Tab Navigation for Squadrons */}
+        {entityType === 'squadron' && (
+          <div style={{
+            borderBottom: '1px solid #E2E8F0',
+            backgroundColor: '#F8FAFC'
+          }}>
+            <div style={{ display: 'flex' }}>
+              <button
+                onClick={() => setActiveTab('general')}
+                style={{
+                  padding: '12px 24px',
+                  backgroundColor: activeTab === 'general' ? '#FFFFFF' : 'transparent',
+                  border: 'none',
+                  borderBottom: activeTab === 'general' ? '2px solid #3B82F6' : '2px solid transparent',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  fontFamily: 'Inter',
+                  fontWeight: activeTab === 'general' ? 500 : 400,
+                  color: activeTab === 'general' ? '#0F172A' : '#64748B',
+                  transition: 'all 0.2s ease'
+                }}
+              >
+                General
+              </button>
+              <button
+                onClick={() => setActiveTab('discord')}
+                style={{
+                  padding: '12px 24px',
+                  backgroundColor: activeTab === 'discord' ? '#FFFFFF' : 'transparent',
+                  border: 'none',
+                  borderBottom: activeTab === 'discord' ? '2px solid #3B82F6' : '2px solid transparent',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  fontFamily: 'Inter',
+                  fontWeight: activeTab === 'discord' ? 500 : 400,
+                  color: activeTab === 'discord' ? '#0F172A' : '#64748B',
+                  transition: 'all 0.2s ease'
+                }}
+              >
+                Discord
+              </button>
+            </div>
+          </div>
+        )}
+
         <div style={{ 
           padding: '24px',
           maxHeight: 'calc(90vh - 120px)',
           overflowY: 'auto'
         }}>
-          {/* Name Field */}
+          {/* General Tab Content */}
+          {(entityType !== 'squadron' || activeTab === 'general') && (
+          <div>
+            {/* Name Field */}
           <div style={{ marginBottom: '16px' }}>
             <label style={{
               display: 'block',
@@ -1079,6 +1131,13 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
                 </div>
               )}
             </div>
+          )}
+          </div>
+          )}
+
+          {/* Discord Tab Content */}
+          {entityType === 'squadron' && activeTab === 'discord' && (
+            <SquadronDiscordSettings />
           )}
         </div>
 
