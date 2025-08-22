@@ -44,18 +44,61 @@ export const signIn = async (email: string, password: string) => {
   return { data, error };
 };
 
+export const signInWithDiscord = async () => {
+  const { data, error } = await supabase.auth.signInWithOAuth({
+    provider: 'discord',
+    options: {
+      scopes: 'identify guilds',
+      redirectTo: `${window.location.origin}/auth/callback`
+    }
+  });
+  return { data, error };
+};
+
 export const signOut = async () => {
   const { error } = await supabase.auth.signOut();
   return { error };
 };
 
+export const resetPassword = async (email: string) => {
+  const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: `${window.location.origin}/auth/reset-password`
+  });
+  return { data, error };
+};
+
+export const updatePassword = async (password: string) => {
+  const { data, error } = await supabase.auth.updateUser({
+    password: password
+  });
+  return { data, error };
+};
+
 export const getCurrentUser = async () => {
-  const { data: { user }, error } = await supabase.auth.getUser();
-  return { user, error };
+  try {
+    const { data: { user }, error } = await supabase.auth.getUser();
+    return { user, error };
+  } catch (err: any) {
+    console.error('Error in getCurrentUser:', err);
+    return { user: null, error: err };
+  }
 };
 
 export const onAuthStateChange = (callback: (event: string, session: any) => void) => {
-  return supabase.auth.onAuthStateChange(callback);
+  return supabase.auth.onAuthStateChange(async (event, session) => {
+    // Handle user profile creation/update on sign in
+    if (event === 'SIGNED_IN' && session?.user) {
+      try {
+        const { createOrUpdateUserProfile } = await import('./userProfileService');
+        await createOrUpdateUserProfile(session.user);
+      } catch (error) {
+        console.error('Error creating/updating user profile:', error);
+      }
+    }
+    
+    // Call the original callback
+    callback(event, session);
+  });
 };
 
 // Cycles API

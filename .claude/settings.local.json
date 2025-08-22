@@ -5,7 +5,12 @@
       "Bash(npm run:*)",
       "Bash(npx tsc:*)",
       "Bash(rm:*)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(npm install:*)",
+      "Bash(cp:*)",
+      "Bash(git restore:*)",
+      "Bash(git checkout:*)",
+      "Bash(node:*)"
     ]
   },
   "outputStyle": "default"

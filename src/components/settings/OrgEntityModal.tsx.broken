@@ -496,20 +496,21 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
           maxHeight: 'calc(90vh - 120px)',
           overflowY: 'auto'
         }}>
-          {/* General Tab Content */}
-          {(entityType !== 'squadron' || activeTab === 'general') && (
           <div>
-            {/* Name Field */}
-          <div style={{ marginBottom: '16px' }}>
-            <label style={{
-              display: 'block',
-              marginBottom: '8px',
-              fontSize: '14px',
-              fontWeight: 500,
-              color: '#64748B'
-            }}>
-              Name *
-            </label>
+            {/* General Tab Content */}
+            {(entityType !== 'squadron' || activeTab === 'general') && (
+            <div>
+              {/* Name Field */}
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{
+                  display: 'block',
+                  marginBottom: '8px',
+                  fontSize: '14px',
+                  fontWeight: 500,
+                  color: '#64748B'
+                }}>
+                  Name *
+                </label>
             <input
               type="text"
               value={formData.name}
@@ -1132,13 +1133,12 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
               )}
             </div>
           )}
-          </div>
-          )}
 
-          {/* Discord Tab Content */}
-          {entityType === 'squadron' && activeTab === 'discord' && (
-            <SquadronDiscordSettings />
-          )}
+            {/* Discord Tab Content */}
+            {entityType === 'squadron' && activeTab === 'discord' && (
+              <SquadronDiscordSettings />
+            )}
+          </div>
         </div>
 
         <div style={{

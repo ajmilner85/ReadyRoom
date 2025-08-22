@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { AlertCircle, Edit, Trash, X, Eye, EyeOff } from 'lucide-react';
+import { AlertCircle, Edit, Trash, X, Eye, EyeOff, Settings, MessageSquare, Building2 } from 'lucide-react';
 import {
   Command,
   Group,
@@ -36,7 +36,12 @@ interface OrganizationSettingsProps {
   setError?: (error: string | null) => void;
 }
 
+type OrgTab = 'branding' | 'discord' | 'definitions';
+
 const OrganizationSettings: React.FC<OrganizationSettingsProps> = ({ error, setError }) => {
+  // Tab state
+  const [activeTab, setActiveTab] = useState<OrgTab>('definitions');
+  
   // State for all organizational entities
   const [commands, setCommands] = useState<Command[]>([]);
   const [groups, setGroups] = useState<Group[]>([]);
@@ -352,53 +357,138 @@ const OrganizationSettings: React.FC<OrganizationSettingsProps> = ({ error, setE
     borderTop: 'none'
   };
 
-  return (
-    <div style={containerStyle}>
-      <div style={contentWrapperStyle}>
-        {/* Header */}
-        <div style={{
-          marginBottom: '40px',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'flex-start'
-        }}>
-          <div>
-            <h2 style={{ fontSize: '24px', fontWeight: 600, margin: 0, color: '#0F172A' }}>
-              Organization
-            </h2>
-            <p style={{ fontSize: '14px', color: '#64748B', margin: '8px 0 0 0', fontFamily: 'Inter' }}>
-              Configure your organizational hierarchy and entities.
-            </p>
-          </div>
-          
-          <button
-            onClick={() => setShowInactive(!showInactive)}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              padding: '8px 12px',
-              backgroundColor: '#FFFFFF',
-              border: '1px solid #D1D5DB',
-              borderRadius: '6px',
-              cursor: 'pointer',
-              fontSize: '14px',
-              fontFamily: 'Inter',
-              color: '#374151',
-              transition: 'background-color 0.2s ease'
-            }}
-            title={showInactive ? "Hide inactive entities" : "Show inactive entities"}
-            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#F8FAFC'}
-            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#FFFFFF'}
-          >
-            {showInactive ? <EyeOff size={16} /> : <Eye size={16} />}
-            <span>
-              {showInactive ? 'Hide Inactive' : 'Show Inactive'}
-            </span>
-          </button>
-        </div>
+  // Tab configuration
+  const tabs = [
+    {
+      id: 'branding' as OrgTab,
+      label: 'Branding & Identity',
+      icon: <Building2 size={16} />
+    },
+    {
+      id: 'discord' as OrgTab,
+      label: 'Discord Integration',
+      icon: <MessageSquare size={16} />
+    },
+    {
+      id: 'definitions' as OrgTab,
+      label: 'Organization Definitions',
+      icon: <Settings size={16} />
+    }
+  ];
 
-        {(error || localError) && (
+  // Render tab content based on active tab
+  const renderTabContent = () => {
+    switch (activeTab) {
+      case 'branding':
+        return renderBrandingTab();
+      case 'discord':
+        return renderDiscordTab();
+      case 'definitions':
+        return renderDefinitionsTab();
+      default:
+        return null;
+    }
+  };
+
+  // Branding tab content (placeholder for now)
+  const renderBrandingTab = () => (
+    <div style={{ padding: '24px 0' }}>
+      <h3 style={{ fontSize: '18px', fontWeight: 600, color: '#0F172A', margin: '0 0 16px 0' }}>
+        Branding & Identity Settings
+      </h3>
+      <p style={{ fontSize: '14px', color: '#64748B', fontFamily: 'Inter' }}>
+        Organization branding and identity settings will be implemented here.
+      </p>
+    </div>
+  );
+
+  // Discord integration tab content
+  const renderDiscordTab = () => (
+    <div style={{ padding: '24px 0' }}>
+      <h3 style={{ fontSize: '18px', fontWeight: 600, color: '#0F172A', margin: '0 0 16px 0' }}>
+        Discord Role Mapping
+      </h3>
+      <p style={{ fontSize: '14px', color: '#64748B', fontFamily: 'Inter', marginBottom: '24px' }}>
+        Configure how Discord roles map to application permissions and access levels.
+      </p>
+      
+      {/* Role mapping interface will be implemented here */}
+      <div style={{
+        padding: '24px',
+        backgroundColor: '#F8FAFC',
+        borderRadius: '8px',
+        border: '1px solid #E2E8F0'
+      }}>
+        <p style={{ fontSize: '14px', color: '#64748B', fontFamily: 'Inter', textAlign: 'center' }}>
+          Discord Role Mapping Interface will be implemented here
+        </p>
+      </div>
+    </div>
+  );
+
+  // Definitions tab content (existing org hierarchy)
+  const renderDefinitionsTab = () => (
+    <div>
+      {/* Header for definitions tab */}
+      <div style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'flex-start',
+        marginBottom: '32px'
+      }}>
+        <div>
+          <h3 style={{ fontSize: '18px', fontWeight: 600, color: '#0F172A', margin: '0 0 8px 0' }}>
+            Organization Definitions
+          </h3>
+          <p style={{ fontSize: '14px', color: '#64748B', margin: 0, fontFamily: 'Inter' }}>
+            Configure your organizational hierarchy and entities.
+          </p>
+        </div>
+        
+        <button
+          onClick={() => setShowInactive(!showInactive)}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            padding: '8px 12px',
+            backgroundColor: '#FFFFFF',
+            border: '1px solid #D1D5DB',
+            borderRadius: '6px',
+            cursor: 'pointer',
+            fontSize: '14px',
+            fontFamily: 'Inter',
+            color: '#374151',
+            transition: 'background-color 0.2s ease'
+          }}
+          title={showInactive ? "Hide inactive entities" : "Show inactive entities"}
+          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#F8FAFC'}
+          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#FFFFFF'}
+        >
+          {showInactive ? <EyeOff size={16} /> : <Eye size={16} />}
+          <span>
+            {showInactive ? 'Hide Inactive' : 'Show Inactive'}
+          </span>
+        </button>
+      </div>
+
+      {/* Existing organization hierarchy content */}
+      {loading && (
+        <div style={{
+          textAlign: 'center',
+          padding: '32px 0',
+          color: '#64748B',
+          fontFamily: 'Inter',
+          fontSize: '14px'
+        }}>
+          Loading organization data...
+        </div>
+      )}
+
+      {!loading && (
+        <>
+          {/* Commands Level */}
+          <div style={firstSectionStyle}>
           <div style={{
             padding: '16px',
             marginBottom: '24px',
