@@ -132,8 +132,26 @@ export const uploadMultipleEventImages = async (eventId: string, images: {
   try {
     console.log(`Uploading multiple images for event ${eventId}...`);
     
+    // First, fetch existing images to merge with new uploads
+    const { data: existingEvent, error: fetchError } = await supabase
+      .from('events')
+      .select('image_url')
+      .eq('id', eventId)
+      .single();
+    
+    if (fetchError) {
+      console.error('Error fetching existing images:', fetchError);
+      return { urls: null, error: fetchError };
+    }
+    
+    // Initialize with existing images or empty structure
+    const existingImageUrls = (typeof existingEvent?.image_url === 'object' && existingEvent.image_url) 
+      ? existingEvent.image_url 
+      : { additionalImages: [] };
+    
     const imageUrls: { headerImage?: string; additionalImages: string[] } = {
-      additionalImages: []
+      headerImage: existingImageUrls.headerImage,
+      additionalImages: [...(existingImageUrls.additionalImages || [])]
     };
     
     // Upload header image
@@ -146,12 +164,14 @@ export const uploadMultipleEventImages = async (eventId: string, images: {
       imageUrls.headerImage = result.url;
     }
     
-    // Upload additional images
+    // Upload additional images (append to existing images)
     if (images.additionalImages) {
       for (let i = 0; i < images.additionalImages.length; i++) {
         const additionalImage = images.additionalImages[i];
         if (additionalImage) {
-          const result = await uploadSingleImageFile(eventId, additionalImage, `additional-${i}`);
+          // Use current total count for unique file naming
+          const totalImageIndex = imageUrls.additionalImages.length;
+          const result = await uploadSingleImageFile(eventId, additionalImage, `additional-${totalImageIndex}`);
           if (result.error) {
             console.error(`Failed to upload additional image ${i}:`, result.error);
             // Continue with other images even if one fails

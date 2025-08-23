@@ -153,10 +153,11 @@ function createEventEmbed(title, description, eventTime, responses = {}, creator
   const declinedNames = declined.map(entry => typeof entry === 'string' ? entry : entry.displayName);
   const tentativeNames = tentative.map(entry => typeof entry === 'string' ? entry : entry.displayName);
   
-  // Create the initial embed with title
+  // Create the initial embed with title and URL for image grouping
   const embed = new EmbedBuilder()
     .setColor(0x0099FF)
-    .setTitle(title);
+    .setTitle(title)
+    .setURL('https://readyroom.app');  // Same URL for all embeds to enable grouping
   
   // Only set description if it's not empty
   if (description && description.trim().length > 0) {
@@ -198,6 +199,7 @@ function createEventEmbed(title, description, eventTime, responses = {}, creator
   
   // Add creator information if provided
   if (creator) {
+    console.log('[CREATOR-DEBUG] Creator object received:', creator);
     let footerText = '';
     if (creator.boardNumber) {
       footerText += creator.boardNumber + ' ';
@@ -208,9 +210,12 @@ function createEventEmbed(title, description, eventTime, responses = {}, creator
     if (creator.billet) {
       footerText += ' - ' + creator.billet;
     }
+    console.log('[CREATOR-DEBUG] Footer text:', footerText);
     if (footerText) {
       embed.setFooter({ text: `Created by ${footerText}` });
     }
+  } else {
+    console.log('[CREATOR-DEBUG] No creator provided to createEventEmbed');
   }
   
   // Add header image if provided
@@ -227,13 +232,15 @@ function createEventEmbed(title, description, eventTime, responses = {}, creator
 }
 
 // Function to create additional image embeds
-function createAdditionalImageEmbeds(images) {
+function createAdditionalImageEmbeds(images, mainEmbedUrl = 'https://readyroom.app') {
   const embeds = [];
   
   if (images && images.additionalImages && Array.isArray(images.additionalImages)) {
     images.additionalImages.forEach((imageUrl, index) => {
       if (imageUrl) {
+        // Create embed with same URL as main embed and only image (Reddit method)
         const imageEmbed = new EmbedBuilder()
+          .setURL(mainEmbedUrl)  // Same URL as main embed for grouping
           .setImage(imageUrl)
           .setColor(0x0099FF);
         embeds.push(imageEmbed);
@@ -359,8 +366,8 @@ async function editEventMessage(messageId, title, description, eventTime, guildI
         const imageData = images || (imageUrl ? { imageUrl } : null);
         const eventEmbed = createEventEmbed(title, description, eventTime, {}, creator, imageData);
         
-        // Create additional image embeds
-        const additionalEmbeds = createAdditionalImageEmbeds(imageData);
+        // Create additional image embeds with same URL for grouping
+        const additionalEmbeds = createAdditionalImageEmbeds(imageData, 'https://readyroom.app');
         const allEmbeds = [eventEmbed, ...additionalEmbeds];
         
         // Edit the message with new content
@@ -472,8 +479,8 @@ async function publishEventToDiscord(title, description, eventTime, guildId = nu
     const eventEmbed = createEventEmbed(title, description, eventTime, {}, creator, imageData);
     const buttons = createAttendanceButtons();
     
-    // Create additional image embeds
-    const additionalEmbeds = createAdditionalImageEmbeds(imageData);
+    // Create additional image embeds with same URL for grouping
+    const additionalEmbeds = createAdditionalImageEmbeds(imageData, 'https://readyroom.app');
     const allEmbeds = [eventEmbed, ...additionalEmbeds];
     
     if (imageData) {
@@ -481,6 +488,7 @@ async function publishEventToDiscord(title, description, eventTime, guildId = nu
         headerImage: imageData.headerImage || imageData.imageUrl || 'none',
         additionalImages: imageData.additionalImages?.length || 0
       });
+      console.log(`[BOT-PUBLISH] Total embeds being sent: ${allEmbeds.length} (1 main + ${additionalEmbeds.length} additional)`);
     }
     
     // Send the event message
@@ -635,8 +643,8 @@ client.on('interactionCreate', async interaction => {
   const imageData = eventData.images || (eventData.imageUrl ? { imageUrl: eventData.imageUrl } : null);
   const updatedEmbed = createEventEmbed(eventData.title, eventData.description, eventData.eventTime, eventData, null, imageData);
   
-  // Create additional image embeds
-  const additionalEmbeds = createAdditionalImageEmbeds(imageData);
+  // Create additional image embeds with same URL for grouping
+  const additionalEmbeds = createAdditionalImageEmbeds(imageData, 'https://readyroom.app');
   const allEmbeds = [updatedEmbed, ...additionalEmbeds];
   
   await interaction.update({

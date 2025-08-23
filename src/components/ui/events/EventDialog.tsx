@@ -15,7 +15,7 @@ interface EventDialogProps {
     participants?: string[];
     headerImage?: File | null;
     additionalImages?: (File | null)[];
-  }) => void;
+  }) => Promise<void>;
   onCancel: () => void;
   initialData?: {
     title: string;
@@ -49,12 +49,11 @@ export const EventDialog: React.FC<EventDialogProps> = ({
   const [participants, setParticipatingSquadrons] = useState<string[]>(
     initialData?.participants || selectedCycle?.participants || []
   );
-  const [headerImage, setHeaderImage] = useState<File | null>(null);
-  const [headerImagePreview, setHeaderImagePreview] = useState<string | null>(null);
-  const [additionalImages, setAdditionalImages] = useState<(File | null)[]>([null, null]);
-  const [additionalImagePreviews, setAdditionalImagePreviews] = useState<(string | null)[]>([null, null]);
-  const [dragOverStates, setDragOverStates] = useState<boolean[]>([false, false, false]);
+  const [images, setImages] = useState<(File | null)[]>([null, null, null, null]);
+  const [imagePreviews, setImagePreviews] = useState<(string | null)[]>([null, null, null, null]);
+  const [dragOverStates, setDragOverStates] = useState<boolean[]>([false, false, false, false]);
   const [error, setError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
   
   // Update participants when selectedCycle changes
   useEffect(() => {
@@ -66,22 +65,31 @@ export const EventDialog: React.FC<EventDialogProps> = ({
   // Load existing images when editing
   useEffect(() => {
     if (initialData) {
-      // Load header image from legacy imageUrl or new headerImageUrl
+      console.log('[EDIT-DIALOG-DEBUG] Loading initial data:', {
+        headerImageUrl: initialData.headerImageUrl,
+        additionalImageUrls: initialData.additionalImageUrls,
+        imageUrl: initialData.imageUrl
+      });
+      
+      const newPreviews = [null, null, null, null];
+      
+      // Load header image from legacy imageUrl or new headerImageUrl as first image
       const headerUrl = initialData.headerImageUrl || initialData.imageUrl;
       if (headerUrl) {
-        setHeaderImagePreview(headerUrl);
+        newPreviews[0] = headerUrl;
       }
 
-      // Load additional images
+      // Load additional images into remaining slots
       if (initialData.additionalImageUrls) {
-        const newPreviews = [...additionalImagePreviews];
         initialData.additionalImageUrls.forEach((url, index) => {
-          if (url && index < 2) {
-            newPreviews[index] = url;
+          if (url && index < 3) {
+            newPreviews[index + 1] = url;
           }
         });
-        setAdditionalImagePreviews(newPreviews);
       }
+      
+      console.log('[EDIT-DIALOG-DEBUG] Final image previews:', newPreviews);
+      setImagePreviews(newPreviews);
     }
   }, [initialData]);
 
@@ -92,19 +100,12 @@ export const EventDialog: React.FC<EventDialogProps> = ({
       reader.onload = (e) => {
         const result = e.target?.result as string;
         
-        if (imageIndex === 0) {
-          // Header image
-          setHeaderImage(file);
-          setHeaderImagePreview(result);
-        } else {
-          // Additional images
-          const newImages = [...additionalImages];
-          const newPreviews = [...additionalImagePreviews];
-          newImages[imageIndex - 1] = file;
-          newPreviews[imageIndex - 1] = result;
-          setAdditionalImages(newImages);
-          setAdditionalImagePreviews(newPreviews);
-        }
+        const newImages = [...images];
+        const newPreviews = [...imagePreviews];
+        newImages[imageIndex] = file;
+        newPreviews[imageIndex] = result;
+        setImages(newImages);
+        setImagePreviews(newPreviews);
       };
       reader.readAsDataURL(file);
       setError('');
@@ -147,17 +148,12 @@ export const EventDialog: React.FC<EventDialogProps> = ({
   };
 
   const removeImage = (imageIndex: number) => {
-    if (imageIndex === 0) {
-      setHeaderImage(null);
-      setHeaderImagePreview(null);
-    } else {
-      const newImages = [...additionalImages];
-      const newPreviews = [...additionalImagePreviews];
-      newImages[imageIndex - 1] = null;
-      newPreviews[imageIndex - 1] = null;
-      setAdditionalImages(newImages);
-      setAdditionalImagePreviews(newPreviews);
-    }
+    const newImages = [...images];
+    const newPreviews = [...imagePreviews];
+    newImages[imageIndex] = null;
+    newPreviews[imageIndex] = null;
+    setImages(newImages);
+    setImagePreviews(newPreviews);
   };
   
   useEffect(() => {
@@ -204,8 +200,10 @@ export const EventDialog: React.FC<EventDialogProps> = ({
     setDurationMinutes(clamped);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (isSubmitting) return; // Prevent multiple submissions
     
     if (!title.trim()) {
       setError('Please enter an event title');
@@ -216,9 +214,13 @@ export const EventDialog: React.FC<EventDialogProps> = ({
       setError('Please select a start date and time');
       return;
     }
+    
+    setIsSubmitting(true);
+    setError('');
 
     if (durationHours === 0 && durationMinutes === 0) {
       setError('Please specify an event duration');
+      setIsSubmitting(false);
       return;
     }
 
@@ -226,10 +228,12 @@ export const EventDialog: React.FC<EventDialogProps> = ({
     const end = new Date(endDatetime);
     if (end <= start) {
       setError('End time must be after start time');
+      setIsSubmitting(false);
       return;
     }
 
-    onSave({
+    try {
+      await onSave({
       title: title.trim(),
       description: description.trim(),
       datetime,
@@ -240,9 +244,14 @@ export const EventDialog: React.FC<EventDialogProps> = ({
       },
       restrictedTo: restrictedTo.length > 0 ? restrictedTo : undefined,
       participants: participants.length > 0 ? participants : undefined,
-      headerImage: headerImage,
-      additionalImages: additionalImages
+      headerImage: images[0],
+      additionalImages: images.slice(1).filter(img => img !== null)
     });
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'An error occurred while saving the event');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const roleOptions = ['Cadre', 'Staff', 'All Pilots'];
@@ -658,7 +667,7 @@ export const EventDialog: React.FC<EventDialogProps> = ({
               />
             </div>
 
-            {/* Image Upload Section - 3 Image Grid */}
+            {/* Image Upload Section - 2x2 Image Grid */}
             <div style={{ marginBottom: '20px' }}>
               <label style={{
                 display: 'block',
@@ -670,133 +679,42 @@ export const EventDialog: React.FC<EventDialogProps> = ({
                 Event Images (Optional)
               </label>
               
-              {/* Header Image */}
-              <div style={{ marginBottom: '16px' }}>
-                <div style={{
-                  fontSize: '12px',
-                  color: '#64748B',
-                  marginBottom: '6px',
-                  fontWeight: '500'
+              {/* 2x2 Image Grid */}
+              <div style={{ 
+                display: 'grid',
+                gridTemplateColumns: '1fr 1fr',
+                gridTemplateRows: '1fr 1fr',
+                gap: '12px'
                 }}>
-                  Header Image
-                </div>
-                <div
-                  onDragOver={(e) => handleDragOver(e, 0)}
-                  onDragLeave={(e) => handleDragLeave(e, 0)}
-                  onDrop={(e) => handleDrop(e, 0)}
-                  onClick={() => document.getElementById('header-image-upload')?.click()}
-                  style={{
-                    border: `2px dashed ${dragOverStates[0] ? '#3B82F6' : '#CBD5E1'}`,
-                    borderRadius: '6px',
-                    padding: '16px',
-                    textAlign: 'center',
-                    cursor: 'pointer',
-                    backgroundColor: dragOverStates[0] ? 'rgba(59, 130, 246, 0.05)' : '#FAFAFA',
-                    transition: 'all 0.2s ease',
-                    minHeight: '120px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center'
-                  }}
-                >
-                  {headerImagePreview ? (
-                    <div style={{ position: 'relative' }}>
-                      <img
-                        src={headerImagePreview}
-                        alt="Header preview"
-                        style={{
-                          maxWidth: '160px',
-                          maxHeight: '100px',
-                          borderRadius: '4px',
-                          objectFit: 'cover'
-                        }}
-                      />
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          removeImage(0);
-                        }}
-                        style={{
-                          position: 'absolute',
-                          top: '4px',
-                          right: '4px',
-                          background: 'rgba(0, 0, 0, 0.7)',
-                          border: 'none',
-                          borderRadius: '50%',
-                          width: '20px',
-                          height: '20px',
-                          color: '#fff',
-                          cursor: 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center'
-                        }}
-                      >
-                        <X size={12} />
-                      </button>
-                    </div>
-                  ) : (
-                    <div>
-                      <ImageIcon size={24} color="#94A3B8" style={{ margin: '0 auto 8px' }} />
-                      <p style={{ color: '#94A3B8', fontSize: '12px', margin: '0' }}>
-                        Drop header image or click to select
-                      </p>
-                    </div>
-                  )}
-                </div>
-                <input
-                  id="header-image-upload"
-                  type="file"
-                  accept="image/*"
-                  onChange={(e) => handleFileInputChange(e, 0)}
-                  style={{ display: 'none' }}
-                />
-              </div>
-
-              {/* Additional Images Grid */}
-              <div>
-                <div style={{
-                  fontSize: '12px',
-                  color: '#64748B',
-                  marginBottom: '6px',
-                  fontWeight: '500'
-                }}>
-                  Additional Images
-                </div>
-                <div style={{ 
-                  display: 'grid',
-                  gridTemplateColumns: '1fr 1fr',
-                  gap: '12px'
-                }}>
-                  {[0, 1].map((index) => (
+                  {[0, 1, 2, 3].map((index) => (
                     <div
                       key={index}
-                      onDragOver={(e) => handleDragOver(e, index + 1)}
-                      onDragLeave={(e) => handleDragLeave(e, index + 1)}
-                      onDrop={(e) => handleDrop(e, index + 1)}
-                      onClick={() => document.getElementById(`additional-image-upload-${index}`)?.click()}
+                      onDragOver={(e) => handleDragOver(e, index)}
+                      onDragLeave={(e) => handleDragLeave(e, index)}
+                      onDrop={(e) => handleDrop(e, index)}
+                      onClick={() => document.getElementById(`image-upload-${index}`)?.click()}
                       style={{
-                        border: `2px dashed ${dragOverStates[index + 1] ? '#3B82F6' : '#CBD5E1'}`,
+                        border: `2px dashed ${dragOverStates[index] ? '#3B82F6' : '#CBD5E1'}`,
                         borderRadius: '6px',
                         padding: '12px',
                         textAlign: 'center',
                         cursor: 'pointer',
-                        backgroundColor: dragOverStates[index + 1] ? 'rgba(59, 130, 246, 0.05)' : '#FAFAFA',
+                        backgroundColor: dragOverStates[index] ? 'rgba(59, 130, 246, 0.05)' : '#FAFAFA',
                         transition: 'all 0.2s ease',
-                        minHeight: '80px',
+                        minHeight: '100px',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center'
                       }}
                     >
-                      {additionalImagePreviews[index] ? (
+                      {imagePreviews[index] ? (
                         <div style={{ position: 'relative' }}>
                           <img
-                            src={additionalImagePreviews[index]!}
-                            alt={`Additional image ${index + 1}`}
+                            src={imagePreviews[index]!}
+                            alt={`Image ${index + 1}`}
                             style={{
-                              maxWidth: '100px',
-                              maxHeight: '60px',
+                              maxWidth: '120px',
+                              maxHeight: '80px',
                               borderRadius: '4px',
                               objectFit: 'cover'
                             }}
@@ -804,7 +722,7 @@ export const EventDialog: React.FC<EventDialogProps> = ({
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              removeImage(index + 1);
+                              removeImage(index);
                             }}
                             style={{
                               position: 'absolute',
@@ -829,26 +747,25 @@ export const EventDialog: React.FC<EventDialogProps> = ({
                         <div>
                           <ImageIcon size={20} color="#94A3B8" style={{ margin: '0 auto 4px' }} />
                           <p style={{ color: '#94A3B8', fontSize: '10px', margin: '0' }}>
-                            Drop image {index + 1}
+                            Drop image or click
                           </p>
                         </div>
                       )}
                     </div>
                   ))}
                   
-                  {/* Hidden file inputs for additional images */}
-                  {[0, 1].map((index) => (
+                  {/* Hidden file inputs for all images */}
+                  {[0, 1, 2, 3].map((index) => (
                     <input
                       key={index}
-                      id={`additional-image-upload-${index}`}
+                      id={`image-upload-${index}`}
                       type="file"
                       accept="image/*"
-                      onChange={(e) => handleFileInputChange(e, index + 1)}
+                      onChange={(e) => handleFileInputChange(e, index)}
                       style={{ display: 'none' }}
                     />
                   ))}
                 </div>
-              </div>
             </div>
 
             {error && (
@@ -886,17 +803,34 @@ export const EventDialog: React.FC<EventDialogProps> = ({
             </button>
             <button
               type="submit"
+              disabled={isSubmitting}
               style={{
                 padding: '8px 16px',
                 border: 'none',
                 borderRadius: '4px',
-                backgroundColor: '#2563EB',
+                backgroundColor: isSubmitting ? '#94A3B8' : '#2563EB',
                 color: 'white',
-                cursor: 'pointer',
-                fontSize: '14px'
+                cursor: isSubmitting ? 'not-allowed' : 'pointer',
+                fontSize: '14px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px'
               }}
             >
-              {initialData ? 'Update Event' : 'Create Event'}
+              {isSubmitting && (
+                <div style={{
+                  width: '16px',
+                  height: '16px',
+                  border: '2px solid #ffffff40',
+                  borderTopColor: '#ffffff',
+                  borderRadius: '50%',
+                  animation: 'spin 1s linear infinite'
+                }} />
+              )}
+              {isSubmitting 
+                ? (initialData ? 'Updating...' : 'Creating...')
+                : (initialData ? 'Update Event' : 'Create Event')
+              }
             </button>
           </div>
         </form>

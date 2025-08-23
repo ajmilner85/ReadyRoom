@@ -30,9 +30,10 @@ async function checkServerAvailability(): Promise<boolean> {
 
 interface EventDetailsProps {
   event: Event | null;
+  onEventUpdated?: () => void;
 }
 
-const EventDetails: React.FC<EventDetailsProps> = ({ event }) => {
+const EventDetails: React.FC<EventDetailsProps> = ({ event, onEventUpdated }) => {
   const [publishing, setPublishing] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [publishMessage, setPublishMessage] = useState<{type: 'success' | 'error', text: string} | null>(null);
@@ -193,15 +194,16 @@ const EventDetails: React.FC<EventDetailsProps> = ({ event }) => {
         throw new Error('Cannot connect to the server. Please check if the server is running and try again.');
       }
       
-      // Check database directly for the image_url for this event
+      // Check database directly for the image_url and participants for this event
       const { data: dbEvent } = await supabase
         .from('events')
-        .select('image_url')
+        .select('image_url, participants')
         .eq('id', event.id)
         .single();
       
       // Create an enhanced version of the event with guaranteed image URL
       console.log('[PUBLISH-DEBUG] Raw dbEvent.image_url:', dbEvent?.image_url);
+      console.log('[PUBLISH-DEBUG] Raw dbEvent.participants:', dbEvent?.participants);
       console.log('[PUBLISH-DEBUG] Type of image_url:', typeof dbEvent?.image_url);
       
       const publishableEvent = {
@@ -211,7 +213,9 @@ const EventDetails: React.FC<EventDetailsProps> = ({ event }) => {
           ? dbEvent.image_url.headerImage 
           : dbEvent?.image_url || imagePreview || event.imageUrl || (event as any).image_url,
         // Also pass the full JSONB structure for multi-image support
-        images: typeof dbEvent?.image_url === 'object' ? dbEvent.image_url : undefined
+        images: typeof dbEvent?.image_url === 'object' ? dbEvent.image_url : undefined,
+        // Ensure participants is included from database
+        participants: dbEvent?.participants || event.participants
       };
       
       console.log('[PUBLISH-DEBUG] publishableEvent:', publishableEvent);
@@ -248,6 +252,11 @@ const EventDetails: React.FC<EventDetailsProps> = ({ event }) => {
       
       // Refresh data from database to get updated Discord IDs
       await refreshEventData();
+      
+      // Notify parent component to refresh events list
+      if (onEventUpdated) {
+        onEventUpdated();
+      }
       
       // Clear the message after 5 seconds
       setTimeout(() => {
