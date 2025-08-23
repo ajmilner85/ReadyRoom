@@ -8,8 +8,268 @@ interface PublishEventResponse {
   error?: string;
 }
 
+interface MultiChannelPublishResponse {
+  success: boolean;
+  publishedChannels: {
+    squadronId: string;
+    guildId: string;
+    channelId: string;
+    discordMessageId: string;
+  }[];
+  errors: {
+    squadronId: string;
+    error: string;
+  }[];
+}
+
 // Track our publish requests to detect duplicates
 const publishRequestsInProgress = new Set();
+
+/**
+ * Publishes an event to multiple squadron Discord channels
+ * @param event The event to publish
+ * @param squadronIds Array of squadron IDs to publish to
+ * @returns Response containing success status and published channels
+ */
+/**
+ * Publishes an event based on its cycle's participating squadrons
+ * @param event The event to publish
+ * @returns Response containing success status and published channels
+ */
+export async function publishEventFromCycle(event: Event): Promise<MultiChannelPublishResponse> {
+  const publishedChannels: { squadronId: string; guildId: string; channelId: string; discordMessageId: string; }[] = [];
+  const errors: { squadronId: string; error: string; }[] = [];
+  
+  try {
+    let participatingSquadrons: string[] = [];
+    let cycleType: string = '';
+    
+    // Use event-level participating squadrons if they exist, otherwise get from cycle
+    console.log('[PARTICIPANT-DEBUG] Event participants:', event.participants);
+    console.log('[PARTICIPANT-DEBUG] Event participants length:', event.participants?.length);
+    
+    if (event.participants && event.participants.length > 0) {
+      participatingSquadrons = event.participants;
+      console.log('[PARTICIPANT-DEBUG] Using event-level participants:', participatingSquadrons);
+    } else if (event.cycleId) {
+      // Get the event's cycle to find participating squadrons
+      const { data: cycleData, error: cycleError } = await supabase
+        .from('cycles')
+        .select('participants, type')
+        .eq('id', event.cycleId)
+        .single();
+      
+      if (cycleError || !cycleData) {
+        return {
+          success: false,
+          publishedChannels: [],
+          errors: [{ squadronId: '', error: 'Failed to fetch cycle information' }]
+        };
+      }
+      
+      participatingSquadrons = cycleData.participants || [];
+      cycleType = cycleData.type;
+    } else {
+      return {
+        success: false,
+        publishedChannels: [],
+        errors: [{ squadronId: '', error: 'Event has no associated cycle or participating squadrons' }]
+      };
+    }
+    
+    if (participatingSquadrons.length === 0) {
+      return {
+        success: false,
+        publishedChannels: [],
+        errors: [{ squadronId: '', error: 'No participating squadrons configured for this cycle' }]
+      };
+    }
+    
+    console.log(`[MULTI-DISCORD-DEBUG] Publishing to ${participatingSquadrons.length} squadrons:`, participatingSquadrons);
+    
+    // Get Discord settings for all participating squadrons
+    const { data: squadronDiscordData, error: squadronDiscordError } = await supabase
+      .from('org_squadrons')
+      .select('id, name, discord_integration')
+      .in('id', participatingSquadrons);
+    
+    if (squadronDiscordError) {
+      throw new Error(`Failed to fetch squadron Discord settings: ${squadronDiscordError.message}`);
+    }
+    
+    // Process each squadron
+    for (const squadronId of participatingSquadrons) {
+      try {
+        console.log(`[MULTI-DISCORD-DEBUG] Processing squadron ${squadronId}`);
+        
+        // Find Discord settings for this squadron
+        const squadronData = squadronDiscordData?.find(s => s.id === squadronId);
+        
+        console.log(`[MULTI-DISCORD-DEBUG] Squadron data found:`, {
+          id: squadronData?.id,
+          name: squadronData?.name,
+          hasIntegration: !!squadronData?.discord_integration,
+          guildId: squadronData?.discord_integration?.selectedGuildId,
+          channelCount: squadronData?.discord_integration?.discordChannels?.length || 0
+        });
+        
+        if (!squadronData || !squadronData.discord_integration) {
+          errors.push({
+            squadronId,
+            error: 'No Discord integration configured for this squadron'
+          });
+          continue;
+        }
+        
+        const discordIntegration = squadronData.discord_integration;
+        const selectedGuildId = discordIntegration.selectedGuildId;
+        
+        if (!selectedGuildId) {
+          errors.push({
+            squadronId,
+            error: 'No Discord server configured for this squadron'
+          });
+          continue;
+        }
+        
+        // Always use the events channel for each squadron
+        const discordChannels = discordIntegration.discordChannels || [];
+        const eventsChannel = discordChannels.find((ch: any) => ch.type === 'events');
+        
+        if (!eventsChannel) {
+          errors.push({
+            squadronId,
+            error: 'No events channel configured for this squadron'
+          });
+          continue;
+        }
+        
+        
+        console.log(`[MULTI-DISCORD-DEBUG] About to publish to guild ${selectedGuildId}, channel ${eventsChannel.id} for squadron ${squadronData.name}`);
+        console.log(`[MULTI-DISCORD-DEBUG] Publish attempt ${participatingSquadrons.indexOf(squadronId) + 1} of ${participatingSquadrons.length}`);
+        
+        // Publish to this squadron's channel
+        const publishResult = await publishToSpecificChannel(
+          event,
+          selectedGuildId,
+          eventsChannel.id
+        );
+        
+        console.log(`[MULTI-DISCORD-DEBUG] Publish result for squadron ${squadronId}:`, publishResult);
+        console.log(`[MULTI-DISCORD-DEBUG] Success: ${publishResult.success}, MessageID: ${publishResult.discordMessageId}, GuildID: ${publishResult.guildId}`);
+        
+        if (publishResult.success && publishResult.discordMessageId) {
+          publishedChannels.push({
+            squadronId,
+            guildId: selectedGuildId,
+            channelId: eventsChannel.id,
+            discordMessageId: publishResult.discordMessageId
+          });
+        } else {
+          errors.push({
+            squadronId,
+            error: publishResult.error || 'Failed to publish to squadron channel'
+          });
+        }
+        
+      } catch (error) {
+        errors.push({
+          squadronId,
+          error: error instanceof Error ? error.message : 'Unknown error publishing to squadron'
+        });
+      }
+    }
+    
+    return {
+      success: publishedChannels.length > 0,
+      publishedChannels,
+      errors
+    };
+    
+  } catch (error) {
+    console.error('Error in publishEventFromCycle:', error);
+    return {
+      success: false,
+      publishedChannels: [],
+      errors: participatingSquadrons.map(id => ({
+        squadronId: id,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      }))
+    };
+  }
+}
+
+/**
+ * Publishes an event to a specific Discord channel
+ * @param event The event to publish
+ * @param guildId The Discord guild ID
+ * @param channelId The Discord channel ID  
+ * @returns Response containing success status and Discord message ID
+ */
+async function publishToSpecificChannel(event: Event, guildId: string, channelId: string): Promise<PublishEventResponse> {
+  try {
+    const startTime = event.datetime;
+    let endTime = event.endDatetime;
+    if (!endTime && startTime) {
+      const startDate = new Date(startTime);
+      const endDate = new Date(startDate.getTime() + 60 * 60 * 1000); // Add 1 hour
+      endTime = endDate.toISOString();
+    }
+    
+    // Generate a unique request ID for tracking
+    const requestId = `publish-${event.id}-${guildId}-${channelId}-${Date.now()}`;
+    console.log(`[MULTI-DISCORD-DEBUG] Making direct API call ${requestId} to guild ${guildId}, channel ${channelId}`);
+    
+    const requestBody = {
+      title: event.title,
+      description: event.description,
+      startTime: startTime,
+      endTime: endTime,
+      eventId: event.id,
+      guildId: guildId,
+      channelId: channelId,
+      // Handle both legacy and JSONB image formats
+      imageUrl: event.imageUrl || (event as any).image_url,
+      hasImage: Boolean(event.imageUrl || (event as any).image_url),
+      images: {
+        headerImage: event.headerImageUrl,
+        additionalImages: event.additionalImageUrls || [],
+        // Legacy fallback
+        imageUrl: event.imageUrl || (event as any).image_url
+      },
+      creator: event.creator
+    };
+    
+    const response = await fetch('http://localhost:3001/api/events/publish', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(requestBody),
+    });
+    
+    const data = await response.json();
+    
+    console.log(`[MULTI-DISCORD-DEBUG] API response ${requestId}: status=${response.status}, data=`, data);
+    
+    if (!response.ok) {
+      throw new Error(data.error || 'Server responded with an error status');
+    }
+    
+    return {
+      success: true,
+      discordMessageId: data.discordMessageId,
+      guildId: data.discordGuildId
+    };
+    
+  } catch (error) {
+    console.error(`[MULTI-DISCORD-DEBUG] Error in publishToSpecificChannel for guild ${guildId}:`, error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    };
+  }
+}
 
 /**
  * Publishes an event to Discord via the backend API with retry logic and better error handling
@@ -234,6 +494,53 @@ export async function updateEventDiscordId(
 }
 
 /**
+ * Updates event with multiple Discord message IDs from different squadrons using JSONB structure
+ * @param eventId The event ID
+ * @param publishedChannels Array of published channel information
+ * @returns Boolean indicating success
+ */
+export async function updateEventMultipleDiscordIds(
+  eventId: string,
+  publishedChannels: { squadronId: string; guildId: string; channelId: string; discordMessageId: string; }[]
+): Promise<boolean> {
+  try {
+    if (!publishedChannels || publishedChannels.length === 0) {
+      return false;
+    }
+    
+    // Create JSONB array structure for discord_event_id
+    const discordPublications = publishedChannels.map(channel => ({
+      messageId: channel.discordMessageId,
+      guildId: channel.guildId,
+      channelId: channel.channelId,
+      squadronId: channel.squadronId
+    }));
+    
+    console.log(`[UPDATE-DISCORD-IDS] Storing ${discordPublications.length} Discord publications for event ${eventId}:`, discordPublications);
+    
+    // Update the event with the JSONB array of Discord message information
+    const { error } = await supabase
+      .from('events')
+      .update({
+        discord_event_id: discordPublications,
+        discord_guild_id: publishedChannels[0].guildId // Keep first guild ID for backward compatibility
+      })
+      .eq('id', eventId);
+    
+    if (error) {
+      console.error('Error updating event with Discord publications:', error);
+      return false;
+    }
+    
+    console.log(`[UPDATE-DISCORD-IDS] Successfully stored Discord publications for event ${eventId}`);
+    return true;
+  } catch (error) {
+    console.error('Unexpected error updating event with Discord publications:', error);
+    return false;
+  }
+}
+
+/**
  * Interface for Discord attendance response
  */
 interface DiscordAttendanceResponse {
@@ -348,6 +655,194 @@ export async function getServerChannels(guildId: string): Promise<{
  * @param guildId Optional guild ID if known
  * @param channelId Optional channel ID if known
  */
+/**
+ * Deletes Discord messages for a multi-channel event by re-deriving participating squadrons
+ */
+export async function deleteMultiChannelEvent(event: Event): Promise<{ success: boolean; deletedCount: number; errors: string[] }> {
+  try {
+    console.log('[DELETE-MULTI-DEBUG] Starting deleteMultiChannelEvent for event:', event.id);
+    console.log('[DELETE-MULTI-DEBUG] Event discord_event_id:', event.discord_event_id);
+    console.log('[DELETE-MULTI-DEBUG] Event discordEventId (legacy):', event.discordEventId);
+    
+    let participatingSquadrons: string[] = [];
+    const errors: string[] = [];
+    let deletedCount = 0;
+    
+    // Use event-level participating squadrons if they exist, otherwise get from cycle
+    if (event.participants && event.participants.length > 0) {
+      participatingSquadrons = event.participants;
+    } else if (event.cycleId) {
+      // Get the event's cycle to find participating squadrons
+      const { data: cycleData, error: cycleError } = await supabase
+        .from('cycles')
+        .select('participants')
+        .eq('id', event.cycleId)
+        .single();
+      
+      if (cycleError || !cycleData) {
+        return {
+          success: false,
+          deletedCount: 0,
+          errors: ['Failed to fetch cycle information for deletion']
+        };
+      }
+      
+      participatingSquadrons = cycleData.participants || [];
+    } else {
+      return {
+        success: false,
+        deletedCount: 0,
+        errors: ['Event has no associated cycle or participating squadrons']
+      };
+    }
+    
+    if (participatingSquadrons.length === 0) {
+      return {
+        success: false,
+        deletedCount: 0,
+        errors: ['No participating squadrons found for deletion']
+      };
+    }
+    
+    console.log(`[DELETE-MULTI-DISCORD] Deleting from ${participatingSquadrons.length} squadrons:`, participatingSquadrons);
+    
+    // Get Discord settings for all participating squadrons
+    const { data: squadronDiscordData, error: squadronDiscordError } = await supabase
+      .from('org_squadrons')
+      .select('id, name, discord_integration')
+      .in('id', participatingSquadrons);
+    
+    if (squadronDiscordError) {
+      throw new Error(`Failed to fetch squadron Discord settings: ${squadronDiscordError.message}`);
+    }
+    
+    // Process each squadron for deletion
+    for (const squadronId of participatingSquadrons) {
+      try {
+        console.log(`[DELETE-MULTI-DISCORD] Processing deletion for squadron ${squadronId}`);
+        
+        // Find Discord settings for this squadron
+        const squadronData = squadronDiscordData?.find(s => s.id === squadronId);
+        
+        if (!squadronData || !squadronData.discord_integration) {
+          errors.push(`No Discord integration configured for squadron ${squadronId}`);
+          continue;
+        }
+        
+        const discordIntegration = squadronData.discord_integration;
+        const selectedGuildId = discordIntegration.selectedGuildId;
+        
+        if (!selectedGuildId) {
+          errors.push(`No Discord server configured for squadron ${squadronId}`);
+          continue;
+        }
+        
+        // Always use the events channel for each squadron
+        const discordChannels = discordIntegration.discordChannels || [];
+        const eventsChannel = discordChannels.find((ch: any) => ch.type === 'events');
+        
+        if (!eventsChannel) {
+          errors.push(`No events channel configured for squadron ${squadronId}`);
+          continue;
+        }
+        
+        console.log(`[DELETE-MULTI-DISCORD] Attempting to delete from guild ${selectedGuildId}, channel ${eventsChannel.id} for squadron ${squadronData.name}`);
+        
+        // Find the specific Discord message ID for this squadron/guild/channel combination
+        let messageIdForThisChannel: string | undefined;
+        
+        if (Array.isArray(event.discord_event_id)) {
+          // New JSONB structure - find the message for this specific squadron/guild/channel
+          const publication = event.discord_event_id.find(pub => 
+            pub.squadronId === squadronId && 
+            pub.guildId === selectedGuildId && 
+            pub.channelId === eventsChannel.id
+          );
+          messageIdForThisChannel = publication?.messageId;
+          console.log(`[DELETE-MULTI-DISCORD] Found message ID from JSONB for squadron ${squadronId}: ${messageIdForThisChannel}`);
+        } else if (typeof event.discord_event_id === 'string') {
+          // Legacy single message ID - try to delete but may not work for multi-channel
+          messageIdForThisChannel = event.discord_event_id;
+          console.log(`[DELETE-MULTI-DISCORD] Using legacy single message ID: ${messageIdForThisChannel}`);
+        } else if (event.discordEventId) {
+          // Fallback to legacy discordEventId field
+          messageIdForThisChannel = event.discordEventId;
+          console.log(`[DELETE-MULTI-DISCORD] Using legacy discordEventId: ${messageIdForThisChannel}`);
+        }
+        
+        if (!messageIdForThisChannel) {
+          errors.push(`No Discord message ID found for squadron ${squadronData.name} in guild ${selectedGuildId}, channel ${eventsChannel.id}`);
+          continue;
+        }
+        
+        // Try to delete using the found message ID
+        const deleteResult = await deleteDiscordMessageFromChannel(
+          messageIdForThisChannel,
+          selectedGuildId,
+          eventsChannel.id
+        );
+        
+        if (deleteResult.success) {
+          deletedCount++;
+          console.log(`[DELETE-MULTI-DISCORD] Successfully deleted from squadron ${squadronData.name}`);
+        } else {
+          errors.push(`Failed to delete from squadron ${squadronData.name}: ${deleteResult.error}`);
+        }
+        
+      } catch (error) {
+        errors.push(`Error processing deletion for squadron ${squadronId}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      }
+    }
+    
+    return {
+      success: deletedCount > 0,
+      deletedCount,
+      errors
+    };
+    
+  } catch (error) {
+    console.error('Error in deleteMultiChannelEvent:', error);
+    return {
+      success: false,
+      deletedCount: 0,
+      errors: [error instanceof Error ? error.message : 'Unknown error']
+    };
+  }
+}
+
+/**
+ * Deletes a Discord message from a specific channel
+ */
+async function deleteDiscordMessageFromChannel(messageId: string, guildId: string, channelId: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    if (!messageId) {
+      return { success: true }; // Nothing to delete
+    }
+    
+    console.log(`[DEBUG] Sending delete request to: http://localhost:3001/api/events/${messageId}?guildId=${guildId}&channelId=${channelId}`);
+    
+    const response = await fetch(`http://localhost:3001/api/events/${messageId}?guildId=${guildId}&channelId=${channelId}`, {
+      method: 'DELETE',
+    });
+    
+    const data = await response.json();
+    
+    if (!response.ok) {
+      throw new Error(data.error || `Server responded with status ${response.status}`);
+    }
+    
+    return {
+      success: true
+    };
+    
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    };
+  }
+}
+
 export async function deleteDiscordMessage(eventOrMessageId: Event | string, guildId?: string, channelId?: string): Promise<{ success: boolean; error?: string }> {
   try {
     // Extract the Discord message ID from either the event object or use the string directly
@@ -638,6 +1133,315 @@ export async function syncDiscordAttendance(eventId: string, discordMessageId: s
     
     return true;
   } catch (error) {
+    return false;
+  }
+}
+
+/**
+ * Syncs attendance data from multiple Discord channels for a single event
+ * @param eventId The local event ID
+ * @param discordPublications Array of Discord publication information
+ * @returns Boolean indicating success or failure
+ */
+/**
+ * Edits a Discord message in a specific channel
+ */
+async function editDiscordMessageInChannel(messageId: string, event: Event, guildId: string, channelId: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    const startTime = event.datetime;
+    let endTime = event.endDatetime;
+    if (!endTime && startTime) {
+      const startDate = new Date(startTime);
+      const endDate = new Date(startDate.getTime() + 60 * 60 * 1000); // Add 1 hour
+      endTime = endDate.toISOString();
+    }
+    
+    console.log(`[EDIT-DISCORD-DEBUG] Editing message ${messageId} in guild ${guildId}, channel ${channelId}`);
+    
+    const requestBody = {
+      title: event.title,
+      description: event.description,
+      startTime: startTime,
+      endTime: endTime,
+      guildId: guildId,
+      channelId: channelId,
+      // Handle both legacy and JSONB image formats
+      imageUrl: event.imageUrl || (event as any).image_url,
+      images: {
+        headerImage: event.headerImageUrl,
+        additionalImages: event.additionalImageUrls || [],
+        // Legacy fallback
+        imageUrl: event.imageUrl || (event as any).image_url
+      },
+      creator: event.creator
+    };
+    
+    const response = await fetch(`http://localhost:3001/api/events/${messageId}/edit`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(requestBody),
+    });
+    
+    const data = await response.json();
+    
+    console.log(`[EDIT-DISCORD-DEBUG] Edit response for message ${messageId}: status=${response.status}, data=`, data);
+    
+    if (!response.ok) {
+      throw new Error(data.error || 'Server responded with an error status');
+    }
+    
+    return {
+      success: true
+    };
+    
+  } catch (error) {
+    console.error(`[EDIT-DISCORD-DEBUG] Error editing message ${messageId}:`, error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    };
+  }
+}
+
+/**
+ * Updates a multi-channel Discord event by editing existing messages in place where possible,
+ * and falling back to delete-and-recreate for multi-channel events
+ */
+export async function updateMultiChannelEvent(event: Event): Promise<{ success: boolean; publishedCount: number; errors: string[] }> {
+  try {
+    console.log(`[UPDATE-MULTI-DISCORD] Starting edit for event ${event.id}`);
+    console.log(`[UPDATE-MULTI-DISCORD] Event data:`, {
+      id: event.id,
+      title: event.title,
+      cycleId: event.cycleId,
+      participants: event.participants,
+      discord_event_id: event.discord_event_id
+    });
+    
+    let participatingSquadrons: string[] = [];
+    const errors: string[] = [];
+    let editedCount = 0;
+    
+    // Use event-level participating squadrons if they exist, otherwise get from cycle
+    if (event.participants && event.participants.length > 0) {
+      participatingSquadrons = event.participants;
+    } else if (event.cycleId) {
+      // Get the event's cycle to find participating squadrons
+      const { data: cycleData, error: cycleError } = await supabase
+        .from('cycles')
+        .select('participants')
+        .eq('id', event.cycleId)
+        .single();
+      
+      if (cycleError || !cycleData) {
+        return {
+          success: false,
+          publishedCount: 0,
+          errors: ['Failed to fetch cycle information for update']
+        };
+      }
+      
+      participatingSquadrons = cycleData.participants || [];
+    } else {
+      return {
+        success: false,
+        publishedCount: 0,
+        errors: ['Event has no associated cycle or participating squadrons']
+      };
+    }
+    
+    if (participatingSquadrons.length === 0) {
+      return {
+        success: false,
+        publishedCount: 0,
+        errors: ['No participating squadrons found for update']
+      };
+    }
+    
+    console.log(`[UPDATE-MULTI-DISCORD] Editing messages in ${participatingSquadrons.length} squadrons:`, participatingSquadrons);
+    
+    // Get Discord settings for all participating squadrons
+    const { data: squadronDiscordData, error: squadronDiscordError } = await supabase
+      .from('org_squadrons')
+      .select('id, name, discord_integration')
+      .in('id', participatingSquadrons);
+    
+    if (squadronDiscordError) {
+      throw new Error(`Failed to fetch squadron Discord settings: ${squadronDiscordError.message}`);
+    }
+    
+    // Process each squadron for editing
+    for (const squadronId of participatingSquadrons) {
+      try {
+        console.log(`[UPDATE-MULTI-DISCORD] Processing edit for squadron ${squadronId}`);
+        
+        // Find Discord settings for this squadron
+        const squadronData = squadronDiscordData?.find(s => s.id === squadronId);
+        
+        if (!squadronData || !squadronData.discord_integration) {
+          errors.push(`No Discord integration configured for squadron ${squadronId}`);
+          continue;
+        }
+        
+        const discordIntegration = squadronData.discord_integration;
+        const selectedGuildId = discordIntegration.selectedGuildId;
+        
+        if (!selectedGuildId) {
+          errors.push(`No Discord server configured for squadron ${squadronId}`);
+          continue;
+        }
+        
+        // Always use the events channel for each squadron
+        const discordChannels = discordIntegration.discordChannels || [];
+        const eventsChannel = discordChannels.find((ch: any) => ch.type === 'events');
+        
+        if (!eventsChannel) {
+          errors.push(`No events channel configured for squadron ${squadronId}`);
+          continue;
+        }
+        
+        console.log(`[UPDATE-MULTI-DISCORD] Attempting to edit message in guild ${selectedGuildId}, channel ${eventsChannel.id} for squadron ${squadronData.name}`);
+        
+        // Find the specific Discord message ID for this squadron/guild/channel combination
+        let messageIdForThisChannel: string | undefined;
+        
+        if (Array.isArray(event.discord_event_id)) {
+          // New JSONB structure - find the message for this specific squadron/guild/channel
+          const publication = event.discord_event_id.find(pub => 
+            pub.squadronId === squadronId && 
+            pub.guildId === selectedGuildId && 
+            pub.channelId === eventsChannel.id
+          );
+          messageIdForThisChannel = publication?.messageId;
+          console.log(`[UPDATE-MULTI-DISCORD] Found message ID from JSONB for squadron ${squadronId}: ${messageIdForThisChannel}`);
+        } else if (typeof event.discord_event_id === 'string') {
+          // Legacy single message ID - only works for the first squadron
+          messageIdForThisChannel = event.discord_event_id;
+          console.log(`[UPDATE-MULTI-DISCORD] Using legacy single message ID: ${messageIdForThisChannel}`);
+        } else if (event.discordEventId) {
+          // Fallback to legacy discordEventId field
+          messageIdForThisChannel = event.discordEventId;
+          console.log(`[UPDATE-MULTI-DISCORD] Using legacy discordEventId: ${messageIdForThisChannel}`);
+        }
+        
+        if (messageIdForThisChannel) {
+          const editResult = await editDiscordMessageInChannel(
+            messageIdForThisChannel,
+            event,
+            selectedGuildId,
+            eventsChannel.id
+          );
+          
+          if (editResult.success) {
+            editedCount++;
+            console.log(`[UPDATE-MULTI-DISCORD] Successfully edited message for squadron ${squadronData.name}`);
+          } else {
+            console.log(`[UPDATE-MULTI-DISCORD] Edit failed for squadron ${squadronData.name}: ${editResult.error}`);
+            errors.push(`Edit failed for squadron ${squadronData.name}: ${editResult.error}`);
+          }
+        } else {
+          errors.push(`No Discord message ID found for squadron ${squadronData.name} in guild ${selectedGuildId}, channel ${eventsChannel.id}`);
+        }
+        
+      } catch (error) {
+        errors.push(`Error processing edit for squadron ${squadronId}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      }
+    }
+    
+    return {
+      success: editedCount > 0,
+      publishedCount: editedCount,
+      errors
+    };
+    
+  } catch (error) {
+    console.error('Error in updateMultiChannelEvent:', error);
+    return {
+      success: false,
+      publishedCount: 0,
+      errors: [error instanceof Error ? error.message : 'Unknown error']
+    };
+  }
+}
+
+export async function syncMultiChannelDiscordAttendance(
+  eventId: string,
+  discordPublications: { squadronId: string; discordMessageId: string; }[]
+): Promise<boolean> {
+  try {
+    let overallSuccess = true;
+    const aggregatedAttendance = new Map<string, {
+      userId: string;
+      username: string;
+      status: 'yes' | 'no' | 'maybe';
+      squadronId: string;
+    }>();
+    
+    // Fetch attendance from each Discord channel
+    for (const publication of discordPublications) {
+      try {
+        const attendanceData = await getEventAttendanceFromDiscord(publication.discordMessageId);
+        
+        if (attendanceData.success && attendanceData.attendees) {
+          // Add attendees to aggregated map, with most recent response taking precedence
+          for (const attendee of attendanceData.attendees) {
+            const existingAttendee = aggregatedAttendance.get(attendee.userId);
+            
+            // If user doesn't exist or this is a more definitive response (yes/no vs maybe), update it
+            if (!existingAttendee || 
+                (attendee.status !== 'maybe' && existingAttendee.status === 'maybe')) {
+              aggregatedAttendance.set(attendee.userId, {
+                userId: attendee.userId,
+                username: attendee.username,
+                status: attendee.status,
+                squadronId: publication.squadronId
+              });
+            }
+          }
+        } else {
+          console.warn(`Failed to fetch attendance for message ${publication.discordMessageId}`);
+          overallSuccess = false;
+        }
+      } catch (error) {
+        console.error(`Error fetching attendance for squadron ${publication.squadronId}:`, error);
+        overallSuccess = false;
+      }
+    }
+    
+    // Clear existing attendance records for this event
+    await supabase
+      .from('discord_event_attendance')
+      .delete()
+      .in('discord_event_id', discordPublications.map(p => p.discordMessageId));
+    
+    // Insert aggregated attendance records
+    const attendanceRecords = Array.from(aggregatedAttendance.values()).map(attendee => ({
+      event_id: eventId,
+      discord_event_id: discordPublications.find(p => p.squadronId === attendee.squadronId)?.discordMessageId,
+      discord_id: attendee.userId,
+      discord_username: attendee.username,
+      user_response: attendee.status,
+      squadron_id: attendee.squadronId
+    }));
+    
+    if (attendanceRecords.length > 0) {
+      const { error } = await supabase
+        .from('discord_event_attendance')
+        .insert(attendanceRecords);
+      
+      if (error) {
+        console.error('Error inserting aggregated attendance records:', error);
+        overallSuccess = false;
+      } else {
+        console.log(`[DEBUG] Successfully aggregated attendance from ${discordPublications.length} channels: ${attendanceRecords.length} total attendees`);
+      }
+    }
+    
+    return overallSuccess;
+  } catch (error) {
+    console.error('Error in syncMultiChannelDiscordAttendance:', error);
     return false;
   }
 }

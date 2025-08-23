@@ -120,10 +120,107 @@ export const deleteEventImage = async (imageUrl: string) => {
 };
 
 /**
- * Update the Discord publish function to include images
- * @param event The event to publish (with imageUrl)
- * @param imageUrl The URL of the image to include in the Discord message
- * @returns Response with success status and Discord IDs
+ * Upload multiple event images and store in JSONB format
+ * @param eventId The event ID to associate with the images
+ * @param images Object containing header and additional images
+ * @returns The URLs of uploaded images or error
+ */
+export const uploadMultipleEventImages = async (eventId: string, images: {
+  headerImage?: File | null;
+  additionalImages?: (File | null)[];
+}) => {
+  try {
+    console.log(`Uploading multiple images for event ${eventId}...`);
+    
+    const imageUrls: { headerImage?: string; additionalImages: string[] } = {
+      additionalImages: []
+    };
+    
+    // Upload header image
+    if (images.headerImage) {
+      const result = await uploadSingleImageFile(eventId, images.headerImage, 'header');
+      if (result.error) {
+        console.error('Failed to upload header image:', result.error);
+        return { urls: null, error: result.error };
+      }
+      imageUrls.headerImage = result.url;
+    }
+    
+    // Upload additional images
+    if (images.additionalImages) {
+      for (let i = 0; i < images.additionalImages.length; i++) {
+        const additionalImage = images.additionalImages[i];
+        if (additionalImage) {
+          const result = await uploadSingleImageFile(eventId, additionalImage, `additional-${i}`);
+          if (result.error) {
+            console.error(`Failed to upload additional image ${i}:`, result.error);
+            // Continue with other images even if one fails
+          } else if (result.url) {
+            imageUrls.additionalImages.push(result.url);
+          }
+        }
+      }
+    }
+    
+    // Update the event with JSONB image URLs
+    const { error: updateError } = await supabase
+      .from('events')
+      .update({ image_url: imageUrls })
+      .eq('id', eventId);
+    
+    if (updateError) {
+      console.error('Error updating event with multiple image URLs:', updateError);
+      return { urls: null, error: updateError };
+    }
+    
+    console.log('Multiple image upload and database update successful:', imageUrls);
+    return { urls: imageUrls, error: null };
+  } catch (err) {
+    console.error('Unexpected error in uploadMultipleEventImages:', err);
+    return { urls: null, error: err instanceof Error ? err : new Error('Unknown error') };
+  }
+};
+
+/**
+ * Helper function to upload a single image file
+ */
+const uploadSingleImageFile = async (eventId: string, file: File, imageType: string) => {
+  const fileExt = file.name.split('.').pop();
+  const fileName = `${imageType}-${Date.now()}.${fileExt}`;
+  const filePath = `${eventId}/${fileName}`;
+  
+  console.log(`Upload path for ${imageType}: ${filePath}`);
+  
+  // Upload the file to the 'event-images' bucket with upsert=true
+  const { data, error } = await supabase.storage
+    .from('event-images')
+    .upload(filePath, file, {
+      cacheControl: '3600',
+      upsert: true
+    });
+  
+  if (error) {
+    console.error(`Error uploading ${imageType} image:`, error);
+    return { url: null, error };
+  }
+  
+  // Get the public URL for the uploaded file
+  const { data: publicUrlData } = supabase.storage
+    .from('event-images')
+    .getPublicUrl(filePath);
+  
+  const storedUrl = publicUrlData.publicUrl;
+  const displayUrl = storedUrl + '?cache=' + Date.now();
+  
+  console.log(`Generated URL for ${imageType}: ${displayUrl}`);
+  return { url: displayUrl, error: null };
+};
+
+/**
+ * Update the Discord publish function to include images (legacy single image support)
+ * @param eventId The event ID
+ * @param imageUrl The URL of the image to include
+ * @returns Response with success status
  */
 export const updateEventImageUrl = async (eventId: string, imageUrl: string | null) => {
   console.log('REACHED UPDATE EVENT IMAGE URL FUNCTION');

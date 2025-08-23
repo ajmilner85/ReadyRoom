@@ -188,8 +188,11 @@ const OrganizationSettings: React.FC<OrganizationSettingsProps> = ({ error, setE
         }
         
         if (result?.error) {
+          console.error('Creation failed with error:', result.error);
           throw new Error(result.error.message || `Failed to create ${modalState.entityType}`);
         }
+        
+        console.log('Entity created successfully:', result);
       } else {
         // Edit mode
         if (!modalState.entity) return;
@@ -229,6 +232,7 @@ const OrganizationSettings: React.FC<OrganizationSettingsProps> = ({ error, setE
       
       setModalState({ ...modalState, isOpen: false });
     } catch (err: any) {
+      console.error('handleModalSave error:', err);
       setErrorMessage(err.message);
     } finally {
       setLoading(false);

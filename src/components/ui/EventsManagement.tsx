@@ -9,9 +9,12 @@ import { DeleteDivisionDialog } from './dialogs/DeleteDivisionDialog';
 import type { Event, Cycle, CycleType } from '../../types/EventTypes';
 import { supabase, fetchCycles, createCycle, updateCycle, deleteCycle, 
          fetchEvents, createEvent, updateEvent, deleteEvent } from '../../utils/supabaseClient';
-import { deleteDiscordMessage } from '../../utils/discordService';
+import { deleteDiscordMessage, deleteMultiChannelEvent, updateMultiChannelEvent } from '../../utils/discordService';
+import { uploadEventImage, uploadMultipleEventImages, deleteEventImage } from '../../utils/eventImageService';
 import LoadingSpinner from './LoadingSpinner';
 import { useWebSocket } from '../../context/WebSocketContext';
+import { getAllSquadrons } from '../../utils/organizationService';
+import { Squadron } from '../../types/OrganizationTypes';
 
 // Standard card width matching MissionPreparation component
 const CARD_WIDTH = '550px';
@@ -20,9 +23,11 @@ const EventsManagement: React.FC = () => {
   // State for data
   const [events, setEvents] = useState<Event[]>([]);
   const [cycles, setCycles] = useState<Cycle[]>([]);
+  const [squadrons, setSquadrons] = useState<Squadron[]>([]);
   const [loading, setLoading] = useState({
     cycles: false,
     events: false,
+    squadrons: false,
     initial: true // Add initial loading state to prevent flash of unfiltered content
   });
   const [error, setError] = useState<string | null>(null);
@@ -54,7 +59,25 @@ const EventsManagement: React.FC = () => {
     fetchDiscordGuildId().then(() => {
       loadCycles();
     });
+    loadSquadrons();
   }, []);
+
+  // Load squadrons function
+  const loadSquadrons = async () => {
+    setLoading(prev => ({ ...prev, squadrons: true }));
+    try {
+      const { data, error } = await getAllSquadrons();
+      if (error) {
+        throw error;
+      }
+      setSquadrons(data || []);
+    } catch (err: any) {
+      console.error('Failed to load squadrons:', err);
+      setError(err.message);
+    } finally {
+      setLoading(prev => ({ ...prev, squadrons: false }));
+    }
+  };
 
   // Fetch Discord guild ID from squadron settings
   const fetchDiscordGuildId = async () => {
@@ -200,15 +223,24 @@ const EventsManagement: React.FC = () => {
       const eventsWithDiscordIds = fetchedEvents.map(event => {
         // Cast to any to access potential database fields that might not be in the TypeScript type
         const eventObj = event as any;
-        const discordMessageId = eventObj.discord_event_id || eventDiscordMap[event.id] || undefined;
+        // Handle JSONB discord_event_id properly - extract first message ID for compatibility
+        let discordMessageId = eventDiscordMap[event.id] || undefined;
+        if (Array.isArray(eventObj.discord_event_id) && eventObj.discord_event_id.length > 0) {
+          discordMessageId = eventObj.discord_event_id[0].messageId;
+        } else if (typeof eventObj.discord_event_id === 'string') {
+          discordMessageId = eventObj.discord_event_id;
+        }
         
-        console.log(`[DEBUG] Processing event ${event.id}: discord_event_id=${eventObj.discord_event_id}, localStorage ID=${eventDiscordMap[event.id]}`);
+        console.log(`[DEBUG] Processing event ${event.id}: discord_event_id=${JSON.stringify(eventObj.discord_event_id)}, localStorage ID=${eventDiscordMap[event.id]}`);
+        
+        // Remove the problematic JSONB field from the spread to prevent React rendering issues
+        const { discord_event_id: _, ...eventWithoutDiscordEventId } = eventObj;
         
         return {
-          ...event,
-          // Store the ID in both potential field names for maximum compatibility
-          discordMessageId: discordMessageId,
-          discord_event_id: discordMessageId
+          ...eventWithoutDiscordEventId,
+          // Store the ID in both potential field names for maximum compatibility (as strings only)
+          discordMessageId: typeof discordMessageId === 'string' ? discordMessageId : undefined,
+          discord_event_id: typeof discordMessageId === 'string' ? discordMessageId : undefined
         };
       });
       
@@ -270,6 +302,9 @@ const EventsManagement: React.FC = () => {
       minutes: number;
     };
     restrictedTo?: string[];
+    participants?: string[];
+    headerImage?: File | null;
+    additionalImages?: (File | null)[];
   }) => {
     try {
       // Determine event type based on cycle
@@ -283,7 +318,8 @@ const EventsManagement: React.FC = () => {
           eventType = 'Episode';
         }
       }      
-      const { error } = await createEvent({
+      // Create the event first without image
+      const { event: newEvent, error } = await createEvent({
         ...eventData,
         status: 'upcoming',
         cycleId: selectedCycle?.id,
@@ -291,7 +327,36 @@ const EventsManagement: React.FC = () => {
         discordGuildId: discordGuildId || undefined
       });
 
+      console.log('[CREATE-EVENT-DEBUG] createEvent result:', { newEvent, error });
       if (error) throw error;
+      
+      // Upload multiple images if provided
+      console.log('[IMAGE-DEBUG] Full eventData object keys:', Object.keys(eventData));
+      console.log('[IMAGE-DEBUG] eventData.headerImage:', eventData.headerImage);
+      console.log('[IMAGE-DEBUG] eventData.additionalImages:', eventData.additionalImages);
+      console.log('[IMAGE-DEBUG] Checking image upload conditions:', {
+        hasHeaderImage: !!eventData.headerImage,
+        hasAdditionalImages: !!eventData.additionalImages,
+        additionalImagesLength: eventData.additionalImages?.length,
+        hasNewEvent: !!newEvent,
+        newEventId: newEvent?.id
+      });
+      
+      if ((eventData.headerImage || eventData.additionalImages) && newEvent && newEvent.id) {
+        console.log('Starting multiple image upload...');
+        const { urls: imageUrls, error: uploadError } = await uploadMultipleEventImages(newEvent.id, {
+          headerImage: eventData.headerImage,
+          additionalImages: eventData.additionalImages
+        });
+        if (uploadError) {
+          console.error('Failed to upload images:', uploadError);
+          setError('Event created but image upload failed');
+        } else {
+          console.log('Image upload successful:', imageUrls);
+        }
+      } else {
+        console.log('No images to upload or missing event data');
+      }
       
       // Reload events to get the latest data
       await loadEvents(selectedCycle?.id);
@@ -311,12 +376,85 @@ const EventsManagement: React.FC = () => {
       minutes: number;
     };
     restrictedTo?: string[];
+    participants?: string[];
+    headerImage?: File | null;
+    additionalImages?: (File | null)[];
   }) => {
     if (!editingEvent) return;
     
     try {
-      const { error } = await updateEvent(editingEvent.id, eventData);
+      // First update the database (don't update discord_event_id to preserve JSONB structure)
+      const { error } = await updateEvent(editingEvent.id, {
+        ...eventData
+        // Don't override discord_event_id - let it stay as JSONB in database
+      });
       if (error) throw error;
+      
+      // Upload multiple images if provided
+      if (eventData.headerImage || eventData.additionalImages) {
+        const { urls: imageUrls, error: uploadError } = await uploadMultipleEventImages(editingEvent.id, {
+          headerImage: eventData.headerImage,
+          additionalImages: eventData.additionalImages
+        });
+        if (uploadError) {
+          console.error('Failed to upload images:', uploadError);
+          setError('Event updated but image upload failed');
+        }
+      }
+      
+      // Check if this event has Discord messages by fetching fresh data from database
+      // (editingEvent only has the converted string version, not the original JSONB)
+      if (editingEvent.discordEventId) {
+        console.log(`[UPDATE-EVENT] Event has Discord messages, fetching fresh data for multi-channel update`);
+        
+        // Fetch fresh event data with original JSONB discord_event_id
+        const { data: freshEventData, error: fetchError } = await supabase
+          .from('events')
+          .select('*')
+          .eq('id', editingEvent.id)
+          .single();
+          
+        if (fetchError || !freshEventData) {
+          console.error('[UPDATE-EVENT] Failed to fetch fresh event data:', fetchError);
+        } else {
+          console.log(`[UPDATE-EVENT] Event has Discord messages, updating Discord posts`);
+          
+          // Create updated event object with fresh database data and new user input
+          const updatedEvent = {
+            ...freshEventData, // Use fresh data from database (includes original JSONB discord_event_id)
+            ...eventData, // Apply user changes
+            // Convert datetime back to ISO format if needed
+            title: eventData.title, // Ensure title field mapping
+            datetime: eventData.datetime.includes('T') ? eventData.datetime : `${eventData.datetime}:00.000Z`,
+            endDatetime: eventData.endDatetime?.includes('T') ? eventData.endDatetime : `${eventData.endDatetime}:00.000Z`
+          };
+        
+          console.log(`[UPDATE-EVENT] Updated event object:`, {
+            id: updatedEvent.id,
+            title: updatedEvent.title,
+            cycleId: updatedEvent.cycleId || updatedEvent.cycle_id,
+            participants: updatedEvent.participants,
+            discord_event_id: updatedEvent.discord_event_id,
+            allKeys: Object.keys(updatedEvent)
+          });
+          
+          try {
+            const discordResult = await updateMultiChannelEvent(updatedEvent);
+            console.log(`[UPDATE-EVENT] Discord update result:`, discordResult);
+            
+            if (discordResult.errors.length > 0) {
+              console.warn(`Warning: Some Discord updates failed:`, discordResult.errors);
+            }
+            
+            if (discordResult.success) {
+              console.log(`Successfully updated Discord messages in ${discordResult.publishedCount} channels`);
+            }
+          } catch (discordError) {
+            console.error('[UPDATE-EVENT] Error updating Discord messages:', discordError);
+            // Don't fail the whole update if Discord update fails
+          }
+        }
+      }
       
       // Reload events to get the latest data
       await loadEvents(selectedCycle?.id);
@@ -457,19 +595,23 @@ const EventsManagement: React.FC = () => {
         console.log(`[DEBUG] Event JSON:`, JSON.stringify(eventToDelete));
         console.log(`[DEBUG] All event properties:`, Object.keys(eventToDelete));
         
-        // First try to delete any associated Discord message
+        // First try to delete any associated Discord messages from all channels
         try {
-          console.log(`[DEBUG] Calling deleteDiscordMessage with entire event object`);
-          // Pass the entire event object to the enhanced deleteDiscordMessage function
-          const { success, error } = await deleteDiscordMessage(eventToDelete);
+          console.log(`[DEBUG] Calling deleteMultiChannelEvent for multi-squadron deletion`);
+          // Use the new multi-channel deletion function
+          const { success, deletedCount, errors } = await deleteMultiChannelEvent(eventToDelete);
           
-          console.log(`[DEBUG] Delete result: success=${success}, error=${error || 'none'}`);
+          console.log(`[DEBUG] Multi-channel delete result: success=${success}, deletedCount=${deletedCount}, errors=${errors.length}`);
           
-          if (!success) {
-            console.warn(`Warning: Failed to delete Discord message: ${error}`);
-            // Continue with event deletion even if Discord deletion fails
+          if (errors.length > 0) {
+            console.warn(`Warning: Some Discord deletions failed:`, errors);
+            // Continue with event deletion even if some Discord deletions fail
+          }
+          
+          if (success) {
+            console.log(`Successfully deleted Discord messages from ${deletedCount} channels for event: ${eventToDelete.id}`);
           } else {
-            console.log(`Successfully deleted Discord message for event: ${eventToDelete.id}`);
+            console.warn(`Failed to delete Discord messages for event: ${eventToDelete.id}`);
           }
         } catch (discordError) {
           console.error('[DEBUG] Error deleting Discord message:', discordError);
@@ -706,7 +848,19 @@ const EventsManagement: React.FC = () => {
             setShowEventDialog(false);
             setEditingEvent(null);
           }}
-          initialData={editingEvent ?? undefined}
+          initialData={editingEvent ? {
+            title: editingEvent.title,
+            description: editingEvent.description || '',
+            datetime: editingEvent.datetime,
+            endDatetime: editingEvent.endDatetime || undefined,
+            restrictedTo: editingEvent.restrictedTo,
+            participants: editingEvent.participants,
+            imageUrl: editingEvent.imageUrl, // Legacy support
+            headerImageUrl: editingEvent.headerImageUrl || editingEvent.imageUrl,
+            additionalImageUrls: editingEvent.additionalImageUrls || []
+          } : undefined}
+          squadrons={squadrons}
+          selectedCycle={selectedCycle ?? undefined}
         />
       )}
 
@@ -717,6 +871,7 @@ const EventsManagement: React.FC = () => {
             setShowCycleDialog(false);
             setEditingCycle(null);
           }}
+          squadrons={squadrons}
           initialData={editingCycle ?? undefined}
         />
       )}

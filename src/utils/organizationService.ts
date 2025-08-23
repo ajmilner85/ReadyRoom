@@ -347,33 +347,116 @@ export async function getAllSquadrons(): Promise<{ data: Squadron[] | null; erro
 
 export async function createSquadron(squadron: NewSquadron): Promise<{ data: Squadron | null; error: any }> {
   try {
+    console.log('Creating squadron with data:', squadron);
+    
+    // Add timeout to prevent hanging
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => {
+      controller.abort();
+      console.error('Squadron creation timed out after 10 seconds');
+    }, 10000);
+    
+    // Try inserting with required fields only (based on NOT NULL constraints)
+    const minimalSquadron = {
+      name: squadron.name,           // NOT NULL
+      designation: squadron.designation,  // NOT NULL  
+      wing_id: squadron.wing_id,     // NOT NULL
+      carrier_id: null               // Explicitly set to null to avoid FK constraint
+    };
+    
+    console.log('Attempting insert with minimal data:', minimalSquadron);
+    
+    // Skip wing check for now and try direct insert
+    console.log('Skipping wing check, attempting direct insert...');
+
+    // Try the simplest possible insert first - without the complex select
+    console.log('Attempting basic insert...');
     const { data, error } = await supabase
       .from('org_squadrons')
-      .insert(squadron)
-      .select(`
-        *,
-        wing:wing_id (
-          id,
-          name,
-          designation,
-          established_date,
-          deactivated_date,
-          insignia_url,
-          group:group_id (
+      .insert(minimalSquadron)
+      .select('*')
+      .abortSignal(controller.signal)
+      .single();
+      
+    console.log('Basic insert result:', { data, error });
+      
+    clearTimeout(timeoutId);
+
+    // If basic insert succeeded, try to get the full record with relations
+    if (!error && data) {
+      console.log('Basic insert succeeded, fetching full record...');
+      
+      const { data: fullData, error: fetchError } = await supabase
+        .from('org_squadrons')
+        .select(`
+          *,
+          wing:wing_id (
             id,
             name,
-            command:command_id (
+            designation,
+            established_date,
+            deactivated_date,
+            insignia_url,
+            group:group_id (
               id,
-              name
+              name,
+              command:command_id (
+                id,
+                name
+              )
             )
           )
-        )
-      `)
-      .single();
+        `)
+        .eq('id', data.id)
+        .single();
+        
+      if (fetchError) {
+        console.error('Failed to fetch full squadron data:', fetchError);
+        // Return the basic data if relation fetch fails
+        return { data, error: null };
+      }
+      
+      // Try updating with complex fields
+      if (squadron.callsigns || squadron.color_palette || squadron.discord_integration) {
+        console.log('Updating with complex fields...');
+        const updateData = {};
+        if (squadron.callsigns) updateData.callsigns = squadron.callsigns;
+        if (squadron.color_palette) updateData.color_palette = squadron.color_palette;
+        if (squadron.discord_integration) updateData.discord_integration = squadron.discord_integration;
+        
+        const { error: updateError } = await supabase
+          .from('org_squadrons')
+          .update(updateData)
+          .eq('id', data.id);
+          
+        if (updateError) {
+          console.error('Complex fields update failed:', updateError);
+        } else {
+          console.log('Complex fields updated successfully');
+        }
+      }
+      
+      return { data: fullData, error: null };
+    }
+
+    if (error) {
+      console.error('Supabase error creating squadron:', error);
+      console.error('Error details:', {
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        code: error.code
+      });
+    } else {
+      console.log('Squadron created successfully:', data);
+    }
 
     return { data, error };
   } catch (error) {
-    console.error('Error creating squadron:', error);
+    console.error('Unexpected error creating squadron:', error);
+    if (error.name === 'AbortError') {
+      return { data: null, error: { message: 'Squadron creation timed out' } };
+    }
     return { data: null, error };
   }
 }

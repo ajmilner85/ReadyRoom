@@ -9,11 +9,10 @@ import MissionDefaults from './MissionDefaults';
 import Appearance from './Appearance';
 import UserAccounts from './UserAccounts';
 import RosterSettings from './RosterSettings';
-import DiscordIntegration from './DiscordIntegration';
 import OrganizationSettings from './OrganizationSettings';
 
 // Define the types of settings pages
-type SettingsPage = 'roster' | 'squadron' | 'organization' | 'mission' | 'appearance' | 'accounts' | 'discord';
+type SettingsPage = 'roster' | 'squadron' | 'organization' | 'mission' | 'appearance' | 'accounts';
 
 interface SettingsNavItem {
   id: SettingsPage;
@@ -52,11 +51,6 @@ const settingsNavItems: SettingsNavItem[] = [
     id: 'accounts',
     icon: <User size={20} />,
     label: 'User Accounts'
-  },
-  {
-    id: 'discord',
-    icon: <ScrollText size={20} />,
-    label: 'Discord Integration'
   }
 ];
 
@@ -89,8 +83,6 @@ const Settings: React.FC = () => {
         return <Appearance error={error} setError={setError} />;
       case 'accounts':
         return <UserAccounts error={error} setError={setError} />;
-      case 'discord':
-        return <DiscordIntegration error={error} setError={setError} />;
       default:
         return <div>Select a settings page</div>;
     }

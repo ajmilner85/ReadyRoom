@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import type { User, Session } from '@supabase/supabase-js';
 import { supabase, getCurrentUser, onAuthStateChange } from '../utils/supabaseClient';
 import { getUserProfile, type UserProfile } from '../utils/userProfileService';
+import { triggerRoleSync } from '../utils/discordRoleSync';
 
 interface AuthContextType {
   user: User | null;
@@ -44,8 +45,25 @@ export function AuthProvider({ children }: AuthProviderProps) {
       if (profileError) {
         console.error('Error fetching user profile:', profileError);
         setError(profileError.message);
-      } else {
-        setUserProfile(profile);
+        return;
+      }
+      
+      if (profile) {
+        // Trigger Discord role sync if needed
+        try {
+          const syncSuccess = await triggerRoleSync(profile);
+          if (syncSuccess) {
+            // Refetch profile to get updated permissions
+            const { profile: updatedProfile } = await getUserProfile(user.id);
+            setUserProfile(updatedProfile);
+          } else {
+            setUserProfile(profile);
+          }
+        } catch (syncError) {
+          console.warn('Role sync failed, using existing profile:', syncError);
+          setUserProfile(profile);
+        }
+        
         setError(null);
       }
     } catch (err: any) {

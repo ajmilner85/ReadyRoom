@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Card } from '../card';
 import { Check, Send, RefreshCw, ImageIcon, X, Upload } from 'lucide-react';
 import type { Event } from '../../../types/EventTypes';
-import { publishEventToDiscord } from '../../../utils/discordService';
+import { publishEventFromCycle, updateEventMultipleDiscordIds } from '../../../utils/discordService';
 import { fetchEvents, supabase } from '../../../utils/supabaseClient';
 import { uploadEventImage, deleteEventImage } from '../../../utils/eventImageService';
 
@@ -201,26 +201,55 @@ const EventDetails: React.FC<EventDetailsProps> = ({ event }) => {
         .single();
       
       // Create an enhanced version of the event with guaranteed image URL
+      console.log('[PUBLISH-DEBUG] Raw dbEvent.image_url:', dbEvent?.image_url);
+      console.log('[PUBLISH-DEBUG] Type of image_url:', typeof dbEvent?.image_url);
+      
       const publishableEvent = {
         ...event,
-        // Force set the image URL from multiple possible sources, prioritizing DB value
-        imageUrl: dbEvent?.image_url || imagePreview || event.imageUrl || (event as any).image_url
+        // Handle JSONB image_url structure for multiple images
+        imageUrl: typeof dbEvent?.image_url === 'object' && dbEvent.image_url?.headerImage 
+          ? dbEvent.image_url.headerImage 
+          : dbEvent?.image_url || imagePreview || event.imageUrl || (event as any).image_url,
+        // Also pass the full JSONB structure for multi-image support
+        images: typeof dbEvent?.image_url === 'object' ? dbEvent.image_url : undefined
       };
       
-      const response = await publishEventToDiscord(publishableEvent);
-        if (!response.success) {
-        throw new Error(response.error || 'Failed to publish event to Discord');
+      console.log('[PUBLISH-DEBUG] publishableEvent:', publishableEvent);
+      const response = await publishEventFromCycle(publishableEvent);
+      
+      if (!response.success) {
+        if (response.errors.length > 0) {
+          const errorMessages = response.errors.map(err => 
+            `Squadron ${err.squadronId}: ${err.error}`
+          ).join('; ');
+          throw new Error(`Failed to publish to some squadrons: ${errorMessages}`);
+        } else {
+          throw new Error('Failed to publish event to Discord');
+        }
+      }
+      
+      // Update event with multiple Discord message IDs
+      if (response.publishedChannels.length > 0) {
+        await updateEventMultipleDiscordIds(event.id, response.publishedChannels);
+      }
+      
+      const publishedCount = response.publishedChannels.length;
+      const errorCount = response.errors.length;
+      
+      let successMessage = `Event published to ${publishedCount} squadron${publishedCount !== 1 ? 's' : ''}!`;
+      if (errorCount > 0) {
+        successMessage += ` (${errorCount} failed)`;
       }
       
       setPublishMessage({
-        type: 'success',
-        text: 'Event successfully published to Discord!'
+        type: publishedCount > 0 ? 'success' : 'error',
+        text: successMessage
       });
       
-      // Refresh data from database to get updated Discord ID
+      // Refresh data from database to get updated Discord IDs
       await refreshEventData();
       
-      // Clear the success message after 5 seconds
+      // Clear the message after 5 seconds
       setTimeout(() => {
         setPublishMessage(null);
       }, 5000);

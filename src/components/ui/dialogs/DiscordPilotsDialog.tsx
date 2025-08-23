@@ -5,7 +5,9 @@ import {
   matchDiscordMembersWithPilots,
   processPilotMatches
 } from '../../../utils/discordPilotService';
-import { X } from 'lucide-react';
+import { syncUserDiscordRoles } from '../../../utils/discordRoleSync';
+import { getUserProfile } from '../../../utils/userProfileService';
+import { X, Users, Shield } from 'lucide-react';
 import { Pilot } from '../../../types/PilotTypes';
 import { supabase } from '../../../utils/supabaseClient';
 import { Status } from '../../../utils/statusService';
@@ -35,6 +37,12 @@ export const DiscordPilotsDialog: React.FC<DiscordPilotsDialogProps> = ({
   const [roles, setRoles] = useState<Role[]>([]);
   const [statuses, setStatuses] = useState<Status[]>([]);
   const [disabledRoles, setDisabledRoles] = useState<Record<string, boolean>>({});
+  const [enableRoleSync, setEnableRoleSync] = useState(true);
+  const [roleSyncResults, setRoleSyncResults] = useState<{
+    synced: number;
+    failed: number;
+    errors: string[];
+  }>({ synced: 0, failed: 0, errors: [] });
 
   useEffect(() => {
     if (isOpen) {
@@ -244,6 +252,11 @@ export const DiscordPilotsDialog: React.FC<DiscordPilotsDialogProps> = ({
     try {
       const result = await processPilotMatches(matches);
       
+      // Sync Discord roles if enabled
+      if (enableRoleSync) {
+        await syncDiscordRoles();
+      }
+      
       if (onComplete) {
         onComplete(result);
       }
@@ -253,6 +266,76 @@ export const DiscordPilotsDialog: React.FC<DiscordPilotsDialogProps> = ({
       setError(err.message || 'Failed to process pilot matches');
     } finally {
       setProcessing(false);
+    }
+  };
+
+  // Sync Discord roles for processed users
+  const syncDiscordRoles = async () => {
+    const syncResults = { synced: 0, failed: 0, errors: [] as string[] };
+    
+    try {
+      // Get all users who have Discord IDs and need role sync
+      const { data: userProfiles, error: profilesError } = await supabase
+        .from('user_profiles')
+        .select('*')
+        .not('discord_id', 'is', null);
+
+      if (profilesError) {
+        throw new Error(`Failed to fetch user profiles: ${profilesError.message}`);
+      }
+
+      if (!userProfiles || userProfiles.length === 0) {
+        return;
+      }
+
+      // Sync roles for each user
+      for (const profile of userProfiles) {
+        try {
+          // Find matching Discord member from our loaded data
+          const discordMember = matches.find(match => 
+            match.discordMember?.user?.id === profile.discord_id
+          )?.discordMember;
+
+          if (!discordMember || !discordMember.roles) {
+            continue;
+          }
+
+          // Convert Discord roles to the format expected by syncUserDiscordRoles
+          const userRoles = discordMember.roles.map(roleId => {
+            // In a real implementation, you'd map role IDs to role details
+            // For now, we'll create a basic structure
+            return {
+              id: roleId,
+              name: `Role_${roleId}`,
+              permissions: '0'
+            };
+          });
+
+          const { success, error } = await syncUserDiscordRoles(profile, userRoles);
+          
+          if (success) {
+            syncResults.synced++;
+          } else {
+            syncResults.failed++;
+            if (error) {
+              syncResults.errors.push(`${profile.discord_username}: ${error}`);
+            }
+          }
+        } catch (roleError: any) {
+          syncResults.failed++;
+          syncResults.errors.push(`${profile.discord_username}: ${roleError.message}`);
+        }
+      }
+
+      setRoleSyncResults(syncResults);
+      
+    } catch (error: any) {
+      console.error('Error syncing Discord roles:', error);
+      setRoleSyncResults({
+        synced: 0,
+        failed: 0,
+        errors: [`Role sync failed: ${error.message}`]
+      });
     }
   };
 
@@ -678,12 +761,70 @@ export const DiscordPilotsDialog: React.FC<DiscordPilotsDialogProps> = ({
 
         {/* Footer */}
         <div style={{
-          display: 'flex',
-          justifyContent: 'flex-end',
-          gap: '12px',
           borderTop: '1px solid #E2E8F0',
           padding: '16px 24px'
         }}>
+          {/* Role Sync Options */}
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '16px',
+            marginBottom: '16px',
+            padding: '12px',
+            backgroundColor: '#F8FAFC',
+            borderRadius: '6px',
+            border: '1px solid #E2E8F0'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Shield size={16} className="text-blue-600" />
+              <label style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                fontSize: '14px',
+                color: '#374151',
+                cursor: 'pointer'
+              }}>
+                <input
+                  type="checkbox"
+                  checked={enableRoleSync}
+                  onChange={(e) => setEnableRoleSync(e.target.checked)}
+                  style={{ margin: 0 }}
+                />
+                Sync Discord role permissions
+              </label>
+            </div>
+            
+            {roleSyncResults.synced > 0 || roleSyncResults.failed > 0 ? (
+              <div style={{
+                fontSize: '12px',
+                color: '#6B7280',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px'
+              }}>
+                <span className="text-green-600">✓ {roleSyncResults.synced} synced</span>
+                {roleSyncResults.failed > 0 && (
+                  <span className="text-red-600">✗ {roleSyncResults.failed} failed</span>
+                )}
+              </div>
+            ) : enableRoleSync && (
+              <span style={{
+                fontSize: '12px',
+                color: '#6B7280',
+                fontStyle: 'italic'
+              }}>
+                Will update user permissions based on Discord roles
+              </span>
+            )}
+          </div>
+          
+          {/* Action Buttons */}
+          <div style={{
+            display: 'flex',
+            justifyContent: 'flex-end',
+            gap: '12px'
+          }}>
           <button
             onClick={onClose}
             disabled={processing}
@@ -727,6 +868,7 @@ export const DiscordPilotsDialog: React.FC<DiscordPilotsDialogProps> = ({
             )}
             Accept
           </button>
+          </div>
         </div>
       </div>
     </>

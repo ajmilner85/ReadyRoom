@@ -13,7 +13,8 @@ const discordBotPath = path.resolve(__dirname, '../SDOBot/discordBot');
 const { 
   publishEventToDiscord, 
   initializeDiscordBot, 
-  deleteEventMessage, 
+  deleteEventMessage,
+  editEventMessage, 
   getAvailableGuilds 
 } = require(discordBotPath);
 
@@ -176,7 +177,7 @@ app.delete('/api/events/:discordMessageId', async (req, res) => {
 // Add detailed logging to the publish endpoint
 app.post('/api/events/publish', async (req, res) => {
   try {
-    const { title, description, startTime, endTime, eventId, guildId, channelId, imageUrl } = req.body;
+    const { title, description, startTime, endTime, eventId, guildId, channelId, imageUrl, images, creator } = req.body;
     
     console.log('[DEBUG] Received event publish request:', { 
       timestamp: new Date().toISOString(),
@@ -209,25 +210,10 @@ app.post('/api/events/publish', async (req, res) => {
       });
     }
     
-    // Check if this event was already published to avoid duplicates
-    if (eventId) {
-      console.log(`[DEBUG] Checking if event ${eventId} was already published...`);
-      const { data: existingEvent, error: checkError } = await supabase
-        .from('events')
-        .select('discord_event_id, discord_guild_id')
-        .eq('id', eventId)
-        .single();
-        
-      if (!checkError && existingEvent && existingEvent.discord_event_id) {
-        console.log(`[DEBUG] Event ${eventId} already published with Discord ID: ${existingEvent.discord_event_id}`);
-        return res.json({
-          success: true,
-          discordMessageId: existingEvent.discord_event_id,
-          discordGuildId: existingEvent.discord_guild_id,
-          alreadyPublished: true
-        });
-      }
-    }
+    // Note: Removed duplicate check to allow multi-squadron publishing
+    // The same event needs to be published to multiple Discord servers/channels
+    console.log(`[MULTI-PUBLISH] Processing request for event ${eventId}, guild ${guildId}, channel ${channelId}`);
+    console.log(`[MULTI-PUBLISH] Request timestamp: ${new Date().toISOString()}`);
     
     // Format the event time object
     const eventTime = {
@@ -244,8 +230,9 @@ app.post('/api/events/publish', async (req, res) => {
       endTime: eventTime.end.toISOString() 
     });
       // Call the Discord bot to publish the event, passing both the guild ID, channel ID, and image URL if available
-    const result = await publishEventToDiscord(title, description || '', eventTime, guildId, channelId, imageUrl);
-    console.log('[DEBUG] Discord publish result:', result);
+    console.log(`[MULTI-PUBLISH] About to call publishEventToDiscord for guild ${guildId}, channel ${channelId}`);
+    const result = await publishEventToDiscord(title, description || '', eventTime, guildId, channelId, imageUrl, creator, images);
+    console.log(`[MULTI-PUBLISH] Discord publish result for guild ${guildId}:`, result);
       // If eventId was provided, update the event in Supabase with the Discord message ID, guild ID and image URL
     // Don't try to store the channelId in the events table as it doesn't have that column
     if (eventId && result.messageId) {
@@ -284,6 +271,82 @@ app.post('/api/events/publish', async (req, res) => {
     res.status(500).json({ 
       success: false, 
       error: error.message || 'Failed to publish event to Discord'
+    });
+  }
+});
+
+// Edit Discord event message endpoint
+app.put('/api/events/:messageId/edit', async (req, res) => {
+  try {
+    const { messageId } = req.params;
+    const { title, description, startTime, endTime, guildId, channelId, imageUrl, images, creator } = req.body;
+    
+    console.log('[DEBUG] Received event edit request:', { 
+      timestamp: new Date().toISOString(),
+      messageId,
+      title,
+      startTime,
+      guildId,
+      channelId,
+      hasImage: !!imageUrl
+    });
+    
+    if (!title || !startTime) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Title and start time are required' 
+      });
+    }
+
+    if (!guildId) {
+      return res.status(400).json({
+        success: false,
+        error: 'Discord server ID (guildId) is required'
+      });
+    }
+
+    if (!channelId) {
+      return res.status(400).json({
+        success: false,
+        error: 'Discord channel ID (channelId) is required'
+      });
+    }
+    
+    // Format the event time object
+    const eventTime = {
+      start: new Date(startTime),
+      end: endTime ? new Date(endTime) : new Date(new Date(startTime).getTime() + (60 * 60 * 1000)) // Default to 1 hour later
+    };
+    
+    console.log('[DEBUG] Editing Discord message:', { 
+      messageId,
+      title, 
+      guildId,
+      channelId,
+      startTime: eventTime.start.toISOString(), 
+      endTime: eventTime.end.toISOString() 
+    });
+    
+    // Call the Discord bot to edit the message
+    const result = await editEventMessage(messageId, title, description || '', eventTime, guildId, channelId, imageUrl, creator, images);
+    console.log(`[DEBUG] Discord edit result:`, result);
+    
+    if (result.success) {
+      res.json({
+        success: true,
+        messageId: messageId
+      });
+    } else {
+      res.status(500).json({
+        success: false,
+        error: result.error || 'Failed to edit Discord message'
+      });
+    }
+  } catch (error) {
+    console.error('[ERROR] Error editing Discord message:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: error.message || 'Failed to edit Discord message'
     });
   }
 });

@@ -8,6 +8,8 @@ export interface UserProfile {
   discordUsername?: string;
   discordGuilds?: string[];
   pilotId?: string;
+  appPermission?: 'admin' | 'flight_lead' | 'member' | 'guest';
+  lastRoleSync?: string;
   createdAt: string;
   updatedAt: string;
   // Pilot data (when joined)

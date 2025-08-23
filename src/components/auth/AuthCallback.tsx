@@ -6,7 +6,6 @@ const AuthCallback: React.FC = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [debugInfo, setDebugInfo] = useState<any>(null);
 
   useEffect(() => {
     const handleAuthCallback = async () => {
@@ -14,12 +13,6 @@ const AuthCallback: React.FC = () => {
         // Check if we have auth code in URL
         const urlParams = new URLSearchParams(window.location.search);
         const code = urlParams.get('code');
-        const state = urlParams.get('state');
-        
-        // For development debugging only
-        if (process.env.NODE_ENV === 'development') {
-          setDebugInfo({ code: !!code, state: !!state, url: window.location.href });
-        }
         
         if (code) {
           // Exchange the code for a session
@@ -63,17 +56,50 @@ const AuthCallback: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center max-w-md">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto mb-4"></div>
-          <p className="text-gray-600 mb-4">Completing authentication...</p>
-          {debugInfo && (
-            <div className="text-xs text-left bg-gray-100 p-3 rounded">
-              <div>Code: {debugInfo.code ? 'Found' : 'Missing'}</div>
-              <div>State: {debugInfo.state ? 'Found' : 'Missing'}</div>
-              <div className="mt-2 break-all">URL: {debugInfo.url}</div>
-            </div>
-          )}
+      <div style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: '#F0F4F8',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontFamily: 'Inter, sans-serif'
+      }}>
+        <div style={{
+          width: '300px',
+          backgroundColor: '#FFFFFF',
+          boxShadow: '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)',
+          borderRadius: '8px',
+          padding: '32px 24px',
+          textAlign: 'center'
+        }}>
+          <div style={{
+            width: '32px',
+            height: '32px',
+            border: '3px solid #E5E7EB',
+            borderTopColor: '#3B82F6',
+            borderRadius: '50%',
+            animation: 'spin 1s linear infinite',
+            margin: '0 auto 16px auto'
+          }} />
+          <h3 style={{
+            fontSize: '16px',
+            fontWeight: 500,
+            color: '#0F172A',
+            margin: '0 0 8px 0'
+          }}>
+            Completing Sign In
+          </h3>
+          <p style={{
+            fontSize: '14px',
+            color: '#64748B',
+            margin: 0
+          }}>
+            Just a moment...
+          </p>
         </div>
       </div>
     );
@@ -81,18 +107,48 @@ const AuthCallback: React.FC = () => {
 
   if (error) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center max-w-md">
-          <div className="text-red-600 text-xl mb-4">Authentication Error</div>
-          <p className="text-gray-600 mb-4">{error}</p>
-          {debugInfo && (
-            <div className="text-xs text-left bg-gray-100 p-3 rounded mb-4">
-              <div>Code: {debugInfo.code ? 'Found' : 'Missing'}</div>
-              <div>State: {debugInfo.state ? 'Found' : 'Missing'}</div>
-              <div className="mt-2 break-all">URL: {debugInfo.url}</div>
-            </div>
-          )}
-          <p className="text-sm text-gray-500">Redirecting...</p>
+      <div style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: '#F0F4F8',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontFamily: 'Inter, sans-serif'
+      }}>
+        <div style={{
+          width: '400px',
+          backgroundColor: '#FFFFFF',
+          boxShadow: '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)',
+          borderRadius: '8px',
+          padding: '24px',
+          textAlign: 'center'
+        }}>
+          <h3 style={{
+            fontSize: '18px',
+            fontWeight: 600,
+            color: '#DC2626',
+            margin: '0 0 16px 0'
+          }}>
+            Authentication Error
+          </h3>
+          <p style={{
+            fontSize: '14px',
+            color: '#64748B',
+            margin: '0 0 16px 0'
+          }}>
+            {error}
+          </p>
+          <p style={{
+            fontSize: '12px',
+            color: '#9CA3AF',
+            margin: 0
+          }}>
+            Redirecting to login page...
+          </p>
         </div>
       </div>
     );
