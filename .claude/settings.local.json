@@ -10,7 +10,11 @@
       "Bash(cp:*)",
       "Bash(git restore:*)",
       "Bash(git checkout:*)",
-      "Bash(node:*)"
+      "Bash(node:*)",
+      "Bash(find:*)"
+    ],
+    "additionalDirectories": [
+      "C:\\c\\Users\\ajmil\\Desktop\\ReadyRoom"
     ]
   },
   "outputStyle": "default"

@@ -80,6 +80,15 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
   const [callsignsList, setCallsignsList] = useState<string[]>([]);
   const [newCallsign, setNewCallsign] = useState('');
   const [showDeactivateConfirm, setShowDeactivateConfirm] = useState(false);
+  
+  // Discord settings state - separate for each entity
+  const [discordSettings, setDiscordSettings] = useState<{
+    [entityId: string]: {
+      discordChannels: any[];
+      roleMappings: any[];
+      selectedGuildId: string;
+    }
+  }>({});
 
   // Initialize form data when modal opens or entity changes
   useEffect(() => {
@@ -127,6 +136,19 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
         } else {
           setCallsignsList([]);
         }
+        
+        // Initialize Discord settings for this entity from database
+        const entityKey = `${entityType}_${entity.id}`;
+        const discordIntegration = entity.discord_integration || {};
+        
+        setDiscordSettings(prev => ({
+          ...prev,
+          [entityKey]: {
+            discordChannels: discordIntegration.discordChannels || [],
+            roleMappings: discordIntegration.roleMappings || [],
+            selectedGuildId: discordIntegration.selectedGuildId || ''
+          }
+        }));
       } else {
         // Reset form for create mode
         setFormData({
@@ -152,13 +174,43 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
       }
       setErrors({});
     }
-  }, [isOpen, mode, entity]);
+  }, [isOpen, mode, entity, entityType]);
 
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
     if (errors[field]) {
       setErrors(prev => ({ ...prev, [field]: '' }));
     }
+  };
+
+  // Helper functions for Discord settings
+  const getEntityKey = () => {
+    if (!entity) return `${entityType}_new`;
+    return `${entityType}_${entity.id}`;
+  };
+
+  const getCurrentDiscordSettings = () => {
+    const entityKey = getEntityKey();
+    return discordSettings[entityKey] || {
+      discordChannels: [],
+      roleMappings: [],
+      selectedGuildId: ''
+    };
+  };
+
+  const updateDiscordSettings = (updates: Partial<{
+    discordChannels: any[];
+    roleMappings: any[];
+    selectedGuildId: string;
+  }>) => {
+    const entityKey = getEntityKey();
+    setDiscordSettings(prev => ({
+      ...prev,
+      [entityKey]: {
+        ...getCurrentDiscordSettings(),
+        ...updates
+      }
+    }));
   };
 
   // Handle image upload to Supabase storage
@@ -342,7 +394,8 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
           designation: formData.designation || null,
           tail_code: formData.tail_code || null,
           carrier_id: formData.carrier_id || null,
-          color_palette: formData.color_palette || null
+          color_palette: formData.color_palette || null,
+          discord_integration: getCurrentDiscordSettings()
         } as NewWing;
         break;
       case 'squadron':
@@ -353,7 +406,8 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
           tail_code: formData.tail_code || null,
           carrier_id: formData.carrier_id || null,
           callsigns: formData.callsigns ? JSON.parse(formData.callsigns) : null,
-          color_palette: formData.color_palette || null
+          color_palette: formData.color_palette || null,
+          discord_integration: getCurrentDiscordSettings()
         } as NewSquadron;
         break;
       default:
@@ -1137,7 +1191,18 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
 
           {/* Discord Tab Content */}
           {entityType === 'squadron' && activeTab === 'discord' && (
-            <SquadronDiscordSettings />
+            <SquadronDiscordSettings 
+              discordChannels={getCurrentDiscordSettings().discordChannels}
+              roleMappings={getCurrentDiscordSettings().roleMappings}
+              selectedGuildId={getCurrentDiscordSettings().selectedGuildId}
+              onChannelsChange={(channels) => updateDiscordSettings({ discordChannels: channels })}
+              onRoleMappingsChange={(mappings) => updateDiscordSettings({ roleMappings: mappings })}
+              onGuildChange={(guildId) => updateDiscordSettings({ 
+                selectedGuildId: guildId,
+                discordChannels: [], // Clear channels when server changes
+                roleMappings: [] // Clear role mappings when server changes
+              })}
+            />
           )}
         </div>
 

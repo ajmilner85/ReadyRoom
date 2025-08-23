@@ -166,7 +166,6 @@ const RosterManagement: React.FC = () => {
             fetchPilotQualifications(refreshedPilot.id);
           } else if (attempts < maxAttempts) {
             attempts++;
-            console.log(`Attempt ${attempts} to find refreshed pilot...`);
             findAndUpdatePilot();
           } else {
             console.warn('Could not find refreshed pilot after', maxAttempts, 'attempts');
@@ -274,10 +273,6 @@ const RosterManagement: React.FC = () => {
             squadronAssignment: (pilot as any).squadronAssignment || undefined
           };
           
-          // Debug logging for squadron data
-          if ((pilot as any).currentSquadron) {
-            console.log(`✅ Pilot ${pilot.callsign} has squadron: ${(pilot as any).currentSquadron.designation}`);
-          }
           
           return legacyPilot;
         });
@@ -491,14 +486,9 @@ const RosterManagement: React.FC = () => {
       
       // Get the pilot's current role
       const pilotRole = selectedPilot?.roles?.[0]?.role;
-      console.log('🔍 Checking squadron conflict for pilot role:', pilotRole);
-      
       if (!pilotRole?.isExclusive) {
-        console.log('❌ Role is not exclusive, no conflict check needed');
         return { hasConflict: false };
       }
-      
-      console.log('✅ Role is exclusive, checking for conflicts in squadron:', newSquadronId);
       
       // Check if any pilot in the target squadron has the same exclusive role
       const { data: squadronPilots, error } = await supabase
@@ -519,17 +509,12 @@ const RosterManagement: React.FC = () => {
         return { hasConflict: false };
       }
       
-      console.log('📋 Squadron pilots found:', squadronPilots?.length || 0);
-      
       if (!squadronPilots || squadronPilots.length === 0) {
-        console.log('❌ No pilots in target squadron');
         return { hasConflict: false };
       }
       
       // Get role assignments for all pilots in the target squadron
       const squadronPilotIds = squadronPilots.map(p => p.pilot_id);
-      console.log('🎯 Checking role assignments for pilots:', squadronPilotIds);
-      console.log('🎯 Looking for role ID:', pilotRole.id);
       
       const { data: roleAssignments, error: roleError } = await supabase
         .from('pilot_roles')
@@ -551,11 +536,8 @@ const RosterManagement: React.FC = () => {
         return { hasConflict: false };
       }
       
-      console.log('📝 Role assignments found:', roleAssignments?.length || 0, roleAssignments);
-      
       // Find conflicts (excluding the current pilot and considering only active pilots)
       const conflictingAssignments = roleAssignments?.filter(assignment => assignment.pilot_id !== actualPilotId) || [];
-      console.log('⚔️ Conflicting assignments (excluding current pilot):', conflictingAssignments.length);
       
       if (conflictingAssignments.length > 0) {
         // Check if any of the conflicting pilots are active

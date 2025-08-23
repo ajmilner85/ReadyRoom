@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Clock } from 'lucide-react';
+import { X, Clock, Upload, Image as ImageIcon } from 'lucide-react';
 
 interface EventDialogProps {
   onSave: (eventData: {
@@ -12,6 +12,9 @@ interface EventDialogProps {
       minutes: number;
     };
     restrictedTo?: string[];
+    participants?: string[];
+    headerImage?: File | null;
+    additionalImages?: (File | null)[];
   }) => void;
   onCancel: () => void;
   initialData?: {
@@ -20,13 +23,21 @@ interface EventDialogProps {
     datetime: string;
     endDatetime?: string;
     restrictedTo?: string[];
+    participants?: string[];
+    imageUrl?: string;
+    headerImageUrl?: string;
+    additionalImageUrls?: string[];
   };
+  squadrons?: Array<{ id: string; name: string; designation: string; insignia_url?: string | null }>;
+  selectedCycle?: { participants?: string[] };
 }
 
 export const EventDialog: React.FC<EventDialogProps> = ({
   onSave,
   onCancel,
-  initialData
+  initialData,
+  squadrons = [],
+  selectedCycle
 }) => {  
   const [title, setTitle] = useState(initialData?.title || '');
   const [description, setDescription] = useState(initialData?.description || '');
@@ -35,7 +46,119 @@ export const EventDialog: React.FC<EventDialogProps> = ({
   const [durationMinutes, setDurationMinutes] = useState(0);
   const [endDatetime, setEndDatetime] = useState(initialData?.endDatetime ? new Date(initialData.endDatetime).toISOString().slice(0, 16) : '');
   const [restrictedTo, setRestrictedTo] = useState<string[]>(initialData?.restrictedTo || []);
+  const [participants, setParticipatingSquadrons] = useState<string[]>(
+    initialData?.participants || selectedCycle?.participants || []
+  );
+  const [headerImage, setHeaderImage] = useState<File | null>(null);
+  const [headerImagePreview, setHeaderImagePreview] = useState<string | null>(null);
+  const [additionalImages, setAdditionalImages] = useState<(File | null)[]>([null, null]);
+  const [additionalImagePreviews, setAdditionalImagePreviews] = useState<(string | null)[]>([null, null]);
+  const [dragOverStates, setDragOverStates] = useState<boolean[]>([false, false, false]);
   const [error, setError] = useState('');
+  
+  // Update participants when selectedCycle changes
+  useEffect(() => {
+    if (!initialData?.participants && selectedCycle?.participants) {
+      setParticipatingSquadrons(selectedCycle.participants);
+    }
+  }, [selectedCycle?.participants, initialData?.participants]);
+
+  // Load existing images when editing
+  useEffect(() => {
+    if (initialData) {
+      // Load header image from legacy imageUrl or new headerImageUrl
+      const headerUrl = initialData.headerImageUrl || initialData.imageUrl;
+      if (headerUrl) {
+        setHeaderImagePreview(headerUrl);
+      }
+
+      // Load additional images
+      if (initialData.additionalImageUrls) {
+        const newPreviews = [...additionalImagePreviews];
+        initialData.additionalImageUrls.forEach((url, index) => {
+          if (url && index < 2) {
+            newPreviews[index] = url;
+          }
+        });
+        setAdditionalImagePreviews(newPreviews);
+      }
+    }
+  }, [initialData]);
+
+  // Image handling functions
+  const handleImageSelect = (file: File, imageIndex: number) => {
+    if (file && file.type.startsWith('image/')) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const result = e.target?.result as string;
+        
+        if (imageIndex === 0) {
+          // Header image
+          setHeaderImage(file);
+          setHeaderImagePreview(result);
+        } else {
+          // Additional images
+          const newImages = [...additionalImages];
+          const newPreviews = [...additionalImagePreviews];
+          newImages[imageIndex - 1] = file;
+          newPreviews[imageIndex - 1] = result;
+          setAdditionalImages(newImages);
+          setAdditionalImagePreviews(newPreviews);
+        }
+      };
+      reader.readAsDataURL(file);
+      setError('');
+    } else {
+      setError('Please select a valid image file');
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent, imageIndex: number) => {
+    e.preventDefault();
+    const newStates = [...dragOverStates];
+    newStates[imageIndex] = true;
+    setDragOverStates(newStates);
+  };
+
+  const handleDragLeave = (e: React.DragEvent, imageIndex: number) => {
+    e.preventDefault();
+    const newStates = [...dragOverStates];
+    newStates[imageIndex] = false;
+    setDragOverStates(newStates);
+  };
+
+  const handleDrop = (e: React.DragEvent, imageIndex: number) => {
+    e.preventDefault();
+    const newStates = [...dragOverStates];
+    newStates[imageIndex] = false;
+    setDragOverStates(newStates);
+    
+    const files = Array.from(e.dataTransfer.files);
+    if (files.length > 0) {
+      handleImageSelect(files[0], imageIndex);
+    }
+  };
+
+  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>, imageIndex: number) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      handleImageSelect(file, imageIndex);
+    }
+  };
+
+  const removeImage = (imageIndex: number) => {
+    if (imageIndex === 0) {
+      setHeaderImage(null);
+      setHeaderImagePreview(null);
+    } else {
+      const newImages = [...additionalImages];
+      const newPreviews = [...additionalImagePreviews];
+      newImages[imageIndex - 1] = null;
+      newPreviews[imageIndex - 1] = null;
+      setAdditionalImages(newImages);
+      setAdditionalImagePreviews(newPreviews);
+    }
+  };
   
   useEffect(() => {
     if (initialData?.datetime && initialData?.endDatetime) {
@@ -115,7 +238,10 @@ export const EventDialog: React.FC<EventDialogProps> = ({
         hours: durationHours,
         minutes: durationMinutes
       },
-      restrictedTo: restrictedTo.length > 0 ? restrictedTo : undefined
+      restrictedTo: restrictedTo.length > 0 ? restrictedTo : undefined,
+      participants: participants.length > 0 ? participants : undefined,
+      headerImage: headerImage,
+      additionalImages: additionalImages
     });
   };
 
@@ -325,6 +451,186 @@ export const EventDialog: React.FC<EventDialogProps> = ({
               </div>
             </div>
 
+            {/* Participating Squadrons */}
+            <div style={{ marginBottom: '16px' }}>
+              <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: '8px'
+              }}>
+                <label style={{
+                  fontSize: '14px',
+                  fontWeight: 500,
+                  color: '#64748B'
+                }}>
+                  Participating Squadrons
+                </label>
+                <div style={{ display: 'flex', gap: '6px' }}>
+                  <button 
+                    type="button"
+                    onClick={() => setParticipatingSquadrons(squadrons.map(s => s.id))}
+                    style={{
+                      padding: '2px 6px',
+                      backgroundColor: '#EFF6FF',
+                      border: '1px solid #DBEAFE',
+                      borderRadius: '3px',
+                      fontSize: '10px',
+                      cursor: 'pointer',
+                      fontFamily: 'Inter',
+                      color: '#1E40AF'
+                    }}
+                  >
+                    All
+                  </button>
+                  <button 
+                    type="button"
+                    onClick={() => setParticipatingSquadrons([])}
+                    style={{
+                      padding: '2px 6px',
+                      backgroundColor: '#FEF2F2',
+                      border: '1px solid #FECACA',
+                      borderRadius: '3px',
+                      fontSize: '10px',
+                      cursor: 'pointer',
+                      fontFamily: 'Inter',
+                      color: '#DC2626'
+                    }}
+                  >
+                    None
+                  </button>
+                  {selectedCycle?.participants && (
+                    <button 
+                      type="button"
+                      onClick={() => setParticipatingSquadrons(selectedCycle.participants || [])}
+                      style={{
+                        padding: '2px 6px',
+                        backgroundColor: '#F0FDF4',
+                        border: '1px solid #BBF7D0',
+                        borderRadius: '3px',
+                        fontSize: '10px',
+                        cursor: 'pointer',
+                        fontFamily: 'Inter',
+                        color: '#15803D'
+                      }}
+                    >
+                      Reset to Cycle
+                    </button>
+                  )}
+                </div>
+              </div>
+              <div style={{
+                maxHeight: '200px',
+                overflowY: 'auto',
+                border: '1px solid #E5E7EB',
+                borderRadius: '4px',
+                padding: '4px',
+                backgroundColor: '#FAFAFA'
+              }}>
+                {squadrons.map(squadron => {
+                  const isSelected = participants.includes(squadron.id);
+                  return (
+                    <div
+                      key={squadron.id}
+                      onClick={() => {
+                        if (isSelected) {
+                          setParticipatingSquadrons(prev => prev.filter(id => id !== squadron.id));
+                        } else {
+                          setParticipatingSquadrons(prev => [...prev, squadron.id]);
+                        }
+                      }}
+                      style={{
+                        padding: '6px 8px',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        backgroundColor: isSelected ? '#EFF6FF' : 'transparent',
+                        borderRadius: '3px',
+                        transition: 'background-color 0.2s',
+                        marginBottom: '2px'
+                      }}
+                      onMouseEnter={e => {
+                        if (!isSelected) {
+                          e.currentTarget.style.backgroundColor = '#F8FAFC';
+                        }
+                      }}
+                      onMouseLeave={e => {
+                        if (!isSelected) {
+                          e.currentTarget.style.backgroundColor = 'transparent';
+                        }
+                      }}
+                    >
+                      {/* Checkbox */}
+                      <div style={{
+                        width: '14px',
+                        height: '14px',
+                        border: '1px solid #CBD5E1',
+                        borderRadius: '3px',
+                        backgroundColor: isSelected ? '#3B82F6' : '#FFFFFF',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        flexShrink: 0
+                      }}>
+                        {isSelected && (
+                          <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
+                            <path d="M1 4L3 6L7 2" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                          </svg>
+                        )}
+                      </div>
+                      
+                      {/* Squadron Insignia */}
+                      {squadron.insignia_url ? (
+                        <div style={{
+                          width: '20px',
+                          height: '20px',
+                          backgroundImage: `url(${squadron.insignia_url})`,
+                          backgroundSize: 'contain',
+                          backgroundRepeat: 'no-repeat',
+                          backgroundPosition: 'center',
+                          flexShrink: 0
+                        }} />
+                      ) : (
+                        <div style={{
+                          width: '20px',
+                          height: '20px',
+                          backgroundColor: '#E5E7EB',
+                          borderRadius: '3px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          flexShrink: 0
+                        }}>
+                          <span style={{ fontSize: '10px', color: '#6B7280' }}>?</span>
+                        </div>
+                      )}
+                      
+                      {/* Squadron Info */}
+                      <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, flex: 1 }}>
+                        <span style={{ fontSize: '12px', fontWeight: 500, fontFamily: 'Inter' }}>
+                          {squadron.designation}
+                        </span>
+                        <span style={{ fontSize: '10px', color: '#64748B', fontFamily: 'Inter' }}>
+                          {squadron.name}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              <div style={{
+                fontSize: '12px',
+                color: '#64748B',
+                marginTop: '4px'
+              }}>
+                {participants.length === 0 ? 
+                  'No squadrons selected. Event will inherit from cycle.' :
+                  `${participants.length} squadron${participants.length !== 1 ? 's' : ''} selected.`
+                }
+              </div>
+            </div>
+
             <div style={{ marginBottom: '16px' }}>
               <label style={{
                 display: 'block',
@@ -350,6 +656,199 @@ export const EventDialog: React.FC<EventDialogProps> = ({
                 }}
                 placeholder="Enter event description"
               />
+            </div>
+
+            {/* Image Upload Section - 3 Image Grid */}
+            <div style={{ marginBottom: '20px' }}>
+              <label style={{
+                display: 'block',
+                marginBottom: '12px',
+                color: '#64748B',
+                fontSize: '14px',
+                fontWeight: '500'
+              }}>
+                Event Images (Optional)
+              </label>
+              
+              {/* Header Image */}
+              <div style={{ marginBottom: '16px' }}>
+                <div style={{
+                  fontSize: '12px',
+                  color: '#64748B',
+                  marginBottom: '6px',
+                  fontWeight: '500'
+                }}>
+                  Header Image
+                </div>
+                <div
+                  onDragOver={(e) => handleDragOver(e, 0)}
+                  onDragLeave={(e) => handleDragLeave(e, 0)}
+                  onDrop={(e) => handleDrop(e, 0)}
+                  onClick={() => document.getElementById('header-image-upload')?.click()}
+                  style={{
+                    border: `2px dashed ${dragOverStates[0] ? '#3B82F6' : '#CBD5E1'}`,
+                    borderRadius: '6px',
+                    padding: '16px',
+                    textAlign: 'center',
+                    cursor: 'pointer',
+                    backgroundColor: dragOverStates[0] ? 'rgba(59, 130, 246, 0.05)' : '#FAFAFA',
+                    transition: 'all 0.2s ease',
+                    minHeight: '120px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}
+                >
+                  {headerImagePreview ? (
+                    <div style={{ position: 'relative' }}>
+                      <img
+                        src={headerImagePreview}
+                        alt="Header preview"
+                        style={{
+                          maxWidth: '160px',
+                          maxHeight: '100px',
+                          borderRadius: '4px',
+                          objectFit: 'cover'
+                        }}
+                      />
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          removeImage(0);
+                        }}
+                        style={{
+                          position: 'absolute',
+                          top: '4px',
+                          right: '4px',
+                          background: 'rgba(0, 0, 0, 0.7)',
+                          border: 'none',
+                          borderRadius: '50%',
+                          width: '20px',
+                          height: '20px',
+                          color: '#fff',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center'
+                        }}
+                      >
+                        <X size={12} />
+                      </button>
+                    </div>
+                  ) : (
+                    <div>
+                      <ImageIcon size={24} color="#94A3B8" style={{ margin: '0 auto 8px' }} />
+                      <p style={{ color: '#94A3B8', fontSize: '12px', margin: '0' }}>
+                        Drop header image or click to select
+                      </p>
+                    </div>
+                  )}
+                </div>
+                <input
+                  id="header-image-upload"
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => handleFileInputChange(e, 0)}
+                  style={{ display: 'none' }}
+                />
+              </div>
+
+              {/* Additional Images Grid */}
+              <div>
+                <div style={{
+                  fontSize: '12px',
+                  color: '#64748B',
+                  marginBottom: '6px',
+                  fontWeight: '500'
+                }}>
+                  Additional Images
+                </div>
+                <div style={{ 
+                  display: 'grid',
+                  gridTemplateColumns: '1fr 1fr',
+                  gap: '12px'
+                }}>
+                  {[0, 1].map((index) => (
+                    <div
+                      key={index}
+                      onDragOver={(e) => handleDragOver(e, index + 1)}
+                      onDragLeave={(e) => handleDragLeave(e, index + 1)}
+                      onDrop={(e) => handleDrop(e, index + 1)}
+                      onClick={() => document.getElementById(`additional-image-upload-${index}`)?.click()}
+                      style={{
+                        border: `2px dashed ${dragOverStates[index + 1] ? '#3B82F6' : '#CBD5E1'}`,
+                        borderRadius: '6px',
+                        padding: '12px',
+                        textAlign: 'center',
+                        cursor: 'pointer',
+                        backgroundColor: dragOverStates[index + 1] ? 'rgba(59, 130, 246, 0.05)' : '#FAFAFA',
+                        transition: 'all 0.2s ease',
+                        minHeight: '80px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center'
+                      }}
+                    >
+                      {additionalImagePreviews[index] ? (
+                        <div style={{ position: 'relative' }}>
+                          <img
+                            src={additionalImagePreviews[index]!}
+                            alt={`Additional image ${index + 1}`}
+                            style={{
+                              maxWidth: '100px',
+                              maxHeight: '60px',
+                              borderRadius: '4px',
+                              objectFit: 'cover'
+                            }}
+                          />
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              removeImage(index + 1);
+                            }}
+                            style={{
+                              position: 'absolute',
+                              top: '2px',
+                              right: '2px',
+                              background: 'rgba(0, 0, 0, 0.7)',
+                              border: 'none',
+                              borderRadius: '50%',
+                              width: '18px',
+                              height: '18px',
+                              color: '#fff',
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center'
+                            }}
+                          >
+                            <X size={10} />
+                          </button>
+                        </div>
+                      ) : (
+                        <div>
+                          <ImageIcon size={20} color="#94A3B8" style={{ margin: '0 auto 4px' }} />
+                          <p style={{ color: '#94A3B8', fontSize: '10px', margin: '0' }}>
+                            Drop image {index + 1}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                  
+                  {/* Hidden file inputs for additional images */}
+                  {[0, 1].map((index) => (
+                    <input
+                      key={index}
+                      id={`additional-image-upload-${index}`}
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => handleFileInputChange(e, index + 1)}
+                      style={{ display: 'none' }}
+                    />
+                  ))}
+                </div>
+              </div>
             </div>
 
             {error && (

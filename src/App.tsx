@@ -9,6 +9,8 @@ import SingleFlightCard from './components/ui/flight cards/SingleFlightCard';
 import FuelStateDialog from './components/ui/dialogs/FuelStateDialog';
 import PositionReportDialog from './components/ui/dialogs/PositionReportDialog';
 import NavigationBar from './components/ui/NavigationBar';
+import OnboardingGuide from './components/onboarding/OnboardingGuide';
+import { useAuth } from './context/AuthContext';
 import type { Pilot } from './types/PilotTypes';
 
 // Define AssignedPilot here since it's not exported from PilotTypes
@@ -27,6 +29,8 @@ const MissionPreparation = React.lazy(() => import('./components/ui/MissionPrepa
 const Settings = React.lazy(() => import('./components/settings/Settings'));
 
 const App: React.FC = () => {
+  const { user, userProfile, loading } = useAuth();
+  
   // Mission Execution state
   const [flights, setFlights] = useState<Flight[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -38,6 +42,9 @@ const App: React.FC = () => {
   const [hoveredFlightId, setHoveredFlightId] = useState<string | null>(null);
   const [currentView, setCurrentView] = useState<'roster' | 'flights' | 'events' | 'mission-prep' | 'admin'>('flights');
   const [activeButton, setActiveButton] = useState<string>('flights');
+  
+  // Onboarding state
+  const [showOnboarding, setShowOnboarding] = useState(false);
 
   // Mission Preparation state (lifted up to persist across navigation)
   const [assignedPilots, setAssignedPilots] = useState<Record<string, AssignedPilot[]>>(() => loadAssignedPilots());
@@ -61,6 +68,28 @@ const App: React.FC = () => {
   useEffect(() => {
     savePrepFlights(prepFlights);
   }, [prepFlights]);
+
+  // Check if we should show onboarding for new users
+  useEffect(() => {
+    if (!loading && user && userProfile) {
+      // Check if user has seen onboarding before
+      const hasSeenOnboarding = localStorage.getItem(`onboarding_seen_${user.id}`);
+      
+      // Show onboarding if:
+      // 1. User hasn't seen it before, OR
+      // 2. User doesn't have a linked pilot record (needs guidance)
+      if (!hasSeenOnboarding || !userProfile.pilot) {
+        setShowOnboarding(true);
+      }
+    }
+  }, [loading, user, userProfile]);
+
+  const handleOnboardingComplete = () => {
+    if (user) {
+      localStorage.setItem(`onboarding_seen_${user.id}`, 'true');
+    }
+    setShowOnboarding(false);
+  };
 
   const handleNavigate = (view: 'roster' | 'flights' | 'events' | 'mission-prep' | 'admin') => {
     setCurrentView(view);
@@ -384,6 +413,12 @@ const App: React.FC = () => {
           <NavigationBar onNavigate={handleNavigate} activeButton={activeButton} />
           {renderMainContent()}
         </div>
+        
+        {/* Onboarding Guide */}
+        <OnboardingGuide 
+          isOpen={showOnboarding}
+          onClose={handleOnboardingComplete}
+        />
       </SectionProvider>
     </AppSettingsProvider>
   );

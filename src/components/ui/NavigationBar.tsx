@@ -1,13 +1,15 @@
 import React from 'react';
-import { Users, Layout, Calendar, FileText, Settings, User, LogOut } from 'lucide-react';
+import { Users, Layout, Calendar, FileText, Settings, User, LogOut, Lock } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { signOut } from '../../utils/supabaseClient';
+import { getUserPermissions } from '../../utils/permissions';
 
 interface NavigationButton {
   id: string;
   icon: React.ReactNode;
   label: string;
   view: 'roster' | 'flights' | 'events' | 'mission-prep' | 'admin';
+  requiresPermission: 'canManageRoster' | 'canManageFlights' | 'canManageEvents' | 'canAccessMissionPrep' | 'canAccessSettings';
 }
 
 const buttons: NavigationButton[] = [
@@ -15,31 +17,36 @@ const buttons: NavigationButton[] = [
     id: 'roster',
     icon: <Users size={24} />,
     label: 'Squadron Roster',
-    view: 'roster'
+    view: 'roster',
+    requiresPermission: 'canManageRoster'
   },
   {
     id: 'events',
     icon: <Calendar size={24} />,
     label: 'Squadron Events',
-    view: 'events'
+    view: 'events',
+    requiresPermission: 'canManageEvents'
   },
   {
     id: 'mission-prep',
     icon: <FileText size={24} />,
     label: 'Mission Preparation',
-    view: 'mission-prep'
+    view: 'mission-prep',
+    requiresPermission: 'canAccessMissionPrep'
   },
   {
     id: 'flights',
     icon: <Layout size={24} />,
     label: 'Flight Management',
-    view: 'flights'
+    view: 'flights',
+    requiresPermission: 'canManageFlights'
   },
   {
     id: 'admin',
     icon: <Settings size={24} />,
     label: 'Settings',
-    view: 'admin'
+    view: 'admin',
+    requiresPermission: 'canAccessSettings'
   }
 ];
 
@@ -51,6 +58,7 @@ interface NavigationBarProps {
 const NavigationBar: React.FC<NavigationBarProps> = ({ onNavigate, activeButton }) => {
   const [tooltipVisible, setTooltipVisible] = React.useState<string | null>(null);
   const { user, userProfile } = useAuth();
+  const userPermissions = getUserPermissions(userProfile);
 
   const handleLogout = async () => {
     try {
@@ -121,7 +129,9 @@ const NavigationBar: React.FC<NavigationBarProps> = ({ onNavigate, activeButton 
       {/* Navigation buttons - centered vertically */}
       <div className="flex-1 flex items-center justify-center">
         <div className="flex flex-col items-center">
-          {buttons.map((button) => (
+          {buttons
+            .filter((button) => userPermissions[button.requiresPermission]) // Only show buttons user has access to
+            .map((button) => (
             <div 
               key={button.id} 
               style={buttonStyle}
@@ -206,6 +216,9 @@ const NavigationBar: React.FC<NavigationBarProps> = ({ onNavigate, activeButton 
               )}
               <div className="text-xs opacity-80">
                 Discord: {userProfile?.discordUsername || 'Not connected'}
+              </div>
+              <div className="text-xs opacity-80">
+                Role: {userPermissions.level.charAt(0).toUpperCase() + userPermissions.level.slice(1)}
               </div>
               {!userProfile?.pilot && (
                 <div className="text-xs opacity-80 text-yellow-600">

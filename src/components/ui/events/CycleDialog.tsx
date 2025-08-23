@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X } from 'lucide-react';
+import { X, Users } from 'lucide-react';
 import { CycleType } from '../../../types/EventTypes';
+import { Squadron } from '../../../types/OrganizationTypes';
 
 interface CycleDialogProps {
   onSave: (cycleData: {
@@ -10,8 +11,10 @@ interface CycleDialogProps {
     endDate: string;
     type: CycleType;
     restrictedTo?: string[];
+    participants?: string[];
   }) => void;
   onCancel: () => void;
+  squadrons: Squadron[];
   initialData?: {
     name: string;
     description: string;
@@ -19,12 +22,14 @@ interface CycleDialogProps {
     endDate: string;
     type: CycleType;
     restrictedTo?: string[];
+    participants?: string[];
   };
 }
 
 export const CycleDialog: React.FC<CycleDialogProps> = ({
   onSave,
   onCancel,
+  squadrons,
   initialData
 }) => {
   const [name, setName] = useState(initialData?.name || '');
@@ -33,6 +38,7 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
   const [endDate, setEndDate] = useState(initialData?.endDate ? new Date(initialData.endDate).toISOString().split('T')[0] : '');
   const [type, setType] = useState<CycleType>(initialData?.type || 'Training');
   const [restrictedTo, setRestrictedTo] = useState<string[]>(initialData?.restrictedTo || []);
+  const [participants, setParticipatingSquadrons] = useState<string[]>(initialData?.participants || []);
   const [weekCount, setWeekCount] = useState<number>(1);
   const [error, setError] = useState('');
   
@@ -151,7 +157,8 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
       startDate,
       endDate,
       type,
-      restrictedTo: restrictedTo.length > 0 ? restrictedTo : undefined
+      restrictedTo: restrictedTo.length > 0 ? restrictedTo : undefined,
+      participants: participants.length > 0 ? participants : undefined
     });
   };
 
@@ -469,6 +476,168 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
                 marginTop: '4px'
               }}>
                 Hold Ctrl/Cmd to select multiple roles. Leave empty for no restrictions.
+              </div>
+            </div>
+
+            {/* Participating Squadrons */}
+            <div style={{ marginBottom: '16px' }}>
+              <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: '8px'
+              }}>
+                <label style={{
+                  fontSize: '14px',
+                  fontWeight: 500,
+                  color: '#64748B'
+                }}>
+                  Participating Squadrons
+                </label>
+                <div style={{ display: 'flex', gap: '6px' }}>
+                  <button 
+                    type="button"
+                    onClick={() => setParticipatingSquadrons(squadrons.map(s => s.id))}
+                    style={{
+                      padding: '2px 6px',
+                      backgroundColor: '#EFF6FF',
+                      border: '1px solid #DBEAFE',
+                      borderRadius: '3px',
+                      fontSize: '10px',
+                      cursor: 'pointer',
+                      fontFamily: 'Inter',
+                      color: '#1E40AF'
+                    }}
+                  >
+                    All
+                  </button>
+                  <button 
+                    type="button"
+                    onClick={() => setParticipatingSquadrons([])}
+                    style={{
+                      padding: '2px 6px',
+                      backgroundColor: '#FEF2F2',
+                      border: '1px solid #FECACA',
+                      borderRadius: '3px',
+                      fontSize: '10px',
+                      cursor: 'pointer',
+                      fontFamily: 'Inter',
+                      color: '#DC2626'
+                    }}
+                  >
+                    None
+                  </button>
+                </div>
+              </div>
+              <div style={{
+                maxHeight: '200px',
+                overflowY: 'auto',
+                border: '1px solid #E5E7EB',
+                borderRadius: '4px',
+                padding: '4px',
+                backgroundColor: '#FAFAFA'
+              }}>
+                {squadrons.map(squadron => {
+                  const isSelected = participants.includes(squadron.id);
+                  return (
+                    <div
+                      key={squadron.id}
+                      onClick={() => {
+                        if (isSelected) {
+                          setParticipatingSquadrons(prev => prev.filter(id => id !== squadron.id));
+                        } else {
+                          setParticipatingSquadrons(prev => [...prev, squadron.id]);
+                        }
+                      }}
+                      style={{
+                        padding: '6px 8px',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        backgroundColor: isSelected ? '#EFF6FF' : 'transparent',
+                        borderRadius: '3px',
+                        transition: 'background-color 0.2s',
+                        marginBottom: '2px'
+                      }}
+                      onMouseEnter={e => {
+                        if (!isSelected) {
+                          e.currentTarget.style.backgroundColor = '#F8FAFC';
+                        }
+                      }}
+                      onMouseLeave={e => {
+                        if (!isSelected) {
+                          e.currentTarget.style.backgroundColor = 'transparent';
+                        }
+                      }}
+                    >
+                      {/* Checkbox */}
+                      <div style={{
+                        width: '14px',
+                        height: '14px',
+                        border: '1px solid #CBD5E1',
+                        borderRadius: '3px',
+                        backgroundColor: isSelected ? '#3B82F6' : '#FFFFFF',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        flexShrink: 0
+                      }}>
+                        {isSelected && (
+                          <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
+                            <path d="M1 4L3 6L7 2" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                          </svg>
+                        )}
+                      </div>
+                      
+                      {/* Squadron Insignia */}
+                      {squadron.insignia_url ? (
+                        <div style={{
+                          width: '20px',
+                          height: '20px',
+                          backgroundImage: `url(${squadron.insignia_url})`,
+                          backgroundSize: 'contain',
+                          backgroundRepeat: 'no-repeat',
+                          backgroundPosition: 'center',
+                          flexShrink: 0
+                        }} />
+                      ) : (
+                        <div style={{
+                          width: '20px',
+                          height: '20px',
+                          backgroundColor: '#E5E7EB',
+                          borderRadius: '3px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          flexShrink: 0
+                        }}>
+                          <span style={{ fontSize: '10px', color: '#6B7280' }}>?</span>
+                        </div>
+                      )}
+                      
+                      {/* Squadron Info */}
+                      <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, flex: 1 }}>
+                        <span style={{ fontSize: '12px', fontWeight: 500, fontFamily: 'Inter' }}>
+                          {squadron.designation}
+                        </span>
+                        <span style={{ fontSize: '10px', color: '#64748B', fontFamily: 'Inter' }}>
+                          {squadron.name}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              <div style={{
+                fontSize: '12px',
+                color: '#64748B',
+                marginTop: '4px'
+              }}>
+                {participants.length === 0 ? 
+                  'No squadrons selected. Events will not be posted to Discord.' :
+                  `${participants.length} squadron${participants.length !== 1 ? 's' : ''} selected. Events in this cycle will be posted to their Discord channels.`
+                }
               </div>
             </div>
 

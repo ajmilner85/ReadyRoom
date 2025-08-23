@@ -143,7 +143,7 @@ function saveEventResponses() {
 }
 
 // Function to create event message embed
-function createEventEmbed(title, description, eventTime, responses = {}) {
+function createEventEmbed(title, description, eventTime, responses = {}, creator = null, images = null) {
   const accepted = responses.accepted || [];
   const declined = responses.declined || [];
   const tentative = responses.tentative || [];
@@ -196,7 +196,52 @@ function createEventEmbed(title, description, eventTime, responses = {}) {
   )
   .setTimestamp();
   
+  // Add creator information if provided
+  if (creator) {
+    let footerText = '';
+    if (creator.boardNumber) {
+      footerText += creator.boardNumber + ' ';
+    }
+    if (creator.callsign) {
+      footerText += creator.callsign;
+    }
+    if (creator.billet) {
+      footerText += ' - ' + creator.billet;
+    }
+    if (footerText) {
+      embed.setFooter({ text: `Created by ${footerText}` });
+    }
+  }
+  
+  // Add header image if provided
+  if (images) {
+    if (images.headerImage) {
+      embed.setImage(images.headerImage);
+    } else if (images.imageUrl) {
+      // Fallback to legacy single image
+      embed.setImage(images.imageUrl);
+    }
+  }
+  
   return embed;
+}
+
+// Function to create additional image embeds
+function createAdditionalImageEmbeds(images) {
+  const embeds = [];
+  
+  if (images && images.additionalImages && Array.isArray(images.additionalImages)) {
+    images.additionalImages.forEach((imageUrl, index) => {
+      if (imageUrl) {
+        const imageEmbed = new EmbedBuilder()
+          .setImage(imageUrl)
+          .setColor(0x0099FF);
+        embeds.push(imageEmbed);
+      }
+    });
+  }
+  
+  return embeds;
 }
 
 // Function to create Google Calendar link
@@ -289,6 +334,71 @@ async function findEventsChannel(guildId = null, channelId = null) {
   throw new Error('Discord channel ID (channelId) is required. Please configure Discord Integration settings.');
 }
 
+// Function to edit a Discord event message
+async function editEventMessage(messageId, title, description, eventTime, guildId = null, channelId = null, imageUrl = null, creator = null, images = null) {
+  try {
+    await ensureLoggedIn();
+    
+    // If we don't have a channelId yet, try to find it in event responses
+    if (!channelId && eventResponses.has(messageId)) {
+      const eventData = eventResponses.get(messageId);
+      if (eventData && eventData.channelId) {
+        channelId = eventData.channelId;
+        console.log(`Found channel ID ${channelId} from event responses for message ${messageId}`);
+      }
+    }
+    
+    // Find the specific channel using both guildId and channelId
+    const eventsChannel = await findEventsChannel(guildId, channelId);
+    
+    try {
+      // Try to fetch and edit the message
+      const message = await eventsChannel.messages.fetch(messageId);
+      if (message) {
+        // Create the updated embed with images support
+        const imageData = images || (imageUrl ? { imageUrl } : null);
+        const eventEmbed = createEventEmbed(title, description, eventTime, {}, creator, imageData);
+        
+        // Create additional image embeds
+        const additionalEmbeds = createAdditionalImageEmbeds(imageData);
+        const allEmbeds = [eventEmbed, ...additionalEmbeds];
+        
+        // Edit the message with new content
+        await message.edit({
+          embeds: allEmbeds,
+          components: message.components // Keep the existing buttons
+        });
+        
+        // Update event data in memory
+        if (eventResponses.has(messageId)) {
+          const existingData = eventResponses.get(messageId);
+          eventResponses.set(messageId, {
+            ...existingData,
+            title,
+            description,
+            eventTime,
+            imageUrl: imageUrl || existingData.imageUrl
+          });
+        }
+        
+        console.log(`Successfully edited Discord message: ${messageId}`);
+        return { success: true };
+      }
+    } catch (fetchError) {
+      console.error(`Error fetching Discord message ${messageId} for edit:`, fetchError);
+      // If message not found, we can't edit it
+      if (fetchError.code === 10008) {
+        console.log(`Message ${messageId} not found, cannot edit`);
+        return { success: false, error: 'Message not found' };
+      }
+      throw fetchError;
+    }
+  } catch (error) {
+    console.error('Error editing Discord event message:', error);
+    return { success: false, error: error.message || 'Unknown error editing message' };
+  }
+}
+
 // Function to delete a Discord event message
 async function deleteEventMessage(messageId, guildId = null, channelId = null) {
   try {
@@ -344,28 +454,44 @@ async function deleteEventMessage(messageId, guildId = null, channelId = null) {
 }
 
 // Function to publish an event to Discord from the server
-async function publishEventToDiscord(title, description, eventTime, guildId = null, channelId = null, imageUrl = null) {
+async function publishEventToDiscord(title, description, eventTime, guildId = null, channelId = null, imageUrl = null, creator = null, images = null) {
   try {
+    console.log(`[BOT-PUBLISH-START] Publishing event "${title}" to guild ${guildId}, channel ${channelId}`);
+    
     // Make sure the bot is logged in
     await ensureLoggedIn();
+    console.log(`[BOT-PUBLISH] Bot is logged in, guilds available: ${client.guilds.cache.size}`);
     
     // Find the specified channel, or fall back to events channel
     const eventsChannel = await findEventsChannel(guildId, channelId);
+    console.log(`[BOT-PUBLISH] Found channel ${eventsChannel.name} (${eventsChannel.id}) in guild ${eventsChannel.guild.name} (${eventsChannel.guild.id})`);
     
     // Create the embed and buttons
-    const eventEmbed = createEventEmbed(title, description, eventTime);
+    // Create the main event embed with images support
+    const imageData = images || (imageUrl ? { imageUrl } : null);
+    const eventEmbed = createEventEmbed(title, description, eventTime, {}, creator, imageData);
     const buttons = createAttendanceButtons();
     
-    // If an image URL is provided, add it to the embed
-    if (imageUrl) {
-      eventEmbed.setImage(imageUrl);
+    // Create additional image embeds
+    const additionalEmbeds = createAdditionalImageEmbeds(imageData);
+    const allEmbeds = [eventEmbed, ...additionalEmbeds];
+    
+    if (imageData) {
+      console.log(`[BOT-PUBLISH] Adding images to embed:`, {
+        headerImage: imageData.headerImage || imageData.imageUrl || 'none',
+        additionalImages: imageData.additionalImages?.length || 0
+      });
     }
     
     // Send the event message
+    console.log(`[BOT-PUBLISH] About to send message to channel ${eventsChannel.name} (${eventsChannel.id}) in guild ${eventsChannel.guild.name} (${eventsChannel.guild.id})`);
+    
     const eventMessage = await eventsChannel.send({
-      embeds: [eventEmbed],
+      embeds: allEmbeds,
       components: [buttons]
     });
+    
+    console.log(`[BOT-PUBLISH-SUCCESS] Message ${eventMessage.id} successfully sent to ${eventsChannel.guild.name} (#${eventsChannel.name})`);
       // Store response data
     const eventData = {
       title,
@@ -391,7 +517,17 @@ async function publishEventToDiscord(title, description, eventTime, guildId = nu
       channelId: eventsChannel.id
     };
   } catch (error) {
-    console.error('Error publishing event to Discord:', error);
+    console.error(`[BOT-PUBLISH] Error publishing event to Discord guild ${guildId}, channel ${channelId}:`, error);
+    
+    // Provide more specific error messages
+    if (error.code === 50013) {
+      throw new Error(`Bot lacks permissions to send messages in channel ${channelId}`);
+    } else if (error.code === 10003) {
+      throw new Error(`Channel ${channelId} not found in guild ${guildId}`);
+    } else if (error.code === 50001) {
+      throw new Error(`Bot lacks access to guild ${guildId}`);
+    }
+    
     throw error;
   }
 }
@@ -496,15 +632,15 @@ client.on('interactionCreate', async interaction => {
     eventData.tentative.push(userEntry);
   }
     // Update the Discord event message
-  const updatedEmbed = createEventEmbed(eventData.title, eventData.description, eventData.eventTime, eventData);
+  const imageData = eventData.images || (eventData.imageUrl ? { imageUrl: eventData.imageUrl } : null);
+  const updatedEmbed = createEventEmbed(eventData.title, eventData.description, eventData.eventTime, eventData, null, imageData);
   
-  // Preserve the image if it exists in the event data
-  if (eventData.imageUrl) {
-    updatedEmbed.setImage(eventData.imageUrl);
-  }
+  // Create additional image embeds
+  const additionalEmbeds = createAdditionalImageEmbeds(imageData);
+  const allEmbeds = [updatedEmbed, ...additionalEmbeds];
   
   await interaction.update({
-    embeds: [updatedEmbed],
+    embeds: allEmbeds,
     components: [createAttendanceButtons()]
   });
   
@@ -560,5 +696,6 @@ module.exports = {
   initializeDiscordBot,
   registerEventUpdateCallback,
   deleteEventMessage,
+  editEventMessage,
   getAvailableGuilds
 };

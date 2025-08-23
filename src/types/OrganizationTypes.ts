@@ -34,6 +34,21 @@ export interface Wing {
   carrier_id: string | null;
   tail_code: string | null;
   created_at: string | null;
+  discord_integration?: {
+    selectedGuildId?: string;
+    discordChannels?: Array<{
+      id: string;
+      name: string;
+      type: 'events' | 'briefing';
+    }>;
+    roleMappings?: Array<{
+      id: string;
+      discordRoleId: string;
+      discordRoleName: string;
+      appPermission: 'admin' | 'flight_lead' | 'member' | 'guest';
+      priority: number;
+    }>;
+  };
   // Populated via join
   group?: Group;
 }
@@ -50,6 +65,21 @@ export interface Squadron {
   tail_code: string | null;
   callsigns: any | null; // JSONB field
   updated_at: string | null;
+  discord_integration?: {
+    selectedGuildId?: string;
+    discordChannels?: Array<{
+      id: string;
+      name: string;
+      type: 'events' | 'briefing';
+    }>;
+    roleMappings?: Array<{
+      id: string;
+      discordRoleId: string;
+      discordRoleName: string;
+      appPermission: 'admin' | 'flight_lead' | 'member' | 'guest';
+      priority: number;
+    }>;
+  };
   // Populated via join
   wing?: Wing;
 }

@@ -129,6 +129,8 @@ export const fetchCycles = async (discordGuildId?: string) => {
     type: dbCycle.type as CycleType,
     status: dbCycle.status as 'active' | 'completed' | 'upcoming',
     restrictedTo: dbCycle.restricted_to || [],
+    participants: dbCycle.participants || [],
+    discordGuildId: dbCycle.discord_guild_id || undefined,
     creator: {
       boardNumber: dbCycle.creator_board_number || '',
       callsign: dbCycle.creator_call_sign || '',
@@ -155,6 +157,7 @@ export const createCycle = async (cycle: Omit<Cycle, 'id' | 'creator'> & { disco
       type: cycle.type,
       status: cycle.status,
       restricted_to: cycle.restrictedTo,
+      participants: cycle.participants || [],
       discord_guild_id: cycle.discordGuildId || '', // Add Discord guild ID with empty string fallback
       creator_id: user.id,
       // Optional user profile info
@@ -201,6 +204,7 @@ export const updateCycle = async (cycleId: string, updates: Partial<Omit<Cycle, 
   if (updates.type !== undefined) dbUpdates.type = updates.type;
   if (updates.status !== undefined) dbUpdates.status = updates.status;
   if (updates.restrictedTo !== undefined) dbUpdates.restricted_to = updates.restrictedTo;
+  if (updates.participants !== undefined) dbUpdates.participants = updates.participants;
 
   const { data, error } = await supabase
     .from('cycles')
@@ -224,6 +228,8 @@ export const updateCycle = async (cycleId: string, updates: Partial<Omit<Cycle, 
     type: data.type as CycleType,
     status: data.status as 'active' | 'completed' | 'upcoming',
     restrictedTo: data.restricted_to || [],
+    participants: data.participants || [],
+    discordGuildId: data.discord_guild_id || undefined,
     creator: {
       boardNumber: data.creator_board_number || '',
       callsign: data.creator_call_sign || '',
@@ -258,6 +264,11 @@ export const fetchEvents = async (cycleId?: string, discordGuildId?: string) => 
     discord_event_id,
     discord_guild_id,
     image_url,
+    creator_id,
+    creator_call_sign,
+    creator_board_number,
+    creator_billet,
+    participants,
     created_at,
     updated_at
   `);
@@ -290,13 +301,27 @@ export const fetchEvents = async (cycleId?: string, discordGuildId?: string) => 
       status: dbEvent.status || 'upcoming',
       eventType: dbEvent.event_type as EventType | undefined,
       cycleId: dbEvent.cycle_id || undefined,
-      discordEventId: dbEvent.discord_event_id || undefined,
-      imageUrl: dbEvent.image_url || undefined, // Map image_url from DB to imageUrl in frontend
+      // Handle JSONB discord_event_id - extract first message ID for compatibility or keep as string
+      discordEventId: Array.isArray(dbEvent.discord_event_id) 
+        ? (dbEvent.discord_event_id[0]?.messageId || undefined)
+        : (dbEvent.discord_event_id || undefined),
+      // Keep the full JSONB array for deletion and editing
+      discord_event_id: dbEvent.discord_event_id,
+      // Handle JSONB image_url field
+      imageUrl: typeof dbEvent.image_url === 'string' 
+        ? dbEvent.image_url 
+        : (dbEvent.image_url?.headerImage || undefined), // Legacy compatibility
+      headerImageUrl: typeof dbEvent.image_url === 'string'
+        ? dbEvent.image_url
+        : (dbEvent.image_url?.headerImage || undefined),
+      additionalImageUrls: typeof dbEvent.image_url === 'object' && dbEvent.image_url?.additionalImages
+        ? dbEvent.image_url.additionalImages
+        : [],
       restrictedTo: [], // No restricted_to in the DB schema
       creator: {
-        boardNumber: '',
-        callsign: '',
-        billet: ''
+        boardNumber: dbEvent.creator_board_number || '',
+        callsign: dbEvent.creator_call_sign || '',
+        billet: dbEvent.creator_billet || ''
       },
       attendance: {
         accepted: [],
@@ -325,8 +350,12 @@ export const createEvent = async (event: Omit<Event, 'id' | 'creator' | 'attenda
       status: event.status,
       event_type: event.eventType,
       cycle_id: event.cycleId,
-      discord_guild_id: event.discordGuildId || '' // Add Discord guild ID with empty string fallback
-      // No restricted_to or creator fields in the DB schema
+      discord_guild_id: event.discordGuildId || '', // Add Discord guild ID with empty string fallback
+      participants: event.participants || [], // Add participants array
+      creator_id: user.id,
+      creator_call_sign: user.user_metadata?.callsign || '',
+      creator_board_number: user.user_metadata?.board_number || '',
+      creator_billet: user.user_metadata?.billet || ''
     })
     .select()
     .single();
@@ -347,9 +376,9 @@ export const createEvent = async (event: Omit<Event, 'id' | 'creator' | 'attenda
     cycleId: data.cycle_id || undefined,
     restrictedTo: [], // No restricted_to in the DB schema
     creator: {
-      boardNumber: '',
-      callsign: '',
-      billet: ''
+      boardNumber: user.user_metadata?.board_number || '',
+      callsign: user.user_metadata?.callsign || '',
+      billet: user.user_metadata?.billet || ''
     },
     attendance: {
       accepted: [],
@@ -372,6 +401,10 @@ export const updateEvent = async (eventId: string, updates: Partial<Omit<Event, 
   if ((updates as any).eventType !== undefined) dbUpdates.event_type = (updates as any).eventType;
   if ((updates as any).cycleId !== undefined) dbUpdates.cycle_id = (updates as any).cycleId;
   if ((updates as any).discordEventId !== undefined) dbUpdates.discord_event_id = (updates as any).discordEventId;
+  if ((updates as any).discordGuildId !== undefined) dbUpdates.discord_guild_id = (updates as any).discordGuildId;
+  if ((updates as any).participants !== undefined) dbUpdates.participants = (updates as any).participants;
+  // Preserve discord_event_id during updates
+  if ((updates as any).discord_event_id !== undefined) dbUpdates.discord_event_id = (updates as any).discord_event_id;
   // No restricted_to in the DB schema
 
   const { data, error } = await supabase

@@ -15,6 +15,8 @@ export interface Cycle {
     billet: string;
   };
   restrictedTo?: string[];
+  participants?: string[]; // Array of squadron IDs that participate in this cycle
+  discordGuildId?: string; // Legacy field for backward compatibility
 }
 
 export interface Event {
@@ -26,9 +28,18 @@ export interface Event {
     status: string | null;
     eventType?: EventType | undefined; // Maps to event_type in database
     cycleId?: string | undefined; // Maps to cycle_id in database
-    discordEventId?: string | undefined; // Maps to discord_event_id in database
-    imageUrl?: string | undefined; // Maps to image_url in database
+    discordEventId?: string | undefined; // Legacy field for backward compatibility
+    discord_event_id?: Array<{
+      messageId: string;
+      guildId: string;
+      channelId: string;
+      squadronId: string;
+    }> | undefined; // JSONB array of Discord publication records
+    imageUrl?: string | undefined; // Maps to image_url in database (legacy single image)
+    headerImageUrl?: string | undefined; // Header image URL
+    additionalImageUrls?: string[] | undefined; // Additional image URLs
     restrictedTo?: string[]; // Used in code but not in database schema
+    participants?: string[]; // Override cycle's participating squadrons
     creator: {
       boardNumber: string;
       callsign: string;
