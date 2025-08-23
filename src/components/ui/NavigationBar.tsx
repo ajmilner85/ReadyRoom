@@ -3,6 +3,7 @@ import { Users, Layout, Calendar, FileText, Settings, User, LogOut, Lock } from 
 import { useAuth } from '../../context/AuthContext';
 import { signOut } from '../../utils/supabaseClient';
 import { getUserPermissions } from '../../utils/permissions';
+import { useAppSettings } from '../../context/AppSettingsContext';
 
 interface NavigationButton {
   id: string;
@@ -58,7 +59,9 @@ interface NavigationBarProps {
 const NavigationBar: React.FC<NavigationBarProps> = ({ onNavigate, activeButton }) => {
   const [tooltipVisible, setTooltipVisible] = React.useState<string | null>(null);
   const { user, userProfile } = useAuth();
+  const { settings } = useAppSettings();
   const userPermissions = getUserPermissions(userProfile);
+
 
   const handleLogout = async () => {
     try {
@@ -105,6 +108,8 @@ const NavigationBar: React.FC<NavigationBarProps> = ({ onNavigate, activeButton 
   const tooltipStyle = {
     position: 'absolute' as const,
     left: '70px',
+    top: '50%',
+    transform: 'translateY(-50%)',
     backgroundColor: '#1E293B',
     color: 'white',
     padding: '4px 8px',
@@ -119,11 +124,25 @@ const NavigationBar: React.FC<NavigationBarProps> = ({ onNavigate, activeButton 
     <div className="h-full bg-[#F9FAFB] border-r border-[#E2E8F0] flex flex-col">
       {/* Logo section */}
       <div className="p-[10px]">
-        <img 
-          src="/src/assets/Stingrays Logo 80x80.png" 
-          alt="Stingrays Logo" 
-          className="w-20 h-20"
-        />
+        {userProfile?.pilot?.currentSquadron?.insignia_url ? (
+          <div
+            style={{
+              width: '80px',
+              height: '80px',
+              backgroundImage: `url(${userProfile.pilot.currentSquadron.insignia_url})`,
+              backgroundSize: 'contain',
+              backgroundRepeat: 'no-repeat',
+              backgroundPosition: 'center'
+            }}
+            title={userProfile.pilot.currentSquadron.name || 'Squadron Insignia'}
+          />
+        ) : (
+          <img 
+            src="/src/assets/Stingrays Logo 80x80.png" 
+            alt="Default Squadron Logo" 
+            className="w-20 h-20"
+          />
+        )}
       </div>
       
       {/* Navigation buttons - centered vertically */}
@@ -142,7 +161,11 @@ const NavigationBar: React.FC<NavigationBarProps> = ({ onNavigate, activeButton 
               <div 
                 style={{
                   ...buttonBackgroundStyle,
-                  background: activeButton === button.id ? '#82728C' : '#E0E4E9',
+                  background: activeButton === button.id 
+                    ? (settings.interfaceThemeUsesSquadronColors && userProfile?.pilot?.currentSquadron?.color_palette?.accent
+                      ? userProfile.pilot.currentSquadron.color_palette.accent
+                      : '#82728C')
+                    : '#E0E4E9',
                 }}
                 onMouseEnter={(e) => {
                   if (activeButton !== button.id) {
@@ -176,78 +199,232 @@ const NavigationBar: React.FC<NavigationBarProps> = ({ onNavigate, activeButton 
       </div>
 
       {/* User Profile Section */}
-      <div className="p-[10px] border-t border-[#E2E8F0]">
-        <div className="relative">
+      <div className="p-[10px]" style={{ paddingBottom: '20px' }}>
+        <div className="relative flex flex-col items-center">
           {/* User Avatar/Info */}
           <div 
-            className="flex flex-col items-center space-y-2 p-2 rounded-lg bg-white border border-gray-200 mb-2"
+            className="flex flex-col items-center p-2 rounded-lg relative"
+            style={{
+              backgroundColor: '#9DA6AA',
+              borderRadius: '8px',
+              width: '60px',
+              height: userProfile?.pilot ? 'auto' : '60px',
+              minHeight: userProfile?.pilot ? '90px' : '60px',
+              marginBottom: '16px'
+            }}
             onMouseEnter={() => setTooltipVisible('user-profile')}
             onMouseLeave={() => setTooltipVisible(null)}
           >
-            <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center">
-              {userProfile?.discordId ? (
-                <span className="text-xs font-medium text-indigo-600">
-                  {userProfile.pilot?.callsign?.charAt(0) || userProfile.discordUsername?.charAt(0) || 'U'}
-                </span>
-              ) : (
-                <User size={16} className="text-indigo-600" />
-              )}
-            </div>
-            <div className="text-xs text-center text-gray-600 leading-tight max-w-[70px]">
-              {userProfile?.pilot?.callsign || userProfile?.discordUsername || 'User'}
-            </div>
+            {userProfile?.pilot ? (
+              // Pilot Record Display - Vertical layout with Board Number, Callsign, and Squadron insignia
+              <>
+                <div 
+                  style={{
+                    fontFamily: 'USN Stencil',
+                    fontSize: '18px',
+                    fontWeight: 400,
+                    color: '#575A58',
+                    lineHeight: '1',
+                    marginTop: '4px'
+                  }}
+                >
+                  {userProfile.pilot.boardNumber}
+                </div>
+                <div 
+                  style={{
+                    fontSize: '12px',
+                    fontWeight: 600,
+                    color: (() => {
+                      const squadron = userProfile?.pilot?.currentSquadron;
+                      const colorSetting = settings.displayPilotsWithSquadronColors;
+                      
+                      if (!colorSetting) {
+                        return squadron ? '#000000' : '#374151';
+                      }
+                      
+                      // When squadron colors are enabled, try primary color first
+                      const primaryColor = squadron?.color_palette?.primary;
+                      if (primaryColor) {
+                        return primaryColor;
+                      }
+                      
+                      // Fallback when no color_palette data
+                      return squadron ? '#000000' : '#374151';
+                    })(),
+                    fontFamily: 'Inter',
+                    lineHeight: '1',
+                    marginTop: '2px',
+                    textAlign: 'center'
+                  }}
+                >
+                  {userProfile.pilot.callsign}
+                </div>
+                {(() => {
+                  const insigniaUrl = userProfile.pilot.currentSquadron?.insignia_url;
+                  
+                  return insigniaUrl ? (
+                    <div 
+                      style={{
+                        width: '40px',
+                        height: '40px',
+                        backgroundImage: `url(${insigniaUrl})`,
+                        backgroundSize: 'contain',
+                        backgroundRepeat: 'no-repeat',
+                        backgroundPosition: 'center',
+                        marginTop: '4px'
+                      }} 
+                    />
+                  ) : userProfile.pilot.currentSquadron ? (
+                    <div 
+                      style={{
+                        width: '40px',
+                        height: '40px',
+                        backgroundColor: '#575A58',
+                        borderRadius: '50%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        marginTop: '4px'
+                      }}
+                    >
+                      <span style={{ color: 'white', fontSize: '20px', fontWeight: 'bold' }}>
+                        {userProfile.pilot.currentSquadron.tail_code?.charAt(0) || 'S'}
+                      </span>
+                    </div>
+                  ) : null;
+                })()}
+              </>
+            ) : (
+              // Discord Avatar Display - Circular avatar with first letter
+              <>
+                <div 
+                  style={{
+                    width: '30px',
+                    height: '30px',
+                    borderRadius: '50%',
+                    backgroundColor: 'rgba(99, 102, 241, 0.1)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}
+                >
+                  <span style={{
+                    fontSize: '16px',
+                    fontWeight: 500,
+                    color: '#6366f1'
+                  }}>
+                    {userProfile?.discordUsername?.charAt(0).toUpperCase() || 'U'}
+                  </span>
+                </div>
+                <div style={{
+                  fontSize: '10px',
+                  textAlign: 'center',
+                  color: '#575A58',
+                  lineHeight: '1',
+                  maxWidth: '50px',
+                  marginTop: '4px',
+                  fontFamily: 'Inter'
+                }}>
+                  {userProfile?.discordUsername || 'User'}
+                </div>
+              </>
+            )}
+
+            {/* User Profile Tooltip */}
+            {tooltipVisible === 'user-profile' && (
+              <div style={{
+                position: 'absolute' as const,
+                left: '70px',
+                top: '50%',
+                transform: 'translateY(-50%)',
+                backgroundColor: '#1E293B',
+                color: 'white',
+                padding: '4px 8px',
+                borderRadius: '4px',
+                fontSize: '12px',
+                width: '200px',
+                whiteSpace: 'normal' as const,
+                zIndex: 100,
+                pointerEvents: 'none' as const
+              }}>
+                <div className="font-medium">
+                  {userProfile?.pilot?.callsign || userProfile?.discordUsername || 'Unknown User'}
+                </div>
+                {userProfile?.pilot?.boardNumber && (
+                  <div className="text-xs opacity-80">
+                    Board #{userProfile.pilot.boardNumber}
+                  </div>
+                )}
+                <div className="text-xs opacity-80">
+                  Discord: {userProfile?.discordUsername || 'Not connected'}
+                </div>
+                <div className="text-xs opacity-80">
+                  Role: {userPermissions.level.charAt(0).toUpperCase() + userPermissions.level.slice(1)}
+                </div>
+                {!userProfile?.pilot && (
+                  <div className="text-xs opacity-80 text-yellow-600">
+                    Not linked to pilot record
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
-          {/* User Profile Tooltip */}
-          {tooltipVisible === 'user-profile' && (
-            <div style={{
-              ...tooltipStyle,
-              top: '0px',
-              width: '200px',
-              whiteSpace: 'normal' as const
-            }}>
-              <div className="font-medium">
-                {userProfile?.pilot?.callsign || userProfile?.discordUsername || 'Unknown User'}
-              </div>
-              {userProfile?.pilot?.boardNumber && (
-                <div className="text-xs opacity-80">
-                  Board #{userProfile.pilot.boardNumber}
-                </div>
-              )}
-              <div className="text-xs opacity-80">
-                Discord: {userProfile?.discordUsername || 'Not connected'}
-              </div>
-              <div className="text-xs opacity-80">
-                Role: {userPermissions.level.charAt(0).toUpperCase() + userPermissions.level.slice(1)}
-              </div>
-              {!userProfile?.pilot && (
-                <div className="text-xs opacity-80 text-yellow-600">
-                  Not linked to pilot record
-                </div>
-              )}
-            </div>
-          )}
-
           {/* Logout Button */}
-          <button
-            onClick={handleLogout}
-            className="w-full flex items-center justify-center p-2 rounded-lg bg-red-50 hover:bg-red-100 transition-colors"
+          <div 
+            style={{ display: 'flex', justifyContent: 'center', width: '100%', position: 'relative' }}
             onMouseEnter={() => setTooltipVisible('logout')}
             onMouseLeave={() => setTooltipVisible(null)}
           >
-            <LogOut size={16} className="text-red-600" />
-          </button>
-
-          {/* Logout Tooltip */}
-          {tooltipVisible === 'logout' && (
-            <div style={{
-              ...tooltipStyle,
-              bottom: '0px',
-              left: '90px'
-            }}>
-              Sign Out
+            <div 
+              style={{
+                ...buttonStyle,
+                marginBottom: '0'
+              }}
+              onClick={handleLogout}
+            >
+              <div 
+                style={{
+                  ...buttonBackgroundStyle,
+                  background: '#E0E4E9'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = '#5B4E61';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = '#E0E4E9';
+                }}
+              />
+              <div 
+                style={{
+                  ...buttonIconStyle,
+                  color: '#000000'
+                }}
+              >
+                <LogOut size={24} />
+              </div>
             </div>
-          )}
+            
+            {/* Logout Tooltip */}
+            {tooltipVisible === 'logout' && (
+              <div style={{
+                position: 'absolute' as const,
+                left: '70px',
+                top: '50%',
+                transform: 'translateY(-50%)',
+                backgroundColor: '#1E293B',
+                color: 'white',
+                padding: '4px 8px',
+                borderRadius: '4px',
+                fontSize: '12px',
+                whiteSpace: 'nowrap' as const,
+                zIndex: 100,
+                pointerEvents: 'none' as const
+              }}>
+                Sign Out
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>

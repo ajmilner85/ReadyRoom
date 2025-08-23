@@ -1,7 +1,8 @@
 import React, { createContext, useContext, useState } from 'react';
 
-interface AppSettings {
+export interface AppSettings {
   displayPilotsWithSquadronColors: boolean;
+  interfaceThemeUsesSquadronColors: boolean;
 }
 
 interface AppSettingsContextType {
@@ -10,7 +11,8 @@ interface AppSettingsContextType {
 }
 
 const defaultSettings: AppSettings = {
-  displayPilotsWithSquadronColors: true
+  displayPilotsWithSquadronColors: true,
+  interfaceThemeUsesSquadronColors: false
 };
 
 const AppSettingsContext = createContext<AppSettingsContextType | undefined>(undefined);

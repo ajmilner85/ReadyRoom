@@ -17,6 +17,24 @@ export interface UserProfile {
     callsign: string;
     boardNumber: number;
     id: string;
+    currentSquadron?: {
+      id: string;
+      name: string;
+      designation: string;
+      wing_id: string;
+      tail_code?: string | null;
+      established_date?: string | null;
+      deactivated_date?: string | null;
+      insignia_url?: string | null;
+      carrier_id?: string | null;
+      callsigns?: any;
+      color_palette?: {
+        primary?: string;
+        secondary?: string;
+        accent?: string;
+      } | null;
+      updated_at?: string | null;
+    };
   };
 }
 
@@ -220,6 +238,30 @@ function convertToUserProfile(dbRecord: any): UserProfile {
       callsign: dbRecord.pilots.callsign,
       boardNumber: dbRecord.pilots.boardNumber
     };
+
+    // Find current squadron assignment (most recent active assignment)
+    if (dbRecord.pilots.pilot_assignments && dbRecord.pilots.pilot_assignments.length > 0) {
+      const currentAssignment = dbRecord.pilots.pilot_assignments
+        .filter((assignment: any) => !assignment.end_date) // Active assignments only
+        .sort((a: any, b: any) => new Date(b.start_date).getTime() - new Date(a.start_date).getTime())[0]; // Most recent
+
+      if (currentAssignment && currentAssignment.org_squadrons) {
+        profile.pilot.currentSquadron = {
+          id: currentAssignment.org_squadrons.id,
+          name: currentAssignment.org_squadrons.name,
+          designation: currentAssignment.org_squadrons.designation,
+          wing_id: currentAssignment.org_squadrons.wing_id,
+          tail_code: currentAssignment.org_squadrons.tail_code,
+          established_date: currentAssignment.org_squadrons.established_date,
+          deactivated_date: currentAssignment.org_squadrons.deactivated_date,
+          insignia_url: currentAssignment.org_squadrons.insignia_url,
+          carrier_id: currentAssignment.org_squadrons.carrier_id,
+          callsigns: currentAssignment.org_squadrons.callsigns,
+          color_palette: currentAssignment.org_squadrons.color_palette,
+          updated_at: currentAssignment.org_squadrons.updated_at
+        };
+      }
+    }
   }
 
   return profile;
@@ -237,7 +279,30 @@ export async function getUserProfile(authUserId: string): Promise<{ profile: Use
         pilots:pilot_id (
           id,
           callsign,
-          boardNumber
+          boardNumber,
+          pilot_assignments!pilot_assignments_pilot_id_fkey (
+            id,
+            pilot_id,
+            squadron_id,
+            start_date,
+            end_date,
+            created_at,
+            updated_at,
+            org_squadrons (
+              id,
+              name,
+              designation,
+              wing_id,
+              tail_code,
+              established_date,
+              deactivated_date,
+              insignia_url,
+              carrier_id,
+              callsigns,
+              color_palette,
+              updated_at
+            )
+          )
         )
       `)
       .eq('auth_user_id', authUserId)

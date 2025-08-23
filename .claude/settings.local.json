@@ -11,7 +11,8 @@
       "Bash(git restore:*)",
       "Bash(git checkout:*)",
       "Bash(node:*)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(env)"
     ],
     "additionalDirectories": [
       "C:\\c\\Users\\ajmil\\Desktop\\ReadyRoom"
