@@ -50,7 +50,7 @@ const settingsNavItems: SettingsNavItem[] = [
   {
     id: 'accounts',
     icon: <User size={20} />,
-    label: 'User Accounts'
+    label: 'Account'
   }
 ];
 
