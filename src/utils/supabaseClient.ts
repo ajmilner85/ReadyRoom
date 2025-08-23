@@ -291,6 +291,13 @@ export const fetchEvents = async (cycleId?: string, discordGuildId?: string) => 
   // Transform database events to frontend format without attendance data
   // We'll fetch attendance separately based on discord_event_id
   const events: Event[] = data.map(dbEvent => {
+    // Debug raw database data
+    if (dbEvent.discord_event_id) {
+      console.log(`[FETCH-EVENTS-DEBUG] Event ${dbEvent.id} discord_event_id:`, dbEvent.discord_event_id);
+      console.log(`[FETCH-EVENTS-DEBUG] Type:`, typeof dbEvent.discord_event_id);
+      console.log(`[FETCH-EVENTS-DEBUG] Is Array:`, Array.isArray(dbEvent.discord_event_id));
+    }
+    
     // Return the transformed event with correct field mapping from DB to frontend
     return {
       id: dbEvent.id,
@@ -329,6 +336,17 @@ export const fetchEvents = async (cycleId?: string, discordGuildId?: string) => 
         tentative: []
       }
     };
+    
+    // Debug the final mapped event
+    if (dbEvent.discord_event_id) {
+      const mappedEvent = {
+        // ... (all the mapping above)
+        discord_event_id: dbEvent.discord_event_id
+      };
+      console.log(`[FETCH-EVENTS-DEBUG] Final mapped discord_event_id for event ${dbEvent.id}:`, mappedEvent.discord_event_id);
+    }
+    
+    return mappedEvent;
   });
 
   return { events, error: null };

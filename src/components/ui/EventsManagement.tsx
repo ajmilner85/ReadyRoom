@@ -825,7 +825,10 @@ const EventsManagement: React.FC = () => {
             boxSizing: 'border-box',
             overflowY: 'visible'
           }}>
-            <EventDetails event={selectedEvent} />
+            <EventDetails 
+              event={selectedEvent} 
+              onEventUpdated={() => loadEvents(selectedCycle?.id)}
+            />
           </div>
           
           {/* Event Attendance */}

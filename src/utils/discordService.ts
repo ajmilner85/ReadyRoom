@@ -662,6 +662,8 @@ export async function deleteMultiChannelEvent(event: Event): Promise<{ success: 
   try {
     console.log('[DELETE-MULTI-DEBUG] Starting deleteMultiChannelEvent for event:', event.id);
     console.log('[DELETE-MULTI-DEBUG] Event discord_event_id:', event.discord_event_id);
+    console.log('[DELETE-MULTI-DEBUG] Event discord_event_id type:', typeof event.discord_event_id);
+    console.log('[DELETE-MULTI-DEBUG] Event discord_event_id isArray:', Array.isArray(event.discord_event_id));
     console.log('[DELETE-MULTI-DEBUG] Event discordEventId (legacy):', event.discordEventId);
     
     let participatingSquadrons: string[] = [];
@@ -760,14 +762,39 @@ export async function deleteMultiChannelEvent(event: Event): Promise<{ success: 
           );
           messageIdForThisChannel = publication?.messageId;
           console.log(`[DELETE-MULTI-DISCORD] Found message ID from JSONB for squadron ${squadronId}: ${messageIdForThisChannel}`);
-        } else if (typeof event.discord_event_id === 'string') {
-          // Legacy single message ID - try to delete but may not work for multi-channel
-          messageIdForThisChannel = event.discord_event_id;
-          console.log(`[DELETE-MULTI-DISCORD] Using legacy single message ID: ${messageIdForThisChannel}`);
-        } else if (event.discordEventId) {
-          // Fallback to legacy discordEventId field
-          messageIdForThisChannel = event.discordEventId;
-          console.log(`[DELETE-MULTI-DISCORD] Using legacy discordEventId: ${messageIdForThisChannel}`);
+        } else {
+          // If discord_event_id is not an array, we need to fetch fresh data from database
+          console.log(`[DELETE-MULTI-DISCORD] discord_event_id is not array (type: ${typeof event.discord_event_id}), fetching fresh data from database`);
+          
+          try {
+            const { data: freshEvent, error: fetchError } = await supabase
+              .from('events')
+              .select('discord_event_id')
+              .eq('id', event.id)
+              .single();
+              
+            if (fetchError) {
+              console.error(`[DELETE-MULTI-DISCORD] Error fetching fresh event data:`, fetchError);
+              messageIdForThisChannel = event.discordEventId || event.discord_event_id;
+              console.log(`[DELETE-MULTI-DISCORD] Fallback to legacy message ID: ${messageIdForThisChannel}`);
+            } else if (Array.isArray(freshEvent.discord_event_id)) {
+              const publication = freshEvent.discord_event_id.find(pub => 
+                pub.squadronId === squadronId && 
+                pub.guildId === selectedGuildId && 
+                pub.channelId === eventsChannel.id
+              );
+              messageIdForThisChannel = publication?.messageId;
+              console.log(`[DELETE-MULTI-DISCORD] Found message ID from fresh DB data for squadron ${squadronId}: ${messageIdForThisChannel}`);
+            } else {
+              // Still not an array, use legacy approach
+              messageIdForThisChannel = event.discordEventId || event.discord_event_id;
+              console.log(`[DELETE-MULTI-DISCORD] Fresh data still not array, using legacy message ID: ${messageIdForThisChannel}`);
+            }
+          } catch (dbError) {
+            console.error(`[DELETE-MULTI-DISCORD] Exception fetching fresh data:`, dbError);
+            messageIdForThisChannel = event.discordEventId || event.discord_event_id;
+            console.log(`[DELETE-MULTI-DISCORD] Exception fallback to legacy message ID: ${messageIdForThisChannel}`);
+          }
         }
         
         if (!messageIdForThisChannel) {
@@ -1166,11 +1193,11 @@ async function editDiscordMessageInChannel(messageId: string, event: Event, guil
       guildId: guildId,
       channelId: channelId,
       // Handle both legacy and JSONB image formats
-      imageUrl: event.imageUrl || (event as any).image_url,
-      images: {
+      imageUrl: event.imageUrl || (typeof (event as any).image_url === 'object' ? (event as any).image_url?.headerImage : (event as any).image_url),
+      // Pass the full JSONB structure for multi-image support
+      images: typeof (event as any).image_url === 'object' ? (event as any).image_url : {
         headerImage: event.headerImageUrl,
         additionalImages: event.additionalImageUrls || [],
-        // Legacy fallback
         imageUrl: event.imageUrl || (event as any).image_url
       },
       creator: event.creator
