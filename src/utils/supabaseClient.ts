@@ -265,10 +265,12 @@ export const fetchEvents = async (cycleId?: string, discordGuildId?: string) => 
     discord_guild_id,
     image_url,
     creator_id,
+    creator_pilot_id,
     creator_call_sign,
     creator_board_number,
     creator_billet,
     participants,
+    track_qualifications,
     created_at,
     updated_at
   `);
@@ -277,10 +279,9 @@ export const fetchEvents = async (cycleId?: string, discordGuildId?: string) => 
     query = query.eq('cycle_id', cycleId);
   }
   
-  // If a Discord guild ID is provided, filter events for that guild
-  if (discordGuildId) {
-    query = query.eq('discord_guild_id', discordGuildId);
-  }
+  // Note: Removed Discord guild ID filtering to support multi-squadron publishing
+  // Events can now be published to multiple squadron-specific Discord servers
+  // so filtering by a single guild ID would hide events published to other guilds
   const { data, error } = await query.order('start_datetime', { ascending: false });
 
   if (error) {
@@ -308,6 +309,7 @@ export const fetchEvents = async (cycleId?: string, discordGuildId?: string) => 
       status: dbEvent.status || 'upcoming',
       eventType: dbEvent.event_type as EventType | undefined,
       cycleId: dbEvent.cycle_id || undefined,
+      trackQualifications: dbEvent.track_qualifications || false, // Add qualification tracking flag
       // Handle JSONB discord_event_id - extract first message ID for compatibility or keep as string
       discordEventId: Array.isArray(dbEvent.discord_event_id) 
         ? (dbEvent.discord_event_id[0]?.messageId || undefined)
@@ -336,17 +338,6 @@ export const fetchEvents = async (cycleId?: string, discordGuildId?: string) => 
         tentative: []
       }
     };
-    
-    // Debug the final mapped event
-    if (dbEvent.discord_event_id) {
-      const mappedEvent = {
-        // ... (all the mapping above)
-        discord_event_id: dbEvent.discord_event_id
-      };
-      console.log(`[FETCH-EVENTS-DEBUG] Final mapped discord_event_id for event ${dbEvent.id}:`, mappedEvent.discord_event_id);
-    }
-    
-    return mappedEvent;
   });
 
   return { events, error: null };
@@ -357,6 +348,47 @@ export const createEvent = async (event: Omit<Event, 'id' | 'creator' | 'attenda
   if (userError || !user) {
     return { event: null, error: userError || new Error('User not authenticated') };
   }
+
+  // Find the pilot record for the current user to get the pilot ID
+  let creatorPilotId = null;
+  let creatorCallsign = '';
+  let creatorBoardNumber = '';
+  let creatorBillet = '';
+
+  console.log('[CREATE-EVENT-DEBUG] Looking up pilot record for user:', user.id);
+  console.log('[CREATE-EVENT-DEBUG] User metadata:', user.user_metadata);
+  
+  // Get the Discord user ID from metadata
+  const discordUserId = user.user_metadata?.provider_id || user.user_metadata?.sub;
+  console.log('[CREATE-EVENT-DEBUG] Discord user ID from metadata:', discordUserId);
+
+  try {
+    const { data: pilotData, error: pilotError } = await supabase
+      .from('pilots')
+      .select('id, callsign, boardNumber')
+      .eq('discord_original_id', discordUserId)
+      .single();
+
+    console.log('[CREATE-EVENT-DEBUG] Pilot lookup result:', { pilotData, pilotError });
+
+    if (!pilotError && pilotData) {
+      creatorPilotId = pilotData.id;
+      creatorCallsign = pilotData.callsign || '';
+      creatorBoardNumber = pilotData.boardNumber?.toString() || '';
+      creatorBillet = ''; // We'll leave this empty for now since roles column doesn't exist
+      console.log('[CREATE-EVENT-DEBUG] Found pilot record:', { creatorPilotId, creatorCallsign, creatorBoardNumber });
+    } else {
+      console.warn('[CREATE-EVENT-DEBUG] Could not find pilot record for event creator:', user.id, pilotError);
+      // Fallback to user metadata if available
+      creatorCallsign = user.user_metadata?.callsign || '';
+      creatorBoardNumber = user.user_metadata?.board_number || '';
+      creatorBillet = user.user_metadata?.billet || '';
+      console.log('[CREATE-EVENT-DEBUG] Using fallback metadata:', { creatorCallsign, creatorBoardNumber, creatorBillet });
+    }
+  } catch (pilotLookupError) {
+    console.warn('[CREATE-EVENT-DEBUG] Error looking up creator pilot record:', pilotLookupError);
+  }
+
   // Map from frontend format to database format
   const { data, error } = await supabase
     .from('events')
@@ -370,10 +402,12 @@ export const createEvent = async (event: Omit<Event, 'id' | 'creator' | 'attenda
       cycle_id: event.cycleId,
       discord_guild_id: event.discordGuildId || '', // Add Discord guild ID with empty string fallback
       participants: event.participants || [], // Add participants array
+      track_qualifications: event.trackQualifications || false, // Add qualification tracking flag
       creator_id: user.id,
-      creator_call_sign: user.user_metadata?.callsign || '',
-      creator_board_number: user.user_metadata?.board_number || '',
-      creator_billet: user.user_metadata?.billet || ''
+      creator_pilot_id: creatorPilotId, // Store the pilot UUID
+      creator_call_sign: creatorCallsign,
+      creator_board_number: creatorBoardNumber,
+      creator_billet: creatorBillet
     })
     .select()
     .single();
@@ -392,6 +426,7 @@ export const createEvent = async (event: Omit<Event, 'id' | 'creator' | 'attenda
     status: data.status || 'upcoming',
     eventType: data.event_type as EventType | undefined,
     cycleId: data.cycle_id || undefined,
+    trackQualifications: data.track_qualifications || false, // Add qualification tracking flag
     restrictedTo: [], // No restricted_to in the DB schema
     creator: {
       boardNumber: user.user_metadata?.board_number || '',
@@ -421,6 +456,7 @@ export const updateEvent = async (eventId: string, updates: Partial<Omit<Event, 
   if ((updates as any).discordEventId !== undefined) dbUpdates.discord_event_id = (updates as any).discordEventId;
   if ((updates as any).discordGuildId !== undefined) dbUpdates.discord_guild_id = (updates as any).discordGuildId;
   if ((updates as any).participants !== undefined) dbUpdates.participants = (updates as any).participants;
+  if (updates.trackQualifications !== undefined) dbUpdates.track_qualifications = updates.trackQualifications; // Add qualification tracking flag
   // Preserve discord_event_id during updates
   if ((updates as any).discord_event_id !== undefined) dbUpdates.discord_event_id = (updates as any).discord_event_id;
   // No restricted_to in the DB schema
@@ -482,6 +518,7 @@ export const updateEvent = async (eventId: string, updates: Partial<Omit<Event, 
     eventType: data.event_type as EventType | undefined,
     cycleId: data.cycle_id || undefined,
     discordEventId: data.discord_event_id || undefined,
+    trackQualifications: data.track_qualifications || false, // Add qualification tracking flag
     restrictedTo: [], // No restricted_to in the DB schema
     creator: {
       boardNumber: '',

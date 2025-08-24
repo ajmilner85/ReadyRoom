@@ -165,8 +165,8 @@ const EventsManagement: React.FC = () => {
       const guildId = settingsData?.value || null;
       setDiscordGuildId(guildId);
       
-      // Pass the guild ID to fetchCycles to filter by guild
-      const { cycles: fetchedCycles, error } = await fetchCycles(guildId);
+      // Fetch cycles without guild ID filtering (supports multi-squadron operations)
+      const { cycles: fetchedCycles, error } = await fetchCycles();
       
       if (error) {
         throw error;
@@ -209,8 +209,8 @@ const EventsManagement: React.FC = () => {
   const loadEvents = async (cycleId?: string) => {
     setLoading(prev => ({ ...prev, events: true }));
     try {
-      // Always filter by Discord guild ID, whether or not a cycle is selected
-      const { events: fetchedEvents, error } = await fetchEvents(cycleId, discordGuildId || undefined);
+      // Fetch events for the cycle without Discord guild ID filtering (supports multi-squadron publishing)
+      const { events: fetchedEvents, error } = await fetchEvents(cycleId);
       if (error) {
         throw error;
       }
@@ -305,6 +305,7 @@ const EventsManagement: React.FC = () => {
     participants?: string[];
     headerImage?: File | null;
     additionalImages?: (File | null)[];
+    trackQualifications?: boolean;
   }) => {
     try {
       // Determine event type based on cycle
@@ -358,8 +359,14 @@ const EventsManagement: React.FC = () => {
         console.log('No images to upload or missing event data');
       }
       
-      // Reload events to get the latest data
+      // Reload events to get the latest data - force a fresh fetch
       await loadEvents(selectedCycle?.id);
+      
+      // Also refresh cycles in case the event creation affected cycle data
+      if (selectedCycle) {
+        console.log('[DEBUG] Event created successfully, refreshing data for cycle:', selectedCycle.id);
+      }
+      
       setShowEventDialog(false);
     } catch (err: any) {
       setError(`Failed to create event: ${err.message}`);
@@ -379,6 +386,7 @@ const EventsManagement: React.FC = () => {
     participants?: string[];
     headerImage?: File | null;
     additionalImages?: (File | null)[];
+    trackQualifications?: boolean;
   }) => {
     if (!editingEvent) return;
     
@@ -860,7 +868,8 @@ const EventsManagement: React.FC = () => {
             participants: editingEvent.participants,
             imageUrl: editingEvent.imageUrl, // Legacy support
             headerImageUrl: editingEvent.headerImageUrl || editingEvent.imageUrl,
-            additionalImageUrls: editingEvent.additionalImageUrls || []
+            additionalImageUrls: editingEvent.additionalImageUrls || [],
+            trackQualifications: (editingEvent as any).trackQualifications || false
           } : undefined}
           squadrons={squadrons}
           selectedCycle={selectedCycle ?? undefined}
