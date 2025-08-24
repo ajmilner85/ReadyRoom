@@ -13,7 +13,11 @@
       "Bash(node:*)",
       "Bash(find:*)",
       "Bash(env)",
-      "Bash(tsc --noEmit)"
+      "Bash(tsc --noEmit)",
+      "Read(/C:\\c\\Users\\ajmil\\Desktop/**)",
+      "Read(/C:\\c\\Users\\ajmil\\Desktop/**)",
+      "Read(/C:\\c\\Users\\ajmil\\Desktop/**)",
+      "Read(/C:\\c\\Users\\ajmil\\Desktop/**)"
     ],
     "additionalDirectories": [
       "C:\\c\\Users\\ajmil\\Desktop\\ReadyRoom"

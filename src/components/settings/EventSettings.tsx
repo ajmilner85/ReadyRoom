@@ -32,6 +32,34 @@ const EventSettings: React.FC<EventSettingsProps> = ({ error, setError }) => {
       ...appSettings.eventDefaults,
       [key]: value
     });
+    
+    // If timezone is being changed, save it to the server immediately
+    if (key === 'referenceTimezone') {
+      saveTimezoneToServer(value as string);
+    }
+  };
+  
+  const saveTimezoneToServer = async (timezone: string) => {
+    try {
+      const response = await fetch('http://localhost:3001/api/settings/timezone', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ timezone })
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to save timezone setting');
+      }
+      
+      console.log('Timezone setting saved successfully');
+    } catch (error) {
+      console.error('Error saving timezone setting:', error);
+      if (setError) {
+        setError('Failed to save timezone setting. Please try again.');
+      }
+    }
   };
 
   const handleReminderTimeChange = (
@@ -251,6 +279,30 @@ const EventSettings: React.FC<EventSettingsProps> = ({ error, setError }) => {
               />
               <span style={{ marginLeft: '6px', height: '35px', lineHeight: '35px' }}>min</span>
             </div>
+          </div>
+          <div style={{ marginTop: '20px' }}>
+            <label style={fieldLabelStyle}>Reference timezone for event countdowns</label>
+            <select
+              value={appSettings.eventDefaults.referenceTimezone || 'America/New_York'}
+              onChange={(e) => handleSettingChange('referenceTimezone', e.target.value)}
+              style={inputStyle}
+            >
+              <option value="America/New_York">Eastern Time (EDT/EST)</option>
+              <option value="America/Chicago">Central Time (CDT/CST)</option>
+              <option value="America/Denver">Mountain Time (MDT/MST)</option>
+              <option value="America/Los_Angeles">Pacific Time (PDT/PST)</option>
+              <option value="America/Anchorage">Alaska Time (AKDT/AKST)</option>
+              <option value="Pacific/Honolulu">Hawaii Time (HST)</option>
+              <option value="UTC">UTC (Coordinated Universal Time)</option>
+              <option value="Europe/London">British Time (BST/GMT)</option>
+              <option value="Europe/Berlin">Central European Time (CEST/CET)</option>
+              <option value="Europe/Athens">Eastern European Time (EEST/EET)</option>
+              <option value="Asia/Tokyo">Japan Time (JST)</option>
+              <option value="Australia/Sydney">Australian Eastern Time (AEDT/AEST)</option>
+            </select>
+            <p style={{ fontSize: '12px', color: '#64748B', margin: '4px 0 0 0', fontFamily: 'Inter' }}>
+              This timezone will be used to determine when events start/finish for countdown updates and status display.
+            </p>
           </div>
         </div>
 

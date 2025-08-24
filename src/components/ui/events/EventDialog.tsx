@@ -66,9 +66,10 @@ export const EventDialog: React.FC<EventDialogProps> = ({
   const [title, setTitle] = useState(initialData?.title || '');
   const [description, setDescription] = useState(initialData?.description || '');
   const [datetime, setDatetime] = useState('');
+  const [timezone, setTimezone] = useState(settings.eventDefaults.referenceTimezone || 'America/New_York');
   const [durationHours, setDurationHours] = useState(settings.eventDefaults.defaultDurationHours);
   const [durationMinutes, setDurationMinutes] = useState(settings.eventDefaults.defaultDurationMinutes);
-  const [endDatetime, setEndDatetime] = useState(initialData?.endDatetime ? new Date(initialData.endDatetime).toISOString().slice(0, 16) : '');
+  const [endDatetime, setEndDatetime] = useState('');
   const [restrictedTo, setRestrictedTo] = useState<string[]>(initialData?.restrictedTo || ['All Pilots']);
   const [participants, setParticipatingSquadrons] = useState<string[]>(
     initialData?.participants !== undefined ? initialData.participants : (selectedCycle?.participants || [])
@@ -100,10 +101,91 @@ export const EventDialog: React.FC<EventDialogProps> = ({
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   
+  // Helper function to convert UTC datetime to timezone-local datetime string for input
+  const utcToTimezoneLocal = (utcDateString: string, timezone: string): string => {
+    try {
+      const utcDate = new Date(utcDateString);
+      // Get the timezone offset at this specific date (handles DST)
+      const formatter = new Intl.DateTimeFormat('en', {
+        timeZone: timezone,
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false
+      });
+      
+      const parts = formatter.formatToParts(utcDate);
+      const year = parts.find(p => p.type === 'year')?.value;
+      const month = parts.find(p => p.type === 'month')?.value;
+      const day = parts.find(p => p.type === 'day')?.value;
+      const hour = parts.find(p => p.type === 'hour')?.value;
+      const minute = parts.find(p => p.type === 'minute')?.value;
+      
+      return `${year}-${month}-${day}T${hour}:${minute}`;
+    } catch (error) {
+      console.warn('Error converting UTC to timezone local:', error);
+      return new Date(utcDateString).toISOString().slice(0, 16);
+    }
+  };
+
+  // Helper function to convert timezone-local datetime string to UTC for storage
+  const timezoneLocalToUtc = (localDateString: string, timezone: string): string => {
+    try {
+      // This is the most reliable approach: use the Intl.DateTimeFormat to find what UTC time
+      // corresponds to the given local time in the specified timezone
+      
+      // Parse the input datetime
+      const [datePart, timePart] = localDateString.split('T');
+      const [year, month, day] = datePart.split('-').map(Number);
+      const [hour, minute] = timePart.split(':').map(Number);
+      
+      // We need to find what UTC time, when converted to the target timezone, gives us our desired local time
+      // Start with a guess (the local time interpreted as UTC)
+      let guess = new Date(Date.UTC(year, month - 1, day, hour, minute));
+      
+      // Convert this guess to the target timezone and see what local time it produces
+      const formatter = new Intl.DateTimeFormat('sv-SE', { 
+        timeZone: timezone,
+        year: 'numeric',
+        month: '2-digit', 
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false
+      });
+      
+      const parts = formatter.formatToParts(guess);
+      const resultYear = parseInt(parts.find(p => p.type === 'year')?.value || '0');
+      const resultMonth = parseInt(parts.find(p => p.type === 'month')?.value || '0');
+      const resultDay = parseInt(parts.find(p => p.type === 'day')?.value || '0');
+      const resultHour = parseInt(parts.find(p => p.type === 'hour')?.value || '0');
+      const resultMinute = parseInt(parts.find(p => p.type === 'minute')?.value || '0');
+      
+      // Calculate the difference and adjust
+      const targetTime = new Date(year, month - 1, day, hour, minute);
+      const resultTime = new Date(resultYear, resultMonth - 1, resultDay, resultHour, resultMinute);
+      const diff = targetTime.getTime() - resultTime.getTime();
+      
+      // Apply the correction
+      const correctedUtc = new Date(guess.getTime() + diff);
+      
+      console.log(`[TIMEZONE-DEBUG] Converting ${localDateString} in ${timezone} to UTC: ${correctedUtc.toISOString()}`);
+      console.log(`[TIMEZONE-DEBUG] Expected: 15:30 EDT -> 19:30 UTC, Got: ${correctedUtc.toISOString()}`);
+      
+      return correctedUtc.toISOString();
+    } catch (error) {
+      console.warn('Error converting timezone local to UTC:', error);
+      return new Date(localDateString).toISOString();
+    }
+  };
+
   // Initialize datetime with default values based on settings
   useEffect(() => {
     if (!initialData?.datetime) {
-      // Get the next occurrence of the default day of week at the default time
+      // Get the next occurrence of the default day of week at the default time in the selected timezone
       const now = new Date();
       const targetDay = settings.eventDefaults.defaultStartDayOfWeek;
       const targetTime = settings.eventDefaults.defaultStartTime;
@@ -124,11 +206,21 @@ export const EventDialog: React.FC<EventDialogProps> = ({
       const [hours, minutes] = targetTime.split(':').map(Number);
       targetDate.setHours(hours, minutes, 0, 0);
       
-      setDatetime(targetDate.toISOString().slice(0, 16));
+      // Convert to timezone-local for display
+      const timezoneLocalString = utcToTimezoneLocal(targetDate.toISOString(), timezone);
+      setDatetime(timezoneLocalString);
     } else {
-      setDatetime(new Date(initialData.datetime).toISOString().slice(0, 16));
+      // Convert UTC datetime from database to timezone-local for editing
+      const timezoneLocalString = utcToTimezoneLocal(initialData.datetime, timezone);
+      setDatetime(timezoneLocalString);
+      
+      // Also set end datetime if provided
+      if (initialData.endDatetime) {
+        const endTimezoneLocalString = utcToTimezoneLocal(initialData.endDatetime, timezone);
+        setEndDatetime(endTimezoneLocalString);
+      }
     }
-  }, [initialData?.datetime, settings.eventDefaults.defaultStartDayOfWeek, settings.eventDefaults.defaultStartTime]);
+  }, [initialData?.datetime, initialData?.endDatetime, settings.eventDefaults.defaultStartDayOfWeek, settings.eventDefaults.defaultStartTime, timezone]);
 
   // Update participants when selectedCycle changes
   useEffect(() => {
@@ -233,12 +325,16 @@ export const EventDialog: React.FC<EventDialogProps> = ({
   
   useEffect(() => {
     if (initialData?.datetime && initialData?.endDatetime) {
+      // Calculate duration from UTC times directly (this is timezone-independent)
       const start = new Date(initialData.datetime);
       const end = new Date(initialData.endDatetime);
       
       if (!isNaN(start.getTime()) && !isNaN(end.getTime())) {
         const durationMs = end.getTime() - start.getTime();
         const totalMinutes = Math.round(durationMs / (1000 * 60));
+        
+        console.log(`[DURATION-DEBUG] Calculating duration from UTC times: ${initialData.datetime} to ${initialData.endDatetime}`);
+        console.log(`[DURATION-DEBUG] Duration: ${Math.floor(totalMinutes / 60)}h ${totalMinutes % 60}m`);
         
         setDurationHours(Math.floor(totalMinutes / 60));
         setDurationMinutes(totalMinutes % 60);
@@ -248,15 +344,31 @@ export const EventDialog: React.FC<EventDialogProps> = ({
 
   useEffect(() => {
     if (datetime) {
-      const start = new Date(datetime);
+      // The datetime is in local format for the input field (e.g., "2024-08-24T15:30")
+      // We need to calculate the end time in the same local format, then both will be 
+      // converted to UTC together, preserving the duration
       
-      if (!isNaN(start.getTime())) {
-        const durationMs = (durationHours * 60 + durationMinutes) * 60 * 1000;
-        const end = new Date(start.getTime() + durationMs);
-        
-        const formattedEndDate = end.toISOString().slice(0, 16);
-        setEndDatetime(formattedEndDate);
+      // Parse the datetime string directly (don't use Date constructor which assumes local timezone)
+      const [datePart, timePart] = datetime.split('T');
+      const [year, month, day] = datePart.split('-').map(Number);
+      const [hour, minute] = timePart.split(':').map(Number);
+      
+      // Add duration to get end time
+      const totalMinutes = hour * 60 + minute + durationHours * 60 + durationMinutes;
+      const endHour = Math.floor(totalMinutes / 60) % 24;
+      const endMinute = totalMinutes % 60;
+      
+      // Handle day rollover
+      let endDay = day;
+      if (totalMinutes >= 24 * 60) {
+        endDay += Math.floor(totalMinutes / (24 * 60));
       }
+      
+      // Format end time in the same local format
+      const formattedEndDate = `${year}-${month.toString().padStart(2, '0')}-${endDay.toString().padStart(2, '0')}T${endHour.toString().padStart(2, '0')}:${endMinute.toString().padStart(2, '0')}`;
+      
+      console.log(`[END-TIME-DEBUG] Calculated end time: start=${datetime}, duration=${durationHours}h${durationMinutes}m, end=${formattedEndDate}`);
+      setEndDatetime(formattedEndDate);
     }
   }, [datetime, durationHours, durationMinutes]);
 
@@ -362,11 +474,15 @@ export const EventDialog: React.FC<EventDialogProps> = ({
     setError('');
 
     try {
+      // Convert datetime to UTC for storage
+      const utcDatetime = timezoneLocalToUtc(datetime, timezone);
+      const utcEndDatetime = endDatetime ? timezoneLocalToUtc(endDatetime, timezone) : undefined;
+      
       await onSave({
         title: title.trim(),
         description: description.trim(),
-        datetime,
-        endDatetime,
+        datetime: utcDatetime,
+        endDatetime: utcEndDatetime,
         duration: {
           hours: durationHours,
           minutes: durationMinutes
@@ -637,21 +753,50 @@ export const EventDialog: React.FC<EventDialogProps> = ({
                 }}>
                   Start Date & Time
                 </label>
-                <input
-                  type="datetime-local"
-                  value={datetime}
-                  onChange={handleDatetimeChange}
-                  style={{
-                    width: '100%',
-                    padding: '8px',
-                    border: '1px solid #CBD5E1',
-                    borderRadius: '4px',
-                    fontSize: '14px',
-                    boxSizing: 'border-box',
-                    height: '35px',
-                    lineHeight: '19px'
-                  }}
-                />
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                  <input
+                    type="datetime-local"
+                    value={datetime}
+                    onChange={handleDatetimeChange}
+                    style={{
+                      flex: 1,
+                      padding: '8px',
+                      border: '1px solid #CBD5E1',
+                      borderRadius: '4px',
+                      fontSize: '14px',
+                      boxSizing: 'border-box',
+                      height: '35px',
+                      lineHeight: '19px'
+                    }}
+                  />
+                  <select
+                    value={timezone}
+                    onChange={(e) => setTimezone(e.target.value)}
+                    style={{
+                      width: '180px',
+                      padding: '8px',
+                      border: '1px solid #CBD5E1',
+                      borderRadius: '4px',
+                      fontSize: '14px',
+                      boxSizing: 'border-box',
+                      height: '35px',
+                      backgroundColor: 'white'
+                    }}
+                  >
+                    <option value="America/New_York">Eastern Time</option>
+                    <option value="America/Chicago">Central Time</option>
+                    <option value="America/Denver">Mountain Time</option>
+                    <option value="America/Los_Angeles">Pacific Time</option>
+                    <option value="America/Anchorage">Alaska Time</option>
+                    <option value="Pacific/Honolulu">Hawaii Time</option>
+                    <option value="UTC">UTC</option>
+                    <option value="Europe/London">British Time</option>
+                    <option value="Europe/Berlin">Central European</option>
+                    <option value="Europe/Athens">Eastern European</option>
+                    <option value="Asia/Tokyo">Japan Time</option>
+                    <option value="Australia/Sydney">Australian Eastern</option>
+                  </select>
+                </div>
               </div>
 
               <div style={{ marginBottom: '16px' }}>

@@ -15,7 +15,8 @@ const {
   initializeDiscordBot, 
   deleteEventMessage,
   editEventMessage, 
-  getAvailableGuilds 
+  getAvailableGuilds,
+  countdownManager
 } = require(discordBotPath);
 
 // Import Supabase client
@@ -56,6 +57,37 @@ app.get('/api/health', (req, res) => {
 // Also support HEAD requests for lightweight health checks
 app.head('/api/health', (req, res) => {
   res.status(200).end();
+});
+
+// API endpoint to save reference timezone setting
+app.post('/api/settings/timezone', async (req, res) => {
+  try {
+    const { timezone } = req.body;
+    
+    if (!timezone) {
+      return res.status(400).json({ error: 'Timezone is required' });
+    }
+    
+    // Save timezone to squadron settings
+    const { error } = await supabase
+      .from('squadron_settings')
+      .upsert({
+        key: 'reference_timezone',
+        value: timezone
+      }, {
+        onConflict: 'key'
+      });
+    
+    if (error) {
+      throw error;
+    }
+    
+    console.log(`[SETTINGS] Updated reference timezone to: ${timezone}`);
+    res.json({ success: true });
+  } catch (error) {
+    console.error('[ERROR] Error saving timezone setting:', error);
+    res.status(500).json({ error: error.message || 'Failed to save timezone setting' });
+  }
 });
 
 // Initialize Discord bot and client connection
@@ -155,6 +187,14 @@ app.delete('/api/events/:discordMessageId', async (req, res) => {
     
     // Return success even if message was already deleted
     if (result.success) {
+      // Clear countdown updates for this message
+      try {
+        countdownManager.clearEventUpdate(discordMessageId);
+        console.log(`[COUNTDOWN] Cleared countdown updates for deleted message ${discordMessageId}`);
+      } catch (countdownError) {
+        console.warn(`[COUNTDOWN] Error clearing countdown updates: ${countdownError.message}`);
+      }
+      
       return res.json({ 
         success: true,
         alreadyDeleted: !!result.alreadyDeleted
@@ -293,6 +333,32 @@ app.post('/api/events/publish', async (req, res) => {
         console.warn(`[WARNING] Failed to update event record with Discord IDs: ${updateError.message}`);
       } else {
         console.log(`[DEBUG] Successfully linked event ${eventId} with Discord message ID ${result.messageId} and guild ID ${result.guildId}`);
+        
+        // Add the event to countdown update schedule
+        if (eventId) {
+          try {
+            // Get the full event data for countdown scheduling
+            const { data: eventData, error: eventFetchError } = await supabase
+              .from('events')
+              .select('*')
+              .eq('id', eventId)
+              .single();
+            
+            if (!eventFetchError && eventData) {
+              countdownManager.addEventToSchedule(
+                eventData,
+                result.messageId,
+                result.guildId,
+                result.channelId
+              );
+              console.log(`[COUNTDOWN] Added event ${eventId} to countdown update schedule`);
+            } else {
+              console.warn(`[COUNTDOWN] Could not fetch event data for countdown scheduling: ${eventFetchError?.message}`);
+            }
+          } catch (countdownError) {
+            console.warn(`[COUNTDOWN] Error adding event to countdown schedule: ${countdownError.message}`);
+          }
+        }
       }
     }
     
@@ -433,11 +499,40 @@ app.get('/api/events/:eventId/attendance', async (req, res) => {
       });
     }
     
+    // Handle both old format (single string) and new format (JSONB array)
+    let messageIds = [];
+    
+    if (typeof discordEventId === 'string') {
+      // Old format: single message ID
+      messageIds = [discordEventId];
+    } else if (Array.isArray(discordEventId)) {
+      // New format: JSONB array of message objects
+      messageIds = discordEventId.map(entry => entry.messageId).filter(id => id);
+    } else {
+      console.warn(`Unexpected discord_event_id format for event ${eventId}:`, discordEventId);
+      return res.json({ 
+        accepted: [], 
+        declined: [], 
+        tentative: [],
+        note: 'Invalid Discord event ID format'
+      });
+    }
+    
+    if (messageIds.length === 0) {
+      return res.json({ 
+        accepted: [], 
+        declined: [], 
+        tentative: [],
+        note: 'No valid Discord message IDs found for this event'
+      });
+    }
+    
     // Query Supabase for attendance records from discord_event_attendance table
+    // Use 'in' operator to match any of the message IDs
     const { data, error } = await supabase
       .from('discord_event_attendance')
       .select('*')
-      .eq('discord_event_id', discordEventId);
+      .in('discord_event_id', messageIds);
     
     if (error) {
       throw error;
@@ -450,8 +545,22 @@ app.get('/api/events/:eventId/attendance', async (req, res) => {
       tentative: []
     };
     
-    // Process each attendance record
+    // Use a Map to deduplicate responses by discord_id (in case a user responded to multiple messages)
+    // Keep the most recent response for each user
+    const userResponses = new Map();
+    
     data.forEach(record => {
+      const userId = record.discord_id;
+      const existingResponse = userResponses.get(userId);
+      
+      // If this is the first response for this user, or this response is more recent, use it
+      if (!existingResponse || new Date(record.updated_at) > new Date(existingResponse.updated_at)) {
+        userResponses.set(userId, record);
+      }
+    });
+    
+    // Process each unique user response
+    userResponses.forEach(record => {
       // Prepare the attendee object
       const attendee = {
         boardNumber: record.board_number || (record.discord_id ? record.discord_id.substring(0, 3) : 'N/A'),

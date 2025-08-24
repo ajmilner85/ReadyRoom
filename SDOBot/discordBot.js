@@ -3,6 +3,7 @@ const dotenv = require('dotenv');
 const fs = require('fs');
 const { Client, GatewayIntentBits, EmbedBuilder, ButtonBuilder, ActionRowBuilder, ButtonStyle } = require('discord.js');
 const { format, formatDistanceToNow } = require('date-fns');
+const { toZonedTime, fromZonedTime, formatInTimeZone, getTimezoneOffset } = require('date-fns-tz');
 
 // Load environment variables from the root .env file
 const result = dotenv.config({ path: path.resolve(__dirname, '../.env') });
@@ -172,9 +173,9 @@ function createEventEmbed(title, description, eventTime, responses = {}, creator
   const createBlockQuote = (entries) => {
     if (entries.length === 0) return '-';
     const formattedEntries = entries.map(formatPilotEntry);
-    // Discord has a 1024 character limit per field value
-    const content = `>>> ${formattedEntries.join('\n')}`;
-    return content.length > 1020 ? `>>> ${formattedEntries.slice(0, 20).join('\n')}\n... and ${formattedEntries.length - 20} more` : content;
+    // Discord has a 1024 character limit per field value, use single-line quotes
+    const content = formattedEntries.map(entry => `> ${entry}`).join('\n');
+    return content.length > 1020 ? formattedEntries.slice(0, 20).map(entry => `> ${entry}`).join('\n') + `\n> ... and ${formattedEntries.length - 20} more` : content;
   };
   
   // Helper function to group by qualifications
@@ -190,13 +191,15 @@ function createEventEmbed(title, description, eventTime, responses = {}, creator
       
       let result = '';
       if (ips.length > 0) {
-        const ipContent = ips.map(formatPilotEntry).join('\n');
-        result += `**IP (${ips.length})**\n>>> ${ipContent}`;
+        const ipPilots = ips.map(formatPilotEntry);
+        const ipContent = ipPilots.map(entry => `> ${entry}`).join('\n');
+        result += `*IP (${ips.length})*\n${ipContent}`;
       }
       if (trainees.length > 0) {
         if (result) result += '\n\n';
-        const traineeContent = trainees.map(formatPilotEntry).join('\n');
-        result += `**Trainee (${trainees.length})**\n>>> ${traineeContent}`;
+        const traineePilots = trainees.map(formatPilotEntry);
+        const traineeContent = traineePilots.map(entry => `> ${entry}`).join('\n');
+        result += `*Trainee (${trainees.length})*\n${traineeContent}`;
       }
       // Check character limit
       return (result.length > 1020) ? result.substring(0, 1020) + '...' : (result || '-');
@@ -239,15 +242,17 @@ function createEventEmbed(title, description, eventTime, responses = {}, creator
     qualificationOrder.forEach(qual => {
       if (groups[qual] && groups[qual].length > 0) {
         if (result) result += '\n\n';
-        const qualContent = groups[qual].map(formatPilotEntry).join('\n');
-        result += `**${qual} (${groups[qual].length})**\n>>> ${qualContent}`;
+        const pilots = groups[qual].map(formatPilotEntry);
+        const qualContent = pilots.map(entry => `> ${entry}`).join('\n');
+        result += `*${qual} (${groups[qual].length})*\n${qualContent}`;
       }
     });
     
     if (unassigned.length > 0) {
       if (result) result += '\n\n';
-      const unassignedContent = unassigned.map(formatPilotEntry).join('\n');
-      result += `**Other (${unassigned.length})**\n>>> ${unassignedContent}`;
+      const pilots = unassigned.map(formatPilotEntry);
+      const unassignedContent = pilots.map(entry => `> ${entry}`).join('\n');
+      result += `*Other (${unassigned.length})*\n${unassignedContent}`;
     }
     
     // Check character limit
@@ -294,7 +299,20 @@ function createEventEmbed(title, description, eventTime, responses = {}, creator
     const formattedEndTime = format(endTime, "h:mm a 'EDT'");
     
     const timeString = `${formattedDate} ${formattedStartTime} - ${formattedEndTime}`;
-    const countdownString = `🕒 ${formatDistanceToNow(startTime, { addSuffix: true })}`;
+    
+    // Create dynamic countdown string based on event status
+    // Use UTC-based comparison (DST-safe) but with timezone-aware display
+    let countdownString;
+    
+    const nowUtc = new Date();
+    
+    if (nowUtc >= startTime && nowUtc <= endTime) {
+      countdownString = '🔴 **Happening Now**';
+    } else if (nowUtc > endTime) {
+      countdownString = '⏹️ **Event Finished**';
+    } else {
+      countdownString = `🕒 ${formatDistanceToNow(startTime, { addSuffix: true })}`;
+    }
     
     // Create Google Calendar link
     const googleCalendarLink = createGoogleCalendarLink(title, description, startTime, endTime);
@@ -497,11 +515,43 @@ async function editEventMessage(messageId, title, description, eventTime, guildI
                 tentative: []
               };
               
-              // Group database responses by status
-              attendanceData.forEach(record => {
-                const userEntry = { 
-                  userId: record.discord_id, 
-                  displayName: record.discord_username 
+              // Populate with existing responses, including pilot record data for qualifications
+              for (const record of attendanceData) {
+                let pilotRecord = null;
+                
+                // Try to fetch pilot data for this user to preserve qualifications
+                try {
+                  const { data: pilotData, error: pilotError } = await supabase
+                    .from('pilots')
+                    .select(`
+                      *,
+                      pilot_qualifications(
+                        qualification_id,
+                        qualification:qualifications(name)
+                      )
+                    `)
+                    .eq('discord_original_id', record.discord_id)
+                    .single();
+                  
+                  if (!pilotError && pilotData) {
+                    pilotRecord = {
+                      id: pilotData.id,
+                      callsign: pilotData.callsign,
+                      boardNumber: pilotData.boardNumber?.toString() || '',
+                      qualifications: pilotData.pilot_qualifications?.map(pq => pq.qualification?.name).filter(Boolean) || [],
+                      currentStatus: { name: pilotData.status || 'Provisional' }
+                    };
+                  }
+                } catch (error) {
+                  console.warn(`[EDIT-PILOT-DATA] Error fetching pilot data for ${record.discord_id}:`, error.message);
+                }
+                
+                const userEntry = {
+                  userId: record.discord_id,
+                  displayName: record.discord_username || 'Unknown User',
+                  boardNumber: pilotRecord?.boardNumber || '',
+                  callsign: pilotRecord?.callsign || record.discord_username || 'Unknown User',
+                  pilotRecord // Include the pilot record for qualification processing
                 };
                 
                 if (record.user_response === 'accepted') {
@@ -511,9 +561,9 @@ async function editEventMessage(messageId, title, description, eventTime, guildI
                 } else if (record.user_response === 'tentative') {
                   existingResponses.tentative.push(userEntry);
                 }
-              });
+              }
               
-              console.log(`[EDIT-RESPONSES] Restored ${attendanceData.length} responses from database for event ${messageId}`);
+              console.log(`[EDIT-RESPONSES] Restored ${attendanceData.length} responses from database with pilot data for event ${messageId}`);
             } else {
               console.log(`[EDIT-RESPONSES] No existing responses found in database for event ${messageId}`);
               existingResponses = {
@@ -718,24 +768,36 @@ client.on('interactionCreate', async interaction => {
   const eventId = message.id;
   const displayName = interaction.member.displayName;
   const userId = user.id;
-    // Get event data from memory cache
+    // Always get fresh event data from database to ensure correct timing
   let eventData = eventResponses.get(eventId);
-  if (!eventData) {
-    console.log(`No event data found in memory for message ID: ${eventId}, attempting to retrieve from database...`);
+  let freshEventTime = null;
+  
+  // Try to get fresh event data from the database for timing
+  const { event: dbEvent, error: dbEventError } = await getEventByDiscordId(eventId);
+  if (!dbEventError && dbEvent) {
+    // Database stores times in UTC, but we need to treat them as UTC Date objects
+    // The Date constructor properly handles ISO strings with timezone info
+    freshEventTime = {
+      start: dbEvent.start_datetime ? new Date(dbEvent.start_datetime) : new Date(),
+      end: dbEvent.end_datetime ? new Date(dbEvent.end_datetime) : new Date(new Date().getTime() + (60 * 60 * 1000))
+    };
     
-    // Try to get event data from the database
-    const { event, error: eventError } = await getEventByDiscordId(eventId);
-    if (!eventError && event) {
+    console.log(`[TIMING-DEBUG] Database times: start=${dbEvent.start_datetime}, end=${dbEvent.end_datetime}`);
+    console.log(`[TIMING-DEBUG] Parsed times: start=${freshEventTime.start.toISOString()}, end=${freshEventTime.end.toISOString()}`);
+  }
+  
+  if (!eventData) {
+    console.log(`[PATH-DEBUG] No event data found in memory for message ID: ${eventId}, creating from database...`);
+    
+    if (dbEvent) {
       console.log(`Found event data in database for message ID: ${eventId}`);
       // Create minimal event data structure from database record
       eventData = {
-        title: event.name || event.title || 'Event',
-        description: event.description || '',        eventTime: {
-          start: event.start_datetime ? new Date(event.start_datetime) : new Date(),
-          end: event.end_datetime ? new Date(event.end_datetime) : new Date(new Date().getTime() + (60 * 60 * 1000))
-        },
-        imageUrl: event.image_url,
-        guildId: event.discord_guild_id,
+        title: dbEvent.name || dbEvent.title || 'Event',
+        description: dbEvent.description || '',
+        eventTime: freshEventTime,
+        imageUrl: dbEvent.image_url,
+        guildId: dbEvent.discord_guild_id,
         accepted: [],
         declined: [],
         tentative: []
@@ -747,6 +809,17 @@ client.on('interactionCreate', async interaction => {
       console.log(`Could not find event data for message ID: ${eventId} in database either`);
       await interaction.reply({ content: 'Sorry, this event is no longer active. Please contact an administrator.', ephemeral: true });
       return;
+    }
+  } else {
+    console.log(`[PATH-DEBUG] Event data found in memory for message ID: ${eventId}, updating with fresh timing...`);
+    // Update existing cached data with fresh timing info
+    if (freshEventTime) {
+      console.log(`[TIMING-DEBUG] Before update - cached eventTime: start=${eventData.eventTime?.start?.toISOString()}, end=${eventData.eventTime?.end?.toISOString()}`);
+      eventData.eventTime = freshEventTime;
+      console.log(`[TIMING-DEBUG] After update - cached eventTime: start=${eventData.eventTime.start.toISOString()}, end=${eventData.eventTime.end.toISOString()}`);
+      console.log(`[TIMING-FIX] Updated cached event data with fresh timing for message ${eventId}`);
+    } else {
+      console.log(`[PATH-DEBUG] No fresh event time available from database for message ${eventId}`);
     }
   }
   
@@ -842,6 +915,82 @@ client.on('interactionCreate', async interaction => {
     pilotRecord // Include the full pilot record for qualification processing
   };
   
+  // Load existing responses from database before adding new one
+  if (dbEvent) {
+    try {
+      const { data: existingAttendance, error: attendanceError } = await supabase
+        .from('discord_event_attendance')
+        .select('*')
+        .eq('discord_event_id', eventId);
+      
+      if (!attendanceError && existingAttendance) {
+        // Reset response arrays
+        eventData.accepted = [];
+        eventData.declined = [];
+        eventData.tentative = [];
+        
+        // Populate with existing responses, including pilot record data for qualifications
+        for (const record of existingAttendance) {
+          let pilotRecord = null;
+          
+          // Try to fetch pilot data for this user to preserve qualifications
+          try {
+            const { data: pilotData, error: pilotError } = await supabase
+              .from('pilots')
+              .select(`
+                *,
+                pilot_qualifications(
+                  qualification_id,
+                  qualification:qualifications(name)
+                )
+              `)
+              .eq('discord_original_id', record.discord_id)
+              .single();
+            
+            if (!pilotError && pilotData) {
+              pilotRecord = {
+                id: pilotData.id,
+                callsign: pilotData.callsign,
+                boardNumber: pilotData.boardNumber?.toString() || '',
+                qualifications: pilotData.pilot_qualifications?.map(pq => pq.qualification?.name).filter(Boolean) || [],
+                currentStatus: { name: pilotData.status || 'Provisional' }
+              };
+            }
+          } catch (error) {
+            console.warn(`[PILOT-DATA] Error fetching pilot data for existing response ${record.discord_id}:`, error.message);
+          }
+          
+          const existingUserEntry = {
+            userId: record.discord_id,
+            displayName: record.discord_username || 'Unknown User',
+            boardNumber: pilotRecord?.boardNumber || '',
+            callsign: pilotRecord?.callsign || record.discord_username || 'Unknown User',
+            pilotRecord // Include the pilot record for qualification processing
+          };
+          
+          if (record.user_response === 'accepted') {
+            eventData.accepted.push(existingUserEntry);
+          } else if (record.user_response === 'declined') {
+            eventData.declined.push(existingUserEntry);
+          } else if (record.user_response === 'tentative') {
+            eventData.tentative.push(existingUserEntry);
+          }
+        }
+        
+        console.log(`[RESPONSES-DEBUG] Loaded ${existingAttendance.length} existing responses from database`);
+      }
+    } catch (error) {
+      console.warn(`[RESPONSES-DEBUG] Error loading existing responses: ${error.message}`);
+    }
+  }
+  
+  // Add or update the current user's response
+  // First remove any existing response from this user
+  eventData.accepted = eventData.accepted.filter(u => u.userId !== userId);
+  eventData.declined = eventData.declined.filter(u => u.userId !== userId);
+  eventData.tentative = eventData.tentative.filter(u => u.userId !== userId);
+  
+  // Then add the new response
   if (customId === 'accept') {
     eventData.accepted.push(userEntry);
   } else if (customId === 'decline') {
@@ -897,6 +1046,10 @@ async function initializeDiscordBot() {
   try {
     // This will ensure the bot is logged in and event responses are loaded
     await ensureLoggedIn();
+    
+    // Start the countdown update manager
+    await countdownManager.start();
+    
     return true;
   } catch (error) {
     console.error('Error initializing Discord bot:', error);
@@ -932,6 +1085,272 @@ async function getAvailableGuilds() {
   }
 }
 
+// Countdown Update Manager
+class CountdownUpdateManager {
+  constructor() {
+    this.updateTimeouts = new Map(); // Map of messageId -> timeout
+    this.isRunning = false;
+  }
+
+  // Calculate the next update interval based on time until event
+  async calculateUpdateInterval(eventStartTime, referenceTimezone = 'America/New_York') {
+    try {
+      // Use UTC timestamps for accurate time calculations
+      const nowUtc = new Date();
+      const eventStartUtc = new Date(eventStartTime);
+      
+      // Calculate raw time difference
+      const timeUntilEvent = eventStartUtc.getTime() - nowUtc.getTime();
+      const hoursUntil = timeUntilEvent / (1000 * 60 * 60);
+
+      // Log timezone info for debugging
+      const nowInTimezone = formatInTimeZone(nowUtc, referenceTimezone, "yyyy-MM-dd HH:mm:ss zzz");
+      const eventInTimezone = formatInTimeZone(eventStartUtc, referenceTimezone, "yyyy-MM-dd HH:mm:ss zzz");
+      
+      console.log(`[COUNTDOWN] Time calculation: now=${nowInTimezone}, event=${eventInTimezone}, hoursUntil=${hoursUntil.toFixed(2)}, timezone=${referenceTimezone}`);
+
+      if (hoursUntil <= 0) {
+        // Event started or finished, stop updates
+        return null;
+      } else if (hoursUntil <= 1) {
+        // Within 1 hour: update every minute
+        return 1 * 60 * 1000; // 1 minute
+      } else if (hoursUntil <= 6) {
+        // Within 6 hours: update every 15 minutes
+        return 15 * 60 * 1000; // 15 minutes
+      } else if (hoursUntil <= 24) {
+        // Within 24 hours: update every hour
+        return 60 * 60 * 1000; // 1 hour
+      } else {
+        // More than 24 hours: update once per day
+        return 24 * 60 * 60 * 1000; // 24 hours
+      }
+    } catch (error) {
+      console.error(`[COUNTDOWN] Error calculating update interval: ${error.message}`);
+      // Fallback to UTC comparison
+      const now = new Date();
+      const timeUntilEvent = new Date(eventStartTime) - now;
+      const hoursUntil = timeUntilEvent / (1000 * 60 * 60);
+      
+      if (hoursUntil <= 0) return null;
+      else if (hoursUntil <= 1) return 1 * 60 * 1000;
+      else if (hoursUntil <= 6) return 15 * 60 * 1000;
+      else if (hoursUntil <= 24) return 60 * 60 * 1000;
+      else return 24 * 60 * 60 * 1000;
+    }
+  }
+
+  // Schedule countdown update for a specific event
+  async scheduleEventUpdate(eventData, messageId, guildId, channelId, referenceTimezone = 'America/New_York') {
+    // Clear existing timeout if any
+    if (this.updateTimeouts.has(messageId)) {
+      clearTimeout(this.updateTimeouts.get(messageId));
+    }
+
+    const startTime = new Date(eventData.start_datetime);
+    const endTime = new Date(eventData.end_datetime || eventData.end_time);
+
+    // Use UTC-based comparison for finished check (DST-safe)
+    const nowUtc = new Date();
+    
+    // Don't schedule updates for events that have already finished
+    if (nowUtc > endTime) {
+      const nowInTimezone = formatInTimeZone(nowUtc, referenceTimezone, "yyyy-MM-dd HH:mm:ss zzz");
+      const endTimeInTimezone = formatInTimeZone(endTime, referenceTimezone, "yyyy-MM-dd HH:mm:ss zzz");
+      console.log(`[COUNTDOWN] Event ${messageId} has finished (now: ${nowInTimezone} > end: ${endTimeInTimezone}), not scheduling updates`);
+      return;
+    }
+
+    const updateInterval = await this.calculateUpdateInterval(startTime, referenceTimezone);
+    
+    if (!updateInterval) {
+      console.log(`[COUNTDOWN] Event ${messageId} has started, stopping countdown updates`);
+      return;
+    }
+
+    console.log(`[COUNTDOWN] Scheduling update for event ${messageId} in ${updateInterval / 1000} seconds`);
+
+    const timeoutId = setTimeout(async () => {
+      try {
+        await this.updateEventCountdown(eventData, messageId, guildId, channelId, referenceTimezone);
+        // Reschedule the next update
+        this.scheduleEventUpdate(eventData, messageId, guildId, channelId, referenceTimezone);
+      } catch (error) {
+        console.error(`[COUNTDOWN] Error updating event ${messageId}:`, error);
+      }
+    }, updateInterval);
+
+    this.updateTimeouts.set(messageId, timeoutId);
+  }
+
+  // Update the countdown for a specific event
+  async updateEventCountdown(eventData, messageId, guildId, channelId) {
+    try {
+      await ensureLoggedIn();
+
+      const guild = client.guilds.cache.get(guildId);
+      if (!guild) {
+        console.error(`[COUNTDOWN] Guild ${guildId} not found`);
+        return;
+      }
+
+      const channel = guild.channels.cache.get(channelId);
+      if (!channel) {
+        console.error(`[COUNTDOWN] Channel ${channelId} not found in guild ${guildId}`);
+        return;
+      }
+
+      try {
+        const message = await channel.messages.fetch(messageId);
+        if (!message) {
+          console.error(`[COUNTDOWN] Message ${messageId} not found`);
+          return;
+        }
+
+        // Get current responses from cache or load from database
+        const currentResponses = eventResponses.get(messageId) || {
+          accepted: [],
+          declined: [],
+          tentative: []
+        };
+
+        // Create updated embed
+        const eventTime = {
+          start: new Date(eventData.start_datetime),
+          end: new Date(eventData.end_datetime)
+        };
+
+        const imageData = eventData.image_url ? { imageUrl: eventData.image_url } : null;
+        const updatedEmbed = createEventEmbed(
+          eventData.name,
+          eventData.description,
+          eventTime,
+          currentResponses,
+          null, // creator
+          imageData
+        );
+
+        // Update the message
+        await message.edit({
+          embeds: [updatedEmbed],
+          components: message.components // Keep existing buttons
+        });
+
+        console.log(`[COUNTDOWN] Successfully updated countdown for event ${messageId}`);
+      } catch (fetchError) {
+        if (fetchError.code === 10008) {
+          console.log(`[COUNTDOWN] Message ${messageId} not found, removing from update schedule`);
+          this.clearEventUpdate(messageId);
+        } else {
+          throw fetchError;
+        }
+      }
+    } catch (error) {
+      console.error(`[COUNTDOWN] Error updating countdown for event ${messageId}:`, error);
+    }
+  }
+
+  // Start the countdown manager
+  async start() {
+    if (this.isRunning) {
+      console.log('[COUNTDOWN] Manager already running');
+      return;
+    }
+
+    this.isRunning = true;
+    console.log('[COUNTDOWN] Starting countdown update manager');
+
+    try {
+      // Get reference timezone from settings
+      let referenceTimezone = 'America/New_York'; // Default to EDT
+      
+      try {
+        // Try to get the timezone from squadron settings
+        const { data: timezoneData } = await supabase
+          .from('squadron_settings')
+          .select('value')
+          .eq('key', 'reference_timezone')
+          .single();
+        
+        if (timezoneData?.value) {
+          referenceTimezone = timezoneData.value;
+          console.log(`[COUNTDOWN] Using reference timezone: ${referenceTimezone}`);
+        } else {
+          console.log(`[COUNTDOWN] No timezone setting found, using default: ${referenceTimezone}`);
+        }
+      } catch (tzError) {
+        console.warn(`[COUNTDOWN] Error getting timezone setting, using default: ${tzError.message}`);
+      }
+
+      // Load all active events from database
+      const { data: events, error } = await supabase
+        .from('events')
+        .select('*')
+        .not('discord_event_id', 'is', null)
+        .gte('end_datetime', new Date().toISOString()); // Only events that haven't finished
+
+      if (error) {
+        console.error('[COUNTDOWN] Error loading events:', error);
+        return;
+      }
+
+      // Schedule updates for each event
+      for (const event of events) {
+        if (!event.discord_event_id) continue;
+
+        // Handle both old format (single string) and new format (JSONB array)
+        let messageIds = [];
+        if (typeof event.discord_event_id === 'string') {
+          messageIds = [{ messageId: event.discord_event_id, guildId: event.discord_guild_id }];
+        } else if (Array.isArray(event.discord_event_id)) {
+          messageIds = event.discord_event_id.filter(entry => entry.messageId);
+        }
+
+        for (const { messageId, guildId, channelId } of messageIds) {
+          if (messageId) {
+            this.scheduleEventUpdate(event, messageId, guildId, channelId, referenceTimezone);
+          }
+        }
+      }
+
+      console.log(`[COUNTDOWN] Scheduled updates for ${events.length} active events with timezone ${referenceTimezone}`);
+    } catch (error) {
+      console.error('[COUNTDOWN] Error starting countdown manager:', error);
+    }
+  }
+
+  // Stop the countdown manager
+  stop() {
+    console.log('[COUNTDOWN] Stopping countdown update manager');
+    this.isRunning = false;
+    
+    // Clear all timeouts
+    for (const [messageId, timeoutId] of this.updateTimeouts) {
+      clearTimeout(timeoutId);
+    }
+    this.updateTimeouts.clear();
+  }
+
+  // Clear update for a specific event
+  clearEventUpdate(messageId) {
+    if (this.updateTimeouts.has(messageId)) {
+      clearTimeout(this.updateTimeouts.get(messageId));
+      this.updateTimeouts.delete(messageId);
+      console.log(`[COUNTDOWN] Cleared updates for event ${messageId}`);
+    }
+  }
+
+  // Add new event to update schedule
+  addEventToSchedule(eventData, messageId, guildId, channelId) {
+    if (this.isRunning) {
+      this.scheduleEventUpdate(eventData, messageId, guildId, channelId);
+    }
+  }
+}
+
+// Create global countdown manager instance
+const countdownManager = new CountdownUpdateManager();
+
 module.exports = {
   publishEventToDiscord,
   getEventAttendance,
@@ -939,5 +1358,6 @@ module.exports = {
   registerEventUpdateCallback,
   deleteEventMessage,
   editEventMessage,
-  getAvailableGuilds
+  getAvailableGuilds,
+  countdownManager
 };
