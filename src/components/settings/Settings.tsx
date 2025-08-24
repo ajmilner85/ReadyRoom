@@ -10,9 +10,10 @@ import Appearance from './Appearance';
 import UserAccounts from './UserAccounts';
 import RosterSettings from './RosterSettings';
 import OrganizationSettings from './OrganizationSettings';
+import EventSettings from './EventSettings';
 
 // Define the types of settings pages
-type SettingsPage = 'roster' | 'squadron' | 'organization' | 'mission' | 'appearance' | 'accounts';
+type SettingsPage = 'roster' | 'squadron' | 'organization' | 'mission' | 'events' | 'appearance' | 'accounts';
 
 interface SettingsNavItem {
   id: SettingsPage;
@@ -41,6 +42,11 @@ const settingsNavItems: SettingsNavItem[] = [
     id: 'mission',
     icon: <Plane size={20} />,
     label: 'Mission Defaults'
+  },
+  {
+    id: 'events',
+    icon: <Calendar size={20} />,
+    label: 'Events'
   },
   {
     id: 'appearance',
@@ -79,6 +85,8 @@ const Settings: React.FC = () => {
         return <OrganizationSettings error={error} setError={setError} />;
       case 'mission':
         return <MissionDefaults error={error} setError={setError} />;
+      case 'events':
+        return <EventSettings error={error} setError={setError} />;
       case 'appearance':
         return <Appearance error={error} setError={setError} />;
       case 'accounts':
