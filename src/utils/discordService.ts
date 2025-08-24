@@ -672,8 +672,12 @@ export async function deleteMultiChannelEvent(event: Event): Promise<{ success: 
     
     // Use event-level participating squadrons if they exist, otherwise get from cycle
     if (event.participants && event.participants.length > 0) {
+      console.log('[DELETE-MULTI-DEBUG] Using event-level participants:', event.participants);
       participatingSquadrons = event.participants;
     } else if (event.cycleId) {
+      console.log('[DELETE-MULTI-DEBUG] Event has no participants, fetching from cycle:', event.cycleId);
+      console.log('[DELETE-MULTI-DEBUG] About to query database for cycle participants...');
+      
       // Get the event's cycle to find participating squadrons
       const { data: cycleData, error: cycleError } = await supabase
         .from('cycles')
@@ -681,7 +685,10 @@ export async function deleteMultiChannelEvent(event: Event): Promise<{ success: 
         .eq('id', event.cycleId)
         .single();
       
+      console.log('[DELETE-MULTI-DEBUG] Database query completed. CycleData:', cycleData, 'Error:', cycleError);
+      
       if (cycleError || !cycleData) {
+        console.log('[DELETE-MULTI-DEBUG] Failed to fetch cycle data - returning error');
         return {
           success: false,
           deletedCount: 0,

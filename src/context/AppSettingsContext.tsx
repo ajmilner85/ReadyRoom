@@ -11,6 +11,7 @@ export interface AppSettings {
     defaultStartTime: string; // HH:MM format
     defaultDurationHours: number;
     defaultDurationMinutes: number;
+    referenceTimezone: string; // IANA timezone identifier
     
     // Reminders
     firstReminderTime: {
@@ -46,6 +47,7 @@ const defaultSettings: AppSettings = {
     defaultStartTime: '20:00',
     defaultDurationHours: 2,
     defaultDurationMinutes: 0,
+    referenceTimezone: 'America/New_York',
     
     // Reminder defaults
     firstReminderTime: { value: 15, unit: 'minutes' },
