@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Clock, Upload, Image as ImageIcon } from 'lucide-react';
+import { X, Clock, Upload, Image as ImageIcon, ChevronLeft, ChevronRight, Check } from 'lucide-react';
+import { useAppSettings } from '../../../context/AppSettingsContext';
 
 interface EventDialogProps {
   onSave: (eventData: {
@@ -16,7 +17,19 @@ interface EventDialogProps {
     headerImage?: File | null;
     additionalImages?: (File | null)[];
     trackQualifications?: boolean;
-  }) => Promise<void>;
+    reminders?: {
+      firstReminder?: {
+        enabled: boolean;
+        value: number;
+        unit: 'minutes' | 'hours' | 'days';
+      };
+      secondReminder?: {
+        enabled: boolean;
+        value: number;
+        unit: 'minutes' | 'hours' | 'days';
+      };
+    };
+  }, shouldPublish?: boolean) => Promise<void>;
   onCancel: () => void;
   initialData?: {
     title: string;
@@ -34,6 +47,8 @@ interface EventDialogProps {
   selectedCycle?: { participants?: string[] };
 }
 
+type WorkflowStep = 'details' | 'participants' | 'reminders';
+
 export const EventDialog: React.FC<EventDialogProps> = ({
   onSave,
   onCancel,
@@ -41,23 +56,80 @@ export const EventDialog: React.FC<EventDialogProps> = ({
   squadrons = [],
   selectedCycle
 }) => {  
+  const { settings } = useAppSettings();
+  
+  // Workflow state
+  const [currentStep, setCurrentStep] = useState<WorkflowStep>('details');
+  const [completedSteps, setCompletedSteps] = useState<Set<WorkflowStep>>(new Set());
+  
+  // Form data state
   const [title, setTitle] = useState(initialData?.title || '');
   const [description, setDescription] = useState(initialData?.description || '');
-  const [datetime, setDatetime] = useState(initialData?.datetime ? new Date(initialData.datetime).toISOString().slice(0, 16) : '');
-  const [durationHours, setDurationHours] = useState(1); // Default to 1 hour for new events
-  const [durationMinutes, setDurationMinutes] = useState(0);
+  const [datetime, setDatetime] = useState('');
+  const [durationHours, setDurationHours] = useState(settings.eventDefaults.defaultDurationHours);
+  const [durationMinutes, setDurationMinutes] = useState(settings.eventDefaults.defaultDurationMinutes);
   const [endDatetime, setEndDatetime] = useState(initialData?.endDatetime ? new Date(initialData.endDatetime).toISOString().slice(0, 16) : '');
-  const [restrictedTo, setRestrictedTo] = useState<string[]>(initialData?.restrictedTo || []);
+  const [restrictedTo, setRestrictedTo] = useState<string[]>(initialData?.restrictedTo || ['All Pilots']);
   const [participants, setParticipatingSquadrons] = useState<string[]>(
-    initialData?.participants || selectedCycle?.participants || []
+    initialData?.participants !== undefined ? initialData.participants : (selectedCycle?.participants || [])
   );
-  const [trackQualifications, setTrackQualifications] = useState(initialData?.trackQualifications || false);
+  const [trackQualifications, setTrackQualifications] = useState(
+    initialData?.trackQualifications !== undefined 
+      ? initialData.trackQualifications 
+      : settings.eventDefaults.groupResponsesByQualification
+  );
+  
+  // Reminder settings state
+  const [firstReminderEnabled, setFirstReminderEnabled] = useState(settings.eventDefaults.firstReminderEnabled);
+  const [firstReminderValue, setFirstReminderValue] = useState(settings.eventDefaults.firstReminderTime.value);
+  const [firstReminderUnit, setFirstReminderUnit] = useState(settings.eventDefaults.firstReminderTime.unit);
+  const [secondReminderEnabled, setSecondReminderEnabled] = useState(settings.eventDefaults.secondReminderEnabled);
+  const [secondReminderValue, setSecondReminderValue] = useState(settings.eventDefaults.secondReminderTime.value);
+  const [secondReminderUnit, setSecondReminderUnit] = useState(settings.eventDefaults.secondReminderTime.unit);
+  
+  // Reminder recipients state
+  const [sendToAccepted, setSendToAccepted] = useState(settings.eventDefaults.sendRemindersToAccepted);
+  const [sendToTentative, setSendToTentative] = useState(settings.eventDefaults.sendRemindersToTentative);
+  
+  // Image state
   const [images, setImages] = useState<(File | null)[]>([null, null, null, null]);
   const [imagePreviews, setImagePreviews] = useState<(string | null)[]>([null, null, null, null]);
   const [dragOverStates, setDragOverStates] = useState<boolean[]>([false, false, false, false]);
+  
+  // UI state
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   
+  // Initialize datetime with default values based on settings
+  useEffect(() => {
+    if (!initialData?.datetime) {
+      // Get the next occurrence of the default day of week at the default time
+      const now = new Date();
+      const targetDay = settings.eventDefaults.defaultStartDayOfWeek;
+      const targetTime = settings.eventDefaults.defaultStartTime;
+      
+      const daysOfWeek = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+      const targetDayIndex = daysOfWeek.indexOf(targetDay);
+      const currentDayIndex = now.getDay();
+      
+      let daysToAdd = targetDayIndex - currentDayIndex;
+      if (daysToAdd <= 0) {
+        daysToAdd += 7; // Next week
+      }
+      
+      const targetDate = new Date(now);
+      targetDate.setDate(now.getDate() + daysToAdd);
+      
+      // Set the time
+      const [hours, minutes] = targetTime.split(':').map(Number);
+      targetDate.setHours(hours, minutes, 0, 0);
+      
+      setDatetime(targetDate.toISOString().slice(0, 16));
+    } else {
+      setDatetime(new Date(initialData.datetime).toISOString().slice(0, 16));
+    }
+  }, [initialData?.datetime, settings.eventDefaults.defaultStartDayOfWeek, settings.eventDefaults.defaultStartTime]);
+
   // Update participants when selectedCycle changes
   useEffect(() => {
     if (!initialData?.participants && selectedCycle?.participants) {
@@ -203,54 +275,120 @@ export const EventDialog: React.FC<EventDialogProps> = ({
     setDurationMinutes(clamped);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  // Workflow navigation and validation
+  const steps: Array<{ key: WorkflowStep; title: string; description: string }> = [
+    { key: 'details', title: 'Event Details', description: 'Basic event information' },
+    { key: 'participants', title: 'Participants', description: 'Who can participate' },
+    { key: 'reminders', title: 'Reminders', description: 'Notification settings' }
+  ];
+
+  const currentStepIndex = steps.findIndex(step => step.key === currentStep);
+  const isFirstStep = currentStepIndex === 0;
+  const isLastStep = currentStepIndex === steps.length - 1;
+
+  const validateCurrentStep = (): boolean => {
+    setError('');
     
+    switch (currentStep) {
+      case 'details':
+        if (!title.trim()) {
+          setError('Please enter an event title');
+          return false;
+        }
+        if (!datetime) {
+          setError('Please select a start date and time');
+          return false;
+        }
+        if (durationHours === 0 && durationMinutes === 0) {
+          setError('Please specify an event duration');
+          return false;
+        }
+        const start = new Date(datetime);
+        const end = new Date(endDatetime);
+        if (end <= start) {
+          setError('End time must be after start time');
+          return false;
+        }
+        return true;
+        
+      case 'participants':
+        // No specific validation required for participants step
+        return true;
+        
+      case 'reminders':
+        // No specific validation required for reminders step
+        return true;
+        
+      default:
+        return true;
+    }
+  };
+
+  const handleNextStep = () => {
+    if (validateCurrentStep()) {
+      const newCompleted = new Set(completedSteps);
+      newCompleted.add(currentStep);
+      setCompletedSteps(newCompleted);
+      
+      if (!isLastStep) {
+        setCurrentStep(steps[currentStepIndex + 1].key);
+      }
+    }
+  };
+
+  const handlePreviousStep = () => {
+    if (!isFirstStep) {
+      setCurrentStep(steps[currentStepIndex - 1].key);
+    }
+  };
+
+  const handleStepClick = (stepKey: WorkflowStep) => {
+    // Allow clicking on previous steps or current step
+    const stepIndex = steps.findIndex(step => step.key === stepKey);
+    if (stepIndex <= currentStepIndex || completedSteps.has(stepKey)) {
+      setCurrentStep(stepKey);
+    }
+  };
+
+  const handleSubmit = async (shouldPublish: boolean = false) => {
     if (isSubmitting) return; // Prevent multiple submissions
     
-    if (!title.trim()) {
-      setError('Please enter an event title');
-      return;
-    }
-
-    if (!datetime) {
-      setError('Please select a start date and time');
+    // Validate all steps
+    if (!validateCurrentStep()) {
       return;
     }
     
     setIsSubmitting(true);
     setError('');
 
-    if (durationHours === 0 && durationMinutes === 0) {
-      setError('Please specify an event duration');
-      setIsSubmitting(false);
-      return;
-    }
-
-    const start = new Date(datetime);
-    const end = new Date(endDatetime);
-    if (end <= start) {
-      setError('End time must be after start time');
-      setIsSubmitting(false);
-      return;
-    }
-
     try {
       await onSave({
-      title: title.trim(),
-      description: description.trim(),
-      datetime,
-      endDatetime,
-      duration: {
-        hours: durationHours,
-        minutes: durationMinutes
-      },
-      restrictedTo: restrictedTo.length > 0 ? restrictedTo : undefined,
-      participants: participants.length > 0 ? participants : undefined,
-      headerImage: images[0],
-      additionalImages: images.slice(1).filter(img => img !== null),
-      trackQualifications
-    });
+        title: title.trim(),
+        description: description.trim(),
+        datetime,
+        endDatetime,
+        duration: {
+          hours: durationHours,
+          minutes: durationMinutes
+        },
+        restrictedTo: restrictedTo.length > 0 ? restrictedTo : undefined,
+        participants: participants.length > 0 ? participants : undefined,
+        headerImage: images[0],
+        additionalImages: images.slice(1).filter(img => img !== null),
+        trackQualifications,
+        reminders: {
+          firstReminder: {
+            enabled: firstReminderEnabled,
+            value: firstReminderValue,
+            unit: firstReminderUnit
+          },
+          secondReminder: {
+            enabled: secondReminderEnabled,
+            value: secondReminderValue,
+            unit: secondReminderUnit
+          }
+        }
+      }, shouldPublish);
     } catch (error) {
       setError(error instanceof Error ? error.message : 'An error occurred while saving the event');
     } finally {
@@ -259,6 +397,134 @@ export const EventDialog: React.FC<EventDialogProps> = ({
   };
 
   const roleOptions = ['Cadre', 'Staff', 'All Pilots'];
+
+  // Progress bar component
+  const ProgressBar = () => (
+    <div style={{ padding: '16px 24px' }}>
+      <nav aria-label="Progress">
+        <div style={{ 
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'flex-start',
+          position: 'relative',
+          maxWidth: '400px',
+          margin: '0 auto'
+        }}>
+          {/* Connecting lines between squares */}
+          {currentStepIndex > 0 && (
+            <div style={{
+              position: 'absolute',
+              top: '16px',
+              left: 'calc(16.67% + 16px)',
+              width: 'calc(33.33% - 32px)',
+              height: '2px',
+              backgroundColor: '#10B981',
+              zIndex: 0
+            }} />
+          )}
+          
+          {currentStepIndex > 1 && (
+            <div style={{
+              position: 'absolute',
+              top: '16px',
+              left: 'calc(50% + 16px)',
+              width: 'calc(33.33% - 32px)',
+              height: '2px',
+              backgroundColor: '#10B981',
+              zIndex: 0
+            }} />
+          )}
+          
+          {/* Background lines */}
+          {currentStepIndex < 1 && (
+            <div style={{
+              position: 'absolute',
+              top: '16px',
+              left: 'calc(16.67% + 16px)',
+              width: 'calc(33.33% - 32px)',
+              height: '2px',
+              backgroundColor: '#E5E7EB',
+              zIndex: 0
+            }} />
+          )}
+          
+          {currentStepIndex < 2 && (
+            <div style={{
+              position: 'absolute',
+              top: '16px',
+              left: 'calc(50% + 16px)',
+              width: 'calc(33.33% - 32px)',
+              height: '2px',
+              backgroundColor: '#E5E7EB',
+              zIndex: 0
+            }} />
+          )}
+          
+          {steps.map((step, index) => {
+            const isCompleted = completedSteps.has(step.key);
+            const isCurrent = currentStep === step.key;
+            const isClickable = index <= currentStepIndex || isCompleted;
+            
+            return (
+              <div key={step.key} style={{ 
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                position: 'relative',
+                zIndex: 1
+              }}>
+                <button
+                  onClick={() => isClickable && handleStepClick(step.key)}
+                  disabled={!isClickable}
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    background: 'none',
+                    border: 'none',
+                    cursor: isClickable ? 'pointer' : 'default',
+                    padding: '0'
+                  }}
+                >
+                  {/* Rounded square */}
+                  <div
+                    style={{
+                      width: '32px',
+                      height: '32px',
+                      borderRadius: '8px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      backgroundColor: isCompleted ? '#10B981' : isCurrent ? '#3B82F6' : '#E5E7EB',
+                      color: isCompleted || isCurrent ? 'white' : '#6B7280',
+                      fontSize: '14px',
+                      fontWeight: 500,
+                      marginBottom: '8px'
+                    }}
+                  >
+                    {isCompleted ? <Check size={16} /> : index + 1}
+                  </div>
+                  
+                  {/* Title below */}
+                  <div style={{
+                    fontSize: '14px',
+                    fontWeight: isCurrent ? 600 : 500,
+                    color: isCurrent ? '#1F2937' : isCompleted ? '#374151' : '#6B7280',
+                    textAlign: 'center',
+                    whiteSpace: 'nowrap',
+                    width: '90px',
+                    minWidth: '90px'
+                  }}>
+                    {step.title}
+                  </div>
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      </nav>
+    </div>
+  );
 
   return (
     <>
@@ -279,18 +545,23 @@ export const EventDialog: React.FC<EventDialogProps> = ({
         top: '50%',
         left: '50%',
         transform: 'translate(-50%, -50%)',
-        width: '600px',
+        width: '700px',
+        height: '1000px',
         backgroundColor: '#FFFFFF',
         boxShadow: '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)',
         borderRadius: '8px',
-        zIndex: 1001
+        zIndex: 1001,
+        display: 'flex',
+        flexDirection: 'column'
       }}>
+        {/* Header */}
         <div style={{
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
-          padding: '16px 24px',
-          borderBottom: '1px solid #E2E8F0'
+          padding: '12px 24px',
+          borderBottom: '1px solid #E2E8F0',
+          flexShrink: 0
         }}>
           <h2 style={{
             fontSize: '18px',
@@ -316,561 +587,826 @@ export const EventDialog: React.FC<EventDialogProps> = ({
           </button>
         </div>
 
-        <form onSubmit={handleSubmit}>
-          <div style={{ padding: '24px' }}>
-            <div style={{ marginBottom: '16px' }}>
-              <label style={{
-                display: 'block',
-                marginBottom: '8px',
-                fontSize: '14px',
-                fontWeight: 500,
-                color: '#64748B'
-              }}>
-                Event Title
-              </label>
-              <input
-                type="text"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '8px',
-                  border: '1px solid #CBD5E1',
-                  borderRadius: '4px',
-                  fontSize: '14px',
-                  boxSizing: 'border-box',
-                  height: '35px',
-                  lineHeight: '19px'
-                }}
-                placeholder="Enter event title"
-              />
-            </div>
+        {/* Progress Bar */}
+        <ProgressBar />
 
-            <div style={{ marginBottom: '16px' }}>
-              <label style={{
-                display: 'block',
-                marginBottom: '8px',
-                fontSize: '14px',
-                fontWeight: 500,
-                color: '#64748B'
-              }}>
-                Start Date & Time
-              </label>
-              <input
-                type="datetime-local"
-                value={datetime}
-                onChange={handleDatetimeChange}
-                style={{
-                  width: '100%',
-                  padding: '8px',
-                  border: '1px solid #CBD5E1',
-                  borderRadius: '4px',
-                  fontSize: '14px',
-                  boxSizing: 'border-box',
-                  height: '35px',
-                  lineHeight: '19px'
-                }}
-              />
-            </div>
-
-            <div style={{ marginBottom: '16px' }}>
-              <label style={{
-                display: 'block',
-                marginBottom: '8px',
-                fontSize: '14px',
-                fontWeight: 500,
-                color: '#64748B'
-              }}>
-                Duration
-              </label>
-              <div style={{ display: 'flex', alignItems: 'center' }}>
-                <Clock size={16} color="#64748B" style={{ marginRight: '8px' }} />
-                <input
-                  type="number"
-                  min="0"
-                  value={durationHours}
-                  onChange={handleDurationHoursChange}
-                  style={{
-                    width: '70px',
-                    padding: '8px',
-                    border: '1px solid #CBD5E1',
-                    borderRadius: '4px 0 0 4px',
-                    fontSize: '14px',
-                    boxSizing: 'border-box',
-                    height: '35px',
-                    textAlign: 'center'
-                  }}
-                />
-                <span style={{ padding: '0 6px', border: '1px solid #CBD5E1', borderLeft: 'none', borderRight: 'none', height: '35px', lineHeight: '35px', backgroundColor: '#F8FAFC' }}>h</span>
-                <input
-                  type="number"
-                  min="0"
-                  max="59"
-                  value={durationMinutes}
-                  onChange={handleDurationMinutesChange}
-                  style={{
-                    width: '70px',
-                    padding: '8px',
-                    border: '1px solid #CBD5E1',
-                    borderRadius: '0 4px 4px 0',
-                    fontSize: '14px',
-                    boxSizing: 'border-box',
-                    height: '35px',
-                    textAlign: 'center'
-                  }}
-                />
-                <span style={{ marginLeft: '6px', height: '35px', lineHeight: '35px' }}>min</span>
-              </div>
-            </div>
-
-            <div style={{ marginBottom: '16px' }}>
-              <label style={{
-                display: 'block',
-                marginBottom: '8px',
-                fontSize: '14px',
-                fontWeight: 500,
-                color: '#64748B'
-              }}>
-                Eligibility
-              </label>
-              <select
-                multiple
-                value={restrictedTo}
-                onChange={(e) => {
-                  const values = Array.from(e.target.selectedOptions, option => option.value);
-                  setRestrictedTo(values);
-                }}
-                style={{
-                  width: '100%',
-                  padding: '8px',
-                  border: '1px solid #CBD5E1',
-                  borderRadius: '4px',
-                  fontSize: '14px',
-                  boxSizing: 'border-box'
-                }}
-              >
-                {roleOptions.map(role => (
-                  <option key={role} value={role}>
-                    {role}
-                  </option>
-                ))}
-              </select>
-              <div style={{
-                fontSize: '12px',
-                color: '#64748B',
-                marginTop: '4px'
-              }}>
-                Hold Ctrl/Cmd to select multiple roles. Leave empty for no restrictions.
-              </div>
-            </div>
-
-            {/* Participating Squadrons */}
-            <div style={{ marginBottom: '16px' }}>
-              <div style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                marginBottom: '8px'
-              }}>
+        {/* Step Content */}
+        <div style={{ 
+          flex: 1, 
+          overflowY: 'auto', 
+          padding: '8px 24px 24px 24px'
+        }}>
+          {currentStep === 'details' && (
+            <div>
+              
+              <div style={{ marginBottom: '16px' }}>
                 <label style={{
+                  display: 'block',
+                  marginBottom: '8px',
                   fontSize: '14px',
                   fontWeight: 500,
                   color: '#64748B'
                 }}>
-                  Participating Squadrons
+                  Event Title
                 </label>
-                <div style={{ display: 'flex', gap: '6px' }}>
-                  <button 
-                    type="button"
-                    onClick={() => setParticipatingSquadrons(squadrons.map(s => s.id))}
+                <input
+                  type="text"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '8px',
+                    border: '1px solid #CBD5E1',
+                    borderRadius: '4px',
+                    fontSize: '14px',
+                    boxSizing: 'border-box',
+                    height: '35px',
+                    lineHeight: '19px'
+                  }}
+                  placeholder="Enter event title"
+                />
+              </div>
+
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{
+                  display: 'block',
+                  marginBottom: '8px',
+                  fontSize: '14px',
+                  fontWeight: 500,
+                  color: '#64748B'
+                }}>
+                  Start Date & Time
+                </label>
+                <input
+                  type="datetime-local"
+                  value={datetime}
+                  onChange={handleDatetimeChange}
+                  style={{
+                    width: '100%',
+                    padding: '8px',
+                    border: '1px solid #CBD5E1',
+                    borderRadius: '4px',
+                    fontSize: '14px',
+                    boxSizing: 'border-box',
+                    height: '35px',
+                    lineHeight: '19px'
+                  }}
+                />
+              </div>
+
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{
+                  display: 'block',
+                  marginBottom: '8px',
+                  fontSize: '14px',
+                  fontWeight: 500,
+                  color: '#64748B'
+                }}>
+                  Duration
+                </label>
+                <div style={{ display: 'flex', alignItems: 'center' }}>
+                  <Clock size={16} color="#64748B" style={{ marginRight: '8px' }} />
+                  <input
+                    type="number"
+                    min="0"
+                    value={durationHours}
+                    onChange={handleDurationHoursChange}
                     style={{
-                      padding: '2px 6px',
-                      backgroundColor: '#EFF6FF',
-                      border: '1px solid #DBEAFE',
-                      borderRadius: '3px',
-                      fontSize: '10px',
-                      cursor: 'pointer',
-                      fontFamily: 'Inter',
-                      color: '#1E40AF'
+                      width: '70px',
+                      padding: '8px',
+                      border: '1px solid #CBD5E1',
+                      borderRadius: '4px 0 0 4px',
+                      fontSize: '14px',
+                      boxSizing: 'border-box',
+                      height: '35px',
+                      textAlign: 'center'
                     }}
-                  >
-                    All
-                  </button>
-                  <button 
-                    type="button"
-                    onClick={() => setParticipatingSquadrons([])}
+                  />
+                  <span style={{ padding: '0 6px', border: '1px solid #CBD5E1', borderLeft: 'none', borderRight: 'none', height: '35px', lineHeight: '35px', backgroundColor: '#F8FAFC' }}>h</span>
+                  <input
+                    type="number"
+                    min="0"
+                    max="59"
+                    value={durationMinutes}
+                    onChange={handleDurationMinutesChange}
                     style={{
-                      padding: '2px 6px',
-                      backgroundColor: '#FEF2F2',
-                      border: '1px solid #FECACA',
-                      borderRadius: '3px',
-                      fontSize: '10px',
-                      cursor: 'pointer',
-                      fontFamily: 'Inter',
-                      color: '#DC2626'
+                      width: '70px',
+                      padding: '8px',
+                      border: '1px solid #CBD5E1',
+                      borderRadius: '0 4px 4px 0',
+                      fontSize: '14px',
+                      boxSizing: 'border-box',
+                      height: '35px',
+                      textAlign: 'center'
                     }}
-                  >
-                    None
-                  </button>
-                  {selectedCycle?.participants && (
+                  />
+                  <span style={{ marginLeft: '6px', height: '35px', lineHeight: '35px' }}>min</span>
+                </div>
+              </div>
+
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{
+                  display: 'block',
+                  marginBottom: '8px',
+                  fontSize: '14px',
+                  fontWeight: 500,
+                  color: '#64748B'
+                }}>
+                  Description
+                </label>
+                <textarea
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '8px',
+                    border: '1px solid #CBD5E1',
+                    borderRadius: '4px',
+                    fontSize: '14px',
+                    minHeight: '120px',
+                    resize: 'vertical',
+                    boxSizing: 'border-box'
+                  }}
+                  placeholder="Enter event description"
+                />
+              </div>
+
+              {/* Image Upload Section */}
+              <div style={{ marginBottom: '20px' }}>
+                <label style={{
+                  display: 'block',
+                  marginBottom: '12px',
+                  color: '#64748B',
+                  fontSize: '14px',
+                  fontWeight: '500'
+                }}>
+                  Event Images (Optional)
+                </label>
+                
+                <div style={{ 
+                  display: 'grid',
+                  gridTemplateColumns: '1fr 1fr',
+                  gridTemplateRows: '1fr 1fr',
+                  gap: '12px'
+                  }}>
+                    {[0, 1, 2, 3].map((index) => (
+                      <div
+                        key={index}
+                        onDragOver={(e) => handleDragOver(e, index)}
+                        onDragLeave={(e) => handleDragLeave(e, index)}
+                        onDrop={(e) => handleDrop(e, index)}
+                        onClick={() => document.getElementById(`image-upload-${index}`)?.click()}
+                        style={{
+                          border: `2px dashed ${dragOverStates[index] ? '#3B82F6' : '#CBD5E1'}`,
+                          borderRadius: '6px',
+                          padding: '12px',
+                          textAlign: 'center',
+                          cursor: 'pointer',
+                          backgroundColor: dragOverStates[index] ? 'rgba(59, 130, 246, 0.05)' : '#FAFAFA',
+                          transition: 'all 0.2s ease',
+                          minHeight: '100px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center'
+                        }}
+                      >
+                        {imagePreviews[index] ? (
+                          <div style={{ position: 'relative' }}>
+                            <img
+                              src={imagePreviews[index]!}
+                              alt={`Image ${index + 1}`}
+                              style={{
+                                maxWidth: '120px',
+                                maxHeight: '80px',
+                                borderRadius: '4px',
+                                objectFit: 'cover'
+                              }}
+                            />
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                removeImage(index);
+                              }}
+                              style={{
+                                position: 'absolute',
+                                top: '2px',
+                                right: '2px',
+                                background: 'rgba(0, 0, 0, 0.7)',
+                                border: 'none',
+                                borderRadius: '50%',
+                                width: '18px',
+                                height: '18px',
+                                color: '#fff',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                              }}
+                            >
+                              <X size={10} />
+                            </button>
+                          </div>
+                        ) : (
+                          <div>
+                            <ImageIcon size={20} color="#94A3B8" style={{ margin: '0 auto 4px' }} />
+                            <p style={{ color: '#94A3B8', fontSize: '10px', margin: '0' }}>
+                              Drop image or click
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                    
+                    {[0, 1, 2, 3].map((index) => (
+                      <input
+                        key={index}
+                        id={`image-upload-${index}`}
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => handleFileInputChange(e, index)}
+                        style={{ display: 'none' }}
+                      />
+                    ))}
+                  </div>
+              </div>
+            </div>
+          )}
+
+          {currentStep === 'participants' && (
+            <div>
+              <div style={{ marginBottom: '16px' }}>
+                <div style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  marginBottom: '8px'
+                }}>
+                  <label style={{
+                    fontSize: '14px',
+                    fontWeight: 500,
+                    color: '#64748B'
+                  }}>
+                    Participating Squadrons
+                  </label>
+                  <div style={{ display: 'flex', gap: '6px' }}>
                     <button 
                       type="button"
-                      onClick={() => setParticipatingSquadrons(selectedCycle.participants || [])}
+                      onClick={() => setParticipatingSquadrons(squadrons.map(s => s.id))}
                       style={{
                         padding: '2px 6px',
-                        backgroundColor: '#F0FDF4',
-                        border: '1px solid #BBF7D0',
+                        backgroundColor: '#EFF6FF',
+                        border: '1px solid #DBEAFE',
                         borderRadius: '3px',
                         fontSize: '10px',
                         cursor: 'pointer',
                         fontFamily: 'Inter',
-                        color: '#15803D'
+                        color: '#1E40AF'
                       }}
                     >
-                      Reset to Cycle
+                      All
                     </button>
-                  )}
-                </div>
-              </div>
-              <div style={{
-                maxHeight: '200px',
-                overflowY: 'auto',
-                border: '1px solid #E5E7EB',
-                borderRadius: '4px',
-                padding: '4px',
-                backgroundColor: '#FAFAFA'
-              }}>
-                {squadrons.map(squadron => {
-                  const isSelected = participants.includes(squadron.id);
-                  return (
-                    <div
-                      key={squadron.id}
-                      onClick={() => {
-                        if (isSelected) {
-                          setParticipatingSquadrons(prev => prev.filter(id => id !== squadron.id));
-                        } else {
-                          setParticipatingSquadrons(prev => [...prev, squadron.id]);
-                        }
-                      }}
+                    <button 
+                      type="button"
+                      onClick={() => setParticipatingSquadrons([])}
                       style={{
-                        padding: '6px 8px',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px',
-                        backgroundColor: isSelected ? '#EFF6FF' : 'transparent',
+                        padding: '2px 6px',
+                        backgroundColor: '#FEF2F2',
+                        border: '1px solid #FECACA',
                         borderRadius: '3px',
-                        transition: 'background-color 0.2s',
-                        marginBottom: '2px'
-                      }}
-                      onMouseEnter={e => {
-                        if (!isSelected) {
-                          e.currentTarget.style.backgroundColor = '#F8FAFC';
-                        }
-                      }}
-                      onMouseLeave={e => {
-                        if (!isSelected) {
-                          e.currentTarget.style.backgroundColor = 'transparent';
-                        }
+                        fontSize: '10px',
+                        cursor: 'pointer',
+                        fontFamily: 'Inter',
+                        color: '#DC2626'
                       }}
                     >
-                      {/* Checkbox */}
-                      <div style={{
-                        width: '14px',
-                        height: '14px',
-                        border: '1px solid #CBD5E1',
-                        borderRadius: '3px',
-                        backgroundColor: isSelected ? '#3B82F6' : '#FFFFFF',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        flexShrink: 0
-                      }}>
-                        {isSelected && (
-                          <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
-                            <path d="M1 4L3 6L7 2" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                          </svg>
-                        )}
-                      </div>
-                      
-                      {/* Squadron Insignia */}
-                      {squadron.insignia_url ? (
-                        <div style={{
-                          width: '20px',
-                          height: '20px',
-                          backgroundImage: `url(${squadron.insignia_url})`,
-                          backgroundSize: 'contain',
-                          backgroundRepeat: 'no-repeat',
-                          backgroundPosition: 'center',
-                          flexShrink: 0
-                        }} />
-                      ) : (
-                        <div style={{
-                          width: '20px',
-                          height: '20px',
-                          backgroundColor: '#E5E7EB',
+                      None
+                    </button>
+                    {selectedCycle?.participants && (
+                      <button 
+                        type="button"
+                        onClick={() => setParticipatingSquadrons(selectedCycle.participants || [])}
+                        style={{
+                          padding: '2px 6px',
+                          backgroundColor: '#F0FDF4',
+                          border: '1px solid #BBF7D0',
                           borderRadius: '3px',
+                          fontSize: '10px',
+                          cursor: 'pointer',
+                          fontFamily: 'Inter',
+                          color: '#15803D'
+                        }}
+                      >
+                        Reset to Cycle
+                      </button>
+                    )}
+                  </div>
+                </div>
+                <div style={{
+                  maxHeight: '200px',
+                  overflowY: 'auto',
+                  border: '1px solid #E5E7EB',
+                  borderRadius: '4px',
+                  padding: '4px',
+                  backgroundColor: '#FAFAFA'
+                }}>
+                  {squadrons.map(squadron => {
+                    const isSelected = participants.includes(squadron.id);
+                    return (
+                      <div
+                        key={squadron.id}
+                        onClick={() => {
+                          if (isSelected) {
+                            setParticipatingSquadrons(prev => prev.filter(id => id !== squadron.id));
+                          } else {
+                            setParticipatingSquadrons(prev => [...prev, squadron.id]);
+                          }
+                        }}
+                        style={{
+                          padding: '6px 8px',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '8px',
+                          backgroundColor: isSelected ? '#EFF6FF' : 'transparent',
+                          borderRadius: '3px',
+                          transition: 'background-color 0.2s',
+                          marginBottom: '2px'
+                        }}
+                        onMouseEnter={e => {
+                          if (!isSelected) {
+                            e.currentTarget.style.backgroundColor = '#F8FAFC';
+                          }
+                        }}
+                        onMouseLeave={e => {
+                          if (!isSelected) {
+                            e.currentTarget.style.backgroundColor = 'transparent';
+                          }
+                        }}
+                      >
+                        <div style={{
+                          width: '14px',
+                          height: '14px',
+                          border: '1px solid #CBD5E1',
+                          borderRadius: '3px',
+                          backgroundColor: isSelected ? '#3B82F6' : '#FFFFFF',
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
                           flexShrink: 0
                         }}>
-                          <span style={{ fontSize: '10px', color: '#6B7280' }}>?</span>
+                          {isSelected && (
+                            <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
+                              <path d="M1 4L3 6L7 2" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                            </svg>
+                          )}
                         </div>
-                      )}
-                      
-                      {/* Squadron Info */}
-                      <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, flex: 1 }}>
-                        <span style={{ fontSize: '12px', fontWeight: 500, fontFamily: 'Inter' }}>
-                          {squadron.designation}
-                        </span>
-                        <span style={{ fontSize: '10px', color: '#64748B', fontFamily: 'Inter' }}>
-                          {squadron.name}
-                        </span>
+                        
+                        {squadron.insignia_url ? (
+                          <div style={{
+                            width: '20px',
+                            height: '20px',
+                            backgroundImage: `url(${squadron.insignia_url})`,
+                            backgroundSize: 'contain',
+                            backgroundRepeat: 'no-repeat',
+                            backgroundPosition: 'center',
+                            flexShrink: 0
+                          }} />
+                        ) : (
+                          <div style={{
+                            width: '20px',
+                            height: '20px',
+                            backgroundColor: '#E5E7EB',
+                            borderRadius: '3px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            flexShrink: 0
+                          }}>
+                            <span style={{ fontSize: '10px', color: '#6B7280' }}>?</span>
+                          </div>
+                        )}
+                        
+                        <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, flex: 1 }}>
+                          <span style={{ fontSize: '12px', fontWeight: 500, fontFamily: 'Inter' }}>
+                            {squadron.designation}
+                          </span>
+                          <span style={{ fontSize: '10px', color: '#64748B', fontFamily: 'Inter' }}>
+                            {squadron.name}
+                          </span>
+                        </div>
                       </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
+                <div style={{
+                  fontSize: '12px',
+                  color: '#64748B',
+                  marginTop: '4px'
+                }}>
+                  {participants.length === 0 ? 
+                    'No squadrons selected. Event will inherit from cycle.' :
+                    `${participants.length} squadron${participants.length !== 1 ? 's' : ''} selected.`
+                  }
+                </div>
               </div>
-              <div style={{
-                fontSize: '12px',
-                color: '#64748B',
-                marginTop: '4px'
-              }}>
-                {participants.length === 0 ? 
-                  'No squadrons selected. Event will inherit from cycle.' :
-                  `${participants.length} squadron${participants.length !== 1 ? 's' : ''} selected.`
-                }
-              </div>
-            </div>
 
-            {/* Qualification Tracking Toggle */}
-            <div style={{ marginBottom: '16px' }}>
-              <label style={{
-                display: 'flex',
-                alignItems: 'center',
-                cursor: 'pointer',
-                fontSize: '14px',
-                fontWeight: 500,
-                color: '#64748B'
-              }}>
-                <input
-                  type="checkbox"
-                  checked={trackQualifications}
-                  onChange={(e) => setTrackQualifications(e.target.checked)}
-                  style={{
-                    marginRight: '8px',
-                    width: '16px',
-                    height: '16px',
-                    cursor: 'pointer'
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{
+                  display: 'block',
+                  marginBottom: '8px',
+                  fontSize: '14px',
+                  fontWeight: 500,
+                  color: '#64748B'
+                }}>
+                  Eligibility
+                </label>
+                <select
+                  multiple
+                  value={restrictedTo}
+                  onChange={(e) => {
+                    const values = Array.from(e.target.selectedOptions, option => option.value);
+                    setRestrictedTo(values);
                   }}
-                />
-                Track responses by qualification type
-              </label>
-              <div style={{
-                fontSize: '12px',
-                color: '#64748B',
-                marginTop: '4px',
-                marginLeft: '24px'
-              }}>
-                When enabled, responses will be grouped by Mission Commander, Flight Lead, Section Lead, LSO, and JTAC qualifications.
+                  style={{
+                    width: '100%',
+                    padding: '8px',
+                    border: '1px solid #CBD5E1',
+                    borderRadius: '4px',
+                    fontSize: '14px',
+                    boxSizing: 'border-box'
+                  }}
+                >
+                  {roleOptions.map(role => (
+                    <option key={role} value={role}>
+                      {role}
+                    </option>
+                  ))}
+                </select>
+                <div style={{
+                  fontSize: '12px',
+                  color: '#64748B',
+                  marginTop: '4px'
+                }}>
+                  Hold Ctrl/Cmd to select multiple roles. Leave empty for no restrictions.
+                </div>
+              </div>
+
+              <div style={{ marginBottom: '16px', marginTop: '24px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div>
+                    <label style={{
+                      fontSize: '14px',
+                      fontWeight: 500,
+                      color: '#64748B',
+                      marginBottom: '4px',
+                      display: 'block'
+                    }}>
+                      Group responses by qualification in Discord
+                    </label>
+                    <p style={{ fontSize: '12px', color: '#64748B', margin: '0', fontFamily: 'Inter' }}>
+                      When enabled, Discord event responses will be organized by pilot qualifications.
+                    </p>
+                  </div>
+                  <div
+                    onClick={() => setTrackQualifications(!trackQualifications)}
+                    style={{
+                      width: '44px',
+                      height: '24px',
+                      backgroundColor: trackQualifications ? '#3B82F6' : '#E5E7EB',
+                      borderRadius: '12px',
+                      position: 'relative',
+                      cursor: 'pointer',
+                      transition: 'background-color 0.2s ease',
+                      marginLeft: '16px'
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: '20px',
+                        height: '20px',
+                        backgroundColor: 'white',
+                        borderRadius: '50%',
+                        position: 'absolute',
+                        top: '2px',
+                        left: trackQualifications ? '22px' : '2px',
+                        transition: 'left 0.2s ease',
+                        boxShadow: '0 2px 4px rgba(0, 0, 0, 0.2)'
+                      }}
+                    />
+                  </div>
+                </div>
               </div>
             </div>
+          )}
 
-            <div style={{ marginBottom: '16px' }}>
-              <label style={{
-                display: 'block',
-                marginBottom: '8px',
-                fontSize: '14px',
-                fontWeight: 500,
-                color: '#64748B'
+          {currentStep === 'reminders' && (
+            <div>
+              <div style={{ marginBottom: '24px', padding: '16px', border: '1px solid #E5E7EB', borderRadius: '6px', backgroundColor: '#F8FAFC' }}>
+                <div style={{ marginBottom: '12px' }}>
+                  <span style={{ fontSize: '14px', fontWeight: 500, color: '#374151' }}>First Reminder</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <input
+                    type="number"
+                    min="1"
+                    max="999"
+                    value={firstReminderValue}
+                    onChange={(e) => setFirstReminderValue(Math.max(1, parseInt(e.target.value) || 1))}
+                    style={{
+                      width: '80px',
+                      padding: '8px',
+                      border: '1px solid #CBD5E1',
+                      borderRadius: '4px',
+                      fontSize: '14px',
+                      textAlign: 'center'
+                    }}
+                  />
+                  <select
+                    value={firstReminderUnit}
+                    onChange={(e) => setFirstReminderUnit(e.target.value as 'minutes' | 'hours' | 'days')}
+                    style={{
+                      padding: '8px',
+                      border: '1px solid #CBD5E1',
+                      borderRadius: '4px',
+                      fontSize: '14px'
+                    }}
+                  >
+                    <option value="minutes">minutes</option>
+                    <option value="hours">hours</option>
+                    <option value="days">days</option>
+                  </select>
+                  <span style={{ fontSize: '14px', color: '#64748B', flex: 1 }}>before event start</span>
+                  <div
+                    onClick={() => setFirstReminderEnabled(!firstReminderEnabled)}
+                    style={{
+                      width: '44px',
+                      height: '24px',
+                      backgroundColor: firstReminderEnabled ? '#3B82F6' : '#E5E7EB',
+                      borderRadius: '12px',
+                      position: 'relative',
+                      cursor: 'pointer',
+                      transition: 'background-color 0.2s ease',
+                      marginLeft: '16px'
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: '20px',
+                        height: '20px',
+                        backgroundColor: 'white',
+                        borderRadius: '50%',
+                        position: 'absolute',
+                        top: '2px',
+                        left: firstReminderEnabled ? '22px' : '2px',
+                        transition: 'left 0.2s ease',
+                        boxShadow: '0 2px 4px rgba(0, 0, 0, 0.2)'
+                      }}
+                    />
+                  </div>
+                </div>
+              </div>
+              
+              <div style={{ marginBottom: '24px', padding: '16px', border: '1px solid #E5E7EB', borderRadius: '6px', backgroundColor: '#F8FAFC' }}>
+                <div style={{ marginBottom: '12px' }}>
+                  <span style={{ fontSize: '14px', fontWeight: 500, color: '#374151' }}>Second Reminder</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <input
+                    type="number"
+                    min="1"
+                    max="999"
+                    value={secondReminderValue}
+                    onChange={(e) => setSecondReminderValue(Math.max(1, parseInt(e.target.value) || 1))}
+                    style={{
+                      width: '80px',
+                      padding: '8px',
+                      border: '1px solid #CBD5E1',
+                      borderRadius: '4px',
+                      fontSize: '14px',
+                      textAlign: 'center'
+                    }}
+                  />
+                  <select
+                    value={secondReminderUnit}
+                    onChange={(e) => setSecondReminderUnit(e.target.value as 'minutes' | 'hours' | 'days')}
+                    style={{
+                      padding: '8px',
+                      border: '1px solid #CBD5E1',
+                      borderRadius: '4px',
+                      fontSize: '14px'
+                    }}
+                  >
+                    <option value="minutes">minutes</option>
+                    <option value="hours">hours</option>
+                    <option value="days">days</option>
+                  </select>
+                  <span style={{ fontSize: '14px', color: '#64748B', flex: 1 }}>before event start</span>
+                  <div
+                    onClick={() => setSecondReminderEnabled(!secondReminderEnabled)}
+                    style={{
+                      width: '44px',
+                      height: '24px',
+                      backgroundColor: secondReminderEnabled ? '#3B82F6' : '#E5E7EB',
+                      borderRadius: '12px',
+                      position: 'relative',
+                      cursor: 'pointer',
+                      transition: 'background-color 0.2s ease',
+                      marginLeft: '16px'
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: '20px',
+                        height: '20px',
+                        backgroundColor: 'white',
+                        borderRadius: '50%',
+                        position: 'absolute',
+                        top: '2px',
+                        left: secondReminderEnabled ? '22px' : '2px',
+                        transition: 'left 0.2s ease',
+                        boxShadow: '0 2px 4px rgba(0, 0, 0, 0.2)'
+                      }}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ 
+                padding: '16px', 
+                backgroundColor: '#F8FAFC', 
+                borderRadius: '6px',
+                border: '1px solid #E5E7EB'
               }}>
-                Description
-              </label>
-              <textarea
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
+                <h4 style={{ fontSize: '14px', fontWeight: 600, color: '#374151', marginBottom: '8px' }}>
+                  Reminder Recipients
+                </h4>
+                <p style={{ fontSize: '12px', color: '#64748B', marginBottom: '12px' }}>
+                  Reminders will be sent to users who have responded with the selected statuses.
+                </p>
+                <div style={{ display: 'flex', gap: '16px' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', fontSize: '14px' }}>
+                    <input
+                      type="checkbox"
+                      checked={sendToAccepted}
+                      onChange={(e) => setSendToAccepted(e.target.checked)}
+                      style={{ marginRight: '8px' }}
+                    />
+                    <span style={{ color: '#4B5563' }}>Accepted</span>
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', fontSize: '14px' }}>
+                    <input
+                      type="checkbox"
+                      checked={sendToTentative}
+                      onChange={(e) => setSendToTentative(e.target.checked)}
+                      style={{ marginRight: '8px' }}
+                    />
+                    <span style={{ color: '#4B5563' }}>Tentative</span>
+                  </label>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {error && (
+            <div style={{
+              color: '#EF4444',
+              fontSize: '14px',
+              marginTop: '16px',
+              padding: '12px',
+              backgroundColor: '#FEF2F2',
+              border: '1px solid #FECACA',
+              borderRadius: '6px'
+            }}>
+              {error}
+            </div>
+          )}
+        </div>
+
+        {/* Footer with navigation */}
+        <div style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          borderTop: '1px solid #E2E8F0',
+          padding: '12px 24px',
+          flexShrink: 0
+        }}>
+          <button
+            type="button"
+            onClick={onCancel}
+            style={{
+              padding: '8px 16px',
+              border: '1px solid #CBD5E1',
+              borderRadius: '4px',
+              backgroundColor: 'white',
+              color: '#64748B',
+              cursor: 'pointer',
+              fontSize: '14px'
+            }}
+          >
+            Cancel
+          </button>
+          
+          <div style={{ display: 'flex', gap: '12px' }}>
+            {!isFirstStep && (
+              <button
+                type="button"
+                onClick={handlePreviousStep}
                 style={{
-                  width: '100%',
-                  padding: '8px',
+                  padding: '8px 16px',
                   border: '1px solid #CBD5E1',
                   borderRadius: '4px',
+                  backgroundColor: 'white',
+                  color: '#64748B',
+                  cursor: 'pointer',
                   fontSize: '14px',
-                  minHeight: '120px',
-                  resize: 'vertical',
-                  boxSizing: 'border-box'
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px'
                 }}
-                placeholder="Enter event description"
-              />
-            </div>
-
-            {/* Image Upload Section - 2x2 Image Grid */}
-            <div style={{ marginBottom: '20px' }}>
-              <label style={{
-                display: 'block',
-                marginBottom: '12px',
-                color: '#64748B',
-                fontSize: '14px',
-                fontWeight: '500'
-              }}>
-                Event Images (Optional)
-              </label>
-              
-              {/* 2x2 Image Grid */}
-              <div style={{ 
-                display: 'grid',
-                gridTemplateColumns: '1fr 1fr',
-                gridTemplateRows: '1fr 1fr',
-                gap: '12px'
-                }}>
-                  {[0, 1, 2, 3].map((index) => (
-                    <div
-                      key={index}
-                      onDragOver={(e) => handleDragOver(e, index)}
-                      onDragLeave={(e) => handleDragLeave(e, index)}
-                      onDrop={(e) => handleDrop(e, index)}
-                      onClick={() => document.getElementById(`image-upload-${index}`)?.click()}
-                      style={{
-                        border: `2px dashed ${dragOverStates[index] ? '#3B82F6' : '#CBD5E1'}`,
-                        borderRadius: '6px',
-                        padding: '12px',
-                        textAlign: 'center',
-                        cursor: 'pointer',
-                        backgroundColor: dragOverStates[index] ? 'rgba(59, 130, 246, 0.05)' : '#FAFAFA',
-                        transition: 'all 0.2s ease',
-                        minHeight: '100px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center'
-                      }}
-                    >
-                      {imagePreviews[index] ? (
-                        <div style={{ position: 'relative' }}>
-                          <img
-                            src={imagePreviews[index]!}
-                            alt={`Image ${index + 1}`}
-                            style={{
-                              maxWidth: '120px',
-                              maxHeight: '80px',
-                              borderRadius: '4px',
-                              objectFit: 'cover'
-                            }}
-                          />
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              removeImage(index);
-                            }}
-                            style={{
-                              position: 'absolute',
-                              top: '2px',
-                              right: '2px',
-                              background: 'rgba(0, 0, 0, 0.7)',
-                              border: 'none',
-                              borderRadius: '50%',
-                              width: '18px',
-                              height: '18px',
-                              color: '#fff',
-                              cursor: 'pointer',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center'
-                            }}
-                          >
-                            <X size={10} />
-                          </button>
-                        </div>
-                      ) : (
-                        <div>
-                          <ImageIcon size={20} color="#94A3B8" style={{ margin: '0 auto 4px' }} />
-                          <p style={{ color: '#94A3B8', fontSize: '10px', margin: '0' }}>
-                            Drop image or click
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                  
-                  {/* Hidden file inputs for all images */}
-                  {[0, 1, 2, 3].map((index) => (
-                    <input
-                      key={index}
-                      id={`image-upload-${index}`}
-                      type="file"
-                      accept="image/*"
-                      onChange={(e) => handleFileInputChange(e, index)}
-                      style={{ display: 'none' }}
-                    />
-                  ))}
-                </div>
-            </div>
-
-            {error && (
-              <div style={{
-                color: '#EF4444',
-                fontSize: '14px',
-                marginBottom: '16px'
-              }}>
-                {error}
+              >
+                <ChevronLeft size={16} />
+                Previous
+              </button>
+            )}
+            
+            {!isLastStep ? (
+              <button
+                type="button"
+                onClick={handleNextStep}
+                style={{
+                  padding: '8px 16px',
+                  border: 'none',
+                  borderRadius: '4px',
+                  backgroundColor: '#2563EB',
+                  color: 'white',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px'
+                }}
+              >
+                Next
+                <ChevronRight size={16} />
+              </button>
+            ) : (
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button
+                  type="button"
+                  onClick={() => handleSubmit(false)}
+                  disabled={isSubmitting}
+                  style={{
+                    padding: '8px 16px',
+                    border: '1px solid #CBD5E1',
+                    borderRadius: '4px',
+                    backgroundColor: 'white',
+                    color: '#64748B',
+                    cursor: isSubmitting ? 'not-allowed' : 'pointer',
+                    fontSize: '14px',
+                    opacity: isSubmitting ? 0.6 : 1
+                  }}
+                >
+                  {isSubmitting ? 'Creating...' : (initialData ? 'Update' : 'Create')}
+                </button>
+                
+                <button
+                  type="button"
+                  onClick={() => handleSubmit(true)}
+                  disabled={isSubmitting}
+                  style={{
+                    padding: '8px 16px',
+                    border: 'none',
+                    borderRadius: '4px',
+                    backgroundColor: '#10B981',
+                    color: 'white',
+                    cursor: isSubmitting ? 'not-allowed' : 'pointer',
+                    fontSize: '14px',
+                    opacity: isSubmitting ? 0.6 : 1,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px'
+                  }}
+                >
+                  {isSubmitting && (
+                    <div style={{
+                      width: '16px',
+                      height: '16px',
+                      border: '2px solid #ffffff40',
+                      borderTopColor: '#ffffff',
+                      borderRadius: '50%',
+                      animation: 'spin 1s linear infinite'
+                    }} />
+                  )}
+                  {isSubmitting 
+                    ? (initialData ? 'Publishing...' : 'Creating...') 
+                    : (initialData ? 'Update & Publish' : 'Create & Publish')
+                  }
+                </button>
               </div>
             )}
           </div>
-
-          <div style={{
-            display: 'flex',
-            justifyContent: 'flex-end',
-            gap: '12px',
-            borderTop: '1px solid #E2E8F0',
-            padding: '16px 24px'
-          }}>
-            <button
-              type="button"
-              onClick={onCancel}
-              style={{
-                padding: '8px 16px',
-                border: '1px solid #CBD5E1',
-                borderRadius: '4px',
-                backgroundColor: 'white',
-                color: '#64748B',
-                cursor: 'pointer',
-                fontSize: '14px'
-              }}
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              style={{
-                padding: '8px 16px',
-                border: 'none',
-                borderRadius: '4px',
-                backgroundColor: isSubmitting ? '#94A3B8' : '#2563EB',
-                color: 'white',
-                cursor: isSubmitting ? 'not-allowed' : 'pointer',
-                fontSize: '14px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px'
-              }}
-            >
-              {isSubmitting && (
-                <div style={{
-                  width: '16px',
-                  height: '16px',
-                  border: '2px solid #ffffff40',
-                  borderTopColor: '#ffffff',
-                  borderRadius: '50%',
-                  animation: 'spin 1s linear infinite'
-                }} />
-              )}
-              {isSubmitting 
-                ? (initialData ? 'Updating...' : 'Creating...')
-                : (initialData ? 'Update Event' : 'Create Event')
-              }
-            </button>
-          </div>
-        </form>
+        </div>
       </div>
     </>
   );

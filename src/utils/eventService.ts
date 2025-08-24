@@ -1,5 +1,6 @@
 import { supabase } from './supabaseClient';
 import type { Database } from '../types/supabase';
+import { scheduleEventReminders, updateEventReminders, cancelEventReminders } from './reminderService';
 
 export type Event = Database['public']['Tables']['events']['Row'];
 export type NewEvent = Database['public']['Tables']['events']['Insert'];
@@ -47,13 +48,41 @@ export async function getEventById(id: string): Promise<{ data: Event | null; er
 /**
  * Add a new event to the database
  * @param event The event data to add
+ * @param reminderSettings Optional reminder settings for the event
  */
-export async function createEvent(event: NewEvent): Promise<{ data: Event | null; error: any }> {
+export async function createEvent(
+  event: NewEvent, 
+  reminderSettings?: {
+    firstReminder?: {
+      enabled: boolean;
+      value: number;
+      unit: 'minutes' | 'hours' | 'days';
+    };
+    secondReminder?: {
+      enabled: boolean;
+      value: number;
+      unit: 'minutes' | 'hours' | 'days';
+    };
+  }
+): Promise<{ data: Event | null; error: any }> {
   const { data, error } = await supabase
     .from('events')
     .insert(event)
     .select()
     .single();
+
+  // If event was created successfully and has reminders, schedule them
+  if (data && !error && reminderSettings && event.start_datetime) {
+    const { success, error: reminderError } = await scheduleEventReminders(
+      data.id,
+      event.start_datetime,
+      reminderSettings
+    );
+    
+    if (!success) {
+      console.error('Failed to schedule reminders for new event:', reminderError);
+    }
+  }
 
   return { data, error };
 }
@@ -62,14 +91,44 @@ export async function createEvent(event: NewEvent): Promise<{ data: Event | null
  * Update an existing event
  * @param id The ID of the event to update
  * @param updates The event data to update
+ * @param reminderSettings Optional reminder settings for the event
  */
-export async function updateEvent(id: string, updates: UpdateEvent): Promise<{ data: Event | null; error: any }> {
+export async function updateEvent(
+  id: string, 
+  updates: UpdateEvent,
+  reminderSettings?: {
+    firstReminder?: {
+      enabled: boolean;
+      value: number;
+      unit: 'minutes' | 'hours' | 'days';
+    };
+    secondReminder?: {
+      enabled: boolean;
+      value: number;
+      unit: 'minutes' | 'hours' | 'days';
+    };
+  }
+): Promise<{ data: Event | null; error: any }> {
   const { data, error } = await supabase
     .from('events')
     .update(updates)
     .eq('id', id)
     .select()
     .single();
+
+  // If event was updated successfully and has reminders, update them
+  if (data && !error && reminderSettings && (updates.start_datetime || data.start_datetime)) {
+    const eventStartTime = updates.start_datetime || data.start_datetime;
+    const { success, error: reminderError } = await updateEventReminders(
+      id,
+      eventStartTime,
+      reminderSettings
+    );
+    
+    if (!success) {
+      console.error('Failed to update reminders for event:', reminderError);
+    }
+  }
 
   return { data, error };
 }
@@ -79,6 +138,9 @@ export async function updateEvent(id: string, updates: UpdateEvent): Promise<{ d
  * @param id The ID of the event to delete
  */
 export async function deleteEvent(id: string): Promise<{ success: boolean; error: any }> {
+  // Cancel any pending reminders for this event
+  await cancelEventReminders(id);
+
   const { error } = await supabase
     .from('events')
     .delete()
