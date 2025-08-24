@@ -41,6 +41,23 @@ export interface Event {
     restrictedTo?: string[]; // Used in code but not in database schema
     participants?: string[]; // Override cycle's participating squadrons
     trackQualifications?: boolean; // Whether to group responses by qualification
+    // Event-specific settings (stored in event_settings JSONB column)
+    eventSettings?: {
+      timezone?: string;
+      groupResponsesByQualification?: boolean;
+      firstReminderEnabled?: boolean;
+      firstReminderTime?: {
+        value: number;
+        unit: 'minutes' | 'hours' | 'days';
+      };
+      secondReminderEnabled?: boolean;
+      secondReminderTime?: {
+        value: number;
+        unit: 'minutes' | 'hours' | 'days';
+      };
+      sendRemindersToAccepted?: boolean;
+      sendRemindersToTentative?: boolean;
+    };
     creator: {
       boardNumber: string;
       callsign: string;

@@ -1005,7 +1005,7 @@ client.on('interactionCreate', async interaction => {
     const { event: dbEvent } = await getEventByDiscordId(eventId);
     if (dbEvent) {
       eventOptions = {
-        trackQualifications: dbEvent.track_qualifications || false,
+        trackQualifications: dbEvent.event_settings?.groupResponsesByQualification || dbEvent.track_qualifications || false,
         eventType: dbEvent.event_type || null
       };
       
@@ -1207,12 +1207,90 @@ class CountdownUpdateManager {
           return;
         }
 
-        // Get current responses from cache or load from database
-        const currentResponses = eventResponses.get(messageId) || {
-          accepted: [],
-          declined: [],
-          tentative: []
-        };
+        // Get existing responses from memory cache or database to preserve them
+        let currentResponses = eventResponses.get(messageId);
+        if (!currentResponses) {
+          // Try to fetch responses from database
+          try {
+            const { supabase } = require('../server/supabaseClient');
+            const { data: attendanceData, error: attendanceError } = await supabase
+              .from('discord_event_attendance')
+              .select('discord_id, discord_username, user_response')
+              .eq('discord_event_id', messageId);
+            
+            if (!attendanceError && attendanceData) {
+              currentResponses = {
+                accepted: [],
+                declined: [],
+                tentative: []
+              };
+              
+              // Populate with existing responses, including pilot record data for qualifications
+              for (const record of attendanceData) {
+                let pilotRecord = null;
+                
+                // Try to fetch pilot data for this user to preserve qualifications
+                try {
+                  const { data: pilotData, error: pilotError } = await supabase
+                    .from('pilots')
+                    .select(`
+                      *,
+                      pilot_qualifications(
+                        qualification_id,
+                        qualification:qualifications(name)
+                      )
+                    `)
+                    .eq('discord_original_id', record.discord_id)
+                    .single();
+                  
+                  if (!pilotError && pilotData) {
+                    pilotRecord = {
+                      id: pilotData.id,
+                      callsign: pilotData.callsign,
+                      boardNumber: pilotData.boardNumber?.toString() || '',
+                      qualifications: pilotData.pilot_qualifications?.map(pq => pq.qualification?.name).filter(Boolean) || [],
+                      currentStatus: { name: pilotData.status || 'Provisional' }
+                    };
+                  }
+                } catch (error) {
+                  console.warn(`[COUNTDOWN-PILOT-DATA] Error fetching pilot data for ${record.discord_id}:`, error.message);
+                }
+                
+                const userEntry = {
+                  userId: record.discord_id,
+                  displayName: record.discord_username || 'Unknown User',
+                  boardNumber: pilotRecord?.boardNumber || '',
+                  callsign: pilotRecord?.callsign || record.discord_username || 'Unknown User',
+                  pilotRecord // Include the pilot record for qualification processing
+                };
+                
+                if (record.user_response === 'accepted') {
+                  currentResponses.accepted.push(userEntry);
+                } else if (record.user_response === 'declined') {
+                  currentResponses.declined.push(userEntry);
+                } else if (record.user_response === 'tentative') {
+                  currentResponses.tentative.push(userEntry);
+                }
+              }
+              
+              console.log(`[COUNTDOWN-RESPONSES] Restored ${attendanceData.length} responses from database with pilot data for event ${messageId}`);
+            } else {
+              console.log(`[COUNTDOWN-RESPONSES] No existing responses found in database for event ${messageId}`);
+              currentResponses = {
+                accepted: [],
+                declined: [],
+                tentative: []
+              };
+            }
+          } catch (dbError) {
+            console.warn(`[COUNTDOWN-RESPONSES] Error fetching responses from database:`, dbError);
+            currentResponses = {
+              accepted: [],
+              declined: [],
+              tentative: []
+            };
+          }
+        }
 
         // Create updated embed
         const eventTime = {
@@ -1221,13 +1299,21 @@ class CountdownUpdateManager {
         };
 
         const imageData = eventData.image_url ? { imageUrl: eventData.image_url } : null;
+        
+        // Get event options from database for proper formatting
+        const eventOptions = {
+          trackQualifications: eventData.event_settings?.groupResponsesByQualification || eventData.track_qualifications || false,
+          eventType: eventData.event_type || null
+        };
+        
         const updatedEmbed = createEventEmbed(
           eventData.name,
           eventData.description,
           eventTime,
           currentResponses,
           null, // creator
-          imageData
+          imageData,
+          eventOptions
         );
 
         // Update the message

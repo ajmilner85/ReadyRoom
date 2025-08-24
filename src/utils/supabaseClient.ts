@@ -271,6 +271,7 @@ export const fetchEvents = async (cycleId?: string, discordGuildId?: string) => 
     creator_billet,
     participants,
     track_qualifications,
+    event_settings,
     created_at,
     updated_at
   `);
@@ -309,7 +310,8 @@ export const fetchEvents = async (cycleId?: string, discordGuildId?: string) => 
       status: dbEvent.status || 'upcoming',
       eventType: dbEvent.event_type as EventType | undefined,
       cycleId: dbEvent.cycle_id || undefined,
-      trackQualifications: dbEvent.track_qualifications || false, // Add qualification tracking flag
+      trackQualifications: dbEvent.track_qualifications || false, // Keep for backward compatibility
+      eventSettings: dbEvent.event_settings || undefined, // Include event settings from database
       // Handle JSONB discord_event_id - extract first message ID for compatibility or keep as string
       discordEventId: Array.isArray(dbEvent.discord_event_id) 
         ? (dbEvent.discord_event_id[0]?.messageId || undefined)
@@ -343,7 +345,26 @@ export const fetchEvents = async (cycleId?: string, discordGuildId?: string) => 
   return { events, error: null };
 };
 
-export const createEvent = async (event: Omit<Event, 'id' | 'creator' | 'attendance'> & { discordGuildId?: string }) => {
+export const createEvent = async (event: Omit<Event, 'id' | 'creator' | 'attendance'> & { 
+  discordGuildId?: string;
+  timezone?: string;
+  reminders?: {
+    firstReminder?: {
+      enabled: boolean;
+      value: number;
+      unit: 'minutes' | 'hours' | 'days';
+    };
+    secondReminder?: {
+      enabled: boolean;
+      value: number;
+      unit: 'minutes' | 'hours' | 'days';
+    };
+  };
+  reminderRecipients?: {
+    sendToAccepted: boolean;
+    sendToTentative: boolean;
+  };
+}) => {
   const { user, error: userError } = await getCurrentUser();
   if (userError || !user) {
     return { event: null, error: userError || new Error('User not authenticated') };
@@ -389,6 +410,24 @@ export const createEvent = async (event: Omit<Event, 'id' | 'creator' | 'attenda
     console.warn('[CREATE-EVENT-DEBUG] Error looking up creator pilot record:', pilotLookupError);
   }
 
+  // Build event_settings JSONB object
+  const eventSettings = {
+    timezone: event.timezone || 'America/New_York',
+    groupResponsesByQualification: event.trackQualifications || false,
+    firstReminderEnabled: event.reminders?.firstReminder?.enabled || false,
+    firstReminderTime: {
+      value: event.reminders?.firstReminder?.value || 15,
+      unit: event.reminders?.firstReminder?.unit || 'minutes'
+    },
+    secondReminderEnabled: event.reminders?.secondReminder?.enabled || false,
+    secondReminderTime: {
+      value: event.reminders?.secondReminder?.value || 3,
+      unit: event.reminders?.secondReminder?.unit || 'days'
+    },
+    sendRemindersToAccepted: event.reminderRecipients?.sendToAccepted !== undefined ? event.reminderRecipients.sendToAccepted : true,
+    sendRemindersToTentative: event.reminderRecipients?.sendToTentative !== undefined ? event.reminderRecipients.sendToTentative : true
+  };
+
   // Map from frontend format to database format
   const { data, error } = await supabase
     .from('events')
@@ -402,7 +441,8 @@ export const createEvent = async (event: Omit<Event, 'id' | 'creator' | 'attenda
       cycle_id: event.cycleId,
       discord_guild_id: event.discordGuildId || '', // Add Discord guild ID with empty string fallback
       participants: event.participants || [], // Add participants array
-      track_qualifications: event.trackQualifications || false, // Add qualification tracking flag
+      track_qualifications: event.trackQualifications || false, // Keep for backward compatibility
+      event_settings: eventSettings, // Store all event-specific settings
       creator_id: user.id,
       creator_pilot_id: creatorPilotId, // Store the pilot UUID
       creator_call_sign: creatorCallsign,
@@ -426,7 +466,8 @@ export const createEvent = async (event: Omit<Event, 'id' | 'creator' | 'attenda
     status: data.status || 'upcoming',
     eventType: data.event_type as EventType | undefined,
     cycleId: data.cycle_id || undefined,
-    trackQualifications: data.track_qualifications || false, // Add qualification tracking flag
+    trackQualifications: data.track_qualifications || false, // Keep for backward compatibility
+    eventSettings: data.event_settings || undefined, // Include event settings from database
     restrictedTo: [], // No restricted_to in the DB schema
     creator: {
       boardNumber: user.user_metadata?.board_number || '',
@@ -443,7 +484,25 @@ export const createEvent = async (event: Omit<Event, 'id' | 'creator' | 'attenda
   return { event: newEvent, error: null };
 };
 
-export const updateEvent = async (eventId: string, updates: Partial<Omit<Event, 'id' | 'creator' | 'attendance'>>) => {
+export const updateEvent = async (eventId: string, updates: Partial<Omit<Event, 'id' | 'creator' | 'attendance'>> & { 
+  timezone?: string;
+  reminders?: {
+    firstReminder?: {
+      enabled: boolean;
+      value: number;
+      unit: 'minutes' | 'hours' | 'days';
+    };
+    secondReminder?: {
+      enabled: boolean;
+      value: number;
+      unit: 'minutes' | 'hours' | 'days';
+    };
+  };
+  reminderRecipients?: {
+    sendToAccepted: boolean;
+    sendToTentative: boolean;
+  };
+}) => {
   // Map from frontend format to database format
   const dbUpdates: any = {};
   if (updates.title !== undefined) dbUpdates.name = updates.title; // Frontend uses 'title', DB field is 'name'
@@ -456,7 +515,37 @@ export const updateEvent = async (eventId: string, updates: Partial<Omit<Event, 
   if ((updates as any).discordEventId !== undefined) dbUpdates.discord_event_id = (updates as any).discordEventId;
   if ((updates as any).discordGuildId !== undefined) dbUpdates.discord_guild_id = (updates as any).discordGuildId;
   if ((updates as any).participants !== undefined) dbUpdates.participants = (updates as any).participants;
-  if (updates.trackQualifications !== undefined) dbUpdates.track_qualifications = updates.trackQualifications; // Add qualification tracking flag
+  if (updates.trackQualifications !== undefined) dbUpdates.track_qualifications = updates.trackQualifications; // Keep for backward compatibility
+  // Handle event settings updates
+  if (updates.timezone !== undefined || updates.reminders !== undefined || updates.reminderRecipients !== undefined || updates.eventSettings !== undefined) {
+    // Build event_settings object
+    const eventSettings: any = {};
+    if (updates.timezone !== undefined) eventSettings.timezone = updates.timezone;
+    if (updates.trackQualifications !== undefined) eventSettings.groupResponsesByQualification = updates.trackQualifications;
+    if (updates.eventSettings?.groupResponsesByQualification !== undefined) eventSettings.groupResponsesByQualification = updates.eventSettings.groupResponsesByQualification;
+    if (updates.reminders?.firstReminder !== undefined) {
+      eventSettings.firstReminderEnabled = updates.reminders.firstReminder.enabled;
+      eventSettings.firstReminderTime = {
+        value: updates.reminders.firstReminder.value,
+        unit: updates.reminders.firstReminder.unit
+      };
+    }
+    if (updates.reminders?.secondReminder !== undefined) {
+      eventSettings.secondReminderEnabled = updates.reminders.secondReminder.enabled;
+      eventSettings.secondReminderTime = {
+        value: updates.reminders.secondReminder.value,
+        unit: updates.reminders.secondReminder.unit
+      };
+    }
+    if (updates.reminderRecipients !== undefined) {
+      eventSettings.sendRemindersToAccepted = updates.reminderRecipients.sendToAccepted;
+      eventSettings.sendRemindersToTentative = updates.reminderRecipients.sendToTentative;
+    }
+    // Merge with existing event settings
+    if (Object.keys(eventSettings).length > 0) {
+      dbUpdates.event_settings = eventSettings;
+    }
+  }
   // Preserve discord_event_id during updates
   if ((updates as any).discord_event_id !== undefined) dbUpdates.discord_event_id = (updates as any).discord_event_id;
   // No restricted_to in the DB schema

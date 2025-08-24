@@ -17,6 +17,7 @@ interface EventDialogProps {
     headerImage?: File | null;
     additionalImages?: (File | null)[];
     trackQualifications?: boolean;
+    timezone?: string;
     reminders?: {
       firstReminder?: {
         enabled: boolean;
@@ -28,6 +29,10 @@ interface EventDialogProps {
         value: number;
         unit: 'minutes' | 'hours' | 'days';
       };
+    };
+    reminderRecipients?: {
+      sendToAccepted: boolean;
+      sendToTentative: boolean;
     };
   }, shouldPublish?: boolean) => Promise<void>;
   onCancel: () => void;
@@ -42,6 +47,22 @@ interface EventDialogProps {
     headerImageUrl?: string;
     additionalImageUrls?: string[];
     trackQualifications?: boolean;
+    eventSettings?: {
+      timezone?: string;
+      groupResponsesByQualification?: boolean;
+      firstReminderEnabled?: boolean;
+      firstReminderTime?: {
+        value: number;
+        unit: 'minutes' | 'hours' | 'days';
+      };
+      secondReminderEnabled?: boolean;
+      secondReminderTime?: {
+        value: number;
+        unit: 'minutes' | 'hours' | 'days';
+      };
+      sendRemindersToAccepted?: boolean;
+      sendRemindersToTentative?: boolean;
+    };
   };
   squadrons?: Array<{ id: string; name: string; designation: string; insignia_url?: string | null }>;
   selectedCycle?: { participants?: string[] };
@@ -66,7 +87,9 @@ export const EventDialog: React.FC<EventDialogProps> = ({
   const [title, setTitle] = useState(initialData?.title || '');
   const [description, setDescription] = useState(initialData?.description || '');
   const [datetime, setDatetime] = useState('');
-  const [timezone, setTimezone] = useState(settings.eventDefaults.referenceTimezone || 'America/New_York');
+  const [timezone, setTimezone] = useState(
+    initialData?.eventSettings?.timezone || settings.eventDefaults.referenceTimezone || 'America/New_York'
+  );
   const [durationHours, setDurationHours] = useState(settings.eventDefaults.defaultDurationHours);
   const [durationMinutes, setDurationMinutes] = useState(settings.eventDefaults.defaultDurationMinutes);
   const [endDatetime, setEndDatetime] = useState('');
@@ -75,22 +98,52 @@ export const EventDialog: React.FC<EventDialogProps> = ({
     initialData?.participants !== undefined ? initialData.participants : (selectedCycle?.participants || [])
   );
   const [trackQualifications, setTrackQualifications] = useState(
-    initialData?.trackQualifications !== undefined 
-      ? initialData.trackQualifications 
-      : settings.eventDefaults.groupResponsesByQualification
+    initialData?.eventSettings?.groupResponsesByQualification !== undefined 
+      ? initialData.eventSettings.groupResponsesByQualification
+      : (initialData?.trackQualifications !== undefined 
+        ? initialData.trackQualifications 
+        : settings.eventDefaults.groupResponsesByQualification)
   );
   
-  // Reminder settings state
-  const [firstReminderEnabled, setFirstReminderEnabled] = useState(settings.eventDefaults.firstReminderEnabled);
-  const [firstReminderValue, setFirstReminderValue] = useState(settings.eventDefaults.firstReminderTime.value);
-  const [firstReminderUnit, setFirstReminderUnit] = useState(settings.eventDefaults.firstReminderTime.unit);
-  const [secondReminderEnabled, setSecondReminderEnabled] = useState(settings.eventDefaults.secondReminderEnabled);
-  const [secondReminderValue, setSecondReminderValue] = useState(settings.eventDefaults.secondReminderTime.value);
-  const [secondReminderUnit, setSecondReminderUnit] = useState(settings.eventDefaults.secondReminderTime.unit);
+  // Reminder settings state - prioritize event settings over app defaults
+  const [firstReminderEnabled, setFirstReminderEnabled] = useState(
+    initialData?.eventSettings?.firstReminderEnabled !== undefined 
+      ? initialData.eventSettings.firstReminderEnabled 
+      : settings.eventDefaults.firstReminderEnabled
+  );
+  const [firstReminderValue, setFirstReminderValue] = useState(
+    initialData?.eventSettings?.firstReminderTime?.value !== undefined 
+      ? initialData.eventSettings.firstReminderTime.value 
+      : settings.eventDefaults.firstReminderTime.value
+  );
+  const [firstReminderUnit, setFirstReminderUnit] = useState(
+    initialData?.eventSettings?.firstReminderTime?.unit || settings.eventDefaults.firstReminderTime.unit
+  );
+  const [secondReminderEnabled, setSecondReminderEnabled] = useState(
+    initialData?.eventSettings?.secondReminderEnabled !== undefined 
+      ? initialData.eventSettings.secondReminderEnabled 
+      : settings.eventDefaults.secondReminderEnabled
+  );
+  const [secondReminderValue, setSecondReminderValue] = useState(
+    initialData?.eventSettings?.secondReminderTime?.value !== undefined 
+      ? initialData.eventSettings.secondReminderTime.value 
+      : settings.eventDefaults.secondReminderTime.value
+  );
+  const [secondReminderUnit, setSecondReminderUnit] = useState(
+    initialData?.eventSettings?.secondReminderTime?.unit || settings.eventDefaults.secondReminderTime.unit
+  );
   
-  // Reminder recipients state
-  const [sendToAccepted, setSendToAccepted] = useState(settings.eventDefaults.sendRemindersToAccepted);
-  const [sendToTentative, setSendToTentative] = useState(settings.eventDefaults.sendRemindersToTentative);
+  // Reminder recipients state - prioritize event settings over app defaults
+  const [sendToAccepted, setSendToAccepted] = useState(
+    initialData?.eventSettings?.sendRemindersToAccepted !== undefined 
+      ? initialData.eventSettings.sendRemindersToAccepted 
+      : settings.eventDefaults.sendRemindersToAccepted
+  );
+  const [sendToTentative, setSendToTentative] = useState(
+    initialData?.eventSettings?.sendRemindersToTentative !== undefined 
+      ? initialData.eventSettings.sendRemindersToTentative 
+      : settings.eventDefaults.sendRemindersToTentative
+  );
   
   // Image state
   const [images, setImages] = useState<(File | null)[]>([null, null, null, null]);
@@ -492,6 +545,7 @@ export const EventDialog: React.FC<EventDialogProps> = ({
         headerImage: images[0],
         additionalImages: images.slice(1).filter(img => img !== null),
         trackQualifications,
+        timezone,
         reminders: {
           firstReminder: {
             enabled: firstReminderEnabled,
@@ -503,6 +557,10 @@ export const EventDialog: React.FC<EventDialogProps> = ({
             value: secondReminderValue,
             unit: secondReminderUnit
           }
+        },
+        reminderRecipients: {
+          sendToAccepted,
+          sendToTentative
         }
       }, shouldPublish);
     } catch (error) {

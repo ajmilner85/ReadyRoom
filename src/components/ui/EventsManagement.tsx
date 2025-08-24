@@ -869,7 +869,8 @@ const EventsManagement: React.FC = () => {
             imageUrl: editingEvent.imageUrl, // Legacy support
             headerImageUrl: editingEvent.headerImageUrl || editingEvent.imageUrl,
             additionalImageUrls: editingEvent.additionalImageUrls || [],
-            trackQualifications: (editingEvent as any).trackQualifications || false
+            trackQualifications: (editingEvent as any).trackQualifications || false,
+            eventSettings: editingEvent.eventSettings // Include event settings for editing
           } : undefined}
           squadrons={squadrons}
           selectedCycle={selectedCycle ?? undefined}
