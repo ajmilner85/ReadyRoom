@@ -15,6 +15,7 @@ interface EventDialogProps {
     participants?: string[];
     headerImage?: File | null;
     additionalImages?: (File | null)[];
+    trackQualifications?: boolean;
   }) => Promise<void>;
   onCancel: () => void;
   initialData?: {
@@ -27,6 +28,7 @@ interface EventDialogProps {
     imageUrl?: string;
     headerImageUrl?: string;
     additionalImageUrls?: string[];
+    trackQualifications?: boolean;
   };
   squadrons?: Array<{ id: string; name: string; designation: string; insignia_url?: string | null }>;
   selectedCycle?: { participants?: string[] };
@@ -49,6 +51,7 @@ export const EventDialog: React.FC<EventDialogProps> = ({
   const [participants, setParticipatingSquadrons] = useState<string[]>(
     initialData?.participants || selectedCycle?.participants || []
   );
+  const [trackQualifications, setTrackQualifications] = useState(initialData?.trackQualifications || false);
   const [images, setImages] = useState<(File | null)[]>([null, null, null, null]);
   const [imagePreviews, setImagePreviews] = useState<(string | null)[]>([null, null, null, null]);
   const [dragOverStates, setDragOverStates] = useState<boolean[]>([false, false, false, false]);
@@ -245,7 +248,8 @@ export const EventDialog: React.FC<EventDialogProps> = ({
       restrictedTo: restrictedTo.length > 0 ? restrictedTo : undefined,
       participants: participants.length > 0 ? participants : undefined,
       headerImage: images[0],
-      additionalImages: images.slice(1).filter(img => img !== null)
+      additionalImages: images.slice(1).filter(img => img !== null),
+      trackQualifications
     });
     } catch (error) {
       setError(error instanceof Error ? error.message : 'An error occurred while saving the event');
@@ -637,6 +641,39 @@ export const EventDialog: React.FC<EventDialogProps> = ({
                   'No squadrons selected. Event will inherit from cycle.' :
                   `${participants.length} squadron${participants.length !== 1 ? 's' : ''} selected.`
                 }
+              </div>
+            </div>
+
+            {/* Qualification Tracking Toggle */}
+            <div style={{ marginBottom: '16px' }}>
+              <label style={{
+                display: 'flex',
+                alignItems: 'center',
+                cursor: 'pointer',
+                fontSize: '14px',
+                fontWeight: 500,
+                color: '#64748B'
+              }}>
+                <input
+                  type="checkbox"
+                  checked={trackQualifications}
+                  onChange={(e) => setTrackQualifications(e.target.checked)}
+                  style={{
+                    marginRight: '8px',
+                    width: '16px',
+                    height: '16px',
+                    cursor: 'pointer'
+                  }}
+                />
+                Track responses by qualification type
+              </label>
+              <div style={{
+                fontSize: '12px',
+                color: '#64748B',
+                marginTop: '4px',
+                marginLeft: '24px'
+              }}>
+                When enabled, responses will be grouped by Mission Commander, Flight Lead, Section Lead, LSO, and JTAC qualifications.
               </div>
             </div>
 

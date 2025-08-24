@@ -81,11 +81,12 @@ async function upsertEventAttendance({
 // Function to find event details by Discord message ID
 async function getEventByDiscordId(discordEventId) {
   try {
-    // Find the event with this Discord message ID
+    // Find the event with this Discord message ID - search within JSONB array
+    // Using JSONB path operations to find messageId within the array
     const { data: eventData, error: eventError } = await supabase
       .from('events')
       .select('*')
-      .eq('discord_event_id', discordEventId)
+      .or(`discord_event_id.cs.[{"messageId":"${discordEventId}"}],discord_event_id.eq.${discordEventId}`)
       .single();
     
     if (eventError) {

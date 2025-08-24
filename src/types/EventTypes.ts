@@ -40,6 +40,7 @@ export interface Event {
     additionalImageUrls?: string[] | undefined; // Additional image URLs
     restrictedTo?: string[]; // Used in code but not in database schema
     participants?: string[]; // Override cycle's participating squadrons
+    trackQualifications?: boolean; // Whether to group responses by qualification
     creator: {
       boardNumber: string;
       callsign: string;

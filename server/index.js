@@ -229,9 +229,44 @@ app.post('/api/events/publish', async (req, res) => {
       startTime: eventTime.start.toISOString(), 
       endTime: eventTime.end.toISOString() 
     });
-      // Call the Discord bot to publish the event, passing both the guild ID, channel ID, and image URL if available
-    console.log(`[MULTI-PUBLISH] About to call publishEventToDiscord for guild ${guildId}, channel ${channelId}`);
-    const result = await publishEventToDiscord(title, description || '', eventTime, guildId, channelId, imageUrl, creator, images);
+      // Fetch event options and creator info from database if eventId is provided
+    let eventOptions = {};
+    let creatorFromDb = creator; // Use provided creator as fallback
+    if (eventId) {
+      try {
+        const { data: eventData, error: eventError } = await supabase
+          .from('events')
+          .select('track_qualifications, event_type, creator_call_sign, creator_board_number, creator_billet')
+          .eq('id', eventId)
+          .single();
+        
+        if (!eventError && eventData) {
+          eventOptions = {
+            trackQualifications: eventData.track_qualifications || false,
+            eventType: eventData.event_type || null
+          };
+          
+          // Use creator info from database if available
+          if (eventData.creator_call_sign || eventData.creator_board_number) {
+            creatorFromDb = {
+              boardNumber: eventData.creator_board_number || '',
+              callsign: eventData.creator_call_sign || '',
+              billet: eventData.creator_billet || ''
+            };
+            console.log('[CREATOR-DEBUG] Using creator from database:', creatorFromDb);
+          } else {
+            console.log('[CREATOR-DEBUG] No creator info in database, using provided:', creator);
+          }
+        }
+      } catch (error) {
+        console.warn('[WARNING] Could not fetch event options:', error.message);
+      }
+    }
+    
+    // Call the Discord bot to publish the event, passing both the guild ID, channel ID, and image URL if available
+    console.log(`[MULTI-PUBLISH] About to call publishEventToDiscord for guild ${guildId}, channel ${channelId} with options:`, eventOptions);
+    console.log(`[CREATOR-DEBUG] Passing creator to Discord bot:`, creatorFromDb);
+    const result = await publishEventToDiscord(title, description || '', eventTime, guildId, channelId, imageUrl, creatorFromDb, images, eventOptions);
     console.log(`[MULTI-PUBLISH] Discord publish result for guild ${guildId}:`, result);
       // If eventId was provided, update the event in Supabase with the Discord message ID, guild ID and image URL
     // Don't try to store the channelId in the events table as it doesn't have that column
@@ -327,8 +362,28 @@ app.put('/api/events/:messageId/edit', async (req, res) => {
       endTime: eventTime.end.toISOString() 
     });
     
+    // For edit operations, we need to fetch event options from the database
+    // We can try to find the event by looking up the messageId
+    let eventOptions = {};
+    try {
+      const { data: eventData, error: eventError } = await supabase
+        .from('events')
+        .select('track_qualifications, event_type')
+        .or(`discord_event_id.eq.${messageId},discord_event_id.cs.[{"messageId":"${messageId}"}]`)
+        .single();
+      
+      if (!eventError && eventData) {
+        eventOptions = {
+          trackQualifications: eventData.track_qualifications || false,
+          eventType: eventData.event_type || null
+        };
+      }
+    } catch (error) {
+      console.warn('[WARNING] Could not fetch event options for edit:', error.message);
+    }
+    
     // Call the Discord bot to edit the message
-    const result = await editEventMessage(messageId, title, description || '', eventTime, guildId, channelId, imageUrl, creator, images);
+    const result = await editEventMessage(messageId, title, description || '', eventTime, guildId, channelId, imageUrl, creator, images, eventOptions);
     console.log(`[DEBUG] Discord edit result:`, result);
     
     if (result.success) {

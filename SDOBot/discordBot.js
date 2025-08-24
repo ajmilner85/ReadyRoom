@@ -143,15 +143,132 @@ function saveEventResponses() {
 }
 
 // Function to create event message embed
-function createEventEmbed(title, description, eventTime, responses = {}, creator = null, images = null) {
+function createEventEmbed(title, description, eventTime, responses = {}, creator = null, images = null, eventOptions = {}) {
   const accepted = responses.accepted || [];
   const declined = responses.declined || [];
   const tentative = responses.tentative || [];
   
-  // Get display names for rendering
-  const acceptedNames = accepted.map(entry => typeof entry === 'string' ? entry : entry.displayName);
-  const declinedNames = declined.map(entry => typeof entry === 'string' ? entry : entry.displayName);
-  const tentativeNames = tentative.map(entry => typeof entry === 'string' ? entry : entry.displayName);
+  // Helper function to format pilot entries as {board number} {callsign}
+  const formatPilotEntry = (entry) => {
+    if (typeof entry === 'string') {
+      return entry;
+    }
+    
+    // If we have pilot record data, use that for consistent formatting
+    if (entry.pilotRecord) {
+      const boardNumber = entry.pilotRecord.boardNumber || '';
+      const callsign = entry.pilotRecord.callsign || '';
+      return boardNumber ? `${boardNumber} ${callsign}` : callsign;
+    }
+    
+    // Fallback: use the entry's board number and callsign if available
+    const boardNumber = entry.boardNumber || '';
+    const callsign = entry.callsign || entry.displayName || 'Unknown';
+    
+    return boardNumber ? `${boardNumber} ${callsign}` : callsign;
+  };
+  
+  // Helper function to create block quote format
+  const createBlockQuote = (entries) => {
+    if (entries.length === 0) return '-';
+    const formattedEntries = entries.map(formatPilotEntry);
+    // Discord has a 1024 character limit per field value
+    const content = `>>> ${formattedEntries.join('\n')}`;
+    return content.length > 1020 ? `>>> ${formattedEntries.slice(0, 20).join('\n')}\n... and ${formattedEntries.length - 20} more` : content;
+  };
+  
+  // Helper function to group by qualifications
+  const groupByQualifications = (entries, isTraining = false) => {
+    if (entries.length === 0) return '-';
+    
+    // If training event, divide into IP and Trainee
+    if (isTraining) {
+      const ips = entries.filter(entry => entry.pilotRecord?.currentStatus?.name === 'Command' || 
+                                         entry.pilotRecord?.currentStatus?.name === 'Staff' ||
+                                         entry.pilotRecord?.currentStatus?.name === 'Cadre');
+      const trainees = entries.filter(entry => entry.pilotRecord?.currentStatus?.name === 'Provisional');
+      
+      let result = '';
+      if (ips.length > 0) {
+        const ipContent = ips.map(formatPilotEntry).join('\n');
+        result += `**IP (${ips.length})**\n>>> ${ipContent}`;
+      }
+      if (trainees.length > 0) {
+        if (result) result += '\n\n';
+        const traineeContent = trainees.map(formatPilotEntry).join('\n');
+        result += `**Trainee (${trainees.length})**\n>>> ${traineeContent}`;
+      }
+      // Check character limit
+      return (result.length > 1020) ? result.substring(0, 1020) + '...' : (result || '-');
+    }
+    
+    // Standard qualification grouping
+    const qualificationOrder = ['Mission Commander', 'Flight Lead', 'Section Lead', 'LSO', 'JTAC'];
+    const groups = {};
+    const unassigned = [];
+    
+    entries.forEach(entry => {
+      let assigned = false;
+      const qualifications = entry.pilotRecord?.qualifications || [];
+      
+      // Check for primary qualifications (no duplication)
+      for (const qual of ['Mission Commander', 'Flight Lead', 'Section Lead']) {
+        if (qualifications.includes(qual)) {
+          if (!groups[qual]) groups[qual] = [];
+          groups[qual].push(entry);
+          assigned = true;
+          break; // Only assign to the highest qualification
+        }
+      }
+      
+      // Check for auxiliary qualifications (allow duplication)
+      for (const qual of ['LSO', 'JTAC']) {
+        if (qualifications.includes(qual)) {
+          if (!groups[qual]) groups[qual] = [];
+          groups[qual].push(entry);
+          assigned = true;
+        }
+      }
+      
+      if (!assigned) {
+        unassigned.push(entry);
+      }
+    });
+    
+    let result = '';
+    qualificationOrder.forEach(qual => {
+      if (groups[qual] && groups[qual].length > 0) {
+        if (result) result += '\n\n';
+        const qualContent = groups[qual].map(formatPilotEntry).join('\n');
+        result += `**${qual} (${groups[qual].length})**\n>>> ${qualContent}`;
+      }
+    });
+    
+    if (unassigned.length > 0) {
+      if (result) result += '\n\n';
+      const unassignedContent = unassigned.map(formatPilotEntry).join('\n');
+      result += `**Other (${unassigned.length})**\n>>> ${unassignedContent}`;
+    }
+    
+    // Check character limit
+    return (result.length > 1020) ? result.substring(0, 1020) + '...' : (result || '-');
+  };
+
+  const shouldTrackQualifications = eventOptions.trackQualifications || false;
+  const isTrainingEvent = eventOptions.eventType === 'Hop' || title.toLowerCase().includes('training');
+  
+  // Format attendance lists
+  let acceptedText, tentativeText;
+  
+  if (shouldTrackQualifications || isTrainingEvent) {
+    acceptedText = groupByQualifications(accepted, isTrainingEvent);
+    tentativeText = groupByQualifications(tentative, isTrainingEvent);
+  } else {
+    acceptedText = createBlockQuote(accepted);
+    tentativeText = createBlockQuote(tentative);
+  }
+  
+  const declinedText = createBlockQuote(declined);
   
   // Create the initial embed with title and URL for image grouping
   const embed = new EmbedBuilder()
@@ -191,9 +308,9 @@ function createEventEmbed(title, description, eventTime, responses = {}, creator
   }
   
   embed.addFields(
-    { name: `Accepted (${acceptedNames.length})`, value: acceptedNames.length > 0 ? acceptedNames.join('\n') : '-', inline: true },
-    { name: `Declined (${declinedNames.length})`, value: declinedNames.length > 0 ? declinedNames.join('\n') : '-', inline: true },
-    { name: `Tentative (${tentativeNames.length})`, value: tentativeNames.length > 0 ? tentativeNames.join('\n') : '-', inline: true }
+    { name: `✅ Accepted (${accepted.length})`, value: acceptedText, inline: true },
+    { name: `❓ Tentative (${tentative.length})`, value: tentativeText, inline: true },
+    { name: `❌ Declined (${declined.length})`, value: declinedText, inline: true }
   )
   .setTimestamp();
   
@@ -220,9 +337,9 @@ function createEventEmbed(title, description, eventTime, responses = {}, creator
   
   // Add header image if provided
   if (images) {
-    if (images.headerImage) {
+    if (images.headerImage && typeof images.headerImage === 'string') {
       embed.setImage(images.headerImage);
-    } else if (images.imageUrl) {
+    } else if (images.imageUrl && typeof images.imageUrl === 'string') {
       // Fallback to legacy single image
       embed.setImage(images.imageUrl);
     }
@@ -342,7 +459,7 @@ async function findEventsChannel(guildId = null, channelId = null) {
 }
 
 // Function to edit a Discord event message
-async function editEventMessage(messageId, title, description, eventTime, guildId = null, channelId = null, imageUrl = null, creator = null, images = null) {
+async function editEventMessage(messageId, title, description, eventTime, guildId = null, channelId = null, imageUrl = null, creator = null, images = null, eventOptions = {}) {
   try {
     await ensureLoggedIn();
     
@@ -362,9 +479,62 @@ async function editEventMessage(messageId, title, description, eventTime, guildI
       // Try to fetch and edit the message
       const message = await eventsChannel.messages.fetch(messageId);
       if (message) {
-        // Create the updated embed with images support
+        // Get existing responses from memory cache or database to preserve them
+        let existingResponses = eventResponses.get(messageId);
+        if (!existingResponses) {
+          // Try to fetch responses from database
+          try {
+            const { supabase } = require('../server/supabaseClient');
+            const { data: attendanceData, error: attendanceError } = await supabase
+              .from('discord_event_attendance')
+              .select('discord_id, discord_username, user_response')
+              .eq('discord_event_id', messageId);
+            
+            if (!attendanceError && attendanceData) {
+              existingResponses = {
+                accepted: [],
+                declined: [],
+                tentative: []
+              };
+              
+              // Group database responses by status
+              attendanceData.forEach(record => {
+                const userEntry = { 
+                  userId: record.discord_id, 
+                  displayName: record.discord_username 
+                };
+                
+                if (record.user_response === 'accepted') {
+                  existingResponses.accepted.push(userEntry);
+                } else if (record.user_response === 'declined') {
+                  existingResponses.declined.push(userEntry);
+                } else if (record.user_response === 'tentative') {
+                  existingResponses.tentative.push(userEntry);
+                }
+              });
+              
+              console.log(`[EDIT-RESPONSES] Restored ${attendanceData.length} responses from database for event ${messageId}`);
+            } else {
+              console.log(`[EDIT-RESPONSES] No existing responses found in database for event ${messageId}`);
+              existingResponses = {
+                accepted: [],
+                declined: [],
+                tentative: []
+              };
+            }
+          } catch (dbError) {
+            console.warn(`[EDIT-RESPONSES] Error fetching responses from database:`, dbError);
+            existingResponses = {
+              accepted: [],
+              declined: [],
+              tentative: []
+            };
+          }
+        }
+        
+        // Create the updated embed with images support and preserved responses
         const imageData = images || (imageUrl ? { imageUrl } : null);
-        const eventEmbed = createEventEmbed(title, description, eventTime, {}, creator, imageData);
+        const eventEmbed = createEventEmbed(title, description, eventTime, existingResponses, creator, imageData, eventOptions);
         
         // Create additional image embeds with same URL for grouping
         const additionalEmbeds = createAdditionalImageEmbeds(imageData, 'https://readyroom.app');
@@ -461,7 +631,7 @@ async function deleteEventMessage(messageId, guildId = null, channelId = null) {
 }
 
 // Function to publish an event to Discord from the server
-async function publishEventToDiscord(title, description, eventTime, guildId = null, channelId = null, imageUrl = null, creator = null, images = null) {
+async function publishEventToDiscord(title, description, eventTime, guildId = null, channelId = null, imageUrl = null, creator = null, images = null, eventOptions = {}) {
   try {
     console.log(`[BOT-PUBLISH-START] Publishing event "${title}" to guild ${guildId}, channel ${channelId}`);
     
@@ -476,7 +646,7 @@ async function publishEventToDiscord(title, description, eventTime, guildId = nu
     // Create the embed and buttons
     // Create the main event embed with images support
     const imageData = images || (imageUrl ? { imageUrl } : null);
-    const eventEmbed = createEventEmbed(title, description, eventTime, {}, creator, imageData);
+    const eventEmbed = createEventEmbed(title, description, eventTime, {}, creator, imageData, eventOptions);
     const buttons = createAttendanceButtons();
     
     // Create additional image embeds with same URL for grouping
@@ -629,8 +799,48 @@ client.on('interactionCreate', async interaction => {
     typeof entry === 'string' ? entry !== user.username : entry.userId !== userId
   );
   
-  // Add user to appropriate response list with both ID and display name
-  const userEntry = { userId, displayName };
+  // Fetch pilot data from database to get qualifications, board number, etc.
+  let pilotRecord = null;
+  try {
+    const { supabase } = require('../server/supabaseClient');
+    
+    // Try to find pilot by Discord ID
+    const { data: pilotData, error: pilotError } = await supabase
+      .from('pilots')
+      .select(`
+        *,
+        pilot_qualifications(
+          qualification_id,
+          qualification:qualifications(name)
+        )
+      `)
+      .eq('discord_original_id', userId)
+      .single();
+    
+    if (!pilotError && pilotData) {
+      pilotRecord = {
+        id: pilotData.id,
+        callsign: pilotData.callsign,
+        boardNumber: pilotData.boardNumber?.toString() || '',
+        qualifications: pilotData.pilot_qualifications?.map(pq => pq.qualification?.name).filter(Boolean) || [],
+        currentStatus: { name: pilotData.status || 'Provisional' } // Simplified status mapping
+      };
+      console.log(`[PILOT-DATA] Found pilot record for ${displayName}:`, pilotRecord);
+    } else {
+      console.log(`[PILOT-DATA] No pilot record found for Discord ID ${userId}`);
+    }
+  } catch (error) {
+    console.warn(`[PILOT-DATA] Error fetching pilot data for ${displayName}:`, error.message);
+  }
+
+  // Add user to appropriate response list with both ID, display name, and pilot data
+  const userEntry = { 
+    userId, 
+    displayName,
+    boardNumber: pilotRecord?.boardNumber || '',
+    callsign: pilotRecord?.callsign || displayName,
+    pilotRecord // Include the full pilot record for qualification processing
+  };
   
   if (customId === 'accept') {
     eventData.accepted.push(userEntry);
@@ -639,9 +849,33 @@ client.on('interactionCreate', async interaction => {
   } else if (customId === 'tentative') {
     eventData.tentative.push(userEntry);
   }
-    // Update the Discord event message
+    // Fetch event options and creator info from database for proper formatting
+  let eventOptions = {};
+  let creatorInfo = null;
+  try {
+    const { event: dbEvent } = await getEventByDiscordId(eventId);
+    if (dbEvent) {
+      eventOptions = {
+        trackQualifications: dbEvent.track_qualifications || false,
+        eventType: dbEvent.event_type || null
+      };
+      
+      // Create creator info from database fields
+      creatorInfo = {
+        boardNumber: dbEvent.creator_board_number || '',
+        callsign: dbEvent.creator_call_sign || '',
+        billet: dbEvent.creator_billet || ''
+      };
+      
+      console.log('[CREATOR-DEBUG] Creator info from database:', creatorInfo);
+    }
+  } catch (error) {
+    console.warn('[WARNING] Could not fetch event options for button interaction:', error);
+  }
+  
+  // Update the Discord event message
   const imageData = eventData.images || (eventData.imageUrl ? { imageUrl: eventData.imageUrl } : null);
-  const updatedEmbed = createEventEmbed(eventData.title, eventData.description, eventData.eventTime, eventData, null, imageData);
+  const updatedEmbed = createEventEmbed(eventData.title, eventData.description, eventData.eventTime, eventData, creatorInfo, imageData, eventOptions);
   
   // Create additional image embeds with same URL for grouping
   const additionalEmbeds = createAdditionalImageEmbeds(imageData, 'https://readyroom.app');
