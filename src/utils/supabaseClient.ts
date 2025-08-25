@@ -329,6 +329,7 @@ export const fetchEvents = async (cycleId?: string, discordGuildId?: string) => 
         ? dbEvent.image_url.additionalImages
         : [],
       restrictedTo: [], // No restricted_to in the DB schema
+      participants: dbEvent.participants || [], // Include participants array
       creator: {
         boardNumber: dbEvent.creator_board_number || '',
         callsign: dbEvent.creator_call_sign || '',
@@ -486,6 +487,7 @@ export const createEvent = async (event: Omit<Event, 'id' | 'creator' | 'attenda
 
 export const updateEvent = async (eventId: string, updates: Partial<Omit<Event, 'id' | 'creator' | 'attendance'>> & { 
   timezone?: string;
+  participants?: string[];
   reminders?: {
     firstReminder?: {
       enabled: boolean;
@@ -514,9 +516,9 @@ export const updateEvent = async (eventId: string, updates: Partial<Omit<Event, 
   if ((updates as any).cycleId !== undefined) dbUpdates.cycle_id = (updates as any).cycleId;
   if ((updates as any).discordEventId !== undefined) dbUpdates.discord_event_id = (updates as any).discordEventId;
   if ((updates as any).discordGuildId !== undefined) dbUpdates.discord_guild_id = (updates as any).discordGuildId;
-  if ((updates as any).participants !== undefined) {
-    console.log('[PARTICIPANTS-DEBUG] Updating participants:', (updates as any).participants);
-    dbUpdates.participants = (updates as any).participants;
+  if (updates.participants !== undefined) {
+    console.log('[PARTICIPANTS-DEBUG] Updating participants:', updates.participants);
+    dbUpdates.participants = updates.participants;
   }
   if (updates.trackQualifications !== undefined) dbUpdates.track_qualifications = updates.trackQualifications; // Keep for backward compatibility
   // Handle event settings updates
@@ -612,10 +614,11 @@ export const updateEvent = async (eventId: string, updates: Partial<Omit<Event, 
     discordEventId: data.discord_event_id || undefined,
     trackQualifications: data.track_qualifications || false, // Add qualification tracking flag
     restrictedTo: [], // No restricted_to in the DB schema
+    participants: data.participants || [], // Include participants array
     creator: {
-      boardNumber: '',
-      callsign: '',
-      billet: ''
+      boardNumber: data.creator_board_number || '',
+      callsign: data.creator_call_sign || '',
+      billet: data.creator_billet || ''
     },
     attendance
   };
