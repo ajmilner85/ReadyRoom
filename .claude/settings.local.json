@@ -17,10 +17,15 @@
       "Read(/C:\\c\\Users\\ajmil\\Desktop/**)",
       "Read(/C:\\c\\Users\\ajmil\\Desktop/**)",
       "Read(/C:\\c\\Users\\ajmil\\Desktop/**)",
+      "Read(/C:\\c\\Users\\ajmil\\Desktop/**)",
+      "Read(/C:\\c\\Users\\ajmil\\Desktop/**)",
+      "Read(/C:\\c\\Users\\ajmil\\Desktop/**)",
+      "Read(/C:\\c\\Users\\ajmil\\Desktop/**)",
       "Read(/C:\\c\\Users\\ajmil\\Desktop/**)"
     ],
     "additionalDirectories": [
-      "C:\\c\\Users\\ajmil\\Desktop\\ReadyRoom"
+      "C:\\c\\Users\\ajmil\\Desktop\\ReadyRoom",
+      "C:\\c\\Users\\ajmil\\Desktop"
     ]
   },
   "outputStyle": "default"

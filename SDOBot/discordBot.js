@@ -51,12 +51,73 @@ function notifyEventUpdate(eventId, eventData) {
   }
 }
 
+/**
+ * Extract complete embed data from database event record
+ * This ensures all embed creation paths use the same database field logic
+ */
+function extractEmbedDataFromDatabaseEvent(dbEvent) {
+  // Extract image data from JSONB or legacy fields
+  let imageData = null;
+  if (dbEvent.image_url) {
+    if (typeof dbEvent.image_url === 'object') {
+      // JSONB format
+      imageData = {
+        imageUrl: dbEvent.image_url.headerImage || dbEvent.image_url.imageUrl,
+        headerImage: dbEvent.image_url.headerImage,
+        additionalImages: dbEvent.image_url.additionalImages || []
+      };
+    } else if (typeof dbEvent.image_url === 'string') {
+      // Legacy string format
+      imageData = {
+        imageUrl: dbEvent.image_url,
+        headerImage: dbEvent.image_url,
+        additionalImages: []
+      };
+    }
+  } else {
+    // Fallback to separate fields
+    imageData = {
+      imageUrl: dbEvent.header_image_url,
+      headerImage: dbEvent.header_image_url,
+      additionalImages: dbEvent.additional_image_urls || []
+    };
+  }
+
+  // Extract creator info
+  const creatorInfo = {
+    boardNumber: dbEvent.creator_board_number || '',
+    callsign: dbEvent.creator_call_sign || '',
+    billet: dbEvent.creator_billet || ''
+  };
+
+  // Extract event options
+  const eventOptions = {
+    trackQualifications: dbEvent.event_settings?.groupResponsesByQualification || dbEvent.track_qualifications || false,
+    eventType: dbEvent.event_type || null
+  };
+
+  // Extract time data
+  const eventTime = {
+    start: new Date(dbEvent.start_datetime),
+    end: new Date(dbEvent.end_datetime)
+  };
+
+  return {
+    title: dbEvent.name || dbEvent.title || 'Event',
+    description: dbEvent.description || '',
+    eventTime,
+    imageData,
+    creatorInfo,
+    eventOptions
+  };
+}
+
 // Function to load event responses from database
 async function loadEventResponses() {  try {
     // Get all events with Discord message IDs from the database
     const { data, error } = await supabase
       .from('events')
-      .select('id, name, description, start_datetime, end_datetime, discord_event_id, discord_guild_id, image_url')
+      .select('id, name, description, start_datetime, end_datetime, discord_event_id, discord_guild_id, image_url, creator_board_number, creator_call_sign, creator_billet, event_settings, track_qualifications, event_type')
       .not('discord_event_id', 'is', null);
     
     if (error) {
@@ -101,7 +162,11 @@ async function loadEventResponses() {  try {
           end: event.end_datetime ? new Date(event.end_datetime) : new Date(new Date(event.start_datetime).getTime() + (60 * 60 * 1000))
         },
         guildId: event.discord_guild_id,
-        channelId: channelId,        // Store image URL from the database
+        channelId: channelId,        // Store image data using the same structure as database extraction
+        images: event.image_url ? extractEmbedDataFromDatabaseEvent(event).imageData : null,
+        // Store creator info using the same structure as database extraction
+        creator: extractEmbedDataFromDatabaseEvent(event).creatorInfo,
+        // Keep legacy field for backward compatibility
         imageUrl: event.image_url || null,
         accepted: [],
         declined: [],
@@ -169,66 +234,6 @@ function createEventEmbed(title, description, eventTime, responses = {}, creator
     return boardNumber ? `${boardNumber} ${callsign}` : callsign;
   };
   
-  /**
- * Extract complete embed data from database event record
- * This ensures all embed creation paths use the same database field logic
- */
-function extractEmbedDataFromDatabaseEvent(dbEvent) {
-  // Extract image data from JSONB or legacy fields
-  let imageData = null;
-  if (dbEvent.image_url) {
-    if (typeof dbEvent.image_url === 'object') {
-      // JSONB format
-      imageData = {
-        imageUrl: dbEvent.image_url.headerImage || dbEvent.image_url.imageUrl,
-        headerImage: dbEvent.image_url.headerImage,
-        additionalImages: dbEvent.image_url.additionalImages || []
-      };
-    } else if (typeof dbEvent.image_url === 'string') {
-      // Legacy string format
-      imageData = {
-        imageUrl: dbEvent.image_url,
-        headerImage: dbEvent.image_url,
-        additionalImages: []
-      };
-    }
-  } else {
-    // Fallback to separate fields
-    imageData = {
-      imageUrl: dbEvent.header_image_url,
-      headerImage: dbEvent.header_image_url,
-      additionalImages: dbEvent.additional_image_urls || []
-    };
-  }
-
-  // Extract creator info
-  const creatorInfo = {
-    boardNumber: dbEvent.creator_board_number || '',
-    callsign: dbEvent.creator_call_sign || '',
-    billet: dbEvent.creator_billet || ''
-  };
-
-  // Extract event options
-  const eventOptions = {
-    trackQualifications: dbEvent.event_settings?.groupResponsesByQualification || dbEvent.track_qualifications || false,
-    eventType: dbEvent.event_type || null
-  };
-
-  // Extract time data
-  const eventTime = {
-    start: new Date(dbEvent.start_datetime),
-    end: new Date(dbEvent.end_datetime)
-  };
-
-  return {
-    title: dbEvent.name || dbEvent.title || 'Event',
-    description: dbEvent.description || '',
-    eventTime,
-    imageData,
-    creatorInfo,
-    eventOptions
-  };
-}
 
 // Helper function to create block quote format
   const createBlockQuote = (entries) => {
@@ -830,6 +835,8 @@ async function publishEventToDiscord(title, description, eventTime, guildId = nu
       guildId: eventsChannel.guild.id, // Store the guild ID
       channelId: eventsChannel.id, // Store the channel ID
       imageUrl: imageUrl, // Store the image URL to preserve it during updates
+      images: imageData, // Store the complete image data structure
+      creator: creator, // Store the creator information
       accepted: [],
       declined: [],
       tentative: []

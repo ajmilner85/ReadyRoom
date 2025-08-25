@@ -555,7 +555,13 @@ const EventsManagement: React.FC = () => {
             // Convert datetime back to ISO format if needed
             title: eventData.title, // Ensure title field mapping
             datetime: eventData.datetime.includes('T') ? eventData.datetime : `${eventData.datetime}:00.000Z`,
-            endDatetime: eventData.endDatetime?.includes('T') ? eventData.endDatetime : `${eventData.endDatetime}:00.000Z`
+            endDatetime: eventData.endDatetime?.includes('T') ? eventData.endDatetime : `${eventData.endDatetime}:00.000Z`,
+            // Ensure creator field is properly mapped from raw database fields
+            creator: {
+              boardNumber: freshEventData.creator_board_number || '',
+              callsign: freshEventData.creator_call_sign || '',
+              billet: freshEventData.creator_billet || ''
+            }
           };
         
           console.log(`[UPDATE-EVENT] Updated event object:`, {
@@ -564,6 +570,7 @@ const EventsManagement: React.FC = () => {
             cycleId: updatedEvent.cycleId || updatedEvent.cycle_id,
             participants: updatedEvent.participants,
             discord_event_id: updatedEvent.discord_event_id,
+            creator: updatedEvent.creator,
             allKeys: Object.keys(updatedEvent)
           });
           
@@ -596,6 +603,8 @@ const EventsManagement: React.FC = () => {
             datetime: eventData.datetime.includes('T') ? eventData.datetime : `${eventData.datetime}:00.000Z`,
             endDatetime: eventData.endDatetime?.includes('T') ? eventData.endDatetime : `${eventData.endDatetime}:00.000Z`
           };
+          
+          console.log('[UPDATE-EVENT] Publishing updated event with creator:', eventForPublish.creator);
           
           const publishResult = await publishEventFromCycle(eventForPublish);
           

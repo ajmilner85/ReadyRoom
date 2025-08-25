@@ -389,7 +389,9 @@ app.put('/api/events/:messageId/edit', async (req, res) => {
       startTime,
       guildId,
       channelId,
-      hasImage: !!imageUrl
+      hasImage: !!imageUrl,
+      creator: creator,
+      images: images
     });
     
     if (!title || !startTime) {
