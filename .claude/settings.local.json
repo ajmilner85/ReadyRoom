@@ -21,7 +21,9 @@
       "Read(/C:\\c\\Users\\ajmil\\Desktop/**)",
       "Read(/C:\\c\\Users\\ajmil\\Desktop/**)",
       "Read(/C:\\c\\Users\\ajmil\\Desktop/**)",
-      "Read(/C:\\c\\Users\\ajmil\\Desktop/**)"
+      "Read(/C:\\c\\Users\\ajmil\\Desktop/**)",
+      "mcp__playwright__browser_navigate",
+      "mcp__playwright__browser_take_screenshot"
     ],
     "additionalDirectories": [
       "C:\\c\\Users\\ajmil\\Desktop\\ReadyRoom",

@@ -1,5 +1,6 @@
 import React from 'react';
 import { Users, Layout, Calendar, FileText, Settings, User, LogOut, Lock } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { signOut } from '../../utils/supabaseClient';
 import { getUserPermissions } from '../../utils/permissions';
@@ -9,7 +10,7 @@ interface NavigationButton {
   id: string;
   icon: React.ReactNode;
   label: string;
-  view: 'roster' | 'flights' | 'events' | 'mission-prep' | 'admin';
+  route: string;
   requiresPermission: 'canManageRoster' | 'canManageFlights' | 'canManageEvents' | 'canAccessMissionPrep' | 'canAccessSettings';
 }
 
@@ -18,46 +19,46 @@ const buttons: NavigationButton[] = [
     id: 'roster',
     icon: <Users size={24} />,
     label: 'Squadron Roster',
-    view: 'roster',
+    route: '/roster',
     requiresPermission: 'canManageRoster'
   },
   {
     id: 'events',
     icon: <Calendar size={24} />,
     label: 'Squadron Events',
-    view: 'events',
+    route: '/',
     requiresPermission: 'canManageEvents'
   },
   {
     id: 'mission-prep',
     icon: <FileText size={24} />,
     label: 'Mission Preparation',
-    view: 'mission-prep',
+    route: '/mission-prep',
     requiresPermission: 'canAccessMissionPrep'
   },
   {
     id: 'flights',
     icon: <Layout size={24} />,
     label: 'Flight Management',
-    view: 'flights',
+    route: '/mission-coordination',
     requiresPermission: 'canManageFlights'
   },
   {
     id: 'admin',
     icon: <Settings size={24} />,
     label: 'Settings',
-    view: 'admin',
+    route: '/settings',
     requiresPermission: 'canAccessSettings'
   }
 ];
 
 interface NavigationBarProps {
-  onNavigate: (view: 'roster' | 'flights' | 'events' | 'mission-prep' | 'admin') => void;
   activeButton: string;
 }
 
-const NavigationBar: React.FC<NavigationBarProps> = ({ onNavigate, activeButton }) => {
+const NavigationBar: React.FC<NavigationBarProps> = ({ activeButton }) => {
   const [tooltipVisible, setTooltipVisible] = React.useState<string | null>(null);
+  const navigate = useNavigate();
   const { user, userProfile } = useAuth();
   const { settings } = useAppSettings();
   const userPermissions = getUserPermissions(userProfile);
@@ -154,7 +155,7 @@ const NavigationBar: React.FC<NavigationBarProps> = ({ onNavigate, activeButton 
             <div 
               key={button.id} 
               style={buttonStyle}
-              onClick={() => onNavigate(button.view)}
+              onClick={() => navigate(button.route)}
               onMouseEnter={() => setTooltipVisible(button.id)}
               onMouseLeave={() => setTooltipVisible(null)}
             >

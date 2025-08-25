@@ -429,3 +429,77 @@ export async function updateEventReminders(
     return { success: false, error };
   }
 }
+
+/**
+ * Send a manual event reminder immediately
+ */
+export async function sendEventReminder(eventId: string): Promise<{ success: boolean; error?: any; recipientCount?: number }> {
+  try {
+    console.log('[MANUAL-REMINDER-DEBUG] Sending manual reminder for event:', eventId);
+    
+    // Get event details with attendance
+    const { event, attendance, error: fetchError } = await getEventWithAttendanceForReminder(eventId);
+    
+    if (fetchError || !event) {
+      throw new Error(fetchError?.message || 'Event not found');
+    }
+    
+    // Check if event has Discord message IDs
+    if (!event.discord_event_id) {
+      throw new Error('Event is not published to Discord');
+    }
+    
+    // Calculate time until event
+    const timeUntil = getTimeUntilEvent(event.start_datetime);
+    
+    // Determine recipients (accepted + tentative by default)
+    const recipients = [...attendance.accepted, ...attendance.tentative];
+    
+    if (recipients.length === 0) {
+      throw new Error('No recipients found for reminder');
+    }
+    
+    // Format the reminder message
+    const message = formatReminderMessage(event, timeUntil, recipients);
+    
+    // Send to Discord bot for processing
+    const response = await fetch('http://localhost:3001/api/send-reminder', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        eventId: event.id,
+        message: message,
+        recipients: recipients.map(r => r.discord_id),
+        discordEventIds: Array.isArray(event.discord_event_id) 
+          ? event.discord_event_id.map(pub => pub.messageId)
+          : [event.discord_event_id]
+      })
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Discord bot responded with status ${response.status}`);
+    }
+    
+    const result = await response.json();
+    
+    if (!result.success) {
+      throw new Error(result.error || 'Failed to send reminder via Discord bot');
+    }
+    
+    console.log('[MANUAL-REMINDER-DEBUG] Manual reminder sent successfully');
+    
+    return {
+      success: true,
+      recipientCount: recipients.length
+    };
+    
+  } catch (error) {
+    console.error('Error sending manual event reminder:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error occurred'
+    };
+  }
+}
