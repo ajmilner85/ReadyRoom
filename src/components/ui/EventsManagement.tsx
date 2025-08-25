@@ -306,7 +306,24 @@ const EventsManagement: React.FC = () => {
     headerImage?: File | null;
     additionalImages?: (File | null)[];
     trackQualifications?: boolean;
-  }) => {
+    timezone?: string;
+    reminders?: {
+      firstReminder?: {
+        enabled: boolean;
+        value: number;
+        unit: 'minutes' | 'hours' | 'days';
+      };
+      secondReminder?: {
+        enabled: boolean;
+        value: number;
+        unit: 'minutes' | 'hours' | 'days';
+      };
+    };
+    reminderRecipients?: {
+      sendToAccepted: boolean;
+      sendToTentative: boolean;
+    };
+  }, shouldPublish: boolean = false) => {
     try {
       // Determine event type based on cycle
       let eventType: any = undefined; // Using any to avoid TypeScript error
@@ -359,6 +376,50 @@ const EventsManagement: React.FC = () => {
         console.log('No images to upload or missing event data');
       }
       
+      // If shouldPublish is true, publish the event to Discord
+      if (shouldPublish && newEvent) {
+        console.log('[CREATE-PUBLISH-DEBUG] Publishing new event to Discord:', newEvent.id);
+        try {
+          const { publishEventFromCycle, updateEventMultipleDiscordIds } = await import('../../utils/discordService');
+          const publishResult = await publishEventFromCycle(newEvent);
+          
+          console.log('[CREATE-PUBLISH-DEBUG] Publish result:', publishResult);
+          
+          if (publishResult.success && publishResult.publishedChannels.length > 0) {
+            // Update the event with Discord message IDs
+            const updateSuccess = await updateEventMultipleDiscordIds(newEvent.id, publishResult.publishedChannels);
+            console.log('[CREATE-PUBLISH-DEBUG] Updated event with Discord IDs:', updateSuccess);
+          }
+          
+          if (publishResult.errors.length > 0) {
+            console.warn('[CREATE-PUBLISH-DEBUG] Some publish attempts failed:', publishResult.errors);
+          }
+        } catch (publishError) {
+          console.error('[CREATE-PUBLISH-DEBUG] Error publishing event:', publishError);
+          setError('Event created successfully but failed to publish to Discord');
+        }
+      }
+      
+      // Schedule reminders if configured
+      if (eventData.reminders && newEvent) {
+        try {
+          const { scheduleEventReminders } = await import('../../utils/reminderService');
+          const reminderResult = await scheduleEventReminders(
+            newEvent.id,
+            eventData.datetime,
+            eventData.reminders
+          );
+          
+          if (!reminderResult.success) {
+            console.warn('[CREATE-REMINDER-DEBUG] Failed to schedule reminders:', reminderResult.error);
+          } else {
+            console.log('[CREATE-REMINDER-DEBUG] Successfully scheduled reminders for event:', newEvent.id);
+          }
+        } catch (reminderError) {
+          console.error('[CREATE-REMINDER-DEBUG] Error scheduling reminders:', reminderError);
+        }
+      }
+      
       // Reload events to get the latest data - force a fresh fetch
       await loadEvents(selectedCycle?.id);
       
@@ -387,7 +448,24 @@ const EventsManagement: React.FC = () => {
     headerImage?: File | null;
     additionalImages?: (File | null)[];
     trackQualifications?: boolean;
-  }) => {
+    timezone?: string;
+    reminders?: {
+      firstReminder?: {
+        enabled: boolean;
+        value: number;
+        unit: 'minutes' | 'hours' | 'days';
+      };
+      secondReminder?: {
+        enabled: boolean;
+        value: number;
+        unit: 'minutes' | 'hours' | 'days';
+      };
+    };
+    reminderRecipients?: {
+      sendToAccepted: boolean;
+      sendToTentative: boolean;
+    };
+  }, shouldPublish: boolean = false) => {
     if (!editingEvent) return;
     
     try {
@@ -398,21 +476,64 @@ const EventsManagement: React.FC = () => {
       });
       if (error) throw error;
       
-      // Upload multiple images if provided
-      if (eventData.headerImage || eventData.additionalImages) {
-        const { urls: imageUrls, error: uploadError } = await uploadMultipleEventImages(editingEvent.id, {
-          headerImage: eventData.headerImage,
-          additionalImages: eventData.additionalImages
-        });
-        if (uploadError) {
-          console.error('Failed to upload images:', uploadError);
-          setError('Event updated but image upload failed');
+      // Always update images to handle both additions and removals
+      console.log('[IMAGE-UPDATE-DEBUG] Updating images for event:', editingEvent.id);
+      console.log('[IMAGE-UPDATE-DEBUG] Header image:', !!eventData.headerImage);
+      console.log('[IMAGE-UPDATE-DEBUG] Additional images count:', eventData.additionalImages?.length || 0);
+      
+      const { urls: imageUrls, error: uploadError } = await uploadMultipleEventImages(editingEvent.id, {
+        headerImage: eventData.headerImage,
+        additionalImages: eventData.additionalImages
+      }, true); // Use replace mode to handle removals
+      
+      if (uploadError) {
+        console.error('Failed to update images:', uploadError);
+        setError('Event updated but image update failed');
+      } else {
+        console.log('[IMAGE-UPDATE-DEBUG] Successfully updated images:', imageUrls);
+      }
+      
+      // Always update reminders when editing an event, even if reminder settings haven't changed
+      // This ensures that time-dependent reminders are rescheduled if the event time changed
+      try {
+        const { updateEventReminders } = await import('../../utils/reminderService');
+        
+        // Use provided reminder settings or fall back to existing event settings
+        const reminderSettings = eventData.reminders || (editingEvent.eventSettings ? {
+          firstReminder: editingEvent.eventSettings.firstReminderEnabled ? {
+            enabled: editingEvent.eventSettings.firstReminderEnabled,
+            value: editingEvent.eventSettings.firstReminderTime?.value || 1,
+            unit: editingEvent.eventSettings.firstReminderTime?.unit || 'hours'
+          } : undefined,
+          secondReminder: editingEvent.eventSettings.secondReminderEnabled ? {
+            enabled: editingEvent.eventSettings.secondReminderEnabled,
+            value: editingEvent.eventSettings.secondReminderTime?.value || 1,
+            unit: editingEvent.eventSettings.secondReminderTime?.unit || 'hours'
+          } : undefined
+        } : undefined);
+        
+        if (reminderSettings) {
+          const reminderResult = await updateEventReminders(
+            editingEvent.id,
+            eventData.datetime,
+            reminderSettings
+          );
+          
+          if (!reminderResult.success) {
+            console.warn('[EDIT-REMINDER-DEBUG] Failed to update reminders:', reminderResult.error);
+          } else {
+            console.log('[EDIT-REMINDER-DEBUG] Successfully updated reminders for event:', editingEvent.id);
+          }
+        } else {
+          console.log('[EDIT-REMINDER-DEBUG] No reminder settings found, skipping reminder update');
         }
+      } catch (reminderError) {
+        console.error('[EDIT-REMINDER-DEBUG] Error updating reminders:', reminderError);
       }
       
       // Check if this event has Discord messages by fetching fresh data from database
       // (editingEvent only has the converted string version, not the original JSONB)
-      if (editingEvent.discordEventId) {
+      if (shouldPublish && editingEvent.discordEventId) {
         console.log(`[UPDATE-EVENT] Event has Discord messages, fetching fresh data for multi-channel update`);
         
         // Fetch fresh event data with original JSONB discord_event_id
@@ -461,6 +582,35 @@ const EventsManagement: React.FC = () => {
             console.error('[UPDATE-EVENT] Error updating Discord messages:', discordError);
             // Don't fail the whole update if Discord update fails
           }
+        }
+      } else if (shouldPublish && !editingEvent.discordEventId) {
+        // Event doesn't have Discord messages but user wants to publish
+        console.log('[UPDATE-EVENT] Publishing updated event to Discord for first time');
+        try {
+          const { publishEventFromCycle, updateEventMultipleDiscordIds } = await import('../../utils/discordService');
+          
+          // Create event object for publishing
+          const eventForPublish = {
+            ...editingEvent,
+            ...eventData,
+            datetime: eventData.datetime.includes('T') ? eventData.datetime : `${eventData.datetime}:00.000Z`,
+            endDatetime: eventData.endDatetime?.includes('T') ? eventData.endDatetime : `${eventData.endDatetime}:00.000Z`
+          };
+          
+          const publishResult = await publishEventFromCycle(eventForPublish);
+          
+          if (publishResult.success && publishResult.publishedChannels.length > 0) {
+            // Update the event with Discord message IDs
+            await updateEventMultipleDiscordIds(editingEvent.id, publishResult.publishedChannels);
+            console.log('[UPDATE-EVENT] Successfully published updated event to Discord');
+          }
+          
+          if (publishResult.errors.length > 0) {
+            console.warn('[UPDATE-EVENT] Some publish attempts failed:', publishResult.errors);
+          }
+        } catch (publishError) {
+          console.error('[UPDATE-EVENT] Error publishing updated event:', publishError);
+          setError('Event updated successfully but failed to publish to Discord');
         }
       }
       

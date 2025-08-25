@@ -11,6 +11,7 @@ import PositionReportDialog from './components/ui/dialogs/PositionReportDialog';
 import NavigationBar from './components/ui/NavigationBar';
 import OnboardingGuide from './components/onboarding/OnboardingGuide';
 import { useAuth } from './context/AuthContext';
+import { initializeApp, cleanupApp } from './utils/appInitialization';
 import type { Pilot } from './types/PilotTypes';
 
 // Define AssignedPilot here since it's not exported from PilotTypes
@@ -68,6 +69,16 @@ const App: React.FC = () => {
   useEffect(() => {
     savePrepFlights(prepFlights);
   }, [prepFlights]);
+
+  // Initialize app services
+  useEffect(() => {
+    initializeApp();
+    
+    // Cleanup on unmount
+    return () => {
+      cleanupApp();
+    };
+  }, []);
 
   // Check if we should show onboarding for new users
   useEffect(() => {

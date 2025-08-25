@@ -1210,6 +1210,14 @@ async function editDiscordMessageInChannel(messageId: string, event: Event, guil
       creator: event.creator
     };
     
+    console.log('[EDIT-REQUEST-DEBUG] Sending to Discord bot:', {
+      messageId,
+      title: requestBody.title,
+      hasImages: !!(requestBody.images?.headerImage || requestBody.images?.additionalImages?.length),
+      hasCreator: !!requestBody.creator,
+      creator: requestBody.creator
+    });
+    
     const response = await fetch(`http://localhost:3001/api/events/${messageId}/edit`, {
       method: 'PUT',
       headers: {

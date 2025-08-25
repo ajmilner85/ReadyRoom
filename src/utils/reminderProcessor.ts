@@ -64,7 +64,7 @@ async function processIndividualReminder(reminder: any) {
   }
 
   // Calculate time until event for the message
-  const timeUntilEvent = calculateTimeUntilEvent(event.start_datetime);
+  const timeUntilEvent = calculateTimeUntilEvent(event.datetime);
   
   // Format the reminder message
   const message = formatReminderMessage(event, timeUntilEvent);
@@ -102,32 +102,50 @@ function getUsersToMention(attendance: {
 
 /**
  * Send reminder message via Discord
- * This is a placeholder function that would integrate with your Discord bot
  */
 async function sendReminderMessage(
   event: any, 
   message: string, 
   usersToMention: Array<{ discord_id: string; discord_username: string }>
 ) {
-  // This function would need to:
-  // 1. Connect to your Discord bot
-  // 2. Find the appropriate channel(s) to send the reminder
-  // 3. Format the message with user mentions
-  // 4. Send the message
-  
-  console.log('=== REMINDER MESSAGE ===');
-  console.log(`Event: ${event.name}`);
-  console.log(`Message: ${message}`);
-  console.log(`Users to mention: ${usersToMention.map(u => `@${u.discord_username}`).join(', ')}`);
-  console.log('========================');
-  
-  // TODO: Implement actual Discord message sending
-  // This would integrate with your existing Discord bot infrastructure
-  // For example:
-  // await discordBot.sendReminderMessage(event.discord_guild_id, message, usersToMention.map(u => u.discord_id));
-  
-  // For now, we'll simulate successful sending
-  await new Promise(resolve => setTimeout(resolve, 100));
+  try {
+    console.log('=== SENDING REMINDER MESSAGE ===');
+    console.log(`Event: ${event.title}`);
+    console.log(`Message: ${message}`);
+    console.log(`Users to mention: ${usersToMention.map(u => `@${u.discord_username}`).join(', ')}`);
+    
+    // Format Discord mentions
+    const discordMentions = usersToMention.map(user => `<@${user.discord_id}>`).join(' ');
+    const fullMessage = discordMentions ? `${discordMentions}\n\n${message}` : message;
+    
+    // Send reminder via the Discord bot API
+    const response = await fetch('http://localhost:3001/api/reminders/send', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        eventId: event.id,
+        message: fullMessage,
+        userIds: usersToMention.map(u => u.discord_id),
+        // Send to all channels where the event was published
+        discordEventId: event.discord_event_id
+      }),
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(`Failed to send reminder: ${errorData.error || response.statusText}`);
+    }
+    
+    const result = await response.json();
+    console.log('✅ Reminder sent successfully:', result);
+    
+  } catch (error) {
+    console.error('❌ Failed to send Discord reminder:', error);
+    // Don't throw the error - we still want to mark the reminder as sent to avoid spam
+    // The error is already logged for debugging
+  }
 }
 
 /**

@@ -126,60 +126,88 @@ export const deleteEventImage = async (imageUrl: string) => {
  * @returns The URLs of uploaded images or error
  */
 export const uploadMultipleEventImages = async (eventId: string, images: {
-  headerImage?: File | null;
-  additionalImages?: (File | null)[];
-}) => {
+  headerImage?: File | string | null;
+  additionalImages?: (File | string | null)[];
+}, replaceExisting: boolean = false) => {
   try {
-    console.log(`Uploading multiple images for event ${eventId}...`);
+    console.log(`Uploading multiple images for event ${eventId}, replaceExisting:`, replaceExisting);
     
-    // First, fetch existing images to merge with new uploads
-    const { data: existingEvent, error: fetchError } = await supabase
-      .from('events')
-      .select('image_url')
-      .eq('id', eventId)
-      .single();
-    
-    if (fetchError) {
-      console.error('Error fetching existing images:', fetchError);
-      return { urls: null, error: fetchError };
-    }
-    
-    // Initialize with existing images or empty structure
-    const existingImageUrls = (typeof existingEvent?.image_url === 'object' && existingEvent.image_url) 
-      ? existingEvent.image_url 
-      : { additionalImages: [] };
-    
-    const imageUrls: { headerImage?: string; additionalImages: string[] } = {
-      headerImage: existingImageUrls.headerImage,
-      additionalImages: [...(existingImageUrls.additionalImages || [])]
+    let imageUrls: { headerImage?: string; additionalImages: string[] } = {
+      additionalImages: []
     };
     
-    // Upload header image
-    if (images.headerImage) {
-      const result = await uploadSingleImageFile(eventId, images.headerImage, 'header');
-      if (result.error) {
-        console.error('Failed to upload header image:', result.error);
-        return { urls: null, error: result.error };
+    if (!replaceExisting) {
+      // Merge mode: fetch existing images to merge with new uploads
+      const { data: existingEvent, error: fetchError } = await supabase
+        .from('events')
+        .select('image_url')
+        .eq('id', eventId)
+        .single();
+      
+      if (fetchError) {
+        console.error('Error fetching existing images:', fetchError);
+        return { urls: null, error: fetchError };
       }
-      imageUrls.headerImage = result.url;
+      
+      // Initialize with existing images or empty structure
+      const existingImageUrls = (typeof existingEvent?.image_url === 'object' && existingEvent.image_url) 
+        ? existingEvent.image_url 
+        : { additionalImages: [] };
+      
+      imageUrls = {
+        headerImage: existingImageUrls.headerImage,
+        additionalImages: [...(existingImageUrls.additionalImages || [])]
+      };
     }
     
-    // Upload additional images (append to existing images)
+    // Handle header image (File = new upload, string = existing URL)
+    if (images.headerImage) {
+      if (typeof images.headerImage === 'string') {
+        // Existing image URL, keep it
+        imageUrls.headerImage = images.headerImage;
+      } else {
+        // New file upload
+        const result = await uploadSingleImageFile(eventId, images.headerImage, 'header');
+        if (result.error) {
+          console.error('Failed to upload header image:', result.error);
+          return { urls: null, error: result.error };
+        }
+        imageUrls.headerImage = result.url;
+      }
+    } else if (replaceExisting) {
+      // Explicitly remove header image
+      imageUrls.headerImage = undefined;
+    }
+    
+    // Handle additional images (File = new upload, string = existing URL)
     if (images.additionalImages) {
+      if (replaceExisting) {
+        // Replace mode: start with empty array
+        imageUrls.additionalImages = [];
+      }
+      
       for (let i = 0; i < images.additionalImages.length; i++) {
         const additionalImage = images.additionalImages[i];
         if (additionalImage) {
-          // Use current total count for unique file naming
-          const totalImageIndex = imageUrls.additionalImages.length;
-          const result = await uploadSingleImageFile(eventId, additionalImage, `additional-${totalImageIndex}`);
-          if (result.error) {
-            console.error(`Failed to upload additional image ${i}:`, result.error);
-            // Continue with other images even if one fails
-          } else if (result.url) {
-            imageUrls.additionalImages.push(result.url);
+          if (typeof additionalImage === 'string') {
+            // Existing image URL, keep it
+            imageUrls.additionalImages.push(additionalImage);
+          } else {
+            // New file upload
+            const totalImageIndex = imageUrls.additionalImages.length;
+            const result = await uploadSingleImageFile(eventId, additionalImage, `additional-${totalImageIndex}`);
+            if (result.error) {
+              console.error(`Failed to upload additional image ${i}:`, result.error);
+              // Continue with other images even if one fails
+            } else if (result.url) {
+              imageUrls.additionalImages.push(result.url);
+            }
           }
         }
       }
+    } else if (replaceExisting) {
+      // If replaceExisting is true and no additional images provided, clear them
+      imageUrls.additionalImages = [];
     }
     
     // Update the event with JSONB image URLs
