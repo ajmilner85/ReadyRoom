@@ -1,4 +1,5 @@
 import React, { useState, Suspense, useEffect, useCallback } from 'react';
+import { Routes, Route, useLocation } from 'react-router-dom';
 import { DndContext, DragEndEvent, DragOverlay, DragStartEvent } from '@dnd-kit/core';
 import GridLayout from './components/layout/GridLayout';
 import { SectionProvider } from './components/layout/SectionContext';
@@ -31,6 +32,7 @@ const Settings = React.lazy(() => import('./components/settings/Settings'));
 
 const App: React.FC = () => {
   const { user, userProfile, loading } = useAuth();
+  const location = useLocation();
   
   // Mission Execution state
   const [flights, setFlights] = useState<Flight[]>([]);
@@ -41,8 +43,22 @@ const App: React.FC = () => {
   const [isHoveringBoardNumber, setIsHoveringBoardNumber] = useState(false);
   const [initialBoardNumber, setInitialBoardNumber] = useState<string>('');
   const [hoveredFlightId, setHoveredFlightId] = useState<string | null>(null);
-  const [currentView, setCurrentView] = useState<'roster' | 'flights' | 'events' | 'mission-prep' | 'admin'>('flights');
-  const [activeButton, setActiveButton] = useState<string>('flights');
+  // Determine current view from URL path
+  const getCurrentView = () => {
+    const path = location.pathname;
+    if (path === '/roster') return 'roster';
+    if (path === '/mission-coordination') return 'flights';
+    if (path === '/mission-prep') return 'mission-prep';
+    if (path === '/settings') return 'admin';
+    return 'events'; // default to events for root path
+  };
+  
+  const [activeButton, setActiveButton] = useState<string>(getCurrentView());
+  
+  // Update activeButton when URL changes
+  useEffect(() => {
+    setActiveButton(getCurrentView());
+  }, [location.pathname]);
   
   // Onboarding state
   const [showOnboarding, setShowOnboarding] = useState(false);
@@ -102,10 +118,6 @@ const App: React.FC = () => {
     setShowOnboarding(false);
   };
 
-  const handleNavigate = (view: 'roster' | 'flights' | 'events' | 'mission-prep' | 'admin') => {
-    setCurrentView(view);
-    setActiveButton(view);
-  };
 
   const handleDragStart = (event: DragStartEvent) => {
     setActiveId(event.active.id as string);
@@ -221,140 +233,10 @@ const App: React.FC = () => {
 
   const activeFlight = flights.find(f => f.id === activeId);
 
-  const renderMainContent = () => {
-    if (currentView === 'roster') {
-      return (
-        <Suspense fallback={
-          <div className="bg-slate-50" style={{ width: '100%', height: '100%' }} />
-        }>
-          <RosterManagement />
-        </Suspense>
-      );
-    }
-
-    if (currentView === 'events') {
-      return (
-        <Suspense fallback={
-          <div className="bg-slate-50" style={{ width: '100%', height: '100%' }} />
-        }>
-          <EventsManagement />
-        </Suspense>
-      );
-    }
-
-    if (currentView === 'mission-prep') {
-      return (
-        <Suspense fallback={
-          <div className="bg-slate-50" style={{ width: '100%', height: '100%' }} />
-        }>
-          <MissionPreparation 
-            onTransferToMission={handleTransferToMission}
-            assignedPilots={assignedPilots}
-            onAssignedPilotsChange={handleAssignedPilotsChange}
-            missionCommander={missionCommander}
-            onMissionCommanderChange={handleMissionCommanderChange}
-            extractedFlights={extractedFlights}
-            onExtractedFlightsChange={handleExtractedFlightsChange}
-            prepFlights={prepFlights}
-            onPrepFlightsChange={handlePrepFlightsChange}
-          />
-        </Suspense>
-      );
-    }
-
-    if (currentView === 'admin') {
-      return (
-        <Suspense fallback={
-          <div className="bg-slate-50" style={{ width: '100%', height: '100%' }} />
-        }>
-          <Settings />
-        </Suspense>
-      );
-    }
-
-    return (
-      <DndContext 
-        onDragStart={handleDragStart}
-        onDragEnd={handleDragEnd}
-      >
-        <div 
-          onMouseMove={(e) => {
-            const target = e.target as HTMLElement;
-            const boardNumber = target.getAttribute('data-board-number');
-            if (boardNumber) {
-              setHoveredBoardNumber(boardNumber);
-              setIsHoveringBoardNumber(true);
-            } else {
-              setIsHoveringBoardNumber(false);
-            }
-
-            let currentElement: HTMLElement | null = target;
-            while (currentElement && !currentElement.getAttribute('data-flight-id')) {
-              currentElement = currentElement.parentElement;
-            }
-            
-            const flightId = currentElement?.getAttribute('data-flight-id') || null;
-            setHoveredFlightId(flightId);
-          }}
-          onMouseLeave={() => {
-            setIsHoveringBoardNumber(false);
-            setHoveredFlightId(null);
-          }}
-          className="bg-slate-50"
-        >
-          <GridLayout 
-            flights={flights}
-            onUpdateMemberFuel={handleUpdateMemberFuel}
-          />
-          <DragOverlay>
-            {activeFlight && (
-              activeFlight.formation === 'single' ? (
-                <SingleFlightCard 
-                  {...activeFlight}
-                  isDragging={true}
-                />
-              ) : (
-                <FlightCard 
-                  {...activeFlight}
-                  isDragging={true}
-                />
-              )
-            )}
-          </DragOverlay>
-          {showFuelDialog && (
-            <FuelStateDialog
-              initialBoardNumber={initialBoardNumber}
-              onClose={() => {
-                setShowFuelDialog(false);
-                setInitialBoardNumber('');
-              }}
-              onUpdateFuel={(boardNumber, newFuel) => {
-                const flightInfo = findFlightByBoardNumber(boardNumber);
-                if (flightInfo) {
-                  handleUpdateMemberFuel(flightInfo.flight.id, flightInfo.dashNumber, newFuel);
-                }
-              }}
-            />
-          )}
-          {showPositionDialog && (
-            <PositionReportDialog
-              initialBoardNumber={initialBoardNumber}
-              onClose={() => {
-                setShowPositionDialog(false);
-                setInitialBoardNumber('');
-              }}
-              onUpdatePosition={handleUpdatePosition}
-            />
-          )}
-        </div>
-      </DndContext>
-    );
-  };
-
   useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
       // Only handle keypresses when in flight management view
-      if (currentView !== 'flights') return;
+      if (getCurrentView() !== 'flights') return;
 
       // Handle fuel dialog
       if (e.key.toLowerCase() === 'f') {
@@ -415,14 +297,122 @@ const App: React.FC = () => {
 
     window.addEventListener('keydown', handleKeyPress);
     return () => window.removeEventListener('keydown', handleKeyPress);
-  }, [currentView, hoveredFlightId, flights, showFuelDialog, showPositionDialog, hoveredBoardNumber, isHoveringBoardNumber]);
+  }, [location.pathname, hoveredFlightId, flights, showFuelDialog, showPositionDialog, hoveredBoardNumber, isHoveringBoardNumber]);
 
   return (
     <AppSettingsProvider>
       <SectionProvider>
         <div style={{ display: 'grid', gridTemplateColumns: '100px 1fr' }} className="min-h-screen">
-          <NavigationBar onNavigate={handleNavigate} activeButton={activeButton} />
-          {renderMainContent()}
+          <NavigationBar activeButton={activeButton} />
+          <Routes>
+            <Route path="/roster" element={
+              <Suspense fallback={<div className="bg-slate-50" style={{ width: '100%', height: '100%' }} />}>
+                <RosterManagement />
+              </Suspense>
+            } />
+            <Route path="/mission-prep" element={
+              <Suspense fallback={<div className="bg-slate-50" style={{ width: '100%', height: '100%' }} />}>
+                <MissionPreparation 
+                  onTransferToMission={handleTransferToMission}
+                  assignedPilots={assignedPilots}
+                  onAssignedPilotsChange={handleAssignedPilotsChange}
+                  missionCommander={missionCommander}
+                  onMissionCommanderChange={handleMissionCommanderChange}
+                  extractedFlights={extractedFlights}
+                  onExtractedFlightsChange={handleExtractedFlightsChange}
+                  prepFlights={prepFlights}
+                  onPrepFlightsChange={handlePrepFlightsChange}
+                />
+              </Suspense>
+            } />
+            <Route path="/settings" element={
+              <Suspense fallback={<div className="bg-slate-50" style={{ width: '100%', height: '100%' }} />}>
+                <Settings />
+              </Suspense>
+            } />
+            <Route path="/mission-coordination" element={
+              <DndContext 
+                onDragStart={handleDragStart}
+                onDragEnd={handleDragEnd}
+              >
+                <div 
+                  onMouseMove={(e) => {
+                    const target = e.target as HTMLElement;
+                    const boardNumber = target.getAttribute('data-board-number');
+                    if (boardNumber) {
+                      setHoveredBoardNumber(boardNumber);
+                      setIsHoveringBoardNumber(true);
+                    } else {
+                      setIsHoveringBoardNumber(false);
+                    }
+
+                    let currentElement: HTMLElement | null = target;
+                    while (currentElement && !currentElement.getAttribute('data-flight-id')) {
+                      currentElement = currentElement.parentElement;
+                    }
+                    
+                    const flightId = currentElement?.getAttribute('data-flight-id') || null;
+                    setHoveredFlightId(flightId);
+                  }}
+                  onMouseLeave={() => {
+                    setIsHoveringBoardNumber(false);
+                    setHoveredFlightId(null);
+                  }}
+                  className="bg-slate-50"
+                >
+                  <GridLayout 
+                    flights={flights}
+                    onUpdateMemberFuel={handleUpdateMemberFuel}
+                  />
+                  <DragOverlay>
+                    {activeFlight && (
+                      activeFlight.formation === 'single' ? (
+                        <SingleFlightCard 
+                          {...activeFlight}
+                          isDragging={true}
+                        />
+                      ) : (
+                        <FlightCard 
+                          {...activeFlight}
+                          isDragging={true}
+                        />
+                      )
+                    )}
+                  </DragOverlay>
+                  {showFuelDialog && (
+                    <FuelStateDialog
+                      initialBoardNumber={initialBoardNumber}
+                      onClose={() => {
+                        setShowFuelDialog(false);
+                        setInitialBoardNumber('');
+                      }}
+                      onUpdateFuel={(boardNumber, newFuel) => {
+                        const flightInfo = findFlightByBoardNumber(boardNumber);
+                        if (flightInfo) {
+                          handleUpdateMemberFuel(flightInfo.flight.id, flightInfo.dashNumber, newFuel);
+                        }
+                      }}
+                    />
+                  )}
+                  {showPositionDialog && (
+                    <PositionReportDialog
+                      initialBoardNumber={initialBoardNumber}
+                      onClose={() => {
+                        setShowPositionDialog(false);
+                        setInitialBoardNumber('');
+                      }}
+                      onUpdatePosition={handleUpdatePosition}
+                    />
+                  )}
+                </div>
+              </DndContext>
+            } />
+            <Route path="/" element={
+              <Suspense fallback={<div className="bg-slate-50" style={{ width: '100%', height: '100%' }} />}>
+                <EventsManagement />
+              </Suspense>
+            } />
+          </Routes>
         </div>
         
         {/* Onboarding Guide */}

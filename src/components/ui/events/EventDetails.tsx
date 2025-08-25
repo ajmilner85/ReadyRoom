@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Card } from '../card';
-import { Check, Send, RefreshCw, ImageIcon, X, Upload } from 'lucide-react';
+import { Check, Send, RefreshCw, ImageIcon, X, Upload, Users, Bell, Clock, Calendar, Settings, MessageSquare } from 'lucide-react';
 import type { Event } from '../../../types/EventTypes';
 import { publishEventFromCycle, updateEventMultipleDiscordIds } from '../../../utils/discordService';
 import { fetchEvents, supabase } from '../../../utils/supabaseClient';
 import { uploadEventImage, deleteEventImage } from '../../../utils/eventImageService';
+import { getAllSquadrons } from '../../../utils/organizationService';
+import type { Squadron } from '../../../types/OrganizationTypes';
 
 /**
  * Check if the server is available before attempting to publish
@@ -41,6 +43,10 @@ const EventDetails: React.FC<EventDetailsProps> = ({ event, onEventUpdated }) =>
   const [imageError, setImageError] = useState<string | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [squadrons, setSquadrons] = useState<Squadron[]>([]);
+  const [scheduledReminders, setScheduledReminders] = useState<any[]>([]);
+  const [serverConnectivity, setServerConnectivity] = useState<'connected' | 'pending' | 'error'>('connected');
+  const [sendingReminder, setSendingReminder] = useState(false);
   // Set initial image preview from event data
   useEffect(() => {
     const eventObj = event as any; // Cast to access non-standard properties
@@ -52,6 +58,48 @@ const EventDetails: React.FC<EventDetailsProps> = ({ event, onEventUpdated }) =>
     } else {
       setImagePreview(null);
     }
+  }, [event]);
+
+  // Load squadrons and reminder data when event changes
+  useEffect(() => {
+    if (!event) {
+      setSquadrons([]);
+      setScheduledReminders([]);
+      return;
+    }
+
+    // Load squadrons
+    const loadSquadrons = async () => {
+      try {
+        const { data } = await getAllSquadrons();
+        if (data) {
+          setSquadrons(data);
+        }
+      } catch (error) {
+        console.error('Failed to load squadrons:', error);
+      }
+    };
+
+    // Load scheduled reminders
+    const loadReminders = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('event_reminders')
+          .select('*')
+          .eq('event_id', event.id)
+          .eq('sent', false)
+          .order('scheduled_time', { ascending: true });
+        
+        if (data && !error) {
+          setScheduledReminders(data);
+        }
+      } catch (error) {
+        console.error('Failed to load reminders:', error);
+      }
+    };
+
+    loadSquadrons();
+    loadReminders();
   }, [event]);
 
   // Handle image upload
@@ -312,6 +360,70 @@ const EventDetails: React.FC<EventDetailsProps> = ({ event, onEventUpdated }) =>
     return durationStr || '0 minutes';
   };
 
+  // Get timezone display with UTC offset
+  const getTimezoneDisplay = (timezone?: string) => {
+    if (!timezone) return null;
+    
+    try {
+      const now = new Date();
+      const formatter = new Intl.DateTimeFormat('en', {
+        timeZone: timezone,
+        timeZoneName: 'longOffset'
+      });
+      
+      const parts = formatter.formatToParts(now);
+      const offsetPart = parts.find(part => part.type === 'timeZoneName');
+      const offset = offsetPart?.value || '';
+      
+      return `${timezone} ${offset}`;
+    } catch (error) {
+      return timezone;
+    }
+  };
+
+  // Discord icon component
+  const DiscordIcon = ({ size = 18, className = '' }) => (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" className={className}>
+      <path d="M20.317 4.492c-1.53-.69-3.17-1.2-4.885-1.49a.075.075 0 0 0-.079.036c-.21.369-.444.85-.608 1.23a18.566 18.566 0 0 0-5.487 0 12.36 12.36 0 0 0-.617-1.23A.077.077 0 0 0 8.562 3c-1.714.29-3.354.8-4.885 1.491a.07.07 0 0 0-.032.027C.533 9.093-.32 13.555.099 17.961a.08.08 0 0 0 .031.055 20.03 20.03 0 0 0 5.993 2.98.078.078 0 0 0 .084-.026 13.83 13.83 0 0 0 1.226-1.963.074.074 0 0 0-.041-.104 13.201 13.201 0 0 1-1.872-.878.075.075 0 0 1-.008-.125c.126-.093.252-.19.372-.287a.075.075 0 0 1 .078-.01c3.927 1.764 8.18 1.764 12.061 0a.075.075 0 0 1 .079.009c.12.098.246.195.373.288a.075.075 0 0 1-.006.125c-.598.344-1.22.635-1.873.877a.075.075 0 0 0-.041.105c.36.687.772 1.341 1.225 1.962a.077.077 0 0 0 .084.028 19.963 19.963 0 0 0 6.002-2.981.076.076 0 0 0 .032-.054c.5-5.094-.838-9.52-3.549-13.438a.06.06 0 0 0-.031-.028zM8.02 15.278c-1.182 0-2.157-1.069-2.157-2.38 0-1.312.956-2.38 2.157-2.38 1.201 0 2.176 1.068 2.157 2.38 0 1.311-.956 2.38-2.157 2.38zm7.975 0c-1.183 0-2.157-1.069-2.157-2.38 0-1.312.955-2.38 2.157-2.38 1.201 0 2.176 1.068 2.157 2.38 0 1.311-.956 2.38-2.157 2.38z"/>
+    </svg>
+  );
+
+  // Handle manual reminder send
+  const handleSendReminder = async () => {
+    if (!event || sendingReminder) return;
+    
+    setSendingReminder(true);
+    
+    try {
+      // Import the reminder service function
+      const { sendEventReminder } = await import('../../../utils/reminderService');
+      
+      const result = await sendEventReminder(event.id);
+      
+      if (result.success) {
+        setPublishMessage({
+          type: 'success',
+          text: `Reminder sent successfully to ${result.recipientCount || 0} recipients`
+        });
+      } else {
+        throw new Error(result.error || 'Failed to send reminder');
+      }
+    } catch (error) {
+      console.error('Error sending manual reminder:', error);
+      setPublishMessage({
+        type: 'error',
+        text: error instanceof Error ? error.message : 'Failed to send reminder'
+      });
+    } finally {
+      setSendingReminder(false);
+      
+      // Clear message after 5 seconds
+      setTimeout(() => {
+        setPublishMessage(null);
+      }, 5000);
+    }
+  };
+
   if (!event) {
     return (
       <div
@@ -349,15 +461,21 @@ const EventDetails: React.FC<EventDetailsProps> = ({ event, onEventUpdated }) =>
         backgroundColor: '#FFFFFF',
         boxShadow: '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)',
         borderRadius: '8px',
-        padding: '24px',
         display: 'flex',
         flexDirection: 'column',
         position: 'relative',
-        overflowY: 'auto',
         boxSizing: 'border-box'
       }}
     >
-      <div style={{ marginBottom: '24px' }}>
+      {/* Scrollable content area */}
+      <div
+        style={{
+          flex: 1,
+          overflowY: 'auto',
+          padding: '24px 24px 0 24px'
+        }}
+      >
+      <div style={{ marginBottom: '10px' }}>
         <h1 style={{
           fontSize: '24px',
           fontWeight: 700,
@@ -367,36 +485,108 @@ const EventDetails: React.FC<EventDetailsProps> = ({ event, onEventUpdated }) =>
           {event.title}
         </h1>
         <div style={{
-          fontSize: '16px',
-          color: '#64748B'
+          fontSize: '14px',
+          color: '#64748B',
+          marginBottom: '4px'
         }}>
-          Created by {event.creator.callsign} ({event.creator.boardNumber})
-          {event.creator.billet && ` - ${event.creator.billet}`}
+          Created by <span style={{ fontWeight: 500, color: '#475569' }}>{event.creator.callsign} ({event.creator.boardNumber})</span>
+          {event.creator.billet && <span style={{ color: '#64748B' }}> - {event.creator.billet}</span>}
         </div>
       </div>
 
-      <Card className="p-4 mb-6">
-        <h2 className="text-lg font-semibold mb-2">Event Details</h2>
-        <div className="space-y-4">
-          <div>
-            <div className="text-sm text-slate-500">Start Date & Time</div>
-            <div className="font-medium">
-              {new Date(event.datetime).toLocaleString()}
+      <Card className="p-4" style={{ marginBottom: '10px' }}>
+        <h2 style={{ fontSize: '18px', fontWeight: 600, color: '#1E293B', marginBottom: '16px' }}>Event Details</h2>
+        {/* Timezone Display */}
+        {event.eventSettings?.timezone && (
+          <div style={{
+            fontSize: '12px',
+            color: '#6B7280',
+            fontFamily: 'monospace',
+            backgroundColor: '#F9FAFB',
+            padding: '8px 12px',
+            borderRadius: '6px',
+            border: '1px solid #E5E7EB',
+            marginBottom: '16px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px'
+          }}>
+            <Clock size={12} />
+            <span>Timezone: {getTimezoneDisplay(event.eventSettings.timezone)}</span>
+          </div>
+        )}
+        <div style={{ display: 'grid', gap: '16px' }}>
+          {/* Start Date & Time */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div style={{
+              fontSize: '12px',
+              fontWeight: 500,
+              color: '#64748B',
+              textTransform: 'uppercase',
+              letterSpacing: '0.5px',
+              minWidth: '100px'
+            }}>Start</div>
+            <div style={{
+              fontSize: '14px',
+              fontWeight: 500,
+              color: '#334155',
+              flex: 1
+            }}>
+              {new Date(event.datetime).toLocaleString('en-US', {
+                weekday: 'short',
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+              })}
             </div>
           </div>
           
           {event.endDatetime && (
             <>
-              <div>
-                <div className="text-sm text-slate-500">End Date & Time</div>
-                <div className="font-medium">
-                  {new Date(event.endDatetime).toLocaleString()}
+              {/* End Date & Time */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{
+                  fontSize: '12px',
+                  fontWeight: 500,
+                  color: '#64748B',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.5px',
+                  minWidth: '100px'
+                }}>End</div>
+                <div style={{
+                  fontSize: '14px',
+                  fontWeight: 500,
+                  color: '#334155',
+                  flex: 1
+                }}>
+                  {new Date(event.endDatetime).toLocaleString('en-US', {
+                    weekday: 'short',
+                    year: 'numeric',
+                    month: 'short',
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                  })}
                 </div>
               </div>
               
-              <div>
-                <div className="text-sm text-slate-500">Duration</div>
-                <div className="font-medium">
+              {/* Duration */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{
+                  fontSize: '12px',
+                  fontWeight: 500,
+                  color: '#64748B',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.5px',
+                  minWidth: '100px'
+                }}>Duration</div>
+                <div style={{
+                  fontSize: '14px',
+                  fontWeight: 500,
+                  color: '#334155'
+                }}>
                   {formatDuration(event.datetime, event.endDatetime)}
                 </div>
               </div>
@@ -404,128 +594,440 @@ const EventDetails: React.FC<EventDetailsProps> = ({ event, onEventUpdated }) =>
           )}
           
           {event.restrictedTo && event.restrictedTo.length > 0 && (
-            <div>
-              <div className="text-sm text-slate-500">Restricted To</div>
-              <div className="font-medium">{event.restrictedTo.join(', ')}</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <div style={{
+                fontSize: '12px',
+                fontWeight: 500,
+                color: '#64748B',
+                textTransform: 'uppercase',
+                letterSpacing: '0.5px',
+                minWidth: '100px'
+              }}>Restricted</div>
+              <div style={{
+                fontSize: '14px',
+                fontWeight: 500,
+                color: '#B45309',
+                backgroundColor: '#FEF3C7',
+                padding: '4px 8px',
+                borderRadius: '4px',
+                display: 'inline-block'
+              }}>{event.restrictedTo.join(', ')}</div>
             </div>
           )}
         </div>
       </Card>
 
-      <Card className="p-4 mb-6">
-        <h2 className="text-lg font-semibold mb-2">Description</h2>
-        <div className="whitespace-pre-wrap text-slate-600">
-          {event.description}
+
+      <Card className="p-4" style={{ marginBottom: '10px' }}>
+        <h2 style={{ fontSize: '18px', fontWeight: 600, color: '#1E293B', marginBottom: '16px' }}>Description</h2>
+        <div style={{
+          fontSize: '14px',
+          color: '#374151',
+          whiteSpace: 'pre-wrap',
+          lineHeight: '1.5'
+        }}>
+          {event.description || 'No description provided'}
+        </div>
+      </Card>
+
+      {/* Event Settings */}
+      <Card className="p-4" style={{ marginBottom: '10px' }}>
+        <h2 style={{ fontSize: '18px', fontWeight: 600, color: '#1E293B', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+            <Calendar size={18} className="text-slate-500" />
+            <Settings size={10} style={{ 
+              position: 'absolute', 
+              bottom: -2, 
+              right: -2, 
+              color: '#64748B',
+              backgroundColor: 'white',
+              borderRadius: '50%',
+              padding: '1px'
+            }} />
+          </div>
+          Event Settings
+        </h2>
+        <div style={{ display: 'grid', gap: '16px' }}>
+          {/* Participating Squadrons */}
+          {event.participants && event.participants.length > 0 && (
+            <div>
+              <div style={{
+                fontSize: '12px',
+                fontWeight: 500,
+                color: '#64748B',
+                textTransform: 'uppercase',
+                letterSpacing: '0.5px',
+                marginBottom: '8px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px'
+              }}>
+                <Users size={14} />
+                Participating Squadrons
+              </div>
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: '1fr 1fr',
+                gap: '12px',
+                marginTop: '8px'
+              }}>
+                {event.participants.map((squadronId) => {
+                  const squadron = squadrons.find(s => s.id === squadronId);
+                  return (
+                    <div key={squadronId} style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      padding: '8px',
+                      border: '1px solid #E5E7EB',
+                      borderRadius: '6px',
+                      backgroundColor: '#FAFAFA'
+                    }}>
+                      {squadron?.insignia_url && (
+                        <img 
+                          src={squadron.insignia_url} 
+                          alt={`${squadron.designation} insignia`}
+                          style={{
+                            width: '24px',
+                            height: '24px',
+                            objectFit: 'contain',
+                            flexShrink: 0
+                          }}
+                        />
+                      )}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                        <div style={{
+                          fontSize: '13px',
+                          fontWeight: 600,
+                          color: '#000000',
+                          lineHeight: 1.2
+                        }}>
+                          {squadron?.designation || 'Unknown'}
+                        </div>
+                        <div style={{
+                          fontSize: '11px',
+                          color: '#6B7280',
+                          lineHeight: 1.2
+                        }}>
+                          {squadron?.name || `Squadron ${squadronId}`}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Reminder Settings */}
+          {event.eventSettings && (
+            <div>
+              <div style={{
+                fontSize: '12px',
+                fontWeight: 500,
+                color: '#64748B',
+                textTransform: 'uppercase',
+                letterSpacing: '0.5px',
+                marginBottom: '8px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px'
+              }}>
+                <Bell size={14} />
+                Reminder Settings
+              </div>
+              <div style={{ display: 'grid', gap: '8px' }}>
+                <div style={{
+                  fontSize: '13px',
+                  color: '#475569',
+                  backgroundColor: '#F8FAFC',
+                  padding: '8px 12px',
+                  borderRadius: '6px',
+                  border: '1px solid #E2E8F0'
+                }}>
+                  First reminder: {event.eventSettings.firstReminderEnabled && event.eventSettings.firstReminderTime ? 
+                    `${event.eventSettings.firstReminderTime.value} ${event.eventSettings.firstReminderTime.unit} before start` : 
+                    'Disabled'}
+                </div>
+                <div style={{
+                  fontSize: '13px',
+                  color: '#475569',
+                  backgroundColor: '#F8FAFC',
+                  padding: '8px 12px',
+                  borderRadius: '6px',
+                  border: '1px solid #E2E8F0'
+                }}>
+                  Second reminder: {event.eventSettings.secondReminderEnabled && event.eventSettings.secondReminderTime ? 
+                    `${event.eventSettings.secondReminderTime.value} ${event.eventSettings.secondReminderTime.unit} before start` : 
+                    'Disabled'}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Next Scheduled Reminder */}
+          {scheduledReminders.length > 0 && (
+            <div>
+              <div style={{
+                fontSize: '12px',
+                fontWeight: 500,
+                color: '#64748B',
+                textTransform: 'uppercase',
+                letterSpacing: '0.5px',
+                marginBottom: '8px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px'
+              }}>
+                <Clock size={14} />
+                Next Reminder
+              </div>
+              <div style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '8px'
+              }}>
+                <div style={{
+                  fontSize: '13px',
+                  color: '#475569',
+                  backgroundColor: '#F8FAFC',
+                  padding: '8px 12px',
+                  borderRadius: '6px',
+                  border: '1px solid #E2E8F0'
+                }}>
+                  Next reminder: {new Date(scheduledReminders[0].scheduled_time).toLocaleString('en-US', {
+                    weekday: 'long',
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric',
+                    hour: 'numeric',
+                    minute: '2-digit',
+                    hour12: true
+                  })}
+                </div>
+                <button
+                  onClick={handleSendReminder}
+                  disabled={sendingReminder}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '6px 12px',
+                    backgroundColor: '#3B82F6',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '6px',
+                    fontSize: '12px',
+                    fontWeight: 500,
+                    cursor: sendingReminder ? 'not-allowed' : 'pointer',
+                    opacity: sendingReminder ? 0.6 : 1,
+                    transition: 'all 0.2s ease',
+                    alignSelf: 'flex-start'
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!sendingReminder) {
+                      e.currentTarget.style.backgroundColor = '#2563EB';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!sendingReminder) {
+                      e.currentTarget.style.backgroundColor = '#3B82F6';
+                    }
+                  }}
+                >
+                  {sendingReminder ? (
+                    <>
+                      <div className="w-3 h-3 border-2 border-t-transparent rounded-full animate-spin" 
+                           style={{ borderColor: 'white', borderTopColor: 'transparent' }} />
+                      <span>Sending...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Bell size={12} />
+                      <span>Send Reminder Now</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </Card>
       
       {/* Event Image Section */}
-      <Card className="p-4 mb-6">
-        <div className="flex justify-between items-center mb-3">
-          <h2 className="text-lg font-semibold">Event Image</h2>
+      {(imagePreview || imageLoading) && (
+        <Card className="p-6" style={{ marginBottom: '10px' }}>
           {imageLoading && (
-            <div className="text-sm text-slate-500 flex items-center">
+            <div className="text-sm text-slate-500 flex items-center justify-center mb-3">
               <div className="w-4 h-4 mr-2 border-2 border-t-transparent border-slate-500 rounded-full animate-spin" />
-              Processing...
+              Processing image...
             </div>
+          )}
+          
+          {imageError && (
+            <div className="p-2 mb-3 bg-red-50 text-red-700 text-sm rounded-md">
+              {imageError}
+              <button 
+                className="ml-2 text-red-500 hover:text-red-700"
+                onClick={() => setImageError(null)}
+              >
+                Dismiss
+              </button>
+            </div>
+          )}
+          
+          {imagePreview && (
+            <div className="relative">
+              <div className="relative rounded-lg overflow-hidden bg-slate-100" style={{
+                maxWidth: '100%',
+                maxHeight: '300px',
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                padding: '10px'
+              }}>
+                <img 
+                  src={imagePreview}
+                  alt="Event image" 
+                  style={{
+                    maxWidth: '100%',
+                    maxHeight: '300px',
+                    width: 'auto',
+                    height: 'auto',
+                    objectFit: 'contain',
+                    borderRadius: '8px'
+                  }}
+                />
+                
+              </div>
+            </div>
+          )}
+          
+          {/* Hidden file input for image replacement */}
+          <input 
+            type="file"
+            ref={fileInputRef}
+            onChange={handleImageUpload}
+            accept="image/*"
+            className="hidden"
+          />
+        </Card>
+      )}
+      
+      {/* Discord Integration Status */}
+      {isPublished && (
+        <Card className="p-4" style={{ marginBottom: '4px' }}>
+          <h2 style={{ fontSize: '18px', fontWeight: 600, color: '#1E293B', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <DiscordIcon size={18} className="text-indigo-500" />
+            Discord Integration
+          </h2>
+          <div style={{ display: 'grid', gap: '12px' }}>
+            {/* Publication Status */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <div style={{
+                width: '8px',
+                height: '8px',
+                borderRadius: '50%',
+                backgroundColor: '#10B981', // Green for published/active
+                flexShrink: 0
+              }} />
+              <div style={{
+                fontSize: '13px',
+                color: '#374151',
+                fontWeight: 500
+              }}>
+                Published to Discord
+              </div>
+            </div>
+            
+            {/* Connectivity Status */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <div style={{
+                width: '8px',
+                height: '8px',
+                borderRadius: '50%',
+                backgroundColor: serverConnectivity === 'connected' ? '#10B981' : 
+                                serverConnectivity === 'pending' ? '#6B7280' : '#EF4444',
+                flexShrink: 0
+              }} />
+              <div style={{
+                fontSize: '13px',
+                color: '#374151',
+                fontWeight: 500
+              }}>
+                Server monitoring {serverConnectivity === 'connected' ? 'active' : 
+                                  serverConnectivity === 'pending' ? 'pending' : 'error'}
+              </div>
+            </div>
+            
+            {/* Features List */}
+            <div style={{ marginLeft: '16px', marginTop: '4px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
+                <Check size={12} style={{ color: '#10B981' }} />
+                <span style={{ fontSize: '12px', color: '#6B7280' }}>Real-time attendance tracking</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
+                <Check size={12} style={{ color: '#10B981' }} />
+                <span style={{ fontSize: '12px', color: '#6B7280' }}>Event countdown updates</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <Check size={12} style={{ color: '#10B981' }} />
+                <span style={{ fontSize: '12px', color: '#6B7280' }}>Event reminder messages</span>
+              </div>
+            </div>
+          </div>
+        </Card>
+      )}
+      </div>
+      
+      {/* Fixed Publish to Discord Button Footer */}
+      <div
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'center',
+          alignItems: 'center',
+          borderTop: '1px solid #E2E8F0',
+          padding: '12px',
+          backgroundColor: '#FFFFFF',
+          borderRadius: '0 0 8px 8px',
+          position: 'relative',
+          zIndex: 5,
+          maxHeight: '103px'
+        }}
+      >
+        {/* Created and Updated timestamps */}
+        <div style={{
+          fontSize: '11px',
+          color: '#94A3B8',
+          display: 'flex',
+          gap: '16px',
+          flexWrap: 'wrap'
+        }}>
+          {(event as any).created_at && (
+            <span>
+              Created: {new Date((event as any).created_at).toLocaleString('en-US', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+              })}
+            </span>
+          )}
+          {(event as any).updated_at && (
+            <span>
+              Updated: {new Date((event as any).updated_at).toLocaleString('en-US', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+              })}
+            </span>
           )}
         </div>
         
-        {imageError && (
-          <div className="p-2 mb-3 bg-red-50 text-red-700 text-sm rounded-md">
-            {imageError}
-            <button 
-              className="ml-2 text-red-500 hover:text-red-700"
-              onClick={() => setImageError(null)}
-            >
-              Dismiss
-            </button>
-          </div>
-        )}
-        
-        {imagePreview ? (
-          <div className="relative">
-            <div className="relative aspect-video w-full rounded-md overflow-hidden bg-slate-100 mb-3">
-              <img 
-                src={imagePreview}
-                alt="Event preview" 
-                className="w-full h-full object-cover"
-              />
-              
-              <button
-                onClick={handleRemoveImage}
-                disabled={imageLoading || publishing}
-                className="absolute top-2 right-2 bg-white bg-opacity-70 hover:bg-opacity-100 p-1.5 rounded-full text-red-500 hover:text-red-700 transition-colors"
-                title="Remove image"
-              >
-                <X size={18} />
-              </button>
-            </div>
-            <p className="text-sm text-slate-500">
-              This image will appear in Discord when the event is published
-            </p>
-          </div>
-        ) : (
-          <div className="flex flex-col items-center justify-center p-6 border-2 border-dashed border-slate-200 rounded-md bg-slate-50">
-            <ImageIcon size={42} className="text-slate-300 mb-3" />
-            <p className="mb-3 text-slate-500 text-center">
-              Add an image to be shown with this event when published to Discord
-            </p>
-            <button
-              onClick={triggerFileInput}
-              disabled={imageLoading || publishing}
-              className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
-            >
-              <Upload size={16} />
-              <span>Upload Image</span>
-            </button>
-            <input 
-              type="file"
-              ref={fileInputRef}
-              onChange={handleImageUpload}
-              accept="image/*"
-              className="hidden"
-            />
-            <p className="mt-3 text-xs text-slate-400">
-              Supported formats: JPG, PNG, GIF (max 5MB)
-            </p>
-          </div>
-        )}
-      </Card>
-      
-      {/* Discord Integration Status */}
-      <Card 
-        id="discord-integration-card" 
-        className={`p-4 mb-6 ${isPublished ? '' : 'hidden'}`}
-      >
-        <div className="flex justify-between items-center mb-2">
-          <h2 className="text-lg font-semibold">Discord Integration</h2>
-          <button 
-            onClick={refreshEventData}
-            disabled={refreshing}
-            className="p-1 rounded hover:bg-slate-100 transition-colors"
-            title="Refresh Discord status"
-          >
-            <RefreshCw size={16} 
-              className={`text-slate-400 ${refreshing ? 'animate-spin' : ''}`} />
-          </button>
-        </div>
-        <div className="space-y-2">
-          <div className="text-sm text-green-600 flex items-center">
-            <Check size={16} className="mr-2" />
-            This event has been published to Discord
-          </div>
-          <div className="text-xs text-slate-500">
-            Discord attendance updates will appear in real-time
-          </div>
-          <div className="text-xs text-slate-400 mt-1">
-            Discord ID: {event.discordMessageId || event.discordEventId}
-          </div>
-        </div>
-      </Card>
-      
-      {/* Publish to Discord Button */}
-      <div className="mt-auto">
         {publishMessage && (
           <div 
             className={`p-3 mb-4 rounded-md ${publishMessage.type === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}
@@ -535,45 +1037,41 @@ const EventDetails: React.FC<EventDetailsProps> = ({ event, onEventUpdated }) =>
         )}
         
         <button
-          id="publish-discord-btn"
           onClick={handlePublishToDiscord}
           disabled={publishing || isPublished}
-          className={isPublished ? "published" : ""}
           style={{
             display: 'flex',
             alignItems: 'center',
             gap: '8px',
-            padding: '8px 16px',
-            backgroundColor: isPublished ? '#2563EB' : 'rgb(255, 255, 255)',
-            color: isPublished ? 'white' : 'rgb(100, 116, 139)',
+            padding: '12px 24px',
+            backgroundColor: isPublished ? '#10B981' : '#3B82F6',
+            color: 'white',
             borderRadius: '8px',
-            border: isPublished ? 'none' : '1px solid rgb(203, 213, 225)',
+            border: 'none',
             cursor: isPublished ? 'not-allowed' : 'pointer',
-            transition: 'background-color 0.2s',
+            transition: 'all 0.2s ease',
             fontFamily: 'Inter',
             fontSize: '14px',
-            fontWeight: 400,
-            flex: '1 1 0%',
-            margin: '0px 16px',
-            whiteSpace: 'nowrap',
-            minWidth: '150px',
-            justifyContent: 'center'
+            fontWeight: 500,
+            width: '100%',
+            justifyContent: 'center',
+            opacity: isPublished ? 0.7 : 1
           }}
           onMouseEnter={(e) => {
             if (!isPublished && !publishing) {
-              e.currentTarget.style.backgroundColor = '#F8FAFC';
+              e.currentTarget.style.backgroundColor = '#2563EB';
             }
           }}
           onMouseLeave={(e) => {
             if (!isPublished && !publishing) {
-              e.currentTarget.style.backgroundColor = '#FFFFFF';
+              e.currentTarget.style.backgroundColor = '#3B82F6';
             }
           }}
         >
           {publishing ? (
             <>
               <div className="w-4 h-4 border-2 border-t-transparent rounded-full animate-spin" 
-                   style={{ borderColor: isPublished ? 'white' : 'rgb(100, 116, 139)', borderTopColor: 'transparent' }} />
+                   style={{ borderColor: 'white', borderTopColor: 'transparent' }} />
               <span>Publishing...</span>
             </>
           ) : isPublished ? (
