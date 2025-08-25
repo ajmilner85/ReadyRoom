@@ -342,7 +342,9 @@ const EventsManagement: React.FC = () => {
         status: 'upcoming',
         cycleId: selectedCycle?.id,
         eventType,
-        discordGuildId: discordGuildId || undefined
+        discordGuildId: discordGuildId || undefined,
+        // Use event-level participants if provided, otherwise inherit from cycle
+        participants: eventData.participants || selectedCycle?.participants
       });
 
       console.log('[CREATE-EVENT-DEBUG] createEvent result:', { newEvent, error });
@@ -466,6 +468,10 @@ const EventsManagement: React.FC = () => {
       sendToTentative: boolean;
     };
   }, shouldPublish: boolean = false) => {
+    console.log('[UPDATE-EVENT-DEBUG] handleUpdateEvent called for event:', editingEvent?.id);
+    console.log('[UPDATE-EVENT-DEBUG] shouldPublish:', shouldPublish);
+    console.log('[UPDATE-EVENT-DEBUG] eventData:', eventData);
+    
     if (!editingEvent) return;
     
     try {
@@ -495,11 +501,16 @@ const EventsManagement: React.FC = () => {
       
       // Always update reminders when editing an event, even if reminder settings haven't changed
       // This ensures that time-dependent reminders are rescheduled if the event time changed
+      console.log('[EDIT-FLOW-DEBUG] Starting reminder update section for event:', editingEvent.id);
       try {
         const { updateEventReminders } = await import('../../utils/reminderService');
         
+        // Debug log the event structure to understand what's available
+        console.log('[EDIT-REMINDER-DEBUG] editingEvent.eventSettings:', editingEvent.eventSettings);
+        console.log('[EDIT-REMINDER-DEBUG] eventData.reminders:', eventData.reminders);
+        
         // Use provided reminder settings or fall back to existing event settings
-        const reminderSettings = eventData.reminders || (editingEvent.eventSettings ? {
+        let reminderSettings = eventData.reminders || (editingEvent.eventSettings ? {
           firstReminder: editingEvent.eventSettings.firstReminderEnabled ? {
             enabled: editingEvent.eventSettings.firstReminderEnabled,
             value: editingEvent.eventSettings.firstReminderTime?.value || 1,
@@ -511,6 +522,30 @@ const EventsManagement: React.FC = () => {
             unit: editingEvent.eventSettings.secondReminderTime?.unit || 'hours'
           } : undefined
         } : undefined);
+        
+        console.log('[EDIT-REMINDER-DEBUG] Constructed reminderSettings:', reminderSettings);
+        
+        // Check if this event should have reminders by checking if any exist in the database
+        if (!reminderSettings) {
+          // Try to get existing reminders from database to see if this event had reminders before
+          const { data: existingReminders } = await supabase
+            .from('event_reminders')
+            .select('*')
+            .eq('event_id', editingEvent.id)
+            .limit(1);
+          
+          if (existingReminders && existingReminders.length > 0) {
+            console.log('[EDIT-REMINDER-DEBUG] Event has existing reminders, will use default settings for update');
+            // Use default reminder settings if event had reminders before
+            reminderSettings = {
+              firstReminder: {
+                enabled: true,
+                value: 15,
+                unit: 'minutes'
+              }
+            };
+          }
+        }
         
         if (reminderSettings) {
           const reminderResult = await updateEventReminders(
@@ -575,7 +610,7 @@ const EventsManagement: React.FC = () => {
           });
           
           try {
-            const discordResult = await updateMultiChannelEvent(updatedEvent);
+            const discordResult = await updateMultiChannelEvent(updatedEvent, editingEvent.datetime);
             console.log(`[UPDATE-EVENT] Discord update result:`, discordResult);
             
             if (discordResult.errors.length > 0) {

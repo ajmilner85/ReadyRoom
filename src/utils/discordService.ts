@@ -1180,7 +1180,7 @@ export async function syncDiscordAttendance(eventId: string, discordMessageId: s
 /**
  * Edits a Discord message in a specific channel
  */
-async function editDiscordMessageInChannel(messageId: string, event: Event, guildId: string, channelId: string): Promise<{ success: boolean; error?: string }> {
+async function editDiscordMessageInChannel(messageId: string, event: Event, guildId: string, channelId: string, originalStartTime?: string): Promise<{ success: boolean; error?: string }> {
   try {
     const startTime = event.datetime;
     let endTime = event.endDatetime;
@@ -1207,7 +1207,10 @@ async function editDiscordMessageInChannel(messageId: string, event: Event, guil
         additionalImages: event.additionalImageUrls || [],
         imageUrl: event.imageUrl || (event as any).image_url
       },
-      creator: event.creator
+      creator: event.creator,
+      // Add the original start time and event ID for reminder updates
+      originalStartTime: originalStartTime,
+      eventId: event.id
     };
     
     console.log('[EDIT-REQUEST-DEBUG] Sending to Discord bot:', {
@@ -1251,7 +1254,7 @@ async function editDiscordMessageInChannel(messageId: string, event: Event, guil
  * Updates a multi-channel Discord event by editing existing messages in place where possible,
  * and falling back to delete-and-recreate for multi-channel events
  */
-export async function updateMultiChannelEvent(event: Event): Promise<{ success: boolean; publishedCount: number; errors: string[] }> {
+export async function updateMultiChannelEvent(event: Event, originalStartTime?: string): Promise<{ success: boolean; publishedCount: number; errors: string[] }> {
   try {
     console.log(`[UPDATE-MULTI-DISCORD] Starting edit for event ${event.id}`);
     console.log(`[UPDATE-MULTI-DISCORD] Event data:`, {
@@ -1373,7 +1376,8 @@ export async function updateMultiChannelEvent(event: Event): Promise<{ success: 
             messageIdForThisChannel,
             event,
             selectedGuildId,
-            eventsChannel.id
+            eventsChannel.id,
+            originalStartTime
           );
           
           if (editResult.success) {

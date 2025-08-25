@@ -19,6 +19,7 @@ export async function processReminders(): Promise<{
   const errors: Array<{ reminderId: string; error: any }> = [];
 
   try {
+    console.log('[REMINDER-PROCESSOR] Checking for pending reminders...');
     // Get all pending reminders
     const { data: pendingReminders, error: fetchError } = await getPendingReminders();
     
@@ -28,6 +29,7 @@ export async function processReminders(): Promise<{
     }
 
     if (!pendingReminders || pendingReminders.length === 0) {
+      console.log('[REMINDER-PROCESSOR] No pending reminders found');
       return { processed, errors };
     }
 
@@ -66,11 +68,11 @@ async function processIndividualReminder(reminder: any) {
   // Calculate time until event for the message
   const timeUntilEvent = calculateTimeUntilEvent(event.datetime);
   
-  // Format the reminder message
-  const message = formatReminderMessage(event, timeUntilEvent);
-  
   // Get users to mention based on settings and attendance
   const usersToMention = getUsersToMention(attendance);
+  
+  // Format the reminder message with user mentions
+  const message = formatReminderMessage(event, timeUntilEvent, usersToMention);
   
   if (usersToMention.length === 0) {
     console.log(`No users to mention for reminder ${reminder.id}, marking as sent`);
@@ -92,9 +94,9 @@ async function processIndividualReminder(reminder: any) {
  * Get users to mention based on attendance and settings
  */
 function getUsersToMention(attendance: {
-  accepted: Array<{ discord_id: string; discord_username: string }>;
-  tentative: Array<{ discord_id: string; discord_username: string }>;
-}): Array<{ discord_id: string; discord_username: string }> {
+  accepted: Array<{ discord_id: string; discord_username: string; board_number?: string; call_sign?: string }>;
+  tentative: Array<{ discord_id: string; discord_username: string; board_number?: string; call_sign?: string }>;
+}): Array<{ discord_id: string; discord_username: string; board_number?: string; call_sign?: string }> {
   // For now, we'll mention both accepted and tentative users
   // This can be configurable based on the event settings in the future
   return [...attendance.accepted, ...attendance.tentative];
@@ -106,17 +108,23 @@ function getUsersToMention(attendance: {
 async function sendReminderMessage(
   event: any, 
   message: string, 
-  usersToMention: Array<{ discord_id: string; discord_username: string }>
+  usersToMention: Array<{ discord_id: string; discord_username: string; board_number?: string; call_sign?: string }>
 ) {
   try {
     console.log('=== SENDING REMINDER MESSAGE ===');
-    console.log(`Event: ${event.title}`);
+    console.log(`Event: ${event.name}`);
     console.log(`Message: ${message}`);
-    console.log(`Users to mention: ${usersToMention.map(u => `@${u.discord_username}`).join(', ')}`);
+    console.log(`Users to mention: ${usersToMention.map(u => {
+      if (u.board_number && u.call_sign) {
+        return `@${u.board_number} ${u.call_sign}`;
+      } else {
+        return `@${u.discord_username}`;
+      }
+    }).join('')}`);
     
-    // Format Discord mentions
+    // Create Discord mentions for actual notification (alongside our custom format)
     const discordMentions = usersToMention.map(user => `<@${user.discord_id}>`).join(' ');
-    const fullMessage = discordMentions ? `${discordMentions}\n\n${message}` : message;
+    const fullMessage = discordMentions ? `${discordMentions}\n${message}` : message;
     
     // Send reminder via the Discord bot API
     const response = await fetch('http://localhost:3001/api/reminders/send', {

@@ -16,11 +16,14 @@ const {
   deleteEventMessage,
   editEventMessage, 
   getAvailableGuilds,
-  countdownManager
+  countdownManager,
+  sendReminderMessage
 } = require(discordBotPath);
 
 // Import Supabase client
 const { supabase, getEventByDiscordId } = require('./supabaseClient');
+
+// Note: We'll implement reminder processing directly here to avoid ES6/CommonJS module issues
 
 // Import Discord.js for guild member operations
 const { Client, GatewayIntentBits } = require('discord.js');
@@ -380,13 +383,15 @@ app.post('/api/events/publish', async (req, res) => {
 app.put('/api/events/:messageId/edit', async (req, res) => {
   try {
     const { messageId } = req.params;
-    const { title, description, startTime, endTime, guildId, channelId, imageUrl, images, creator } = req.body;
+    const { title, description, startTime, endTime, guildId, channelId, imageUrl, images, creator, originalStartTime, eventId } = req.body;
     
     console.log('[DEBUG] Received event edit request:', { 
       timestamp: new Date().toISOString(),
       messageId,
+      eventId,
       title,
-      startTime,
+      originalStartTime,
+      newStartTime: startTime,
       guildId,
       channelId,
       hasImage: !!imageUrl,
@@ -455,6 +460,65 @@ app.put('/api/events/:messageId/edit', async (req, res) => {
     console.log(`[DEBUG] Discord edit result:`, result);
     
     if (result.success) {
+      // Handle reminder updates if start time changed and event ID is provided
+      if (originalStartTime && eventId && originalStartTime !== startTime) {
+        console.log('[DEBUG] Event time changed, updating reminders...');
+        console.log('[DEBUG] Original start time:', originalStartTime);
+        console.log('[DEBUG] New start time:', startTime);
+        
+        // Check if this event has existing reminders
+        const { data: existingReminders, error: remindersError } = await supabase
+          .from('event_reminders')
+          .select('*')
+          .eq('event_id', eventId)
+          .limit(1);
+        
+        if (!remindersError && existingReminders && existingReminders.length > 0) {
+          console.log('[DEBUG] Event has existing reminders, rescheduling...');
+          
+          // Cancel existing unsent reminders
+          const { error: cancelError } = await supabase
+            .from('event_reminders')
+            .delete()
+            .eq('event_id', eventId)
+            .eq('sent', false);
+          
+          if (cancelError) {
+            console.error('[ERROR] Failed to cancel existing reminders:', cancelError);
+          } else {
+            // Create new reminder 15 minutes before the new start time
+            const newStartTime = new Date(startTime);
+            const reminderTime = new Date(newStartTime.getTime() - (15 * 60 * 1000));
+            
+            // Only schedule if reminder time is in the future
+            if (reminderTime > new Date()) {
+              const { error: scheduleError } = await supabase
+                .from('event_reminders')
+                .insert({
+                  event_id: eventId,
+                  reminder_type: 'first',
+                  scheduled_time: reminderTime.toISOString(),
+                  sent: false
+                });
+              
+              if (scheduleError) {
+                console.error('[ERROR] Failed to schedule new reminder:', scheduleError);
+              } else {
+                console.log('[DEBUG] Successfully rescheduled reminder for:', reminderTime.toISOString());
+              }
+            } else {
+              console.log('[DEBUG] New reminder time is in the past, not scheduling');
+            }
+          }
+        } else {
+          console.log('[DEBUG] Event has no existing reminders, skipping reminder update');
+        }
+      } else if (originalStartTime && eventId) {
+        console.log('[DEBUG] Event time unchanged, no reminder update needed');
+      } else {
+        console.log('[DEBUG] Missing originalStartTime or eventId, skipping reminder update');
+      }
+      
       res.json({
         success: true,
         messageId: messageId
@@ -917,7 +981,269 @@ async function sendReminderToChannel(guildId, channelId, message) {
   }
 }
 
+// Server-side reminder processing functions
+async function processReminders() {
+  try {
+    console.log('[REMINDER-PROCESSOR] Checking for pending reminders...');
+    
+    // Get all pending reminders
+    const now = new Date().toISOString();
+    const { data: pendingReminders, error: fetchError } = await supabase
+      .from('event_reminders')
+      .select('*')
+      .eq('sent', false)
+      .lte('scheduled_time', now)
+      .order('scheduled_time', { ascending: true });
+
+    if (fetchError) {
+      console.error('Error fetching pending reminders:', fetchError);
+      return { processed: 0, errors: [{ reminderId: 'fetch', error: fetchError }] };
+    }
+
+    if (!pendingReminders || pendingReminders.length === 0) {
+      console.log('[REMINDER-PROCESSOR] No pending reminders found');
+      return { processed: 0, errors: [] };
+    }
+
+    console.log(`[REMINDER-PROCESSOR] Processing ${pendingReminders.length} pending reminders`);
+
+    let processed = 0;
+    const errors = [];
+
+    // Process each reminder
+    for (const reminder of pendingReminders) {
+      try {
+        await processIndividualReminder(reminder);
+        processed++;
+        console.log(`Successfully processed reminder ${reminder.id} for event ${reminder.event_id}`);
+      } catch (error) {
+        console.error(`Error processing reminder ${reminder.id}:`, error);
+        errors.push({ reminderId: reminder.id, error });
+      }
+    }
+
+    return { processed, errors };
+  } catch (error) {
+    console.error('Error in processReminders:', error);
+    return { processed: 0, errors: [{ reminderId: 'general', error }] };
+  }
+}
+
+async function processIndividualReminder(reminder) {
+  // Get event and attendance data
+  const { data: eventData, error: eventError } = await supabase
+    .from('events')
+    .select('*')
+    .eq('id', reminder.event_id)
+    .single();
+
+  if (eventError || !eventData) {
+    throw new Error(`Could not fetch event data: ${eventError?.message || 'Event not found'}`);
+  }
+
+  console.log('[EVENT-DEBUG] Retrieved event data:', JSON.stringify(eventData, null, 2));
+
+  // Get attendance data
+  let discordEventIds = [];
+  if (Array.isArray(eventData.discord_event_id)) {
+    discordEventIds = eventData.discord_event_id.map(pub => pub.messageId);
+  } else if (eventData.discord_event_id) {
+    discordEventIds = [eventData.discord_event_id];
+  }
+
+  if (discordEventIds.length === 0) {
+    console.log(`No Discord event IDs found for reminder ${reminder.id}, marking as sent`);
+    await markReminderAsSent(reminder.id);
+    return;
+  }
+
+  // Get attendance data
+  const { data: attendanceData, error: attendanceError } = await supabase
+    .from('discord_event_attendance')
+    .select('discord_id, discord_username, user_response')
+    .in('discord_event_id', discordEventIds)
+    .in('user_response', ['accepted', 'tentative']);
+
+  if (attendanceError) {
+    throw new Error(`Could not fetch attendance data: ${attendanceError.message}`);
+  }
+
+  if (!attendanceData || attendanceData.length === 0) {
+    console.log(`No attendance found for reminder ${reminder.id}, marking as sent`);
+    await markReminderAsSent(reminder.id);
+    return;
+  }
+
+  // Calculate time until event
+  console.log('[EVENT-DEBUG] Event start_datetime field:', eventData.start_datetime);
+  console.log('[EVENT-DEBUG] Available event fields:', Object.keys(eventData));
+  const timeUntilEvent = calculateTimeUntilEvent(eventData.start_datetime);
+  
+  // Format the reminder message
+  const message = formatReminderMessage(eventData, timeUntilEvent);
+  
+  // Deduplicate users by discord_id to avoid duplicate mentions
+  const uniqueUsers = new Map();
+  attendanceData.forEach(user => {
+    if (!uniqueUsers.has(user.discord_id)) {
+      uniqueUsers.set(user.discord_id, user);
+    }
+  });
+  
+  console.log(`[REMINDER-DEBUG] Total attendance records: ${attendanceData.length}`);
+  console.log(`[REMINDER-DEBUG] Unique users after deduplication: ${uniqueUsers.size}`);
+  
+  // Create Discord mentions for actual notification using unique users only
+  const discordMentions = Array.from(uniqueUsers.values())
+    .map(user => `<@${user.discord_id}>`)
+    .join(' ');
+  const fullMessage = discordMentions ? `${discordMentions}\n${message}` : message;
+  
+  // Send the reminder message to Discord channels
+  await sendReminderToDiscordChannels(eventData, fullMessage);
+  
+  // Mark reminder as sent
+  await markReminderAsSent(reminder.id);
+}
+
+function calculateTimeUntilEvent(eventStartTime) {
+  console.log('[TIME-CALC-DEBUG] Event start time string:', eventStartTime);
+  
+  if (!eventStartTime) {
+    console.error('[TIME-CALC-DEBUG] Event start time is undefined/null');
+    return 'unknown time';
+  }
+  
+  const now = new Date();
+  const eventStart = new Date(eventStartTime);
+  console.log('[TIME-CALC-DEBUG] Current time:', now.toISOString());
+  console.log('[TIME-CALC-DEBUG] Event start parsed:', eventStart.toISOString());
+  console.log('[TIME-CALC-DEBUG] Event start is valid date:', !isNaN(eventStart.getTime()));
+  const diffMs = eventStart.getTime() - now.getTime();
+  console.log('[TIME-CALC-DEBUG] Difference in ms:', diffMs);
+  
+  if (diffMs <= 0) {
+    return 'now';
+  }
+  
+  const diffMinutes = Math.floor(diffMs / (1000 * 60));
+  const diffHours = Math.floor(diffMinutes / 60);
+  const diffDays = Math.floor(diffHours / 24);
+  
+  if (diffDays > 0) {
+    const remainingHours = diffHours % 24;
+    return `${diffDays} day${diffDays !== 1 ? 's' : ''}${remainingHours > 0 ? ` and ${remainingHours} hour${remainingHours !== 1 ? 's' : ''}` : ''}`;
+  } else if (diffHours > 0) {
+    const remainingMinutes = diffMinutes % 60;
+    return `${diffHours} hour${diffHours !== 1 ? 's' : ''}${remainingMinutes > 0 ? ` and ${remainingMinutes} minute${remainingMinutes !== 1 ? 's' : ''}` : ''}`;
+  } else {
+    return `${diffMinutes} minute${diffMinutes !== 1 ? 's' : ''}`;
+  }
+}
+
+function formatReminderMessage(event, timeUntilEvent) {
+  console.log('[FORMAT-REMINDER-DEBUG] Event data:', event);
+  console.log('[FORMAT-REMINDER-DEBUG] Time until event:', timeUntilEvent);
+  
+  const eventDate = new Date(event.start_datetime);
+  
+  // Get timezone from event settings, default to America/New_York
+  let timezone = 'America/New_York';
+  if (event.event_settings) {
+    try {
+      const settings = typeof event.event_settings === 'string' 
+        ? JSON.parse(event.event_settings) 
+        : event.event_settings;
+      
+      if (settings.squadron?.timezone) {
+        timezone = settings.squadron.timezone;
+        console.log('[FORMAT-REMINDER-DEBUG] Using timezone from event settings:', timezone);
+      }
+    } catch (error) {
+      console.warn('[FORMAT-REMINDER-DEBUG] Failed to parse event settings, using default timezone:', error);
+    }
+  }
+  
+  const formattedTime = eventDate.toLocaleString('en-US', {
+    timeZone: timezone,
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true
+  });
+
+  return `REMINDER: Event starting ${timeUntilEvent}!
+${event.name}
+${formattedTime}`;
+}
+
+async function sendReminderToDiscordChannels(event, message) {
+  if (Array.isArray(event.discord_event_id)) {
+    // Multi-channel event
+    for (const publication of event.discord_event_id) {
+      try {
+        await sendReminderMessage(publication.guildId, publication.channelId, message);
+        console.log(`[REMINDER] Sent reminder to guild ${publication.guildId}, channel ${publication.channelId}`);
+      } catch (error) {
+        console.error(`[REMINDER] Failed to send reminder to guild ${publication.guildId}, channel ${publication.channelId}:`, error);
+      }
+    }
+  } else if (event.discord_event_id) {
+    // Single channel event - need to get guild/channel from the message ID
+    // For now, we'll log this case and implement if needed
+    console.log(`[REMINDER] Single-channel event reminder not yet implemented for message ID: ${event.discord_event_id}`);
+  }
+}
+
+async function markReminderAsSent(reminderId) {
+  try {
+    const { error } = await supabase
+      .from('event_reminders')
+      .update({ 
+        sent: true,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', reminderId);
+
+    if (error) {
+      throw error;
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error('Error marking reminder as sent:', error);
+    return { success: false, error };
+  }
+}
+
+// Start reminder processor
+let reminderIntervalId = null;
+
+function startReminderProcessor() {
+  console.log('Starting server-side reminder processor...');
+  
+  // Process reminders immediately
+  processReminders().catch(error => {
+    console.error('Error in initial reminder processing:', error);
+  });
+  
+  // Then process every 1 minute
+  reminderIntervalId = setInterval(() => {
+    processReminders().catch(error => {
+      console.error('Error in scheduled reminder processing:', error);
+    });
+  }, 60000); // 1 minute = 60000ms
+  
+  console.log('Reminder processor started (checking every 1 minute)');
+}
+
 // Start server
 app.listen(PORT, () => {
   console.log(`ReadyRoom API server running on port ${PORT}`);
+  
+  // Start the reminder processor
+  startReminderProcessor();
 });
