@@ -169,7 +169,68 @@ function createEventEmbed(title, description, eventTime, responses = {}, creator
     return boardNumber ? `${boardNumber} ${callsign}` : callsign;
   };
   
-  // Helper function to create block quote format
+  /**
+ * Extract complete embed data from database event record
+ * This ensures all embed creation paths use the same database field logic
+ */
+function extractEmbedDataFromDatabaseEvent(dbEvent) {
+  // Extract image data from JSONB or legacy fields
+  let imageData = null;
+  if (dbEvent.image_url) {
+    if (typeof dbEvent.image_url === 'object') {
+      // JSONB format
+      imageData = {
+        imageUrl: dbEvent.image_url.headerImage || dbEvent.image_url.imageUrl,
+        headerImage: dbEvent.image_url.headerImage,
+        additionalImages: dbEvent.image_url.additionalImages || []
+      };
+    } else if (typeof dbEvent.image_url === 'string') {
+      // Legacy string format
+      imageData = {
+        imageUrl: dbEvent.image_url,
+        headerImage: dbEvent.image_url,
+        additionalImages: []
+      };
+    }
+  } else {
+    // Fallback to separate fields
+    imageData = {
+      imageUrl: dbEvent.header_image_url,
+      headerImage: dbEvent.header_image_url,
+      additionalImages: dbEvent.additional_image_urls || []
+    };
+  }
+
+  // Extract creator info
+  const creatorInfo = {
+    boardNumber: dbEvent.creator_board_number || '',
+    callsign: dbEvent.creator_call_sign || '',
+    billet: dbEvent.creator_billet || ''
+  };
+
+  // Extract event options
+  const eventOptions = {
+    trackQualifications: dbEvent.event_settings?.groupResponsesByQualification || dbEvent.track_qualifications || false,
+    eventType: dbEvent.event_type || null
+  };
+
+  // Extract time data
+  const eventTime = {
+    start: new Date(dbEvent.start_datetime),
+    end: new Date(dbEvent.end_datetime)
+  };
+
+  return {
+    title: dbEvent.name || dbEvent.title || 'Event',
+    description: dbEvent.description || '',
+    eventTime,
+    imageData,
+    creatorInfo,
+    eventOptions
+  };
+}
+
+// Helper function to create block quote format
   const createBlockQuote = (entries) => {
     if (entries.length === 0) return '-';
     const formattedEntries = entries.map(formatPilotEntry);
@@ -184,10 +245,32 @@ function createEventEmbed(title, description, eventTime, responses = {}, creator
     
     // If training event, divide into IP and Trainee
     if (isTraining) {
-      const ips = entries.filter(entry => entry.pilotRecord?.currentStatus?.name === 'Command' || 
-                                         entry.pilotRecord?.currentStatus?.name === 'Staff' ||
-                                         entry.pilotRecord?.currentStatus?.name === 'Cadre');
-      const trainees = entries.filter(entry => entry.pilotRecord?.currentStatus?.name === 'Provisional');
+      console.log('[TRAINING-DEBUG] Processing training event grouping for', entries.length, 'entries');
+      
+      // Log pilot data for debugging
+      entries.forEach((entry, index) => {
+        console.log(`[TRAINING-DEBUG] Entry ${index}:`, {
+          username: entry.username,
+          discordId: entry.userId,
+          currentStatus: entry.pilotRecord?.currentStatus?.name,
+          qualifications: entry.pilotRecord?.qualifications,
+          hasPilotRecord: !!entry.pilotRecord
+        });
+      });
+      
+      // IPs: Only pilots with the "Instructor Pilot" qualification
+      const ips = entries.filter(entry => {
+        const qualifications = entry.pilotRecord?.qualifications || [];
+        
+        // Check for the specific "Instructor Pilot" qualification
+        return qualifications.includes('Instructor Pilot');
+      });
+      
+      // Trainees: Everyone who is NOT an IP
+      const ipIds = new Set(ips.map(ip => ip.userId || ip.discordId));
+      const trainees = entries.filter(entry => !ipIds.has(entry.userId || entry.discordId));
+      
+      console.log(`[TRAINING-DEBUG] Grouped: ${ips.length} IPs, ${trainees.length} Trainees`);
       
       let result = '';
       if (ips.length > 0) {
@@ -201,6 +284,14 @@ function createEventEmbed(title, description, eventTime, responses = {}, creator
         const traineeContent = traineePilots.map(entry => `> ${entry}`).join('\n');
         result += `*Trainee (${trainees.length})*\n${traineeContent}`;
       }
+      
+      // If no one is classified (edge case), show everyone as IP
+      if (result === '') {
+        const allPilots = entries.map(formatPilotEntry);
+        const allContent = allPilots.map(entry => `> ${entry}`).join('\n');
+        result = `*IP (${entries.length})*\n${allContent}`;
+      }
+      
       // Check character limit
       return (result.length > 1020) ? result.substring(0, 1020) + '...' : (result || '-');
     }
@@ -332,6 +423,9 @@ function createEventEmbed(title, description, eventTime, responses = {}, creator
   )
   .setTimestamp();
   
+  // Consistent embed width using footer padding
+  const MAX_EMBED_WIDTH = 164;
+  
   // Add creator information if provided
   if (creator) {
     console.log('[CREATOR-DEBUG] Creator object received:', creator);
@@ -347,10 +441,15 @@ function createEventEmbed(title, description, eventTime, responses = {}, creator
     }
     console.log('[CREATOR-DEBUG] Footer text:', footerText);
     if (footerText) {
-      embed.setFooter({ text: `Created by ${footerText}` });
+      embed.setFooter({ text: `Created by ${footerText}`.padEnd(MAX_EMBED_WIDTH) + '\u200B' });
+    } else {
+      // Use default footer for width consistency
+      embed.setFooter({ text: 'ReadyRoom Event'.padEnd(MAX_EMBED_WIDTH) + '\u200B' });
     }
   } else {
     console.log('[CREATOR-DEBUG] No creator provided to createEventEmbed');
+    // Use default footer for width consistency  
+    embed.setFooter({ text: 'ReadyRoom Event'.padEnd(MAX_EMBED_WIDTH) + '\u200B' });
   }
   
   // Add header image if provided
@@ -596,7 +695,7 @@ async function editEventMessage(messageId, title, description, eventTime, guildI
           components: message.components // Keep the existing buttons
         });
         
-        // Update event data in memory
+        // Update event data in memory with complete image and creator data
         if (eventResponses.has(messageId)) {
           const existingData = eventResponses.get(messageId);
           eventResponses.set(messageId, {
@@ -604,8 +703,11 @@ async function editEventMessage(messageId, title, description, eventTime, guildI
             title,
             description,
             eventTime,
-            imageUrl: imageUrl || existingData.imageUrl
+            imageUrl: imageUrl || existingData.imageUrl,
+            images: images || existingData.images || (imageUrl ? { imageUrl } : null),
+            creator: creator || existingData.creator
           });
+          console.log('[EDIT-MEMORY-DEBUG] Updated in-memory event data for', messageId, 'with images:', images, 'creator:', creator);
         }
         
         console.log(`Successfully edited Discord message: ${messageId}`);
@@ -791,12 +893,22 @@ client.on('interactionCreate', async interaction => {
     
     if (dbEvent) {
       console.log(`Found event data in database for message ID: ${eventId}`);
-      // Create minimal event data structure from database record
+      // Create minimal event data structure from database record with complete image and creator data
       eventData = {
         title: dbEvent.name || dbEvent.title || 'Event',
         description: dbEvent.description || '',
         eventTime: freshEventTime,
-        imageUrl: dbEvent.image_url,
+        imageUrl: dbEvent.image_url, // Legacy single image
+        images: {
+          imageUrl: dbEvent.image_url, // Legacy fallback
+          headerImage: dbEvent.header_image_url,
+          additionalImages: dbEvent.additional_image_urls || []
+        },
+        creator: {
+          boardNumber: dbEvent.creator_board_number || '',
+          callsign: dbEvent.creator_call_sign || '',
+          billet: dbEvent.creator_billet || ''
+        },
         guildId: dbEvent.discord_guild_id,
         accepted: [],
         declined: [],
@@ -998,36 +1110,53 @@ client.on('interactionCreate', async interaction => {
   } else if (customId === 'tentative') {
     eventData.tentative.push(userEntry);
   }
-    // Fetch event options and creator info from database for proper formatting
-  let eventOptions = {};
-  let creatorInfo = null;
+  // Fetch fresh event data from database and extract all embed data using unified logic
+  let embedData = null;
   try {
     const { event: dbEvent } = await getEventByDiscordId(eventId);
     if (dbEvent) {
-      eventOptions = {
-        trackQualifications: dbEvent.event_settings?.groupResponsesByQualification || dbEvent.track_qualifications || false,
-        eventType: dbEvent.event_type || null
-      };
-      
-      // Create creator info from database fields
-      creatorInfo = {
-        boardNumber: dbEvent.creator_board_number || '',
-        callsign: dbEvent.creator_call_sign || '',
-        billet: dbEvent.creator_billet || ''
-      };
-      
-      console.log('[CREATOR-DEBUG] Creator info from database:', creatorInfo);
+      embedData = extractEmbedDataFromDatabaseEvent(dbEvent);
+      console.log('[BUTTON-UNIFIED-DEBUG] Using fresh database embed data');
+    } else {
+      console.warn('[BUTTON-UNIFIED-DEBUG] No database event found for', eventId);
     }
   } catch (error) {
-    console.warn('[WARNING] Could not fetch event options for button interaction:', error);
+    console.warn('[BUTTON-UNIFIED-DEBUG] Error fetching database event:', error);
   }
   
-  // Update the Discord event message
-  const imageData = eventData.images || (eventData.imageUrl ? { imageUrl: eventData.imageUrl } : null);
-  const updatedEmbed = createEventEmbed(eventData.title, eventData.description, eventData.eventTime, eventData, creatorInfo, imageData, eventOptions);
+  // Fallback to in-memory data if database fetch failed
+  if (!embedData) {
+    console.log('[BUTTON-UNIFIED-DEBUG] Using fallback in-memory data');
+    embedData = {
+      title: eventData.title,
+      description: eventData.description,
+      eventTime: eventData.eventTime,
+      imageData: eventData.images || null,
+      creatorInfo: eventData.creator || null,
+      eventOptions: { trackQualifications: false, eventType: null }
+    };
+  }
+  
+  console.log('[BUTTON-UNIFIED-DEBUG] Final embed data:', {
+    title: embedData.title,
+    hasImages: !!embedData.imageData,
+    imageCount: embedData.imageData ? (embedData.imageData.additionalImages?.length || 0) + (embedData.imageData.headerImage ? 1 : 0) : 0,
+    hasCreator: !!embedData.creatorInfo,
+    creator: embedData.creatorInfo
+  });
+  
+  const updatedEmbed = createEventEmbed(
+    embedData.title, 
+    embedData.description, 
+    embedData.eventTime, 
+    eventData, // responses 
+    embedData.creatorInfo, 
+    embedData.imageData, 
+    embedData.eventOptions
+  );
   
   // Create additional image embeds with same URL for grouping
-  const additionalEmbeds = createAdditionalImageEmbeds(imageData, 'https://readyroom.app');
+  const additionalEmbeds = createAdditionalImageEmbeds(embedData.imageData, 'https://readyroom.app');
   const allEmbeds = [updatedEmbed, ...additionalEmbeds];
   
   await interaction.update({
@@ -1172,9 +1301,23 @@ class CountdownUpdateManager {
 
     const timeoutId = setTimeout(async () => {
       try {
-        await this.updateEventCountdown(eventData, messageId, guildId, channelId, referenceTimezone);
-        // Reschedule the next update
-        this.scheduleEventUpdate(eventData, messageId, guildId, channelId, referenceTimezone);
+        // Fetch fresh event data from database before updating
+        let freshEventData = eventData;
+        try {
+          const { event: dbEvent } = await getEventByDiscordId(messageId);
+          if (dbEvent) {
+            freshEventData = dbEvent;
+            console.log(`[COUNTDOWN] Using fresh event data for ${messageId}`);
+          } else {
+            console.log(`[COUNTDOWN] Could not fetch fresh event data for ${messageId}, using cached data`);
+          }
+        } catch (fetchError) {
+          console.warn(`[COUNTDOWN] Error fetching fresh event data for ${messageId}:`, fetchError.message);
+        }
+        
+        await this.updateEventCountdown(freshEventData, messageId, guildId, channelId, referenceTimezone);
+        // Reschedule the next update with fresh data
+        this.scheduleEventUpdate(freshEventData, messageId, guildId, channelId, referenceTimezone);
       } catch (error) {
         console.error(`[COUNTDOWN] Error updating event ${messageId}:`, error);
       }
@@ -1292,33 +1435,34 @@ class CountdownUpdateManager {
           }
         }
 
-        // Create updated embed
-        const eventTime = {
-          start: new Date(eventData.start_datetime),
-          end: new Date(eventData.end_datetime)
-        };
-
-        const imageData = eventData.image_url ? { imageUrl: eventData.image_url } : null;
+        // Extract all embed data using unified logic
+        const embedData = extractEmbedDataFromDatabaseEvent(eventData);
         
-        // Get event options from database for proper formatting
-        const eventOptions = {
-          trackQualifications: eventData.event_settings?.groupResponsesByQualification || eventData.track_qualifications || false,
-          eventType: eventData.event_type || null
-        };
+        console.log('[COUNTDOWN-UNIFIED-DEBUG] Using unified embed data:', {
+          title: embedData.title,
+          hasImages: !!embedData.imageData,
+          imageCount: embedData.imageData ? (embedData.imageData.additionalImages?.length || 0) + (embedData.imageData.headerImage ? 1 : 0) : 0,
+          hasCreator: !!embedData.creatorInfo,
+          creator: embedData.creatorInfo
+        });
         
         const updatedEmbed = createEventEmbed(
-          eventData.name,
-          eventData.description,
-          eventTime,
+          embedData.title,
+          embedData.description,
+          embedData.eventTime,
           currentResponses,
-          null, // creator
-          imageData,
-          eventOptions
+          embedData.creatorInfo,
+          embedData.imageData,
+          embedData.eventOptions
         );
 
-        // Update the message
+        // Create additional image embeds
+        const additionalEmbeds = createAdditionalImageEmbeds(embedData.imageData, 'https://readyroom.app');
+        const allEmbeds = [updatedEmbed, ...additionalEmbeds];
+
+        // Update the message with all embeds
         await message.edit({
-          embeds: [updatedEmbed],
+          embeds: allEmbeds,
           components: message.components // Keep existing buttons
         });
 
@@ -1437,6 +1581,34 @@ class CountdownUpdateManager {
 // Create global countdown manager instance
 const countdownManager = new CountdownUpdateManager();
 
+/**
+ * Send reminder message to a Discord channel
+ */
+async function sendReminderMessage(guildId, channelId, message) {
+  try {
+    console.log(`[REMINDER] Sending reminder to guild ${guildId}, channel ${channelId}`);
+    
+    const guild = await client.guilds.fetch(guildId);
+    if (!guild) {
+      throw new Error(`Guild ${guildId} not found`);
+    }
+    
+    const channel = await guild.channels.fetch(channelId);
+    if (!channel || !channel.isTextBased()) {
+      throw new Error(`Channel ${channelId} not found or not a text channel`);
+    }
+    
+    await channel.send(message);
+    
+    console.log(`[REMINDER] Successfully sent reminder to ${guild.name}/#${channel.name}`);
+    return { success: true };
+    
+  } catch (error) {
+    console.error(`[REMINDER] Error sending reminder:`, error);
+    return { success: false, error: error.message };
+  }
+}
+
 module.exports = {
   publishEventToDiscord,
   getEventAttendance,
@@ -1445,5 +1617,6 @@ module.exports = {
   deleteEventMessage,
   editEventMessage,
   getAvailableGuilds,
-  countdownManager
+  countdownManager,
+  sendReminderMessage
 };

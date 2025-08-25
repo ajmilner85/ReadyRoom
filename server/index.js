@@ -784,6 +784,137 @@ app.get('/api/discord/servers/:guildId/channels', async (req, res) => {
   }
 });
 
+// Reminder API endpoint
+app.post('/api/reminders/send', async (req, res) => {
+  try {
+    const { eventId, message, userIds, discordEventId } = req.body;
+    
+    console.log('[REMINDER-API] Received reminder request:', {
+      eventId,
+      messageLength: message?.length,
+      userCount: userIds?.length,
+      discordEventId: Array.isArray(discordEventId) ? `${discordEventId.length} channels` : 'single channel'
+    });
+    
+    if (!eventId || !message) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing required fields: eventId and message'
+      });
+    }
+    
+    // Get event details to find which channels to send to
+    const { data: eventData, error: eventError } = await supabase
+      .from('events')
+      .select('*')
+      .eq('id', eventId)
+      .single();
+    
+    if (eventError || !eventData) {
+      console.error('[REMINDER-API] Error fetching event:', eventError);
+      return res.status(404).json({
+        success: false,
+        error: 'Event not found'
+      });
+    }
+    
+    let channelsToNotify = [];
+    
+    // Handle both JSONB array format and legacy single message ID
+    if (Array.isArray(eventData.discord_event_id)) {
+      // Multi-channel format - send to all channels where event was published
+      channelsToNotify = eventData.discord_event_id.map(pub => ({
+        guildId: pub.guildId,
+        channelId: pub.channelId,
+        squadronId: pub.squadronId
+      }));
+    } else if (eventData.discord_event_id) {
+      // Legacy single channel format - try to find guild/channel from settings
+      const { data: settingsData } = await supabase
+        .from('squadron_settings')
+        .select('key, value')
+        .in('key', ['discord_guild_id', 'events_channel_id']);
+      
+      let guildId = null;
+      let channelId = null;
+      
+      settingsData?.forEach(setting => {
+        if (setting.key === 'discord_guild_id') guildId = setting.value;
+        if (setting.key === 'events_channel_id') channelId = setting.value;
+      });
+      
+      if (guildId && channelId) {
+        channelsToNotify.push({ guildId, channelId, squadronId: 'default' });
+      }
+    }
+    
+    if (channelsToNotify.length === 0) {
+      console.warn('[REMINDER-API] No channels found to send reminder to');
+      return res.status(400).json({
+        success: false,
+        error: 'No Discord channels configured for this event'
+      });
+    }
+    
+    // Send reminder to each channel
+    const results = [];
+    for (const channel of channelsToNotify) {
+      try {
+        // Send message to Discord channel using the bot
+        const sendResult = await sendReminderToChannel(channel.guildId, channel.channelId, message);
+        results.push({
+          squadronId: channel.squadronId,
+          guildId: channel.guildId,
+          channelId: channel.channelId,
+          success: sendResult.success,
+          error: sendResult.error
+        });
+      } catch (error) {
+        console.error(`[REMINDER-API] Error sending to channel ${channel.channelId}:`, error);
+        results.push({
+          squadronId: channel.squadronId,
+          guildId: channel.guildId,
+          channelId: channel.channelId,
+          success: false,
+          error: error.message
+        });
+      }
+    }
+    
+    const successCount = results.filter(r => r.success).length;
+    
+    res.json({
+      success: successCount > 0,
+      sentToChannels: successCount,
+      totalChannels: channelsToNotify.length,
+      results
+    });
+    
+  } catch (error) {
+    console.error('[REMINDER-API] Unexpected error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Internal server error'
+    });
+  }
+});
+
+// Helper function to send reminder to a specific Discord channel
+async function sendReminderToChannel(guildId, channelId, message) {
+  try {
+    // Use the existing Discord bot client instead of creating a new one
+    const { sendReminderMessage } = require(discordBotPath);
+    
+    // Call the Discord bot's reminder function
+    const result = await sendReminderMessage(guildId, channelId, message);
+    
+    return result;
+  } catch (error) {
+    console.error(`[REMINDER-SEND] Error sending to ${guildId}/${channelId}:`, error);
+    return { success: false, error: error.message };
+  }
+}
+
 // Start server
 app.listen(PORT, () => {
   console.log(`ReadyRoom API server running on port ${PORT}`);

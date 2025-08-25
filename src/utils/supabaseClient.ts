@@ -514,7 +514,10 @@ export const updateEvent = async (eventId: string, updates: Partial<Omit<Event, 
   if ((updates as any).cycleId !== undefined) dbUpdates.cycle_id = (updates as any).cycleId;
   if ((updates as any).discordEventId !== undefined) dbUpdates.discord_event_id = (updates as any).discordEventId;
   if ((updates as any).discordGuildId !== undefined) dbUpdates.discord_guild_id = (updates as any).discordGuildId;
-  if ((updates as any).participants !== undefined) dbUpdates.participants = (updates as any).participants;
+  if ((updates as any).participants !== undefined) {
+    console.log('[PARTICIPANTS-DEBUG] Updating participants:', (updates as any).participants);
+    dbUpdates.participants = (updates as any).participants;
+  }
   if (updates.trackQualifications !== undefined) dbUpdates.track_qualifications = updates.trackQualifications; // Keep for backward compatibility
   // Handle event settings updates
   if (updates.timezone !== undefined || updates.reminders !== undefined || updates.reminderRecipients !== undefined || updates.eventSettings !== undefined) {

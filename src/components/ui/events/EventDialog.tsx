@@ -531,6 +531,25 @@ export const EventDialog: React.FC<EventDialogProps> = ({
       const utcDatetime = timezoneLocalToUtc(datetime, timezone);
       const utcEndDatetime = endDatetime ? timezoneLocalToUtc(endDatetime, timezone) : undefined;
       
+      // Create combined image data: new files OR existing URLs, but not null
+      const getImageForSubmission = (index: number) => {
+        // If there's a new file, use it
+        if (images[index]) return images[index];
+        // Otherwise, if there's a preview URL and it's not a data URL (existing image), use it
+        if (imagePreviews[index] && !imagePreviews[index]?.startsWith('data:')) {
+          return imagePreviews[index];
+        }
+        return null;
+      };
+      
+      const headerImageForSubmit = getImageForSubmission(0);
+      const additionalImagesForSubmit = [1, 2, 3]
+        .map(index => getImageForSubmission(index))
+        .filter(img => img !== null);
+      
+      console.log('[SUBMIT-IMAGE-DEBUG] Header image type:', typeof headerImageForSubmit, !!headerImageForSubmit);
+      console.log('[SUBMIT-IMAGE-DEBUG] Additional images:', additionalImagesForSubmit.map(img => typeof img));
+
       await onSave({
         title: title.trim(),
         description: description.trim(),
@@ -542,8 +561,8 @@ export const EventDialog: React.FC<EventDialogProps> = ({
         },
         restrictedTo: restrictedTo.length > 0 ? restrictedTo : undefined,
         participants: participants.length > 0 ? participants : undefined,
-        headerImage: images[0],
-        additionalImages: images.slice(1).filter(img => img !== null),
+        headerImage: headerImageForSubmit,
+        additionalImages: additionalImagesForSubmit,
         trackQualifications,
         timezone,
         reminders: {

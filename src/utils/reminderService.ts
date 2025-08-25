@@ -260,7 +260,7 @@ export function formatReminderMessage(
   event: Event,
   timeUntilEvent: string
 ): string {
-  const eventDate = new Date(event.start_datetime);
+  const eventDate = new Date(event.datetime);
   const easternTime = eventDate.toLocaleString('en-US', {
     timeZone: 'America/New_York',
     weekday: 'long',
@@ -273,7 +273,7 @@ export function formatReminderMessage(
   });
 
   return `REMINDER: Event starting in ${timeUntilEvent}!
-${event.name}
+${event.title}
 ${easternTime} EST`;
 }
 
