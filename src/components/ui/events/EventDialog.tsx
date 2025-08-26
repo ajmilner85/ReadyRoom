@@ -550,6 +550,10 @@ export const EventDialog: React.FC<EventDialogProps> = ({
       console.log('[SUBMIT-IMAGE-DEBUG] Header image type:', typeof headerImageForSubmit, !!headerImageForSubmit);
       console.log('[SUBMIT-IMAGE-DEBUG] Additional images:', additionalImagesForSubmit.map(img => typeof img));
 
+      console.log('[EVENT-DIALOG-DEBUG] About to save event with participants:', participants);
+      console.log('[EVENT-DIALOG-DEBUG] Participants length:', participants.length);
+      console.log('[EVENT-DIALOG-DEBUG] Selected cycle participants:', selectedCycle?.participants);
+
       await onSave({
         title: title.trim(),
         description: description.trim(),

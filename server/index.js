@@ -17,7 +17,9 @@ const {
   editEventMessage, 
   getAvailableGuilds,
   countdownManager,
-  sendReminderMessage
+  sendReminderMessage,
+  getGuildRoles,
+  getGuildMember
 } = require(discordBotPath);
 
 // Import Supabase client
@@ -980,6 +982,72 @@ async function sendReminderToChannel(guildId, channelId, message) {
     return { success: false, error: error.message };
   }
 }
+
+// API endpoint to get Discord server roles
+app.get('/api/discord/guild/:guildId/roles', async (req, res) => {
+  try {
+    const { guildId } = req.params;
+    
+    console.log(`[DEBUG] Fetching roles for guild ID: ${guildId}`);
+    
+    if (!guildId) {
+      return res.status(400).json({ 
+        error: 'Guild ID is required' 
+      });
+    }
+    
+    // Call the Discord bot function to get guild roles
+    const result = await getGuildRoles(guildId);
+    
+    if (result.error) {
+      return res.status(500).json({ 
+        error: result.error
+      });
+    }
+    
+    res.json({ 
+      roles: result.roles
+    });
+  } catch (error) {
+    console.error('[ERROR] Error fetching Discord guild roles:', error);
+    res.status(500).json({ 
+      error: error.message || 'Failed to fetch Discord guild roles'
+    });
+  }
+});
+
+// API endpoint to get Discord guild member information
+app.get('/api/discord/guild/:guildId/member/:userId', async (req, res) => {
+  try {
+    const { guildId, userId } = req.params;
+    
+    console.log(`[DEBUG] Fetching member ${userId} in guild ID: ${guildId}`);
+    
+    if (!guildId || !userId) {
+      return res.status(400).json({ 
+        error: 'Guild ID and User ID are required' 
+      });
+    }
+    
+    // Call the Discord bot function to get guild member
+    const result = await getGuildMember(guildId, userId);
+    
+    if (result.error) {
+      return res.status(500).json({ 
+        error: result.error
+      });
+    }
+    
+    res.json({ 
+      member: result.member
+    });
+  } catch (error) {
+    console.error('[ERROR] Error fetching Discord guild member:', error);
+    res.status(500).json({ 
+      error: error.message || 'Failed to fetch Discord guild member'
+    });
+  }
+});
 
 // Server-side reminder processing functions
 async function processReminders() {

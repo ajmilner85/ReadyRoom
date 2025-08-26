@@ -324,6 +324,16 @@ const EventsManagement: React.FC = () => {
       sendToTentative: boolean;
     };
   }, shouldPublish: boolean = false) => {
+    console.log('[EVENTS-MGMT-DEBUG] === ENTERING handleCreateEvent ===');
+    console.log('[EVENTS-MGMT-DEBUG] Function started at:', new Date().toISOString());
+    console.log('[EVENTS-MGMT-DEBUG] handleCreateEvent called with eventData.participants:', eventData.participants);
+    console.log('[EVENTS-MGMT-DEBUG] handleCreateEvent shouldPublish:', shouldPublish);
+    console.log('[EVENTS-MGMT-DEBUG] selectedCycle:', selectedCycle);
+    
+    let createTimeoutId: NodeJS.Timeout;
+    let imageTimeoutId: NodeJS.Timeout;
+    let publishTimeoutId: NodeJS.Timeout;
+    
     try {
       // Determine event type based on cycle
       let eventType: any = undefined; // Using any to avoid TypeScript error
@@ -336,8 +346,9 @@ const EventsManagement: React.FC = () => {
           eventType = 'Episode';
         }
       }      
-      // Create the event first without image
-      const { event: newEvent, error } = await createEvent({
+      // Create the event first without image with timeout protection
+      console.log('[EVENTS-MGMT-DEBUG] Starting createEvent database operation');
+      const createEventPromise = createEvent({
         ...eventData,
         status: 'upcoming',
         cycleId: selectedCycle?.id,
@@ -346,6 +357,14 @@ const EventsManagement: React.FC = () => {
         // Use event-level participants if provided, otherwise inherit from cycle
         participants: eventData.participants || selectedCycle?.participants
       });
+      
+      const createTimeoutPromise = new Promise((_, reject) => {
+        createTimeoutId = setTimeout(() => reject(new Error('Create event timed out')), 15000);
+      });
+      
+      const { event: newEvent, error } = await Promise.race([createEventPromise, createTimeoutPromise]) as any;
+      if (createTimeoutId) clearTimeout(createTimeoutId);
+      console.log('[EVENTS-MGMT-DEBUG] createEvent database operation completed');
 
       console.log('[CREATE-EVENT-DEBUG] createEvent result:', { newEvent, error });
       if (error) throw error;
@@ -362,35 +381,129 @@ const EventsManagement: React.FC = () => {
         newEventId: newEvent?.id
       });
       
+      let eventToPublish = newEvent;
+      
       if ((eventData.headerImage || eventData.additionalImages) && newEvent && newEvent.id) {
         console.log('Starting multiple image upload...');
-        const { urls: imageUrls, error: uploadError } = await uploadMultipleEventImages(newEvent.id, {
+        const imageUploadPromise = uploadMultipleEventImages(newEvent.id, {
           headerImage: eventData.headerImage,
           additionalImages: eventData.additionalImages
         });
+        
+        const imageTimeoutPromise = new Promise((_, reject) => {
+          imageTimeoutId = setTimeout(() => reject(new Error('Image upload timed out')), 20000);
+        });
+        
+        const { urls: imageUrls, error: uploadError } = await Promise.race([imageUploadPromise, imageTimeoutPromise]) as any;
+        if (imageTimeoutId) clearTimeout(imageTimeoutId);
         if (uploadError) {
           console.error('Failed to upload images:', uploadError);
           setError('Event created but image upload failed');
         } else {
           console.log('Image upload successful:', imageUrls);
+          
+          // If we're publishing, fetch the updated event data with image URLs
+          if (shouldPublish) {
+            try {
+              // Make a direct query to get the updated event with image URLs
+              const { data: updatedEventData, error: fetchError } = await supabase
+                .from('events')
+                .select('*')
+                .eq('id', newEvent.id)
+                .single();
+              
+              if (!fetchError && updatedEventData) {
+                // Transform the database event to the frontend Event format
+                eventToPublish = {
+                  id: updatedEventData.id,
+                  title: updatedEventData.name,
+                  description: updatedEventData.description,
+                  datetime: updatedEventData.start_datetime,
+                  endDatetime: updatedEventData.end_datetime,
+                  status: updatedEventData.status,
+                  eventType: updatedEventData.event_type,
+                  cycleId: updatedEventData.cycle_id,
+                  trackQualifications: updatedEventData.track_qualifications || false,
+                  eventSettings: updatedEventData.event_settings,
+                  participants: updatedEventData.participants,
+                  // Handle image URLs from the JSONB image_url field
+                  imageUrl: typeof updatedEventData.image_url === 'object' && updatedEventData.image_url?.headerImage 
+                    ? updatedEventData.image_url.headerImage 
+                    : updatedEventData.image_url,
+                  headerImageUrl: typeof updatedEventData.image_url === 'object' 
+                    ? updatedEventData.image_url.headerImage 
+                    : updatedEventData.image_url,
+                  additionalImageUrls: typeof updatedEventData.image_url === 'object' 
+                    ? updatedEventData.image_url.additionalImages || []
+                    : [],
+                  // Also pass the full JSONB structure for multi-image support
+                  images: typeof updatedEventData.image_url === 'object' ? updatedEventData.image_url : undefined,
+                  restrictedTo: [],
+                  creator: {
+                    callsign: updatedEventData.creator_call_sign || '',
+                    boardNumber: updatedEventData.creator_board_number || '',
+                    billet: updatedEventData.creator_billet || ''
+                  },
+                  attendance: { accepted: [], declined: [], tentative: [] }
+                };
+                console.log('[CREATE-PUBLISH-DEBUG] Fetched updated event with images:', eventToPublish.id);
+                console.log('[CREATE-PUBLISH-DEBUG] Event image URLs:', {
+                  imageUrl: eventToPublish.imageUrl,
+                  headerImageUrl: eventToPublish.headerImageUrl,
+                  images: eventToPublish.images
+                });
+              } else {
+                console.warn('[CREATE-PUBLISH-DEBUG] Failed to fetch updated event data:', fetchError);
+              }
+            } catch (fetchError) {
+              console.error('[CREATE-PUBLISH-DEBUG] Error fetching updated event data:', fetchError);
+            }
+          }
         }
       } else {
         console.log('No images to upload or missing event data');
       }
       
       // If shouldPublish is true, publish the event to Discord
-      if (shouldPublish && newEvent) {
-        console.log('[CREATE-PUBLISH-DEBUG] Publishing new event to Discord:', newEvent.id);
+      if (shouldPublish && eventToPublish) {
+        console.log('[CREATE-PUBLISH-DEBUG] Publishing new event to Discord:', eventToPublish.id);
         try {
           const { publishEventFromCycle, updateEventMultipleDiscordIds } = await import('../../utils/discordService');
-          const publishResult = await publishEventFromCycle(newEvent);
+          
+          const publishPromise = publishEventFromCycle(eventToPublish);
+          const publishTimeoutPromise = new Promise((_, reject) => {
+            publishTimeoutId = setTimeout(() => reject(new Error('Publish timed out')), 30000);
+          });
+          
+          const publishResult = await Promise.race([publishPromise, publishTimeoutPromise]) as any;
+          if (publishTimeoutId) clearTimeout(publishTimeoutId);
           
           console.log('[CREATE-PUBLISH-DEBUG] Publish result:', publishResult);
           
           if (publishResult.success && publishResult.publishedChannels.length > 0) {
             // Update the event with Discord message IDs
-            const updateSuccess = await updateEventMultipleDiscordIds(newEvent.id, publishResult.publishedChannels);
+            const updateSuccess = await updateEventMultipleDiscordIds(eventToPublish.id, publishResult.publishedChannels);
             console.log('[CREATE-PUBLISH-DEBUG] Updated event with Discord IDs:', updateSuccess);
+            
+            // Only schedule reminders for successfully published events
+            if (eventData.reminders && updateSuccess) {
+              try {
+                const { scheduleEventReminders } = await import('../../utils/reminderService');
+                const reminderResult = await scheduleEventReminders(
+                  eventToPublish.id,
+                  eventData.datetime,
+                  eventData.reminders
+                );
+                
+                if (!reminderResult.success) {
+                  console.warn('[CREATE-REMINDER-DEBUG] Failed to schedule reminders for published event:', reminderResult.error);
+                } else {
+                  console.log('[CREATE-REMINDER-DEBUG] Successfully scheduled reminders for published event:', eventToPublish.id);
+                }
+              } catch (reminderError) {
+                console.error('[CREATE-REMINDER-DEBUG] Error scheduling reminders for published event:', reminderError);
+              }
+            }
           }
           
           if (publishResult.errors.length > 0) {
@@ -401,26 +514,7 @@ const EventsManagement: React.FC = () => {
           setError('Event created successfully but failed to publish to Discord');
         }
       }
-      
-      // Schedule reminders if configured
-      if (eventData.reminders && newEvent) {
-        try {
-          const { scheduleEventReminders } = await import('../../utils/reminderService');
-          const reminderResult = await scheduleEventReminders(
-            newEvent.id,
-            eventData.datetime,
-            eventData.reminders
-          );
-          
-          if (!reminderResult.success) {
-            console.warn('[CREATE-REMINDER-DEBUG] Failed to schedule reminders:', reminderResult.error);
-          } else {
-            console.log('[CREATE-REMINDER-DEBUG] Successfully scheduled reminders for event:', newEvent.id);
-          }
-        } catch (reminderError) {
-          console.error('[CREATE-REMINDER-DEBUG] Error scheduling reminders:', reminderError);
-        }
-      }
+      // Note: Reminders are only scheduled when events are published to Discord
       
       // Reload events to get the latest data - force a fresh fetch
       await loadEvents(selectedCycle?.id);
@@ -432,7 +526,19 @@ const EventsManagement: React.FC = () => {
       
       setShowEventDialog(false);
     } catch (err: any) {
+      // Clean up any hanging timeouts
+      if (createTimeoutId) clearTimeout(createTimeoutId);
+      if (imageTimeoutId) clearTimeout(imageTimeoutId);
+      if (publishTimeoutId) clearTimeout(publishTimeoutId);
+      
+      console.log('[EVENTS-MGMT-DEBUG] Error in handleCreateEvent:', err.message);
       setError(`Failed to create event: ${err.message}`);
+    } finally {
+      // Final cleanup of any remaining timeouts
+      if (createTimeoutId) clearTimeout(createTimeoutId);
+      if (imageTimeoutId) clearTimeout(imageTimeoutId);
+      if (publishTimeoutId) clearTimeout(publishTimeoutId);
+      console.log('[EVENTS-MGMT-DEBUG] handleCreateEvent cleanup completed');
     }
   };
 
@@ -970,17 +1076,46 @@ const EventsManagement: React.FC = () => {
                 <LoadingSpinner />
               </div>
             ) : (
-              <CyclesList
-                cycles={cycles}
-                selectedCycle={selectedCycle}
-                onCycleSelect={setSelectedCycle}
-                onNewCycle={() => {
-                  setEditingCycle(null);
-                  setShowCycleDialog(true);
-                }}
-                onEditCycle={handleEditCycleClick}
-                onDeleteCycle={handleDeleteCycle}
-              />
+              <div style={{
+                backgroundColor: '#FFFFFF',
+                boxShadow: '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)',
+                borderRadius: '8px',
+                height: '100%',
+                display: 'flex',
+                flexDirection: 'column',
+                overflow: 'hidden'
+              }}>
+                {/* Header */}
+                <div style={{
+                  padding: '16px 24px 8px'
+                }}>
+                  <span style={{
+                    fontFamily: 'Inter',
+                    fontStyle: 'normal',
+                    fontWeight: 300,
+                    fontSize: '20px',
+                    lineHeight: '24px',
+                    color: '#64748B',
+                    textTransform: 'uppercase',
+                    display: 'block',
+                    textAlign: 'center'
+                  }}>Cycles</span>
+                </div>
+                {/* Content */}
+                <div style={{ flex: 1, overflow: 'hidden' }}>
+                  <CyclesList
+                    cycles={cycles}
+                    selectedCycle={selectedCycle}
+                    onCycleSelect={setSelectedCycle}
+                    onNewCycle={() => {
+                      setEditingCycle(null);
+                      setShowCycleDialog(true);
+                    }}
+                    onEditCycle={handleEditCycleClick}
+                    onDeleteCycle={handleDeleteCycle}
+                  />
+                </div>
+              </div>
             )}
           </div>
           
@@ -1005,17 +1140,46 @@ const EventsManagement: React.FC = () => {
                 <LoadingSpinner />
               </div>
             ) : (
-              <EventsList
-                events={filteredEvents}
-                selectedEvent={selectedEvent}
-                onEventSelect={setSelectedEvent}
-                onNewEvent={() => {
-                  setEditingEvent(null);
-                  setShowEventDialog(true);
-                }}
-                onEditEvent={handleEditEventClick}
-                onDeleteEvent={handleDeleteEvent}
-              />
+              <div style={{
+                backgroundColor: '#FFFFFF',
+                boxShadow: '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)',
+                borderRadius: '8px',
+                height: '100%',
+                display: 'flex',
+                flexDirection: 'column',
+                overflow: 'hidden'
+              }}>
+                {/* Header */}
+                <div style={{
+                  padding: '16px 24px 8px'
+                }}>
+                  <span style={{
+                    fontFamily: 'Inter',
+                    fontStyle: 'normal',
+                    fontWeight: 300,
+                    fontSize: '20px',
+                    lineHeight: '24px',
+                    color: '#64748B',
+                    textTransform: 'uppercase',
+                    display: 'block',
+                    textAlign: 'center'
+                  }}>Events</span>
+                </div>
+                {/* Content */}
+                <div style={{ flex: 1, overflow: 'hidden' }}>
+                  <EventsList
+                    events={filteredEvents}
+                    selectedEvent={selectedEvent}
+                    onEventSelect={setSelectedEvent}
+                    onNewEvent={() => {
+                      setEditingEvent(null);
+                      setShowEventDialog(true);
+                    }}
+                    onEditEvent={handleEditEventClick}
+                    onDeleteEvent={handleDeleteEvent}
+                  />
+                </div>
+              </div>
             )}
           </div>
           
@@ -1027,10 +1191,39 @@ const EventsManagement: React.FC = () => {
             boxSizing: 'border-box',
             overflowY: 'visible'
           }}>
-            <EventDetails 
-              event={selectedEvent} 
-              onEventUpdated={() => loadEvents(selectedCycle?.id)}
-            />
+            <div style={{
+              backgroundColor: '#FFFFFF',
+              boxShadow: '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)',
+              borderRadius: '8px',
+              height: '100%',
+              display: 'flex',
+              flexDirection: 'column',
+              overflow: 'hidden'
+            }}>
+              {/* Header */}
+              <div style={{
+                padding: '16px 24px 8px'
+              }}>
+                <span style={{
+                  fontFamily: 'Inter',
+                  fontStyle: 'normal',
+                  fontWeight: 300,
+                  fontSize: '20px',
+                  lineHeight: '24px',
+                  color: '#64748B',
+                  textTransform: 'uppercase',
+                  display: 'block',
+                  textAlign: 'center'
+                }}>Event Details</span>
+              </div>
+              {/* Content */}
+              <div style={{ flex: 1, overflow: 'hidden' }}>
+                <EventDetails 
+                  event={selectedEvent} 
+                  onEventUpdated={() => loadEvents(selectedCycle?.id)}
+                />
+              </div>
+            </div>
           </div>
           
           {/* Event Attendance */}
@@ -1041,7 +1234,59 @@ const EventsManagement: React.FC = () => {
             boxSizing: 'border-box',
             overflowY: 'visible'
           }}>
-            <EventAttendance event={selectedEvent} />
+            <div style={{
+              backgroundColor: '#FFFFFF',
+              boxShadow: '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)',
+              borderRadius: '8px',
+              height: '100%',
+              display: 'flex',
+              flexDirection: 'column',
+              overflow: 'hidden'
+            }}>
+              {/* Header */}
+              <div style={{
+                padding: '16px 24px 8px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                position: 'relative'
+              }}>
+                <span style={{
+                  fontFamily: 'Inter',
+                  fontStyle: 'normal',
+                  fontWeight: 300,
+                  fontSize: '20px',
+                  lineHeight: '24px',
+                  color: '#64748B',
+                  textTransform: 'uppercase'
+                }}>{selectedEvent && new Date(selectedEvent.datetime) > new Date() ? 'Registration' : 'Attendance'}</span>
+                
+                {/* Loading spinner positioned to the right */}
+                <div style={{
+                  position: 'absolute',
+                  right: '24px',
+                  display: 'flex',
+                  alignItems: 'center'
+                }}>
+                  <div 
+                    id="attendance-loading-spinner"
+                    style={{ 
+                      width: '16px', 
+                      height: '16px', 
+                      border: '2px solid #E2E8F0', 
+                      borderTopColor: '#3B82F6', 
+                      borderRadius: '50%',
+                      animation: 'spin 1s linear infinite',
+                      opacity: 0
+                    }} 
+                  />
+                </div>
+              </div>
+              {/* Content */}
+              <div style={{ flex: 1, overflow: 'hidden' }}>
+                <EventAttendance event={selectedEvent} />
+              </div>
+            </div>
           </div>
         </div>
       )}
@@ -1095,8 +1340,21 @@ const EventsManagement: React.FC = () => {
           divisionLabel={isDeleteCycle 
             ? cycleToDelete?.name || "" 
             : eventToDelete?.title || ""}
+          isPublished={!isDeleteCycle && (
+            eventToDelete?.discordEventId || 
+            eventToDelete?.discordMessageId || 
+            (eventToDelete as any)?.discord_event_id
+          )}
         />
       )}
+      
+      {/* Add keyframes for loading spinner animation */}
+      <style dangerouslySetInnerHTML={{ __html: `
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+      `}} />
     </div>
   );
 };

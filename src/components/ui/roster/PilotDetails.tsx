@@ -12,7 +12,32 @@ import RoleSelector from './RoleSelector';
 import SquadronSelector from './SquadronSelector';
 import { Squadron } from '../../../utils/squadronService';
 import QualificationsManager from './QualificationsManager';
-import { Save, X, Trash2 } from 'lucide-react';
+import { Save, X, Trash2, Sync } from 'lucide-react';
+import { fetchDiscordGuildMember, fetchDiscordGuildRoles } from '../../../utils/discordService';
+
+interface DiscordRole {
+  id: string;
+  name: string;
+  color: number;
+  hoist: boolean;
+  position: number;
+  permissions: string;
+  managed: boolean;
+  mentionable: boolean;
+}
+
+interface DiscordGuildMember {
+  user?: {
+    id: string;
+    username: string;
+    discriminator: string;
+    avatar?: string;
+  };
+  nick?: string;
+  roles: string[];
+  joined_at: string;
+  premium_since?: string;
+}
 
 interface PilotDetailsProps {
   selectedPilot: Pilot | null;
@@ -98,16 +123,63 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
   const [isEdited, setIsEdited] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
   const [isClearingDiscord, setIsClearingDiscord] = useState(false);
+  const [discordMember, setDiscordMember] = useState<DiscordGuildMember | null>(null);
+  const [discordRoles, setDiscordRoles] = useState<DiscordRole[]>([]);
+  const [isLoadingDiscordRoles, setIsLoadingDiscordRoles] = useState(false);
+  const [discordRoleError, setDiscordRoleError] = useState<string | null>(null);
 
   useEffect(() => {
     if (selectedPilot) {
       setEditedPilot({ ...selectedPilot });
       setIsEdited(false);
+      loadDiscordRoles();
     } else {
       setEditedPilot(null);
+      setDiscordMember(null);
+      setDiscordRoles([]);
     }
     setEditError(null);
   }, [selectedPilot]);
+
+  const loadDiscordRoles = async () => {
+    if (!selectedPilot?.discordId || !selectedPilot?.currentSquadron) {
+      setDiscordMember(null);
+      setDiscordRoles([]);
+      return;
+    }
+
+    setIsLoadingDiscordRoles(true);
+    setDiscordRoleError(null);
+
+    try {
+      // Get the guild ID from squadron Discord integration settings
+      const guildId = selectedPilot.currentSquadron?.discord_integration?.selectedGuildId || '';
+      
+      if (!guildId) {
+        setDiscordRoleError('No Discord server configured for this squadron');
+        return;
+      }
+
+      const result = await fetchDiscordGuildMember(guildId, selectedPilot.discordId);
+      
+      if (result.error) {
+        setDiscordRoleError(result.error);
+        setDiscordMember(null);
+        setDiscordRoles([]);
+      } else {
+        setDiscordMember(result.member);
+        setDiscordRoles(result.roles);
+        setDiscordRoleError(null);
+      }
+    } catch (error) {
+      console.error('Error loading Discord roles:', error);
+      setDiscordRoleError('Failed to load Discord roles');
+      setDiscordMember(null);
+      setDiscordRoles([]);
+    } finally {
+      setIsLoadingDiscordRoles(false);
+    }
+  };
 
   const handleFieldChange = (field: string, value: string) => {
     if (!editedPilot) return;
@@ -326,25 +398,6 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
           />
         </div>
 
-        <div style={{ ...pilotDetailsStyles.fieldContainer, ...sectionSpacingStyle }}>
-          <label style={pilotDetailsStyles.fieldLabel}>Discord Username</label>
-          <div style={{ display: 'flex', flexDirection: 'column' }}>
-            <input
-              type="text"
-              value={selectedPilot.discordUsername || ''}
-              style={{
-                ...inputFieldStyle,
-                backgroundColor: '#f1f5f9',
-                cursor: 'not-allowed'
-              }}
-              placeholder="Discord account will be linked via sync"
-              disabled
-            />
-            <span style={{ fontSize: '12px', color: '#64748B', marginTop: '4px' }}>
-              Discord accounts are automatically linked via the sync process
-            </span>
-          </div>
-        </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', marginTop: '20px' }}>
           <div>
@@ -395,6 +448,135 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
     );
   };
 
+  const renderDiscordUserInfo = () => {
+    const pilot = editedPilot || selectedPilot;
+    if (!pilot) return null;
+
+    return (
+      <>
+        <div style={{ ...pilotDetailsStyles.fieldContainer, ...sectionSpacingStyle }}>
+          <label style={pilotDetailsStyles.fieldLabel}>Discord Username</label>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <input
+              type="text"
+              value={pilot.discordUsername || ''}
+              style={{
+                ...inputFieldStyle,
+                backgroundColor: '#f1f5f9',
+                cursor: 'not-allowed'
+              }}
+              placeholder="No Discord account linked"
+              disabled
+            />
+            <button
+              onClick={handleClearDiscordCredentials}
+              disabled={!pilot.discordUsername || isClearingDiscord}
+              style={{
+                ...exportButtonStyle,
+                cursor: !pilot.discordUsername || isClearingDiscord ? 'not-allowed' : 'pointer',
+                opacity: !pilot.discordUsername || isClearingDiscord ? 0.7 : 1,
+                minWidth: '80px',
+                backgroundColor: '#FEE2E2',
+                color: '#B91C1C',
+                border: '1px solid #FCA5A5',
+              }}
+              onMouseEnter={(e) => {
+                if (pilot.discordUsername && !isClearingDiscord) {
+                  e.currentTarget.style.backgroundColor = '#FECACA';
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (pilot.discordUsername && !isClearingDiscord) {
+                  e.currentTarget.style.backgroundColor = '#FEE2E2';
+                }
+              }}
+            >
+              {isClearingDiscord ? 'Clearing...' : 'Clear'}
+            </button>
+          </div>
+        </div>
+
+        <div style={{ ...pilotDetailsStyles.fieldContainer, ...sectionSpacingStyle }}>
+          <label style={pilotDetailsStyles.fieldLabel}>Discord Server Roles</label>
+          <div style={{ minHeight: '40px', padding: '8px', backgroundColor: '#f8f9fa', borderRadius: '4px', border: '1px solid #e2e8f0' }}>
+            {renderDiscordRoles()}
+          </div>
+        </div>
+      </>
+    );
+  };
+
+  const renderDiscordRoles = () => {
+    if (isLoadingDiscordRoles) {
+      return (
+        <div style={{ color: '#64748B', fontSize: '14px', textAlign: 'center', padding: '8px' }}>
+          Loading Discord roles...
+        </div>
+      );
+    }
+
+    if (discordRoleError) {
+      return (
+        <div style={{ color: '#DC2626', fontSize: '14px', textAlign: 'center', padding: '8px' }}>
+          {discordRoleError}
+        </div>
+      );
+    }
+
+    if (!discordMember || !discordRoles.length) {
+      return (
+        <div style={{ color: '#64748B', fontSize: '14px', textAlign: 'center', padding: '8px' }}>
+          No Discord roles found
+        </div>
+      );
+    }
+
+    // Get user's roles by filtering the roles array based on member's role IDs
+    const userRoles = discordRoles.filter(role => discordMember.roles.includes(role.id));
+
+    if (!userRoles.length) {
+      return (
+        <div style={{ color: '#64748B', fontSize: '14px', textAlign: 'center', padding: '8px' }}>
+          No roles assigned
+        </div>
+      );
+    }
+
+    // Sort roles by position (higher position = higher rank)
+    const sortedRoles = userRoles
+      .filter(role => role.name !== '@everyone') // Filter out @everyone role
+      .sort((a, b) => b.position - a.position);
+
+    return (
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', padding: '4px' }}>
+        {sortedRoles.map((role) => {
+          // Convert Discord color integer to hex
+          const colorHex = role.color === 0 ? '#99AAB5' : `#${role.color.toString(16).padStart(6, '0')}`;
+          
+          return (
+            <div
+              key={role.id}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                padding: '4px 8px',
+                backgroundColor: `${colorHex}20`, // 20% opacity background
+                color: colorHex,
+                borderRadius: '12px',
+                fontSize: '12px',
+                fontWeight: '500',
+                border: `1px solid ${colorHex}40`,
+                minHeight: '24px',
+              }}
+            >
+              {role.name}
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
   const renderEditableExistingPilotInfo = () => {
     if (!editedPilot) return null;
 
@@ -424,50 +606,6 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
           />
         </div>
 
-        <div style={{ ...pilotDetailsStyles.fieldContainer, ...sectionSpacingStyle }}>
-          <label style={pilotDetailsStyles.fieldLabel}>Discord Username</label>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <input
-              type="text"
-              value={editedPilot.discordUsername || ''}
-              style={{
-                ...inputFieldStyle,
-                backgroundColor: '#f1f5f9',
-                cursor: 'not-allowed'
-              }}
-              placeholder="No Discord account linked"
-              disabled
-            />
-            <button
-              onClick={handleClearDiscordCredentials}
-              disabled={!editedPilot.discordUsername || isClearingDiscord}
-              style={{
-                ...exportButtonStyle,
-                cursor: !editedPilot.discordUsername || isClearingDiscord ? 'not-allowed' : 'pointer',
-                opacity: !editedPilot.discordUsername || isClearingDiscord ? 0.7 : 1,
-                minWidth: '80px',
-                backgroundColor: '#FEE2E2',
-                color: '#B91C1C',
-                border: '1px solid #FCA5A5',
-              }}
-              onMouseEnter={(e) => {
-                if (editedPilot.discordUsername && !isClearingDiscord) {
-                  e.currentTarget.style.backgroundColor = '#FECACA';
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (editedPilot.discordUsername && !isClearingDiscord) {
-                  e.currentTarget.style.backgroundColor = '#FEE2E2';
-                }
-              }}
-            >
-              {isClearingDiscord ? 'Clearing...' : 'Clear'}
-            </button>
-          </div>
-          <span style={{ fontSize: '12px', color: '#64748B', marginTop: '4px' }}>
-            Discord accounts are automatically linked via the sync process
-          </span>
-        </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', marginTop: '20px' }}>
           <div>
@@ -654,6 +792,15 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
           >
             {editError}
           </div>
+        )}
+
+        {!isNewPilot && (
+          <Card className="p-4" style={{ marginTop: '24px' }}>
+            <h2 className="text-lg font-semibold mb-4" style={pilotDetailsStyles.sectionTitle}>
+              Discord User Information
+            </h2>
+            {renderDiscordUserInfo()}
+          </Card>
         )}
 
         <div style={{ display: 'grid', gap: '24px', marginTop: '24px' }}>

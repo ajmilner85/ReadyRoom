@@ -95,6 +95,7 @@ export async function getAllPilots(): Promise<{ data: Pilot[] | null; error: any
           carrier_id,
           callsigns,
           color_palette,
+          discord_integration,
           updated_at
         )
       `)

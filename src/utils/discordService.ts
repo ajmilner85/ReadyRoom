@@ -25,6 +25,110 @@ interface MultiChannelPublishResponse {
 // Track our publish requests to detect duplicates
 const publishRequestsInProgress = new Set();
 
+interface DiscordRole {
+  id: string;
+  name: string;
+  color: number;
+  hoist: boolean;
+  position: number;
+  permissions: string;
+  managed: boolean;
+  mentionable: boolean;
+}
+
+interface DiscordGuildMember {
+  user?: {
+    id: string;
+    username: string;
+    discriminator: string;
+    avatar?: string;
+  };
+  nick?: string;
+  roles: string[];
+  joined_at: string;
+  premium_since?: string;
+}
+
+/**
+ * Fetch Discord guild member information including roles
+ */
+export async function fetchDiscordGuildMember(guildId: string, userId: string): Promise<{
+  member: DiscordGuildMember | null;
+  roles: DiscordRole[];
+  error?: string;
+}> {
+  try {
+    console.log(`[DISCORD-MEMBER-DEBUG] Fetching member info for user ${userId} in guild ${guildId}`);
+    
+    const response = await fetch(`http://localhost:3001/api/discord/guild/${guildId}/member/${userId}`);
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.error('[DISCORD-MEMBER-DEBUG] API error:', errorData);
+      return {
+        member: null,
+        roles: [],
+        error: errorData.error || 'Failed to fetch Discord member information'
+      };
+    }
+    
+    const data = await response.json();
+    console.log('[DISCORD-MEMBER-DEBUG] Successfully fetched member data:', data);
+    
+    return {
+      member: data.member,
+      roles: data.member?.roles || [],
+      error: undefined
+    };
+    
+  } catch (error) {
+    console.error('[DISCORD-MEMBER-DEBUG] Network error:', error);
+    return {
+      member: null,
+      roles: [],
+      error: `Network error: ${error instanceof Error ? error.message : 'Unknown error'}`
+    };
+  }
+}
+
+/**
+ * Fetch all Discord guild roles
+ */
+export async function fetchDiscordGuildRoles(guildId: string): Promise<{
+  roles: DiscordRole[];
+  error?: string;
+}> {
+  try {
+    console.log(`[DISCORD-ROLES-DEBUG] Fetching guild roles for guild ${guildId}`);
+    
+    const response = await fetch(`http://localhost:3001/api/discord/guild/${guildId}/roles`);
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.error('[DISCORD-ROLES-DEBUG] API error:', errorData);
+      return {
+        roles: [],
+        error: errorData.error || 'Failed to fetch Discord guild roles'
+      };
+    }
+    
+    const data = await response.json();
+    console.log('[DISCORD-ROLES-DEBUG] Successfully fetched roles:', data);
+    
+    return {
+      roles: data.roles || [],
+      error: undefined
+    };
+    
+  } catch (error) {
+    console.error('[DISCORD-ROLES-DEBUG] Network error:', error);
+    return {
+      roles: [],
+      error: `Network error: ${error instanceof Error ? error.message : 'Unknown error'}`
+    };
+  }
+}
+
 /**
  * Publishes an event to multiple squadron Discord channels
  * @param event The event to publish
@@ -47,6 +151,8 @@ export async function publishEventFromCycle(event: Event): Promise<MultiChannelP
     // Use event-level participating squadrons if they exist, otherwise get from cycle
     console.log('[PARTICIPANT-DEBUG] Event participants:', event.participants);
     console.log('[PARTICIPANT-DEBUG] Event participants length:', event.participants?.length);
+    console.log('[PARTICIPANT-DEBUG] Event cycleId:', event.cycleId);
+    console.log('[PARTICIPANT-DEBUG] Event object keys:', Object.keys(event));
     
     if (event.participants && event.participants.length > 0) {
       participatingSquadrons = event.participants;
@@ -69,19 +175,22 @@ export async function publishEventFromCycle(event: Event): Promise<MultiChannelP
       
       participatingSquadrons = cycleData.participants || [];
       cycleType = cycleData.type;
+      console.log('[PARTICIPANT-DEBUG] Got participants from cycle:', participatingSquadrons);
     } else {
+      console.log('[PARTICIPANT-DEBUG] No cycleId found, cannot determine participating squadrons');
       return {
         success: false,
         publishedChannels: [],
-        errors: [{ squadronId: '', error: 'Event has no associated cycle or participating squadrons' }]
+        errors: [{ squadronId: '', error: 'Event has no associated cycle or participating squadrons. Please ensure the event is part of a cycle with configured squadrons, or manually specify participating squadrons.' }]
       };
     }
     
     if (participatingSquadrons.length === 0) {
+      console.log('[PARTICIPANT-DEBUG] Participating squadrons array is empty');
       return {
         success: false,
         publishedChannels: [],
-        errors: [{ squadronId: '', error: 'No participating squadrons configured for this cycle' }]
+        errors: [{ squadronId: '', error: 'No participating squadrons configured. Please configure participating squadrons in the cycle settings or manually specify them for this event.' }]
       };
     }
     
@@ -97,86 +206,112 @@ export async function publishEventFromCycle(event: Event): Promise<MultiChannelP
       throw new Error(`Failed to fetch squadron Discord settings: ${squadronDiscordError.message}`);
     }
     
-    // Process each squadron
+    // Create a UNION of unique channels to prevent duplicates when squadrons share channels
+    const uniqueChannels = new Map<string, {
+      guildId: string;
+      channelId: string;
+      squadronIds: string[];
+      squadronNames: string[];
+    }>();
+    
+    // First pass: collect unique guild+channel combinations
     for (const squadronId of participatingSquadrons) {
-      try {
-        console.log(`[MULTI-DISCORD-DEBUG] Processing squadron ${squadronId}`);
-        
-        // Find Discord settings for this squadron
-        const squadronData = squadronDiscordData?.find(s => s.id === squadronId);
-        
-        console.log(`[MULTI-DISCORD-DEBUG] Squadron data found:`, {
-          id: squadronData?.id,
-          name: squadronData?.name,
-          hasIntegration: !!squadronData?.discord_integration,
-          guildId: squadronData?.discord_integration?.selectedGuildId,
-          channelCount: squadronData?.discord_integration?.discordChannels?.length || 0
+      const squadronData = squadronDiscordData?.find(s => s.id === squadronId);
+      
+      if (!squadronData || !squadronData.discord_integration) {
+        errors.push({
+          squadronId,
+          error: 'No Discord integration configured for this squadron'
         });
+        continue;
+      }
+      
+      const discordIntegration = squadronData.discord_integration;
+      const selectedGuildId = discordIntegration.selectedGuildId;
+      
+      if (!selectedGuildId) {
+        errors.push({
+          squadronId,
+          error: 'No Discord server configured for this squadron'
+        });
+        continue;
+      }
+      
+      // Always use the events channel for each squadron
+      const discordChannels = discordIntegration.discordChannels || [];
+      const eventsChannel = discordChannels.find((ch: any) => ch.type === 'events');
+      
+      if (!eventsChannel) {
+        errors.push({
+          squadronId,
+          error: 'No events channel configured for this squadron'
+        });
+        continue;
+      }
+      
+      // Create unique key for guild+channel combination
+      const channelKey = `${selectedGuildId}:${eventsChannel.id}`;
+      
+      if (uniqueChannels.has(channelKey)) {
+        // Add this squadron to existing channel entry
+        const existing = uniqueChannels.get(channelKey)!;
+        existing.squadronIds.push(squadronId);
+        existing.squadronNames.push(squadronData.name);
+      } else {
+        // Create new channel entry
+        uniqueChannels.set(channelKey, {
+          guildId: selectedGuildId,
+          channelId: eventsChannel.id,
+          squadronIds: [squadronId],
+          squadronNames: [squadronData.name]
+        });
+      }
+    }
+    
+    console.log(`[MULTI-DISCORD-DEBUG] Found ${uniqueChannels.size} unique channels for ${participatingSquadrons.length} squadrons`);
+    
+    // Second pass: publish to each unique channel once
+    for (const [channelKey, channelInfo] of uniqueChannels) {
+      try {
+        console.log(`[MULTI-DISCORD-DEBUG] Publishing to unique channel ${channelKey} for squadrons: ${channelInfo.squadronNames.join(', ')}`);
         
-        if (!squadronData || !squadronData.discord_integration) {
-          errors.push({
-            squadronId,
-            error: 'No Discord integration configured for this squadron'
-          });
-          continue;
-        }
-        
-        const discordIntegration = squadronData.discord_integration;
-        const selectedGuildId = discordIntegration.selectedGuildId;
-        
-        if (!selectedGuildId) {
-          errors.push({
-            squadronId,
-            error: 'No Discord server configured for this squadron'
-          });
-          continue;
-        }
-        
-        // Always use the events channel for each squadron
-        const discordChannels = discordIntegration.discordChannels || [];
-        const eventsChannel = discordChannels.find((ch: any) => ch.type === 'events');
-        
-        if (!eventsChannel) {
-          errors.push({
-            squadronId,
-            error: 'No events channel configured for this squadron'
-          });
-          continue;
-        }
-        
-        
-        console.log(`[MULTI-DISCORD-DEBUG] About to publish to guild ${selectedGuildId}, channel ${eventsChannel.id} for squadron ${squadronData.name}`);
-        console.log(`[MULTI-DISCORD-DEBUG] Publish attempt ${participatingSquadrons.indexOf(squadronId) + 1} of ${participatingSquadrons.length}`);
-        
-        // Publish to this squadron's channel
+        // Publish to this unique channel
         const publishResult = await publishToSpecificChannel(
           event,
-          selectedGuildId,
-          eventsChannel.id
+          channelInfo.guildId,
+          channelInfo.channelId
         );
         
-        console.log(`[MULTI-DISCORD-DEBUG] Publish result for squadron ${squadronId}:`, publishResult);
-        console.log(`[MULTI-DISCORD-DEBUG] Success: ${publishResult.success}, MessageID: ${publishResult.discordMessageId}, GuildID: ${publishResult.guildId}`);
+        console.log(`[MULTI-DISCORD-DEBUG] Publish result for channel ${channelKey}:`, publishResult);
         
         if (publishResult.success && publishResult.discordMessageId) {
-          publishedChannels.push({
-            squadronId,
-            guildId: selectedGuildId,
-            channelId: eventsChannel.id,
-            discordMessageId: publishResult.discordMessageId
-          });
+          // Add a result for each squadron that shares this channel
+          for (const squadronId of channelInfo.squadronIds) {
+            publishedChannels.push({
+              squadronId,
+              guildId: channelInfo.guildId,
+              channelId: channelInfo.channelId,
+              discordMessageId: publishResult.discordMessageId
+            });
+          }
         } else {
-          errors.push({
-            squadronId,
-            error: publishResult.error || 'Failed to publish to squadron channel'
-          });
+          // Add errors for all squadrons that share this failed channel
+          for (const squadronId of channelInfo.squadronIds) {
+            errors.push({
+              squadronId,
+              error: publishResult.error || 'Failed to publish to shared channel'
+            });
+          }
         }
         
       } catch (error) {
-        errors.push({
-          squadronId,
-          error: error instanceof Error ? error.message : 'Unknown error publishing to squadron'
-        });
+        // Add errors for all squadrons that share this failed channel
+        for (const squadronId of channelInfo.squadronIds) {
+          errors.push({
+            squadronId,
+            error: error instanceof Error ? error.message : 'Unknown error publishing to shared channel'
+          });
+        }
       }
     }
     

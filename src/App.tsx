@@ -29,6 +29,7 @@ const RosterManagement = React.lazy(() => import('./components/ui/RosterManageme
 const EventsManagement = React.lazy(() => import('./components/ui/EventsManagement'));
 const MissionPreparation = React.lazy(() => import('./components/ui/MissionPreparation'));
 const Settings = React.lazy(() => import('./components/settings/Settings'));
+const Home = React.lazy(() => import('./components/ui/Home'));
 
 const App: React.FC = () => {
   const { user, userProfile, loading } = useAuth();
@@ -46,11 +47,13 @@ const App: React.FC = () => {
   // Determine current view from URL path
   const getCurrentView = () => {
     const path = location.pathname;
+    if (path === '/home') return 'home';
     if (path === '/roster') return 'roster';
     if (path === '/mission-coordination') return 'flights';
     if (path === '/mission-prep') return 'mission-prep';
     if (path === '/settings') return 'admin';
-    return 'events'; // default to events for root path
+    if (path === '/') return 'events';
+    return 'events'; // default to events
   };
   
   const [activeButton, setActiveButton] = useState<string>(getCurrentView());
@@ -96,20 +99,20 @@ const App: React.FC = () => {
     };
   }, []);
 
-  // Check if we should show onboarding for new users
-  useEffect(() => {
-    if (!loading && user && userProfile) {
-      // Check if user has seen onboarding before
-      const hasSeenOnboarding = localStorage.getItem(`onboarding_seen_${user.id}`);
-      
-      // Show onboarding if:
-      // 1. User hasn't seen it before, OR
-      // 2. User doesn't have a linked pilot record (needs guidance)
-      if (!hasSeenOnboarding || !userProfile.pilot) {
-        setShowOnboarding(true);
-      }
-    }
-  }, [loading, user, userProfile]);
+  // Onboarding disabled for alpha deployment
+  // useEffect(() => {
+  //   if (!loading && user && userProfile) {
+  //     // Check if user has seen onboarding before
+  //     const hasSeenOnboarding = localStorage.getItem(`onboarding_seen_${user.id}`);
+  //     
+  //     // Show onboarding if:
+  //     // 1. User hasn't seen it before, OR
+  //     // 2. User doesn't have a linked pilot record (needs guidance)
+  //     if (!hasSeenOnboarding || !userProfile.pilot) {
+  //       setShowOnboarding(true);
+  //     }
+  //   }
+  // }, [loading, user, userProfile]);
 
   const handleOnboardingComplete = () => {
     if (user) {
@@ -305,6 +308,11 @@ const App: React.FC = () => {
         <div style={{ display: 'grid', gridTemplateColumns: '100px 1fr' }} className="min-h-screen">
           <NavigationBar activeButton={activeButton} />
           <Routes>
+            <Route path="/home" element={
+              <Suspense fallback={<div className="bg-slate-50" style={{ width: '100%', height: '100%' }} />}>
+                <Home />
+              </Suspense>
+            } />
             <Route path="/roster" element={
               <Suspense fallback={<div className="bg-slate-50" style={{ width: '100%', height: '100%' }} />}>
                 <RosterManagement />

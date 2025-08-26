@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import type { Event } from '../../../types/EventTypes';
+import type { Event, Cycle } from '../../../types/EventTypes';
 import QualificationBadge from '../QualificationBadge';
 import { getPilotByDiscordOriginalId } from '../../../utils/pilotService';
 import type { Pilot } from '../../../utils/pilotService';
+import { fetchCycles } from '../../../utils/supabaseClient';
+import { getPilotQualifications } from '../../../utils/qualificationService';
 
 interface EventAttendanceProps {
   event: Event | null;
@@ -43,12 +45,19 @@ const EventAttendance: React.FC<EventAttendanceProps> = ({ event }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pollInterval, setPollInterval] = useState<NodeJS.Timeout | null>(null);
+  const [cycles, setCycles] = useState<Cycle[]>([]);
 
   // Function to fetch attendance data from API
   const fetchAttendance = async (eventId: string) => {
     try {
       setLoading(true);
       setError(null);
+      
+      // Show the header spinner
+      const spinner = document.getElementById('attendance-loading-spinner');
+      if (spinner) {
+        spinner.style.opacity = '1';
+      }
       
       const response = await fetch(`http://localhost:3001/api/events/${eventId}/attendance`);
       if (!response.ok) {
@@ -77,7 +86,7 @@ const EventAttendance: React.FC<EventAttendanceProps> = ({ event }) => {
           if (attendee.discord_id) {
             const { data: pilotData } = await getPilotByDiscordOriginalId(attendee.discord_id);
             
-            // Extract role information
+            // Extract role information and fetch qualifications
             let enhancedPilot: EnhancedPilot | null = pilotData;
             if (enhancedPilot) {
               // Try to extract role name from joined role data or use billet as fallback
@@ -86,6 +95,19 @@ const EventAttendance: React.FC<EventAttendanceProps> = ({ event }) => {
                 enhancedPilot.displayRole = roleObject.name;
               } else if (attendee.billet) {
                 enhancedPilot.displayRole = attendee.billet;
+              }
+              
+              // Fetch qualifications for this pilot
+              const { data: qualificationsData } = await getPilotQualifications(enhancedPilot.id);
+              if (qualificationsData) {
+                // Map the qualification data to the expected format
+                enhancedPilot.qualifications = qualificationsData.map((pq: any) => ({
+                  id: pq.qualification?.id || '',
+                  type: pq.qualification?.name || '',
+                  dateAchieved: pq.date_achieved || ''
+                }));
+              } else {
+                enhancedPilot.qualifications = [];
               }
             }
             
@@ -102,8 +124,29 @@ const EventAttendance: React.FC<EventAttendanceProps> = ({ event }) => {
       setAttendance([]);
     } finally {
       setLoading(false);
+      
+      // Hide the header spinner
+      const spinner = document.getElementById('attendance-loading-spinner');
+      if (spinner) {
+        spinner.style.opacity = '0';
+      }
     }
   };
+
+  // Load cycles on component mount
+  useEffect(() => {
+    const loadCycles = async () => {
+      try {
+        const { cycles: fetchedCycles } = await fetchCycles();
+        if (fetchedCycles) {
+          setCycles(fetchedCycles);
+        }
+      } catch (error) {
+        console.error('Failed to load cycles for qualification grouping:', error);
+      }
+    };
+    loadCycles();
+  }, []);
 
   // Start polling when event changes
   useEffect(() => {
@@ -134,8 +177,12 @@ const EventAttendance: React.FC<EventAttendanceProps> = ({ event }) => {
     };
   }, [event?.id]);
 
-  // Separate attendees with and without pilot records
-  const getAttendeesByStatus = (status: 'accepted' | 'declined' | 'tentative') => {
+  // Separate attendees with and without pilot records, with qualification grouping
+  const getAttendeesByStatus = (status: 'accepted' | 'declined' | 'tentative'): {
+    attendeesWithPilots: AttendanceData[];
+    attendeesWithoutPilots: AttendanceData[];
+    qualificationGroups?: Record<string, AttendanceData[]>;
+  } => {
     const attendeesWithPilots = attendance
       .filter(a => a.status === status && a.pilotRecord)
       .sort((a, b) => (a.pilotRecord?.boardNumber || 0) - (b.pilotRecord?.boardNumber || 0));
@@ -143,7 +190,146 @@ const EventAttendance: React.FC<EventAttendanceProps> = ({ event }) => {
     const attendeesWithoutPilots = attendance
       .filter(a => a.status === status && !a.pilotRecord);
 
+    // Check if qualification grouping is enabled
+    const shouldGroupByQualifications = event?.eventSettings?.groupResponsesByQualification || 
+                                        event?.trackQualifications || 
+                                        (event?.eventType === 'Hop' || event?.cycleId && cycles.find(c => c.id === event.cycleId)?.type === 'Training');
+
+    if (shouldGroupByQualifications && attendeesWithPilots.length > 0) {
+      // Group by qualification based on event/cycle type
+      const isTrainingEvent = event?.eventType === 'Hop' || 
+                              (event?.cycleId && cycles.find(c => c.id === event.cycleId)?.type === 'Training');
+      
+      if (isTrainingEvent) {
+        // Training events: Group by IP and Trainee
+        const instructorPilots = attendeesWithPilots.filter(a => 
+          a.pilotRecord?.qualifications?.some(q => q.type === 'Instructor Pilot')
+        );
+        
+        const trainees = attendeesWithPilots.filter(a => 
+          !a.pilotRecord?.qualifications?.some(q => q.type === 'Instructor Pilot')
+        );
+
+        return { 
+          attendeesWithPilots: [], // Empty for standard display
+          attendeesWithoutPilots,
+          qualificationGroups: {
+            'Instructor Pilots': instructorPilots,
+            'Trainees': trainees
+          }
+        };
+      } else {
+        // Non-training events: Group by highest qualification
+        const groupedByQual: Record<string, AttendanceData[]> = {};
+        
+        attendeesWithPilots.forEach(a => {
+          if (!a.pilotRecord?.qualifications || a.pilotRecord.qualifications.length === 0) {
+            if (!groupedByQual['No Qualifications']) groupedByQual['No Qualifications'] = [];
+            groupedByQual['No Qualifications'].push(a);
+            return;
+          }
+          
+          // Priority order for grouping (highest to lowest) - excluding IP for non-training events
+          const qualPriority = [
+            'Mission Commander', 'Flight Lead', 'Section Lead', 'Wingman'
+          ];
+          
+          // Find the highest priority qualification this pilot has (excluding Instructor Pilot)
+          let highestQual = 'Wingman'; // Default to Wingman if no other qualifications found
+          for (const qual of qualPriority) {
+            if (a.pilotRecord.qualifications.some(q => q.type === qual)) {
+              highestQual = qual;
+              break;
+            }
+          }
+          
+          if (!groupedByQual[highestQual]) groupedByQual[highestQual] = [];
+          groupedByQual[highestQual].push(a);
+        });
+
+        return { 
+          attendeesWithPilots: [], // Empty for standard display
+          attendeesWithoutPilots,
+          qualificationGroups: groupedByQual
+        };
+      }
+    }
+
     return { attendeesWithPilots, attendeesWithoutPilots };
+  };
+
+  // Render qualification group
+  const renderQualificationGroup = (pilots: AttendanceData[], groupName: string, index: number) => {
+    if (pilots.length === 0) return null;
+
+    return (
+      <div key={`${groupName}-${index}`} style={{ marginBottom: '16px' }}>
+        <div style={{ 
+          fontSize: '14px', 
+          fontWeight: 500, 
+          color: '#64748B',
+          borderBottom: '1px solid #E2E8F0',
+          paddingBottom: '4px',
+          marginBottom: '8px'
+        }}>
+          {groupName} ({pilots.length})
+        </div>
+        
+        {pilots.map((pilot, pilotIndex) => (
+          <div
+            key={`${groupName}-${pilot.discord_id || pilotIndex}-${pilot.callsign}`}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              height: '24px',
+              marginBottom: '10px',
+              borderRadius: '8px',
+              padding: '0 10px',
+              backgroundColor: pilotIndex % 2 === 0 ? '#F8FAFC' : 'transparent',
+            }}
+          >
+            <span style={{
+              width: '62px',
+              textAlign: 'center',
+              fontSize: '16px',
+              fontWeight: 400,
+              color: '#646F7E'
+            }}>
+              {pilot.pilotRecord?.boardNumber}
+            </span>
+            <span style={{
+              width: '120px',
+              fontSize: '16px',
+              fontWeight: 700
+            }}>
+              {pilot.pilotRecord?.callsign || pilot.callsign}
+            </span>
+            <span style={{
+              fontSize: '16px',
+              fontWeight: 300,
+              color: '#646F7E'
+            }}>
+              {(pilot.pilotRecord as EnhancedPilot)?.displayRole || ''}
+            </span>
+            
+            {/* Qualification badges */}
+            <div style={{
+              display: 'flex',
+              gap: '4px',
+              marginLeft: 'auto',
+              height: '24px'
+            }}>
+              {pilot.pilotRecord?.qualifications?.map((qual, qualIndex) => (
+                <QualificationBadge 
+                  key={`${qual.type}-${qualIndex}`} 
+                  type={qual.type as any}
+                />
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    );
   };
 
   // If no event is selected
@@ -151,13 +337,9 @@ const EventAttendance: React.FC<EventAttendanceProps> = ({ event }) => {
     return (
       <div
         style={{
-          width: '550px',
-          maxWidth: '100%',
+          width: '100%',
           height: '100%',
-          backgroundColor: '#FFFFFF',
-          boxShadow: '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)',
-          borderRadius: '8px',
-          padding: '24px',
+          padding: '16px',
           display: 'flex',
           flexDirection: 'column',
           position: 'relative',
@@ -175,40 +357,16 @@ const EventAttendance: React.FC<EventAttendanceProps> = ({ event }) => {
   return (
     <div
       style={{
-        width: '550px',
-        maxWidth: '100%',
+        width: '100%',
         height: '100%',
-        backgroundColor: '#FFFFFF',
-        boxShadow: '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)',
-        borderRadius: '8px',
-        padding: '24px',
+        padding: '16px',
         display: 'flex',
         flexDirection: 'column',
         position: 'relative',
         overflowY: 'auto',
         boxSizing: 'border-box'
       }}
-    >      <h2 style={{
-        fontSize: '20px',
-        fontWeight: 600,
-        color: '#0F172A',
-        marginBottom: '16px',
-        display: 'flex',
-        alignItems: 'center'
-      }}>
-        Attendance
-        {loading && (
-          <div style={{ 
-            width: '16px', 
-            height: '16px', 
-            border: '2px solid #E2E8F0', 
-            borderTopColor: '#3B82F6', 
-            borderRadius: '50%', 
-            marginLeft: '8px',
-            animation: 'spin 1s linear infinite'
-          }} />
-        )}
-      </h2>
+    >
       
       {error && (
         <div style={{ 
@@ -244,60 +402,72 @@ const EventAttendance: React.FC<EventAttendanceProps> = ({ event }) => {
           </span>
         </div>
         
-        {/* Pilots with records */}
-        {getAttendeesByStatus('accepted').attendeesWithPilots.map((pilot, index) => (
-          <div
-            key={`accepted-${pilot.discord_id || index}-${pilot.callsign}`}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              height: '24px',
-              marginBottom: '10px',
-              borderRadius: '8px',
-              padding: '0 10px',
-              backgroundColor: index % 2 === 0 ? '#F8FAFC' : 'transparent',
-            }}
-          >
-            <span style={{
-              width: '62px',
-              textAlign: 'center',
-              fontSize: '16px',
-              fontWeight: 400,
-              color: '#646F7E'
-            }}>
-              {pilot.pilotRecord?.boardNumber}
-            </span>
-            <span style={{
-              width: '120px',
-              fontSize: '16px',
-              fontWeight: 700
-            }}>
-              {pilot.pilotRecord?.callsign || pilot.callsign}
-            </span>
-            <span style={{
-              fontSize: '16px',
-              fontWeight: 300,
-              color: '#646F7E'
-            }}>
-              {(pilot.pilotRecord as EnhancedPilot)?.displayRole || ''}
-            </span>
-            
-            {/* Qualification badges */}
-            <div style={{
-              display: 'flex',
-              gap: '4px',
-              marginLeft: 'auto',
-              height: '24px'
-            }}>
-              {pilot.pilotRecord?.qualifications?.map((qual, index) => (
-                <QualificationBadge 
-                  key={`${qual}-${index}`} 
-                  type={qual as any}
-                />
-              ))}
+        {/* Pilots with records - either grouped by qualification or standard list */}
+        {(() => {
+          const statusData = getAttendeesByStatus('accepted');
+          
+          // If qualification groups exist, render them
+          if (statusData.qualificationGroups) {
+            return Object.entries(statusData.qualificationGroups).map(([groupName, pilots], index) =>
+              renderQualificationGroup(pilots, groupName, index)
+            );
+          }
+          
+          // Otherwise render standard list
+          return statusData.attendeesWithPilots.map((pilot, index) => (
+            <div
+              key={`accepted-${pilot.discord_id || index}-${pilot.callsign}`}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                height: '24px',
+                marginBottom: '10px',
+                borderRadius: '8px',
+                padding: '0 10px',
+                backgroundColor: index % 2 === 0 ? '#F8FAFC' : 'transparent',
+              }}
+            >
+              <span style={{
+                width: '62px',
+                textAlign: 'center',
+                fontSize: '16px',
+                fontWeight: 400,
+                color: '#646F7E'
+              }}>
+                {pilot.pilotRecord?.boardNumber}
+              </span>
+              <span style={{
+                width: '120px',
+                fontSize: '16px',
+                fontWeight: 700
+              }}>
+                {pilot.pilotRecord?.callsign || pilot.callsign}
+              </span>
+              <span style={{
+                fontSize: '16px',
+                fontWeight: 300,
+                color: '#646F7E'
+              }}>
+                {(pilot.pilotRecord as EnhancedPilot)?.displayRole || ''}
+              </span>
+              
+              {/* Qualification badges */}
+              <div style={{
+                display: 'flex',
+                gap: '4px',
+                marginLeft: 'auto',
+                height: '24px'
+              }}>
+                {pilot.pilotRecord?.qualifications?.map((qual, index) => (
+                  <QualificationBadge 
+                    key={`${qual.type}-${index}`} 
+                    type={qual.type as any}
+                  />
+                ))}
+              </div>
             </div>
-          </div>
-        ))}
+          ));
+        })()}
 
         {/* No matching pilot record section */}
         {getAttendeesByStatus('accepted').attendeesWithoutPilots.length > 0 && (
@@ -335,122 +505,10 @@ const EventAttendance: React.FC<EventAttendanceProps> = ({ event }) => {
         {attendance.filter(pilot => pilot.status === 'accepted').length === 0 && (
           <div style={{ color: '#94A3B8', padding: '8px' }}>No attendees yet</div>
         )}
-      </div>      {/* Declined */}
+      </div>
+
+      {/* Tentative */}
       <div style={{ marginBottom: '24px' }}>
-        <div style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          padding: '10px 15px',          backgroundColor: '#FEF2F2',
-          borderLeft: '4px solid #ED4245',
-          borderRadius: '4px',
-          marginBottom: '12px'
-        }}>          <span style={{ fontWeight: 600, color: '#ED4245' }}>Declined</span>
-          <span style={{ 
-            backgroundColor: '#ED4245', 
-            color: 'white', 
-            borderRadius: '9999px',
-            padding: '2px 8px',
-            fontSize: '14px',
-            fontWeight: '500'
-          }}>
-            {attendance.filter(pilot => pilot.status === 'declined').length}
-          </span>
-        </div>
-        
-        {/* Pilots with records */}
-        {getAttendeesByStatus('declined').attendeesWithPilots.map((pilot, index) => (
-          <div
-            key={`declined-${pilot.discord_id || index}-${pilot.callsign}`}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              height: '24px',
-              marginBottom: '10px',
-              borderRadius: '8px',
-              padding: '0 10px',
-              backgroundColor: index % 2 === 0 ? '#F8FAFC' : 'transparent',
-            }}
-          >
-            <span style={{
-              width: '62px',
-              textAlign: 'center',
-              fontSize: '16px',
-              fontWeight: 400,
-              color: '#646F7E'
-            }}>
-              {pilot.pilotRecord?.boardNumber}
-            </span>
-            <span style={{
-              width: '120px',
-              fontSize: '16px',
-              fontWeight: 700
-            }}>
-              {pilot.pilotRecord?.callsign || pilot.callsign}
-            </span>
-            <span style={{
-              fontSize: '16px',
-              fontWeight: 300,
-              color: '#646F7E'
-            }}>
-              {(pilot.pilotRecord as EnhancedPilot)?.displayRole || ''}
-            </span>
-            
-            {/* Qualification badges */}
-            <div style={{
-              display: 'flex',
-              gap: '4px',
-              marginLeft: 'auto',
-              height: '24px'
-            }}>
-              {pilot.pilotRecord?.qualifications?.map((qual, index) => (
-                <QualificationBadge 
-                  key={`${qual}-${index}`} 
-                  type={qual as any}
-                />
-              ))}
-            </div>
-          </div>
-        ))}
-
-        {/* No matching pilot record section */}
-        {getAttendeesByStatus('declined').attendeesWithoutPilots.length > 0 && (
-          <div style={{ marginTop: '16px' }}>
-            <div style={{ 
-              fontSize: '14px', 
-              fontWeight: 500, 
-              color: '#64748B',
-              borderBottom: '1px solid #E2E8F0',
-              paddingBottom: '4px',
-              marginBottom: '8px'
-            }}>
-              No Matching Pilot Record
-            </div>
-            
-            {getAttendeesByStatus('declined').attendeesWithoutPilots.map((pilot, index) => (
-              <div
-                key={`declined-no-record-${pilot.discord_id || index}-${pilot.callsign}`}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  padding: '8px',
-                  borderRadius: '4px',
-                  backgroundColor: index % 2 === 0 ? '#F8FAFC' : 'transparent',
-                }}
-              >
-                <span style={{ fontWeight: 500 }}>
-                  {pilot.callsign}
-                </span>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {attendance.filter(pilot => pilot.status === 'declined').length === 0 && (
-          <div style={{ color: '#94A3B8', padding: '8px' }}>No declined responses</div>
-        )}
-      </div>      {/* Tentative */}
-      <div>
         <div style={{
           display: 'flex',
           justifyContent: 'space-between',
@@ -472,60 +530,72 @@ const EventAttendance: React.FC<EventAttendanceProps> = ({ event }) => {
           </span>
         </div>
         
-        {/* Pilots with records */}
-        {getAttendeesByStatus('tentative').attendeesWithPilots.map((pilot, index) => (
-          <div
-            key={`tentative-${pilot.discord_id || index}-${pilot.callsign}`}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              height: '24px',
-              marginBottom: '10px',
-              borderRadius: '8px',
-              padding: '0 10px',
-              backgroundColor: index % 2 === 0 ? '#F8FAFC' : 'transparent',
-            }}
-          >
-            <span style={{
-              width: '62px',
-              textAlign: 'center',
-              fontSize: '16px',
-              fontWeight: 400,
-              color: '#646F7E'
-            }}>
-              {pilot.pilotRecord?.boardNumber}
-            </span>
-            <span style={{
-              width: '120px',
-              fontSize: '16px',
-              fontWeight: 700
-            }}>
-              {pilot.pilotRecord?.callsign || pilot.callsign}
-            </span>
-            <span style={{
-              fontSize: '16px',
-              fontWeight: 300,
-              color: '#646F7E'
-            }}>
-              {(pilot.pilotRecord as EnhancedPilot)?.displayRole || ''}
-            </span>
-            
-            {/* Qualification badges */}
-            <div style={{
-              display: 'flex',
-              gap: '4px',
-              marginLeft: 'auto',
-              height: '24px'
-            }}>
-              {pilot.pilotRecord?.qualifications?.map((qual, index) => (
-                <QualificationBadge 
-                  key={`${qual}-${index}`} 
-                  type={qual as any}
-                />
-              ))}
+        {/* Pilots with records - either grouped by qualification or standard list */}
+        {(() => {
+          const statusData = getAttendeesByStatus('tentative');
+          
+          // If qualification groups exist, render them
+          if (statusData.qualificationGroups) {
+            return Object.entries(statusData.qualificationGroups).map(([groupName, pilots], index) =>
+              renderQualificationGroup(pilots, groupName, index)
+            );
+          }
+          
+          // Otherwise render standard list
+          return statusData.attendeesWithPilots.map((pilot, index) => (
+            <div
+              key={`tentative-${pilot.discord_id || index}-${pilot.callsign}`}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                height: '24px',
+                marginBottom: '10px',
+                borderRadius: '8px',
+                padding: '0 10px',
+                backgroundColor: index % 2 === 0 ? '#F8FAFC' : 'transparent',
+              }}
+            >
+              <span style={{
+                width: '62px',
+                textAlign: 'center',
+                fontSize: '16px',
+                fontWeight: 400,
+                color: '#646F7E'
+              }}>
+                {pilot.pilotRecord?.boardNumber}
+              </span>
+              <span style={{
+                width: '120px',
+                fontSize: '16px',
+                fontWeight: 700
+              }}>
+                {pilot.pilotRecord?.callsign || pilot.callsign}
+              </span>
+              <span style={{
+                fontSize: '16px',
+                fontWeight: 300,
+                color: '#646F7E'
+              }}>
+                {(pilot.pilotRecord as EnhancedPilot)?.displayRole || ''}
+              </span>
+              
+              {/* Qualification badges */}
+              <div style={{
+                display: 'flex',
+                gap: '4px',
+                marginLeft: 'auto',
+                height: '24px'
+              }}>
+                {pilot.pilotRecord?.qualifications?.map((qual, index) => (
+                  <QualificationBadge 
+                    key={`${qual.type}-${index}`} 
+                    type={qual.type as any}
+                  />
+                ))}
+              </div>
             </div>
-          </div>
-        ))}
+          ));
+        })()}
 
         {/* No matching pilot record section */}
         {getAttendeesByStatus('tentative').attendeesWithoutPilots.length > 0 && (
@@ -562,6 +632,134 @@ const EventAttendance: React.FC<EventAttendanceProps> = ({ event }) => {
 
         {attendance.filter(pilot => pilot.status === 'tentative').length === 0 && (
           <div style={{ color: '#94A3B8', padding: '8px' }}>No tentative responses</div>
+        )}
+      </div>
+
+      {/* Declined */}
+      <div style={{ marginBottom: '24px' }}>
+        <div style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          padding: '10px 15px',          backgroundColor: '#FEF2F2',
+          borderLeft: '4px solid #ED4245',
+          borderRadius: '4px',
+          marginBottom: '12px'
+        }}>          <span style={{ fontWeight: 600, color: '#ED4245' }}>Declined</span>
+          <span style={{ 
+            backgroundColor: '#ED4245', 
+            color: 'white', 
+            borderRadius: '9999px',
+            padding: '2px 8px',
+            fontSize: '14px',
+            fontWeight: '500'
+          }}>
+            {attendance.filter(pilot => pilot.status === 'declined').length}
+          </span>
+        </div>
+        
+        {/* Pilots with records - either grouped by qualification or standard list */}
+        {(() => {
+          const statusData = getAttendeesByStatus('declined');
+          
+          // If qualification groups exist, render them
+          if (statusData.qualificationGroups) {
+            return Object.entries(statusData.qualificationGroups).map(([groupName, pilots], index) =>
+              renderQualificationGroup(pilots, groupName, index)
+            );
+          }
+          
+          // Otherwise render standard list
+          return statusData.attendeesWithPilots.map((pilot, index) => (
+            <div
+              key={`declined-${pilot.discord_id || index}-${pilot.callsign}`}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                height: '24px',
+                marginBottom: '10px',
+                borderRadius: '8px',
+                padding: '0 10px',
+                backgroundColor: index % 2 === 0 ? '#F8FAFC' : 'transparent',
+              }}
+            >
+              <span style={{
+                width: '62px',
+                textAlign: 'center',
+                fontSize: '16px',
+                fontWeight: 400,
+                color: '#646F7E'
+              }}>
+                {pilot.pilotRecord?.boardNumber}
+              </span>
+              <span style={{
+                width: '120px',
+                fontSize: '16px',
+                fontWeight: 700
+              }}>
+                {pilot.pilotRecord?.callsign || pilot.callsign}
+              </span>
+              <span style={{
+                fontSize: '16px',
+                fontWeight: 300,
+                color: '#646F7E'
+              }}>
+                {(pilot.pilotRecord as EnhancedPilot)?.displayRole || ''}
+              </span>
+              
+              {/* Qualification badges */}
+              <div style={{
+                display: 'flex',
+                gap: '4px',
+                marginLeft: 'auto',
+                height: '24px'
+              }}>
+                {pilot.pilotRecord?.qualifications?.map((qual, index) => (
+                  <QualificationBadge 
+                    key={`${qual.type}-${index}`} 
+                    type={qual.type as any}
+                  />
+                ))}
+              </div>
+            </div>
+          ));
+        })()}
+
+        {/* No matching pilot record section */}
+        {getAttendeesByStatus('declined').attendeesWithoutPilots.length > 0 && (
+          <div style={{ marginTop: '16px' }}>
+            <div style={{ 
+              fontSize: '14px', 
+              fontWeight: 500, 
+              color: '#64748B',
+              borderBottom: '1px solid #E2E8F0',
+              paddingBottom: '4px',
+              marginBottom: '8px'
+            }}>
+              No Matching Pilot Record
+            </div>
+            
+            {getAttendeesByStatus('declined').attendeesWithoutPilots.map((pilot, index) => (
+              <div
+                key={`declined-no-record-${pilot.discord_id || index}-${pilot.callsign}`}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  padding: '8px',
+                  borderRadius: '4px',
+                  backgroundColor: index % 2 === 0 ? '#F8FAFC' : 'transparent',
+                }}
+              >
+                <span style={{ fontWeight: 500 }}>
+                  {pilot.callsign}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {attendance.filter(pilot => pilot.status === 'declined').length === 0 && (
+          <div style={{ color: '#94A3B8', padding: '8px' }}>No declined responses</div>
         )}
       </div>
       

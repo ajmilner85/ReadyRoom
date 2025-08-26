@@ -1,5 +1,5 @@
 import React from 'react';
-import { Users, Layout, Calendar, FileText, Settings, User, LogOut, Lock } from 'lucide-react';
+import { Users, Layout, Calendar, FileText, Settings, User, LogOut, Lock, Home } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { signOut } from '../../utils/supabaseClient';
@@ -15,6 +15,13 @@ interface NavigationButton {
 }
 
 const buttons: NavigationButton[] = [
+  {
+    id: 'home',
+    icon: <Home size={24} />,
+    label: 'Home',
+    route: '/home',
+    requiresPermission: 'canManageEvents'
+  },
   {
     id: 'roster',
     icon: <Users size={24} />,
