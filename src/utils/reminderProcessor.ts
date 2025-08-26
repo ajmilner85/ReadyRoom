@@ -103,7 +103,7 @@ function getUsersToMention(attendance: {
 }
 
 /**
- * Send reminder message via Discord
+ * Send reminder message via Discord with deduplication for shared channels
  */
 async function sendReminderMessage(
   event: any, 
@@ -112,7 +112,7 @@ async function sendReminderMessage(
 ) {
   try {
     console.log('=== SENDING REMINDER MESSAGE ===');
-    console.log(`Event: ${event.name}`);
+    console.log(`Event: ${event.name || event.title}`);
     console.log(`Message: ${message}`);
     console.log(`Users to mention: ${usersToMention.map(u => {
       if (u.board_number && u.call_sign) {
@@ -126,28 +126,84 @@ async function sendReminderMessage(
     const discordMentions = usersToMention.map(user => `<@${user.discord_id}>`).join(' ');
     const fullMessage = discordMentions ? `${discordMentions}\n${message}` : message;
     
-    // Send reminder via the Discord bot API
-    const response = await fetch('http://localhost:3001/api/reminders/send', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        eventId: event.id,
-        message: fullMessage,
-        userIds: usersToMention.map(u => u.discord_id),
-        // Send to all channels where the event was published
-        discordEventId: event.discord_event_id
-      }),
-    });
-    
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(`Failed to send reminder: ${errorData.error || response.statusText}`);
+    // Handle both single discord_event_id and multi-channel array format
+    let discordEventIds = [];
+    if (Array.isArray(event.discord_event_id)) {
+      discordEventIds = event.discord_event_id;
+    } else {
+      discordEventIds = [{ 
+        messageId: event.discord_event_id,
+        guildId: event.discord_guild_id || '',
+        channelId: '',
+        squadronId: ''
+      }];
     }
     
-    const result = await response.json();
-    console.log('✅ Reminder sent successfully:', result);
+    console.log('[REMINDER-DEDUP-DEBUG] Discord event IDs:', discordEventIds);
+    
+    if (discordEventIds.length === 0) {
+      console.warn('No Discord event IDs found, skipping reminder');
+      return;
+    }
+    
+    // Create a UNION of unique guild+channel combinations to prevent duplicate reminders
+    const uniqueChannels = new Map<string, {
+      guildId: string;
+      channelId: string;
+      messageIds: string[];
+      squadronIds: string[];
+    }>();
+    
+    // Group by unique guild+channel combination
+    for (const publication of discordEventIds) {
+      const channelKey = `${publication.guildId}:${publication.channelId}`;
+      
+      if (uniqueChannels.has(channelKey)) {
+        const existing = uniqueChannels.get(channelKey)!;
+        existing.messageIds.push(publication.messageId);
+        existing.squadronIds.push(publication.squadronId);
+      } else {
+        uniqueChannels.set(channelKey, {
+          guildId: publication.guildId,
+          channelId: publication.channelId,
+          messageIds: [publication.messageId],
+          squadronIds: [publication.squadronId]
+        });
+      }
+    }
+    
+    console.log(`[REMINDER-DEDUP-DEBUG] Found ${uniqueChannels.size} unique channels for ${discordEventIds.length} publications`);
+    
+    // Send reminder to each unique channel only once
+    for (const [channelKey, channelInfo] of uniqueChannels) {
+      console.log(`[REMINDER-DEDUP-DEBUG] Sending reminder to unique channel ${channelKey} (squadrons: ${channelInfo.squadronIds.join(', ')})`);
+      
+      const response = await fetch('http://localhost:3001/api/reminders/send', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          eventId: event.id,
+          message: fullMessage,
+          userIds: usersToMention.map(u => u.discord_id),
+          // Send to specific guild and channel to avoid duplicates
+          guildId: channelInfo.guildId,
+          channelId: channelInfo.channelId,
+          // Include one of the message IDs for context
+          discordMessageId: channelInfo.messageIds[0]
+        }),
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error(`Failed to send reminder to channel ${channelKey}:`, errorData.error || response.statusText);
+        continue; // Continue with other channels even if one fails
+      }
+      
+      const result = await response.json();
+      console.log(`✅ Reminder sent successfully to channel ${channelKey}:`, result);
+    }
     
   } catch (error) {
     console.error('❌ Failed to send Discord reminder:', error);

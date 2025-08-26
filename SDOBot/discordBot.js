@@ -519,7 +519,7 @@ function createAttendanceButtons() {
     .setLabel('Tentative')
     .setStyle(ButtonStyle.Primary);
   
-  return new ActionRowBuilder().addComponents(acceptButton, declineButton, tentativeButton);
+  return new ActionRowBuilder().addComponents(acceptButton, tentativeButton, declineButton);
 }
 
 // Flag to track if the bot is logged in
@@ -1221,6 +1221,93 @@ async function getAvailableGuilds() {
   }
 }
 
+// Function to get Discord guild roles
+async function getGuildRoles(guildId) {
+  try {
+    await ensureLoggedIn();
+    
+    const guild = client.guilds.cache.get(guildId);
+    if (!guild) {
+      return { roles: [], error: `Guild with ID ${guildId} not found or bot not added to server` };
+    }
+
+    // Fetch roles
+    const roles = Array.from(guild.roles.cache.values())
+      .filter(role => role.name !== '@everyone') // Filter out @everyone role
+      .map(role => ({
+        id: role.id,
+        name: role.name,
+        color: role.color,
+        hoist: role.hoist,
+        position: role.position,
+        permissions: role.permissions.bitfield.toString(),
+        managed: role.managed,
+        mentionable: role.mentionable
+      }))
+      .sort((a, b) => b.position - a.position); // Sort by position (highest first)
+
+    console.log(`[DISCORD-ROLES] Fetched ${roles.length} roles for guild ${guild.name}`);
+    return { roles, error: null };
+  } catch (error) {
+    console.error(`[DISCORD-ROLES] Error fetching roles for guild ${guildId}:`, error);
+    return { roles: [], error: error.message || 'Unknown error fetching roles' };
+  }
+}
+
+// Function to get Discord guild member information and roles
+async function getGuildMember(guildId, userId) {
+  try {
+    await ensureLoggedIn();
+    
+    const guild = client.guilds.cache.get(guildId);
+    if (!guild) {
+      return { member: null, roles: [], error: `Guild with ID ${guildId} not found or bot not added to server` };
+    }
+
+    // Fetch the member
+    let member;
+    try {
+      member = await guild.members.fetch(userId);
+    } catch (fetchError) {
+      return { member: null, roles: [], error: `User with ID ${userId} not found in guild ${guild.name}` };
+    }
+
+    // Get all guild roles for mapping
+    const allRoles = Array.from(guild.roles.cache.values())
+      .filter(role => role.name !== '@everyone')
+      .map(role => ({
+        id: role.id,
+        name: role.name,
+        color: role.color,
+        hoist: role.hoist,
+        position: role.position,
+        permissions: role.permissions.bitfield.toString(),
+        managed: role.managed,
+        mentionable: role.mentionable
+      }));
+
+    // Format member data
+    const memberData = {
+      user: {
+        id: member.user.id,
+        username: member.user.username,
+        discriminator: member.user.discriminator,
+        avatar: member.user.avatar
+      },
+      nick: member.nickname,
+      roles: member.roles.cache.map(role => role.id),
+      joined_at: member.joinedAt?.toISOString(),
+      premium_since: member.premiumSince?.toISOString()
+    };
+
+    console.log(`[DISCORD-MEMBER] Fetched member data for ${member.user.username} in guild ${guild.name}`);
+    return { member: memberData, roles: allRoles, error: null };
+  } catch (error) {
+    console.error(`[DISCORD-MEMBER] Error fetching member ${userId} in guild ${guildId}:`, error);
+    return { member: null, roles: [], error: error.message || 'Unknown error fetching member' };
+  }
+}
+
 // Countdown Update Manager
 class CountdownUpdateManager {
   constructor() {
@@ -1625,5 +1712,7 @@ module.exports = {
   editEventMessage,
   getAvailableGuilds,
   countdownManager,
-  sendReminderMessage
+  sendReminderMessage,
+  getGuildRoles,
+  getGuildMember
 };

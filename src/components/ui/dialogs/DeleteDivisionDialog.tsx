@@ -5,6 +5,7 @@ interface DeleteDivisionDialogProps {
   onCancel: () => void;
   sectionTitle: string;
   divisionLabel: string;
+  isPublished?: boolean;
 }
 
 export const DeleteDivisionDialog: React.FC<DeleteDivisionDialogProps> = ({
@@ -12,6 +13,7 @@ export const DeleteDivisionDialog: React.FC<DeleteDivisionDialogProps> = ({
   onCancel,
   sectionTitle,
   divisionLabel,
+  isPublished = false,
 }) => {
   return (
     <div style={{
@@ -34,7 +36,20 @@ export const DeleteDivisionDialog: React.FC<DeleteDivisionDialogProps> = ({
         color: '#64748B',
         textAlign: 'center'
       }}>
-        Are you sure you want to delete the {sectionTitle} division "{divisionLabel}"?
+        {sectionTitle === 'Event' 
+          ? `Are you sure you want to delete the "${divisionLabel}" event?`
+          : `Are you sure you want to delete the ${sectionTitle} division "${divisionLabel}"?`
+        }
+        {sectionTitle === 'Event' && isPublished && (
+          <div style={{
+            marginTop: '12px',
+            fontSize: '13px',
+            color: '#DC2626',
+            fontWeight: 500
+          }}>
+            Deleting this event will also delete the Discord event post, responses, and reminders.
+          </div>
+        )}
       </div>
 
       <div style={{

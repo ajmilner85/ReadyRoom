@@ -224,17 +224,27 @@ const EventDetails: React.FC<EventDetailsProps> = ({ event, onEventUpdated }) =>
       setRefreshing(false);
     }
   }, [event]);  const handlePublishToDiscord = async () => {
-    if (!event) return;
-    
-    // Check if the event already has a discord message ID (already published)
-    if (event.discordMessageId || event.discordEventId) {
+    console.log('[PUBLISH-BUTTON-DEBUG] Publish button clicked for event:', event?.id);
+    if (!event) {
+      console.log('[PUBLISH-BUTTON-DEBUG] No event available');
       return;
     }
     
+    // Check if the event already has a discord message ID (already published)
+    if (event.discordMessageId || event.discordEventId) {
+      console.log('[PUBLISH-BUTTON-DEBUG] Event already published, exiting');
+      return;
+    }
+    
+    console.log('[PUBLISH-BUTTON-DEBUG] Starting publish process, setting publishing state to true');
     // Check if server is available before attempting to publish
     setPublishing(true);
     setPublishMessage(null);
-      try {
+    
+    let timeoutId: NodeJS.Timeout;
+    let publishTimeoutId: NodeJS.Timeout;
+    
+    try {
       // First check if the server is available
       const isServerAvailable = await checkServerAvailability();
       
@@ -243,11 +253,18 @@ const EventDetails: React.FC<EventDetailsProps> = ({ event, onEventUpdated }) =>
       }
       
       // Check database directly for the image_url and participants for this event
-      const { data: dbEvent } = await supabase
+      const dbEventPromise = supabase
         .from('events')
         .select('image_url, participants')
         .eq('id', event.id)
         .single();
+      
+      const timeoutPromise = new Promise((_, reject) => {
+        timeoutId = setTimeout(() => reject(new Error('Database query timed out')), 10000);
+      });
+      
+      const { data: dbEvent } = await Promise.race([dbEventPromise, timeoutPromise]) as any;
+      if (timeoutId) clearTimeout(timeoutId);
       
       // Create an enhanced version of the event with guaranteed image URL
       console.log('[PUBLISH-DEBUG] Raw dbEvent.image_url:', dbEvent?.image_url);
@@ -267,7 +284,15 @@ const EventDetails: React.FC<EventDetailsProps> = ({ event, onEventUpdated }) =>
       };
       
       console.log('[PUBLISH-DEBUG] publishableEvent:', publishableEvent);
-      const response = await publishEventFromCycle(publishableEvent);
+      
+      // Add timeout to the publish call
+      const publishPromise = publishEventFromCycle(publishableEvent);
+      const publishTimeoutPromise = new Promise((_, reject) => {
+        publishTimeoutId = setTimeout(() => reject(new Error('Publish request timed out')), 30000);
+      });
+      
+      const response = await Promise.race([publishPromise, publishTimeoutPromise]) as any;
+      if (publishTimeoutId) clearTimeout(publishTimeoutId);
       
       if (!response.success) {
         if (response.errors.length > 0) {
@@ -283,20 +308,59 @@ const EventDetails: React.FC<EventDetailsProps> = ({ event, onEventUpdated }) =>
       // Update event with multiple Discord message IDs
       if (response.publishedChannels.length > 0) {
         await updateEventMultipleDiscordIds(event.id, response.publishedChannels);
+        
+        // Schedule reminders if the event has reminder settings
+        if (event.eventSettings?.firstReminderEnabled || event.eventSettings?.secondReminderEnabled) {
+          try {
+            const reminderSettings = {
+              firstReminder: {
+                enabled: event.eventSettings.firstReminderEnabled,
+                value: event.eventSettings.firstReminderTime?.value || 15,
+                unit: (event.eventSettings.firstReminderTime?.unit || 'minutes') as 'minutes' | 'hours' | 'days'
+              },
+              secondReminder: {
+                enabled: event.eventSettings.secondReminderEnabled,
+                value: event.eventSettings.secondReminderTime?.value || 3,
+                unit: (event.eventSettings.secondReminderTime?.unit || 'days') as 'minutes' | 'hours' | 'days'
+              }
+            };
+            
+            const { scheduleEventReminders } = await import('../../../utils/reminderService');
+            const reminderResult = await scheduleEventReminders(
+              event.id,
+              event.datetime,
+              reminderSettings
+            );
+            
+            if (!reminderResult.success) {
+              console.warn('[PUBLISH-REMINDER-DEBUG] Failed to schedule reminders for published event:', reminderResult.error);
+            } else {
+              console.log('[PUBLISH-REMINDER-DEBUG] Successfully scheduled reminders for published event:', event.id);
+            }
+          } catch (reminderError) {
+            console.error('[PUBLISH-REMINDER-DEBUG] Error scheduling reminders for published event:', reminderError);
+          }
+        }
       }
       
       const publishedCount = response.publishedChannels.length;
       const errorCount = response.errors.length;
       
-      let successMessage = `Event published to ${publishedCount} squadron${publishedCount !== 1 ? 's' : ''}!`;
-      if (errorCount > 0) {
-        successMessage += ` (${errorCount} failed)`;
+      // Only show error messages, not success messages (button state serves as confirmation)
+      if (publishedCount === 0) {
+        setPublishMessage({
+          type: 'error',
+          text: 'Failed to publish to any squadrons'
+        });
+      } else if (errorCount > 0) {
+        setPublishMessage({
+          type: 'error', 
+          text: `Published to ${publishedCount} squadron${publishedCount !== 1 ? 's' : ''}, but ${errorCount} failed`
+        });
+      } else {
+        // Clear any existing messages on successful publish
+        setPublishMessage(null);
       }
-      
-      setPublishMessage({
-        type: publishedCount > 0 ? 'success' : 'error',
-        text: successMessage
-      });
       
       // Refresh data from database to get updated Discord IDs
       await refreshEventData();
@@ -329,6 +393,11 @@ const EventDetails: React.FC<EventDetailsProps> = ({ event, onEventUpdated }) =>
         text: errorMessage
       });
     } finally {
+      // Clean up any remaining timeouts
+      if (timeoutId) clearTimeout(timeoutId);
+      if (publishTimeoutId) clearTimeout(publishTimeoutId);
+      
+      console.log('[PUBLISH-BUTTON-DEBUG] Setting publishing state to false');
       setPublishing(false);
     }
   };
@@ -428,13 +497,9 @@ const EventDetails: React.FC<EventDetailsProps> = ({ event, onEventUpdated }) =>
     return (
       <div
         style={{
-          width: '550px',
-          maxWidth: '100%',
+          width: '100%',
           height: '100%',
-          backgroundColor: '#FFFFFF',
-          boxShadow: '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)',
-          borderRadius: '8px',
-          padding: '24px',
+          padding: '16px',
           display: 'flex',
           flexDirection: 'column',
           position: 'relative',
@@ -455,12 +520,8 @@ const EventDetails: React.FC<EventDetailsProps> = ({ event, onEventUpdated }) =>
   return (
     <div
       style={{
-        width: '550px',
-        maxWidth: '100%',
+        width: '100%',
         height: '100%',
-        backgroundColor: '#FFFFFF',
-        boxShadow: '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)',
-        borderRadius: '8px',
         display: 'flex',
         flexDirection: 'column',
         position: 'relative',
@@ -472,12 +533,12 @@ const EventDetails: React.FC<EventDetailsProps> = ({ event, onEventUpdated }) =>
         style={{
           flex: 1,
           overflowY: 'auto',
-          padding: '24px 24px 0 24px'
+          padding: '0 16px 0 16px'
         }}
       >
       <div style={{ marginBottom: '10px' }}>
         <h1 style={{
-          fontSize: '24px',
+          fontSize: '18px',
           fontWeight: 700,
           color: '#0F172A',
           marginBottom: '8px'
@@ -495,7 +556,6 @@ const EventDetails: React.FC<EventDetailsProps> = ({ event, onEventUpdated }) =>
       </div>
 
       <Card className="p-4" style={{ marginBottom: '10px' }}>
-        <h2 style={{ fontSize: '18px', fontWeight: 600, color: '#1E293B', marginBottom: '16px' }}>Event Details</h2>
         {/* Timezone Display */}
         {event.eventSettings?.timezone && (
           <div style={{

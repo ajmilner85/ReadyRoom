@@ -190,11 +190,7 @@ const CyclesList: React.FC<CyclesListProps> = ({
   return (
     <div
       style={{
-        width: '550px',
-        maxWidth: '100%',
-        backgroundColor: '#FFFFFF',
-        boxShadow: '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)',
-        borderRadius: '8px',
+        width: '100%',
         display: 'flex',
         flexDirection: 'column',
         position: 'relative',
@@ -203,7 +199,7 @@ const CyclesList: React.FC<CyclesListProps> = ({
         boxSizing: 'border-box'
       }}
     >
-      <div style={{ flex: 1, overflowY: 'auto', padding: '10px 20px 10px 10px', marginBottom: '8px' }}>
+      <div style={{ flex: 1, overflowY: 'auto', padding: '0 20px 10px 10px', marginBottom: '8px' }}>
         {renderCycleGroup(activeCycles, 'Active Cycles')}
         {renderCycleGroup(upcomingCycles, 'Upcoming Cycles')}
         {renderCycleGroup(completedCycles, 'Completed Cycles')}

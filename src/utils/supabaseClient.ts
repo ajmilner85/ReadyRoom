@@ -429,6 +429,9 @@ export const createEvent = async (event: Omit<Event, 'id' | 'creator' | 'attenda
     sendRemindersToTentative: event.reminderRecipients?.sendToTentative !== undefined ? event.reminderRecipients.sendToTentative : true
   };
 
+  console.log('[CREATE-EVENT-DEBUG] About to insert event with participants:', event.participants);
+  console.log('[CREATE-EVENT-DEBUG] Event object keys:', Object.keys(event));
+
   // Map from frontend format to database format
   const { data, error } = await supabase
     .from('events')
@@ -457,6 +460,10 @@ export const createEvent = async (event: Omit<Event, 'id' | 'creator' | 'attenda
     console.error('Error creating event:', error);
     return { event: null, error };
   }
+
+  console.log('[CREATE-EVENT-DEBUG] Database returned event data:', data);
+  console.log('[CREATE-EVENT-DEBUG] Database participants field:', data.participants);
+
   // Transform to frontend format
   const newEvent: Event = {
     id: data.id,
@@ -467,6 +474,7 @@ export const createEvent = async (event: Omit<Event, 'id' | 'creator' | 'attenda
     status: data.status || 'upcoming',
     eventType: data.event_type as EventType | undefined,
     cycleId: data.cycle_id || undefined,
+    participants: data.participants || [], // Include participants from database
     trackQualifications: data.track_qualifications || false, // Keep for backward compatibility
     eventSettings: data.event_settings || undefined, // Include event settings from database
     restrictedTo: [], // No restricted_to in the DB schema
@@ -601,6 +609,20 @@ export const updateEvent = async (eventId: string, updates: Partial<Omit<Event, 
       console.error('Error fetching attendance:', attendanceError);
     }
   }
+
+  // Handle reminder updates if reminders were changed
+  if (updates.reminders !== undefined && data.start_datetime) {
+    try {
+      const { updateEventReminders } = await import('./reminderService');
+      const reminderResult = await updateEventReminders(eventId, data.start_datetime, updates.reminders);
+      if (!reminderResult.success) {
+        console.warn('Failed to update reminders for event:', reminderResult.error);
+      }
+    } catch (reminderError) {
+      console.warn('Error updating reminders for event:', reminderError);
+    }
+  }
+
   // Transform to frontend format
   const updatedEvent: Event = {
     id: data.id,
@@ -627,6 +649,14 @@ export const updateEvent = async (eventId: string, updates: Partial<Omit<Event, 
 };
 
 export const deleteEvent = async (eventId: string) => {
+  // Cancel any scheduled reminders first
+  try {
+    const { cancelEventReminders } = await import('./reminderService');
+    await cancelEventReminders(eventId);
+  } catch (reminderError) {
+    console.warn('Failed to cancel reminders for deleted event:', reminderError);
+  }
+
   const { error } = await supabase
     .from('events')
     .delete()

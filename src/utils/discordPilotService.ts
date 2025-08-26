@@ -27,23 +27,41 @@ export interface DiscordPilotMatch {
 
 /**
  * Get guild members from Discord API for the selected guild
+ * @param squadronId Optional squadron ID to get Discord config from. If not provided, uses first squadron with Discord integration.
  * @returns List of Discord members
  */
-export async function fetchDiscordGuildMembers(): Promise<DiscordMember[]> {
+export async function fetchDiscordGuildMembers(squadronId?: string): Promise<DiscordMember[]> {
   try {
-    // First get the guild ID from squadron_settings
-    const { data: settingsData, error: settingsError } = await supabase
-      .from('squadron_settings')
-      .select('value')
-      .eq('key', 'discord_guild_id')
-      .single();
-      
-    // If no guild ID is configured, throw an error
-    if (settingsError || !settingsData || !settingsData.value) {
-      throw new Error('Discord server not configured. Please set up Discord integration in settings first.');
+    let guildId: string | null = null;
+    
+    if (squadronId) {
+      // Get guild ID from specific squadron
+      const { data: squadronData, error: squadronError } = await supabase
+        .from('org_squadrons')
+        .select('discord_integration')
+        .eq('id', squadronId)
+        .single();
+        
+      if (!squadronError && squadronData?.discord_integration?.selectedGuildId) {
+        guildId = squadronData.discord_integration.selectedGuildId;
+      }
+    } else {
+      // Get guild ID from first squadron with Discord integration
+      const { data: squadronsData, error: squadronsError } = await supabase
+        .from('org_squadrons')
+        .select('discord_integration')
+        .not('discord_integration->selectedGuildId', 'is', null)
+        .limit(1);
+        
+      if (!squadronsError && squadronsData?.length > 0 && squadronsData[0]?.discord_integration?.selectedGuildId) {
+        guildId = squadronsData[0].discord_integration.selectedGuildId;
+      }
     }
     
-    const guildId = settingsData.value;
+    // If no guild ID is configured, throw an error
+    if (!guildId) {
+      throw new Error('Discord server not configured. Please set up Discord integration in settings first.');
+    }
     console.log(`Fetching Discord members for guild ID: ${guildId}`);
     
     // Call the server endpoint that will use the Discord API with the specific guild ID
