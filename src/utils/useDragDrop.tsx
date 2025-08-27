@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { DragStartEvent, DragEndEvent } from '@dnd-kit/core';
-import type { Pilot } from '../types/PilotTypes';
 import type { MissionCommanderInfo } from '../types/MissionCommanderTypes';
 import type { AssignedPilot } from '../types/MissionPrepTypes';
 import { removePilotFromAllFlights, handleMissionCommanderCheck } from './dragDropUtils';

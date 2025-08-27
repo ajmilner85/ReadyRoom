@@ -7,8 +7,7 @@ import {
 } from '../utils/localStorageUtils';
 import type { MissionCommanderInfo } from '../types/MissionCommanderTypes';
 import type { ExtractedFlight } from '../types/FlightData';
-import type { Pilot } from '../types/PilotTypes';
-import type { AssignedPilot, AssignedPilotsRecord } from '../types/MissionPrepTypes';
+import type { AssignedPilotsRecord } from '../types/MissionPrepTypes';
 
 
 // Type for Roll Call Responses state

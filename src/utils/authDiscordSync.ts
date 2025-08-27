@@ -60,14 +60,16 @@ export async function syncAuthenticatedUsersWithDiscord(): Promise<AuthDiscordSy
             }
 
             // Update callsign/board number from Discord display name if not already set
-            if (!profile.callsign && discordMember.callsign) {
-              updates.callsign = discordMember.callsign;
-              updated = true;
+            if (!profile.pilot?.callsign && discordMember.callsign) {
+              // Note: updating pilot data would need to be done through pilot table, not user_profiles
+              // updates.callsign = discordMember.callsign;
+              // updated = true;
             }
 
-            if (!profile.board_number && discordMember.boardNumber) {
-              updates.board_number = discordMember.boardNumber;
-              updated = true;
+            if (!profile.pilot?.boardNumber && discordMember.boardNumber) {
+              // Note: updating pilot data would need to be done through pilot table, not user_profiles
+              // updates.board_number = discordMember.boardNumber;
+              // updated = true;
             }
 
             // If user doesn't have a linked pilot but Discord member suggests one

@@ -35,7 +35,8 @@ const PilotListItem: React.FC<PilotListItemProps> = ({
       return pilot.currentSquadron ? '#000000' : '#374151';
     }
     // Use squadron primary color from color_palette.primary if available, otherwise dark gray
-    return pilot.currentSquadron?.color_palette?.primary || '#374151';
+    const colorPalette = pilot.currentSquadron?.color_palette as { primary?: string } | null;
+    return colorPalette?.primary || '#374151';
   };
   // Render qualification badges for the pilot
   const renderQualificationBadges = () => {
@@ -74,9 +75,9 @@ const PilotListItem: React.FC<PilotListItemProps> = ({
     >
       <div style={{ marginLeft: '-20px' }}>
         <PilotIDBadgeSm 
-          squadronTailCode={pilot.currentSquadron?.tail_code}
+          squadronTailCode={pilot.currentSquadron?.tail_code || undefined}
           boardNumber={pilot.boardNumber}
-          squadronInsigniaUrl={pilot.currentSquadron?.insignia_url}
+          squadronInsigniaUrl={pilot.currentSquadron?.insignia_url || undefined}
         />
       </div>
       <span style={{

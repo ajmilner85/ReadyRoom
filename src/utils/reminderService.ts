@@ -503,18 +503,20 @@ export async function sendEventReminder(eventId: string): Promise<{ success: boo
     
     // Group by unique guild+channel combination
     for (const publication of discordEventIds) {
-      const channelKey = `${publication.guildId}:${publication.channelId}`;
+      if (!publication) continue;
+      const pub = publication as any;
+      const channelKey = `${pub.guildId}:${pub.channelId}`;
       
       if (uniqueChannels.has(channelKey)) {
         const existing = uniqueChannels.get(channelKey)!;
-        existing.messageIds.push(publication.messageId);
-        existing.squadronIds.push(publication.squadronId);
+        existing.messageIds.push(pub.messageId);
+        existing.squadronIds.push(pub.squadronId);
       } else {
         uniqueChannels.set(channelKey, {
-          guildId: publication.guildId,
-          channelId: publication.channelId,
-          messageIds: [publication.messageId],
-          squadronIds: [publication.squadronId]
+          guildId: pub.guildId,
+          channelId: pub.channelId,
+          messageIds: [pub.messageId],
+          squadronIds: [pub.squadronId]
         });
       }
     }

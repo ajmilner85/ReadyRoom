@@ -2,7 +2,6 @@ import React, { useState, memo } from 'react';
 import { useDroppable } from '@dnd-kit/core';
 import AircraftTile from './AircraftTile';
 import { Edit2, Trash2 } from 'lucide-react';
-import type { Pilot } from '../../../types/PilotTypes';
 
 // Add mission commander interface
 interface MissionCommanderInfo {
