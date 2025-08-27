@@ -66,7 +66,7 @@ async function processIndividualReminder(reminder: any) {
   }
 
   // Calculate time until event for the message
-  const timeUntilEvent = calculateTimeUntilEvent(event.datetime);
+  const timeUntilEvent = calculateTimeUntilEvent((event as any).start_datetime || (event as any).datetime);
   
   // Get users to mention based on settings and attendance
   const usersToMention = getUsersToMention(attendance);
@@ -201,7 +201,7 @@ async function sendReminderMessage(
         continue; // Continue with other channels even if one fails
       }
       
-      const result = await response.json();
+      // const result = await response.json();
       // console.log(`✅ Reminder sent successfully to channel ${channelKey}:`, result);
     }
     

@@ -309,7 +309,7 @@ export const fetchEvents = async (cycleId?: string, _discordGuildId?: string) =>
         ? ((dbEvent.discord_event_id as any)[0]?.messageId || undefined)
         : (dbEvent.discord_event_id || undefined),
       // Keep the full JSONB array for deletion and editing
-      discord_event_id: dbEvent.discord_event_id,
+      discord_event_id: dbEvent.discord_event_id as any,
       // Handle JSONB image_url field
       imageUrl: typeof dbEvent.image_url === 'string' 
         ? dbEvent.image_url 

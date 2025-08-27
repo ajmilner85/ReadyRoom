@@ -251,7 +251,7 @@ export async function getPilotWithQualifications(pilotId: string) {
     if (qualError) {
       // Return pilot without qualifications if there was an error
       return { 
-        pilot: pilotData as SupabasePilot,
+        pilot: pilotData as unknown as SupabasePilot,
         error: qualError
       };
     }

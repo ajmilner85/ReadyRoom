@@ -113,7 +113,7 @@ export async function scheduleEventReminders(
 
     if (remindersToSchedule.length > 0) {
       // console.log('[SCHEDULE-REMINDERS-DEBUG] Inserting reminders into database...');
-      const { error, data } = await supabase
+      const { error, data: _data } = await supabase
         .from('event_reminders')
         .insert(remindersToSchedule)
         .select();
@@ -143,14 +143,14 @@ export async function cancelEventReminders(eventId: string): Promise<{ success: 
     // console.log('[CANCEL-REMINDERS-DEBUG] Cancelling reminders for event:', eventId);
     
     // First check what reminders exist
-    const { data: existingReminders } = await supabase
+    const { data: _existingReminders } = await supabase
       .from('event_reminders')
       .select('*')
       .eq('event_id', eventId);
     
     // console.log('[CANCEL-REMINDERS-DEBUG] Found existing reminders:', existingReminders);
 
-    const { error, count } = await supabase
+    const { error, count: _count } = await supabase
       .from('event_reminders')
       .delete({ count: 'exact' })
       .eq('event_id', eventId);
@@ -184,7 +184,7 @@ export async function getPendingReminders(): Promise<{
     .lte('scheduled_time', now)
     .order('scheduled_time', { ascending: true });
 
-  return { data, error };
+  return { data: data as any, error };
 }
 
 /**
@@ -246,7 +246,7 @@ export async function getEventWithAttendanceForReminder(eventId: string): Promis
     
     // Handle both single event ID and multi-channel array format
     if (Array.isArray(eventData.discord_event_id)) {
-      discordEventIds = eventData.discord_event_id.map(pub => pub.messageId);
+      discordEventIds = eventData.discord_event_id.map(pub => pub && (pub as any).messageId);
     } else {
       discordEventIds = [eventData.discord_event_id];
     }
@@ -282,7 +282,7 @@ export async function getEventWithAttendanceForReminder(eventId: string): Promis
     // Create a map for quick pilot lookup
     const pilotMap = new Map();
     if (pilotData && !pilotError) {
-      pilotData.forEach(pilot => {
+      (pilotData as any).forEach((pilot: any) => {
         pilotMap.set(pilot.discord_id, {
           board_number: pilot.board_number,
           call_sign: pilot.call_sign
@@ -346,12 +346,12 @@ export async function getEventWithAttendanceForReminder(eventId: string): Promis
 export function formatReminderMessage(
   event: Event,
   timeUntilEvent: string,
-  usersToMention?: Array<{ discord_id: string; discord_username: string; board_number?: string; call_sign?: string }>
+  _usersToMention?: Array<{ discord_id: string; discord_username: string; board_number?: string; call_sign?: string }>
 ): string {
   // console.log('[FORMAT-REMINDER-DEBUG] Event data:', event);
   // console.log('[FORMAT-REMINDER-DEBUG] Time until event:', timeUntilEvent);
   // console.log('[FORMAT-REMINDER-DEBUG] Users to mention:', usersToMention);
-  const eventDate = new Date(event.datetime);
+  const eventDate = new Date((event as any).datetime || event.start_datetime);
   const easternTime = eventDate.toLocaleString('en-US', {
     timeZone: 'America/New_York',
     weekday: 'long',
@@ -415,7 +415,7 @@ export async function updateEventReminders(
     
     // Cancel existing reminders
     // console.log('[UPDATE-REMINDERS-DEBUG] Cancelling existing reminders...');
-    const cancelResult = await cancelEventReminders(eventId);
+    await cancelEventReminders(eventId);
     // console.log('[UPDATE-REMINDERS-DEBUG] Cancel result:', cancelResult);
     
     // Schedule new reminders
@@ -462,9 +462,9 @@ export async function sendEventReminder(eventId: string): Promise<{ success: boo
     // Transform database event to frontend Event format for proper message formatting
     const frontendEvent = {
       ...event,
-      title: event.name || event.title,
-      datetime: event.start_datetime || event.datetime,
-      name: event.name || event.title
+      title: event.name || (event as any).title,
+      datetime: event.start_datetime || (event as any).datetime,
+      name: event.name || (event as any).title
     };
     
     // Format the reminder message
