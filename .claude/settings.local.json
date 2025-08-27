@@ -24,11 +24,14 @@
       "Read(/C:\\c\\Users\\ajmil\\Desktop/**)",
       "mcp__playwright__browser_navigate",
       "mcp__playwright__browser_take_screenshot",
-      "mcp__vercel-awesome-ai__list_projects"
+      "mcp__vercel-awesome-ai__list_projects",
+      "mcp__vercel-awesome-ai__get_deployment",
+      "mcp__vercel-awesome-ai__get_deployment_build_logs",
+      "mcp__vercel-awesome-ai__list_deployments"
     ],
     "additionalDirectories": [
-      "C:\\c\\Users\\ajmil\\Desktop\\ReadyRoom",
-      "C:\\c\\Users\\ajmil\\Desktop"
+      "C:\\Users\\ajmil\\Desktop\\ReadyRoom",
+      "C:\\Users\\ajmil\\Desktop"
     ]
   },
   "outputStyle": "default"

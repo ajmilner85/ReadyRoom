@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import EventsList from './events/EventsList';
 import EventDetails from './events/EventDetails';
 import EventAttendance from './events/EventAttendance';
@@ -9,8 +9,8 @@ import { DeleteDivisionDialog } from './dialogs/DeleteDivisionDialog';
 import type { Event, Cycle, CycleType } from '../../types/EventTypes';
 import { supabase, fetchCycles, createCycle, updateCycle, deleteCycle, 
          fetchEvents, createEvent, updateEvent, deleteEvent } from '../../utils/supabaseClient';
-import { deleteDiscordMessage, deleteMultiChannelEvent, updateMultiChannelEvent } from '../../utils/discordService';
-import { uploadEventImage, uploadMultipleEventImages, deleteEventImage } from '../../utils/eventImageService';
+import { deleteMultiChannelEvent, updateMultiChannelEvent } from '../../utils/discordService';
+import { uploadMultipleEventImages } from '../../utils/eventImageService';
 import LoadingSpinner from './LoadingSpinner';
 import { useWebSocket } from '../../context/WebSocketContext';
 import { getAllSquadrons } from '../../utils/organizationService';
@@ -119,7 +119,7 @@ const EventsManagement: React.FC = () => {
     // Find event with the matching Discord message ID
     const updatedEvents = events.map(event => {
       // Check if this event matches the updated Discord message ID
-      if (event.discordMessageId === lastEventUpdate.eventId) {
+      if (event.discordEventId === lastEventUpdate.eventId) {
         // Create updated event with new attendance data
         const updatedEvent: Event = {
           ...event,
@@ -330,9 +330,9 @@ const EventsManagement: React.FC = () => {
     // console.log('[EVENTS-MGMT-DEBUG] handleCreateEvent shouldPublish:', shouldPublish);
     // console.log('[EVENTS-MGMT-DEBUG] selectedCycle:', selectedCycle);
     
-    let createTimeoutId: NodeJS.Timeout;
-    let imageTimeoutId: NodeJS.Timeout;
-    let publishTimeoutId: NodeJS.Timeout;
+    let createTimeoutId: NodeJS.Timeout | undefined;
+    let imageTimeoutId: NodeJS.Timeout | undefined;
+    let publishTimeoutId: NodeJS.Timeout | undefined;
     
     try {
       // Determine event type based on cycle
@@ -423,26 +423,26 @@ const EventsManagement: React.FC = () => {
                   status: updatedEventData.status,
                   eventType: updatedEventData.event_type,
                   cycleId: updatedEventData.cycle_id,
-                  trackQualifications: updatedEventData.track_qualifications || false,
-                  eventSettings: updatedEventData.event_settings,
-                  participants: updatedEventData.participants,
+                  trackQualifications: (updatedEventData as any).track_qualifications || false,
+                  eventSettings: (updatedEventData as any).event_settings,
+                  participants: (updatedEventData as any).participants,
                   // Handle image URLs from the JSONB image_url field
-                  imageUrl: typeof updatedEventData.image_url === 'object' && updatedEventData.image_url?.headerImage 
-                    ? updatedEventData.image_url.headerImage 
+                  imageUrl: typeof updatedEventData.image_url === 'object' && (updatedEventData.image_url as any)?.headerImage 
+                    ? (updatedEventData.image_url as any).headerImage 
                     : updatedEventData.image_url,
                   headerImageUrl: typeof updatedEventData.image_url === 'object' 
-                    ? updatedEventData.image_url.headerImage 
+                    ? (updatedEventData.image_url as any).headerImage 
                     : updatedEventData.image_url,
                   additionalImageUrls: typeof updatedEventData.image_url === 'object' 
-                    ? updatedEventData.image_url.additionalImages || []
+                    ? (updatedEventData.image_url as any).additionalImages || []
                     : [],
                   // Also pass the full JSONB structure for multi-image support
                   images: typeof updatedEventData.image_url === 'object' ? updatedEventData.image_url : undefined,
                   restrictedTo: [],
                   creator: {
-                    callsign: updatedEventData.creator_call_sign || '',
-                    boardNumber: updatedEventData.creator_board_number || '',
-                    billet: updatedEventData.creator_billet || ''
+                    callsign: (updatedEventData as any).creator_call_sign || '',
+                    boardNumber: (updatedEventData as any).creator_board_number || '',
+                    billet: (updatedEventData as any).creator_billet || ''
                   },
                   attendance: { accepted: [], declined: [], tentative: [] }
                 };
@@ -634,7 +634,7 @@ const EventsManagement: React.FC = () => {
         // Check if this event should have reminders by checking if any exist in the database
         if (!reminderSettings) {
           // Try to get existing reminders from database to see if this event had reminders before
-          const { data: existingReminders } = await supabase
+          const { data: existingReminders } = await (supabase as any)
             .from('event_reminders')
             .select('*')
             .eq('event_id', editingEvent.id)
@@ -699,16 +699,17 @@ const EventsManagement: React.FC = () => {
             endDatetime: eventData.endDatetime?.includes('T') ? eventData.endDatetime : `${eventData.endDatetime}:00.000Z`,
             // Ensure creator field is properly mapped from raw database fields
             creator: {
-              boardNumber: freshEventData.creator_board_number || '',
-              callsign: freshEventData.creator_call_sign || '',
-              billet: freshEventData.creator_billet || ''
-            }
+              boardNumber: (freshEventData as any).creator_board_number || '',
+              callsign: (freshEventData as any).creator_call_sign || '',
+              billet: (freshEventData as any).creator_billet || ''
+            },
+            attendance: { accepted: [], declined: [], tentative: [] }
           };
         
           console.log(`[UPDATE-EVENT] Updated event object:`, {
             id: updatedEvent.id,
             title: updatedEvent.title,
-            cycleId: updatedEvent.cycleId || updatedEvent.cycle_id,
+            cycleId: updatedEvent.cycleId || (updatedEvent as any).cycle_id,
             participants: updatedEvent.participants,
             discord_event_id: updatedEvent.discord_event_id,
             creator: updatedEvent.creator,
@@ -1342,7 +1343,7 @@ const EventsManagement: React.FC = () => {
             : eventToDelete?.title || ""}
           isPublished={!isDeleteCycle && (
             eventToDelete?.discordEventId || 
-            eventToDelete?.discordMessageId || 
+            (eventToDelete as any)?.discordMessageId || 
             (eventToDelete as any)?.discord_event_id
           )}
         />

@@ -7,7 +7,7 @@ interface UserAccountsProps {
   setError?: (error: string | null) => void;
 }
 
-const UserAccounts: React.FC<UserAccountsProps> = ({ error, setError }) => {
+const UserAccounts: React.FC<UserAccountsProps> = ({ }) => {
   const { user, userProfile } = useAuth();
   const [showPasswordReset, setShowPasswordReset] = useState(false);
   const [resetEmail, setResetEmail] = useState('');

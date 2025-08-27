@@ -11,11 +11,11 @@ import type { Flight, ExtractedFlight } from '../../types/FlightData';
 import type { MissionCommanderInfo } from '../../types/MissionCommanderTypes';
 import type { Pilot } from '../../types/PilotTypes';
 import { useDragDrop } from '../../utils/useDragDrop';
-import type { Event } from '../../types/EventTypes';
 import { autoAssignPilots } from '../../utils/autoAssignUtils';
 import { getMissionCommanderCandidatesWithFlightInfo } from '../../utils/missionCommanderUtils';
 import { useMissionPrepData } from '../../hooks/useMissionPrepData';
 import { useMissionPrepState } from '../../hooks/useMissionPrepState';
+import type { AssignedPilot, AssignedPilotsRecord } from '../../types/MissionPrepTypes';
 
 // Define the structure for the polled attendance data
 interface RealtimeAttendanceRecord {
@@ -24,16 +24,11 @@ interface RealtimeAttendanceRecord {
   roll_call_response?: 'Present' | 'Absent' | 'Tentative';
 }
 
-interface AssignedPilot extends Pilot {
-  dashNumber: string;
-  attendanceStatus?: 'accepted' | 'tentative' | 'declined';
-  rollCallStatus?: 'Present' | 'Absent' | 'Tentative';
-}
 
 interface MissionPreparationProps {
   onTransferToMission?: (flights: Flight[]) => void;
-  assignedPilots?: Record<string, AssignedPilot[]>;
-  onAssignedPilotsChange?: (pilots: Record<string, AssignedPilot[]>) => void;
+  assignedPilots?: AssignedPilotsRecord;
+  onAssignedPilotsChange?: (pilots: AssignedPilotsRecord) => void;
   missionCommander?: MissionCommanderInfo | null;
   onMissionCommanderChange?: (commander: MissionCommanderInfo | null) => void;
   extractedFlights?: ExtractedFlight[];

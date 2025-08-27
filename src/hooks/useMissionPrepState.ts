@@ -8,13 +8,8 @@ import {
 import type { MissionCommanderInfo } from '../types/MissionCommanderTypes';
 import type { ExtractedFlight } from '../types/FlightData';
 import type { Pilot } from '../types/PilotTypes';
+import type { AssignedPilot, AssignedPilotsRecord } from '../types/MissionPrepTypes';
 
-interface AssignedPilot extends Pilot {
-  dashNumber: string;
-  // Add status fields that might be part of the assigned pilot data
-  attendanceStatus?: 'accepted' | 'tentative'; 
-  rollCallStatus?: 'Present' | 'Absent' | 'Tentative';
-}
 
 // Type for Roll Call Responses state
 type RollCallResponses = Record<string, 'Present' | 'Absent' | 'Tentative' | null>;
@@ -23,8 +18,8 @@ type RollCallResponses = Record<string, 'Present' | 'Absent' | 'Tentative' | nul
  * Custom hook to manage mission preparation state
  */
 export const useMissionPrepState = (
-  externalAssignedPilots?: Record<string, AssignedPilot[]>,
-  onAssignedPilotsChange?: (pilots: Record<string, AssignedPilot[]>) => void,
+  externalAssignedPilots?: AssignedPilotsRecord,
+  onAssignedPilotsChange?: (pilots: AssignedPilotsRecord) => void,
   externalMissionCommander?: MissionCommanderInfo | null,
   onMissionCommanderChange?: (commander: MissionCommanderInfo | null) => void,
   externalExtractedFlights?: ExtractedFlight[],
@@ -36,7 +31,7 @@ export const useMissionPrepState = (
   onRollCallResponsesChange?: (responses: RollCallResponses) => void
 ) => {
   // Use the external state if provided, otherwise use local state
-  const [localAssignedPilots, setLocalAssignedPilots] = useState<Record<string, AssignedPilot[]>>(loadAssignedPilots() || {});
+  const [localAssignedPilots, setLocalAssignedPilots] = useState<AssignedPilotsRecord>(loadAssignedPilots() || {});
   const [localMissionCommander, setLocalMissionCommander] = useState<MissionCommanderInfo | null>(loadMissionCommander());
   const [localExtractedFlights, setLocalExtractedFlights] = useState<ExtractedFlight[]>(loadExtractedFlights() || []);
   const [localPrepFlights, setLocalPrepFlights] = useState<any[]>(loadPrepFlights() || []);
@@ -55,7 +50,7 @@ export const useMissionPrepState = (
   const rollCallResponses = externalRollCallResponses !== undefined ? externalRollCallResponses : localRollCallResponses;
   
   // Create functions to update the appropriate state
-  const setAssignedPilots = useCallback((value: React.SetStateAction<Record<string, AssignedPilot[]>>) => {
+  const setAssignedPilots = useCallback((value: React.SetStateAction<AssignedPilotsRecord>) => {
     const newValue = typeof value === 'function' ? value(assignedPilots) : value;
     if (onAssignedPilotsChange) {
       onAssignedPilotsChange(newValue);
