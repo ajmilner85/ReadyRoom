@@ -42,7 +42,6 @@ interface EnhancedPilot extends Pilot {
 
 const EventAttendance: React.FC<EventAttendanceProps> = ({ event }) => {
   const [attendance, setAttendance] = useState<AttendanceData[]>([]);
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pollInterval, setPollInterval] = useState<NodeJS.Timeout | null>(null);
   const [cycles, setCycles] = useState<Cycle[]>([]);
@@ -50,7 +49,6 @@ const EventAttendance: React.FC<EventAttendanceProps> = ({ event }) => {
   // Function to fetch attendance data from API
   const fetchAttendance = async (eventId: string) => {
     try {
-      setLoading(true);
       setError(null);
       
       // Show the header spinner
@@ -123,8 +121,6 @@ const EventAttendance: React.FC<EventAttendanceProps> = ({ event }) => {
       setError(err instanceof Error ? err.message : 'Failed to fetch attendance');
       setAttendance([]);
     } finally {
-      setLoading(false);
-      
       // Hide the header spinner
       const spinner = document.getElementById('attendance-loading-spinner');
       if (spinner) {

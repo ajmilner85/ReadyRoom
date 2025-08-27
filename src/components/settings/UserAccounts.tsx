@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { signOut } from '../../utils/supabaseClient';
 import { User, Lock, RefreshCw, Link, ExternalLink, Shield, Mail, Key } from 'lucide-react';
 
 interface UserAccountsProps {

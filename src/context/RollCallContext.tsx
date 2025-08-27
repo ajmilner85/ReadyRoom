@@ -58,7 +58,7 @@ export const RollCallProvider: React.FC<RollCallProviderProps> = ({ children, se
         // Update the state with all roll call responses
         setRollCallResponses(pilotRollCallResponses);
         
-        console.log('[ROLL-CALL-DEBUG] Synced roll call responses for event:', selectedEvent.id);
+        // console.log('[ROLL-CALL-DEBUG] Synced roll call responses for event:', selectedEvent.id);
       } catch (error) {
         console.error('Error syncing roll call responses:', error);
       } finally {

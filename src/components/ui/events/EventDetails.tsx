@@ -224,19 +224,19 @@ const EventDetails: React.FC<EventDetailsProps> = ({ event, onEventUpdated }) =>
       setRefreshing(false);
     }
   }, [event]);  const handlePublishToDiscord = async () => {
-    console.log('[PUBLISH-BUTTON-DEBUG] Publish button clicked for event:', event?.id);
+    // console.log('[PUBLISH-BUTTON-DEBUG] Publish button clicked for event:', event?.id);
     if (!event) {
-      console.log('[PUBLISH-BUTTON-DEBUG] No event available');
+      // console.log('[PUBLISH-BUTTON-DEBUG] No event available');
       return;
     }
     
     // Check if the event already has a discord message ID (already published)
     if (event.discordMessageId || event.discordEventId) {
-      console.log('[PUBLISH-BUTTON-DEBUG] Event already published, exiting');
+      // console.log('[PUBLISH-BUTTON-DEBUG] Event already published, exiting');
       return;
     }
     
-    console.log('[PUBLISH-BUTTON-DEBUG] Starting publish process, setting publishing state to true');
+    // console.log('[PUBLISH-BUTTON-DEBUG] Starting publish process, setting publishing state to true');
     // Check if server is available before attempting to publish
     setPublishing(true);
     setPublishMessage(null);
@@ -267,9 +267,9 @@ const EventDetails: React.FC<EventDetailsProps> = ({ event, onEventUpdated }) =>
       if (timeoutId) clearTimeout(timeoutId);
       
       // Create an enhanced version of the event with guaranteed image URL
-      console.log('[PUBLISH-DEBUG] Raw dbEvent.image_url:', dbEvent?.image_url);
-      console.log('[PUBLISH-DEBUG] Raw dbEvent.participants:', dbEvent?.participants);
-      console.log('[PUBLISH-DEBUG] Type of image_url:', typeof dbEvent?.image_url);
+      // console.log('[PUBLISH-DEBUG] Raw dbEvent.image_url:', dbEvent?.image_url);
+      // console.log('[PUBLISH-DEBUG] Raw dbEvent.participants:', dbEvent?.participants);
+      // console.log('[PUBLISH-DEBUG] Type of image_url:', typeof dbEvent?.image_url);
       
       const publishableEvent = {
         ...event,
@@ -283,7 +283,7 @@ const EventDetails: React.FC<EventDetailsProps> = ({ event, onEventUpdated }) =>
         participants: dbEvent?.participants || event.participants
       };
       
-      console.log('[PUBLISH-DEBUG] publishableEvent:', publishableEvent);
+      // console.log('[PUBLISH-DEBUG] publishableEvent:', publishableEvent);
       
       // Add timeout to the publish call
       const publishPromise = publishEventFromCycle(publishableEvent);
@@ -335,7 +335,7 @@ const EventDetails: React.FC<EventDetailsProps> = ({ event, onEventUpdated }) =>
             if (!reminderResult.success) {
               console.warn('[PUBLISH-REMINDER-DEBUG] Failed to schedule reminders for published event:', reminderResult.error);
             } else {
-              console.log('[PUBLISH-REMINDER-DEBUG] Successfully scheduled reminders for published event:', event.id);
+              // console.log('[PUBLISH-REMINDER-DEBUG] Successfully scheduled reminders for published event:', event.id);
             }
           } catch (reminderError) {
             console.error('[PUBLISH-REMINDER-DEBUG] Error scheduling reminders for published event:', reminderError);
@@ -397,7 +397,7 @@ const EventDetails: React.FC<EventDetailsProps> = ({ event, onEventUpdated }) =>
       if (timeoutId) clearTimeout(timeoutId);
       if (publishTimeoutId) clearTimeout(publishTimeoutId);
       
-      console.log('[PUBLISH-BUTTON-DEBUG] Setting publishing state to false');
+      // console.log('[PUBLISH-BUTTON-DEBUG] Setting publishing state to false');
       setPublishing(false);
     }
   };

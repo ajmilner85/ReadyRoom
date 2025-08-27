@@ -47,7 +47,7 @@ const RosterSettings: React.FC<RosterSettingsProps> = ({ error, setError }) => {
   const [editingRoleIsExclusive, setEditingRoleIsExclusive] = useState(false);
   const [editingRoleCompatibleStatuses, setEditingRoleCompatibleStatuses] = useState<string[]>([]);
   const [roleUsage, setRoleUsage] = useState<Record<string, number>>({});
-  const [reorderingRoles, setReorderingRoles] = useState(false);
+  // const [reorderingRoles, setReorderingRoles] = useState(false);
 
   // Qualification management state
   const [qualifications, setQualifications] = useState<Qualification[]>([]);
@@ -542,45 +542,45 @@ const RosterSettings: React.FC<RosterSettingsProps> = ({ error, setError }) => {
     setEditingRoleCompatibleStatuses([...role.compatible_statuses]);
   };
 
-  const handleCancelEditRole = () => {
-    setEditingRoleId(null);
-    setEditingRoleName('');
-    setEditingRoleIsExclusive(false);
-    setEditingRoleCompatibleStatuses([]);
-  };
+  // const handleCancelEditRole = () => {
+  //   setEditingRoleId(null);
+  //   setEditingRoleName('');
+  //   setEditingRoleIsExclusive(false);
+  //   setEditingRoleCompatibleStatuses([]);
+  // };
 
-  const handleSaveRole = async () => {
-    if (!editingRoleId || !editingRoleName.trim()) {
-      setErrorMessage('Role name cannot be empty');
-      return;
-    }
-    
-    setLoading(true);
-    try {
-      const { data, error: updateError } = await updateRole(editingRoleId, {
-        name: editingRoleName.trim(),
-        isExclusive: editingRoleIsExclusive,
-        compatible_statuses: editingRoleCompatibleStatuses
-      });
-      
-      if (updateError) {
-        throw new Error(updateError.message);
-      }
-      
-      if (data) {
-        setRoles(roles.map(r => r.id === editingRoleId ? data : r));
-        setEditingRoleId(null);
-        setEditingRoleName('');
-        setEditingRoleIsExclusive(false);
-        setEditingRoleCompatibleStatuses([]);
-        await refreshRoleUsageCounts();
-      }
-    } catch (err: any) {
-      setErrorMessage(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
+  // const handleSaveRole = async () => {
+  //   if (!editingRoleId || !editingRoleName.trim()) {
+  //     setErrorMessage('Role name cannot be empty');
+  //     return;
+  //   }
+  //   
+  //   setLoading(true);
+  //   try {
+  //     const { data, error: updateError } = await updateRole(editingRoleId, {
+  //       name: editingRoleName.trim(),
+  //       isExclusive: editingRoleIsExclusive,
+  //       compatible_statuses: editingRoleCompatibleStatuses
+  //     });
+  //     
+  //     if (updateError) {
+  //       throw new Error(updateError.message);
+  //     }
+  //     
+  //     if (data) {
+  //       setRoles(roles.map(r => r.id === editingRoleId ? data : r));
+  //       setEditingRoleId(null);
+  //       setEditingRoleName('');
+  //       setEditingRoleIsExclusive(false);
+  //       setEditingRoleCompatibleStatuses([]);
+  //       await refreshRoleUsageCounts();
+  //     }
+  //   } catch (err: any) {
+  //     setErrorMessage(err.message);
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // };
 
   const handleDeleteRole = async (role: Role) => {
     // Check if the role is in use
@@ -654,7 +654,7 @@ const RosterSettings: React.FC<RosterSettingsProps> = ({ error, setError }) => {
       
       // Then update the database
       try {
-        setReorderingRoles(true);
+        // setReorderingRoles(true);
         
         // Update each role's order in the database
         const promises = updatedRoles.map(role => 
@@ -667,23 +667,23 @@ const RosterSettings: React.FC<RosterSettingsProps> = ({ error, setError }) => {
         setErrorMessage(err.message);
         console.error('Error updating role orders:', err);
       } finally {
-        setReorderingRoles(false);
+        // setReorderingRoles(false);
       }
     }
   };
 
   // Qualification management functions
-  const refreshQualificationUsageCounts = async () => {
-    // Get usage count for each qualification
-    const usageCounts: Record<string, number> = {};
-    for (const qualification of qualifications) {
-      const { count, error: usageError } = await getQualificationUsageCount(qualification.id);
-      if (!usageError) {
-        usageCounts[qualification.id] = count;
-      }
-    }
-    setQualificationUsage(usageCounts);
-  };
+  // const refreshQualificationUsageCounts = async () => {
+  //   // Get usage count for each qualification
+  //   const usageCounts: Record<string, number> = {};
+  //   for (const qualification of qualifications) {
+  //     const { count, error: usageError } = await getQualificationUsageCount(qualification.id);
+  //     if (!usageError) {
+  //       usageCounts[qualification.id] = count;
+  //     }
+  //   }
+  //   setQualificationUsage(usageCounts);
+  // };
 
   const handleAddQualification = async () => {
     if (!newQualificationName.trim()) {

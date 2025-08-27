@@ -1,4 +1,4 @@
-import React, { forwardRef } from 'react';
+import { forwardRef } from 'react';
 import type { ComponentPropsWithRef } from 'react';
 
 export interface CardProps extends ComponentPropsWithRef<'div'> {

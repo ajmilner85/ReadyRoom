@@ -335,12 +335,12 @@ const OrganizationSettings: React.FC<OrganizationSettingsProps> = ({ error, setE
     margin: '0 auto'
   };
 
-  const headerStyle = {
-    marginBottom: '40px',
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start'
-  };
+  // const headerStyle = {
+  //   marginBottom: '40px',
+  //   display: 'flex',
+  //   justifyContent: 'space-between',
+  //   alignItems: 'flex-start'
+  // };
 
   const sectionStyle = {
     paddingTop: '32px',

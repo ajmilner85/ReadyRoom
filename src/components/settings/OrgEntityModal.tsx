@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Save, Upload, Image as ImageIcon } from 'lucide-react';
+import { X, Save, Upload } from 'lucide-react';
 import { supabase } from '../../utils/supabaseClient';
 import SquadronDiscordSettings from './SquadronDiscordSettings';
 import {
@@ -107,11 +107,11 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
           carrier_id: ('carrier_id' in entity ? entity.carrier_id : '') || '',
           callsigns: ('callsigns' in entity ? JSON.stringify(entity.callsigns || {}) : '') || '{}',
           color_palette: ('color_palette' in entity && entity.color_palette) ? {
-            neutral_light: entity.color_palette.neutral_light || '#F8FAFC',
-            neutral_dark: entity.color_palette.neutral_dark || '#1E293B',
-            primary: entity.color_palette.primary || '#2563EB',
-            secondary: entity.color_palette.secondary || '#64748B',
-            accent: entity.color_palette.accent || '#059669'
+            neutral_light: (entity.color_palette as any)?.neutral_light || '#F8FAFC',
+            neutral_dark: (entity.color_palette as any)?.neutral_dark || '#1E293B',
+            primary: (entity.color_palette as any)?.primary || '#2563EB',
+            secondary: (entity.color_palette as any)?.secondary || '#64748B',
+            accent: (entity.color_palette as any)?.accent || '#059669'
           } : {
             neutral_light: '#F8FAFC',
             neutral_dark: '#1E293B',
@@ -139,7 +139,7 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
         
         // Initialize Discord settings for this entity from database
         const entityKey = `${entityType}_${entity.id}`;
-        const discordIntegration = entity.discord_integration || {};
+        const discordIntegration = (entity as any)?.discord_integration || {};
         
         setDiscordSettings(prev => ({
           ...prev,
@@ -224,7 +224,7 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
       const filePath = `insignias/${fileName}`;
 
       // Upload file to Supabase storage
-      const { data, error } = await supabase.storage
+      const { error } = await supabase.storage
         .from('organization-assets')
         .upload(filePath, file);
 

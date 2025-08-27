@@ -1,7 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Card } from '../ui/card';
-import LoginForm from '../ui/LoginForm';
-import { User, Users, Building, Plane, PaintBucket, ScrollText, Plus, Edit, Trash, Check, X, AlertCircle, ToggleLeft, ToggleRight, Lock, Unlock, GripVertical, Calendar, Clock, Tag, ArrowRight, Network } from 'lucide-react';
+import { User, Users, Building, Plane, PaintBucket, Calendar, Network } from 'lucide-react';
 
 // Import settings subpages
 import SquadronSettings from './SquadronSettings';
@@ -62,12 +61,7 @@ const settingsNavItems: SettingsNavItem[] = [
 
 const Settings: React.FC = () => {
   const [activeSettingsPage, setActiveSettingsPage] = useState<SettingsPage>('roster');
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const handleLoginStateChange = (loggedIn: boolean) => {
-    setIsLoggedIn(loggedIn);
-  };
 
   // Navigate between settings pages
   const handleSettingsNavigate = (page: SettingsPage) => {

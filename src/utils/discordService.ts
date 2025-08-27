@@ -58,13 +58,13 @@ export async function fetchDiscordGuildMember(guildId: string, userId: string): 
   error?: string;
 }> {
   try {
-    console.log(`[DISCORD-MEMBER-DEBUG] Fetching member info for user ${userId} in guild ${guildId}`);
+    // console.log(`[DISCORD-MEMBER-DEBUG] Fetching member info for user ${userId} in guild ${guildId}`);
     
     const response = await fetch(`http://localhost:3001/api/discord/guild/${guildId}/member/${userId}`);
     
     if (!response.ok) {
       const errorData = await response.json();
-      console.error('[DISCORD-MEMBER-DEBUG] API error:', errorData);
+      // console.error('[DISCORD-MEMBER-DEBUG] API error:', errorData);
       return {
         member: null,
         roles: [],
@@ -73,7 +73,7 @@ export async function fetchDiscordGuildMember(guildId: string, userId: string): 
     }
     
     const data = await response.json();
-    console.log('[DISCORD-MEMBER-DEBUG] Successfully fetched member data:', data);
+    // console.log('[DISCORD-MEMBER-DEBUG] Successfully fetched member data:', data);
     
     return {
       member: data.member,
@@ -82,7 +82,7 @@ export async function fetchDiscordGuildMember(guildId: string, userId: string): 
     };
     
   } catch (error) {
-    console.error('[DISCORD-MEMBER-DEBUG] Network error:', error);
+    // console.error('[DISCORD-MEMBER-DEBUG] Network error:', error);
     return {
       member: null,
       roles: [],
@@ -99,7 +99,7 @@ export async function fetchDiscordGuildRoles(guildId: string): Promise<{
   error?: string;
 }> {
   try {
-    console.log(`[DISCORD-ROLES-DEBUG] Fetching guild roles for guild ${guildId}`);
+    // console.log(`[DISCORD-ROLES-DEBUG] Fetching guild roles for guild ${guildId}`);
     
     const response = await fetch(`http://localhost:3001/api/discord/guild/${guildId}/roles`);
     
@@ -113,7 +113,7 @@ export async function fetchDiscordGuildRoles(guildId: string): Promise<{
     }
     
     const data = await response.json();
-    console.log('[DISCORD-ROLES-DEBUG] Successfully fetched roles:', data);
+    // console.log('[DISCORD-ROLES-DEBUG] Successfully fetched roles:', data);
     
     return {
       roles: data.roles || [],
@@ -149,14 +149,14 @@ export async function publishEventFromCycle(event: Event): Promise<MultiChannelP
     let cycleType: string = '';
     
     // Use event-level participating squadrons if they exist, otherwise get from cycle
-    console.log('[PARTICIPANT-DEBUG] Event participants:', event.participants);
-    console.log('[PARTICIPANT-DEBUG] Event participants length:', event.participants?.length);
-    console.log('[PARTICIPANT-DEBUG] Event cycleId:', event.cycleId);
-    console.log('[PARTICIPANT-DEBUG] Event object keys:', Object.keys(event));
+    // console.log('[PARTICIPANT-DEBUG] Event participants:', event.participants);
+    // console.log('[PARTICIPANT-DEBUG] Event participants length:', event.participants?.length);
+    // console.log('[PARTICIPANT-DEBUG] Event cycleId:', event.cycleId);
+    // console.log('[PARTICIPANT-DEBUG] Event object keys:', Object.keys(event));
     
     if (event.participants && event.participants.length > 0) {
       participatingSquadrons = event.participants;
-      console.log('[PARTICIPANT-DEBUG] Using event-level participants:', participatingSquadrons);
+      // console.log('[PARTICIPANT-DEBUG] Using event-level participants:', participatingSquadrons);
     } else if (event.cycleId) {
       // Get the event's cycle to find participating squadrons
       const { data: cycleData, error: cycleError } = await supabase
@@ -175,9 +175,9 @@ export async function publishEventFromCycle(event: Event): Promise<MultiChannelP
       
       participatingSquadrons = cycleData.participants || [];
       cycleType = cycleData.type;
-      console.log('[PARTICIPANT-DEBUG] Got participants from cycle:', participatingSquadrons);
+      // console.log('[PARTICIPANT-DEBUG] Got participants from cycle:', participatingSquadrons);
     } else {
-      console.log('[PARTICIPANT-DEBUG] No cycleId found, cannot determine participating squadrons');
+      // console.log('[PARTICIPANT-DEBUG] No cycleId found, cannot determine participating squadrons');
       return {
         success: false,
         publishedChannels: [],
@@ -186,7 +186,7 @@ export async function publishEventFromCycle(event: Event): Promise<MultiChannelP
     }
     
     if (participatingSquadrons.length === 0) {
-      console.log('[PARTICIPANT-DEBUG] Participating squadrons array is empty');
+      // console.log('[PARTICIPANT-DEBUG] Participating squadrons array is empty');
       return {
         success: false,
         publishedChannels: [],
@@ -194,7 +194,7 @@ export async function publishEventFromCycle(event: Event): Promise<MultiChannelP
       };
     }
     
-    console.log(`[MULTI-DISCORD-DEBUG] Publishing to ${participatingSquadrons.length} squadrons:`, participatingSquadrons);
+    // console.log(`[MULTI-DISCORD-DEBUG] Publishing to ${participatingSquadrons.length} squadrons:`, participatingSquadrons);
     
     // Get Discord settings for all participating squadrons
     const { data: squadronDiscordData, error: squadronDiscordError } = await supabase
@@ -268,12 +268,12 @@ export async function publishEventFromCycle(event: Event): Promise<MultiChannelP
       }
     }
     
-    console.log(`[MULTI-DISCORD-DEBUG] Found ${uniqueChannels.size} unique channels for ${participatingSquadrons.length} squadrons`);
+    // console.log(`[MULTI-DISCORD-DEBUG] Found ${uniqueChannels.size} unique channels for ${participatingSquadrons.length} squadrons`);
     
     // Second pass: publish to each unique channel once
     for (const [channelKey, channelInfo] of uniqueChannels) {
       try {
-        console.log(`[MULTI-DISCORD-DEBUG] Publishing to unique channel ${channelKey} for squadrons: ${channelInfo.squadronNames.join(', ')}`);
+        // console.log(`[MULTI-DISCORD-DEBUG] Publishing to unique channel ${channelKey} for squadrons: ${channelInfo.squadronNames.join(', ')}`);
         
         // Publish to this unique channel
         const publishResult = await publishToSpecificChannel(
@@ -282,7 +282,7 @@ export async function publishEventFromCycle(event: Event): Promise<MultiChannelP
           channelInfo.channelId
         );
         
-        console.log(`[MULTI-DISCORD-DEBUG] Publish result for channel ${channelKey}:`, publishResult);
+        // console.log(`[MULTI-DISCORD-DEBUG] Publish result for channel ${channelKey}:`, publishResult);
         
         if (publishResult.success && publishResult.discordMessageId) {
           // Add a result for each squadron that shares this channel
@@ -353,7 +353,7 @@ async function publishToSpecificChannel(event: Event, guildId: string, channelId
     
     // Generate a unique request ID for tracking
     const requestId = `publish-${event.id}-${guildId}-${channelId}-${Date.now()}`;
-    console.log(`[MULTI-DISCORD-DEBUG] Making direct API call ${requestId} to guild ${guildId}, channel ${channelId}`);
+    // console.log(`[MULTI-DISCORD-DEBUG] Making direct API call ${requestId} to guild ${guildId}, channel ${channelId}`);
     
     const requestBody = {
       title: event.title,
@@ -385,7 +385,7 @@ async function publishToSpecificChannel(event: Event, guildId: string, channelId
     
     const data = await response.json();
     
-    console.log(`[MULTI-DISCORD-DEBUG] API response ${requestId}: status=${response.status}, data=`, data);
+    // console.log(`[MULTI-DISCORD-DEBUG] API response ${requestId}: status=${response.status}, data=`, data);
     
     if (!response.ok) {
       throw new Error(data.error || 'Server responded with an error status');
@@ -417,7 +417,7 @@ export async function publishEventToDiscord(event: Event): Promise<PublishEventR
   
   // Check if we're already processing a publish for this event
   if (publishRequestsInProgress.has(event.id)) {
-    console.log(`[DEBUG] Duplicate publish request detected for event ${event.id}, skipping`);
+    // console.log(`[DEBUG] Duplicate publish request detected for event ${event.id}, skipping`);
     return {
       success: false,
       error: 'A publish operation for this event is already in progress'
@@ -426,7 +426,7 @@ export async function publishEventToDiscord(event: Event): Promise<PublishEventR
   
   // Mark this event as being published
   publishRequestsInProgress.add(event.id);
-  console.log(`[DEBUG] Starting publish request ${requestId} for event ${event.id}`);
+  // console.log(`[DEBUG] Starting publish request ${requestId} for event ${event.id}`);
   
   try {
     // Max number of retries
@@ -477,12 +477,12 @@ export async function publishEventToDiscord(event: Event): Promise<PublishEventR
         // Fall back to localStorage only if database settings are missing
         if (!guildId) {
           guildId = localStorage.getItem('discordSelectedServer');
-          console.log(`[DEBUG] Using fallback guildId from localStorage: ${guildId}`);
+          // console.log(`[DEBUG] Using fallback guildId from localStorage: ${guildId}`);
         }
         
         if (!channelId) {
           channelId = localStorage.getItem('discordSelectedChannel');
-          console.log(`[DEBUG] Using fallback channelId from localStorage: ${channelId}`);
+          // console.log(`[DEBUG] Using fallback channelId from localStorage: ${channelId}`);
         }
         
         // Validate we have the required settings
@@ -494,7 +494,7 @@ export async function publishEventToDiscord(event: Event): Promise<PublishEventR
           throw new Error('Discord events channel ID not configured. Please configure Discord integration in settings.');
         }
 
-        console.log(`[DEBUG] Request ${requestId}: Sending publish request to server with guild ID: ${guildId} and channel ID: ${channelId}`);
+        // console.log(`[DEBUG] Request ${requestId}: Sending publish request to server with guild ID: ${guildId} and channel ID: ${channelId}`);
   
         // Set a reasonable timeout for the fetch call
         const controller = new AbortController();
@@ -534,7 +534,7 @@ export async function publishEventToDiscord(event: Event): Promise<PublishEventR
         clearTimeout(timeoutId);
 
         const data = await response.json();
-        console.log(`[DEBUG] Request ${requestId}: Received response from server:`, data);
+        // console.log(`[DEBUG] Request ${requestId}: Received response from server:`, data);
 
         if (!response.ok) {
           throw new Error(data.error || 'Server responded with an error status');
@@ -542,7 +542,7 @@ export async function publishEventToDiscord(event: Event): Promise<PublishEventR
         
         // If the event was already published, just return the existing ID
         if (data.alreadyPublished) {
-          console.log(`[DEBUG] Request ${requestId}: Event was already published, returning existing ID`);
+          // console.log(`[DEBUG] Request ${requestId}: Event was already published, returning existing ID`);
           return {
             success: true,
             discordMessageId: data.discordMessageId,
@@ -556,11 +556,11 @@ export async function publishEventToDiscord(event: Event): Promise<PublishEventR
           guildId: data.discordGuildId
         };
       } catch (error) {
-        console.log(`[DEBUG] Request ${requestId}: Error during publish attempt ${retryCount + 1}:`, error);
+        // console.log(`[DEBUG] Request ${requestId}: Error during publish attempt ${retryCount + 1}:`, error);
         
         // If we have retries left and it's not an abort error, try again
         if (retryCount < MAX_RETRIES && !(error instanceof DOMException && error.name === 'AbortError')) {
-          console.log(`[DEBUG] Request ${requestId}: Retrying in ${RETRY_DELAY}ms... (${retryCount + 1}/${MAX_RETRIES})`);
+          // console.log(`[DEBUG] Request ${requestId}: Retrying in ${RETRY_DELAY}ms... (${retryCount + 1}/${MAX_RETRIES})`);
           await delay(RETRY_DELAY);
           return attemptPublish(retryCount + 1);
         }
@@ -585,7 +585,7 @@ export async function publishEventToDiscord(event: Event): Promise<PublishEventR
     return await attemptPublish();
   } finally {
     // Always remove the event from in-progress set when done
-    console.log(`[DEBUG] Completed publish request ${requestId} for event ${event.id}`);
+    // console.log(`[DEBUG] Completed publish request ${requestId} for event ${event.id}`);
     publishRequestsInProgress.delete(event.id);
   }
 }
@@ -709,7 +709,7 @@ export async function getAvailableDiscordServers(): Promise<{
   error?: string;
 }> {
   try {
-    console.log('[DEBUG] Fetching available Discord servers');
+    // console.log('[DEBUG] Fetching available Discord servers');
     
     const response = await fetch('http://localhost:3001/api/discord/servers', {
       method: 'GET',
@@ -752,7 +752,7 @@ export async function getServerChannels(guildId: string): Promise<{
   error?: string;
 }> {
   try {
-    console.log(`[DEBUG] Fetching channels for Discord server ID: ${guildId}`);
+    // console.log(`[DEBUG] Fetching channels for Discord server ID: ${guildId}`);
     
     const response = await fetch(`http://localhost:3001/api/discord/servers/${guildId}/channels`, {
       method: 'GET',
@@ -795,11 +795,11 @@ export async function getServerChannels(guildId: string): Promise<{
  */
 export async function deleteMultiChannelEvent(event: Event): Promise<{ success: boolean; deletedCount: number; errors: string[] }> {
   try {
-    console.log('[DELETE-MULTI-DEBUG] Starting deleteMultiChannelEvent for event:', event.id);
-    console.log('[DELETE-MULTI-DEBUG] Event discord_event_id:', event.discord_event_id);
-    console.log('[DELETE-MULTI-DEBUG] Event discord_event_id type:', typeof event.discord_event_id);
-    console.log('[DELETE-MULTI-DEBUG] Event discord_event_id isArray:', Array.isArray(event.discord_event_id));
-    console.log('[DELETE-MULTI-DEBUG] Event discordEventId (legacy):', event.discordEventId);
+    // console.log('[DELETE-MULTI-DEBUG] Starting deleteMultiChannelEvent for event:', event.id);
+    // console.log('[DELETE-MULTI-DEBUG] Event discord_event_id:', event.discord_event_id);
+    // console.log('[DELETE-MULTI-DEBUG] Event discord_event_id type:', typeof event.discord_event_id);
+    // console.log('[DELETE-MULTI-DEBUG] Event discord_event_id isArray:', Array.isArray(event.discord_event_id));
+    // console.log('[DELETE-MULTI-DEBUG] Event discordEventId (legacy):', event.discordEventId);
     
     let participatingSquadrons: string[] = [];
     const errors: string[] = [];
@@ -807,11 +807,11 @@ export async function deleteMultiChannelEvent(event: Event): Promise<{ success: 
     
     // Use event-level participating squadrons if they exist, otherwise get from cycle
     if (event.participants && event.participants.length > 0) {
-      console.log('[DELETE-MULTI-DEBUG] Using event-level participants:', event.participants);
+      // console.log('[DELETE-MULTI-DEBUG] Using event-level participants:', event.participants);
       participatingSquadrons = event.participants;
     } else if (event.cycleId) {
-      console.log('[DELETE-MULTI-DEBUG] Event has no participants, fetching from cycle:', event.cycleId);
-      console.log('[DELETE-MULTI-DEBUG] About to query database for cycle participants...');
+      // console.log('[DELETE-MULTI-DEBUG] Event has no participants, fetching from cycle:', event.cycleId);
+      // console.log('[DELETE-MULTI-DEBUG] About to query database for cycle participants...');
       
       // Get the event's cycle to find participating squadrons
       const { data: cycleData, error: cycleError } = await supabase
@@ -820,10 +820,10 @@ export async function deleteMultiChannelEvent(event: Event): Promise<{ success: 
         .eq('id', event.cycleId)
         .single();
       
-      console.log('[DELETE-MULTI-DEBUG] Database query completed. CycleData:', cycleData, 'Error:', cycleError);
+      // console.log('[DELETE-MULTI-DEBUG] Database query completed. CycleData:', cycleData, 'Error:', cycleError);
       
       if (cycleError || !cycleData) {
-        console.log('[DELETE-MULTI-DEBUG] Failed to fetch cycle data - returning error');
+        // console.log('[DELETE-MULTI-DEBUG] Failed to fetch cycle data - returning error');
         return {
           success: false,
           deletedCount: 0,
@@ -988,7 +988,7 @@ async function deleteDiscordMessageFromChannel(messageId: string, guildId: strin
       return { success: true }; // Nothing to delete
     }
     
-    console.log(`[DEBUG] Sending delete request to: http://localhost:3001/api/events/${messageId}?guildId=${guildId}&channelId=${channelId}`);
+    // console.log(`[DEBUG] Sending delete request to: http://localhost:3001/api/events/${messageId}?guildId=${guildId}&channelId=${channelId}`);
     
     const response = await fetch(`http://localhost:3001/api/events/${messageId}?guildId=${guildId}&channelId=${channelId}`, {
       method: 'DELETE',
@@ -1019,14 +1019,14 @@ export async function deleteDiscordMessage(eventOrMessageId: Event | string, gui
     
     if (typeof eventOrMessageId === 'object') {      // It's an event object, try to extract the message ID
       const eventObj = eventOrMessageId as any; // Cast to any to access potential properties
-      console.log(`[DEBUG] Event object properties for extraction:`, Object.keys(eventObj));
+      // console.log(`[DEBUG] Event object properties for extraction:`, Object.keys(eventObj));
       
       // First check for direct event properties
       discordMessageId = eventObj.discord_event_id || eventObj.discordMessageId || eventObj.discordEventId || undefined;
       
       // If we still don't have an ID, let's query the database directly using the event ID
       if (!discordMessageId && eventObj.id) {
-        console.log(`[DEBUG] No Discord ID in event object, checking database for event ID: ${eventObj.id}`);
+        // console.log(`[DEBUG] No Discord ID in event object, checking database for event ID: ${eventObj.id}`);
         
         // Perform a direct database lookup for this event
         try {
@@ -1038,18 +1038,18 @@ export async function deleteDiscordMessage(eventOrMessageId: Event | string, gui
             
           if (!error && data && data.discord_event_id) {
             discordMessageId = data.discord_event_id;
-            console.log(`[DEBUG] Found Discord message ID in database: ${discordMessageId}`);
+            // console.log(`[DEBUG] Found Discord message ID in database: ${discordMessageId}`);
           } else if (error) {
-            console.log(`[DEBUG] Database lookup error: ${error.message}`);
+            // console.log(`[DEBUG] Database lookup error: ${error.message}`);
           } else {
-            console.log(`[DEBUG] No Discord message ID found in database for event ${eventObj.id}`);
+            // console.log(`[DEBUG] No Discord message ID found in database for event ${eventObj.id}`);
           }
         } catch (dbError) {
           console.error(`[DEBUG] Error looking up event in database:`, dbError);
         }
       }
       
-      console.log(`[DEBUG] Extracted message ID from event object: ${discordMessageId}`);
+      // console.log(`[DEBUG] Extracted message ID from event object: ${discordMessageId}`);
       
       // Also check for guild ID and channel ID in the event if we don't have them yet
       if (!guildId && eventObj.discord_guild_id) {
@@ -1066,12 +1066,12 @@ export async function deleteDiscordMessage(eventOrMessageId: Event | string, gui
     
     // Skip if no Discord message ID was provided
     if (!discordMessageId) {
-      console.log('[DEBUG] No Discord message ID could be extracted for deletion');
+      // console.log('[DEBUG] No Discord message ID could be extracted for deletion');
       return { success: true };
     }
     
-    console.log(`[DEBUG] Attempting to delete Discord message: ${discordMessageId} from guild: ${guildId || 'unknown'}, channel: ${channelId || 'unknown'}`);
-    console.log(`[DEBUG] Message type check: typeof discordMessageId = ${typeof discordMessageId}, length = ${discordMessageId?.length}`);
+    // console.log(`[DEBUG] Attempting to delete Discord message: ${discordMessageId} from guild: ${guildId || 'unknown'}, channel: ${channelId || 'unknown'}`);
+    // console.log(`[DEBUG] Message type check: typeof discordMessageId = ${typeof discordMessageId}, length = ${discordMessageId?.length}`);
     
     // Check if messageId is a valid format
     if (discordMessageId.length < 17 || !/^\d+$/.test(discordMessageId)) {
@@ -1081,7 +1081,7 @@ export async function deleteDiscordMessage(eventOrMessageId: Event | string, gui
     // If we don't have a guild ID or channel ID, try to get them from database first
     if (!guildId || !channelId) {
       try {
-        console.log(`[DEBUG] Looking up server/channel info for message: ${discordMessageId}`);
+        // console.log(`[DEBUG] Looking up server/channel info for message: ${discordMessageId}`);
           // First try to get IDs from the events table
         const { data: eventData, error: eventError } = await supabase
           .from('events')
@@ -1090,26 +1090,26 @@ export async function deleteDiscordMessage(eventOrMessageId: Event | string, gui
           .single();
           
         if (eventError) {
-          console.log(`[DEBUG] Error finding message in events table: ${eventError.message}`);
-          console.log(`[DEBUG] Will try alternative lookup options`);
+          // console.log(`[DEBUG] Error finding message in events table: ${eventError.message}`);
+          // console.log(`[DEBUG] Will try alternative lookup options`);
         }
         
         if (!eventError && eventData) {
-          console.log(`[DEBUG] Found event with message ID ${discordMessageId}: ${JSON.stringify(eventData)}`);
+          // console.log(`[DEBUG] Found event with message ID ${discordMessageId}: ${JSON.stringify(eventData)}`);
           
           // Note: It appears discord_guild_id and discord_channel_id might not exist in your schema
           // Using type checking to safely access potentially non-existent properties
           if (!guildId && 'discord_guild_id' in eventData) {
             guildId = eventData['discord_guild_id'] as string;
-            console.log(`[DEBUG] Using guild ID from events table: ${guildId}`);
+            // console.log(`[DEBUG] Using guild ID from events table: ${guildId}`);
           }
           
           if (!channelId && 'discord_channel_id' in eventData) {
             channelId = eventData['discord_channel_id'] as string;
-            console.log(`[DEBUG] Using channel ID from events table: ${channelId}`);
+            // console.log(`[DEBUG] Using channel ID from events table: ${channelId}`);
           }
         } else {          // If not found with discord_event_id, try looking up with discordMessageId as the field name
-          console.log(`[DEBUG] Trying alternative lookup with field 'discordMessageId'`);
+          // console.log(`[DEBUG] Trying alternative lookup with field 'discordMessageId'`);
           const { data: altEventData, error: altEventError } = await supabase
             .from('events')
             .select('id, discordMessageId, discordEventId')
@@ -1117,25 +1117,25 @@ export async function deleteDiscordMessage(eventOrMessageId: Event | string, gui
             .single();
             
           if (!altEventError && altEventData) {
-            console.log(`[DEBUG] Found event with alt field lookup: ${JSON.stringify(altEventData)}`);
+            // console.log(`[DEBUG] Found event with alt field lookup: ${JSON.stringify(altEventData)}`);
             
             // Safe access with type checking for alternative lookup as well
             if (!guildId && 'discord_guild_id' in altEventData) {
               guildId = altEventData['discord_guild_id'] as string;
-              console.log(`[DEBUG] Using guild ID from alternative lookup: ${guildId}`);
+              // console.log(`[DEBUG] Using guild ID from alternative lookup: ${guildId}`);
             }
             
             if (!channelId && 'discord_channel_id' in altEventData) {
               channelId = altEventData['discord_channel_id'] as string;
-              console.log(`[DEBUG] Using channel ID from alternative lookup: ${channelId}`);
+              // console.log(`[DEBUG] Using channel ID from alternative lookup: ${channelId}`);
             }
           } else if (altEventError) {
-            console.log(`[DEBUG] Alt lookup error: ${altEventError.message}`);
+            // console.log(`[DEBUG] Alt lookup error: ${altEventError.message}`);
           }
         }
           // If still missing IDs, try to get them from squadron_settings
         if (!guildId || !channelId) {
-          console.log(`[DEBUG] Still missing ${!guildId ? 'guildId' : ''}${(!guildId && !channelId) ? ' and ' : ''}${!channelId ? 'channelId' : ''}, checking squadron_settings`);
+          // console.log(`[DEBUG] Still missing ${!guildId ? 'guildId' : ''}${(!guildId && !channelId) ? ' and ' : ''}${!channelId ? 'channelId' : ''}, checking squadron_settings`);
           
           const { data: settingsData, error: settingsError } = await supabase
             .from('squadron_settings')
@@ -1143,19 +1143,19 @@ export async function deleteDiscordMessage(eventOrMessageId: Event | string, gui
             .in('key', ['discord_guild_id', 'events_channel_id']);
             
           if (settingsError) {
-            console.log(`[DEBUG] Error fetching Discord settings: ${settingsError.message}`);
+            // console.log(`[DEBUG] Error fetching Discord settings: ${settingsError.message}`);
           }
           
           if (!settingsError && settingsData) {
-            console.log(`[DEBUG] Found settings data: ${JSON.stringify(settingsData)}`);
+            // console.log(`[DEBUG] Found settings data: ${JSON.stringify(settingsData)}`);
             
             for (const setting of settingsData) {
               if (setting.key === 'discord_guild_id' && setting.value && !guildId) {
                 guildId = setting.value;
-                console.log(`[DEBUG] Using guild ID from squadron_settings: ${guildId}`);
+                // console.log(`[DEBUG] Using guild ID from squadron_settings: ${guildId}`);
               } else if (setting.key === 'events_channel_id' && setting.value && !channelId) {
                 channelId = setting.value;
-                console.log(`[DEBUG] Using channel ID from squadron_settings: ${channelId}`);
+                // console.log(`[DEBUG] Using channel ID from squadron_settings: ${channelId}`);
               }
             }
           }
@@ -1171,7 +1171,7 @@ export async function deleteDiscordMessage(eventOrMessageId: Event | string, gui
       const localStorageGuildId = localStorage.getItem('discordSelectedServer');
       if (localStorageGuildId) {
         guildId = localStorageGuildId;
-        console.log(`[DEBUG] Using guild ID from localStorage: ${guildId}`);
+        // console.log(`[DEBUG] Using guild ID from localStorage: ${guildId}`);
       }
     }
     
@@ -1179,7 +1179,7 @@ export async function deleteDiscordMessage(eventOrMessageId: Event | string, gui
       const localStorageChannelId = localStorage.getItem('discordSelectedChannel');
       if (localStorageChannelId) {
         channelId = localStorageChannelId;
-        console.log(`[DEBUG] Using channel ID from localStorage: ${channelId}`);
+        // console.log(`[DEBUG] Using channel ID from localStorage: ${channelId}`);
       }
     }
       // Check if we have the required IDs
@@ -1206,7 +1206,7 @@ export async function deleteDiscordMessage(eventOrMessageId: Event | string, gui
     if (queryParams.length > 0) {
       url += `?${queryParams.join('&')}`;
     }
-      console.log(`[DEBUG] Sending delete request to: ${url}`);
+      // console.log(`[DEBUG] Sending delete request to: ${url}`);
     
     // Call the server API to delete the message
     const response = await fetch(url, {
@@ -1216,16 +1216,16 @@ export async function deleteDiscordMessage(eventOrMessageId: Event | string, gui
       }
     });
     
-    console.log(`[DEBUG] Delete response status: ${response.status} ${response.statusText}`);
+    // console.log(`[DEBUG] Delete response status: ${response.status} ${response.statusText}`);
     
     const data = await response.json();
-    console.log(`[DEBUG] Full delete response:`, data);
+    // console.log(`[DEBUG] Full delete response:`, data);
     
     if (!response.ok) {
       throw new Error(data.error || 'Failed to delete Discord message');
     }
     
-    console.log(`[DEBUG] Discord message deletion response for ${discordMessageId}:`, data);
+    // console.log(`[DEBUG] Discord message deletion response for ${discordMessageId}:`, data);
     
     return {
       success: true
@@ -1289,7 +1289,8 @@ export async function syncDiscordAttendance(eventId: string, discordMessageId: s
     // For each attendee, update or create attendance record in the database
     for (const attendee of attendanceData.attendees) {      // We don't need to look up pilots anymore since we're storing Discord data directly
       // Just record the Discord attendance directly
-      console.log(`[DEBUG] Recording Discord attendance for user ${attendee.username} with status ${attendee.status}`);// Upsert attendance record to discord_event_attendance table with the correct schema
+      // console.log(`[DEBUG] Recording Discord attendance for user ${attendee.username} with status ${attendee.status}`);
+      // Upsert attendance record to discord_event_attendance table with the correct schema
       await supabase
         .from('discord_event_attendance')
         .upsert({
@@ -1325,7 +1326,7 @@ async function editDiscordMessageInChannel(messageId: string, event: Event, guil
       endTime = endDate.toISOString();
     }
     
-    console.log(`[EDIT-DISCORD-DEBUG] Editing message ${messageId} in guild ${guildId}, channel ${channelId}`);
+    // console.log(`[EDIT-DISCORD-DEBUG] Editing message ${messageId} in guild ${guildId}, channel ${channelId}`);
     
     const requestBody = {
       title: event.title,
@@ -1348,13 +1349,13 @@ async function editDiscordMessageInChannel(messageId: string, event: Event, guil
       eventId: event.id
     };
     
-    console.log('[EDIT-REQUEST-DEBUG] Sending to Discord bot:', {
-      messageId,
-      title: requestBody.title,
-      hasImages: !!(requestBody.images?.headerImage || requestBody.images?.additionalImages?.length),
-      hasCreator: !!requestBody.creator,
-      creator: requestBody.creator
-    });
+    // console.log('[EDIT-REQUEST-DEBUG] Sending to Discord bot:', {
+    //   messageId,
+    //   title: requestBody.title,
+    //   hasImages: !!(requestBody.images?.headerImage || requestBody.images?.additionalImages?.length),
+    //   hasCreator: !!requestBody.creator,
+    //   creator: requestBody.creator
+    // });
     
     const response = await fetch(`http://localhost:3001/api/events/${messageId}/edit`, {
       method: 'PUT',
@@ -1366,7 +1367,7 @@ async function editDiscordMessageInChannel(messageId: string, event: Event, guil
     
     const data = await response.json();
     
-    console.log(`[EDIT-DISCORD-DEBUG] Edit response for message ${messageId}: status=${response.status}, data=`, data);
+    // console.log(`[EDIT-DISCORD-DEBUG] Edit response for message ${messageId}: status=${response.status}, data=`, data);
     
     if (!response.ok) {
       throw new Error(data.error || 'Server responded with an error status');
@@ -1616,7 +1617,7 @@ export async function syncMultiChannelDiscordAttendance(
         console.error('Error inserting aggregated attendance records:', error);
         overallSuccess = false;
       } else {
-        console.log(`[DEBUG] Successfully aggregated attendance from ${discordPublications.length} channels: ${attendanceRecords.length} total attendees`);
+        // console.log(`[DEBUG] Successfully aggregated attendance from ${discordPublications.length} channels: ${attendanceRecords.length} total attendees`);
       }
     }
     

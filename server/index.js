@@ -120,7 +120,7 @@ app.delete('/api/events/:discordMessageId', async (req, res) => {
     const { discordMessageId } = req.params;
     const { guildId, channelId } = req.query; // Get both guild ID and channel ID from query params
     
-    console.log(`[DEBUG] Received request to delete Discord message: ${discordMessageId}, Guild ID: ${guildId || 'not specified'}, Channel ID: ${channelId || 'not specified'}`);
+    // console.log(`[DEBUG] Received request to delete Discord message: ${discordMessageId}, Guild ID: ${guildId || 'not specified'}, Channel ID: ${channelId || 'not specified'}`);
     
     // Validate ID format to avoid unnecessary calls
     if (!discordMessageId || !/^\d+$/.test(discordMessageId)) {
@@ -145,12 +145,12 @@ app.delete('/api/events/:discordMessageId', async (req, res) => {
       if (!eventError && eventData) {
         if (eventData.discord_guild_id && !discordGuildId) {
           discordGuildId = eventData.discord_guild_id;
-          console.log(`[DEBUG] Found guild ID ${discordGuildId} for message ${discordMessageId}`);
+          // console.log(`[DEBUG] Found guild ID ${discordGuildId} for message ${discordMessageId}`);
         }
         
         if (eventData.discord_channel_id && !discordChannelId) {
           discordChannelId = eventData.discord_channel_id;
-          console.log(`[DEBUG] Found channel ID ${discordChannelId} for message ${discordMessageId}`);
+          // console.log(`[DEBUG] Found channel ID ${discordChannelId} for message ${discordMessageId}`);
         }
       }
     }
@@ -166,10 +166,10 @@ app.delete('/api/events/:discordMessageId', async (req, res) => {
         settingsData.forEach(setting => {
           if (setting.key === 'discord_guild_id' && setting.value && !discordGuildId) {
             discordGuildId = setting.value;
-            console.log(`[DEBUG] Using guild ID ${discordGuildId} from squadron_settings`);
+            // console.log(`[DEBUG] Using guild ID ${discordGuildId} from squadron_settings`);
           } else if (setting.key === 'events_channel_id' && setting.value && !discordChannelId) {
             discordChannelId = setting.value;
-            console.log(`[DEBUG] Using channel ID ${discordChannelId} from squadron_settings`);
+            // console.log(`[DEBUG] Using channel ID ${discordChannelId} from squadron_settings`);
           }
         });
       }
@@ -183,12 +183,12 @@ app.delete('/api/events/:discordMessageId', async (req, res) => {
       });
     }
     
-    console.log(`[DEBUG] Attempting to delete Discord message: ${discordMessageId}, Guild ID: ${discordGuildId}, Channel ID: ${discordChannelId || 'not specified'}`);
+    // console.log(`[DEBUG] Attempting to delete Discord message: ${discordMessageId}, Guild ID: ${discordGuildId}, Channel ID: ${discordChannelId || 'not specified'}`);
     
     // Call the Discord bot to delete the message, passing both guild ID and channel ID
     const result = await deleteEventMessage(discordMessageId, discordGuildId, discordChannelId);
     
-    console.log(`[DEBUG] Delete result for message ${discordMessageId}:`, result);
+    // console.log(`[DEBUG] Delete result for message ${discordMessageId}:`, result);
     
     // Return success even if message was already deleted
     if (result.success) {
@@ -224,15 +224,15 @@ app.post('/api/events/publish', async (req, res) => {
   try {
     const { title, description, startTime, endTime, eventId, guildId, channelId, imageUrl, images, creator } = req.body;
     
-    console.log('[DEBUG] Received event publish request:', { 
-      timestamp: new Date().toISOString(),
-      eventId,
-      title,
-      startTime,
-      guildId,
-      channelId,
-      hasImage: !!imageUrl
-    });
+    // console.log('[DEBUG] Received event publish request:', { 
+    //   timestamp: new Date().toISOString(),
+    //   eventId,
+    //   title,
+    //   startTime,
+    //   guildId,
+    //   channelId,
+    //   hasImage: !!imageUrl
+    // });
     
     if (!title || !startTime) {
       return res.status(400).json({ 
@@ -266,14 +266,14 @@ app.post('/api/events/publish', async (req, res) => {
       end: endTime ? new Date(endTime) : new Date(new Date(startTime).getTime() + (60 * 60 * 1000)) // Default to 1 hour later
     };
     
-    console.log('[DEBUG] Publishing event to Discord:', { 
-      title, 
-      eventId,
-      guildId,
-      channelId,
-      startTime: eventTime.start.toISOString(), 
-      endTime: eventTime.end.toISOString() 
-    });
+    // console.log('[DEBUG] Publishing event to Discord:', { 
+    //   title, 
+    //   eventId,
+    //   guildId,
+    //   channelId,
+    //   startTime: eventTime.start.toISOString(), 
+    //   endTime: eventTime.end.toISOString() 
+    // });
       // Fetch event options and creator info from database if eventId is provided
     let eventOptions = {};
     let creatorFromDb = creator; // Use provided creator as fallback
@@ -298,9 +298,9 @@ app.post('/api/events/publish', async (req, res) => {
               callsign: eventData.creator_call_sign || '',
               billet: eventData.creator_billet || ''
             };
-            console.log('[CREATOR-DEBUG] Using creator from database:', creatorFromDb);
+            // console.log('[CREATOR-DEBUG] Using creator from database:', creatorFromDb);
           } else {
-            console.log('[CREATOR-DEBUG] No creator info in database, using provided:', creator);
+            // console.log('[CREATOR-DEBUG] No creator info in database, using provided:', creator);
           }
         }
       } catch (error) {
@@ -310,13 +310,13 @@ app.post('/api/events/publish', async (req, res) => {
     
     // Call the Discord bot to publish the event, passing both the guild ID, channel ID, and image URL if available
     console.log(`[MULTI-PUBLISH] About to call publishEventToDiscord for guild ${guildId}, channel ${channelId} with options:`, eventOptions);
-    console.log(`[CREATOR-DEBUG] Passing creator to Discord bot:`, creatorFromDb);
+    // console.log(`[CREATOR-DEBUG] Passing creator to Discord bot:`, creatorFromDb);
     const result = await publishEventToDiscord(title, description || '', eventTime, guildId, channelId, imageUrl, creatorFromDb, images, eventOptions);
     console.log(`[MULTI-PUBLISH] Discord publish result for guild ${guildId}:`, result);
       // If eventId was provided, update the event in Supabase with the Discord message ID, guild ID and image URL
     // Don't try to store the channelId in the events table as it doesn't have that column
     if (eventId && result.messageId) {
-      console.log(`[DEBUG] Updating event ${eventId} with Discord message ID ${result.messageId} and guild ID ${result.guildId}`);
+      // console.log(`[DEBUG] Updating event ${eventId} with Discord message ID ${result.messageId} and guild ID ${result.guildId}`);
       
       // Include the image URL in the database update to persist it across restarts
       const updateData = { 
@@ -337,7 +337,7 @@ app.post('/api/events/publish', async (req, res) => {
       if (updateError) {
         console.warn(`[WARNING] Failed to update event record with Discord IDs: ${updateError.message}`);
       } else {
-        console.log(`[DEBUG] Successfully linked event ${eventId} with Discord message ID ${result.messageId} and guild ID ${result.guildId}`);
+        // console.log(`[DEBUG] Successfully linked event ${eventId} with Discord message ID ${result.messageId} and guild ID ${result.guildId}`);
         
         // Add the event to countdown update schedule
         if (eventId) {
@@ -356,7 +356,7 @@ app.post('/api/events/publish', async (req, res) => {
                 result.guildId,
                 result.channelId
               );
-              console.log(`[COUNTDOWN] Added event ${eventId} to countdown update schedule`);
+              // console.log(`[COUNTDOWN] Added event ${eventId} to countdown update schedule`);
             } else {
               console.warn(`[COUNTDOWN] Could not fetch event data for countdown scheduling: ${eventFetchError?.message}`);
             }
@@ -387,19 +387,19 @@ app.put('/api/events/:messageId/edit', async (req, res) => {
     const { messageId } = req.params;
     const { title, description, startTime, endTime, guildId, channelId, imageUrl, images, creator, originalStartTime, eventId } = req.body;
     
-    console.log('[DEBUG] Received event edit request:', { 
-      timestamp: new Date().toISOString(),
-      messageId,
-      eventId,
-      title,
-      originalStartTime,
-      newStartTime: startTime,
-      guildId,
-      channelId,
-      hasImage: !!imageUrl,
-      creator: creator,
-      images: images
-    });
+    // console.log('[DEBUG] Received event edit request:', { 
+    //   timestamp: new Date().toISOString(),
+    //   messageId,
+    //   eventId,
+    //   title,
+    //   originalStartTime,
+    //   newStartTime: startTime,
+    //   guildId,
+    //   channelId,
+    //   hasImage: !!imageUrl,
+    //   creator: creator,
+    //   images: images
+    // });
     
     if (!title || !startTime) {
       return res.status(400).json({ 
@@ -428,14 +428,14 @@ app.put('/api/events/:messageId/edit', async (req, res) => {
       end: endTime ? new Date(endTime) : new Date(new Date(startTime).getTime() + (60 * 60 * 1000)) // Default to 1 hour later
     };
     
-    console.log('[DEBUG] Editing Discord message:', { 
-      messageId,
-      title, 
-      guildId,
-      channelId,
-      startTime: eventTime.start.toISOString(), 
-      endTime: eventTime.end.toISOString() 
-    });
+    // console.log('[DEBUG] Editing Discord message:', { 
+    //   messageId,
+    //   title, 
+    //   guildId,
+    //   channelId,
+    //   startTime: eventTime.start.toISOString(), 
+    //   endTime: eventTime.end.toISOString() 
+    // });
     
     // For edit operations, we need to fetch event options from the database
     // We can try to find the event by looking up the messageId
@@ -459,14 +459,14 @@ app.put('/api/events/:messageId/edit', async (req, res) => {
     
     // Call the Discord bot to edit the message
     const result = await editEventMessage(messageId, title, description || '', eventTime, guildId, channelId, imageUrl, creator, images, eventOptions);
-    console.log(`[DEBUG] Discord edit result:`, result);
+    // console.log(`[DEBUG] Discord edit result:`, result);
     
     if (result.success) {
       // Handle reminder updates if start time changed and event ID is provided
       if (originalStartTime && eventId && originalStartTime !== startTime) {
-        console.log('[DEBUG] Event time changed, updating reminders...');
-        console.log('[DEBUG] Original start time:', originalStartTime);
-        console.log('[DEBUG] New start time:', startTime);
+        // console.log('[DEBUG] Event time changed, updating reminders...');
+        // console.log('[DEBUG] Original start time:', originalStartTime);
+        // console.log('[DEBUG] New start time:', startTime);
         
         // Check if this event has existing reminders
         const { data: existingReminders, error: remindersError } = await supabase
@@ -476,7 +476,7 @@ app.put('/api/events/:messageId/edit', async (req, res) => {
           .limit(1);
         
         if (!remindersError && existingReminders && existingReminders.length > 0) {
-          console.log('[DEBUG] Event has existing reminders, rescheduling...');
+          // console.log('[DEBUG] Event has existing reminders, rescheduling...');
           
           // Cancel existing unsent reminders
           const { error: cancelError } = await supabase
@@ -506,19 +506,19 @@ app.put('/api/events/:messageId/edit', async (req, res) => {
               if (scheduleError) {
                 console.error('[ERROR] Failed to schedule new reminder:', scheduleError);
               } else {
-                console.log('[DEBUG] Successfully rescheduled reminder for:', reminderTime.toISOString());
+                // console.log('[DEBUG] Successfully rescheduled reminder for:', reminderTime.toISOString());
               }
             } else {
-              console.log('[DEBUG] New reminder time is in the past, not scheduling');
+              // console.log('[DEBUG] New reminder time is in the past, not scheduling');
             }
           }
         } else {
-          console.log('[DEBUG] Event has no existing reminders, skipping reminder update');
+          // console.log('[DEBUG] Event has no existing reminders, skipping reminder update');
         }
       } else if (originalStartTime && eventId) {
-        console.log('[DEBUG] Event time unchanged, no reminder update needed');
+        // console.log('[DEBUG] Event time unchanged, no reminder update needed');
       } else {
-        console.log('[DEBUG] Missing originalStartTime or eventId, skipping reminder update');
+        // console.log('[DEBUG] Missing originalStartTime or eventId, skipping reminder update');
       }
       
       res.json({
@@ -674,7 +674,7 @@ app.get('/api/events/discord/:discordMessageId', async (req, res) => {
 // New endpoint to fetch Discord guild members
 app.get('/api/discord/guild-members', async (req, res) => {
   try {
-    console.log('[DEBUG] Received request to fetch Discord guild members');
+    // console.log('[DEBUG] Received request to fetch Discord guild members');
     
     // Get the guild ID from query parameters
     const { guildId } = req.query;
@@ -685,7 +685,7 @@ app.get('/api/discord/guild-members', async (req, res) => {
       });
     }
     
-    console.log(`[DEBUG] Fetching members for guild ID: ${guildId}`);
+    // console.log(`[DEBUG] Fetching members for guild ID: ${guildId}`);
     
     // Create a Discord client with required intents
     const client = new Client({
@@ -705,7 +705,7 @@ app.get('/api/discord/guild-members', async (req, res) => {
       else client.once('ready', resolve);
     });
     
-    console.log('[DEBUG] Discord client ready, fetching guild members');
+    // console.log('[DEBUG] Discord client ready, fetching guild members');
     
     // Get the specific guild (server) by ID
     const guild = client.guilds.cache.get(guildId);
@@ -716,7 +716,7 @@ app.get('/api/discord/guild-members', async (req, res) => {
         error: `Discord guild with ID ${guildId} not found or bot doesn't have access` 
       });
     }
-      console.log(`[DEBUG] Found guild: ${guild.name} (${guild.id})`);
+      // console.log(`[DEBUG] Found guild: ${guild.name} (${guild.id})`);
     
     // Fetch all members
     await guild.members.fetch();
@@ -732,7 +732,7 @@ app.get('/api/discord/guild-members', async (req, res) => {
         isBot: member.user.bot
       }));
     
-    console.log(`[DEBUG] Fetched ${members.length} guild members (after filtering out bots)`);
+    // console.log(`[DEBUG] Fetched ${members.length} guild members (after filtering out bots)`);
     
     // Destroy the client to free up resources
     await client.destroy();
@@ -749,7 +749,7 @@ app.get('/api/discord/guild-members', async (req, res) => {
 // New endpoint to get available Discord servers
 app.get('/api/discord/servers', async (req, res) => {
   try {
-    console.log('[DEBUG] Received request to fetch available Discord servers');
+    // console.log('[DEBUG] Received request to fetch available Discord servers');
     
     // Use the bot's getAvailableGuilds function
     const { guilds, error } = await getAvailableGuilds();
@@ -761,7 +761,7 @@ app.get('/api/discord/servers', async (req, res) => {
       });
     }
     
-    console.log(`[DEBUG] Found ${guilds.length} available Discord servers`);
+    // console.log(`[DEBUG] Found ${guilds.length} available Discord servers`);
     
     return res.json({
       success: true,
@@ -988,7 +988,7 @@ app.get('/api/discord/guild/:guildId/roles', async (req, res) => {
   try {
     const { guildId } = req.params;
     
-    console.log(`[DEBUG] Fetching roles for guild ID: ${guildId}`);
+    // console.log(`[DEBUG] Fetching roles for guild ID: ${guildId}`);
     
     if (!guildId) {
       return res.status(400).json({ 
@@ -1021,7 +1021,7 @@ app.get('/api/discord/guild/:guildId/member/:userId', async (req, res) => {
   try {
     const { guildId, userId } = req.params;
     
-    console.log(`[DEBUG] Fetching member ${userId} in guild ID: ${guildId}`);
+    // console.log(`[DEBUG] Fetching member ${userId} in guild ID: ${guildId}`);
     
     if (!guildId || !userId) {
       return res.status(400).json({ 
@@ -1109,7 +1109,7 @@ async function processIndividualReminder(reminder) {
     throw new Error(`Could not fetch event data: ${eventError?.message || 'Event not found'}`);
   }
 
-  console.log('[EVENT-DEBUG] Retrieved event data:', JSON.stringify(eventData, null, 2));
+  // console.log('[EVENT-DEBUG] Retrieved event data:', JSON.stringify(eventData, null, 2));
 
   // Get attendance data
   let discordEventIds = [];
@@ -1143,8 +1143,8 @@ async function processIndividualReminder(reminder) {
   }
 
   // Calculate time until event
-  console.log('[EVENT-DEBUG] Event start_datetime field:', eventData.start_datetime);
-  console.log('[EVENT-DEBUG] Available event fields:', Object.keys(eventData));
+  // console.log('[EVENT-DEBUG] Event start_datetime field:', eventData.start_datetime);
+  // console.log('[EVENT-DEBUG] Available event fields:', Object.keys(eventData));
   const timeUntilEvent = calculateTimeUntilEvent(eventData.start_datetime);
   
   // Format the reminder message
@@ -1158,8 +1158,8 @@ async function processIndividualReminder(reminder) {
     }
   });
   
-  console.log(`[REMINDER-DEBUG] Total attendance records: ${attendanceData.length}`);
-  console.log(`[REMINDER-DEBUG] Unique users after deduplication: ${uniqueUsers.size}`);
+  // console.log(`[REMINDER-DEBUG] Total attendance records: ${attendanceData.length}`);
+  // console.log(`[REMINDER-DEBUG] Unique users after deduplication: ${uniqueUsers.size}`);
   
   // Create Discord mentions for actual notification using unique users only
   const discordMentions = Array.from(uniqueUsers.values())
@@ -1175,7 +1175,7 @@ async function processIndividualReminder(reminder) {
 }
 
 function calculateTimeUntilEvent(eventStartTime) {
-  console.log('[TIME-CALC-DEBUG] Event start time string:', eventStartTime);
+  // console.log('[TIME-CALC-DEBUG] Event start time string:', eventStartTime);
   
   if (!eventStartTime) {
     console.error('[TIME-CALC-DEBUG] Event start time is undefined/null');
@@ -1184,11 +1184,11 @@ function calculateTimeUntilEvent(eventStartTime) {
   
   const now = new Date();
   const eventStart = new Date(eventStartTime);
-  console.log('[TIME-CALC-DEBUG] Current time:', now.toISOString());
-  console.log('[TIME-CALC-DEBUG] Event start parsed:', eventStart.toISOString());
-  console.log('[TIME-CALC-DEBUG] Event start is valid date:', !isNaN(eventStart.getTime()));
+  // console.log('[TIME-CALC-DEBUG] Current time:', now.toISOString());
+  // console.log('[TIME-CALC-DEBUG] Event start parsed:', eventStart.toISOString());
+  // console.log('[TIME-CALC-DEBUG] Event start is valid date:', !isNaN(eventStart.getTime()));
   const diffMs = eventStart.getTime() - now.getTime();
-  console.log('[TIME-CALC-DEBUG] Difference in ms:', diffMs);
+  // console.log('[TIME-CALC-DEBUG] Difference in ms:', diffMs);
   
   if (diffMs <= 0) {
     return 'now';
@@ -1210,8 +1210,8 @@ function calculateTimeUntilEvent(eventStartTime) {
 }
 
 function formatReminderMessage(event, timeUntilEvent) {
-  console.log('[FORMAT-REMINDER-DEBUG] Event data:', event);
-  console.log('[FORMAT-REMINDER-DEBUG] Time until event:', timeUntilEvent);
+  // console.log('[FORMAT-REMINDER-DEBUG] Event data:', event);
+  // console.log('[FORMAT-REMINDER-DEBUG] Time until event:', timeUntilEvent);
   
   const eventDate = new Date(event.start_datetime);
   
@@ -1225,7 +1225,7 @@ function formatReminderMessage(event, timeUntilEvent) {
       
       if (settings.squadron?.timezone) {
         timezone = settings.squadron.timezone;
-        console.log('[FORMAT-REMINDER-DEBUG] Using timezone from event settings:', timezone);
+        // console.log('[FORMAT-REMINDER-DEBUG] Using timezone from event settings:', timezone);
       }
     } catch (error) {
       console.warn('[FORMAT-REMINDER-DEBUG] Failed to parse event settings, using default timezone:', error);

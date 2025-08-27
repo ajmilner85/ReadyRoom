@@ -6,8 +6,7 @@ import {
   processPilotMatches
 } from '../../../utils/discordPilotService';
 import { syncUserDiscordRoles } from '../../../utils/discordRoleSync';
-import { getUserProfile } from '../../../utils/userProfileService';
-import { X, Users, Shield } from 'lucide-react';
+import { X, Shield } from 'lucide-react';
 import { Pilot } from '../../../types/PilotTypes';
 import { supabase } from '../../../utils/supabaseClient';
 import { Status } from '../../../utils/statusService';

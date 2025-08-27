@@ -117,7 +117,7 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
   // Function to handle auto-assignment logic
   const handleAutoAssign = useCallback((pilotsForAssignment?: Pilot[]) => { 
     if (!prepFlights || prepFlights.length === 0) { 
-      console.log("Cannot auto-assign: no flights available");
+      // console.log("Cannot auto-assign: no flights available");
       return;
     }
 
@@ -127,7 +127,7 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
       : []; // If no pilots are passed, assign no one.
 
     if (pilotsToAssign.length === 0) {
-      console.log("[DEBUG] No pilots provided or available for auto-assignment.");
+      // console.log("[DEBUG] No pilots provided or available for auto-assignment.");
       return;
     }
 
@@ -230,7 +230,7 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
 
       // Only update state if there were assignments and clearing was needed
       if (hasAssignedPilots && needsClearing) {
-        console.log("[TENTATIVE-DEBUG] Clearing stale attendance statuses from assignedPilots state.");
+        // console.log("[TENTATIVE-DEBUG] Clearing stale attendance statuses from assignedPilots state.");
         setAssignedPilots(clearedAssignments); // Update with the potentially modified object
       }
       return; // Stop processing since there's no attendance data
@@ -271,7 +271,7 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
 
         // Compare current Discord attendance status with the new one
         if (updatedPilot.attendanceStatus !== newDiscordStatus) {
-          console.log(`[TENTATIVE-DEBUG] Updating ${pilot.callsign} Discord status in flight ${flightId} from ${updatedPilot.attendanceStatus} to ${newDiscordStatus}`);
+          // console.log(`[TENTATIVE-DEBUG] Updating ${pilot.callsign} Discord status in flight ${flightId} from ${updatedPilot.attendanceStatus} to ${newDiscordStatus}`);
           updatedPilot.attendanceStatus = newDiscordStatus;
           shouldUpdatePilot = true;
         }
@@ -293,7 +293,7 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
 
     // If any flight array was replaced, update the state with the new top-level object
     if (needsOverallUpdate) {
-      console.log("[TENTATIVE-DEBUG] Applying updated attendance statuses to assignedPilots state.");
+      // console.log("[TENTATIVE-DEBUG] Applying updated attendance statuses to assignedPilots state.");
       setAssignedPilots(nextAssignedPilots); // This is now guaranteed to be a new object reference
     }
   }, [realtimeAttendanceData, assignedPilots, setAssignedPilots]);

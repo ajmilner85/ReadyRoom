@@ -6,7 +6,7 @@
 import { supabase } from './supabaseClient';
 
 async function debugPilotRoles() {
-  console.log('=== DEBUG: Checking pilot_roles table ===');
+  // console.log('=== DEBUG: Checking pilot_roles table ===');
   
   const { data, error } = await supabase
     .from('pilot_roles')
@@ -56,7 +56,7 @@ async function debugPilotRoles() {
 }
 
 async function debugPilotsWithRoles() {
-  console.log('=== DEBUG: Testing pilots query with join ===');
+  // console.log('=== DEBUG: Testing pilots query with join ===');
   
   // Test the exact query used in getAllPilots
   const { data, error } = await supabase
@@ -101,7 +101,7 @@ async function debugPilotsWithRoles() {
 }
 
 async function testPilotRolesRelationship() {
-  console.log('=== DEBUG: Testing pilot_roles relationship ===');
+  // console.log('=== DEBUG: Testing pilot_roles relationship ===');
   
   // First, check if pilot_roles table has any data
   const { data: allRoles, error: rolesError } = await supabase
