@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { MessageSquare, Plus, Edit, Trash, AlertCircle, Crown, Shield, Users, User, Server, X } from 'lucide-react';
+import { MessageSquare, Plus, Trash, Crown, Shield, Users, User, Server, X } from 'lucide-react';
 import { getAvailableDiscordServers, getServerChannels, DiscordServer, fetchDiscordGuildRoles } from '../../utils/discordService';
 import { getAllQualifications } from '../../utils/qualificationService';
 
@@ -207,11 +207,10 @@ const SquadronDiscordSettings: React.FC<SquadronDiscordSettingsProps> = ({
             const textChannels = (response.channels || [])
               .filter(channel => {
                 // Accept any channel that could be a text channel
-                return channel.type === 0 || 
-                       channel.type === '0' || 
+                return channel.type === '0' || 
                        channel.type === 'GUILD_TEXT' ||
                        channel.type === 'TEXT' ||
-                       typeof channel.type === 'number' && [0, 1, 5, 10, 11, 12].includes(channel.type);
+                       (typeof channel.type === 'number' && [0, 1, 5, 10, 11, 12].includes(channel.type));
               })
               .map(channel => ({
                 id: channel.id,
@@ -349,16 +348,16 @@ const SquadronDiscordSettings: React.FC<SquadronDiscordSettingsProps> = ({
     }
   };
 
-  const handleQualificationSelect = (qualificationId: string) => {
-    const selectedQualification = availableQualifications.find(q => q.id === qualificationId);
-    if (selectedQualification) {
-      setNewRoleMapping({
-        ...newRoleMapping,
-        qualificationId: selectedQualification.id,
-        qualificationName: selectedQualification.name
-      });
-    }
-  };
+  // const handleQualificationSelect = (qualificationId: string) => {
+  //   const selectedQualification = availableQualifications.find(q => q.id === qualificationId);
+  //   if (selectedQualification) {
+  //     setNewRoleMapping({
+  //       ...newRoleMapping,
+  //       qualificationId: selectedQualification.id,
+  //       qualificationName: selectedQualification.name
+  //     });
+  //   }
+  // };
 
   const handleChannelSelect = (channelId: string) => {
     const selectedChannel = availableChannels.find(ch => ch.id === channelId);

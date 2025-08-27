@@ -32,7 +32,7 @@ const Settings = React.lazy(() => import('./components/settings/Settings'));
 const Home = React.lazy(() => import('./components/ui/Home'));
 
 const App: React.FC = () => {
-  const { user, userProfile, loading } = useAuth();
+  const { user } = useAuth();
   const location = useLocation();
   
   // Mission Execution state
@@ -200,7 +200,7 @@ const App: React.FC = () => {
     });
   };
 
-  const handleUpdatePosition = (boardNumber: string, bearing: string, distance: string, altitude: string, lowState: number) => {
+  const handleUpdatePosition = (boardNumber: string, bearing: string, distance: string, altitude: string, lowState?: number) => {
     setFlights(prevFlights => {
       return prevFlights.map(flight => {
         const member = flight.members.find(m => m.boardNumber === boardNumber);

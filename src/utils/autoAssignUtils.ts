@@ -27,10 +27,10 @@ export const autoAssignPilots = (
   suggestedMissionCommander: MissionCommanderInfo | null
 } => {
   // DEBUG: Log attendance status of available pilots
-  console.log('[ROLL-CALL-DEBUG] Pilots available for auto-assign:', availablePilots.length);
-  availablePilots.forEach(pilot => {
-    console.log(`[ROLL-CALL-DEBUG] - ${pilot.callsign} (${pilot.boardNumber}): Discord: ${pilot.attendanceStatus || 'undefined'}, RollCall: ${pilot.rollCallStatus || 'undefined'}`);
-  });
+  // console.log('[ROLL-CALL-DEBUG] Pilots available for auto-assign:', availablePilots.length);
+  // availablePilots.forEach(pilot => {
+  //   console.log(`[ROLL-CALL-DEBUG] - ${pilot.callsign} (${pilot.boardNumber}): Discord: ${pilot.attendanceStatus || 'undefined'}, RollCall: ${pilot.rollCallStatus || 'undefined'}`);
+  // });
 
   if (!flights || flights.length === 0 || !availablePilots || availablePilots.length === 0) {
     console.log("Cannot auto-assign: no flights or pilots available");
@@ -49,13 +49,13 @@ export const autoAssignPilots = (
 
     // Rule 3: Explicitly EXCLUDE pilots who are Absent or Declined
     if (rollCall === 'Absent' || discord === 'declined') {
-      console.log(`[ROLL-CALL-DEBUG] Excluding ${pilot.callsign} due to negative status: RollCall=${rollCall || 'none'}, Discord=${discord || 'none'}`);
+      // console.log(`[ROLL-CALL-DEBUG] Excluding ${pilot.callsign} due to negative status: RollCall=${rollCall || 'none'}, Discord=${discord || 'none'}`);
       return false; // Do not assign if Absent or Declined
     }
 
     // Rule 4: Explicitly EXCLUDE pilots if BOTH statuses are undefined
     if (rollCall === undefined && discord === undefined) {
-      console.log(`[ROLL-CALL-DEBUG] Excluding ${pilot.callsign} due to both statuses being undefined.`);
+      // console.log(`[ROLL-CALL-DEBUG] Excluding ${pilot.callsign} due to both statuses being undefined.`);
       return false; // Do not assign if both are undefined
     }
 
@@ -63,7 +63,7 @@ export const autoAssignPilots = (
     return true;
   });
 
-  console.log(`[ROLL-CALL-DEBUG] Filtered ${assignablePilots.length} pilots eligible for assignment:`, assignablePilots.map(p => `${p.callsign} (D:${p.attendanceStatus || 'N/A'}, R:${p.rollCallStatus || 'N/A'})`));
+  // console.log(`[ROLL-CALL-DEBUG] Filtered ${assignablePilots.length} pilots eligible for assignment:`, assignablePilots.map(p => `${p.callsign} (D:${p.attendanceStatus || 'N/A'}, R:${p.rollCallStatus || 'N/A'})`));
 
 
   // Check if there are any assignable pilots left after filtering
@@ -168,7 +168,7 @@ export const autoAssignPilots = (
       const pilotId = getPilotIdentifier(pilot);
       if (!isPilotAssigned(pilotId)) {
         const assignedPilot: AssignedPilot = { ...pilot, dashNumber: "1" };
-        console.log(`[ROLL-CALL-DEBUG] Assigning FL (1-1) in ${flightId}: ${pilot.callsign} (S:${getPilotStatusPriority(pilot)}, Q:${getPilotPriority(pilot)})`);
+        // console.log(`[ROLL-CALL-DEBUG] Assigning FL (1-1) in ${flightId}: ${pilot.callsign} (S:${getPilotStatusPriority(pilot)}, Q:${getPilotPriority(pilot)})`);
         newAssignments[flightId].push(assignedPilot);
         break; // Assign one pilot and move to the next flight
       }
@@ -185,7 +185,7 @@ export const autoAssignPilots = (
       const pilotId = getPilotIdentifier(pilot);
       if (!isPilotAssigned(pilotId)) {
         const assignedPilot: AssignedPilot = { ...pilot, dashNumber: "3" };
-         console.log(`[ROLL-CALL-DEBUG] Assigning SL (1-3) in ${flightId}: ${pilot.callsign} (S:${getPilotStatusPriority(pilot)}, Q:${getPilotPriority(pilot)})`);
+         // console.log(`[ROLL-CALL-DEBUG] Assigning SL (1-3) in ${flightId}: ${pilot.callsign} (S:${getPilotStatusPriority(pilot)}, Q:${getPilotPriority(pilot)})`);
         newAssignments[flightId].push(assignedPilot);
         break;
       }
@@ -203,7 +203,7 @@ export const autoAssignPilots = (
         const pilotId = getPilotIdentifier(pilot);
         if (!isPilotAssigned(pilotId)) {
           const assignedPilot: AssignedPilot = { ...pilot, dashNumber: "2" };
-          console.log(`[ROLL-CALL-DEBUG] Assigning W1 (1-2) in ${flightId}: ${pilot.callsign} (S:${getPilotStatusPriority(pilot)}, Q:${getPilotPriority(pilot)})`);
+          // console.log(`[ROLL-CALL-DEBUG] Assigning W1 (1-2) in ${flightId}: ${pilot.callsign} (S:${getPilotStatusPriority(pilot)}, Q:${getPilotPriority(pilot)})`);
           newAssignments[flightId].push(assignedPilot);
           break;
         }
@@ -216,7 +216,7 @@ export const autoAssignPilots = (
         const pilotId = getPilotIdentifier(pilot);
         if (!isPilotAssigned(pilotId)) {
           const assignedPilot: AssignedPilot = { ...pilot, dashNumber: "4" };
-          console.log(`[ROLL-CALL-DEBUG] Assigning W2 (1-4) in ${flightId}: ${pilot.callsign} (S:${getPilotStatusPriority(pilot)}, Q:${getPilotPriority(pilot)})`);
+          // console.log(`[ROLL-CALL-DEBUG] Assigning W2 (1-4) in ${flightId}: ${pilot.callsign} (S:${getPilotStatusPriority(pilot)}, Q:${getPilotPriority(pilot)})`);
           newAssignments[flightId].push(assignedPilot);
           break;
         }
@@ -226,10 +226,10 @@ export const autoAssignPilots = (
 
 
   // Add debug for final assigned pilots
-  console.log('[ROLL-CALL-DEBUG] Final assigned pilots with statuses:');
+  // console.log('[ROLL-CALL-DEBUG] Final assigned pilots with statuses:');
   for (const flightId in newAssignments) {
     for (const pilot of newAssignments[flightId]) {
-      console.log(`[ROLL-CALL-DEBUG] - ${flightId} pos ${pilot.dashNumber}: ${pilot.callsign} (D:${pilot.attendanceStatus || 'N/A'}, R:${pilot.rollCallStatus || 'N/A'})`);
+      // console.log(`[ROLL-CALL-DEBUG] - ${flightId} pos ${pilot.dashNumber}: ${pilot.callsign} (D:${pilot.attendanceStatus || 'N/A'}, R:${pilot.rollCallStatus || 'N/A'})`);
     }
   }
 
@@ -260,10 +260,10 @@ export const autoAssignPilots = (
         flightCallsign: flight.callsign,
         flightNumber: flight.flightNumber
       };
-      console.log(`[ROLL-CALL-DEBUG] Suggested Mission Commander: ${suggestedMissionCommander.callsign}`);
+      // console.log(`[ROLL-CALL-DEBUG] Suggested Mission Commander: ${suggestedMissionCommander.callsign}`);
     }
   } else {
-     console.log(`[ROLL-CALL-DEBUG] No suitable Mission Commander candidate found.`);
+     // console.log(`[ROLL-CALL-DEBUG] No suitable Mission Commander candidate found.`);
   }
 
 

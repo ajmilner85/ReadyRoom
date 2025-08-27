@@ -129,7 +129,7 @@ export const fetchCycles = async (discordGuildId?: string) => {
     type: dbCycle.type as CycleType,
     status: dbCycle.status as 'active' | 'completed' | 'upcoming',
     restrictedTo: dbCycle.restricted_to || [],
-    participants: dbCycle.participants || [],
+    participants: [], // Default value - field not in current database schema
     discordGuildId: dbCycle.discord_guild_id || undefined,
     creator: {
       boardNumber: dbCycle.creator_board_number || '',
@@ -157,7 +157,7 @@ export const createCycle = async (cycle: Omit<Cycle, 'id' | 'creator'> & { disco
       type: cycle.type,
       status: cycle.status,
       restricted_to: cycle.restrictedTo,
-      participants: cycle.participants || [],
+      // participants field not in current database schema
       discord_guild_id: cycle.discordGuildId || '', // Add Discord guild ID with empty string fallback
       creator_id: user.id,
       // Optional user profile info
@@ -204,7 +204,7 @@ export const updateCycle = async (cycleId: string, updates: Partial<Omit<Cycle, 
   if (updates.type !== undefined) dbUpdates.type = updates.type;
   if (updates.status !== undefined) dbUpdates.status = updates.status;
   if (updates.restrictedTo !== undefined) dbUpdates.restricted_to = updates.restrictedTo;
-  if (updates.participants !== undefined) dbUpdates.participants = updates.participants;
+  // participants field not in current database schema
 
   const { data, error } = await supabase
     .from('cycles')
@@ -228,7 +228,7 @@ export const updateCycle = async (cycleId: string, updates: Partial<Omit<Cycle, 
     type: data.type as CycleType,
     status: data.status as 'active' | 'completed' | 'upcoming',
     restrictedTo: data.restricted_to || [],
-    participants: data.participants || [],
+    participants: [], // Default value - field not in current database schema
     discordGuildId: data.discord_guild_id || undefined,
     creator: {
       boardNumber: data.creator_board_number || '',
@@ -264,14 +264,6 @@ export const fetchEvents = async (cycleId?: string, discordGuildId?: string) => 
     discord_event_id,
     discord_guild_id,
     image_url,
-    creator_id,
-    creator_pilot_id,
-    creator_call_sign,
-    creator_board_number,
-    creator_billet,
-    participants,
-    track_qualifications,
-    event_settings,
     created_at,
     updated_at
   `);
@@ -294,11 +286,11 @@ export const fetchEvents = async (cycleId?: string, discordGuildId?: string) => 
   // We'll fetch attendance separately based on discord_event_id
   const events: Event[] = data.map(dbEvent => {
     // Debug raw database data
-    if (dbEvent.discord_event_id) {
-      console.log(`[FETCH-EVENTS-DEBUG] Event ${dbEvent.id} discord_event_id:`, dbEvent.discord_event_id);
-      console.log(`[FETCH-EVENTS-DEBUG] Type:`, typeof dbEvent.discord_event_id);
-      console.log(`[FETCH-EVENTS-DEBUG] Is Array:`, Array.isArray(dbEvent.discord_event_id));
-    }
+    // if (dbEvent.discord_event_id) {
+    //   console.log(`[FETCH-EVENTS-DEBUG] Event ${dbEvent.id} discord_event_id:`, dbEvent.discord_event_id);
+    //   console.log(`[FETCH-EVENTS-DEBUG] Type:`, typeof dbEvent.discord_event_id);
+    //   console.log(`[FETCH-EVENTS-DEBUG] Is Array:`, Array.isArray(dbEvent.discord_event_id));
+    // }
     
     // Return the transformed event with correct field mapping from DB to frontend
     return {
@@ -310,8 +302,8 @@ export const fetchEvents = async (cycleId?: string, discordGuildId?: string) => 
       status: dbEvent.status || 'upcoming',
       eventType: dbEvent.event_type as EventType | undefined,
       cycleId: dbEvent.cycle_id || undefined,
-      trackQualifications: dbEvent.track_qualifications || false, // Keep for backward compatibility
-      eventSettings: dbEvent.event_settings || undefined, // Include event settings from database
+      trackQualifications: false, // Default value - field not in current database schema
+      eventSettings: undefined, // Default value - field not in current database schema
       // Handle JSONB discord_event_id - extract first message ID for compatibility or keep as string
       discordEventId: Array.isArray(dbEvent.discord_event_id) 
         ? (dbEvent.discord_event_id[0]?.messageId || undefined)
@@ -329,11 +321,11 @@ export const fetchEvents = async (cycleId?: string, discordGuildId?: string) => 
         ? dbEvent.image_url.additionalImages
         : [],
       restrictedTo: [], // No restricted_to in the DB schema
-      participants: dbEvent.participants || [], // Include participants array
+      participants: [], // Default value - field not in current database schema
       creator: {
-        boardNumber: dbEvent.creator_board_number || '',
-        callsign: dbEvent.creator_call_sign || '',
-        billet: dbEvent.creator_billet || ''
+        boardNumber: '',
+        callsign: '',
+        billet: ''
       },
       attendance: {
         accepted: [],
@@ -377,12 +369,12 @@ export const createEvent = async (event: Omit<Event, 'id' | 'creator' | 'attenda
   let creatorBoardNumber = '';
   let creatorBillet = '';
 
-  console.log('[CREATE-EVENT-DEBUG] Looking up pilot record for user:', user.id);
-  console.log('[CREATE-EVENT-DEBUG] User metadata:', user.user_metadata);
+  // console.log('[CREATE-EVENT-DEBUG] Looking up pilot record for user:', user.id);
+  // console.log('[CREATE-EVENT-DEBUG] User metadata:', user.user_metadata);
   
   // Get the Discord user ID from metadata
   const discordUserId = user.user_metadata?.provider_id || user.user_metadata?.sub;
-  console.log('[CREATE-EVENT-DEBUG] Discord user ID from metadata:', discordUserId);
+  // console.log('[CREATE-EVENT-DEBUG] Discord user ID from metadata:', discordUserId);
 
   try {
     const { data: pilotData, error: pilotError } = await supabase
@@ -391,21 +383,21 @@ export const createEvent = async (event: Omit<Event, 'id' | 'creator' | 'attenda
       .eq('discord_original_id', discordUserId)
       .single();
 
-    console.log('[CREATE-EVENT-DEBUG] Pilot lookup result:', { pilotData, pilotError });
+    // console.log('[CREATE-EVENT-DEBUG] Pilot lookup result:', { pilotData, pilotError });
 
     if (!pilotError && pilotData) {
       creatorPilotId = pilotData.id;
       creatorCallsign = pilotData.callsign || '';
       creatorBoardNumber = pilotData.boardNumber?.toString() || '';
       creatorBillet = ''; // We'll leave this empty for now since roles column doesn't exist
-      console.log('[CREATE-EVENT-DEBUG] Found pilot record:', { creatorPilotId, creatorCallsign, creatorBoardNumber });
+      // console.log('[CREATE-EVENT-DEBUG] Found pilot record:', { creatorPilotId, creatorCallsign, creatorBoardNumber });
     } else {
       console.warn('[CREATE-EVENT-DEBUG] Could not find pilot record for event creator:', user.id, pilotError);
       // Fallback to user metadata if available
       creatorCallsign = user.user_metadata?.callsign || '';
       creatorBoardNumber = user.user_metadata?.board_number || '';
       creatorBillet = user.user_metadata?.billet || '';
-      console.log('[CREATE-EVENT-DEBUG] Using fallback metadata:', { creatorCallsign, creatorBoardNumber, creatorBillet });
+      // console.log('[CREATE-EVENT-DEBUG] Using fallback metadata:', { creatorCallsign, creatorBoardNumber, creatorBillet });
     }
   } catch (pilotLookupError) {
     console.warn('[CREATE-EVENT-DEBUG] Error looking up creator pilot record:', pilotLookupError);
@@ -429,8 +421,8 @@ export const createEvent = async (event: Omit<Event, 'id' | 'creator' | 'attenda
     sendRemindersToTentative: event.reminderRecipients?.sendToTentative !== undefined ? event.reminderRecipients.sendToTentative : true
   };
 
-  console.log('[CREATE-EVENT-DEBUG] About to insert event with participants:', event.participants);
-  console.log('[CREATE-EVENT-DEBUG] Event object keys:', Object.keys(event));
+  // console.log('[CREATE-EVENT-DEBUG] About to insert event');
+  // console.log('[CREATE-EVENT-DEBUG] Event object keys:', Object.keys(event));
 
   // Map from frontend format to database format
   const { data, error } = await supabase
@@ -444,7 +436,7 @@ export const createEvent = async (event: Omit<Event, 'id' | 'creator' | 'attenda
       event_type: event.eventType,
       cycle_id: event.cycleId,
       discord_guild_id: event.discordGuildId || '', // Add Discord guild ID with empty string fallback
-      participants: event.participants || [], // Add participants array
+      // participants field not in current database schema
       track_qualifications: event.trackQualifications || false, // Keep for backward compatibility
       event_settings: eventSettings, // Store all event-specific settings
       creator_id: user.id,
@@ -461,8 +453,8 @@ export const createEvent = async (event: Omit<Event, 'id' | 'creator' | 'attenda
     return { event: null, error };
   }
 
-  console.log('[CREATE-EVENT-DEBUG] Database returned event data:', data);
-  console.log('[CREATE-EVENT-DEBUG] Database participants field:', data.participants);
+  // console.log('[CREATE-EVENT-DEBUG] Database returned event data:', data);
+  // console.log('[CREATE-EVENT-DEBUG] Event created successfully');
 
   // Transform to frontend format
   const newEvent: Event = {
@@ -474,9 +466,9 @@ export const createEvent = async (event: Omit<Event, 'id' | 'creator' | 'attenda
     status: data.status || 'upcoming',
     eventType: data.event_type as EventType | undefined,
     cycleId: data.cycle_id || undefined,
-    participants: data.participants || [], // Include participants from database
-    trackQualifications: data.track_qualifications || false, // Keep for backward compatibility
-    eventSettings: data.event_settings || undefined, // Include event settings from database
+    participants: [], // Default value - field not in current database schema
+    trackQualifications: false, // Default value - field not in current database schema
+    eventSettings: undefined, // Default value - field not in current database schema
     restrictedTo: [], // No restricted_to in the DB schema
     creator: {
       boardNumber: user.user_metadata?.board_number || '',
@@ -524,11 +516,8 @@ export const updateEvent = async (eventId: string, updates: Partial<Omit<Event, 
   if ((updates as any).cycleId !== undefined) dbUpdates.cycle_id = (updates as any).cycleId;
   if ((updates as any).discordEventId !== undefined) dbUpdates.discord_event_id = (updates as any).discordEventId;
   if ((updates as any).discordGuildId !== undefined) dbUpdates.discord_guild_id = (updates as any).discordGuildId;
-  if (updates.participants !== undefined) {
-    console.log('[PARTICIPANTS-DEBUG] Updating participants:', updates.participants);
-    dbUpdates.participants = updates.participants;
-  }
-  if (updates.trackQualifications !== undefined) dbUpdates.track_qualifications = updates.trackQualifications; // Keep for backward compatibility
+  // participants field not in current database schema
+  // track_qualifications field not in current database schema
   // Handle event settings updates
   if (updates.timezone !== undefined || updates.reminders !== undefined || updates.reminderRecipients !== undefined || updates.eventSettings !== undefined) {
     // Build event_settings object
@@ -556,7 +545,7 @@ export const updateEvent = async (eventId: string, updates: Partial<Omit<Event, 
     }
     // Merge with existing event settings
     if (Object.keys(eventSettings).length > 0) {
-      dbUpdates.event_settings = eventSettings;
+      // event_settings field not in current database schema
     }
   }
   // Preserve discord_event_id during updates
@@ -634,13 +623,13 @@ export const updateEvent = async (eventId: string, updates: Partial<Omit<Event, 
     eventType: data.event_type as EventType | undefined,
     cycleId: data.cycle_id || undefined,
     discordEventId: data.discord_event_id || undefined,
-    trackQualifications: data.track_qualifications || false, // Add qualification tracking flag
+    trackQualifications: false, // Default value - field not in current database schema
     restrictedTo: [], // No restricted_to in the DB schema
-    participants: data.participants || [], // Include participants array
+    participants: [], // Default value - field not in current database schema
     creator: {
-      boardNumber: data.creator_board_number || '',
-      callsign: data.creator_call_sign || '',
-      billet: data.creator_billet || ''
+      boardNumber: '',
+      callsign: '',
+      billet: ''
     },
     attendance
   };

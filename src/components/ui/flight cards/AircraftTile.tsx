@@ -119,7 +119,7 @@ const AircraftTile: React.FC<AircraftTileProps> = ({
   // Add debug effect to log attendance status changes
   useEffect(() => {
     if (!isEmpty && (attendanceStatus || rollCallStatus)) {
-      console.log(`[TENTATIVE-DEBUG] AircraftTile for ${callsign} (${boardNumber}): Discord=${attendanceStatus || 'none'}, RollCall=${rollCallStatus || 'none'}`);
+      // console.log(`[TENTATIVE-DEBUG] AircraftTile for ${callsign} (${boardNumber}): Discord=${attendanceStatus || 'none'}, RollCall=${rollCallStatus || 'none'}`);
       // Force a re-render by updating the key when either status changes
       setRenderKey(Date.now());
     }
@@ -313,7 +313,7 @@ const AircraftTile: React.FC<AircraftTileProps> = ({
 
                     // Debug log
                     if (!isEmpty && (rollCallStatus || attendanceStatus) && (callsign === 'MIRAGE' || callsign === 'VIKING')) {
-                       console.log(`[BADGE-DEBUG] AircraftTile ${callsign}: RollCall=${rollCallStatus || 'none'}, Discord=${attendanceStatus || 'none'}, ShowAbsent=${shouldShowAbsentDeclinedBadge}, ShowTentative=${shouldShowTentativeBadge}`);
+                       // console.log(`[BADGE-DEBUG] AircraftTile ${callsign}: RollCall=${rollCallStatus || 'none'}, Discord=${attendanceStatus || 'none'}, ShowAbsent=${shouldShowAbsentDeclinedBadge}, ShowTentative=${shouldShowTentativeBadge}`);
                     }
 
                     // Render Absent/Declined badge if needed

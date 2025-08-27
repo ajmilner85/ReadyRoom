@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Users } from 'lucide-react';
+import { X } from 'lucide-react';
 import { CycleType } from '../../../types/EventTypes';
 import { Squadron } from '../../../types/OrganizationTypes';
 

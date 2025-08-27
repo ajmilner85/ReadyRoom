@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { useAppSettings } from '../../context/AppSettingsContext';
 
 interface AppearanceProps {
@@ -25,12 +25,6 @@ const Appearance: React.FC<AppearanceProps> = () => {
     marginBottom: '40px'
   };
 
-  const sectionStyle = {
-    paddingTop: '32px',
-    paddingBottom: '32px',
-    borderTop: '1px solid #E5E7EB',
-    marginTop: '32px'
-  };
 
   const firstSectionStyle = {
     paddingTop: '0',

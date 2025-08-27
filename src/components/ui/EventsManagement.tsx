@@ -231,7 +231,7 @@ const EventsManagement: React.FC = () => {
           discordMessageId = eventObj.discord_event_id;
         }
         
-        console.log(`[DEBUG] Processing event ${event.id}: discord_event_id=${JSON.stringify(eventObj.discord_event_id)}, localStorage ID=${eventDiscordMap[event.id]}`);
+        // console.log(`[DEBUG] Processing event ${event.id}: discord_event_id=${JSON.stringify(eventObj.discord_event_id)}, localStorage ID=${eventDiscordMap[event.id]}`);
         
         // Remove the problematic JSONB field from the spread to prevent React rendering issues
         const { discord_event_id: _, ...eventWithoutDiscordEventId } = eventObj;
@@ -324,11 +324,11 @@ const EventsManagement: React.FC = () => {
       sendToTentative: boolean;
     };
   }, shouldPublish: boolean = false) => {
-    console.log('[EVENTS-MGMT-DEBUG] === ENTERING handleCreateEvent ===');
-    console.log('[EVENTS-MGMT-DEBUG] Function started at:', new Date().toISOString());
-    console.log('[EVENTS-MGMT-DEBUG] handleCreateEvent called with eventData.participants:', eventData.participants);
-    console.log('[EVENTS-MGMT-DEBUG] handleCreateEvent shouldPublish:', shouldPublish);
-    console.log('[EVENTS-MGMT-DEBUG] selectedCycle:', selectedCycle);
+    // console.log('[EVENTS-MGMT-DEBUG] === ENTERING handleCreateEvent ===');
+    // console.log('[EVENTS-MGMT-DEBUG] Function started at:', new Date().toISOString());
+    // console.log('[EVENTS-MGMT-DEBUG] handleCreateEvent called with eventData.participants:', eventData.participants);
+    // console.log('[EVENTS-MGMT-DEBUG] handleCreateEvent shouldPublish:', shouldPublish);
+    // console.log('[EVENTS-MGMT-DEBUG] selectedCycle:', selectedCycle);
     
     let createTimeoutId: NodeJS.Timeout;
     let imageTimeoutId: NodeJS.Timeout;
@@ -347,7 +347,7 @@ const EventsManagement: React.FC = () => {
         }
       }      
       // Create the event first without image with timeout protection
-      console.log('[EVENTS-MGMT-DEBUG] Starting createEvent database operation');
+      // console.log('[EVENTS-MGMT-DEBUG] Starting createEvent database operation');
       const createEventPromise = createEvent({
         ...eventData,
         status: 'upcoming',
@@ -364,9 +364,9 @@ const EventsManagement: React.FC = () => {
       
       const { event: newEvent, error } = await Promise.race([createEventPromise, createTimeoutPromise]) as any;
       if (createTimeoutId) clearTimeout(createTimeoutId);
-      console.log('[EVENTS-MGMT-DEBUG] createEvent database operation completed');
+      // console.log('[EVENTS-MGMT-DEBUG] createEvent database operation completed');
 
-      console.log('[CREATE-EVENT-DEBUG] createEvent result:', { newEvent, error });
+      // console.log('[CREATE-EVENT-DEBUG] createEvent result:', { newEvent, error });
       if (error) throw error;
       
       // Upload multiple images if provided

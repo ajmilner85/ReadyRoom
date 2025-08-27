@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { supabase, fetchCarriers } from '../../../utils/supabaseClient';
+import { fetchCarriers } from '../../../utils/supabaseClient';
 import { SupportRoleType } from '../../../types/SupportRoleTypes'; // Keep type for consistency
 import { AddSupportRoleDialogData, CommandControlSlot } from '../../../types/DialogTypes';
 
