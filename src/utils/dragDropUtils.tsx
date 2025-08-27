@@ -1,11 +1,6 @@
 import type { Pilot } from '../types/PilotTypes';
 import type { MissionCommanderInfo } from '../types/MissionCommanderTypes';
-
-interface AssignedPilot extends Pilot {
-  dashNumber: string;
-  attendanceStatus?: 'accepted' | 'tentative';
-  rollCallStatus?: 'Present' | 'Absent' | 'Tentative';
-}
+import type { AssignedPilot } from '../types/MissionPrepTypes';
 
 // Utility to clean up role IDs by removing duplicated prefixes
 export const cleanRoleId = (roleId: string): string => {

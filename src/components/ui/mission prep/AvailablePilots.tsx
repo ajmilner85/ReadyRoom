@@ -6,6 +6,7 @@ import { Filter, ClipboardCheck } from 'lucide-react';
 import { useDraggable } from '@dnd-kit/core';
 import type { Pilot, QualificationType } from '../../../types/PilotTypes';
 import type { Event } from '../../../types/EventTypes';
+import type { AssignedPilot } from '../../../types/MissionPrepTypes';
 import { updateRollCallResponse, syncRollCallResponses } from '../../../utils/rollCallUtils';
 
 // Define the structure for the polled attendance data (matching MissionPreparation)
@@ -15,11 +16,6 @@ interface RealtimeAttendanceRecord {
   roll_call_response?: 'Present' | 'Absent' | 'Tentative'; // Add roll call response
 }
 
-interface AssignedPilot extends Pilot {
-  dashNumber: string;
-  attendanceStatus?: 'accepted' | 'tentative';
-  rollCallStatus?: 'Present' | 'Absent' | 'Tentative';
-}
 
 interface AvailablePilotsProps {
   width: string;
