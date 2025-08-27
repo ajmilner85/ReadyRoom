@@ -143,10 +143,9 @@ export async function fetchDiscordGuildRoles(guildId: string): Promise<{
 export async function publishEventFromCycle(event: Event): Promise<MultiChannelPublishResponse> {
   const publishedChannels: { squadronId: string; guildId: string; channelId: string; discordMessageId: string; }[] = [];
   const errors: { squadronId: string; error: string; }[] = [];
+  let participatingSquadrons: string[] = [];
   
   try {
-    let participatingSquadrons: string[] = [];
-    let cycleType: string = '';
     
     // Use event-level participating squadrons if they exist, otherwise get from cycle
     // console.log('[PARTICIPANT-DEBUG] Event participants:', event.participants);
@@ -173,8 +172,8 @@ export async function publishEventFromCycle(event: Event): Promise<MultiChannelP
         };
       }
       
-      participatingSquadrons = cycleData.participants || [];
-      cycleType = cycleData.type;
+      participatingSquadrons = Array.isArray(cycleData.participants) ? cycleData.participants as string[] : [];
+      // cycleType = cycleData.type;
       // console.log('[PARTICIPANT-DEBUG] Got participants from cycle:', participatingSquadrons);
     } else {
       // console.log('[PARTICIPANT-DEBUG] No cycleId found, cannot determine participating squadrons');
@@ -226,8 +225,8 @@ export async function publishEventFromCycle(event: Event): Promise<MultiChannelP
         continue;
       }
       
-      const discordIntegration = squadronData.discord_integration;
-      const selectedGuildId = discordIntegration.selectedGuildId;
+      const discordIntegration = squadronData.discord_integration as any;
+      const selectedGuildId = discordIntegration?.selectedGuildId;
       
       if (!selectedGuildId) {
         errors.push({
@@ -238,7 +237,7 @@ export async function publishEventFromCycle(event: Event): Promise<MultiChannelP
       }
       
       // Always use the events channel for each squadron
-      const discordChannels = discordIntegration.discordChannels || [];
+      const discordChannels = discordIntegration?.discordChannels || [];
       const eventsChannel = discordChannels.find((ch: any) => ch.type === 'events');
       
       if (!eventsChannel) {
@@ -271,7 +270,7 @@ export async function publishEventFromCycle(event: Event): Promise<MultiChannelP
     // console.log(`[MULTI-DISCORD-DEBUG] Found ${uniqueChannels.size} unique channels for ${participatingSquadrons.length} squadrons`);
     
     // Second pass: publish to each unique channel once
-    for (const [channelKey, channelInfo] of uniqueChannels) {
+    for (const [_channelKey, channelInfo] of uniqueChannels) {
       try {
         // console.log(`[MULTI-DISCORD-DEBUG] Publishing to unique channel ${channelKey} for squadrons: ${channelInfo.squadronNames.join(', ')}`);
         
@@ -352,7 +351,7 @@ async function publishToSpecificChannel(event: Event, guildId: string, channelId
     }
     
     // Generate a unique request ID for tracking
-    const requestId = `publish-${event.id}-${guildId}-${channelId}-${Date.now()}`;
+    // const requestId = `publish-${event.id}-${guildId}-${channelId}-${Date.now()}`;
     // console.log(`[MULTI-DISCORD-DEBUG] Making direct API call ${requestId} to guild ${guildId}, channel ${channelId}`);
     
     const requestBody = {
@@ -831,7 +830,7 @@ export async function deleteMultiChannelEvent(event: Event): Promise<{ success: 
         };
       }
       
-      participatingSquadrons = cycleData.participants || [];
+      participatingSquadrons = Array.isArray(cycleData.participants) ? cycleData.participants as string[] : [];
     } else {
       return {
         success: false,
@@ -873,8 +872,8 @@ export async function deleteMultiChannelEvent(event: Event): Promise<{ success: 
           continue;
         }
         
-        const discordIntegration = squadronData.discord_integration;
-        const selectedGuildId = discordIntegration.selectedGuildId;
+        const discordIntegration = squadronData.discord_integration as any;
+        const selectedGuildId = discordIntegration?.selectedGuildId;
         
         if (!selectedGuildId) {
           errors.push(`No Discord server configured for squadron ${squadronId}`);
@@ -882,7 +881,7 @@ export async function deleteMultiChannelEvent(event: Event): Promise<{ success: 
         }
         
         // Always use the events channel for each squadron
-        const discordChannels = discordIntegration.discordChannels || [];
+        const discordChannels = discordIntegration?.discordChannels || [];
         const eventsChannel = discordChannels.find((ch: any) => ch.type === 'events');
         
         if (!eventsChannel) {
@@ -920,12 +919,12 @@ export async function deleteMultiChannelEvent(event: Event): Promise<{ success: 
               messageIdForThisChannel = event.discordEventId || event.discord_event_id;
               console.log(`[DELETE-MULTI-DISCORD] Fallback to legacy message ID: ${messageIdForThisChannel}`);
             } else if (Array.isArray(freshEvent.discord_event_id)) {
-              const publication = freshEvent.discord_event_id.find(pub => 
-                pub.squadronId === squadronId && 
+              const publication = freshEvent.discord_event_id.find((pub: any) => 
+                pub && pub.squadronId === squadronId && 
                 pub.guildId === selectedGuildId && 
                 pub.channelId === eventsChannel.id
               );
-              messageIdForThisChannel = publication?.messageId;
+              messageIdForThisChannel = (publication as any)?.messageId;
               console.log(`[DELETE-MULTI-DISCORD] Found message ID from fresh DB data for squadron ${squadronId}: ${messageIdForThisChannel}`);
             } else {
               // Still not an array, use legacy approach
@@ -1037,7 +1036,7 @@ export async function deleteDiscordMessage(eventOrMessageId: Event | string, gui
             .single();
             
           if (!error && data && data.discord_event_id) {
-            discordMessageId = data.discord_event_id;
+            discordMessageId = String(data.discord_event_id);
             // console.log(`[DEBUG] Found Discord message ID in database: ${discordMessageId}`);
           } else if (error) {
             // console.log(`[DEBUG] Database lookup error: ${error.message}`);
@@ -1277,7 +1276,7 @@ export async function getEventAttendanceFromDiscord(discordMessageId: string): P
  * @param discordMessageId The Discord message ID
  * @returns Boolean indicating success or failure
  */
-export async function syncDiscordAttendance(eventId: string, discordMessageId: string): Promise<boolean> {
+export async function syncDiscordAttendance(_eventId: string, discordMessageId: string): Promise<boolean> {
   try {
     // Fetch attendance data from Discord
     const attendanceData = await getEventAttendanceFromDiscord(discordMessageId);
@@ -1424,7 +1423,7 @@ export async function updateMultiChannelEvent(event: Event, originalStartTime?: 
         };
       }
       
-      participatingSquadrons = cycleData.participants || [];
+      participatingSquadrons = Array.isArray(cycleData.participants) ? cycleData.participants as string[] : [];
     } else {
       return {
         success: false,
@@ -1466,8 +1465,8 @@ export async function updateMultiChannelEvent(event: Event, originalStartTime?: 
           continue;
         }
         
-        const discordIntegration = squadronData.discord_integration;
-        const selectedGuildId = discordIntegration.selectedGuildId;
+        const discordIntegration = squadronData.discord_integration as any;
+        const selectedGuildId = discordIntegration?.selectedGuildId;
         
         if (!selectedGuildId) {
           errors.push(`No Discord server configured for squadron ${squadronId}`);
@@ -1475,7 +1474,7 @@ export async function updateMultiChannelEvent(event: Event, originalStartTime?: 
         }
         
         // Always use the events channel for each squadron
-        const discordChannels = discordIntegration.discordChannels || [];
+        const discordChannels = discordIntegration?.discordChannels || [];
         const eventsChannel = discordChannels.find((ch: any) => ch.type === 'events');
         
         if (!eventsChannel) {
