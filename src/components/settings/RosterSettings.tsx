@@ -42,9 +42,9 @@ const RosterSettings: React.FC<RosterSettingsProps> = ({ error, setError }) => {
   const [newRoleIsExclusive, setNewRoleIsExclusive] = useState(false);
   const [newRoleCompatibleStatuses, setNewRoleCompatibleStatuses] = useState<string[]>([]);
   const [isAddingRole, setIsAddingRole] = useState(false);
-  const [editingRoleId, setEditingRoleId] = useState<string | null>(null);
-  const [editingRoleName, setEditingRoleName] = useState('');
-  const [editingRoleIsExclusive, setEditingRoleIsExclusive] = useState(false);
+  const [, setEditingRoleId] = useState<string | null>(null);
+  const [, setEditingRoleName] = useState('');
+  const [, setEditingRoleIsExclusive] = useState(false);
   const [editingRoleCompatibleStatuses, setEditingRoleCompatibleStatuses] = useState<string[]>([]);
   const [roleUsage, setRoleUsage] = useState<Record<string, number>>({});
   // const [reorderingRoles, setReorderingRoles] = useState(false);

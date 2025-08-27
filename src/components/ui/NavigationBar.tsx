@@ -1,5 +1,5 @@
 import React from 'react';
-import { Users, Layout, Calendar, FileText, Settings, User, LogOut, Lock, Home } from 'lucide-react';
+import { Users, Layout, Calendar, FileText, Settings, LogOut, Home } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { signOut } from '../../utils/supabaseClient';
@@ -66,7 +66,7 @@ interface NavigationBarProps {
 const NavigationBar: React.FC<NavigationBarProps> = ({ activeButton }) => {
   const [tooltipVisible, setTooltipVisible] = React.useState<string | null>(null);
   const navigate = useNavigate();
-  const { user, userProfile } = useAuth();
+  const { userProfile } = useAuth();
   const { settings } = useAppSettings();
   const userPermissions = getUserPermissions(userProfile);
 

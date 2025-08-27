@@ -106,7 +106,7 @@ const SquadronDiscordSettings: React.FC<SquadronDiscordSettingsProps> = ({
 }) => {
   const [showChannelForm, setShowChannelForm] = useState(false);
   const [showRoleForm, setShowRoleForm] = useState(false);
-  const [newChannel, setNewChannel] = useState({ id: '', name: '', type: 'events' as const });
+  const [newChannel, setNewChannel] = useState<{ id: string; name: string; type: 'events' | 'briefing' }>({ id: '', name: '', type: 'events' });
   const [newRoleMapping, setNewRoleMapping] = useState({
     discordRoleId: '',
     discordRoleName: '',
@@ -269,12 +269,12 @@ const SquadronDiscordSettings: React.FC<SquadronDiscordSettingsProps> = ({
   const getRoleMappingIcon = (mapping: RoleMapping) => {
     let overlayIcon;
     if (mapping.isIgnoreUsers) {
-      overlayIcon = <X size={7} style={{ color: '#EF4444' }} strokeWidth={2.5} />;
+      overlayIcon = <X style={{ color: '#EF4444', width: 7, height: 7 }} strokeWidth={2.5} />;
     } else if (mapping.appPermission) {
-      overlayIcon = React.cloneElement(getPermissionIcon(mapping.appPermission) as React.ReactElement, { size: 7, strokeWidth: 2.5 });
+      overlayIcon = React.cloneElement(getPermissionIcon(mapping.appPermission) as React.ReactElement, { style: { width: 7, height: 7 }, strokeWidth: 2.5 });
     } else {
       // Default icon for qualifications
-      overlayIcon = <Shield size={7} style={{ color: '#10B981' }} strokeWidth={2.5} />;
+      overlayIcon = <Shield style={{ color: '#10B981', width: 7, height: 7 }} strokeWidth={2.5} />;
     }
     return <DiscordLogo size={18} overlayIcon={overlayIcon} />;
   };
