@@ -697,6 +697,8 @@ const EventsManagement: React.FC = () => {
             title: eventData.title, // Ensure title field mapping
             datetime: eventData.datetime.includes('T') ? eventData.datetime : `${eventData.datetime}:00.000Z`,
             endDatetime: eventData.endDatetime?.includes('T') ? eventData.endDatetime : `${eventData.endDatetime}:00.000Z`,
+            // Map database field to Event interface field
+            cycleId: freshEventData.cycle_id,
             // Ensure creator field is properly mapped from raw database fields
             creator: {
               boardNumber: freshEventData.creator_board_number || '',
@@ -715,7 +717,7 @@ const EventsManagement: React.FC = () => {
           console.log(`[UPDATE-EVENT] Updated event object:`, {
             id: updatedEvent.id,
             title: updatedEvent.title,
-            cycleId: updatedEvent.cycle_id,
+            cycleId: updatedEvent.cycleId,
             participants: updatedEvent.participants,
             discord_event_id: updatedEvent.discord_event_id,
             creator: updatedEvent.creator,

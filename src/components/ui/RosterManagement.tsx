@@ -260,7 +260,7 @@ const RosterManagement: React.FC = () => {
             discordId: pilot.discordId || undefined, // Handle null case
             currentStatus: pilot.currentStatus || undefined,
             currentStanding: pilot.currentStanding || undefined,
-            qualifications: (pilot.qualifications || []).map((q, index) => ({
+            qualifications: ((pilot as any).qualifications || []).map((q: any, index: number) => ({
               id: `${pilot.id}-${index}`,
               type: q as any,
               dateAchieved: new Date().toISOString().split('T')[0]

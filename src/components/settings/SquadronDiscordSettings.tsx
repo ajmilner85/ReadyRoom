@@ -236,20 +236,6 @@ const SquadronDiscordSettings: React.FC<SquadronDiscordSettingsProps> = ({
     }
   }, [selectedGuildId]);
 
-  const getPermissionIcon = (permission: string) => {
-    switch (permission) {
-      case 'admin':
-        return <Crown size={14} className="text-red-600" strokeWidth={2.5} />;
-      case 'flight_lead':
-        return <Shield size={14} className="text-orange-600" strokeWidth={2.5} />;
-      case 'member':
-        return <Users size={14} className="text-blue-600" strokeWidth={2.5} />;
-      case 'guest':
-        return <User size={14} className="text-gray-600" strokeWidth={2.5} />;
-      default:
-        return null;
-    }
-  };
 
   const getPermissionLabel = (permission: string) => {
     switch (permission) {
@@ -271,7 +257,23 @@ const SquadronDiscordSettings: React.FC<SquadronDiscordSettingsProps> = ({
     if (mapping.isIgnoreUsers) {
       overlayIcon = <X style={{ color: '#EF4444', width: 7, height: 7 }} strokeWidth={2.5} />;
     } else if (mapping.appPermission) {
-      overlayIcon = React.cloneElement(getPermissionIcon(mapping.appPermission) as React.ReactElement, { size: 7, strokeWidth: 2.5 });
+      // Create appropriately sized icon based on permission
+      switch (mapping.appPermission) {
+        case 'admin':
+          overlayIcon = <Crown size={7} className="text-red-600" strokeWidth={2.5} />;
+          break;
+        case 'flight_lead':
+          overlayIcon = <Shield size={7} className="text-orange-600" strokeWidth={2.5} />;
+          break;
+        case 'member':
+          overlayIcon = <Users size={7} className="text-blue-600" strokeWidth={2.5} />;
+          break;
+        case 'guest':
+          overlayIcon = <User size={7} className="text-gray-600" strokeWidth={2.5} />;
+          break;
+        default:
+          overlayIcon = <Shield size={7} className="text-gray-600" strokeWidth={2.5} />;
+      }
     } else {
       // Default icon for qualifications
       overlayIcon = <Shield style={{ color: '#10B981', width: 7, height: 7 }} strokeWidth={2.5} />;
