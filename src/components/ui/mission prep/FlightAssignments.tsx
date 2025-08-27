@@ -3,6 +3,7 @@ import { Card } from '../card';
 import FlightAssignmentCard from '../flight cards/FlightAssignmentCard';
 import AddFlightDialog from '../dialogs/AddFlightDialog';
 import type { Pilot } from '../../../types/PilotTypes';
+import type { AssignedPilot } from '../../../types/MissionPrepTypes';
 
 interface Flight {
   id: string;
@@ -19,10 +20,6 @@ interface Flight {
 }
 
 // Extended Pilot type with dashNumber for flight assignments
-interface AssignedPilot extends Pilot {
-  dashNumber: string;
-  attendanceStatus?: 'accepted' | 'tentative';
-}
 
 // Add mission commander interface
 interface MissionCommanderInfo {

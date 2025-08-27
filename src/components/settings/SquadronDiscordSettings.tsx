@@ -271,7 +271,7 @@ const SquadronDiscordSettings: React.FC<SquadronDiscordSettingsProps> = ({
     if (mapping.isIgnoreUsers) {
       overlayIcon = <X style={{ color: '#EF4444', width: 7, height: 7 }} strokeWidth={2.5} />;
     } else if (mapping.appPermission) {
-      overlayIcon = React.cloneElement(getPermissionIcon(mapping.appPermission) as React.ReactElement, { style: { width: 7, height: 7 }, strokeWidth: 2.5 });
+      overlayIcon = React.cloneElement(getPermissionIcon(mapping.appPermission) as React.ReactElement, { size: 7, strokeWidth: 2.5 });
     } else {
       // Default icon for qualifications
       overlayIcon = <Shield style={{ color: '#10B981', width: 7, height: 7 }} strokeWidth={2.5} />;

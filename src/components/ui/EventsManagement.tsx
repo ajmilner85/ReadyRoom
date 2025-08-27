@@ -703,13 +703,19 @@ const EventsManagement: React.FC = () => {
               callsign: freshEventData.creator_call_sign || '',
               billet: freshEventData.creator_billet || ''
             },
+            // Convert discord_event_id from Json to proper array type
+            discord_event_id: Array.isArray(freshEventData.discord_event_id) 
+              ? freshEventData.discord_event_id 
+              : freshEventData.discord_event_id 
+                ? [freshEventData.discord_event_id] 
+                : undefined,
             attendance: { accepted: [], declined: [], tentative: [] }
-          };
+          } as Event;
         
           console.log(`[UPDATE-EVENT] Updated event object:`, {
             id: updatedEvent.id,
             title: updatedEvent.title,
-            cycleId: updatedEvent.cycleId,
+            cycleId: updatedEvent.cycle_id,
             participants: updatedEvent.participants,
             discord_event_id: updatedEvent.discord_event_id,
             creator: updatedEvent.creator,
@@ -1341,7 +1347,7 @@ const EventsManagement: React.FC = () => {
           divisionLabel={isDeleteCycle 
             ? cycleToDelete?.name || "" 
             : eventToDelete?.title || ""}
-          isPublished={!isDeleteCycle && (
+          isPublished={!isDeleteCycle && !!(
             eventToDelete?.discordEventId || 
             eventToDelete?.discord_event_id
           )}

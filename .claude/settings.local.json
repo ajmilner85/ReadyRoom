@@ -31,7 +31,9 @@
       "mcp__supabase__list_projects",
       "mcp__supabase__list_tables",
       "mcp__supabase__execute_sql",
-      "mcp__supabase__generate_typescript_types"
+      "mcp__supabase__generate_typescript_types",
+      "Bash(git log:*)",
+      "Bash(git add:*)"
     ],
     "additionalDirectories": [
       "C:\\Users\\ajmil\\Desktop\\ReadyRoom",
