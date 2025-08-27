@@ -23,7 +23,8 @@ import {
   assignQualificationToPilot,
   removeQualificationFromPilot,
   getPilotQualifications,
-  getBatchPilotQualifications
+  getBatchPilotQualifications,
+  clearPilotQualificationsCache
 } from '../../utils/qualificationService';
 import { rosterStyles } from '../../styles/RosterManagementStyles';
 import PilotList from './roster/PilotList';
@@ -1092,6 +1093,24 @@ const RosterManagement: React.FC = () => {
     }
   };
 
+  // Callback for when a qualification is added via repair dialog
+  const handleQualificationAddedViaRepair = (pilotId: string, qualificationData: any[]) => {
+    console.log('🔄 Parent: Updating qualification states after repair dialog addition');
+    
+    // Update pilotQualifications if this is the selected pilot
+    if (selectedPilot && selectedPilot.id === pilotId) {
+      setPilotQualifications(qualificationData);
+    }
+    
+    // Update allPilotQualifications for badge rendering
+    setAllPilotQualifications(prev => ({
+      ...prev,
+      [pilotId]: qualificationData
+    }));
+    
+    console.log('🔄 Parent: Qualification states updated successfully');
+  };
+
   // Function to add a qualification to a pilot
   const handleAddQualification = async () => {
     if (!selectedPilot || !selectedQualification) return;
@@ -1139,6 +1158,10 @@ const RosterManagement: React.FC = () => {
       if (error) {
         throw new Error(error.message);
       }
+      
+      // Clear cache to ensure we get fresh qualification data
+      clearPilotQualificationsCache(selectedPilot.id);
+      clearPilotQualificationsCache(actualPilotId);
       
       // Refresh qualifications for the selected pilot
       const { data: updatedQuals, error: fetchError } = await getPilotQualifications(actualPilotId);
@@ -1848,6 +1871,7 @@ const RosterManagement: React.FC = () => {
                 handleDeletePilot={handleDeletePilot}
                 handleSavePilotChanges={handleSavePilotChanges}
                 handleClearDiscord={handleClearDiscord}
+                onQualificationAdded={handleQualificationAddedViaRepair}
               />
             )}
           </div>

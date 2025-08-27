@@ -8,6 +8,7 @@ interface QualificationBadgeProps {
   code?: string; // Optional code if we already have it
   color?: string; // Optional color if we already have it
   qualifications?: Qualification[]; // Pre-loaded qualifications to avoid async loading
+  size?: 'small' | 'normal'; // Size variant for different use cases
 }
 
 // Legacy qualification configs (for backward compatibility)
@@ -71,7 +72,7 @@ const stringToColor = (str: string): string => {
   return colors[index];
 };
 
-const QualificationBadge: React.FC<QualificationBadgeProps> = ({ type, count, code, color, qualifications: preloadedQualifications }) => {
+const QualificationBadge: React.FC<QualificationBadgeProps> = ({ type, count, code, color, qualifications: preloadedQualifications, size = 'normal' }) => {
   const [qualifications, setQualifications] = useState<Qualification[]>(preloadedQualifications || []);
   const [loaded, setLoaded] = useState(!!preloadedQualifications);
   
@@ -125,6 +126,11 @@ const QualificationBadge: React.FC<QualificationBadgeProps> = ({ type, count, co
     backgroundColor = stringToColor(type);
   }
 
+  // Size-specific dimensions
+  const dimensions = size === 'small' 
+    ? { height: '16px', width: '24px', fontSize: '10px', borderRadius: '4px' }
+    : { height: '24px', width: '37px', fontSize: '12px', borderRadius: '8px' };
+
   return (
     <div 
       style={{ 
@@ -132,23 +138,23 @@ const QualificationBadge: React.FC<QualificationBadgeProps> = ({ type, count, co
         alignItems: 'center',
         justifyContent: 'center',
         position: 'relative',
-        height: '24px',
-        width: '37px'
+        height: dimensions.height,
+        width: dimensions.width
       }}
     >
       <div
         style={{
           backgroundColor: backgroundColor,
-          borderRadius: '8px',
+          borderRadius: dimensions.borderRadius,
           width: '100%',
           height: '100%',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           color: '#F9FAFB',
-          fontSize: '12px',
+          fontSize: dimensions.fontSize,
           fontWeight: 400,
-          lineHeight: '15px',
+          lineHeight: size === 'small' ? '12px' : '15px',
         }}
       >
         <span>{abbreviation}</span>

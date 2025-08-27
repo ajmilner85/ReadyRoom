@@ -5,7 +5,7 @@ import { Pilot } from '../../../types/PilotTypes';
 import { Status } from '../../../utils/statusService';
 import { Standing } from '../../../utils/standingService';
 import { Role } from '../../../utils/roleService';
-import { Qualification, getAllQualifications } from '../../../utils/qualificationService';
+import { Qualification, getAllQualifications, getPilotQualifications, clearPilotQualificationsCache } from '../../../utils/qualificationService';
 import StatusSelector from './StatusSelector';
 import StandingSelector from './StandingSelector';
 import RoleSelector from './RoleSelector';
@@ -83,6 +83,7 @@ interface PilotDetailsProps {
   handleDeletePilot?: (pilotId: string) => void;
   handleSavePilotChanges?: (pilot: Pilot) => Promise<{ success: boolean; error?: string }>;
   handleClearDiscord?: (pilotId: string) => Promise<{ success: boolean; error?: string }>;
+  onQualificationAdded?: (pilotId: string, qualificationData: any[]) => void;
   isNewPilot?: boolean;
   onPilotFieldChange?: (field: string, value: string) => void;
   onSaveNewPilot?: () => void;
@@ -122,6 +123,7 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
   handleDeletePilot,
   handleSavePilotChanges,
   handleClearDiscord,
+  onQualificationAdded,
   isNewPilot = false,
   onPilotFieldChange,
   onSaveNewPilot,
@@ -151,6 +153,12 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
   } | null>(null);
   const [showQualificationDropdown, setShowQualificationDropdown] = useState(false);
   const [cachedQualifications, setCachedQualifications] = useState<any[]>([]);
+  const [localPilotQualifications, setLocalPilotQualifications] = useState<any[]>(pilotQualifications);
+
+  // Sync local qualifications with prop changes
+  useEffect(() => {
+    setLocalPilotQualifications(pilotQualifications);
+  }, [pilotQualifications]);
 
   useEffect(() => {
     if (selectedPilot) {
@@ -239,6 +247,25 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
     if (!repairDialogData || !selectedPilot) return;
     
     try {
+      // Check if qualification already exists to prevent duplicate key error
+      const { data: existingQualifications, error: checkError } = await supabase
+        .from('pilot_qualifications')
+        .select('id')
+        .eq('pilot_id', selectedPilot.id)
+        .eq('qualification_id', repairDialogData.selectedQualificationId);
+
+      if (checkError) {
+        console.error('Error checking existing qualifications:', checkError);
+        alert(`Failed to check existing qualifications: ${checkError.message}`);
+        return;
+      }
+
+      if (existingQualifications && existingQualifications.length > 0) {
+        console.log('Qualification already exists for this pilot');
+        alert('This qualification has already been added to the pilot.');
+        return;
+      }
+
       // Add qualification to pilot_qualifications table
       const { error } = await supabase
         .from('pilot_qualifications')
@@ -259,12 +286,27 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
       setShowRepairDialog(false);
       setRepairDialogData(null);
       
-      // Refresh Discord roles to update colors
-      await loadDiscordRoles();
+      // Clear the qualifications cache for this pilot to force fresh data fetch
+      console.log('🧹 Clearing qualification cache for pilot:', selectedPilot.id);
+      clearPilotQualificationsCache(selectedPilot.id);
       
-      // Refresh pilot qualifications if there's a handler for it
-      if (handleAddQualification && selectedPilot) {
-        await handleAddQualification(selectedPilot.id, repairDialogData.selectedQualificationId, new Date(repairDialogData.earnedDate));
+      // Force refresh the local qualifications by re-fetching them directly
+      try {
+        console.log('🔄 Re-fetching pilot qualifications directly...');
+        const result = await getPilotQualifications(selectedPilot.id);
+        console.log('🔄 Updated qualifications result:', result);
+        
+        // Update local state with fresh qualification data - extract the data array from the result
+        setLocalPilotQualifications(result?.data || []);
+        console.log('🔄 Local qualifications state updated');
+        
+        // Call the parent callback to update parent component states
+        if (onQualificationAdded && result?.data) {
+          console.log('🔄 Calling parent onQualificationAdded callback...');
+          onQualificationAdded(selectedPilot.id, result.data);
+        }
+      } catch (error) {
+        console.error('Error re-fetching qualifications:', error);
       }
       
       console.log('Qualification added successfully');
@@ -690,16 +732,19 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
         <div style={{ ...pilotDetailsStyles.fieldContainer, ...sectionSpacingStyle }}>
           <label style={pilotDetailsStyles.fieldLabel}>Discord Server Roles</label>
           <div style={{ 
-            minHeight: '40px', 
-            padding: '8px', 
-            backgroundColor: '#f8f9fa', 
-            borderRadius: '4px', 
-            border: '1px solid #e2e8f0',
-            display: 'flex',
-            alignItems: 'flex-start',
-            justifyContent: 'flex-start'
+            display: 'inline-block'
           }}>
-            {renderDiscordRoles()}
+            <div style={{ 
+              minHeight: '40px', 
+              padding: '8px', 
+              backgroundColor: '#f8f9fa', 
+              borderRadius: '4px', 
+              border: '1px solid #e2e8f0',
+              display: 'inline-flex',
+              alignItems: 'flex-start'
+            }}>
+              {renderDiscordRoles()}
+            </div>
           </div>
         </div>
       </>
@@ -763,8 +808,8 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
 
       // Check if it's a qualification mapping
       if (mapping.qualification) {
-        // Check if pilot has this qualification using the correct pilotQualifications prop
-        const hasQualification = pilotQualifications?.some((pq: any) => {
+        // Check if pilot has this qualification using the local pilotQualifications state
+        const hasQualification = localPilotQualifications?.some((pq: any) => {
           // pilotQualifications contains pilot_qualifications records with nested qualification objects
           const qualification = pq.qualification;
           if (!qualification) return false;
@@ -778,19 +823,27 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
           );
         });
         
-        // Debug logging for qualification matching
+        // Enhanced debug logging for qualification matching  
+        const qualificationDetails = localPilotQualifications?.map((pq: any) => ({
+          recordId: pq.id,
+          qualification_id: pq.qualification_id,
+          qualificationName: pq.qualification?.name,
+          qualificationId: pq.qualification?.id,
+          matchesId: pq.qualification_id === mapping.qualification,
+          matchesName: pq.qualification?.name === mapping.qualificationName
+        }));
+        
         console.log('🔍 QUALIFICATION DEBUG:', {
           roleName: role.name,
           mappingQualification: mapping.qualification,
           mappingQualificationName: mapping.qualificationName,
-          pilotQualifications: pilotQualifications?.map((pq: any) => ({ 
-            id: pq.id, 
-            qualification_id: pq.qualification_id,
-            qualificationName: pq.qualification?.name,
-            qualificationId: pq.qualification?.id
-          })),
-          hasQualification
+          hasQualification,
+          totalPilotQualifications: localPilotQualifications?.length || 0,
+          pilotQualificationsDetailed: qualificationDetails
         });
+        
+        // Log the full qualifications array for deeper inspection
+        console.log('📋 FULL PILOT QUALIFICATIONS:', localPilotQualifications);
         
         if (hasQualification) {
           // Has qualification - blue
@@ -834,8 +887,8 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
       
       if (!mapping || !mapping.qualification) return null;
       
-      // Check if pilot is missing this qualification using the correct pilotQualifications prop
-      const hasQualification = pilotQualifications?.some((pq: any) => {
+      // Check if pilot is missing this qualification using the local pilotQualifications state
+      const hasQualification = localPilotQualifications?.some((pq: any) => {
         const qualification = pq.qualification;
         if (!qualification) return false;
         
@@ -902,7 +955,7 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
                   const mapping = roleMappings.find(m => m.discordRoleId === role.id);
                   
                   // Check if this is a blue badge (in sync)
-                  const isInSync = mapping?.qualification && pilotQualifications?.some((pq: any) => {
+                  const isInSync = mapping?.qualification && localPilotQualifications?.some((pq: any) => {
                     const qualification = pq.qualification;
                     if (!qualification) return false;
                     
@@ -1483,7 +1536,9 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
                       cursor: 'pointer',
                       display: 'flex',
                       alignItems: 'center',
-                      justifyContent: 'space-between'
+                      justifyContent: 'space-between',
+                      height: '40px', // Same height as date selector
+                      boxSizing: 'border-box'
                     }}
                   >
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -1491,6 +1546,7 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
                         <QualificationBadge 
                           type={availableQualifications.find(q => q.id === repairDialogData.selectedQualificationId)!.name as any}
                           qualifications={cachedQualifications}
+                          size="small"
                         />
                       )}
                       <span>
@@ -1528,7 +1584,7 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
                           }}
                           style={{
                             width: '100%',
-                            padding: '8px 12px',
+                            padding: '6px 12px',
                             border: 'none',
                             backgroundColor: repairDialogData.selectedQualificationId === qual.id ? '#F3F4F6' : 'transparent',
                             cursor: 'pointer',
@@ -1536,7 +1592,8 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
                             alignItems: 'center',
                             gap: '8px',
                             fontSize: '14px',
-                            textAlign: 'left'
+                            textAlign: 'left',
+                            height: '32px' // Shorter dropdown options
                           }}
                           onMouseEnter={(e) => {
                             if (repairDialogData.selectedQualificationId !== qual.id) {
@@ -1549,7 +1606,7 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
                             }
                           }}
                         >
-                          <QualificationBadge type={qual.name as any} qualifications={cachedQualifications} />
+                          <QualificationBadge type={qual.name as any} qualifications={cachedQualifications} size="small" />
                           <span>{qual.name}</span>
                         </button>
                       ))}
@@ -1560,6 +1617,7 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
                 {/* Date Input */}
                 <input
                   type="date"
+                  title="Effective date"
                   value={repairDialogData.earnedDate}
                   onChange={(e) => setRepairDialogData(prev => prev ? {
                     ...prev,
@@ -1571,8 +1629,10 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
                     borderRadius: '6px',
                     fontSize: '14px',
                     backgroundColor: '#FFFFFF',
-                    flexShrink: 0,
-                    width: '140px'
+                    width: '140px',
+                    height: '40px', // Same height as qualification selector
+                    boxSizing: 'border-box',
+                    flexShrink: 0
                   }}
                 />
               </div>
