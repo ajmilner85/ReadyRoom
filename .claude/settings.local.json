@@ -33,11 +33,13 @@
       "mcp__supabase__execute_sql",
       "mcp__supabase__generate_typescript_types",
       "Bash(git log:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
     ],
     "additionalDirectories": [
       "C:\\Users\\ajmil\\Desktop\\ReadyRoom",
-      "C:\\Users\\ajmil\\Desktop"
+      "C:\\Users\\ajmil\\Desktop",
+      "C:\\c\\Users\\ajmil\\Desktop"
     ]
   },
   "outputStyle": "default"

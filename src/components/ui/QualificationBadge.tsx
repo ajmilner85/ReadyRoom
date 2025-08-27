@@ -64,6 +64,22 @@ const LEGACY_QUALIFICATION_CONFIGS: Record<QualificationType, { abbr: string; co
   'WQ': {
     abbr: 'WQ',
     color: '#B0B0B0'  // Medium Grey
+  },
+  'T/O': {
+    abbr: 'TO',
+    color: '#646F7E'  // Slate
+  },
+  'NATOPS': {
+    abbr: 'NAT',
+    color: '#5B4E61'  // Medium Purple
+  },
+  'DFL': {
+    abbr: 'DFL',
+    color: '#646F7E'  // Slate
+  },
+  'DTL': {
+    abbr: 'DTL',
+    color: '#4A4A4A'  // Dark Grey
   }
 };
 

@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { X, Clock, Upload, Image as ImageIcon, ChevronLeft, ChevronRight, Check } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { X, Clock, Image as ImageIcon, ChevronLeft, ChevronRight, Check } from 'lucide-react';
 import { useAppSettings } from '../../../context/AppSettingsContext';
 
 interface EventDialogProps {
@@ -291,7 +291,7 @@ export const EventDialog: React.FC<EventDialogProps> = ({
       //   imageUrl: initialData.imageUrl
       // });
       
-      const newPreviews = [null, null, null, null];
+      const newPreviews: (string | null)[] = [null, null, null, null];
       
       // Load header image from legacy imageUrl or new headerImageUrl as first image
       const headerUrl = initialData.headerImageUrl || initialData.imageUrl;
@@ -565,8 +565,8 @@ export const EventDialog: React.FC<EventDialogProps> = ({
         },
         restrictedTo: restrictedTo.length > 0 ? restrictedTo : undefined,
         participants: participants.length > 0 ? participants : undefined,
-        headerImage: headerImageForSubmit,
-        additionalImages: additionalImagesForSubmit,
+        headerImage: headerImageForSubmit instanceof File ? headerImageForSubmit : undefined,
+        additionalImages: additionalImagesForSubmit.filter((img): img is File => img instanceof File),
         trackQualifications,
         timezone,
         reminders: {
