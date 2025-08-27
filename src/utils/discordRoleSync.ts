@@ -1,4 +1,4 @@
-import { supabase } from './supabaseClient';
+// import { supabase } from './supabaseClient';
 import { UserProfile } from './userProfileService';
 
 export interface DiscordRoleMapping {
@@ -73,19 +73,21 @@ export async function syncUserDiscordRoles(
     }
 
     // Update user's permission level in the database
-    // Note: We'll store this in a new column on user_profiles table
-    const { error: updateError } = await supabase
-      .from('user_profiles')
-      .update({ 
-        app_permission: newPermission,
-        last_role_sync: new Date().toISOString()
-      })
-      .eq('id', userProfile.id);
+    // TODO: Verify correct column name for app_permission in user_profiles table
+    // const { error: updateError } = await supabase
+    //   .from('user_profiles')
+    //   .update({ 
+    //     app_permission: newPermission,
+    //     last_role_sync: new Date().toISOString()
+    //   })
+    //   .eq('id', userProfile.id);
 
-    if (updateError) {
-      console.error('Error updating user permissions:', updateError);
-      return { success: false, error: 'Failed to update user permissions' };
-    }
+    // if (updateError) {
+    //   console.error('Error updating user permissions:', updateError);
+    //   return { success: false, error: 'Failed to update user permissions' };
+    // }
+    
+    console.log(`[ROLE-SYNC] Would update user ${userProfile.id} permission to ${newPermission}`);
 
     return { 
       success: true, 

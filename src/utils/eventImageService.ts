@@ -18,7 +18,7 @@ export const uploadEventImage = async (eventId: string, file: File) => {
     console.log(`Upload path: ${filePath}`);
     
     // Upload the file to the 'event-images' bucket with upsert=true
-    const { data, error } = await supabase.storage
+    const { data: _data, error } = await supabase.storage
       .from('event-images')
       .upload(filePath, file, {
         cacheControl: '3600',
@@ -154,9 +154,10 @@ export const uploadMultipleEventImages = async (eventId: string, images: {
         ? existingEvent.image_url 
         : { additionalImages: [] };
       
+      const existingUrls = existingImageUrls as any;
       imageUrls = {
-        headerImage: existingImageUrls.headerImage,
-        additionalImages: [...(existingImageUrls.additionalImages || [])]
+        headerImage: existingUrls?.headerImage,
+        additionalImages: [...(existingUrls?.additionalImages || [])]
       };
     }
     
@@ -240,7 +241,7 @@ const uploadSingleImageFile = async (eventId: string, file: File, imageType: str
   console.log(`Upload path for ${imageType}: ${filePath}`);
   
   // Upload the file to the 'event-images' bucket with upsert=true
-  const { data, error } = await supabase.storage
+  const { data: _data, error } = await supabase.storage
     .from('event-images')
     .upload(filePath, file, {
       cacheControl: '3600',
