@@ -56,6 +56,7 @@ export interface PilotRoleAssignment {
 export interface Pilot {
   id: string;                 // Primary identifier - Supabase UUID
   discordId?: string;         // Discord user ID (previously stored in id)
+  discord_original_id?: string; // Numeric Discord ID for API calls
   callsign: string;
   boardNumber: string;        // Not a unique identifier, just a display property
   status: PilotStatus;
@@ -155,6 +156,7 @@ export function convertSupabasePilotToLegacy(pilot: SupabasePilot): Pilot {
   return {
     id: pilot.id,                        // Use Supabase UUID as the primary ID
     discordId: pilot.discord_original_id, // Store Discord ID in dedicated field
+    discord_original_id: pilot.discord_original_id, // Preserve numeric Discord ID
     callsign: pilot.callsign,
     boardNumber: pilot.boardNumber.toString(),
     status: 'Provisional',               // Default, should be updated with actual value

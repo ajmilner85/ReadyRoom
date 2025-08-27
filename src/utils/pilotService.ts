@@ -5,7 +5,6 @@ import { Pilot, NewPilot, UpdatePilot } from './pilotTypes';
  * Fetch all pilots from the database with their role assignments, status, and standing
  */
 export async function getAllPilots(): Promise<{ data: Pilot[] | null; error: any }> {
-  console.log('🔍 Fetching all pilots with roles, status, and standing...');
   
   try {
     // Step 1: Fetch all pilots
@@ -19,7 +18,6 @@ export async function getAllPilots(): Promise<{ data: Pilot[] | null; error: any
       return { data: null, error: pilotsError };
     }
 
-    console.log('✅ Fetched pilots:', pilotsData?.length);
 
     // Step 2: Fetch all active pilot role assignments with role details
     const { data: roleAssignments, error: rolesError } = await supabase
@@ -106,12 +104,9 @@ export async function getAllPilots(): Promise<{ data: Pilot[] | null; error: any
       return { data: null, error: squadronError };
     }
 
-    console.log('✅ Fetched role assignments:', roleAssignments?.length);
-    console.log('✅ Fetched status assignments:', statusAssignments?.length);
-    console.log('✅ Fetched standing assignments:', standingAssignments?.length);
-    console.log('✅ Fetched squadron assignments:', squadronAssignments?.length);
 
-    // Step 6: Combine pilots with their assignments
+
+    // Step 6: Combine pilots with their assignments  
     const pilotsWithAssignments = (pilotsData || []).map(pilot => {
       // Find this pilot's active role assignment
       const pilotRoleAssignments = (roleAssignments || []).filter(
@@ -136,6 +131,7 @@ export async function getAllPilots(): Promise<{ data: Pilot[] | null; error: any
       const pilotSquadronAssignment = (squadronAssignments || []).find(
         sqa => sqa.pilot_id === pilot.id
       );
+
 
       const transformedPilot: Pilot = {
         ...pilot, // Spread all pilot properties from database
@@ -162,19 +158,12 @@ export async function getAllPilots(): Promise<{ data: Pilot[] | null; error: any
         } : undefined
       };
 
-      console.log(`✅ Transformed pilot ${pilot.callsign}:`, {
-        id: pilot.id,
-        callsign: pilot.callsign,
-        currentRole: transformedPilot.roles?.[0]?.role?.name,
-        currentStatus: transformedPilot.currentStatus?.name,
-        currentStanding: transformedPilot.currentStanding?.name,
-        currentSquadron: (transformedPilot as any).currentSquadron?.designation
-      });
 
+      
       return transformedPilot;
     });
 
-    console.log('🎉 All pilots transformed successfully');
+    
     return { data: pilotsWithAssignments as Pilot[], error: null };
 
   } catch (error) {

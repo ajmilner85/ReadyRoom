@@ -5,15 +5,17 @@ import { Pilot } from '../../../types/PilotTypes';
 import { Status } from '../../../utils/statusService';
 import { Standing } from '../../../utils/standingService';
 import { Role } from '../../../utils/roleService';
-import { Qualification } from '../../../utils/qualificationService';
+import { Qualification, getAllQualifications } from '../../../utils/qualificationService';
 import StatusSelector from './StatusSelector';
 import StandingSelector from './StandingSelector';
 import RoleSelector from './RoleSelector';
 import SquadronSelector from './SquadronSelector';
 import { Squadron } from '../../../utils/squadronService';
 import QualificationsManager from './QualificationsManager';
-import { Save, X, Trash2, Sync } from 'lucide-react';
+import QualificationBadge from '../QualificationBadge';
+import { Save, X, Trash2, Sync, Wrench } from 'lucide-react';
 import { fetchDiscordGuildMember, fetchDiscordGuildRoles } from '../../../utils/discordService';
+import { supabase } from '../../../utils/supabaseClient';
 
 interface DiscordRole {
   id: string;
@@ -37,6 +39,17 @@ interface DiscordGuildMember {
   roles: string[];
   joined_at: string;
   premium_since?: string;
+}
+
+interface RoleMapping {
+  id: string;
+  discordRoleId: string;
+  discordRoleName: string;
+  appPermission?: 'admin' | 'flight_lead' | 'member' | 'guest';
+  qualification?: string; // Qualification ID
+  qualificationName?: string; // Human readable qualification name
+  isIgnoreUsers?: boolean; // Special flag for "Ignore Users" mapping
+  priority: number;
 }
 
 interface PilotDetailsProps {
@@ -127,12 +140,28 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
   const [discordRoles, setDiscordRoles] = useState<DiscordRole[]>([]);
   const [isLoadingDiscordRoles, setIsLoadingDiscordRoles] = useState(false);
   const [discordRoleError, setDiscordRoleError] = useState<string | null>(null);
+  const [roleMappings, setRoleMappings] = useState<RoleMapping[]>([]);
+  const [containerWidth, setContainerWidth] = useState(0);
+  const [showRepairDialog, setShowRepairDialog] = useState(false);
+  const [repairDialogData, setRepairDialogData] = useState<{
+    discordRole: DiscordRole;
+    mapping: RoleMapping;
+    selectedQualificationId: string;
+    earnedDate: string;
+  } | null>(null);
+  const [showQualificationDropdown, setShowQualificationDropdown] = useState(false);
+  const [cachedQualifications, setCachedQualifications] = useState<any[]>([]);
 
   useEffect(() => {
     if (selectedPilot) {
       setEditedPilot({ ...selectedPilot });
       setIsEdited(false);
       loadDiscordRoles();
+      
+      // Load qualifications data for caching
+      if (cachedQualifications.length === 0) {
+        loadQualificationsCache();
+      }
     } else {
       setEditedPilot(null);
       setDiscordMember(null);
@@ -140,11 +169,132 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
     }
     setEditError(null);
   }, [selectedPilot]);
+  
+  const loadQualificationsCache = async () => {
+    try {
+      const { data } = await getAllQualifications();
+      if (data) {
+        setCachedQualifications(data);
+      }
+    } catch (error) {
+      console.error('Error loading qualifications cache:', error);
+    }
+  };
+
+  // Add resize observer for responsive columns
+  useEffect(() => {
+    const observeContainer = () => {
+      if (pilotDetailsRef.current) {
+        const resizeObserver = new ResizeObserver(entries => {
+          for (let entry of entries) {
+            setContainerWidth(entry.contentRect.width);
+          }
+        });
+        
+        resizeObserver.observe(pilotDetailsRef.current);
+        return () => resizeObserver.disconnect();
+      }
+    };
+
+    return observeContainer();
+  }, []);
+
+  const loadRoleMappings = async (squadronId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('org_squadrons')
+        .select('discord_integration')
+        .eq('id', squadronId)
+        .single();
+
+      if (error) {
+        console.error('Error fetching squadron Discord integration:', error);
+        return;
+      }
+
+      // Extract role mappings from discord_integration
+      const roleMappingsData = data?.discord_integration?.roleMappings || [];
+      setRoleMappings(roleMappingsData);
+    } catch (error) {
+      console.error('Error loading role mappings:', error);
+      setRoleMappings([]);
+    }
+  };
+
+  const handleAddMissingQualification = (role: DiscordRole, mapping: RoleMapping) => {
+    if (!selectedPilot) return;
+    
+    // Set up dialog data - use mapping qualification as default, or first available qualification
+    const defaultQualId = mapping.qualification || (availableQualifications.length > 0 ? availableQualifications[0].id : '');
+    setRepairDialogData({
+      discordRole: role,
+      mapping,
+      selectedQualificationId: defaultQualId,
+      earnedDate: new Date().toISOString().split('T')[0] // Default to today
+    });
+    setShowRepairDialog(true);
+  };
+
+  const handleRepairDialogConfirm = async () => {
+    if (!repairDialogData || !selectedPilot) return;
+    
+    try {
+      // Add qualification to pilot_qualifications table
+      const { error } = await supabase
+        .from('pilot_qualifications')
+        .insert({
+          pilot_id: selectedPilot.id,
+          qualification_id: repairDialogData.selectedQualificationId,
+          achieved_date: new Date(repairDialogData.earnedDate).toISOString(),
+          created_at: new Date().toISOString()
+        });
+
+      if (error) {
+        console.error('Error adding qualification:', error);
+        alert(`Failed to add qualification: ${error.message}`);
+        return;
+      }
+
+      // Close dialog
+      setShowRepairDialog(false);
+      setRepairDialogData(null);
+      
+      // Refresh Discord roles to update colors
+      await loadDiscordRoles();
+      
+      // Refresh pilot qualifications if there's a handler for it
+      if (handleAddQualification && selectedPilot) {
+        await handleAddQualification(selectedPilot.id, repairDialogData.selectedQualificationId, new Date(repairDialogData.earnedDate));
+      }
+      
+      console.log('Qualification added successfully');
+      
+    } catch (error: any) {
+      console.error('Error adding qualification:', error);
+      alert(`Failed to add qualification: ${error.message}`);
+    }
+  };
+
+  const handleRepairDialogCancel = () => {
+    setShowRepairDialog(false);
+    setRepairDialogData(null);
+    setShowQualificationDropdown(false);
+  };
 
   const loadDiscordRoles = async () => {
-    if (!selectedPilot?.discordId || !selectedPilot?.currentSquadron) {
+    
+    if (!selectedPilot?.currentSquadron) {
       setDiscordMember(null);
       setDiscordRoles([]);
+      setRoleMappings([]);
+      return;
+    }
+    
+    // Check if we have the numeric Discord ID needed for API lookups
+    if (!selectedPilot.discord_original_id) {
+      setDiscordMember(null);
+      setDiscordRoles([]);
+      setRoleMappings([]);
       return;
     }
 
@@ -160,16 +310,57 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
         return;
       }
 
-      const result = await fetchDiscordGuildMember(guildId, selectedPilot.discordId);
+      // Use discord_original_id for API lookup since Discord API expects numeric ID  
+      const discordIdForLookup = selectedPilot.discord_original_id;
       
-      if (result.error) {
-        setDiscordRoleError(result.error);
+      if (!discordIdForLookup) {
+        setDiscordRoleError('No numeric Discord ID found for this pilot. The pilot may need to be re-synced with Discord.');
+        return;
+      }
+
+      // Fetch member data, guild roles, and role mappings
+      const [memberResult, rolesResult] = await Promise.all([
+        fetchDiscordGuildMember(guildId, discordIdForLookup),
+        fetchDiscordGuildRoles(guildId),
+        loadRoleMappings(selectedPilot.currentSquadron.id)
+      ]);
+      
+      if (memberResult.error) {
+        setDiscordRoleError(memberResult.error);
+        setDiscordMember(null);
+        setDiscordRoles([]);
+      } else if (rolesResult.error) {
+        setDiscordRoleError(`Failed to fetch guild roles: ${rolesResult.error}`);
         setDiscordMember(null);
         setDiscordRoles([]);
       } else {
-        setDiscordMember(result.member);
-        setDiscordRoles(result.roles);
+        setDiscordMember(memberResult.member);
+        setDiscordRoles(rolesResult.roles);
         setDiscordRoleError(null);
+        
+        // Targeted debugging for Discord roles
+        console.log('🔍 DISCORD ROLES DEBUG:', {
+          pilot: selectedPilot.callsign,
+          discordIdUsed: discordIdForLookup,
+          memberFound: !!memberResult.member,
+          memberUsername: memberResult.member?.user?.username,
+          memberRoleIds: memberResult.member?.roles || [],
+          memberRoleCount: memberResult.member?.roles?.length || 0,
+          totalGuildRoles: rolesResult.roles.length,
+          guildRolesSample: rolesResult.roles.slice(0, 3).map(r => ({ id: r.id, name: r.name }))
+        });
+        
+        // Check for role matching
+        if (memberResult.member?.roles) {
+          const matchingRoles = rolesResult.roles.filter(role => 
+            memberResult.member!.roles.includes(role.id)
+          );
+          console.log('🎯 ROLE MATCHING:', {
+            memberRoleIds: memberResult.member.roles,
+            matchingRoleNames: matchingRoles.map(r => r.name),
+            matchingRoleCount: matchingRoles.length
+          });
+        }
       }
     } catch (error) {
       console.error('Error loading Discord roles:', error);
@@ -498,7 +689,16 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
 
         <div style={{ ...pilotDetailsStyles.fieldContainer, ...sectionSpacingStyle }}>
           <label style={pilotDetailsStyles.fieldLabel}>Discord Server Roles</label>
-          <div style={{ minHeight: '40px', padding: '8px', backgroundColor: '#f8f9fa', borderRadius: '4px', border: '1px solid #e2e8f0' }}>
+          <div style={{ 
+            minHeight: '40px', 
+            padding: '8px', 
+            backgroundColor: '#f8f9fa', 
+            borderRadius: '4px', 
+            border: '1px solid #e2e8f0',
+            display: 'flex',
+            alignItems: 'flex-start',
+            justifyContent: 'flex-start'
+          }}>
             {renderDiscordRoles()}
           </div>
         </div>
@@ -547,32 +747,214 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
       .filter(role => role.name !== '@everyone') // Filter out @everyone role
       .sort((a, b) => b.position - a.position);
 
-    return (
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', padding: '4px' }}>
-        {sortedRoles.map((role) => {
-          // Convert Discord color integer to hex
-          const colorHex = role.color === 0 ? '#99AAB5' : `#${role.color.toString(16).padStart(6, '0')}`;
+    // Helper function to determine badge color and style
+    const getBadgeStyle = (role: DiscordRole) => {
+      // Find if this role has a mapping
+      const mapping = roleMappings.find(m => m.discordRoleId === role.id);
+      
+      if (!mapping || mapping.isIgnoreUsers) {
+        // No mapping or ignore mapping - light gray
+        return {
+          backgroundColor: '#F3F4F6',
+          color: '#4B5563',
+          border: '1px solid #D1D5DB'
+        };
+      }
+
+      // Check if it's a qualification mapping
+      if (mapping.qualification) {
+        // Check if pilot has this qualification using the correct pilotQualifications prop
+        const hasQualification = pilotQualifications?.some((pq: any) => {
+          // pilotQualifications contains pilot_qualifications records with nested qualification objects
+          const qualification = pq.qualification;
+          if (!qualification) return false;
           
+          // Check multiple possible formats for qualification matching
           return (
-            <div
-              key={role.id}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                padding: '4px 8px',
-                backgroundColor: `${colorHex}20`, // 20% opacity background
-                color: colorHex,
-                borderRadius: '12px',
-                fontSize: '12px',
-                fontWeight: '500',
-                border: `1px solid ${colorHex}40`,
-                minHeight: '24px',
-              }}
-            >
-              {role.name}
-            </div>
+            qualification.name === mapping.qualificationName ||
+            qualification.id === mapping.qualification ||
+            qualification.name === mapping.qualification ||
+            pq.qualification_id === mapping.qualification
           );
-        })}
+        });
+        
+        // Debug logging for qualification matching
+        console.log('🔍 QUALIFICATION DEBUG:', {
+          roleName: role.name,
+          mappingQualification: mapping.qualification,
+          mappingQualificationName: mapping.qualificationName,
+          pilotQualifications: pilotQualifications?.map((pq: any) => ({ 
+            id: pq.id, 
+            qualification_id: pq.qualification_id,
+            qualificationName: pq.qualification?.name,
+            qualificationId: pq.qualification?.id
+          })),
+          hasQualification
+        });
+        
+        if (hasQualification) {
+          // Has qualification - blue
+          return {
+            backgroundColor: '#DBEAFE',
+            color: '#1D4ED8',
+            border: '1px solid #3B82F6'
+          };
+        } else {
+          // Missing qualification - red
+          return {
+            backgroundColor: '#FEE2E2',
+            color: '#DC2626',
+            border: '1px solid #EF4444'
+          };
+        }
+      }
+
+      // Check if it's a permission mapping
+      if (mapping.appPermission) {
+        // Check if pilot has the corresponding site permission (this would need actual implementation)
+        // For now, assuming they have permission - yellow
+        return {
+          backgroundColor: '#FEF3C7',
+          color: '#D97706',
+          border: '1px solid #F59E0B'
+        };
+      }
+
+      // Default - light gray
+      return {
+        backgroundColor: '#F3F4F6',
+        color: '#4B5563',
+        border: '1px solid #D1D5DB'
+      };
+    };
+
+    // Helper function to render qualification fix button
+    const renderFixButton = (role: DiscordRole) => {
+      const mapping = roleMappings.find(m => m.discordRoleId === role.id);
+      
+      if (!mapping || !mapping.qualification) return null;
+      
+      // Check if pilot is missing this qualification using the correct pilotQualifications prop
+      const hasQualification = pilotQualifications?.some((pq: any) => {
+        const qualification = pq.qualification;
+        if (!qualification) return false;
+        
+        return (
+          qualification.name === mapping.qualificationName ||
+          qualification.id === mapping.qualification ||
+          qualification.name === mapping.qualification ||
+          pq.qualification_id === mapping.qualification
+        );
+      });
+      
+      if (hasQualification) return null;
+      
+      return (
+        <button
+          onClick={() => handleAddMissingQualification(role, mapping)}
+          style={{
+            marginLeft: '6px',
+            padding: '2px',
+            backgroundColor: 'transparent',
+            border: 'none',
+            borderRadius: '50%',
+            cursor: 'pointer',
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: '18px',
+            height: '18px',
+            color: '#DC2626'
+          }}
+          title={`Add missing qualification: ${mapping.qualificationName}`}
+        >
+          <Wrench size={12} />
+        </button>
+      );
+    };
+
+    // Create responsive column layout
+    const getColumnCount = () => {
+      if (containerWidth >= 600) {
+        return 3; // Wide screens: 3 columns, up to 6 badges per column
+      } else if (containerWidth >= 400) {
+        return 2; // Medium screens: 2 columns, up to 9 badges per column
+      } else {
+        return 1; // Narrow screens: 1 column, all badges in one column
+      }
+    };
+
+    const columnCount = getColumnCount();
+    const itemsPerColumn = Math.ceil(sortedRoles.length / columnCount);
+
+    return (
+      <div style={{ 
+        display: 'inline-flex',
+        gap: '8px',
+        padding: '4px'
+      }}>
+        {Array.from({ length: columnCount }, (_, colIndex) => (
+          <div key={colIndex} style={{ display: 'flex', flexDirection: 'column', gap: '6px', alignItems: 'flex-start' }}>
+              {sortedRoles
+                .slice(colIndex * itemsPerColumn, (colIndex + 1) * itemsPerColumn)
+                .map((role) => {
+                  const badgeStyle = getBadgeStyle(role);
+                  const mapping = roleMappings.find(m => m.discordRoleId === role.id);
+                  
+                  // Check if this is a blue badge (in sync)
+                  const isInSync = mapping?.qualification && pilotQualifications?.some((pq: any) => {
+                    const qualification = pq.qualification;
+                    if (!qualification) return false;
+                    
+                    return (
+                      qualification.name === mapping.qualificationName ||
+                      qualification.id === mapping.qualification ||
+                      qualification.name === mapping.qualification ||
+                      pq.qualification_id === mapping.qualification
+                    );
+                  });
+                  
+                  return (
+                    <div
+                      key={role.id}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        padding: '0 8px',
+                        borderRadius: '8px',
+                        fontSize: '12px',
+                        fontWeight: '500',
+                        height: '24px',
+                        boxSizing: 'border-box',
+                        whiteSpace: 'nowrap',
+                        ...badgeStyle
+                      }}
+                    >
+                      <span>{role.name}</span>
+                      {isInSync && (
+                        <svg 
+                          width="12" 
+                          height="12" 
+                          viewBox="0 0 24 24" 
+                          fill="none" 
+                          style={{ marginLeft: '4px' }}
+                        >
+                          <path 
+                            d="M16 3L21 8L16 13M8 21L3 16L8 11M21 8H3M3 16H21" 
+                            stroke="currentColor" 
+                            strokeWidth="2" 
+                            strokeLinecap="round" 
+                            strokeLinejoin="round"
+                          />
+                        </svg>
+                      )}
+                      {renderFixButton(role)}
+                    </div>
+                  );
+                })
+              }
+            </div>
+          ))}
       </div>
     );
   };
@@ -987,6 +1369,242 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
                   }}
                 >
                   Delete
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Repair Qualification Dialog */}
+        {showRepairDialog && repairDialogData && (
+          <div
+            style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              backgroundColor: 'rgba(0, 0, 0, 0.5)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              zIndex: 1000
+            }}
+            onClick={handleRepairDialogCancel}
+          >
+            <div
+              style={{
+                backgroundColor: '#FFFFFF',
+                borderRadius: '8px',
+                padding: '24px',
+                minWidth: '600px',
+                maxWidth: '700px',
+                boxShadow: '0 10px 25px rgba(0, 0, 0, 0.1)'
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div style={{ 
+                display: 'flex', 
+                alignItems: 'center',
+                marginBottom: '20px'
+              }}>
+                <div style={{
+                  width: '24px',
+                  height: '24px',
+                  marginRight: '8px'
+                }}>
+                  <svg viewBox="0 0 24 24" style={{ width: '100%', height: '100%' }}>
+                    <path 
+                      fill="#5865F2" 
+                      d="M20.317 4.3698a19.7913 19.7913 0 00-4.8851-1.5152.0741.0741 0 00-.0785.0371c-.211.3753-.4447.8648-.6083 1.2495-1.8447-.2762-3.68-.2762-5.4868 0-.1636-.3933-.4058-.8742-.6177-1.2495a.077.077 0 00-.0785-.037 19.7363 19.7363 0 00-4.8852 1.515.0699.0699 0 00-.0321.0277C.5334 9.0458-.319 13.5799.0992 18.0578a.0824.0824 0 00.0312.0561c2.0528 1.5076 4.0413 2.4228 5.9929 3.0294a.0777.0777 0 00.0842-.0276c.4616-.6304.8731-1.2952 1.226-1.9942a.076.076 0 00-.0416-.1057c-.6528-.2476-1.2743-.5495-1.8722-.8923a.077.077 0 01-.0076-.1277c.1258-.0943.2517-.1923.3718-.2914a.0743.0743 0 01.0776-.0105c3.9278 1.7933 8.18 1.7933 12.0614 0a.0739.0739 0 01.0785.0095c.1202.099.246.1981.3728.2924a.077.077 0 01-.0066.1276 12.2986 12.2986 0 01-1.873.8914.0766.0766 0 00-.0407.1067c.3604.698.7719 1.3628 1.225 1.9932a.076.076 0 00.0842.0286c1.961-.6067 3.9495-1.5219 6.0023-3.0294a.077.077 0 00.0313-.0552c.5004-5.177-.8382-9.6739-3.5485-13.6604a.061.061 0 00-.0312-.0286zM8.02 15.3312c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9555-2.4189 2.157-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419-.0002 1.3332-.9555 2.4189-2.1569 2.4189zm7.9748 0c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9554-2.4189 2.1569-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.9554 2.4189-2.1568 2.4189Z"
+                    />
+                  </svg>
+                </div>
+                <h3 style={{ 
+                  margin: '0', 
+                  fontSize: '18px', 
+                  fontWeight: '600',
+                  color: '#1F2937'
+                }}>
+                  Add Missing Qualification
+                </h3>
+              </div>
+
+              <div style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: '12px',
+                marginBottom: '24px',
+                padding: '16px',
+                backgroundColor: '#F8FAFC',
+                borderRadius: '8px',
+                border: '1px solid #E2E8F0'
+              }}>
+                {/* Discord Logo */}
+                <div style={{
+                  width: '20px',
+                  height: '20px',
+                  flexShrink: 0
+                }}>
+                  <svg viewBox="0 0 24 24" style={{ width: '100%', height: '100%' }}>
+                    <path 
+                      fill="#5865F2" 
+                      d="M20.317 4.3698a19.7913 19.7913 0 00-4.8851-1.5152.0741.0741 0 00-.0785.0371c-.211.3753-.4447.8648-.6083 1.2495-1.8447-.2762-3.68-.2762-5.4868 0-.1636-.3933-.4058-.8742-.6177-1.2495a.077.077 0 00-.0785-.037 19.7363 19.7363 0 00-4.8852 1.515.0699.0699 0 00-.0321.0277C.5334 9.0458-.319 13.5799.0992 18.0578a.0824.0824 0 00.0312.0561c2.0528 1.5076 4.0413 2.4228 5.9929 3.0294a.0777.0777 0 00.0842-.0276c.4616-.6304.8731-1.2952 1.226-1.9942a.076.076 0 00-.0416-.1057c-.6528-.2476-1.2743-.5495-1.8722-.8923a.077.077 0 01-.0076-.1277c.1258-.0943.2517-.1923.3718-.2914a.0743.0743 0 01.0776-.0105c3.9278 1.7933 8.18 1.7933 12.0614 0a.0739.0739 0 01.0785.0095c.1202.099.246.1981.3728.2924a.077.077 0 01-.0066.1276 12.2986 12.2986 0 01-1.873.8914.0766.0766 0 00-.0407.1067c.3604.698.7719 1.3628 1.225 1.9932a.076.076 0 00.0842.0286c1.961-.6067 3.9495-1.5219 6.0023-3.0294a.077.077 0 00.0313-.0552c.5004-5.177-.8382-9.6739-3.5485-13.6604a.061.061 0 00-.0312-.0286zM8.02 15.3312c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9555-2.4189 2.157-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419-.0002 1.3332-.9555 2.4189-2.1569 2.4189zm7.9748 0c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9554-2.4189 2.1569-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.9554 2.4189-2.1568 2.4189Z"
+                    />
+                  </svg>
+                </div>
+
+                {/* Discord Role Name */}
+                <span style={{ 
+                  fontSize: '14px', 
+                  color: '#1F2937',
+                  fontWeight: '500',
+                  flexShrink: 0
+                }}>
+                  {repairDialogData.discordRole.name}
+                </span>
+                
+                {/* Arrow */}
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}>
+                  <path d="M13.5 6L20.5 12L13.5 18M19.5 12H3" stroke="#9CA3AF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+                
+                {/* Qualification Selector */}
+                <div style={{ flex: '1', minWidth: '200px', position: 'relative' }}>
+                  <button
+                    onClick={() => setShowQualificationDropdown(!showQualificationDropdown)}
+                    style={{
+                      width: '100%',
+                      padding: '8px 12px',
+                      border: '1px solid #D1D5DB',
+                      borderRadius: '6px',
+                      fontSize: '14px',
+                      backgroundColor: '#FFFFFF',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between'
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      {availableQualifications.find(q => q.id === repairDialogData.selectedQualificationId) && (
+                        <QualificationBadge 
+                          type={availableQualifications.find(q => q.id === repairDialogData.selectedQualificationId)!.name as any}
+                          qualifications={cachedQualifications}
+                        />
+                      )}
+                      <span>
+                        {availableQualifications.find(q => q.id === repairDialogData.selectedQualificationId)?.name || 'Select qualification'}
+                      </span>
+                    </div>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
+                      <path d="M7 10L12 15L17 10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                  </button>
+                  
+                  {showQualificationDropdown && (
+                    <div style={{
+                      position: 'absolute',
+                      top: '100%',
+                      left: 0,
+                      right: 0,
+                      backgroundColor: '#FFFFFF',
+                      border: '1px solid #D1D5DB',
+                      borderRadius: '6px',
+                      boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
+                      zIndex: 1000,
+                      maxHeight: '200px',
+                      overflowY: 'auto'
+                    }}>
+                      {availableQualifications.map(qual => (
+                        <button
+                          key={qual.id}
+                          onClick={() => {
+                            setRepairDialogData(prev => prev ? {
+                              ...prev,
+                              selectedQualificationId: qual.id
+                            } : null);
+                            setShowQualificationDropdown(false);
+                          }}
+                          style={{
+                            width: '100%',
+                            padding: '8px 12px',
+                            border: 'none',
+                            backgroundColor: repairDialogData.selectedQualificationId === qual.id ? '#F3F4F6' : 'transparent',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            fontSize: '14px',
+                            textAlign: 'left'
+                          }}
+                          onMouseEnter={(e) => {
+                            if (repairDialogData.selectedQualificationId !== qual.id) {
+                              e.currentTarget.style.backgroundColor = '#F9FAFB';
+                            }
+                          }}
+                          onMouseLeave={(e) => {
+                            if (repairDialogData.selectedQualificationId !== qual.id) {
+                              e.currentTarget.style.backgroundColor = 'transparent';
+                            }
+                          }}
+                        >
+                          <QualificationBadge type={qual.name as any} qualifications={cachedQualifications} />
+                          <span>{qual.name}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                
+                {/* Date Input */}
+                <input
+                  type="date"
+                  value={repairDialogData.earnedDate}
+                  onChange={(e) => setRepairDialogData(prev => prev ? {
+                    ...prev,
+                    earnedDate: e.target.value
+                  } : null)}
+                  style={{
+                    padding: '8px 12px',
+                    border: '1px solid #D1D5DB',
+                    borderRadius: '6px',
+                    fontSize: '14px',
+                    backgroundColor: '#FFFFFF',
+                    flexShrink: 0,
+                    width: '140px'
+                  }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+                <button
+                  onClick={handleRepairDialogCancel}
+                  style={{
+                    padding: '8px 16px',
+                    backgroundColor: '#FFFFFF',
+                    color: '#6B7280',
+                    border: '1px solid #D1D5DB',
+                    borderRadius: '6px',
+                    fontSize: '14px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleRepairDialogConfirm}
+                  style={{
+                    padding: '8px 16px',
+                    backgroundColor: '#3B82F6',
+                    color: '#FFFFFF',
+                    border: 'none',
+                    borderRadius: '6px',
+                    fontSize: '14px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Add
                 </button>
               </div>
             </div>
