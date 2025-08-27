@@ -7,6 +7,7 @@ interface QualificationBadgeProps {
   count?: number;
   code?: string; // Optional code if we already have it
   color?: string; // Optional color if we already have it
+  qualifications?: Qualification[]; // Pre-loaded qualifications to avoid async loading
 }
 
 // Legacy qualification configs (for backward compatibility)
@@ -70,12 +71,18 @@ const stringToColor = (str: string): string => {
   return colors[index];
 };
 
-const QualificationBadge: React.FC<QualificationBadgeProps> = ({ type, count, code, color }) => {
-  const [qualifications, setQualifications] = useState<Qualification[]>([]);
-  const [loaded, setLoaded] = useState(false);
+const QualificationBadge: React.FC<QualificationBadgeProps> = ({ type, count, code, color, qualifications: preloadedQualifications }) => {
+  const [qualifications, setQualifications] = useState<Qualification[]>(preloadedQualifications || []);
+  const [loaded, setLoaded] = useState(!!preloadedQualifications);
   
-  // Fetch all qualifications once
+  // Fetch all qualifications only if not pre-loaded
   useEffect(() => {
+    if (preloadedQualifications) {
+      setQualifications(preloadedQualifications);
+      setLoaded(true);
+      return;
+    }
+    
     const fetchQualifications = async () => {
       try {
         const { data } = await getAllQualifications();
@@ -90,7 +97,7 @@ const QualificationBadge: React.FC<QualificationBadgeProps> = ({ type, count, co
     };
     
     fetchQualifications();
-  }, []);
+  }, [preloadedQualifications]);
   
   // Find matching qualification in the database
   const matchingQualification = qualifications.find(q => 

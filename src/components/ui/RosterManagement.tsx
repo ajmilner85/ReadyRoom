@@ -252,7 +252,8 @@ const RosterManagement: React.FC = () => {
         const convertedPilots = data.map(pilot => {
           // Create the pilot object with all necessary properties
           const legacyPilot: Pilot = {
-            id: pilot.discord_original_id || pilot.id,
+            id: pilot.id, // Use the actual pilot UUID as ID
+            discord_original_id: (pilot as any).discord_original_id, // Preserve numeric Discord ID
             callsign: pilot.callsign,
             boardNumber: pilot.boardNumber.toString(), // Convert to string for legacy compatibility
             discordId: pilot.discordId || undefined, // Handle null case

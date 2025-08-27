@@ -82,8 +82,64 @@ export const DiscordPilotsDialog: React.FC<DiscordPilotsDialogProps> = ({
       // Fetch Discord guild members
       const discordMembers = await fetchDiscordGuildMembers();
       
-      // Match them with existing pilots
-      const matches = await matchDiscordMembersWithPilots(discordMembers);
+      // Fetch squadron role mappings to filter out ignored users
+      const { data: squadronsData } = await supabase
+        .from('org_squadrons')
+        .select('discord_integration')
+        .not('discord_integration', 'is', null);
+      
+      // Collect all "ignore user" role IDs from all squadrons
+      const ignoreRoleIds: string[] = [];
+      console.log('DEBUG: Squadron discord_integration data:', squadronsData);
+      
+      if (squadronsData) {
+        squadronsData.forEach((squadron, index) => {
+          console.log(`DEBUG: Squadron ${index} discord_integration:`, squadron.discord_integration);
+          
+          // Try different possible data structures
+          const discordIntegration = squadron.discord_integration;
+          let roleMappings = [];
+          
+          if (discordIntegration) {
+            // Try direct roleMappings
+            if (discordIntegration.roleMappings) {
+              roleMappings = discordIntegration.roleMappings;
+            }
+            // Try isIgnoreUsers directly in discord_integration
+            else if (discordIntegration.isIgnoreUsers) {
+              // Handle if isIgnoreUsers is stored differently
+              console.log('DEBUG: Found isIgnoreUsers directly in discord_integration');
+            }
+            // Try if the structure is different
+            else {
+              console.log('DEBUG: discord_integration structure:', Object.keys(discordIntegration));
+            }
+          }
+          
+          console.log(`DEBUG: Squadron ${index} roleMappings:`, roleMappings);
+          
+          roleMappings.forEach((mapping: any) => {
+            console.log(`DEBUG: Checking mapping:`, mapping);
+            if (mapping.isIgnoreUsers) {
+              console.log(`DEBUG: Found ignore role: ${mapping.discordRoleId}`);
+              ignoreRoleIds.push(mapping.discordRoleId);
+            }
+          });
+        });
+      }
+      
+      console.log('DEBUG: Final ignoreRoleIds:', ignoreRoleIds);
+      
+      // Filter out Discord members who have ignore roles
+      const filteredDiscordMembers = discordMembers.filter(member => {
+        // If member has any ignore role, exclude them
+        return !member.roles?.some(roleId => ignoreRoleIds.includes(roleId));
+      });
+      
+      console.log(`Filtered ${discordMembers.length - filteredDiscordMembers.length} ignored users from Discord sync`);
+      
+      // Match the filtered members with existing pilots
+      const matches = await matchDiscordMembersWithPilots(filteredDiscordMembers);
       
       // Get all pilots for the dropdowns
       const { data: pilotsData } = await supabase

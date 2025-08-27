@@ -70,7 +70,9 @@ export async function fetchDiscordGuildMembers(squadronId?: string): Promise<Dis
       headers: {
         'Content-Type': 'application/json'
       }
-    });    if (!response.ok) {
+    });
+    
+    if (!response.ok) {
       const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
       throw new Error(errorData.error || 'Failed to fetch Discord guild members');
     }

@@ -35,7 +35,6 @@ export async function getAllSquadrons(): Promise<{ data: Squadron[] | null; erro
       return { data: null, error };
     }
 
-    console.log('✅ Fetched squadrons:', data?.length);
     return { data, error: null };
 
   } catch (error) {
