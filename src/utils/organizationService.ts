@@ -97,7 +97,7 @@ export async function getAllGroups(): Promise<{ data: Group[] | null; error: any
       `)
       .order('name', { ascending: true });
 
-    return { data, error };
+    return { data: data as Group[] | null, error };
   } catch (error) {
     console.error('Error fetching groups:', error);
     return { data: null, error };
@@ -121,7 +121,7 @@ export async function createGroup(group: NewGroup): Promise<{ data: Group | null
       `)
       .single();
 
-    return { data, error };
+    return { data: data as Group | null, error };
   } catch (error) {
     console.error('Error creating group:', error);
     return { data: null, error };
@@ -146,7 +146,7 @@ export async function updateGroup(id: string, updates: UpdateGroup): Promise<{ d
       `)
       .single();
 
-    return { data, error };
+    return { data: data as Group | null, error };
   } catch (error) {
     console.error('Error updating group:', error);
     return { data: null, error };
@@ -227,7 +227,7 @@ export async function getAllWings(): Promise<{ data: Wing[] | null; error: any }
       if (error) {
         console.error('Supabase error in complex getAllWings:', error);
       }
-      return { data, error };
+      return { data: data as Wing[] | null, error };
     } else {
       console.error('Simple query failed, returning error');
       return { data: null, error: simpleError };
