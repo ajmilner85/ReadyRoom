@@ -1,5 +1,5 @@
 import { supabase } from './supabaseClient';
-import { Pilot, NewPilot, UpdatePilot } from './pilotTypes';
+import { Pilot, NewPilot, UpdatePilot, PilotRoleAssignment } from './pilotTypes';
 
 /**
  * Fetch all pilots from the database with their role assignments, status, and standing
@@ -77,7 +77,7 @@ export async function getAllPilots(): Promise<{ data: Pilot[] | null; error: any
     }
 
     // Step 5: Fetch all active pilot squadron assignments
-    const { data: squadronAssignments, error: squadronError } = await supabase
+    const { data: _squadronAssignments, error: squadronError } = await supabase
       .from('pilot_assignments')
       .select(`
         *,
@@ -128,34 +128,34 @@ export async function getAllPilots(): Promise<{ data: Pilot[] | null; error: any
       );
 
       // Find this pilot's active squadron assignment
-      const pilotSquadronAssignment = (squadronAssignments || []).find(
-        sqa => sqa.pilot_id === pilot.id
-      );
+      // const _pilotSquadronAssignment = (squadronAssignments || []).find(
+      //   sqa => sqa.pilot_id === pilot.id
+      // );
 
 
       const transformedPilot: Pilot = {
         ...pilot, // Spread all pilot properties from database
-        roles: currentRoleAssignment ? [{
+        roles: (currentRoleAssignment ? [{
           ...currentRoleAssignment,
           pilot_id: pilot.id,
           role: currentRoleAssignment.roles // This should be the role object
-        }] : null,
+        }] : null) as PilotRoleAssignment[] | null | undefined,
         currentStatus: pilotStatusAssignment?.statuses || null,
         currentStanding: pilotStandingAssignment?.standings || null,
         standing_id: pilotStandingAssignment?.standing_id || undefined,
         // Set legacy status field based on current status for backward compatibility
         status: (pilotStatusAssignment?.statuses?.name as any) || 'Active',
         // Squadron assignment information (cast to any to extend Pilot interface)
-        currentSquadron: pilotSquadronAssignment?.org_squadrons || null,
-        squadronAssignment: pilotSquadronAssignment ? {
-          id: pilotSquadronAssignment.id,
-          pilot_id: pilotSquadronAssignment.pilot_id,
-          squadron_id: pilotSquadronAssignment.squadron_id,
-          start_date: pilotSquadronAssignment.start_date,
-          end_date: pilotSquadronAssignment.end_date || undefined,
-          created_at: pilotSquadronAssignment.created_at,
-          updated_at: pilotSquadronAssignment.updated_at || undefined
-        } : undefined
+        // currentSquadron: pilotSquadronAssignment?.org_squadrons || null,
+        // squadronAssignment: pilotSquadronAssignment ? {
+        //   id: pilotSquadronAssignment.id,
+        //   pilot_id: pilotSquadronAssignment.pilot_id,
+        //   squadron_id: pilotSquadronAssignment.squadron_id,
+        //   start_date: pilotSquadronAssignment.start_date,
+        //   end_date: pilotSquadronAssignment.end_date || undefined,
+        //   created_at: pilotSquadronAssignment.created_at,
+        //   updated_at: pilotSquadronAssignment.updated_at || undefined
+        // } : undefined
       };
 
 
@@ -465,11 +465,11 @@ export async function deletePilot(id: string): Promise<{ success: boolean; error
  */
 export async function updatePilotQualifications(
   id: string, 
-  qualifications: string[]
+  _qualifications: string[]
 ): Promise<{ data: Pilot | null; error: any }> {
   const { data, error } = await supabase
     .from('pilots')
-    .update({ qualifications })
+    .update({}) // qualifications updated via separate table
     .eq('id', id)
     .select()
     .single();

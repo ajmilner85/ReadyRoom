@@ -72,7 +72,7 @@ export function getUserPermissions(userProfile: UserProfile | null): UserPermiss
 
   // Define permissions based on role level
   switch (permission) {
-    case 'developer':
+    case 'admin': // was 'developer'
       return {
         canAccessSettings: true,
         canManageRoster: true,
