@@ -348,7 +348,8 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
 
     try {
       // Get the guild ID from squadron Discord integration settings
-      const discordIntegration = selectedPilot.currentSquadron?.discord_integration as { selectedGuildId?: string } | null;
+      const squadronData = selectedPilot.currentSquadron as any;
+      const discordIntegration = squadronData?.discord_integration as { selectedGuildId?: string } | null;
       const guildId = discordIntegration?.selectedGuildId || '';
       
       if (!guildId) {

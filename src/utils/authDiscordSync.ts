@@ -1,6 +1,5 @@
 import { supabase } from './supabaseClient';
 import { fetchDiscordGuildMembers, type DiscordMember } from './discordPilotService';
-import { getUserProfile, createOrUpdateUserProfile } from './userProfileService';
 
 export interface AuthDiscordSyncResult {
   authenticatedUsersUpdated: number;
@@ -60,17 +59,16 @@ export async function syncAuthenticatedUsersWithDiscord(): Promise<AuthDiscordSy
             }
 
             // Update callsign/board number from Discord display name if not already set
-            if (!profile.pilot?.callsign && discordMember.callsign) {
-              // Note: updating pilot data would need to be done through pilot table, not user_profiles
-              // updates.callsign = discordMember.callsign;
-              // updated = true;
-            }
+            // Note: profile doesn't include pilot data - would need to be done through pilot table
+            // if (!profile.pilot?.callsign && discordMember.callsign) {
+            //   updates.callsign = discordMember.callsign;
+            //   updated = true;
+            // }
 
-            if (!profile.pilot?.boardNumber && discordMember.boardNumber) {
-              // Note: updating pilot data would need to be done through pilot table, not user_profiles
-              // updates.board_number = discordMember.boardNumber;
-              // updated = true;
-            }
+            // if (!profile.pilot?.boardNumber && discordMember.boardNumber) {
+            //   updates.board_number = discordMember.boardNumber;
+            //   updated = true;
+            // }
 
             // If user doesn't have a linked pilot but Discord member suggests one
             if (!profile.pilot_id && discordMember.boardNumber && discordMember.callsign) {

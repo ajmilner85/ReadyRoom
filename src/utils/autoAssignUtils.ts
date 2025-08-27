@@ -228,7 +228,7 @@ export const autoAssignPilots = (
   // Add debug for final assigned pilots
   // console.log('[ROLL-CALL-DEBUG] Final assigned pilots with statuses:');
   for (const flightId in newAssignments) {
-    for (const pilot of newAssignments[flightId]) {
+    for (const _pilot of newAssignments[flightId]) {
       // console.log(`[ROLL-CALL-DEBUG] - ${flightId} pos ${pilot.dashNumber}: ${pilot.callsign} (D:${pilot.attendanceStatus || 'N/A'}, R:${pilot.rollCallStatus || 'N/A'})`);
     }
   }
