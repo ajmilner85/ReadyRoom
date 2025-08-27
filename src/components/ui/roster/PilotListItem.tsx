@@ -35,7 +35,8 @@ const PilotListItem: React.FC<PilotListItemProps> = ({
       return pilot.currentSquadron ? '#000000' : '#374151';
     }
     // Use squadron primary color from color_palette.primary if available, otherwise dark gray
-    const colorPalette = pilot.currentSquadron?.color_palette as { primary?: string } | null;
+    const squadronData = pilot.currentSquadron as any;
+    const colorPalette = squadronData?.color_palette as { primary?: string } | null;
     return colorPalette?.primary || '#374151';
   };
   // Render qualification badges for the pilot
