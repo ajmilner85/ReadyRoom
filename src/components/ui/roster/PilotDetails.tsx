@@ -13,7 +13,7 @@ import SquadronSelector from './SquadronSelector';
 import { Squadron } from '../../../utils/squadronService';
 import QualificationsManager from './QualificationsManager';
 import QualificationBadge from '../QualificationBadge';
-import { Save, X, Trash2, RefreshCw, Wrench } from 'lucide-react';
+import { Save, X, Trash2, Wrench } from 'lucide-react';
 import { fetchDiscordGuildMember, fetchDiscordGuildRoles } from '../../../utils/discordService';
 import { supabase } from '../../../utils/supabaseClient';
 
@@ -348,7 +348,8 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
 
     try {
       // Get the guild ID from squadron Discord integration settings
-      const guildId = selectedPilot.currentSquadron?.discord_integration?.selectedGuildId || '';
+      const discordIntegration = selectedPilot.currentSquadron?.discord_integration as { selectedGuildId?: string } | null;
+      const guildId = discordIntegration?.selectedGuildId || '';
       
       if (!guildId) {
         setDiscordRoleError('No Discord server configured for this squadron');

@@ -250,7 +250,7 @@ export const deleteCycle = async (cycleId: string) => {
 };
 
 // Events API
-export const fetchEvents = async (cycleId?: string, discordGuildId?: string) => {  
+export const fetchEvents = async (cycleId?: string, _discordGuildId?: string) => {  
   let query = supabase.from('events').select(`
     id,
     name,
@@ -306,19 +306,19 @@ export const fetchEvents = async (cycleId?: string, discordGuildId?: string) => 
       eventSettings: undefined, // Default value - field not in current database schema
       // Handle JSONB discord_event_id - extract first message ID for compatibility or keep as string
       discordEventId: Array.isArray(dbEvent.discord_event_id) 
-        ? (dbEvent.discord_event_id[0]?.messageId || undefined)
+        ? ((dbEvent.discord_event_id as any)[0]?.messageId || undefined)
         : (dbEvent.discord_event_id || undefined),
       // Keep the full JSONB array for deletion and editing
       discord_event_id: dbEvent.discord_event_id,
       // Handle JSONB image_url field
       imageUrl: typeof dbEvent.image_url === 'string' 
         ? dbEvent.image_url 
-        : (dbEvent.image_url?.headerImage || undefined), // Legacy compatibility
+        : ((dbEvent.image_url as any)?.headerImage || undefined), // Legacy compatibility
       headerImageUrl: typeof dbEvent.image_url === 'string'
         ? dbEvent.image_url
-        : (dbEvent.image_url?.headerImage || undefined),
-      additionalImageUrls: typeof dbEvent.image_url === 'object' && dbEvent.image_url?.additionalImages
-        ? dbEvent.image_url.additionalImages
+        : ((dbEvent.image_url as any)?.headerImage || undefined),
+      additionalImageUrls: typeof dbEvent.image_url === 'object' && (dbEvent.image_url as any)?.additionalImages
+        ? (dbEvent.image_url as any).additionalImages
         : [],
       restrictedTo: [], // No restricted_to in the DB schema
       participants: [], // Default value - field not in current database schema
@@ -575,7 +575,7 @@ export const updateEvent = async (eventId: string, updates: Partial<Omit<Event, 
     const { data: attendanceData, error: attendanceError } = await supabase
       .from('discord_event_attendance')
       .select('*')
-      .eq('discord_event_id', data.discord_event_id);
+      .eq('discord_event_id', String(data.discord_event_id));
 
     if (!attendanceError && attendanceData) {      // Process attendance data
       attendanceData.forEach(record => {
@@ -622,7 +622,7 @@ export const updateEvent = async (eventId: string, updates: Partial<Omit<Event, 
     status: (data.status as string) || 'upcoming',
     eventType: data.event_type as EventType | undefined,
     cycleId: data.cycle_id || undefined,
-    discordEventId: data.discord_event_id || undefined,
+    discordEventId: String(data.discord_event_id || ''),
     trackQualifications: false, // Default value - field not in current database schema
     restrictedTo: [], // No restricted_to in the DB schema
     participants: [], // Default value - field not in current database schema
@@ -732,7 +732,7 @@ export const fetchEventAttendance = async (eventId: string) => {
   const { data: attendanceData, error: attendanceError } = await supabase
     .from('discord_event_attendance')
     .select('*')
-    .eq('discord_event_id', eventData.discord_event_id);
+    .eq('discord_event_id', String(eventData.discord_event_id));
 
   if (attendanceError) {
     console.error('Error fetching discord_event_attendance:', attendanceError);

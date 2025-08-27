@@ -2,7 +2,6 @@ import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { Card } from '../card';
 import FlightAssignmentCard from '../flight cards/FlightAssignmentCard';
 import AddFlightDialog from '../dialogs/AddFlightDialog';
-import type { Pilot } from '../../../types/PilotTypes';
 import type { AssignedPilot } from '../../../types/MissionPrepTypes';
 
 interface Flight {
@@ -93,7 +92,7 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
     
     // Log any tentative pilots
     for (const flightId in assignedPilots) {
-      for (const pilot of assignedPilots[flightId]) {
+      for (const _pilot of assignedPilots[flightId]) {
         // if (pilot.attendanceStatus === 'tentative') {
         //   console.log(`[TENTATIVE-DEBUG] Found tentative pilot in flight ${flightId}: ${pilot.callsign}`);
         // }
@@ -251,7 +250,7 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
       if (index !== -1) {        updatedPilots[index] = {
           ...assignedPilot,  // Spread all properties from the assigned pilot
           dashNumber: dashNumberStr, // Ensure the dashNumber is properly set
-          attendanceStatus: assignedPilot.attendanceStatus // Explicitly copy the attendance status
+          attendanceStatus: assignedPilot.attendanceStatus === 'declined' ? undefined : assignedPilot.attendanceStatus // Filter out declined status
         };
       }
     });

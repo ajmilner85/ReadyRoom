@@ -967,7 +967,8 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
                     const specificPilotQuals = pilotQualifications[pilotIdKey] || [];
                     const pilotWithRollCall = {
                       ...pilot,
-                      rollCallStatus: rollCallResponses[pilotIdKey]
+                      rollCallStatus: rollCallResponses[pilotIdKey],
+                      attendanceStatus: pilot.attendanceStatus === 'declined' ? undefined : pilot.attendanceStatus
                     };
                     
                     return (

@@ -36,7 +36,7 @@ const SupportRoleAssignmentCard: React.FC<SupportRoleAssignmentCardProps> = ({
   onEditRole
 }) => {  const [isHovered, setIsHovered] = useState(false);
     // Use memoization to prevent unnecessary recalculations and re-renders
-  const { filledPilots, isCommandControl, slotNames, hasAssignedPilots } = useMemo(() => {
+  const { filledPilots, slotNames, hasAssignedPilots } = useMemo(() => {
     // Determine if this is a Command & Control role
     const isCommandControl = id.includes('command-control');
     

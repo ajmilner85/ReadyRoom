@@ -34,7 +34,7 @@ export const syncRollCallResponses = async (discordEventId: string) => {
     const responseMap: Record<string, 'Present' | 'Absent' | 'Tentative'> = {};
     data.forEach(record => {
       if (record.discord_id && record.roll_call_response) {
-        responseMap[record.discord_id] = record.roll_call_response;
+        responseMap[record.discord_id] = record.roll_call_response as "Present" | "Absent" | "Tentative";
       }
     });
 
