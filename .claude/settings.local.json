@@ -27,7 +27,11 @@
       "mcp__vercel-awesome-ai__list_projects",
       "mcp__vercel-awesome-ai__get_deployment",
       "mcp__vercel-awesome-ai__get_deployment_build_logs",
-      "mcp__vercel-awesome-ai__list_deployments"
+      "mcp__vercel-awesome-ai__list_deployments",
+      "mcp__supabase__list_projects",
+      "mcp__supabase__list_tables",
+      "mcp__supabase__execute_sql",
+      "mcp__supabase__generate_typescript_types"
     ],
     "additionalDirectories": [
       "C:\\Users\\ajmil\\Desktop\\ReadyRoom",

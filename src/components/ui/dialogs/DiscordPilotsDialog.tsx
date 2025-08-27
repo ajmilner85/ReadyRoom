@@ -93,10 +93,10 @@ export const DiscordPilotsDialog: React.FC<DiscordPilotsDialogProps> = ({
       
       if (squadronsData) {
         squadronsData.forEach((squadron, index) => {
-          console.log(`DEBUG: Squadron ${index} discord_integration:`, (squadron as any).discord_integration);
+          console.log(`DEBUG: Squadron ${index} discord_integration:`, squadron.discord_integration);
           
           // Try different possible data structures
-          const discordIntegration = (squadron as any).discord_integration;
+          const discordIntegration = squadron.discord_integration;
           let roleMappings = [];
           
           if (discordIntegration) {
