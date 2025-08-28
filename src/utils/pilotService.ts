@@ -7,10 +7,81 @@ import { Pilot, NewPilot, UpdatePilot, PilotRoleAssignment } from './pilotTypes'
 export async function getAllPilots(): Promise<{ data: Pilot[] | null; error: any }> {
   
   try {
-    // Step 1: Fetch all pilots
+    // Optimized: Single query with all related data using joins
     const { data: pilotsData, error: pilotsError } = await supabase
       .from('pilots')
-      .select('*')
+      .select(`
+        *,
+        pilot_roles!left (
+          id,
+          role_id,
+          pilot_id,
+          effective_date,
+          end_date,
+          created_at,
+          updated_at,
+          roles:role_id (
+            id,
+            name,
+            isExclusive,
+            compatible_statuses,
+            order
+          )
+        ),
+        pilot_statuses!left (
+          id,
+          pilot_id,
+          status_id,
+          effective_date,
+          end_date,
+          created_at,
+          updated_at,
+          statuses:status_id (
+            id,
+            name,
+            isActive,
+            order
+          )
+        ),
+        pilot_standings!left (
+          id,
+          pilot_id,
+          standing_id,
+          effective_date,
+          end_date,
+          created_at,
+          updated_at,
+          standings:standing_id (
+            id,
+            name,
+            order
+          )
+        ),
+        pilot_assignments!left (
+          id,
+          pilot_id,
+          squadron_id,
+          effective_date,
+          end_date,
+          created_at,
+          updated_at,
+          org_squadrons (
+            id,
+            name,
+            designation,
+            wing_id,
+            tail_code,
+            established_date,
+            deactivated_date,
+            insignia_url,
+            carrier_id,
+            callsigns,
+            color_palette,
+            discord_integration,
+            updated_at
+          )
+        )
+      `)
       .order('boardNumber', { ascending: true });
 
     if (pilotsError) {
@@ -19,119 +90,35 @@ export async function getAllPilots(): Promise<{ data: Pilot[] | null; error: any
     }
 
 
-    // Step 2: Fetch all active pilot role assignments with role details
-    const { data: roleAssignments, error: rolesError } = await supabase
-      .from('pilot_roles')
-      .select(`
-        *,
-        roles:role_id (
-          id,
-          name,
-          isExclusive,
-          compatible_statuses,
-          order
-        )
-      `)
-      .is('end_date', null); // Only active roles
 
-    if (rolesError) {
-      console.error('❌ Error fetching role assignments:', rolesError);
-      return { data: null, error: rolesError };
-    }
-
-    // Step 3: Fetch all active pilot status assignments
-    const { data: statusAssignments, error: statusError } = await supabase
-      .from('pilot_statuses')
-      .select(`
-        *,
-        statuses:status_id (
-          id,
-          name,
-          isActive,
-          order
-        )
-      `)
-      .is('end_date', null); // Only active statuses
-
-    if (statusError) {
-      console.error('❌ Error fetching status assignments:', statusError);
-      return { data: null, error: statusError };
-    }
-
-    // Step 4: Fetch all active pilot standing assignments
-    const { data: standingAssignments, error: standingError } = await supabase
-      .from('pilot_standings')
-      .select(`
-        *,
-        standings:standing_id (
-          id,
-          name,
-          order
-        )
-      `)
-      .is('end_date', null); // Only active standings
-
-    if (standingError) {
-      console.error('❌ Error fetching standing assignments:', standingError);
-      return { data: null, error: standingError };
-    }
-
-    // Step 5: Fetch all active pilot squadron assignments
-    const { data: squadronAssignments, error: squadronError } = await supabase
-      .from('pilot_assignments')
-      .select(`
-        *,
-        org_squadrons (
-          id,
-          name,
-          designation,
-          wing_id,
-          tail_code,
-          established_date,
-          deactivated_date,
-          insignia_url,
-          carrier_id,
-          callsigns,
-          color_palette,
-          discord_integration,
-          updated_at
-        )
-      `)
-      .is('end_date', null); // Only active assignments
-
-    if (squadronError) {
-      console.error('❌ Error fetching squadron assignments:', squadronError);
-      return { data: null, error: squadronError };
-    }
-
-
-
-    // Step 6: Combine pilots with their assignments  
+    // Process the joined data to extract active assignments
     const pilotsWithAssignments = (pilotsData || []).map(pilot => {
-      // Find this pilot's active role assignment
-      const pilotRoleAssignments = (roleAssignments || []).filter(
-        ra => ra.pilot_id === pilot.id
+      // Filter and sort role assignments to get the most recent active one
+      const activeRoleAssignments = (pilot.pilot_roles || []).filter(
+        (ra: any) => ra.end_date === null
       );
-      pilotRoleAssignments.sort((a, b) => 
+      activeRoleAssignments.sort((a: any, b: any) => 
         new Date(b.effective_date).getTime() - new Date(a.effective_date).getTime()
       );
-      const currentRoleAssignment = pilotRoleAssignments[0];
+      const currentRoleAssignment = activeRoleAssignments[0];
 
-      // Find this pilot's active status assignment
-      const pilotStatusAssignment = (statusAssignments || []).find(
-        sa => sa.pilot_id === pilot.id
+      // Filter to get active status assignment
+      const activeStatusAssignments = (pilot.pilot_statuses || []).filter(
+        (sa: any) => sa.end_date === null
       );
+      const pilotStatusAssignment = activeStatusAssignments[0];
 
-      // Find this pilot's active standing assignment
-      const pilotStandingAssignment = (standingAssignments || []).find(
-        sta => sta.pilot_id === pilot.id
+      // Filter to get active standing assignment
+      const activeStandingAssignments = (pilot.pilot_standings || []).filter(
+        (sta: any) => sta.end_date === null
       );
+      const pilotStandingAssignment = activeStandingAssignments[0];
 
-      // Find this pilot's active squadron assignment
-      const pilotSquadronAssignment = (squadronAssignments || []).find(
-        sqa => sqa.pilot_id === pilot.id
+      // Filter to get active squadron assignment
+      const activeSquadronAssignments = (pilot.pilot_assignments || []).filter(
+        (sqa: any) => sqa.end_date === null
       );
-
+      const pilotSquadronAssignment = activeSquadronAssignments[0];
 
       const transformedPilot: Pilot = {
         ...pilot, // Spread all pilot properties from database
@@ -151,15 +138,13 @@ export async function getAllPilots(): Promise<{ data: Pilot[] | null; error: any
           id: pilotSquadronAssignment.id,
           pilot_id: pilotSquadronAssignment.pilot_id,
           squadron_id: pilotSquadronAssignment.squadron_id,
-          start_date: pilotSquadronAssignment.start_date,
+          effective_date: pilotSquadronAssignment.effective_date,
           end_date: pilotSquadronAssignment.end_date || undefined,
           created_at: pilotSquadronAssignment.created_at,
           updated_at: pilotSquadronAssignment.updated_at || undefined
         } : undefined
       };
 
-
-      
       return transformedPilot;
     });
 
