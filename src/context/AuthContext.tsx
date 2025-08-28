@@ -86,12 +86,36 @@ export function AuthProvider({ children }: AuthProviderProps) {
     // Get initial session
     const initializeAuth = async () => {
       try {
+        // Clear any corrupted auth storage if we detect issues
+        const clearCorruptedStorage = () => {
+          try {
+            // Clear all Supabase auth related items
+            Object.keys(localStorage).forEach(key => {
+              if (key.startsWith('sb-') || key.includes('supabase')) {
+                localStorage.removeItem(key);
+              }
+            });
+            Object.keys(sessionStorage).forEach(key => {
+              if (key.startsWith('sb-') || key.includes('supabase')) {
+                sessionStorage.removeItem(key);
+              }
+            });
+            console.log('Cleared corrupted auth storage');
+          } catch (err) {
+            console.error('Error clearing storage:', err);
+          }
+        };
+
         // Try getSession first (with timeout protection)
         const sessionResult = await Promise.race([
           supabase.auth.getSession(),
           new Promise((_, reject) => setTimeout(() => reject(new Error('getSession timeout')), 10000))
         ]).catch(err => {
           console.error('Session check failed:', err.message);
+          // If it's a timeout or parse error, clear storage and retry once
+          if (err.message.includes('timeout') || err.message.includes('parse') || err.message.includes('JSON')) {
+            clearCorruptedStorage();
+          }
           return { data: { session: null }, error: null }; // Don't treat timeout as error in production
         }) as any;
         
