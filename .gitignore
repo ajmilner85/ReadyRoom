@@ -39,3 +39,5 @@ DISCORD_AUTH_SETUP.md
 DISCORD_OAUTH_SETUP.md
 CLAUDE.md
 .vercel
+TODO.md
+.claude/settings.local.json
