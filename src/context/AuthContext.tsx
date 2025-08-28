@@ -89,10 +89,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
         // Try getSession first (with timeout protection)
         const sessionResult = await Promise.race([
           supabase.auth.getSession(),
-          new Promise((_, reject) => setTimeout(() => reject(new Error('getSession timeout')), 2000))
+          new Promise((_, reject) => setTimeout(() => reject(new Error('getSession timeout')), 10000))
         ]).catch(err => {
           console.error('Session check failed:', err.message);
-          return { data: { session: null }, error: err };
+          return { data: { session: null }, error: null }; // Don't treat timeout as error in production
         }) as any;
         
         const sessionData = sessionResult.data || { session: null };

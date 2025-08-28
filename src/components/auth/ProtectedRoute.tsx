@@ -59,12 +59,6 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
               Try Discord Login
             </button>
             
-            <a 
-              href="?debug=true" 
-              className="block w-full px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50"
-            >
-              Debug Mode
-            </a>
           </div>
         </div>
       </div>
