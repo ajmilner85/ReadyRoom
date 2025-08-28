@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useRef, useMemo } from 'react';
 import { Pilot } from '../../../types/PilotTypes';
 import { Status } from '../../../utils/statusService';
 import { Standing } from '../../../utils/standingService';
@@ -67,8 +67,8 @@ const PilotList: React.FC<PilotListProps> = ({
   const rosterContentRef = useRef<HTMLDivElement>(null);
   const rosterListRef = useRef<HTMLDivElement>(null);
 
-  // Filter pilots by all selected filters (only when filters are enabled)
-  const filteredPilots = filtersEnabled ? pilots.filter(pilot => {
+  // Filter pilots by all selected filters (only when filters are enabled) - memoized for performance
+  const filteredPilots = useMemo(() => filtersEnabled ? pilots.filter(pilot => {
     // Squadron filter
     if (selectedSquadronIds.length > 0) {
       if (!pilot.currentSquadron?.id) {
@@ -112,30 +112,36 @@ const PilotList: React.FC<PilotListProps> = ({
     }
     
     return true;
-  }) : pilots;
+  }) : pilots, [filtersEnabled, pilots, selectedSquadronIds, selectedStatusIds, selectedStandingIds, selectedRoleIds, selectedQualificationIds]);
 
-  // Separate pilots into active, inactive, and needs attention groups
-  const activePilots = filteredPilots.filter(pilot => {
-    const status = pilot.currentStatus;
-    const standing = pilot.currentStanding;
-    // Must have both valid status and standing to be in active/inactive groups
-    return status && standing && status.isActive;
-  });
+  // Separate pilots into active, inactive, and needs attention groups - memoized for performance
+  const pilotGroups = useMemo(() => {
+    const activePilots = filteredPilots.filter(pilot => {
+      const status = pilot.currentStatus;
+      const standing = pilot.currentStanding;
+      // Must have both valid status and standing to be in active/inactive groups
+      return status && standing && status.isActive;
+    });
 
-  const inactivePilots = filteredPilots.filter(pilot => {
-    const status = pilot.currentStatus;
-    const standing = pilot.currentStanding;
-    // Must have both valid status and standing to be in active/inactive groups
-    return status && standing && !status.isActive;
-  });
+    const inactivePilots = filteredPilots.filter(pilot => {
+      const status = pilot.currentStatus;
+      const standing = pilot.currentStanding;
+      // Must have both valid status and standing to be in active/inactive groups
+      return status && standing && !status.isActive;
+    });
 
-  // Pilots that need attention: missing status, standing, or both
-  const needsAttentionPilots = filteredPilots.filter(pilot => {
-    const status = pilot.currentStatus;
-    const standing = pilot.currentStanding;
-    // Include pilots with missing status or standing
-    return !status || !standing;
-  });
+    // Pilots that need attention: missing status, standing, or both
+    const needsAttentionPilots = filteredPilots.filter(pilot => {
+      const status = pilot.currentStatus;
+      const standing = pilot.currentStanding;
+      // Include pilots with missing status or standing
+      return !status || !standing;
+    });
+
+    return { activePilots, inactivePilots, needsAttentionPilots };
+  }, [filteredPilots]);
+
+  const { activePilots, inactivePilots, needsAttentionPilots } = pilotGroups;
 
   // Group active pilots by standing
   const groupedActivePilots = activePilots.reduce((acc, pilot) => {
