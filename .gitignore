@@ -38,3 +38,5 @@ DISCORD_AUTH_SETUP.md
 .mcp.json
 DISCORD_OAUTH_SETUP.md
 CLAUDE.md
+.vercel/README.txt
+.vercel/project.json
