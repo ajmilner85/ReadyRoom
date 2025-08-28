@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import EventsList from './events/EventsList';
 import EventDetails from './events/EventDetails';
 import EventAttendance from './events/EventAttendance';
@@ -9,8 +9,8 @@ import { DeleteDivisionDialog } from './dialogs/DeleteDivisionDialog';
 import type { Event, Cycle, CycleType } from '../../types/EventTypes';
 import { supabase, fetchCycles, createCycle, updateCycle, deleteCycle, 
          fetchEvents, createEvent, updateEvent, deleteEvent } from '../../utils/supabaseClient';
-import { deleteDiscordMessage, deleteMultiChannelEvent, updateMultiChannelEvent } from '../../utils/discordService';
-import { uploadEventImage, uploadMultipleEventImages, deleteEventImage } from '../../utils/eventImageService';
+import { deleteMultiChannelEvent, updateMultiChannelEvent } from '../../utils/discordService';
+import { uploadMultipleEventImages } from '../../utils/eventImageService';
 import LoadingSpinner from './LoadingSpinner';
 import { useWebSocket } from '../../context/WebSocketContext';
 import { getAllSquadrons } from '../../utils/organizationService';
@@ -119,7 +119,7 @@ const EventsManagement: React.FC = () => {
     // Find event with the matching Discord message ID
     const updatedEvents = events.map(event => {
       // Check if this event matches the updated Discord message ID
-      if (event.discordMessageId === lastEventUpdate.eventId) {
+      if (event.discordEventId === lastEventUpdate.eventId) {
         // Create updated event with new attendance data
         const updatedEvent: Event = {
           ...event,
@@ -231,7 +231,7 @@ const EventsManagement: React.FC = () => {
           discordMessageId = eventObj.discord_event_id;
         }
         
-        console.log(`[DEBUG] Processing event ${event.id}: discord_event_id=${JSON.stringify(eventObj.discord_event_id)}, localStorage ID=${eventDiscordMap[event.id]}`);
+        // console.log(`[DEBUG] Processing event ${event.id}: discord_event_id=${JSON.stringify(eventObj.discord_event_id)}, localStorage ID=${eventDiscordMap[event.id]}`);
         
         // Remove the problematic JSONB field from the spread to prevent React rendering issues
         const { discord_event_id: _, ...eventWithoutDiscordEventId } = eventObj;
@@ -324,15 +324,15 @@ const EventsManagement: React.FC = () => {
       sendToTentative: boolean;
     };
   }, shouldPublish: boolean = false) => {
-    console.log('[EVENTS-MGMT-DEBUG] === ENTERING handleCreateEvent ===');
-    console.log('[EVENTS-MGMT-DEBUG] Function started at:', new Date().toISOString());
-    console.log('[EVENTS-MGMT-DEBUG] handleCreateEvent called with eventData.participants:', eventData.participants);
-    console.log('[EVENTS-MGMT-DEBUG] handleCreateEvent shouldPublish:', shouldPublish);
-    console.log('[EVENTS-MGMT-DEBUG] selectedCycle:', selectedCycle);
+    // console.log('[EVENTS-MGMT-DEBUG] === ENTERING handleCreateEvent ===');
+    // console.log('[EVENTS-MGMT-DEBUG] Function started at:', new Date().toISOString());
+    // console.log('[EVENTS-MGMT-DEBUG] handleCreateEvent called with eventData.participants:', eventData.participants);
+    // console.log('[EVENTS-MGMT-DEBUG] handleCreateEvent shouldPublish:', shouldPublish);
+    // console.log('[EVENTS-MGMT-DEBUG] selectedCycle:', selectedCycle);
     
-    let createTimeoutId: NodeJS.Timeout;
-    let imageTimeoutId: NodeJS.Timeout;
-    let publishTimeoutId: NodeJS.Timeout;
+    let createTimeoutId: NodeJS.Timeout | undefined;
+    let imageTimeoutId: NodeJS.Timeout | undefined;
+    let publishTimeoutId: NodeJS.Timeout | undefined;
     
     try {
       // Determine event type based on cycle
@@ -347,7 +347,7 @@ const EventsManagement: React.FC = () => {
         }
       }      
       // Create the event first without image with timeout protection
-      console.log('[EVENTS-MGMT-DEBUG] Starting createEvent database operation');
+      // console.log('[EVENTS-MGMT-DEBUG] Starting createEvent database operation');
       const createEventPromise = createEvent({
         ...eventData,
         status: 'upcoming',
@@ -364,9 +364,9 @@ const EventsManagement: React.FC = () => {
       
       const { event: newEvent, error } = await Promise.race([createEventPromise, createTimeoutPromise]) as any;
       if (createTimeoutId) clearTimeout(createTimeoutId);
-      console.log('[EVENTS-MGMT-DEBUG] createEvent database operation completed');
+      // console.log('[EVENTS-MGMT-DEBUG] createEvent database operation completed');
 
-      console.log('[CREATE-EVENT-DEBUG] createEvent result:', { newEvent, error });
+      // console.log('[CREATE-EVENT-DEBUG] createEvent result:', { newEvent, error });
       if (error) throw error;
       
       // Upload multiple images if provided
@@ -427,14 +427,14 @@ const EventsManagement: React.FC = () => {
                   eventSettings: updatedEventData.event_settings,
                   participants: updatedEventData.participants,
                   // Handle image URLs from the JSONB image_url field
-                  imageUrl: typeof updatedEventData.image_url === 'object' && updatedEventData.image_url?.headerImage 
-                    ? updatedEventData.image_url.headerImage 
-                    : updatedEventData.image_url,
-                  headerImageUrl: typeof updatedEventData.image_url === 'object' 
-                    ? updatedEventData.image_url.headerImage 
-                    : updatedEventData.image_url,
-                  additionalImageUrls: typeof updatedEventData.image_url === 'object' 
-                    ? updatedEventData.image_url.additionalImages || []
+                  imageUrl: typeof updatedEventData.image_url === 'object' && updatedEventData.image_url && 'headerImage' in updatedEventData.image_url
+                    ? (updatedEventData.image_url as { headerImage: string }).headerImage 
+                    : (typeof updatedEventData.image_url === 'string' ? updatedEventData.image_url : null),
+                  headerImageUrl: typeof updatedEventData.image_url === 'object' && updatedEventData.image_url && 'headerImage' in updatedEventData.image_url
+                    ? (updatedEventData.image_url as { headerImage: string }).headerImage 
+                    : (typeof updatedEventData.image_url === 'string' ? updatedEventData.image_url : null),
+                  additionalImageUrls: typeof updatedEventData.image_url === 'object' && updatedEventData.image_url && 'additionalImages' in updatedEventData.image_url
+                    ? ((updatedEventData.image_url as { additionalImages?: string[] }).additionalImages || [])
                     : [],
                   // Also pass the full JSONB structure for multi-image support
                   images: typeof updatedEventData.image_url === 'object' ? updatedEventData.image_url : undefined,
@@ -697,18 +697,27 @@ const EventsManagement: React.FC = () => {
             title: eventData.title, // Ensure title field mapping
             datetime: eventData.datetime.includes('T') ? eventData.datetime : `${eventData.datetime}:00.000Z`,
             endDatetime: eventData.endDatetime?.includes('T') ? eventData.endDatetime : `${eventData.endDatetime}:00.000Z`,
+            // Map database field to Event interface field
+            cycleId: freshEventData.cycle_id,
             // Ensure creator field is properly mapped from raw database fields
             creator: {
               boardNumber: freshEventData.creator_board_number || '',
               callsign: freshEventData.creator_call_sign || '',
               billet: freshEventData.creator_billet || ''
-            }
-          };
+            },
+            // Convert discord_event_id from Json to proper array type
+            discord_event_id: Array.isArray(freshEventData.discord_event_id) 
+              ? freshEventData.discord_event_id 
+              : freshEventData.discord_event_id 
+                ? [freshEventData.discord_event_id] 
+                : undefined,
+            attendance: { accepted: [], declined: [], tentative: [] }
+          } as Event;
         
           console.log(`[UPDATE-EVENT] Updated event object:`, {
             id: updatedEvent.id,
             title: updatedEvent.title,
-            cycleId: updatedEvent.cycleId || updatedEvent.cycle_id,
+            cycleId: updatedEvent.cycleId,
             participants: updatedEvent.participants,
             discord_event_id: updatedEvent.discord_event_id,
             creator: updatedEvent.creator,
@@ -1340,10 +1349,9 @@ const EventsManagement: React.FC = () => {
           divisionLabel={isDeleteCycle 
             ? cycleToDelete?.name || "" 
             : eventToDelete?.title || ""}
-          isPublished={!isDeleteCycle && (
+          isPublished={!isDeleteCycle && !!(
             eventToDelete?.discordEventId || 
-            eventToDelete?.discordMessageId || 
-            (eventToDelete as any)?.discord_event_id
+            eventToDelete?.discord_event_id
           )}
         />
       )}

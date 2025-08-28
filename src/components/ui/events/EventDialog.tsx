@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { X, Clock, Upload, Image as ImageIcon, ChevronLeft, ChevronRight, Check } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { X, Clock, Image as ImageIcon, ChevronLeft, ChevronRight, Check } from 'lucide-react';
 import { useAppSettings } from '../../../context/AppSettingsContext';
 
 interface EventDialogProps {
@@ -225,8 +225,8 @@ export const EventDialog: React.FC<EventDialogProps> = ({
       // Apply the correction
       const correctedUtc = new Date(guess.getTime() + diff);
       
-      console.log(`[TIMEZONE-DEBUG] Converting ${localDateString} in ${timezone} to UTC: ${correctedUtc.toISOString()}`);
-      console.log(`[TIMEZONE-DEBUG] Expected: 15:30 EDT -> 19:30 UTC, Got: ${correctedUtc.toISOString()}`);
+      // console.log(`[TIMEZONE-DEBUG] Converting ${localDateString} in ${timezone} to UTC: ${correctedUtc.toISOString()}`);
+      // console.log(`[TIMEZONE-DEBUG] Expected: 15:30 EDT -> 19:30 UTC, Got: ${correctedUtc.toISOString()}`);
       
       return correctedUtc.toISOString();
     } catch (error) {
@@ -285,13 +285,13 @@ export const EventDialog: React.FC<EventDialogProps> = ({
   // Load existing images when editing
   useEffect(() => {
     if (initialData) {
-      console.log('[EDIT-DIALOG-DEBUG] Loading initial data:', {
-        headerImageUrl: initialData.headerImageUrl,
-        additionalImageUrls: initialData.additionalImageUrls,
-        imageUrl: initialData.imageUrl
-      });
+      // console.log('[EDIT-DIALOG-DEBUG] Loading initial data:', {
+      //   headerImageUrl: initialData.headerImageUrl,
+      //   additionalImageUrls: initialData.additionalImageUrls,
+      //   imageUrl: initialData.imageUrl
+      // });
       
-      const newPreviews = [null, null, null, null];
+      const newPreviews: (string | null)[] = [null, null, null, null];
       
       // Load header image from legacy imageUrl or new headerImageUrl as first image
       const headerUrl = initialData.headerImageUrl || initialData.imageUrl;
@@ -308,7 +308,7 @@ export const EventDialog: React.FC<EventDialogProps> = ({
         });
       }
       
-      console.log('[EDIT-DIALOG-DEBUG] Final image previews:', newPreviews);
+      // console.log('[EDIT-DIALOG-DEBUG] Final image previews:', newPreviews);
       setImagePreviews(newPreviews);
     }
   }, [initialData]);
@@ -386,8 +386,8 @@ export const EventDialog: React.FC<EventDialogProps> = ({
         const durationMs = end.getTime() - start.getTime();
         const totalMinutes = Math.round(durationMs / (1000 * 60));
         
-        console.log(`[DURATION-DEBUG] Calculating duration from UTC times: ${initialData.datetime} to ${initialData.endDatetime}`);
-        console.log(`[DURATION-DEBUG] Duration: ${Math.floor(totalMinutes / 60)}h ${totalMinutes % 60}m`);
+        // console.log(`[DURATION-DEBUG] Calculating duration from UTC times: ${initialData.datetime} to ${initialData.endDatetime}`);
+        // console.log(`[DURATION-DEBUG] Duration: ${Math.floor(totalMinutes / 60)}h ${totalMinutes % 60}m`);
         
         setDurationHours(Math.floor(totalMinutes / 60));
         setDurationMinutes(totalMinutes % 60);
@@ -420,7 +420,7 @@ export const EventDialog: React.FC<EventDialogProps> = ({
       // Format end time in the same local format
       const formattedEndDate = `${year}-${month.toString().padStart(2, '0')}-${endDay.toString().padStart(2, '0')}T${endHour.toString().padStart(2, '0')}:${endMinute.toString().padStart(2, '0')}`;
       
-      console.log(`[END-TIME-DEBUG] Calculated end time: start=${datetime}, duration=${durationHours}h${durationMinutes}m, end=${formattedEndDate}`);
+      // console.log(`[END-TIME-DEBUG] Calculated end time: start=${datetime}, duration=${durationHours}h${durationMinutes}m, end=${formattedEndDate}`);
       setEndDatetime(formattedEndDate);
     }
   }, [datetime, durationHours, durationMinutes]);
@@ -547,12 +547,12 @@ export const EventDialog: React.FC<EventDialogProps> = ({
         .map(index => getImageForSubmission(index))
         .filter(img => img !== null);
       
-      console.log('[SUBMIT-IMAGE-DEBUG] Header image type:', typeof headerImageForSubmit, !!headerImageForSubmit);
-      console.log('[SUBMIT-IMAGE-DEBUG] Additional images:', additionalImagesForSubmit.map(img => typeof img));
+      // console.log('[SUBMIT-IMAGE-DEBUG] Header image type:', typeof headerImageForSubmit, !!headerImageForSubmit);
+      // console.log('[SUBMIT-IMAGE-DEBUG] Additional images:', additionalImagesForSubmit.map(img => typeof img));
 
-      console.log('[EVENT-DIALOG-DEBUG] About to save event with participants:', participants);
-      console.log('[EVENT-DIALOG-DEBUG] Participants length:', participants.length);
-      console.log('[EVENT-DIALOG-DEBUG] Selected cycle participants:', selectedCycle?.participants);
+      // console.log('[EVENT-DIALOG-DEBUG] About to save event with participants:', participants);
+      // console.log('[EVENT-DIALOG-DEBUG] Participants length:', participants.length);
+      // console.log('[EVENT-DIALOG-DEBUG] Selected cycle participants:', selectedCycle?.participants);
 
       await onSave({
         title: title.trim(),
@@ -565,8 +565,8 @@ export const EventDialog: React.FC<EventDialogProps> = ({
         },
         restrictedTo: restrictedTo.length > 0 ? restrictedTo : undefined,
         participants: participants.length > 0 ? participants : undefined,
-        headerImage: headerImageForSubmit,
-        additionalImages: additionalImagesForSubmit,
+        headerImage: headerImageForSubmit instanceof File ? headerImageForSubmit : undefined,
+        additionalImages: additionalImagesForSubmit.filter((img): img is File => img instanceof File),
         trackQualifications,
         timezone,
         reminders: {

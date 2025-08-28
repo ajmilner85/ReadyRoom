@@ -97,7 +97,7 @@ export async function getAllGroups(): Promise<{ data: Group[] | null; error: any
       `)
       .order('name', { ascending: true });
 
-    return { data, error };
+    return { data: data as Group[] | null, error };
   } catch (error) {
     console.error('Error fetching groups:', error);
     return { data: null, error };
@@ -121,7 +121,7 @@ export async function createGroup(group: NewGroup): Promise<{ data: Group | null
       `)
       .single();
 
-    return { data, error };
+    return { data: data as Group | null, error };
   } catch (error) {
     console.error('Error creating group:', error);
     return { data: null, error };
@@ -146,7 +146,7 @@ export async function updateGroup(id: string, updates: UpdateGroup): Promise<{ d
       `)
       .single();
 
-    return { data, error };
+    return { data: data as Group | null, error };
   } catch (error) {
     console.error('Error updating group:', error);
     return { data: null, error };
@@ -227,7 +227,7 @@ export async function getAllWings(): Promise<{ data: Wing[] | null; error: any }
       if (error) {
         console.error('Supabase error in complex getAllWings:', error);
       }
-      return { data, error };
+      return { data: data as Wing[] | null, error };
     } else {
       console.error('Simple query failed, returning error');
       return { data: null, error: simpleError };
@@ -259,7 +259,7 @@ export async function createWing(wing: NewWing): Promise<{ data: Wing | null; er
       `)
       .single();
 
-    return { data, error };
+    return { data: data as Wing | null, error };
   } catch (error) {
     console.error('Error creating wing:', error);
     return { data: null, error };
@@ -288,7 +288,7 @@ export async function updateWing(id: string, updates: UpdateWing): Promise<{ dat
       `)
       .single();
 
-    return { data, error };
+    return { data: data as Wing | null, error };
   } catch (error) {
     console.error('Error updating wing:', error);
     return { data: null, error };
@@ -338,7 +338,7 @@ export async function getAllSquadrons(): Promise<{ data: Squadron[] | null; erro
       `)
       .order('name', { ascending: true });
 
-    return { data, error };
+    return { data: data as Squadron[] | null, error };
   } catch (error) {
     console.error('Error fetching squadrons:', error);
     return { data: null, error };
@@ -413,16 +413,17 @@ export async function createSquadron(squadron: NewSquadron): Promise<{ data: Squ
       if (fetchError) {
         console.error('Failed to fetch full squadron data:', fetchError);
         // Return the basic data if relation fetch fails
-        return { data, error: null };
+        return { data: data as Squadron, error: null };
       }
       
       // Try updating with complex fields
-      if (squadron.callsigns || squadron.color_palette || squadron.discord_integration) {
+      const sq = squadron as any;
+      if (sq.callsigns || sq.color_palette || sq.discord_integration) {
         console.log('Updating with complex fields...');
-        const updateData = {};
-        if (squadron.callsigns) updateData.callsigns = squadron.callsigns;
-        if (squadron.color_palette) updateData.color_palette = squadron.color_palette;
-        if (squadron.discord_integration) updateData.discord_integration = squadron.discord_integration;
+        const updateData: any = {};
+        if (sq.callsigns) updateData.callsigns = sq.callsigns;
+        if (sq.color_palette) updateData.color_palette = sq.color_palette;
+        if (sq.discord_integration) updateData.discord_integration = sq.discord_integration;
         
         const { error: updateError } = await supabase
           .from('org_squadrons')
@@ -436,7 +437,7 @@ export async function createSquadron(squadron: NewSquadron): Promise<{ data: Squ
         }
       }
       
-      return { data: fullData, error: null };
+      return { data: fullData as unknown as Squadron, error: null };
     }
 
     if (error) {
@@ -454,7 +455,7 @@ export async function createSquadron(squadron: NewSquadron): Promise<{ data: Squ
     return { data, error };
   } catch (error) {
     console.error('Unexpected error creating squadron:', error);
-    if (error.name === 'AbortError') {
+    if ((error as any).name === 'AbortError') {
       return { data: null, error: { message: 'Squadron creation timed out' } };
     }
     return { data: null, error };
@@ -488,7 +489,7 @@ export async function updateSquadron(id: string, updates: UpdateSquadron): Promi
       `)
       .single();
 
-    return { data, error };
+    return { data: data as unknown as Squadron | null, error };
   } catch (error) {
     console.error('Error updating squadron:', error);
     return { data: null, error };

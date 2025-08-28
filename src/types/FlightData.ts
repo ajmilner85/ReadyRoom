@@ -113,7 +113,7 @@ export const updateFlightPosition = (
 };
 
 export const splitFlight = (flight: Flight): Flight[] => {
-  return flight.members.map((member, index) => ({
+  return flight.members.map((member) => ({
     id: `${flight.id}-split-${member.dashNumber}`,
     flightNumber: flight.flightNumber,
     callsign: flight.callsign,

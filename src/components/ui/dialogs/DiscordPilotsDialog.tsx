@@ -6,9 +6,8 @@ import {
   processPilotMatches
 } from '../../../utils/discordPilotService';
 import { syncUserDiscordRoles } from '../../../utils/discordRoleSync';
-import { getUserProfile } from '../../../utils/userProfileService';
-import { X, Users, Shield } from 'lucide-react';
-import { Pilot } from '../../../types/PilotTypes';
+import { X, Shield } from 'lucide-react';
+import { Pilot, PilotStatus } from '../../../types/PilotTypes';
 import { supabase } from '../../../utils/supabaseClient';
 import { Status } from '../../../utils/statusService';
 import { Role } from '../../../utils/roleService';
@@ -100,19 +99,20 @@ export const DiscordPilotsDialog: React.FC<DiscordPilotsDialogProps> = ({
           const discordIntegration = squadron.discord_integration;
           let roleMappings = [];
           
-          if (discordIntegration) {
+          if (discordIntegration && typeof discordIntegration === 'object') {
             // Try direct roleMappings
-            if (discordIntegration.roleMappings) {
-              roleMappings = discordIntegration.roleMappings;
+            const integrationObj = discordIntegration as any;
+            if (integrationObj.roleMappings) {
+              roleMappings = integrationObj.roleMappings;
             }
             // Try isIgnoreUsers directly in discord_integration
-            else if (discordIntegration.isIgnoreUsers) {
+            else if (integrationObj.isIgnoreUsers) {
               // Handle if isIgnoreUsers is stored differently
               console.log('DEBUG: Found isIgnoreUsers directly in discord_integration');
             }
             // Try if the structure is different
             else {
-              console.log('DEBUG: discord_integration structure:', Object.keys(discordIntegration));
+              console.log('DEBUG: discord_integration structure:', Object.keys(integrationObj));
             }
           }
           
@@ -152,7 +152,7 @@ export const DiscordPilotsDialog: React.FC<DiscordPilotsDialogProps> = ({
           id: p.id,
           callsign: p.callsign,
           boardNumber: p.boardNumber.toString(),
-          status: 'Unknown',
+          status: 'Provisional' as PilotStatus,
           billet: '',
           qualifications: [],
           discordUsername: p.discord_original_id || ''
@@ -349,7 +349,7 @@ export const DiscordPilotsDialog: React.FC<DiscordPilotsDialogProps> = ({
         try {
           // Find matching Discord member from our loaded data
           const discordMember = matches.find(match => 
-            match.discordMember?.user?.id === profile.discord_id
+            match.discordMember?.id === profile.discord_id
           )?.discordMember;
 
           if (!discordMember || !discordMember.roles) {
@@ -367,7 +367,15 @@ export const DiscordPilotsDialog: React.FC<DiscordPilotsDialogProps> = ({
             };
           });
 
-          const { success, error } = await syncUserDiscordRoles(profile, userRoles);
+          // Transform database profile to UserProfile interface format
+          const userProfile = {
+            ...profile,
+            authUserId: profile.auth_user_id,
+            createdAt: profile.created_at || new Date().toISOString(),
+            updatedAt: profile.updated_at || new Date().toISOString()
+          };
+          
+          const { success, error } = await syncUserDiscordRoles(userProfile, userRoles);
           
           if (success) {
             syncResults.synced++;
@@ -731,18 +739,16 @@ export const DiscordPilotsDialog: React.FC<DiscordPilotsDialogProps> = ({
                                       // Find the pilot's current role and status in the database
                                       (async () => {
                                         try {
-                                          const { data } = await supabase
-                                            .from('pilots')
-                                            .select('role_id, status_id')
-                                            .eq('id', value)
-                                            .single();
-                                            
-                                          if (data) {
+                                          // Note: role_id and status_id columns don't exist in pilots table
+                                          // Roles are stored in separate tables with joins
+                                          const pilotData = { role: 'Unknown', status: 'Unknown' };
+                                          
+                                          if (pilotData) {
                                             // Update the match with the current role and status
                                             setMatches(prevMatches => {
                                               const updatedMatches = [...prevMatches];
-                                              updatedMatches[index].roleId = data.role_id;
-                                              updatedMatches[index].statusId = data.status_id;
+                                              updatedMatches[index].roleId = null; // Role system needs proper implementation
+                                              updatedMatches[index].statusId = null; // Status system needs proper implementation
                                               return updatedMatches;
                                             });
                                           }

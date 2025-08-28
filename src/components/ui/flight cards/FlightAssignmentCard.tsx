@@ -2,7 +2,6 @@ import React, { useState, memo } from 'react';
 import { useDroppable } from '@dnd-kit/core';
 import AircraftTile from './AircraftTile';
 import { Edit2, Trash2 } from 'lucide-react';
-import type { Pilot } from '../../../types/PilotTypes';
 
 // Add mission commander interface
 interface MissionCommanderInfo {
@@ -306,7 +305,7 @@ const DroppableAircraftTile: React.FC<DroppableAircraftTileProps> = ({
     
     // Debug logging for roll call status
     if (pilot.rollCallStatus) {
-      console.log(`[ROLL-CALL-DEBUG] DroppableAircraftTile ${flightId}-${dashNumber} has roll call status: ${pilot.rollCallStatus} for ${pilot.callsign}`);
+      // console.log(`[ROLL-CALL-DEBUG] DroppableAircraftTile ${flightId}-${dashNumber} has roll call status: ${pilot.rollCallStatus} for ${pilot.callsign}`);
     }
   }, [pilot.attendanceStatus, pilot.rollCallStatus, flightId, dashNumber, pilot.callsign]);
   

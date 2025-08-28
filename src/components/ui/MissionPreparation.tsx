@@ -11,11 +11,11 @@ import type { Flight, ExtractedFlight } from '../../types/FlightData';
 import type { MissionCommanderInfo } from '../../types/MissionCommanderTypes';
 import type { Pilot } from '../../types/PilotTypes';
 import { useDragDrop } from '../../utils/useDragDrop';
-import type { Event } from '../../types/EventTypes';
 import { autoAssignPilots } from '../../utils/autoAssignUtils';
 import { getMissionCommanderCandidatesWithFlightInfo } from '../../utils/missionCommanderUtils';
 import { useMissionPrepData } from '../../hooks/useMissionPrepData';
 import { useMissionPrepState } from '../../hooks/useMissionPrepState';
+import type { AssignedPilot, AssignedPilotsRecord } from '../../types/MissionPrepTypes';
 
 // Define the structure for the polled attendance data
 interface RealtimeAttendanceRecord {
@@ -24,16 +24,11 @@ interface RealtimeAttendanceRecord {
   roll_call_response?: 'Present' | 'Absent' | 'Tentative';
 }
 
-interface AssignedPilot extends Pilot {
-  dashNumber: string;
-  attendanceStatus?: 'accepted' | 'tentative' | 'declined';
-  rollCallStatus?: 'Present' | 'Absent' | 'Tentative';
-}
 
 interface MissionPreparationProps {
   onTransferToMission?: (flights: Flight[]) => void;
-  assignedPilots?: Record<string, AssignedPilot[]>;
-  onAssignedPilotsChange?: (pilots: Record<string, AssignedPilot[]>) => void;
+  assignedPilots?: AssignedPilotsRecord;
+  onAssignedPilotsChange?: (pilots: AssignedPilotsRecord) => void;
   missionCommander?: MissionCommanderInfo | null;
   onMissionCommanderChange?: (commander: MissionCommanderInfo | null) => void;
   extractedFlights?: ExtractedFlight[];
@@ -117,7 +112,7 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
   // Function to handle auto-assignment logic
   const handleAutoAssign = useCallback((pilotsForAssignment?: Pilot[]) => { 
     if (!prepFlights || prepFlights.length === 0) { 
-      console.log("Cannot auto-assign: no flights available");
+      // console.log("Cannot auto-assign: no flights available");
       return;
     }
 
@@ -127,7 +122,7 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
       : []; // If no pilots are passed, assign no one.
 
     if (pilotsToAssign.length === 0) {
-      console.log("[DEBUG] No pilots provided or available for auto-assignment.");
+      // console.log("[DEBUG] No pilots provided or available for auto-assignment.");
       return;
     }
 
@@ -230,7 +225,7 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
 
       // Only update state if there were assignments and clearing was needed
       if (hasAssignedPilots && needsClearing) {
-        console.log("[TENTATIVE-DEBUG] Clearing stale attendance statuses from assignedPilots state.");
+        // console.log("[TENTATIVE-DEBUG] Clearing stale attendance statuses from assignedPilots state.");
         setAssignedPilots(clearedAssignments); // Update with the potentially modified object
       }
       return; // Stop processing since there's no attendance data
@@ -271,7 +266,7 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
 
         // Compare current Discord attendance status with the new one
         if (updatedPilot.attendanceStatus !== newDiscordStatus) {
-          console.log(`[TENTATIVE-DEBUG] Updating ${pilot.callsign} Discord status in flight ${flightId} from ${updatedPilot.attendanceStatus} to ${newDiscordStatus}`);
+          // console.log(`[TENTATIVE-DEBUG] Updating ${pilot.callsign} Discord status in flight ${flightId} from ${updatedPilot.attendanceStatus} to ${newDiscordStatus}`);
           updatedPilot.attendanceStatus = newDiscordStatus;
           shouldUpdatePilot = true;
         }
@@ -293,7 +288,7 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
 
     // If any flight array was replaced, update the state with the new top-level object
     if (needsOverallUpdate) {
-      console.log("[TENTATIVE-DEBUG] Applying updated attendance statuses to assignedPilots state.");
+      // console.log("[TENTATIVE-DEBUG] Applying updated attendance statuses to assignedPilots state.");
       setAssignedPilots(nextAssignedPilots); // This is now guaranteed to be a new object reference
     }
   }, [realtimeAttendanceData, assignedPilots, setAssignedPilots]);

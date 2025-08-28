@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { useAppSettings } from '../../context/AppSettingsContext';
 
 interface EventSettingsProps {

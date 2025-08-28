@@ -23,7 +23,7 @@ const DiscordIntegration: React.FC<DiscordIntegrationProps> = ({ error: parentEr
   const [availableServers, setAvailableServers] = useState<DiscordServer[]>([]);
   const [selectedServerId, setSelectedServerId] = useState<string | null>(null);
   const [savedServerId, setSavedServerId] = useState<string | null>(null);
-  const [botStatus, setBotStatus] = useState<'connected' | 'disconnected' | 'unknown'>('unknown');
+  const [botStatus, setBotStatus] = useState<'connected' | 'disconnected' | 'unknown' | 'error'>('unknown');
   
   const [availableChannels, setAvailableChannels] = useState<Array<{id: string, name: string}>>([]);
   const [selectedChannelId, setSelectedChannelId] = useState<string | null>(null);
@@ -117,11 +117,10 @@ const DiscordIntegration: React.FC<DiscordIntegrationProps> = ({ error: parentEr
       const textChannels = (response.channels || [])
         .filter(channel => {
           // Accept any channel that could be a text channel
-          return channel.type === 0 || 
-                 channel.type === '0' || 
+          return channel.type === '0' || 
                  channel.type === 'GUILD_TEXT' ||
                  channel.type === 'TEXT' ||
-                 typeof channel.type === 'number' && [0, 1, 5, 10, 11, 12].includes(channel.type);
+                 (typeof channel.type === 'number' && [0, 1, 5, 10, 11, 12].includes(channel.type));
         })
         .map(channel => ({
           id: channel.id,

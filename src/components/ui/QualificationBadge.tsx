@@ -44,6 +44,42 @@ const LEGACY_QUALIFICATION_CONFIGS: Record<QualificationType, { abbr: string; co
   'Wingman': {
     abbr: 'WM',
     color: '#B0B0B0'  // Medium Grey
+  },
+  'FAC(A)': {
+    abbr: 'FACA',
+    color: '#8B5A00'  // Dark Gold
+  },
+  'TL': {
+    abbr: 'TL',
+    color: '#4A4A4A'  // Dark Grey
+  },
+  '4FL': {
+    abbr: '4FL',
+    color: '#646F7E'  // Slate
+  },
+  '2FL': {
+    abbr: '2FL',
+    color: '#646F7E'  // Slate
+  },
+  'WQ': {
+    abbr: 'WQ',
+    color: '#B0B0B0'  // Medium Grey
+  },
+  'T/O': {
+    abbr: 'TO',
+    color: '#646F7E'  // Slate
+  },
+  'NATOPS': {
+    abbr: 'NAT',
+    color: '#5B4E61'  // Medium Purple
+  },
+  'DFL': {
+    abbr: 'DFL',
+    color: '#646F7E'  // Slate
+  },
+  'DTL': {
+    abbr: 'DTL',
+    color: '#4A4A4A'  // Dark Grey
   }
 };
 
@@ -74,7 +110,7 @@ const stringToColor = (str: string): string => {
 
 const QualificationBadge: React.FC<QualificationBadgeProps> = ({ type, count, code, color, qualifications: preloadedQualifications, size = 'normal' }) => {
   const [qualifications, setQualifications] = useState<Qualification[]>(preloadedQualifications || []);
-  const [loaded, setLoaded] = useState(!!preloadedQualifications);
+  const [, setLoaded] = useState(!!preloadedQualifications);
   
   // Fetch all qualifications only if not pre-loaded
   useEffect(() => {

@@ -14,7 +14,7 @@ const LoginForm: React.FC<LoginFormProps> = ({ onLoginStateChange }) => {
   
   useEffect(() => {
     const checkCurrentUser = async () => {
-      const { user, error } = await getCurrentUser();
+      const { user } = await getCurrentUser();
       if (user) {
         setUser(user);
         if (onLoginStateChange) onLoginStateChange(true);

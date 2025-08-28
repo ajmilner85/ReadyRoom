@@ -70,7 +70,7 @@ export async function createOrUpdateUserProfile(user: User): Promise<{ profile: 
     const discordData = extractDiscordData(user);
     
     // Try to find matching pilot record
-    const { pilotId, pilotData } = await findMatchingPilot(discordData);
+    const { pilotId } = await findMatchingPilot(discordData);
 
     const profileData = {
       auth_user_id: user.id,
@@ -332,7 +332,7 @@ export async function getUserProfile(authUserId: string): Promise<{ profile: Use
 /**
  * Sync Discord server members with user profiles
  */
-export async function syncDiscordMembers(guildId: string): Promise<{ synced: number; errors: string[] }> {
+export async function syncDiscordMembers(_guildId: string): Promise<{ synced: number; errors: string[] }> {
   try {
     // This would call your existing Discord member sync functionality
     // but also update user profiles for authenticated users

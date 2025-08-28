@@ -42,8 +42,11 @@ export async function fetchDiscordGuildMembers(squadronId?: string): Promise<Dis
         .eq('id', squadronId)
         .single();
         
-      if (!squadronError && squadronData?.discord_integration?.selectedGuildId) {
-        guildId = squadronData.discord_integration.selectedGuildId;
+      if (!squadronError && squadronData?.discord_integration) {
+        const integration = squadronData.discord_integration as { selectedGuildId?: string };
+        if (integration?.selectedGuildId) {
+          guildId = integration.selectedGuildId;
+        }
       }
     } else {
       // Get guild ID from first squadron with Discord integration
@@ -53,8 +56,11 @@ export async function fetchDiscordGuildMembers(squadronId?: string): Promise<Dis
         .not('discord_integration->selectedGuildId', 'is', null)
         .limit(1);
         
-      if (!squadronsError && squadronsData?.length > 0 && squadronsData[0]?.discord_integration?.selectedGuildId) {
-        guildId = squadronsData[0].discord_integration.selectedGuildId;
+      if (!squadronsError && squadronsData?.length > 0 && squadronsData[0]?.discord_integration) {
+        const integration = squadronsData[0].discord_integration as { selectedGuildId?: string };
+        if (integration?.selectedGuildId) {
+          guildId = integration.selectedGuildId;
+        }
       }
     }
     
@@ -65,7 +71,7 @@ export async function fetchDiscordGuildMembers(squadronId?: string): Promise<Dis
     console.log(`Fetching Discord members for guild ID: ${guildId}`);
     
     // Call the server endpoint that will use the Discord API with the specific guild ID
-    const response = await fetch(`http://localhost:3001/api/discord/guild-members?guildId=${guildId}`, {
+    const response = await fetch(`${import.meta.env.VITE_API_URL}/api/discord/guild-members?guildId=${guildId}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json'

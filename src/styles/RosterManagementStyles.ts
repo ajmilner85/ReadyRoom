@@ -1,4 +1,3 @@
-import React from 'react';
 
 export const rosterStyles = {
   container: {
@@ -225,7 +224,7 @@ export const pilotDetailsStyles = {
     borderRadius: '6px',
     backgroundColor: '#F8FAFC',
     fontSize: '14px',
-    appearance: 'none',
+    appearance: 'none' as const,
     cursor: 'pointer'
   },
   selectorArrow: {

@@ -55,9 +55,9 @@ export async function scheduleEventReminders(
   reminderSettings: ReminderSettings
 ): Promise<{ success: boolean; error?: any }> {
   try {
-    console.log('[SCHEDULE-REMINDERS-DEBUG] Scheduling reminders for event:', eventId);
-    console.log('[SCHEDULE-REMINDERS-DEBUG] Event start time:', eventStartTime);
-    console.log('[SCHEDULE-REMINDERS-DEBUG] Reminder settings:', reminderSettings);
+    // console.log('[SCHEDULE-REMINDERS-DEBUG] Scheduling reminders for event:', eventId);
+    // console.log('[SCHEDULE-REMINDERS-DEBUG] Event start time:', eventStartTime);
+    // console.log('[SCHEDULE-REMINDERS-DEBUG] Reminder settings:', reminderSettings);
     
     const remindersToSchedule = [];
 
@@ -69,9 +69,9 @@ export async function scheduleEventReminders(
         reminderSettings.firstReminder.unit
       );
       
-      console.log('[SCHEDULE-REMINDERS-DEBUG] First reminder time calculated:', reminderTime.toISOString());
-      console.log('[SCHEDULE-REMINDERS-DEBUG] Current time:', new Date().toISOString());
-      console.log('[SCHEDULE-REMINDERS-DEBUG] Is first reminder in future?', reminderTime > new Date());
+      // console.log('[SCHEDULE-REMINDERS-DEBUG] First reminder time calculated:', reminderTime.toISOString());
+      // console.log('[SCHEDULE-REMINDERS-DEBUG] Current time:', new Date().toISOString());
+      // console.log('[SCHEDULE-REMINDERS-DEBUG] Is first reminder in future?', reminderTime > new Date());
       
       // Only schedule if reminder time is in the future
       if (reminderTime > new Date()) {
@@ -81,7 +81,7 @@ export async function scheduleEventReminders(
           scheduled_time: reminderTime.toISOString(),
           sent: false
         });
-        console.log('[SCHEDULE-REMINDERS-DEBUG] Added first reminder to schedule');
+        // console.log('[SCHEDULE-REMINDERS-DEBUG] Added first reminder to schedule');
       }
     }
 
@@ -93,8 +93,8 @@ export async function scheduleEventReminders(
         reminderSettings.secondReminder.unit
       );
       
-      console.log('[SCHEDULE-REMINDERS-DEBUG] Second reminder time calculated:', reminderTime.toISOString());
-      console.log('[SCHEDULE-REMINDERS-DEBUG] Is second reminder in future?', reminderTime > new Date());
+      // console.log('[SCHEDULE-REMINDERS-DEBUG] Second reminder time calculated:', reminderTime.toISOString());
+      // console.log('[SCHEDULE-REMINDERS-DEBUG] Is second reminder in future?', reminderTime > new Date());
       
       // Only schedule if reminder time is in the future
       if (reminderTime > new Date()) {
@@ -104,16 +104,16 @@ export async function scheduleEventReminders(
           scheduled_time: reminderTime.toISOString(),
           sent: false
         });
-        console.log('[SCHEDULE-REMINDERS-DEBUG] Added second reminder to schedule');
+        // console.log('[SCHEDULE-REMINDERS-DEBUG] Added second reminder to schedule');
       }
     }
 
-    console.log('[SCHEDULE-REMINDERS-DEBUG] Total reminders to schedule:', remindersToSchedule.length);
-    console.log('[SCHEDULE-REMINDERS-DEBUG] Reminders data:', remindersToSchedule);
+    // console.log('[SCHEDULE-REMINDERS-DEBUG] Total reminders to schedule:', remindersToSchedule.length);
+    // console.log('[SCHEDULE-REMINDERS-DEBUG] Reminders data:', remindersToSchedule);
 
     if (remindersToSchedule.length > 0) {
-      console.log('[SCHEDULE-REMINDERS-DEBUG] Inserting reminders into database...');
-      const { error, data } = await supabase
+      // console.log('[SCHEDULE-REMINDERS-DEBUG] Inserting reminders into database...');
+      const { error, data: _data } = await supabase
         .from('event_reminders')
         .insert(remindersToSchedule)
         .select();
@@ -123,9 +123,9 @@ export async function scheduleEventReminders(
         throw error;
       }
 
-      console.log('[SCHEDULE-REMINDERS-DEBUG] Successfully inserted reminders:', data);
+      // console.log('[SCHEDULE-REMINDERS-DEBUG] Successfully inserted reminders:', data);
     } else {
-      console.log('[SCHEDULE-REMINDERS-DEBUG] No reminders to schedule (all were in the past)');
+      // console.log('[SCHEDULE-REMINDERS-DEBUG] No reminders to schedule (all were in the past)');
     }
 
     return { success: true };
@@ -140,17 +140,17 @@ export async function scheduleEventReminders(
  */
 export async function cancelEventReminders(eventId: string): Promise<{ success: boolean; error?: any }> {
   try {
-    console.log('[CANCEL-REMINDERS-DEBUG] Cancelling reminders for event:', eventId);
+    // console.log('[CANCEL-REMINDERS-DEBUG] Cancelling reminders for event:', eventId);
     
     // First check what reminders exist
-    const { data: existingReminders } = await supabase
+    const { data: _existingReminders } = await supabase
       .from('event_reminders')
       .select('*')
       .eq('event_id', eventId);
     
-    console.log('[CANCEL-REMINDERS-DEBUG] Found existing reminders:', existingReminders);
+    // console.log('[CANCEL-REMINDERS-DEBUG] Found existing reminders:', existingReminders);
 
-    const { error, count } = await supabase
+    const { error, count: _count } = await supabase
       .from('event_reminders')
       .delete({ count: 'exact' })
       .eq('event_id', eventId);
@@ -160,7 +160,7 @@ export async function cancelEventReminders(eventId: string): Promise<{ success: 
       throw error;
     }
 
-    console.log('[CANCEL-REMINDERS-DEBUG] Deleted', count, 'reminders (sent and unsent)');
+    // console.log('[CANCEL-REMINDERS-DEBUG] Deleted', count, 'reminders (sent and unsent)');
     return { success: true };
   } catch (error) {
     console.error('Error cancelling event reminders:', error);
@@ -184,7 +184,7 @@ export async function getPendingReminders(): Promise<{
     .lte('scheduled_time', now)
     .order('scheduled_time', { ascending: true });
 
-  return { data, error };
+  return { data: data as any, error };
 }
 
 /**
@@ -246,7 +246,7 @@ export async function getEventWithAttendanceForReminder(eventId: string): Promis
     
     // Handle both single event ID and multi-channel array format
     if (Array.isArray(eventData.discord_event_id)) {
-      discordEventIds = eventData.discord_event_id.map(pub => pub.messageId);
+      discordEventIds = eventData.discord_event_id.map(pub => pub && (pub as any).messageId);
     } else {
       discordEventIds = [eventData.discord_event_id];
     }
@@ -282,7 +282,7 @@ export async function getEventWithAttendanceForReminder(eventId: string): Promis
     // Create a map for quick pilot lookup
     const pilotMap = new Map();
     if (pilotData && !pilotError) {
-      pilotData.forEach(pilot => {
+      (pilotData as any).forEach((pilot: any) => {
         pilotMap.set(pilot.discord_id, {
           board_number: pilot.board_number,
           call_sign: pilot.call_sign
@@ -346,12 +346,12 @@ export async function getEventWithAttendanceForReminder(eventId: string): Promis
 export function formatReminderMessage(
   event: Event,
   timeUntilEvent: string,
-  usersToMention?: Array<{ discord_id: string; discord_username: string; board_number?: string; call_sign?: string }>
+  _usersToMention?: Array<{ discord_id: string; discord_username: string; board_number?: string; call_sign?: string }>
 ): string {
-  console.log('[FORMAT-REMINDER-DEBUG] Event data:', event);
-  console.log('[FORMAT-REMINDER-DEBUG] Time until event:', timeUntilEvent);
-  console.log('[FORMAT-REMINDER-DEBUG] Users to mention:', usersToMention);
-  const eventDate = new Date(event.datetime);
+  // console.log('[FORMAT-REMINDER-DEBUG] Event data:', event);
+  // console.log('[FORMAT-REMINDER-DEBUG] Time until event:', timeUntilEvent);
+  // console.log('[FORMAT-REMINDER-DEBUG] Users to mention:', usersToMention);
+  const eventDate = new Date((event as any).datetime || event.start_datetime);
   const easternTime = eventDate.toLocaleString('en-US', {
     timeZone: 'America/New_York',
     weekday: 'long',
@@ -372,14 +372,14 @@ ${easternTime}`;
  * Calculate time until event for display
  */
 export function calculateTimeUntilEvent(eventStartTime: string): string {
-  console.log('[TIME-CALC-DEBUG] Event start time string:', eventStartTime);
+  // console.log('[TIME-CALC-DEBUG] Event start time string:', eventStartTime);
   const now = new Date();
   const eventStart = new Date(eventStartTime);
-  console.log('[TIME-CALC-DEBUG] Current time:', now.toISOString());
-  console.log('[TIME-CALC-DEBUG] Event start parsed:', eventStart.toISOString());
-  console.log('[TIME-CALC-DEBUG] Event start is valid date:', !isNaN(eventStart.getTime()));
+  // console.log('[TIME-CALC-DEBUG] Current time:', now.toISOString());
+  // console.log('[TIME-CALC-DEBUG] Event start parsed:', eventStart.toISOString());
+  // console.log('[TIME-CALC-DEBUG] Event start is valid date:', !isNaN(eventStart.getTime()));
   const diffMs = eventStart.getTime() - now.getTime();
-  console.log('[TIME-CALC-DEBUG] Difference in ms:', diffMs);
+  // console.log('[TIME-CALC-DEBUG] Difference in ms:', diffMs);
   
   if (diffMs <= 0) {
     return 'now';
@@ -409,19 +409,19 @@ export async function updateEventReminders(
   newReminderSettings: ReminderSettings
 ): Promise<{ success: boolean; error?: any }> {
   try {
-    console.log('[UPDATE-REMINDERS-DEBUG] Starting reminder update for event:', eventId);
-    console.log('[UPDATE-REMINDERS-DEBUG] New start time:', newEventStartTime);
-    console.log('[UPDATE-REMINDERS-DEBUG] New reminder settings:', newReminderSettings);
+    // console.log('[UPDATE-REMINDERS-DEBUG] Starting reminder update for event:', eventId);
+    // console.log('[UPDATE-REMINDERS-DEBUG] New start time:', newEventStartTime);
+    // console.log('[UPDATE-REMINDERS-DEBUG] New reminder settings:', newReminderSettings);
     
     // Cancel existing reminders
-    console.log('[UPDATE-REMINDERS-DEBUG] Cancelling existing reminders...');
-    const cancelResult = await cancelEventReminders(eventId);
-    console.log('[UPDATE-REMINDERS-DEBUG] Cancel result:', cancelResult);
+    // console.log('[UPDATE-REMINDERS-DEBUG] Cancelling existing reminders...');
+    await cancelEventReminders(eventId);
+    // console.log('[UPDATE-REMINDERS-DEBUG] Cancel result:', cancelResult);
     
     // Schedule new reminders
-    console.log('[UPDATE-REMINDERS-DEBUG] Scheduling new reminders...');
+    // console.log('[UPDATE-REMINDERS-DEBUG] Scheduling new reminders...');
     const result = await scheduleEventReminders(eventId, newEventStartTime, newReminderSettings);
-    console.log('[UPDATE-REMINDERS-DEBUG] Schedule result:', result);
+    // console.log('[UPDATE-REMINDERS-DEBUG] Schedule result:', result);
     
     return result;
   } catch (error) {
@@ -435,7 +435,7 @@ export async function updateEventReminders(
  */
 export async function sendEventReminder(eventId: string): Promise<{ success: boolean; error?: any; recipientCount?: number }> {
   try {
-    console.log('[MANUAL-REMINDER-DEBUG] Sending manual reminder for event:', eventId);
+    // console.log('[MANUAL-REMINDER-DEBUG] Sending manual reminder for event:', eventId);
     
     // Get event details with attendance
     const { event, attendance, error: fetchError } = await getEventWithAttendanceForReminder(eventId);
@@ -462,9 +462,9 @@ export async function sendEventReminder(eventId: string): Promise<{ success: boo
     // Transform database event to frontend Event format for proper message formatting
     const frontendEvent = {
       ...event,
-      title: event.name || event.title,
-      datetime: event.start_datetime || event.datetime,
-      name: event.name || event.title
+      title: event.name || (event as any).title,
+      datetime: event.start_datetime || (event as any).datetime,
+      name: event.name || (event as any).title
     };
     
     // Format the reminder message
@@ -474,9 +474,9 @@ export async function sendEventReminder(eventId: string): Promise<{ success: boo
     const discordMentions = recipients.map(user => `<@${user.discord_id}>`).join(' ');
     const fullMessage = discordMentions ? `${discordMentions}\n${message}` : message;
     
-    console.log('[MANUAL-REMINDER-DEBUG] Base message:', message);
-    console.log('[MANUAL-REMINDER-DEBUG] Discord mentions:', discordMentions);
-    console.log('[MANUAL-REMINDER-DEBUG] Full message:', fullMessage);
+    // console.log('[MANUAL-REMINDER-DEBUG] Base message:', message);
+    // console.log('[MANUAL-REMINDER-DEBUG] Discord mentions:', discordMentions);
+    // console.log('[MANUAL-REMINDER-DEBUG] Full message:', fullMessage);
     
     // Handle both single discord_event_id and multi-channel array format with deduplication
     let discordEventIds = [];
@@ -491,7 +491,7 @@ export async function sendEventReminder(eventId: string): Promise<{ success: boo
       }];
     }
     
-    console.log('[MANUAL-REMINDER-DEDUP-DEBUG] Discord event IDs:', discordEventIds);
+    // console.log('[MANUAL-REMINDER-DEDUP-DEBUG] Discord event IDs:', discordEventIds);
     
     // Create a UNION of unique guild+channel combinations to prevent duplicate reminders
     const uniqueChannels = new Map<string, {
@@ -503,30 +503,32 @@ export async function sendEventReminder(eventId: string): Promise<{ success: boo
     
     // Group by unique guild+channel combination
     for (const publication of discordEventIds) {
-      const channelKey = `${publication.guildId}:${publication.channelId}`;
+      if (!publication) continue;
+      const pub = publication as any;
+      const channelKey = `${pub.guildId}:${pub.channelId}`;
       
       if (uniqueChannels.has(channelKey)) {
         const existing = uniqueChannels.get(channelKey)!;
-        existing.messageIds.push(publication.messageId);
-        existing.squadronIds.push(publication.squadronId);
+        existing.messageIds.push(pub.messageId);
+        existing.squadronIds.push(pub.squadronId);
       } else {
         uniqueChannels.set(channelKey, {
-          guildId: publication.guildId,
-          channelId: publication.channelId,
-          messageIds: [publication.messageId],
-          squadronIds: [publication.squadronId]
+          guildId: pub.guildId,
+          channelId: pub.channelId,
+          messageIds: [pub.messageId],
+          squadronIds: [pub.squadronId]
         });
       }
     }
     
-    console.log(`[MANUAL-REMINDER-DEDUP-DEBUG] Found ${uniqueChannels.size} unique channels for ${discordEventIds.length} publications`);
+    // console.log(`[MANUAL-REMINDER-DEDUP-DEBUG] Found ${uniqueChannels.size} unique channels for ${discordEventIds.length} publications`);
     
     // Send reminder to each unique channel only once
     let totalSent = 0;
     for (const [channelKey, channelInfo] of uniqueChannels) {
-      console.log(`[MANUAL-REMINDER-DEDUP-DEBUG] Sending manual reminder to unique channel ${channelKey} (squadrons: ${channelInfo.squadronIds.join(', ')})`);
+      // console.log(`[MANUAL-REMINDER-DEDUP-DEBUG] Sending manual reminder to unique channel ${channelKey} (squadrons: ${channelInfo.squadronIds.join(', ')})`);
       
-      const response = await fetch('http://localhost:3001/api/reminders/send', {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/reminders/send`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -550,7 +552,7 @@ export async function sendEventReminder(eventId: string): Promise<{ success: boo
       }
       
       const result = await response.json();
-      console.log(`✅ Manual reminder sent successfully to channel ${channelKey}:`, result);
+      // console.log(`✅ Manual reminder sent successfully to channel ${channelKey}:`, result);
       
       if (result.success) {
         totalSent++;
@@ -561,7 +563,7 @@ export async function sendEventReminder(eventId: string): Promise<{ success: boo
       throw new Error('Failed to send reminder to any Discord channels');
     }
     
-    console.log('[MANUAL-REMINDER-DEBUG] Manual reminder sent successfully');
+    // console.log('[MANUAL-REMINDER-DEBUG] Manual reminder sent successfully');
     
     return {
       success: true,

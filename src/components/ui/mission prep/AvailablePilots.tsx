@@ -6,6 +6,7 @@ import { Filter, ClipboardCheck } from 'lucide-react';
 import { useDraggable } from '@dnd-kit/core';
 import type { Pilot, QualificationType } from '../../../types/PilotTypes';
 import type { Event } from '../../../types/EventTypes';
+import type { AssignedPilot } from '../../../types/MissionPrepTypes';
 import { updateRollCallResponse, syncRollCallResponses } from '../../../utils/rollCallUtils';
 
 // Define the structure for the polled attendance data (matching MissionPreparation)
@@ -15,11 +16,6 @@ interface RealtimeAttendanceRecord {
   roll_call_response?: 'Present' | 'Absent' | 'Tentative'; // Add roll call response
 }
 
-interface AssignedPilot extends Pilot {
-  dashNumber: string;
-  attendanceStatus?: 'accepted' | 'tentative';
-  rollCallStatus?: 'Present' | 'Absent' | 'Tentative';
-}
 
 interface AvailablePilotsProps {
   width: string;
@@ -273,7 +269,7 @@ interface PilotEntryProps {
           
           // Debug logging for badge status - simplified 
           if ((pilot.rollCallStatus || pilot.attendanceStatus) && (pilot.callsign === 'MIRAGE' || pilot.callsign === 'VIKING')) {
-            console.log(`[BADGE-DEBUG] AvailablePilots ${pilot.callsign}: RollCall=${pilot.rollCallStatus || 'none'}, Discord=${pilot.attendanceStatus || 'none'}, ShowBadge=${shouldShowBadge}`);
+            // console.log(`[BADGE-DEBUG] AvailablePilots ${pilot.callsign}: RollCall=${pilot.rollCallStatus || 'none'}, Discord=${pilot.attendanceStatus || 'none'}, ShowBadge=${shouldShowBadge}`);
           }
           
           return shouldShowBadge && (
@@ -337,11 +333,11 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
   const [isRollCallMode, setIsRollCallMode] = useState(false);
   const [rollCallResponses, setRollCallResponses] = useState<Record<string, 'Present' | 'Absent' | 'Tentative'>>({});  // Handle Roll Call response
   const handleRollCallResponse = async (pilotId: string, response: 'Present' | 'Absent' | 'Tentative') => {
-    console.log(`[ROLL-CALL-DEBUG] handleRollCallResponse called for pilotId: ${pilotId}, response: ${response}`); // LOGGING
+    // console.log(`[ROLL-CALL-DEBUG] handleRollCallResponse called for pilotId: ${pilotId}, response: ${response}`); // LOGGING
     // Determine if this is a toggle (same response clicked twice) or new selection
     const isToggleOff = rollCallResponses[pilotId] === response;
     const responseValue = isToggleOff ? null : response; // Use null when toggling off
-    console.log(`[ROLL-CALL-DEBUG] isToggleOff: ${isToggleOff}, responseValue: ${responseValue}`); // LOGGING
+    // console.log(`[ROLL-CALL-DEBUG] isToggleOff: ${isToggleOff}, responseValue: ${responseValue}`); // LOGGING
 
     // Update local state immediately for better UX
     setRollCallResponses(prev => {
@@ -356,7 +352,7 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
 
     // *** NEW: Update the assignedPilots state in the parent component ***
     setAssignedPilots((prevAssignedPilots: Record<string, AssignedPilot[]>) => { // Add type for prevAssignedPilots
-      console.log('[ROLL-CALL-DEBUG] Updating parent assignedPilots state. Prev state:', JSON.stringify(prevAssignedPilots)); // LOGGING
+      // console.log('[ROLL-CALL-DEBUG] Updating parent assignedPilots state. Prev state:', JSON.stringify(prevAssignedPilots)); // LOGGING
       let needsUpdate = false;
       const nextAssignedPilots = { ...prevAssignedPilots }; // Shallow copy
 
@@ -366,16 +362,16 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
         const updatedFlightPilots = originalFlightPilots.map((pilot: AssignedPilot) => { // Add type for pilot
           // Check if this is the pilot whose roll call status changed
           if (pilot.id === pilotId || pilot.boardNumber === pilotId) {
-            console.log(`[ROLL-CALL-DEBUG] Found pilot ${pilot.callsign} in flight ${flightId}. Current rollCallStatus: ${pilot.rollCallStatus}`); // LOGGING
+            // console.log(`[ROLL-CALL-DEBUG] Found pilot ${pilot.callsign} in flight ${flightId}. Current rollCallStatus: ${pilot.rollCallStatus}`); // LOGGING
             // Check if the status actually changed
             if (pilot.rollCallStatus !== responseValue) {
-              console.log(`[ROLL-CALL-DEBUG] Status changed! Applying new status: ${responseValue}`); // LOGGING
+              // console.log(`[ROLL-CALL-DEBUG] Status changed! Applying new status: ${responseValue}`); // LOGGING
               flightNeedsUpdate = true;
               needsUpdate = true; // Mark overall update needed
               // Return a new pilot object with the updated status
               return { ...pilot, rollCallStatus: responseValue || undefined }; // Use undefined if responseValue is null
             } else {
-              console.log(`[ROLL-CALL-DEBUG] Status for ${pilot.callsign} did not change.`); // LOGGING
+              // console.log(`[ROLL-CALL-DEBUG] Status for ${pilot.callsign} did not change.`); // LOGGING
             }
           }
           // Return the original pilot object if no change
@@ -384,13 +380,13 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
 
         // If any pilot in this flight was updated, use the new array
         if (flightNeedsUpdate) {
-          console.log(`[ROLL-CALL-DEBUG] Flight ${flightId} needs update. Assigning new pilot array.`); // LOGGING
+          // console.log(`[ROLL-CALL-DEBUG] Flight ${flightId} needs update. Assigning new pilot array.`); // LOGGING
           nextAssignedPilots[flightId] = updatedFlightPilots;
           // needsUpdate = true; // Already set above
         }
       }
 
-      console.log(`[ROLL-CALL-DEBUG] Finished processing. needsUpdate: ${needsUpdate}. Next state:`, JSON.stringify(nextAssignedPilots)); // LOGGING
+      // console.log(`[ROLL-CALL-DEBUG] Finished processing. needsUpdate: ${needsUpdate}. Next state:`, JSON.stringify(nextAssignedPilots)); // LOGGING
       // Only return the new object if an update actually occurred
       return needsUpdate ? nextAssignedPilots : prevAssignedPilots;
     });
@@ -747,7 +743,7 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
           // Update the state with all roll call responses
           setRollCallResponses(pilotRollCallResponses);
           
-          console.log('[ROLL-CALL-DEBUG] Synced roll call responses for event:', selectedEvent.id);
+          // console.log('[ROLL-CALL-DEBUG] Synced roll call responses for event:', selectedEvent.id);
         } catch (error) {
           console.error('Error syncing roll call responses:', error);
         }
@@ -780,7 +776,7 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
   // Add a useEffect to update the pilot entries when roll call status changes
   useEffect(() => {
     // Force re-render of the entire list when roll call responses change
-    console.log('[ROLL-CALL-DEBUG] Roll call responses updated, refreshing pilot list');
+    // console.log('[ROLL-CALL-DEBUG] Roll call responses updated, refreshing pilot list');
     
     // No need to do anything else - the state change will trigger a re-render
   }, [rollCallResponses]);
@@ -971,7 +967,8 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
                     const specificPilotQuals = pilotQualifications[pilotIdKey] || [];
                     const pilotWithRollCall = {
                       ...pilot,
-                      rollCallStatus: rollCallResponses[pilotIdKey]
+                      rollCallStatus: rollCallResponses[pilotIdKey],
+                      attendanceStatus: pilot.attendanceStatus === 'declined' ? undefined : pilot.attendanceStatus
                     };
                     
                     return (
@@ -1045,7 +1042,7 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
                       rollCallStatus: pilot.rollCallStatus 
                     }));
                   
-                  console.log('[ROLL-CALL-DEBUG] Passing pilots to onAutoAssign:', pilotsForAutoAssign.map(p => ({ c: p.callsign, d: p.attendanceStatus, r: p.rollCallStatus }))); // LOGGING
+                  // console.log('[ROLL-CALL-DEBUG] Passing pilots to onAutoAssign:', pilotsForAutoAssign.map(p => ({ c: p.callsign, d: p.attendanceStatus, r: p.rollCallStatus }))); // LOGGING
                   
                   // Pass the enriched pilot data array directly
                   onAutoAssign(pilotsForAutoAssign); // Pass the full Pilot objects
