@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { Pilot } from '../../types/PilotTypes';
 import { 
   getAllPilots, 
@@ -427,7 +427,7 @@ const RosterManagement: React.FC = () => {
   };
 
   // Function to handle pilot status change
-  const handleStatusChange = async (statusId: string) => {
+  const handleStatusChange = useCallback(async (statusId: string) => {
     if (!selectedPilot) return;
     
     setUpdatingStatus(true);
@@ -448,10 +448,10 @@ const RosterManagement: React.FC = () => {
     } finally {
       setUpdatingStatus(false);
     }
-  };
+  }, [selectedPilot]);
 
   // Function to handle pilot standing change
-  const handleStandingChange = async (standingId: string) => {
+  const handleStandingChange = useCallback(async (standingId: string) => {
     if (!selectedPilot) return;
     
     setUpdatingStanding(true);
@@ -472,7 +472,7 @@ const RosterManagement: React.FC = () => {
     } finally {
       setUpdatingStanding(false);
     }
-  };
+  }, [selectedPilot]);
 
   // Function to check for role conflicts when changing squadrons
   const checkSquadronRoleConflicts = async (pilotId: string, newSquadronId: string): Promise<{
@@ -588,7 +588,7 @@ const RosterManagement: React.FC = () => {
   };
 
   // Function to handle pilot squadron change
-  const handleSquadronChange = async (squadronId: string) => {
+  const handleSquadronChange = useCallback(async (squadronId: string) => {
     console.log('🚀 handleSquadronChange called with squadronId:', squadronId);
     if (!selectedPilot) {
       console.log('❌ No selected pilot');
@@ -618,7 +618,7 @@ const RosterManagement: React.FC = () => {
     console.log('✅ No conflicts found, proceeding with squadron change');
     // Proceed with the squadron change
     await executeSquadronChange(selectedPilot.id, squadronId);
-  };
+  }, [selectedPilot]);
 
   // Function to execute the squadron change
   const executeSquadronChange = async (pilotId: string, squadronId: string) => {
@@ -884,7 +884,7 @@ const RosterManagement: React.FC = () => {
   };
 
   // Handle role change with improved exclusive role checking
-  const handleRoleChange = async (roleId: string) => {
+  const handleRoleChange = useCallback(async (roleId: string) => {
     if (!selectedPilot) return;
     
     setUpdatingRoles(true);
@@ -1030,7 +1030,7 @@ const RosterManagement: React.FC = () => {
     } finally {
       setUpdatingRoles(false);
     }
-  };
+  }, [selectedPilot, pilotRoles, roles]);
 
   // Function to fetch all available qualifications
   const fetchAvailableQualifications = async () => {
@@ -1592,6 +1592,85 @@ const RosterManagement: React.FC = () => {
     }
   }, [selectedPilot]);
 
+  // Memoized PilotDetails components for performance optimization
+  const memoizedNewPilotDetails = useMemo(() => (
+    <PilotDetails
+      selectedPilot={selectedPilot}
+      statuses={statuses}
+      standings={standings}
+      roles={roles}
+      pilotRoles={pilotRoles}
+      squadrons={squadrons}
+      availableQualifications={availableQualifications}
+      pilotQualifications={pilotQualifications}
+      loadingRoles={loadingRoles}
+      updatingRoles={updatingRoles}
+      updatingStatus={updatingStatus}
+      updatingStanding={updatingStanding}
+      updatingSquadron={updatingSquadron}
+      loadingQualifications={loadingQualifications}
+      disabledRoles={disabledRoles}
+      selectedQualification={selectedQualification}
+      qualificationAchievedDate={qualificationAchievedDate}
+      isAddingQualification={isAddingQualification}
+      updatingQualifications={updatingQualifications}
+      setSelectedQualification={setSelectedQualification}
+      setQualificationAchievedDate={setQualificationAchievedDate}
+      handleStatusChange={(statusId) => handleNewPilotChange('status_id', statusId)}
+      handleStandingChange={(standingId) => handleNewPilotChange('standing_id', standingId)}
+      handleRoleChange={handleRoleChange}
+      handleSquadronChange={handleSquadronChange}
+      handleAddQualification={handleAddQualification}
+      handleRemoveQualification={handleRemoveQualification}
+      handleDeletePilot={handleDeletePilot}
+      handleSavePilotChanges={handleSavePilotChanges}
+      handleClearDiscord={handleClearDiscord}
+      isNewPilot={true}
+      onPilotFieldChange={handleNewPilotChange}
+      onSaveNewPilot={handleSaveNewPilot}
+      onCancelAddPilot={handleCancelAddPilot}
+      isSavingNewPilot={isSavingNewPilot}
+      saveError={saveError}
+    />
+  ), [selectedPilot, statuses, standings, roles, pilotRoles, squadrons, availableQualifications, pilotQualifications, loadingRoles, updatingRoles, updatingStatus, updatingStanding, updatingSquadron, loadingQualifications, disabledRoles, selectedQualification, qualificationAchievedDate, isAddingQualification, updatingQualifications, handleRoleChange, handleSquadronChange, handleAddQualification, handleRemoveQualification, handleDeletePilot, handleSavePilotChanges, handleClearDiscord, handleNewPilotChange, handleSaveNewPilot, handleCancelAddPilot, isSavingNewPilot, saveError]);
+
+  const memoizedSelectedPilotDetails = useMemo(() => (
+    <PilotDetails
+      selectedPilot={selectedPilot}
+      statuses={statuses}
+      standings={standings}
+      roles={roles}
+      pilotRoles={pilotRoles}
+      squadrons={squadrons}
+      availableQualifications={availableQualifications}
+      pilotQualifications={pilotQualifications}
+      loadingRoles={loadingRoles}
+      updatingRoles={updatingRoles}
+      updatingStatus={updatingStatus}
+      updatingStanding={updatingStanding}
+      updatingSquadron={updatingSquadron}
+      loadingQualifications={loadingQualifications}
+      disabledRoles={disabledRoles}
+      selectedQualification={selectedQualification}
+      qualificationAchievedDate={qualificationAchievedDate}
+      isAddingQualification={isAddingQualification}
+      updatingQualifications={updatingQualifications}
+      setSelectedQualification={setSelectedQualification}
+      setQualificationAchievedDate={setQualificationAchievedDate}
+      handleStatusChange={handleStatusChange}
+      handleStandingChange={handleStandingChange}
+      handleRoleChange={handleRoleChange}
+      handleSquadronChange={handleSquadronChange}
+      handleAddQualification={handleAddQualification}
+      handleRemoveQualification={handleRemoveQualification}
+      handleDeletePilot={handleDeletePilot}
+      handleSavePilotChanges={handleSavePilotChanges}
+      handleClearDiscord={handleClearDiscord}
+      isNewPilot={false}
+      onQualificationAdded={handleQualificationAddedViaRepair}
+    />
+  ), [selectedPilot, statuses, standings, roles, pilotRoles, squadrons, availableQualifications, pilotQualifications, loadingRoles, updatingRoles, updatingStatus, updatingStanding, updatingSquadron, loadingQualifications, disabledRoles, selectedQualification, qualificationAchievedDate, isAddingQualification, updatingQualifications, handleStatusChange, handleStandingChange, handleRoleChange, handleSquadronChange, handleAddQualification, handleRemoveQualification, handleDeletePilot, handleSavePilotChanges, handleClearDiscord, handleQualificationAddedViaRepair]);
+
   return (
     <div style={rosterStyles.container}>
       {/* Discord import modal */}
@@ -1801,78 +1880,9 @@ const RosterManagement: React.FC = () => {
 
             {/* Right column - Pilot Details */}
             {isAddingNewPilot ? (
-              <PilotDetails
-                selectedPilot={selectedPilot}
-                statuses={statuses}
-                standings={standings}
-                roles={roles}
-                pilotRoles={pilotRoles}
-                squadrons={squadrons}
-                availableQualifications={availableQualifications}
-                pilotQualifications={pilotQualifications}
-                loadingRoles={loadingRoles}
-                updatingRoles={updatingRoles}
-                updatingStatus={updatingStatus}
-                updatingStanding={updatingStanding}
-                updatingSquadron={updatingSquadron}
-                loadingQualifications={loadingQualifications}
-                disabledRoles={disabledRoles}
-                selectedQualification={selectedQualification}
-                qualificationAchievedDate={qualificationAchievedDate}
-                isAddingQualification={isAddingQualification}
-                updatingQualifications={updatingQualifications}
-                setSelectedQualification={setSelectedQualification}
-                setQualificationAchievedDate={setQualificationAchievedDate}
-                handleStatusChange={(statusId) => handleNewPilotChange('status_id', statusId)}
-                handleStandingChange={(standingId) => handleNewPilotChange('standing_id', standingId)}
-                handleRoleChange={handleRoleChange}
-                handleSquadronChange={handleSquadronChange}
-                handleAddQualification={handleAddQualification}
-                handleRemoveQualification={handleRemoveQualification}
-                handleDeletePilot={handleDeletePilot}
-                handleSavePilotChanges={handleSavePilotChanges}
-                handleClearDiscord={handleClearDiscord}
-                isNewPilot={true}
-                onPilotFieldChange={handleNewPilotChange}
-                onSaveNewPilot={handleSaveNewPilot}
-                onCancelAddPilot={handleCancelAddPilot}
-                isSavingNewPilot={isSavingNewPilot}
-                saveError={saveError}
-              />
+              memoizedNewPilotDetails
             ) : (
-              <PilotDetails
-                selectedPilot={selectedPilot}
-                statuses={statuses}
-                standings={standings}
-                roles={roles}
-                pilotRoles={pilotRoles}
-                squadrons={squadrons}
-                availableQualifications={availableQualifications}
-                pilotQualifications={pilotQualifications}
-                loadingRoles={loadingRoles}
-                updatingRoles={updatingRoles}
-                updatingStatus={updatingStatus}
-                updatingStanding={updatingStanding}
-                updatingSquadron={updatingSquadron}
-                loadingQualifications={loadingQualifications}
-                disabledRoles={disabledRoles}
-                selectedQualification={selectedQualification}
-                qualificationAchievedDate={qualificationAchievedDate}
-                isAddingQualification={isAddingQualification}
-                updatingQualifications={updatingQualifications}
-                setSelectedQualification={setSelectedQualification}
-                setQualificationAchievedDate={setQualificationAchievedDate}
-                handleStatusChange={handleStatusChange}
-                handleStandingChange={handleStandingChange}
-                handleRoleChange={handleRoleChange}
-                handleSquadronChange={handleSquadronChange}
-                handleAddQualification={handleAddQualification}
-                handleRemoveQualification={handleRemoveQualification}
-                handleDeletePilot={handleDeletePilot}
-                handleSavePilotChanges={handleSavePilotChanges}
-                handleClearDiscord={handleClearDiscord}
-                onQualificationAdded={handleQualificationAddedViaRepair}
-              />
+              memoizedSelectedPilotDetails
             )}
           </div>
         </div>
