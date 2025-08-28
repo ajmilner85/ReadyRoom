@@ -59,6 +59,33 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
               Try Discord Login
             </button>
             
+            <button 
+              onClick={() => {
+                try {
+                  // Clear all Supabase auth related items
+                  Object.keys(localStorage).forEach(key => {
+                    if (key.startsWith('sb-') || key.includes('supabase')) {
+                      localStorage.removeItem(key);
+                    }
+                  });
+                  Object.keys(sessionStorage).forEach(key => {
+                    if (key.startsWith('sb-') || key.includes('supabase')) {
+                      sessionStorage.removeItem(key);
+                    }
+                  });
+                  // Reload the page after clearing storage
+                  window.location.reload();
+                } catch (err) {
+                  console.error('Error clearing storage:', err);
+                  // Fallback - just reload
+                  window.location.reload();
+                }
+              }}
+              className="w-full px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700"
+            >
+              Clear Cache & Reload
+            </button>
+            
           </div>
         </div>
       </div>
