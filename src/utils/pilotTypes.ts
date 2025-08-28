@@ -28,6 +28,31 @@ export interface Pilot extends PilotBase {
     name: string;
     order: number;
   } | null;
+  // Squadron assignment information
+  currentSquadron?: {
+    id: string;
+    name: string;
+    designation: string;
+    wing_id: string;
+    tail_code?: string | null;
+    established_date?: string | null;
+    deactivated_date?: string | null;
+    insignia_url?: string | null;
+    carrier_id?: string | null;
+    callsigns?: any;
+    color_palette?: any;
+    discord_integration?: any;
+    updated_at?: string | null;
+  } | null;
+  squadronAssignment?: {
+    id: string;
+    pilot_id: string;
+    squadron_id: string | null;
+    start_date: string;
+    end_date?: string;
+    created_at: string;
+    updated_at?: string;
+  };
   // Additional fields for compatibility
   standing_id?: string;
   status?: string; // Legacy status field for backward compatibility - optional
