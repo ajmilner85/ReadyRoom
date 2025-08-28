@@ -828,15 +828,6 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
           );
         });
         
-        // Enhanced debug logging for qualification matching  
-        const qualificationDetails = localPilotQualifications?.map((pq: any) => ({
-          recordId: pq.id,
-          qualification_id: pq.qualification_id,
-          qualificationName: pq.qualification?.name,
-          qualificationId: pq.qualification?.id,
-          matchesId: pq.qualification_id === mapping.qualification,
-          matchesName: pq.qualification?.name === mapping.qualificationName
-        }));
         
         
         if (hasQualification) {
