@@ -838,17 +838,6 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
           matchesName: pq.qualification?.name === mapping.qualificationName
         }));
         
-        console.log('🔍 QUALIFICATION DEBUG:', {
-          roleName: role.name,
-          mappingQualification: mapping.qualification,
-          mappingQualificationName: mapping.qualificationName,
-          hasQualification,
-          totalPilotQualifications: localPilotQualifications?.length || 0,
-          pilotQualificationsDetailed: qualificationDetails
-        });
-        
-        // Log the full qualifications array for deeper inspection
-        console.log('📋 FULL PILOT QUALIFICATIONS:', localPilotQualifications);
         
         if (hasQualification) {
           // Has qualification - blue
