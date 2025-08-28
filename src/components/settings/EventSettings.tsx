@@ -41,7 +41,7 @@ const EventSettings: React.FC<EventSettingsProps> = ({ error, setError }) => {
   
   const saveTimezoneToServer = async (timezone: string) => {
     try {
-      const response = await fetch('http://localhost:3001/api/settings/timezone', {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/settings/timezone`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

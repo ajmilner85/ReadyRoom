@@ -71,7 +71,7 @@ export async function fetchDiscordGuildMembers(squadronId?: string): Promise<Dis
     console.log(`Fetching Discord members for guild ID: ${guildId}`);
     
     // Call the server endpoint that will use the Discord API with the specific guild ID
-    const response = await fetch(`http://localhost:3001/api/discord/guild-members?guildId=${guildId}`, {
+    const response = await fetch(`${import.meta.env.VITE_API_URL}/api/discord/guild-members?guildId=${guildId}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json'

@@ -5,15 +5,15 @@ const { Client, GatewayIntentBits, EmbedBuilder, ButtonBuilder, ActionRowBuilder
 const { format, formatDistanceToNow } = require('date-fns');
 const { toZonedTime, fromZonedTime, formatInTimeZone, getTimezoneOffset } = require('date-fns-tz');
 
-// Load environment variables from the root .env file
-const result = dotenv.config({ path: path.resolve(__dirname, '../.env') });
-
-if (result.error) {
+// Load environment variables - in production, use fly.io secrets
+const result = dotenv.config();
+if (result.error && !process.env.BOT_TOKEN) {
   console.error('Error loading .env file:', result.error);
+  console.log('Make sure environment variables are set via fly.io secrets in production');
 }
 
-// Require Supabase client from server directory
-const { supabase, upsertEventAttendance, getEventIdByDiscordId, getEventByDiscordId } = require('../server/supabaseClient');
+// Require Supabase client from local directory  
+const { supabase, upsertEventAttendance, getEventIdByDiscordId, getEventByDiscordId } = require('./supabaseClient');
 
 // Check if BOT_TOKEN is loaded and log its status
 console.log('Environment variables loaded, BOT_TOKEN present:', !!process.env.BOT_TOKEN);
@@ -255,12 +255,12 @@ function createEventEmbed(title, description, eventTime, responses = {}, creator
       // Log pilot data for debugging
       entries.forEach((entry, index) => {
         // console.log(`[TRAINING-DEBUG] Entry ${index}:`, {
-          username: entry.username,
-          discordId: entry.userId,
-          currentStatus: entry.pilotRecord?.currentStatus?.name,
-          qualifications: entry.pilotRecord?.qualifications,
-          hasPilotRecord: !!entry.pilotRecord
-        });
+        //   username: entry.username,
+        //   discordId: entry.userId,
+        //   currentStatus: entry.pilotRecord?.currentStatus?.name,
+        //   qualifications: entry.pilotRecord?.qualifications,
+        //   hasPilotRecord: !!entry.pilotRecord
+        // });
       });
       
       // IPs: Only pilots with the "Instructor Pilot" qualification

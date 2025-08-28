@@ -158,7 +158,7 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
         return;
       }
       try {
-        const response = await fetch(`http://localhost:3001/api/events/${selectedEvent.id}/attendance`);
+        const response = await fetch(`${import.meta.env.VITE_API_URL}/api/events/${selectedEvent.id}/attendance`);
         if (!response.ok) {
           throw new Error(`Failed to fetch attendance: ${response.statusText}`);
         }

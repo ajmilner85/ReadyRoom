@@ -34,7 +34,24 @@
       "mcp__supabase__generate_typescript_types",
       "Bash(git log:*)",
       "Bash(git add:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "mcp__supabase__search_docs",
+      "Bash(cat:*)",
+      "Bash(fly mcp:*)",
+      "Bash(fly auth:*)",
+      "WebSearch",
+      "Read(C:\\Users\\ajmil\\.claude/**)",
+      "Read(C:\\Users\\ajmil\\.claude/**)",
+      "mcp__flyio__fly-apps-list",
+      "mcp__flyio__fly-logs",
+      "Bash(fly deploy:*)",
+      "mcp__flyio__fly-apps-restart",
+      "mcp__flyio__fly-machine-list",
+      "mcp__flyio__fly-machine-destroy",
+      "mcp__flyio__fly-secrets-set",
+      "mcp__flyio__fly-machine-restart",
+      "mcp__flyio__fly-machine-start",
+      "mcp__flyio__fly-secrets-list"
     ],
     "additionalDirectories": [
       "C:\\Users\\ajmil\\Desktop\\ReadyRoom",
@@ -42,5 +59,8 @@
       "C:\\c\\Users\\ajmil\\Desktop"
     ]
   },
+  "enabledMcpjsonServers": [
+    "context7"
+  ],
   "outputStyle": "default"
 }
