@@ -178,7 +178,7 @@ async function sendReminderMessage(
     for (const [channelKey, channelInfo] of uniqueChannels) {
       // console.log(`[REMINDER-DEDUP-DEBUG] Sending reminder to unique channel ${channelKey} (squadrons: ${channelInfo.squadronIds.join(', ')})`);
       
-      const response = await fetch('http://localhost:3001/api/reminders/send', {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/reminders/send`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

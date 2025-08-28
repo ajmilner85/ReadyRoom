@@ -42,7 +42,7 @@ interface EventUpdatesProviderProps {
 }
 
 // Server URL
-const API_URL = 'http://localhost:3001';
+const API_URL = import.meta.env.VITE_API_URL;
 
 // Rename to EventUpdatesProvider to reflect the pure polling approach
 export const WebSocketProvider: React.FC<EventUpdatesProviderProps> = ({ children }) => {

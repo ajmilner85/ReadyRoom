@@ -18,7 +18,7 @@ async function checkServerAvailability(): Promise<boolean> {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 3000);
     
-    const response = await fetch('http://localhost:3001/api/health', {
+    const response = await fetch(`${import.meta.env.VITE_API_URL}/api/health`, {
       method: 'HEAD',
       signal: controller.signal
     });
@@ -353,7 +353,7 @@ const EventDetails: React.FC<EventDetailsProps> = ({ event, onEventUpdated }) =>
       
       if (error instanceof Error) {
         if (error.message.includes('NetworkError') || error.message.includes('Failed to fetch')) {
-          errorMessage = 'Network error: Unable to reach the server. Make sure the server is running at http://localhost:3001';
+          errorMessage = `Network error: Unable to reach the server. Make sure the server is running at ${import.meta.env.VITE_API_URL}`;
         } else if (error.message.includes('timed out')) {
           errorMessage = 'Request timed out. The server might be busy or slow to respond.';
         } else {

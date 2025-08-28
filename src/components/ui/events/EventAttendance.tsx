@@ -57,7 +57,7 @@ const EventAttendance: React.FC<EventAttendanceProps> = ({ event }) => {
         spinner.style.opacity = '1';
       }
       
-      const response = await fetch(`http://localhost:3001/api/events/${eventId}/attendance`);
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/events/${eventId}/attendance`);
       if (!response.ok) {
         throw new Error(`Failed to fetch attendance: ${response.statusText}`);
       }

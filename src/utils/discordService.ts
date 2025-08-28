@@ -60,7 +60,7 @@ export async function fetchDiscordGuildMember(guildId: string, userId: string): 
   try {
     // console.log(`[DISCORD-MEMBER-DEBUG] Fetching member info for user ${userId} in guild ${guildId}`);
     
-    const response = await fetch(`http://localhost:3001/api/discord/guild/${guildId}/member/${userId}`);
+    const response = await fetch(`${import.meta.env.VITE_API_URL}/api/discord/guild/${guildId}/member/${userId}`);
     
     if (!response.ok) {
       const errorData = await response.json();
@@ -101,7 +101,7 @@ export async function fetchDiscordGuildRoles(guildId: string): Promise<{
   try {
     // console.log(`[DISCORD-ROLES-DEBUG] Fetching guild roles for guild ${guildId}`);
     
-    const response = await fetch(`http://localhost:3001/api/discord/guild/${guildId}/roles`);
+    const response = await fetch(`${import.meta.env.VITE_API_URL}/api/discord/guild/${guildId}/roles`);
     
     if (!response.ok) {
       const errorData = await response.json();
@@ -374,7 +374,7 @@ async function publishToSpecificChannel(event: Event, guildId: string, channelId
       creator: event.creator
     };
     
-    const response = await fetch('http://localhost:3001/api/events/publish', {
+    const response = await fetch(`${import.meta.env.VITE_API_URL}/api/events/publish`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -498,7 +498,7 @@ export async function publishEventToDiscord(event: Event): Promise<PublishEventR
         // Set a reasonable timeout for the fetch call
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
-          const response = await fetch('http://localhost:3001/api/events/publish', {
+          const response = await fetch(`${import.meta.env.VITE_API_URL}/api/events/publish`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -710,7 +710,7 @@ export async function getAvailableDiscordServers(): Promise<{
   try {
     // console.log('[DEBUG] Fetching available Discord servers');
     
-    const response = await fetch('http://localhost:3001/api/discord/servers', {
+    const response = await fetch(`${import.meta.env.VITE_API_URL}/api/discord/servers`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json'
@@ -753,7 +753,7 @@ export async function getServerChannels(guildId: string): Promise<{
   try {
     // console.log(`[DEBUG] Fetching channels for Discord server ID: ${guildId}`);
     
-    const response = await fetch(`http://localhost:3001/api/discord/servers/${guildId}/channels`, {
+    const response = await fetch(`${import.meta.env.VITE_API_URL}/api/discord/servers/${guildId}/channels`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json'
@@ -989,7 +989,7 @@ async function deleteDiscordMessageFromChannel(messageId: string, guildId: strin
     
     // console.log(`[DEBUG] Sending delete request to: http://localhost:3001/api/events/${messageId}?guildId=${guildId}&channelId=${channelId}`);
     
-    const response = await fetch(`http://localhost:3001/api/events/${messageId}?guildId=${guildId}&channelId=${channelId}`, {
+    const response = await fetch(`${import.meta.env.VITE_API_URL}/api/events/${messageId}?guildId=${guildId}&channelId=${channelId}`, {
       method: 'DELETE',
     });
     
@@ -1191,7 +1191,7 @@ export async function deleteDiscordMessage(eventOrMessageId: Event | string, gui
     }
     
     // Build the URL with optional guild ID as a query parameter
-    let url = `http://localhost:3001/api/events/${discordMessageId}`;
+    let url = `${import.meta.env.VITE_API_URL}/api/events/${discordMessageId}`;
     const queryParams = [];
     
     if (guildId) {
@@ -1245,7 +1245,7 @@ export async function deleteDiscordMessage(eventOrMessageId: Event | string, gui
  */
 export async function getEventAttendanceFromDiscord(discordMessageId: string): Promise<DiscordAttendanceResponse> {
   try {
-    const response = await fetch(`http://localhost:3001/api/events/${discordMessageId}/attendance`, {
+    const response = await fetch(`${import.meta.env.VITE_API_URL}/api/events/${discordMessageId}/attendance`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -1356,7 +1356,7 @@ async function editDiscordMessageInChannel(messageId: string, event: Event, guil
     //   creator: requestBody.creator
     // });
     
-    const response = await fetch(`http://localhost:3001/api/events/${messageId}/edit`, {
+    const response = await fetch(`${import.meta.env.VITE_API_URL}/api/events/${messageId}/edit`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
