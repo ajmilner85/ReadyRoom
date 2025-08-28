@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { MessageSquare, Plus, Edit, Trash, AlertCircle, Crown, Shield, Users, User, Server, X } from 'lucide-react';
+import { MessageSquare, Plus, Trash, Crown, Shield, Users, User, Server, X } from 'lucide-react';
 import { getAvailableDiscordServers, getServerChannels, DiscordServer, fetchDiscordGuildRoles } from '../../utils/discordService';
 import { getAllQualifications } from '../../utils/qualificationService';
 
@@ -106,7 +106,7 @@ const SquadronDiscordSettings: React.FC<SquadronDiscordSettingsProps> = ({
 }) => {
   const [showChannelForm, setShowChannelForm] = useState(false);
   const [showRoleForm, setShowRoleForm] = useState(false);
-  const [newChannel, setNewChannel] = useState({ id: '', name: '', type: 'events' as const });
+  const [newChannel, setNewChannel] = useState<{ id: string; name: string; type: 'events' | 'briefing' }>({ id: '', name: '', type: 'events' });
   const [newRoleMapping, setNewRoleMapping] = useState({
     discordRoleId: '',
     discordRoleName: '',
@@ -207,11 +207,10 @@ const SquadronDiscordSettings: React.FC<SquadronDiscordSettingsProps> = ({
             const textChannels = (response.channels || [])
               .filter(channel => {
                 // Accept any channel that could be a text channel
-                return channel.type === 0 || 
-                       channel.type === '0' || 
+                return channel.type === '0' || 
                        channel.type === 'GUILD_TEXT' ||
                        channel.type === 'TEXT' ||
-                       typeof channel.type === 'number' && [0, 1, 5, 10, 11, 12].includes(channel.type);
+                       (typeof channel.type === 'number' && [0, 1, 5, 10, 11, 12].includes(channel.type));
               })
               .map(channel => ({
                 id: channel.id,
@@ -237,20 +236,6 @@ const SquadronDiscordSettings: React.FC<SquadronDiscordSettingsProps> = ({
     }
   }, [selectedGuildId]);
 
-  const getPermissionIcon = (permission: string) => {
-    switch (permission) {
-      case 'admin':
-        return <Crown size={14} className="text-red-600" strokeWidth={2.5} />;
-      case 'flight_lead':
-        return <Shield size={14} className="text-orange-600" strokeWidth={2.5} />;
-      case 'member':
-        return <Users size={14} className="text-blue-600" strokeWidth={2.5} />;
-      case 'guest':
-        return <User size={14} className="text-gray-600" strokeWidth={2.5} />;
-      default:
-        return null;
-    }
-  };
 
   const getPermissionLabel = (permission: string) => {
     switch (permission) {
@@ -270,12 +255,28 @@ const SquadronDiscordSettings: React.FC<SquadronDiscordSettingsProps> = ({
   const getRoleMappingIcon = (mapping: RoleMapping) => {
     let overlayIcon;
     if (mapping.isIgnoreUsers) {
-      overlayIcon = <X size={7} style={{ color: '#EF4444' }} strokeWidth={2.5} />;
+      overlayIcon = <X style={{ color: '#EF4444', width: 7, height: 7 }} strokeWidth={2.5} />;
     } else if (mapping.appPermission) {
-      overlayIcon = React.cloneElement(getPermissionIcon(mapping.appPermission) as React.ReactElement, { size: 7, strokeWidth: 2.5 });
+      // Create appropriately sized icon based on permission
+      switch (mapping.appPermission) {
+        case 'admin':
+          overlayIcon = <Crown size={7} className="text-red-600" strokeWidth={2.5} />;
+          break;
+        case 'flight_lead':
+          overlayIcon = <Shield size={7} className="text-orange-600" strokeWidth={2.5} />;
+          break;
+        case 'member':
+          overlayIcon = <Users size={7} className="text-blue-600" strokeWidth={2.5} />;
+          break;
+        case 'guest':
+          overlayIcon = <User size={7} className="text-gray-600" strokeWidth={2.5} />;
+          break;
+        default:
+          overlayIcon = <Shield size={7} className="text-gray-600" strokeWidth={2.5} />;
+      }
     } else {
       // Default icon for qualifications
-      overlayIcon = <Shield size={7} style={{ color: '#10B981' }} strokeWidth={2.5} />;
+      overlayIcon = <Shield style={{ color: '#10B981', width: 7, height: 7 }} strokeWidth={2.5} />;
     }
     return <DiscordLogo size={18} overlayIcon={overlayIcon} />;
   };
@@ -349,16 +350,16 @@ const SquadronDiscordSettings: React.FC<SquadronDiscordSettingsProps> = ({
     }
   };
 
-  const handleQualificationSelect = (qualificationId: string) => {
-    const selectedQualification = availableQualifications.find(q => q.id === qualificationId);
-    if (selectedQualification) {
-      setNewRoleMapping({
-        ...newRoleMapping,
-        qualificationId: selectedQualification.id,
-        qualificationName: selectedQualification.name
-      });
-    }
-  };
+  // const handleQualificationSelect = (qualificationId: string) => {
+  //   const selectedQualification = availableQualifications.find(q => q.id === qualificationId);
+  //   if (selectedQualification) {
+  //     setNewRoleMapping({
+  //       ...newRoleMapping,
+  //       qualificationId: selectedQualification.id,
+  //       qualificationName: selectedQualification.name
+  //     });
+  //   }
+  // };
 
   const handleChannelSelect = (channelId: string) => {
     const selectedChannel = availableChannels.find(ch => ch.id === channelId);

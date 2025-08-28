@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Card } from '../card';
-import { Check, Send, RefreshCw, ImageIcon, X, Upload, Users, Bell, Clock, Calendar, Settings, MessageSquare } from 'lucide-react';
+import { Check, Send, Users, Bell, Clock, Calendar, Settings } from 'lucide-react';
 import type { Event } from '../../../types/EventTypes';
 import { publishEventFromCycle, updateEventMultipleDiscordIds } from '../../../utils/discordService';
 import { fetchEvents, supabase } from '../../../utils/supabaseClient';
-import { uploadEventImage, deleteEventImage } from '../../../utils/eventImageService';
+import { uploadEventImage } from '../../../utils/eventImageService';
 import { getAllSquadrons } from '../../../utils/organizationService';
 import type { Squadron } from '../../../types/OrganizationTypes';
 
@@ -18,7 +18,7 @@ async function checkServerAvailability(): Promise<boolean> {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 3000);
     
-    const response = await fetch('http://localhost:3001/api/health', {
+    const response = await fetch(`${import.meta.env.VITE_API_URL}/api/health`, {
       method: 'HEAD',
       signal: controller.signal
     });
@@ -37,7 +37,6 @@ interface EventDetailsProps {
 
 const EventDetails: React.FC<EventDetailsProps> = ({ event, onEventUpdated }) => {
   const [publishing, setPublishing] = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
   const [publishMessage, setPublishMessage] = useState<{type: 'success' | 'error', text: string} | null>(null);
   const [imageLoading, setImageLoading] = useState(false);
   const [imageError, setImageError] = useState<string | null>(null);
@@ -45,7 +44,7 @@ const EventDetails: React.FC<EventDetailsProps> = ({ event, onEventUpdated }) =>
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [squadrons, setSquadrons] = useState<Squadron[]>([]);
   const [scheduledReminders, setScheduledReminders] = useState<any[]>([]);
-  const [serverConnectivity, setServerConnectivity] = useState<'connected' | 'pending' | 'error'>('connected');
+  const [serverConnectivity, ] = useState<'connected' | 'pending' | 'error'>('connected');
   const [sendingReminder, setSendingReminder] = useState(false);
   // Set initial image preview from event data
   useEffect(() => {
@@ -154,41 +153,12 @@ const EventDetails: React.FC<EventDetailsProps> = ({ event, onEventUpdated }) =>
     }
   };
   
-  // Handle image removal
-  const handleRemoveImage = async () => {
-    if (!event || !event.imageUrl) return;
-    
-    setImageLoading(true);
-    
-    try {
-      const { error } = await deleteEventImage(event.imageUrl);
-      
-      if (error) {
-        throw new Error(error.message);
-      }
-      
-      setImagePreview(null);
-    } catch (error) {
-      console.error('Error removing image:', error);
-      setImageError(error instanceof Error ? error.message : 'Failed to remove image');
-    } finally {
-      setImageLoading(false);
-    }
-  };
-  
-  // Function to trigger file input click
-  const triggerFileInput = () => {
-    if (fileInputRef.current) {
-      fileInputRef.current.click();
-    }
-  };
 
   // Function to refresh event data from database
   const refreshEventData = useCallback(async () => {
     if (!event) return;
     
     try {
-      setRefreshing(true);
       
       // Get latest event data from database
       const { events: fetchedEvents } = await fetchEvents(event.cycleId);
@@ -201,7 +171,7 @@ const EventDetails: React.FC<EventDetailsProps> = ({ event, onEventUpdated }) =>
         // This allows parent component to handle the actual event state
         const discordCard = document.querySelector('#discord-integration-card');
         if (discordCard) {
-          if (updatedEvent.discordEventId || updatedEvent.discordMessageId) {
+          if (updatedEvent.discordEventId || updatedEvent.discord_event_id) {
             discordCard.classList.remove('hidden');
           } else {
             discordCard.classList.add('hidden');
@@ -209,7 +179,7 @@ const EventDetails: React.FC<EventDetailsProps> = ({ event, onEventUpdated }) =>
         }
           // Update button state
         const publishBtn = document.querySelector('#publish-discord-btn');
-        if (publishBtn && (updatedEvent.discordEventId || updatedEvent.discordMessageId)) {
+        if (publishBtn && (updatedEvent.discordEventId || updatedEvent.discord_event_id)) {
           publishBtn.setAttribute('disabled', 'true');
           publishBtn.classList.add('published');
           const spanElement = publishBtn.querySelector('span');
@@ -221,28 +191,29 @@ const EventDetails: React.FC<EventDetailsProps> = ({ event, onEventUpdated }) =>
     } catch (error) {
       // Silent failure for refresh operations
     } finally {
-      setRefreshing(false);
     }
-  }, [event]);  const handlePublishToDiscord = async () => {
-    console.log('[PUBLISH-BUTTON-DEBUG] Publish button clicked for event:', event?.id);
+  }, [event]);
+  
+  const handlePublishToDiscord = async () => {
+    // console.log('[PUBLISH-BUTTON-DEBUG] Publish button clicked for event:', event?.id);
     if (!event) {
-      console.log('[PUBLISH-BUTTON-DEBUG] No event available');
+      // console.log('[PUBLISH-BUTTON-DEBUG] No event available');
       return;
     }
     
     // Check if the event already has a discord message ID (already published)
-    if (event.discordMessageId || event.discordEventId) {
-      console.log('[PUBLISH-BUTTON-DEBUG] Event already published, exiting');
+    if (event.discordEventId || event.discord_event_id) {
+      // console.log('[PUBLISH-BUTTON-DEBUG] Event already published, exiting');
       return;
     }
     
-    console.log('[PUBLISH-BUTTON-DEBUG] Starting publish process, setting publishing state to true');
+    // console.log('[PUBLISH-BUTTON-DEBUG] Starting publish process, setting publishing state to true');
     // Check if server is available before attempting to publish
     setPublishing(true);
     setPublishMessage(null);
     
-    let timeoutId: NodeJS.Timeout;
-    let publishTimeoutId: NodeJS.Timeout;
+    let timeoutId: NodeJS.Timeout | undefined;
+    let publishTimeoutId: NodeJS.Timeout | undefined;
     
     try {
       // First check if the server is available
@@ -259,6 +230,7 @@ const EventDetails: React.FC<EventDetailsProps> = ({ event, onEventUpdated }) =>
         .eq('id', event.id)
         .single();
       
+      let timeoutId: NodeJS.Timeout | undefined;
       const timeoutPromise = new Promise((_, reject) => {
         timeoutId = setTimeout(() => reject(new Error('Database query timed out')), 10000);
       });
@@ -267,9 +239,9 @@ const EventDetails: React.FC<EventDetailsProps> = ({ event, onEventUpdated }) =>
       if (timeoutId) clearTimeout(timeoutId);
       
       // Create an enhanced version of the event with guaranteed image URL
-      console.log('[PUBLISH-DEBUG] Raw dbEvent.image_url:', dbEvent?.image_url);
-      console.log('[PUBLISH-DEBUG] Raw dbEvent.participants:', dbEvent?.participants);
-      console.log('[PUBLISH-DEBUG] Type of image_url:', typeof dbEvent?.image_url);
+      // console.log('[PUBLISH-DEBUG] Raw dbEvent.image_url:', dbEvent?.image_url);
+      // console.log('[PUBLISH-DEBUG] Raw dbEvent.participants:', dbEvent?.participants);
+      // console.log('[PUBLISH-DEBUG] Type of image_url:', typeof dbEvent?.image_url);
       
       const publishableEvent = {
         ...event,
@@ -283,10 +255,11 @@ const EventDetails: React.FC<EventDetailsProps> = ({ event, onEventUpdated }) =>
         participants: dbEvent?.participants || event.participants
       };
       
-      console.log('[PUBLISH-DEBUG] publishableEvent:', publishableEvent);
+      // console.log('[PUBLISH-DEBUG] publishableEvent:', publishableEvent);
       
       // Add timeout to the publish call
       const publishPromise = publishEventFromCycle(publishableEvent);
+      let publishTimeoutId: NodeJS.Timeout | undefined;
       const publishTimeoutPromise = new Promise((_, reject) => {
         publishTimeoutId = setTimeout(() => reject(new Error('Publish request timed out')), 30000);
       });
@@ -296,7 +269,7 @@ const EventDetails: React.FC<EventDetailsProps> = ({ event, onEventUpdated }) =>
       
       if (!response.success) {
         if (response.errors.length > 0) {
-          const errorMessages = response.errors.map(err => 
+          const errorMessages = response.errors.map((err: any) => 
             `Squadron ${err.squadronId}: ${err.error}`
           ).join('; ');
           throw new Error(`Failed to publish to some squadrons: ${errorMessages}`);
@@ -314,12 +287,12 @@ const EventDetails: React.FC<EventDetailsProps> = ({ event, onEventUpdated }) =>
           try {
             const reminderSettings = {
               firstReminder: {
-                enabled: event.eventSettings.firstReminderEnabled,
+                enabled: Boolean(event.eventSettings.firstReminderEnabled),
                 value: event.eventSettings.firstReminderTime?.value || 15,
                 unit: (event.eventSettings.firstReminderTime?.unit || 'minutes') as 'minutes' | 'hours' | 'days'
               },
               secondReminder: {
-                enabled: event.eventSettings.secondReminderEnabled,
+                enabled: Boolean(event.eventSettings.secondReminderEnabled),
                 value: event.eventSettings.secondReminderTime?.value || 3,
                 unit: (event.eventSettings.secondReminderTime?.unit || 'days') as 'minutes' | 'hours' | 'days'
               }
@@ -335,7 +308,7 @@ const EventDetails: React.FC<EventDetailsProps> = ({ event, onEventUpdated }) =>
             if (!reminderResult.success) {
               console.warn('[PUBLISH-REMINDER-DEBUG] Failed to schedule reminders for published event:', reminderResult.error);
             } else {
-              console.log('[PUBLISH-REMINDER-DEBUG] Successfully scheduled reminders for published event:', event.id);
+              // console.log('[PUBLISH-REMINDER-DEBUG] Successfully scheduled reminders for published event:', event.id);
             }
           } catch (reminderError) {
             console.error('[PUBLISH-REMINDER-DEBUG] Error scheduling reminders for published event:', reminderError);
@@ -380,7 +353,7 @@ const EventDetails: React.FC<EventDetailsProps> = ({ event, onEventUpdated }) =>
       
       if (error instanceof Error) {
         if (error.message.includes('NetworkError') || error.message.includes('Failed to fetch')) {
-          errorMessage = 'Network error: Unable to reach the server. Make sure the server is running at http://localhost:3001';
+          errorMessage = `Network error: Unable to reach the server. Make sure the server is running at ${import.meta.env.VITE_API_URL}`;
         } else if (error.message.includes('timed out')) {
           errorMessage = 'Request timed out. The server might be busy or slow to respond.';
         } else {
@@ -394,10 +367,10 @@ const EventDetails: React.FC<EventDetailsProps> = ({ event, onEventUpdated }) =>
       });
     } finally {
       // Clean up any remaining timeouts
-      if (timeoutId) clearTimeout(timeoutId);
-      if (publishTimeoutId) clearTimeout(publishTimeoutId);
+      if (timeoutId !== undefined) clearTimeout(timeoutId);
+      if (publishTimeoutId !== undefined) clearTimeout(publishTimeoutId);
       
-      console.log('[PUBLISH-BUTTON-DEBUG] Setting publishing state to false');
+      // console.log('[PUBLISH-BUTTON-DEBUG] Setting publishing state to false');
       setPublishing(false);
     }
   };
@@ -515,7 +488,7 @@ const EventDetails: React.FC<EventDetailsProps> = ({ event, onEventUpdated }) =>
   }
 
   // Check which Discord ID field is actually populated
-  const isPublished = Boolean(event.discordMessageId) || Boolean(event.discordEventId);
+  const isPublished = Boolean(event.discordEventId) || Boolean(event.discord_event_id);
 
   return (
     <div

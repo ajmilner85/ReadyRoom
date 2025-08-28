@@ -183,7 +183,7 @@ export async function getEventAttendance(eventId: string): Promise<{
     const { data: attendanceData, error: attendanceError } = await supabase
       .from('discord_event_attendance')
       .select('*')
-      .eq('discord_event_id', eventData.discord_event_id);
+      .eq('discord_event_id', String(eventData.discord_event_id));
 
     if (attendanceError) {
       throw attendanceError;
@@ -267,7 +267,7 @@ export async function updateAttendance(
     const { data: existingRecord, error: fetchError } = await supabase
       .from('discord_event_attendance')
       .select('*')
-      .eq('discord_event_id', eventData.discord_event_id)
+      .eq('discord_event_id', String(eventData.discord_event_id))
       .eq('discord_id', discordId)
       .maybeSingle();
 
@@ -298,7 +298,7 @@ export async function updateAttendance(
     const { data, error } = await supabase
       .from('discord_event_attendance')
       .insert({
-        discord_event_id: eventData.discord_event_id,
+        discord_event_id: String(eventData.discord_event_id),
         discord_id: discordId,
         discord_username: discordUsername,
         user_response: status

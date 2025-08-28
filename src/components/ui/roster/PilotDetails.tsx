@@ -13,7 +13,7 @@ import SquadronSelector from './SquadronSelector';
 import { Squadron } from '../../../utils/squadronService';
 import QualificationsManager from './QualificationsManager';
 import QualificationBadge from '../QualificationBadge';
-import { Save, X, Trash2, Sync, Wrench } from 'lucide-react';
+import { Save, X, Trash2, Wrench } from 'lucide-react';
 import { fetchDiscordGuildMember, fetchDiscordGuildRoles } from '../../../utils/discordService';
 import { supabase } from '../../../utils/supabaseClient';
 
@@ -221,7 +221,10 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
       }
 
       // Extract role mappings from discord_integration
-      const roleMappingsData = data?.discord_integration?.roleMappings || [];
+      const discordIntegration = data?.discord_integration;
+      const roleMappingsData = (discordIntegration && typeof discordIntegration === 'object' && discordIntegration !== null && !Array.isArray(discordIntegration)) 
+        ? (discordIntegration as any).roleMappings || []
+        : [];
       setRoleMappings(roleMappingsData);
     } catch (error) {
       console.error('Error loading role mappings:', error);
@@ -345,7 +348,9 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
 
     try {
       // Get the guild ID from squadron Discord integration settings
-      const guildId = selectedPilot.currentSquadron?.discord_integration?.selectedGuildId || '';
+      const squadronData = selectedPilot.currentSquadron as any;
+      const discordIntegration = squadronData?.discord_integration as { selectedGuildId?: string } | null;
+      const guildId = discordIntegration?.selectedGuildId || '';
       
       if (!guildId) {
         setDiscordRoleError('No Discord server configured for this squadron');

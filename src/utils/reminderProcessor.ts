@@ -19,7 +19,7 @@ export async function processReminders(): Promise<{
   const errors: Array<{ reminderId: string; error: any }> = [];
 
   try {
-    console.log('[REMINDER-PROCESSOR] Checking for pending reminders...');
+    // console.log('[REMINDER-PROCESSOR] Checking for pending reminders...');
     // Get all pending reminders
     const { data: pendingReminders, error: fetchError } = await getPendingReminders();
     
@@ -29,18 +29,18 @@ export async function processReminders(): Promise<{
     }
 
     if (!pendingReminders || pendingReminders.length === 0) {
-      console.log('[REMINDER-PROCESSOR] No pending reminders found');
+      // console.log('[REMINDER-PROCESSOR] No pending reminders found');
       return { processed, errors };
     }
 
-    console.log(`Processing ${pendingReminders.length} pending reminders`);
+    // console.log(`Processing ${pendingReminders.length} pending reminders`);
 
     // Process each reminder
     for (const reminder of pendingReminders) {
       try {
         await processIndividualReminder(reminder);
         processed++;
-        console.log(`Successfully processed reminder ${reminder.id} for event ${reminder.event_id}`);
+        // console.log(`Successfully processed reminder ${reminder.id} for event ${reminder.event_id}`);
       } catch (error) {
         console.error(`Error processing reminder ${reminder.id}:`, error);
         errors.push({ reminderId: reminder.id, error });
@@ -66,7 +66,7 @@ async function processIndividualReminder(reminder: any) {
   }
 
   // Calculate time until event for the message
-  const timeUntilEvent = calculateTimeUntilEvent(event.datetime);
+  const timeUntilEvent = calculateTimeUntilEvent((event as any).start_datetime || (event as any).datetime);
   
   // Get users to mention based on settings and attendance
   const usersToMention = getUsersToMention(attendance);
@@ -75,7 +75,7 @@ async function processIndividualReminder(reminder: any) {
   const message = formatReminderMessage(event, timeUntilEvent, usersToMention);
   
   if (usersToMention.length === 0) {
-    console.log(`No users to mention for reminder ${reminder.id}, marking as sent`);
+    // console.log(`No users to mention for reminder ${reminder.id}, marking as sent`);
     await markReminderAsSent(reminder.id);
     return;
   }
@@ -111,16 +111,16 @@ async function sendReminderMessage(
   usersToMention: Array<{ discord_id: string; discord_username: string; board_number?: string; call_sign?: string }>
 ) {
   try {
-    console.log('=== SENDING REMINDER MESSAGE ===');
-    console.log(`Event: ${event.name || event.title}`);
-    console.log(`Message: ${message}`);
-    console.log(`Users to mention: ${usersToMention.map(u => {
-      if (u.board_number && u.call_sign) {
-        return `@${u.board_number} ${u.call_sign}`;
-      } else {
-        return `@${u.discord_username}`;
-      }
-    }).join('')}`);
+    // console.log('=== SENDING REMINDER MESSAGE ===');
+    // console.log(`Event: ${event.name || event.title}`);
+    // console.log(`Message: ${message}`);
+    // console.log(`Users to mention: ${usersToMention.map(u => {
+    //   if (u.board_number && u.call_sign) {
+    //     return `@${u.board_number} ${u.call_sign}`;
+    //   } else {
+    //     return `@${u.discord_username}`;
+    //   }
+    // }).join('')}`);
     
     // Create Discord mentions for actual notification (alongside our custom format)
     const discordMentions = usersToMention.map(user => `<@${user.discord_id}>`).join(' ');
@@ -139,7 +139,7 @@ async function sendReminderMessage(
       }];
     }
     
-    console.log('[REMINDER-DEDUP-DEBUG] Discord event IDs:', discordEventIds);
+    // console.log('[REMINDER-DEDUP-DEBUG] Discord event IDs:', discordEventIds);
     
     if (discordEventIds.length === 0) {
       console.warn('No Discord event IDs found, skipping reminder');
@@ -172,13 +172,13 @@ async function sendReminderMessage(
       }
     }
     
-    console.log(`[REMINDER-DEDUP-DEBUG] Found ${uniqueChannels.size} unique channels for ${discordEventIds.length} publications`);
+    // console.log(`[REMINDER-DEDUP-DEBUG] Found ${uniqueChannels.size} unique channels for ${discordEventIds.length} publications`);
     
     // Send reminder to each unique channel only once
     for (const [channelKey, channelInfo] of uniqueChannels) {
-      console.log(`[REMINDER-DEDUP-DEBUG] Sending reminder to unique channel ${channelKey} (squadrons: ${channelInfo.squadronIds.join(', ')})`);
+      // console.log(`[REMINDER-DEDUP-DEBUG] Sending reminder to unique channel ${channelKey} (squadrons: ${channelInfo.squadronIds.join(', ')})`);
       
-      const response = await fetch('http://localhost:3001/api/reminders/send', {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/reminders/send`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -201,8 +201,8 @@ async function sendReminderMessage(
         continue; // Continue with other channels even if one fails
       }
       
-      const result = await response.json();
-      console.log(`✅ Reminder sent successfully to channel ${channelKey}:`, result);
+      // const result = await response.json();
+      // console.log(`✅ Reminder sent successfully to channel ${channelKey}:`, result);
     }
     
   } catch (error) {
@@ -217,7 +217,7 @@ async function sendReminderMessage(
  * This would typically be called when your application starts
  */
 export function startReminderProcessor(intervalMinutes: number = 1) {
-  console.log(`Starting reminder processor with ${intervalMinutes} minute interval`);
+  // console.log(`Starting reminder processor with ${intervalMinutes} minute interval`);
   
   // Process immediately
   processReminders();
@@ -237,5 +237,5 @@ export function startReminderProcessor(intervalMinutes: number = 1) {
  */
 export function stopReminderProcessor(intervalId: NodeJS.Timeout) {
   clearInterval(intervalId);
-  console.log('Reminder processor stopped');
+  // console.log('Reminder processor stopped');
 }

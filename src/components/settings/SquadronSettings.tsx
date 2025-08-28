@@ -5,7 +5,7 @@ interface SquadronSettingsProps {
   setError?: (error: string | null) => void;
 }
 
-const SquadronSettings: React.FC<SquadronSettingsProps> = ({ error, setError }) => {
+const SquadronSettings: React.FC<SquadronSettingsProps> = ({ }) => {
   // State for squadron settings
   const [squadronName, setSquadronName] = useState("VFA-26 Stingrays");
   const [squadronCallsign, setSquadronCallsign] = useState("Stingrays");

@@ -5,15 +5,15 @@ const { Client, GatewayIntentBits, EmbedBuilder, ButtonBuilder, ActionRowBuilder
 const { format, formatDistanceToNow } = require('date-fns');
 const { toZonedTime, fromZonedTime, formatInTimeZone, getTimezoneOffset } = require('date-fns-tz');
 
-// Load environment variables from the root .env file
-const result = dotenv.config({ path: path.resolve(__dirname, '../.env') });
-
-if (result.error) {
+// Load environment variables - in production, use fly.io secrets
+const result = dotenv.config();
+if (result.error && !process.env.BOT_TOKEN) {
   console.error('Error loading .env file:', result.error);
+  console.log('Make sure environment variables are set via fly.io secrets in production');
 }
 
-// Require Supabase client from server directory
-const { supabase, upsertEventAttendance, getEventIdByDiscordId, getEventByDiscordId } = require('../server/supabaseClient');
+// Require Supabase client from local directory  
+const { supabase, upsertEventAttendance, getEventIdByDiscordId, getEventByDiscordId } = require('./supabaseClient');
 
 // Check if BOT_TOKEN is loaded and log its status
 console.log('Environment variables loaded, BOT_TOKEN present:', !!process.env.BOT_TOKEN);
@@ -250,17 +250,17 @@ function createEventEmbed(title, description, eventTime, responses = {}, creator
     
     // If training event, divide into IP and Trainee
     if (isTraining) {
-      console.log('[TRAINING-DEBUG] Processing training event grouping for', entries.length, 'entries');
+      // console.log('[TRAINING-DEBUG] Processing training event grouping for', entries.length, 'entries');
       
       // Log pilot data for debugging
       entries.forEach((entry, index) => {
-        console.log(`[TRAINING-DEBUG] Entry ${index}:`, {
-          username: entry.username,
-          discordId: entry.userId,
-          currentStatus: entry.pilotRecord?.currentStatus?.name,
-          qualifications: entry.pilotRecord?.qualifications,
-          hasPilotRecord: !!entry.pilotRecord
-        });
+        // console.log(`[TRAINING-DEBUG] Entry ${index}:`, {
+        //   username: entry.username,
+        //   discordId: entry.userId,
+        //   currentStatus: entry.pilotRecord?.currentStatus?.name,
+        //   qualifications: entry.pilotRecord?.qualifications,
+        //   hasPilotRecord: !!entry.pilotRecord
+        // });
       });
       
       // IPs: Only pilots with the "Instructor Pilot" qualification
@@ -275,7 +275,7 @@ function createEventEmbed(title, description, eventTime, responses = {}, creator
       const ipIds = new Set(ips.map(ip => ip.userId || ip.discordId));
       const trainees = entries.filter(entry => !ipIds.has(entry.userId || entry.discordId));
       
-      console.log(`[TRAINING-DEBUG] Grouped: ${ips.length} IPs, ${trainees.length} Trainees`);
+      // console.log(`[TRAINING-DEBUG] Grouped: ${ips.length} IPs, ${trainees.length} Trainees`);
       
       let result = '';
       if (ips.length > 0) {
@@ -433,7 +433,7 @@ function createEventEmbed(title, description, eventTime, responses = {}, creator
   
   // Add creator information if provided
   if (creator) {
-    console.log('[CREATOR-DEBUG] Creator object received:', creator);
+    // console.log('[CREATOR-DEBUG] Creator object received:', creator);
     let footerText = '';
     if (creator.boardNumber) {
       footerText += creator.boardNumber + ' ';
@@ -444,7 +444,7 @@ function createEventEmbed(title, description, eventTime, responses = {}, creator
     if (creator.billet) {
       footerText += ' - ' + creator.billet;
     }
-    console.log('[CREATOR-DEBUG] Footer text:', footerText);
+    // console.log('[CREATOR-DEBUG] Footer text:', footerText);
     if (footerText) {
       embed.setFooter({ text: `Created by ${footerText}`.padEnd(MAX_EMBED_WIDTH) + '\u200B' });
     } else {
@@ -452,7 +452,7 @@ function createEventEmbed(title, description, eventTime, responses = {}, creator
       embed.setFooter({ text: 'ReadyRoom Event'.padEnd(MAX_EMBED_WIDTH) + '\u200B' });
     }
   } else {
-    console.log('[CREATOR-DEBUG] No creator provided to createEventEmbed');
+    // console.log('[CREATOR-DEBUG] No creator provided to createEventEmbed');
     // Use default footer for width consistency  
     embed.setFooter({ text: 'ReadyRoom Event'.padEnd(MAX_EMBED_WIDTH) + '\u200B' });
   }
@@ -712,7 +712,7 @@ async function editEventMessage(messageId, title, description, eventTime, guildI
             images: images || existingData.images || (imageUrl ? { imageUrl } : null),
             creator: creator || existingData.creator
           });
-          console.log('[EDIT-MEMORY-DEBUG] Updated in-memory event data for', messageId, 'with images:', images, 'creator:', creator);
+          // console.log('[EDIT-MEMORY-DEBUG] Updated in-memory event data for', messageId, 'with images:', images, 'creator:', creator);
         }
         
         console.log(`Successfully edited Discord message: ${messageId}`);
@@ -891,12 +891,12 @@ client.on('interactionCreate', async interaction => {
       end: dbEvent.end_datetime ? new Date(dbEvent.end_datetime) : new Date(new Date().getTime() + (60 * 60 * 1000))
     };
     
-    console.log(`[TIMING-DEBUG] Database times: start=${dbEvent.start_datetime}, end=${dbEvent.end_datetime}`);
-    console.log(`[TIMING-DEBUG] Parsed times: start=${freshEventTime.start.toISOString()}, end=${freshEventTime.end.toISOString()}`);
+    // console.log(`[TIMING-DEBUG] Database times: start=${dbEvent.start_datetime}, end=${dbEvent.end_datetime}`);
+    // console.log(`[TIMING-DEBUG] Parsed times: start=${freshEventTime.start.toISOString()}, end=${freshEventTime.end.toISOString()}`);
   }
   
   if (!eventData) {
-    console.log(`[PATH-DEBUG] No event data found in memory for message ID: ${eventId}, creating from database...`);
+    // console.log(`[PATH-DEBUG] No event data found in memory for message ID: ${eventId}, creating from database...`);
     
     if (dbEvent) {
       console.log(`Found event data in database for message ID: ${eventId}`);
@@ -930,15 +930,15 @@ client.on('interactionCreate', async interaction => {
       return;
     }
   } else {
-    console.log(`[PATH-DEBUG] Event data found in memory for message ID: ${eventId}, updating with fresh timing...`);
+    // console.log(`[PATH-DEBUG] Event data found in memory for message ID: ${eventId}, updating with fresh timing...`);
     // Update existing cached data with fresh timing info
     if (freshEventTime) {
-      console.log(`[TIMING-DEBUG] Before update - cached eventTime: start=${eventData.eventTime?.start?.toISOString()}, end=${eventData.eventTime?.end?.toISOString()}`);
+      // console.log(`[TIMING-DEBUG] Before update - cached eventTime: start=${eventData.eventTime?.start?.toISOString()}, end=${eventData.eventTime?.end?.toISOString()}`);
       eventData.eventTime = freshEventTime;
-      console.log(`[TIMING-DEBUG] After update - cached eventTime: start=${eventData.eventTime.start.toISOString()}, end=${eventData.eventTime.end.toISOString()}`);
+      // console.log(`[TIMING-DEBUG] After update - cached eventTime: start=${eventData.eventTime.start.toISOString()}, end=${eventData.eventTime.end.toISOString()}`);
       console.log(`[TIMING-FIX] Updated cached event data with fresh timing for message ${eventId}`);
     } else {
-      console.log(`[PATH-DEBUG] No fresh event time available from database for message ${eventId}`);
+      // console.log(`[PATH-DEBUG] No fresh event time available from database for message ${eventId}`);
     }
   }
   
@@ -1096,7 +1096,7 @@ client.on('interactionCreate', async interaction => {
           }
         }
         
-        console.log(`[RESPONSES-DEBUG] Loaded ${existingAttendance.length} existing responses from database`);
+        // console.log(`[RESPONSES-DEBUG] Loaded ${existingAttendance.length} existing responses from database`);
       }
     } catch (error) {
       console.warn(`[RESPONSES-DEBUG] Error loading existing responses: ${error.message}`);
@@ -1123,7 +1123,7 @@ client.on('interactionCreate', async interaction => {
     const { event: dbEvent } = await getEventByDiscordId(eventId);
     if (dbEvent) {
       embedData = extractEmbedDataFromDatabaseEvent(dbEvent);
-      console.log('[BUTTON-UNIFIED-DEBUG] Using fresh database embed data');
+      // console.log('[BUTTON-UNIFIED-DEBUG] Using fresh database embed data');
     } else {
       console.warn('[BUTTON-UNIFIED-DEBUG] No database event found for', eventId);
     }
@@ -1133,7 +1133,7 @@ client.on('interactionCreate', async interaction => {
   
   // Fallback to in-memory data if database fetch failed
   if (!embedData) {
-    console.log('[BUTTON-UNIFIED-DEBUG] Using fallback in-memory data');
+    // console.log('[BUTTON-UNIFIED-DEBUG] Using fallback in-memory data');
     embedData = {
       title: eventData.title,
       description: eventData.description,
@@ -1144,13 +1144,13 @@ client.on('interactionCreate', async interaction => {
     };
   }
   
-  console.log('[BUTTON-UNIFIED-DEBUG] Final embed data:', {
-    title: embedData.title,
-    hasImages: !!embedData.imageData,
-    imageCount: embedData.imageData ? (embedData.imageData.additionalImages?.length || 0) + (embedData.imageData.headerImage ? 1 : 0) : 0,
-    hasCreator: !!embedData.creatorInfo,
-    creator: embedData.creatorInfo
-  });
+  // console.log('[BUTTON-UNIFIED-DEBUG] Final embed data:', {
+  //   title: embedData.title,
+  //   hasImages: !!embedData.imageData,
+  //   imageCount: embedData.imageData ? (embedData.imageData.additionalImages?.length || 0) + (embedData.imageData.headerImage ? 1 : 0) : 0,
+  //   hasCreator: !!embedData.creatorInfo,
+  //   creator: embedData.creatorInfo
+  // });
   
   const updatedEmbed = createEventEmbed(
     embedData.title, 
@@ -1330,7 +1330,7 @@ class CountdownUpdateManager {
       const nowInTimezone = formatInTimeZone(nowUtc, referenceTimezone, "yyyy-MM-dd HH:mm:ss zzz");
       const eventInTimezone = formatInTimeZone(eventStartUtc, referenceTimezone, "yyyy-MM-dd HH:mm:ss zzz");
       
-      console.log(`[COUNTDOWN] Time calculation: now=${nowInTimezone}, event=${eventInTimezone}, hoursUntil=${hoursUntil.toFixed(2)}, timezone=${referenceTimezone}`);
+      // console.log(`[COUNTDOWN] Time calculation: now=${nowInTimezone}, event=${eventInTimezone}, hoursUntil=${hoursUntil.toFixed(2)}, timezone=${referenceTimezone}`);
 
       if (hoursUntil <= 0) {
         // Event started or finished, stop updates
@@ -1391,7 +1391,7 @@ class CountdownUpdateManager {
       return;
     }
 
-    console.log(`[COUNTDOWN] Scheduling update for event ${messageId} in ${updateInterval / 1000} seconds`);
+    // console.log(`[COUNTDOWN] Scheduling update for event ${messageId} in ${updateInterval / 1000} seconds`);
 
     const timeoutId = setTimeout(async () => {
       try {
@@ -1401,9 +1401,9 @@ class CountdownUpdateManager {
           const { event: dbEvent } = await getEventByDiscordId(messageId);
           if (dbEvent) {
             freshEventData = dbEvent;
-            console.log(`[COUNTDOWN] Using fresh event data for ${messageId}`);
+            // console.log(`[COUNTDOWN] Using fresh event data for ${messageId}`);
           } else {
-            console.log(`[COUNTDOWN] Could not fetch fresh event data for ${messageId}, using cached data`);
+            // console.log(`[COUNTDOWN] Could not fetch fresh event data for ${messageId}, using cached data`);
           }
         } catch (fetchError) {
           console.warn(`[COUNTDOWN] Error fetching fresh event data for ${messageId}:`, fetchError.message);
@@ -1532,13 +1532,13 @@ class CountdownUpdateManager {
         // Extract all embed data using unified logic
         const embedData = extractEmbedDataFromDatabaseEvent(eventData);
         
-        console.log('[COUNTDOWN-UNIFIED-DEBUG] Using unified embed data:', {
-          title: embedData.title,
-          hasImages: !!embedData.imageData,
-          imageCount: embedData.imageData ? (embedData.imageData.additionalImages?.length || 0) + (embedData.imageData.headerImage ? 1 : 0) : 0,
-          hasCreator: !!embedData.creatorInfo,
-          creator: embedData.creatorInfo
-        });
+        // console.log('[COUNTDOWN-UNIFIED-DEBUG] Using unified embed data:', {
+        //   title: embedData.title,
+        //   hasImages: !!embedData.imageData,
+        //   imageCount: embedData.imageData ? (embedData.imageData.additionalImages?.length || 0) + (embedData.imageData.headerImage ? 1 : 0) : 0,
+        //   hasCreator: !!embedData.creatorInfo,
+        //   creator: embedData.creatorInfo
+        // });
         
         const updatedEmbed = createEventEmbed(
           embedData.title,
@@ -1560,10 +1560,10 @@ class CountdownUpdateManager {
           components: message.components // Keep existing buttons
         });
 
-        console.log(`[COUNTDOWN] Successfully updated countdown for event ${messageId}`);
+        // console.log(`[COUNTDOWN] Successfully updated countdown for event ${messageId}`);
       } catch (fetchError) {
         if (fetchError.code === 10008) {
-          console.log(`[COUNTDOWN] Message ${messageId} not found, removing from update schedule`);
+          // console.log(`[COUNTDOWN] Message ${messageId} not found, removing from update schedule`);
           this.clearEventUpdate(messageId);
         } else {
           throw fetchError;
@@ -1577,7 +1577,7 @@ class CountdownUpdateManager {
   // Start the countdown manager
   async start() {
     if (this.isRunning) {
-      console.log('[COUNTDOWN] Manager already running');
+      // console.log('[COUNTDOWN] Manager already running');
       return;
     }
 
@@ -1598,9 +1598,9 @@ class CountdownUpdateManager {
         
         if (timezoneData?.value) {
           referenceTimezone = timezoneData.value;
-          console.log(`[COUNTDOWN] Using reference timezone: ${referenceTimezone}`);
+          // console.log(`[COUNTDOWN] Using reference timezone: ${referenceTimezone}`);
         } else {
-          console.log(`[COUNTDOWN] No timezone setting found, using default: ${referenceTimezone}`);
+          // console.log(`[COUNTDOWN] No timezone setting found, using default: ${referenceTimezone}`);
         }
       } catch (tzError) {
         console.warn(`[COUNTDOWN] Error getting timezone setting, using default: ${tzError.message}`);
@@ -1637,7 +1637,7 @@ class CountdownUpdateManager {
         }
       }
 
-      console.log(`[COUNTDOWN] Scheduled updates for ${events.length} active events with timezone ${referenceTimezone}`);
+      // console.log(`[COUNTDOWN] Scheduled updates for ${events.length} active events with timezone ${referenceTimezone}`);
     } catch (error) {
       console.error('[COUNTDOWN] Error starting countdown manager:', error);
     }
@@ -1660,7 +1660,7 @@ class CountdownUpdateManager {
     if (this.updateTimeouts.has(messageId)) {
       clearTimeout(this.updateTimeouts.get(messageId));
       this.updateTimeouts.delete(messageId);
-      console.log(`[COUNTDOWN] Cleared updates for event ${messageId}`);
+      // console.log(`[COUNTDOWN] Cleared updates for event ${messageId}`);
     }
   }
 

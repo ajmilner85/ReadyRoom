@@ -98,7 +98,7 @@ const PilotList: React.FC<PilotListProps> = ({
     // Role filter
     if (selectedRoleIds.length > 0) {
       const pilotRoleIds = pilot.roles?.map(role => role.role?.id).filter(Boolean) || [];
-      if (!pilotRoleIds.some(roleId => selectedRoleIds.includes(roleId))) {
+      if (!pilotRoleIds.some(roleId => roleId && selectedRoleIds.includes(roleId))) {
         return false;
       }
     }

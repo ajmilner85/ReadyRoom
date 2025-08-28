@@ -4,14 +4,12 @@ interface LaunchDivisionDialogProps {
   onSave: (stepTime: number) => void;
   onCancel: () => void;
   initialStepTime?: number;
-  sectionRef?: React.RefObject<HTMLElement>;
 }
 
 export const LaunchDivisionDialog: React.FC<LaunchDivisionDialogProps> = ({
   onSave,
   onCancel,
-  initialStepTime,
-  sectionRef
+  initialStepTime
 }) => {
   const [stepTime, setStepTime] = useState(initialStepTime?.toString() || '');
   const [error, setError] = useState('');

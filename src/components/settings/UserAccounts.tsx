@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { signOut } from '../../utils/supabaseClient';
 import { User, Lock, RefreshCw, Link, ExternalLink, Shield, Mail, Key } from 'lucide-react';
 
 interface UserAccountsProps {
@@ -8,7 +7,7 @@ interface UserAccountsProps {
   setError?: (error: string | null) => void;
 }
 
-const UserAccounts: React.FC<UserAccountsProps> = ({ error, setError }) => {
+const UserAccounts: React.FC<UserAccountsProps> = ({ }) => {
   const { user, userProfile } = useAuth();
   const [showPasswordReset, setShowPasswordReset] = useState(false);
   const [resetEmail, setResetEmail] = useState('');

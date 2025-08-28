@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import type { Event, Cycle } from '../../../types/EventTypes';
 import QualificationBadge from '../QualificationBadge';
 import { getPilotByDiscordOriginalId } from '../../../utils/pilotService';
-import type { Pilot } from '../../../utils/pilotService';
+import type { Pilot } from '../../../types/PilotTypes';
 import { fetchCycles } from '../../../utils/supabaseClient';
 import { getPilotQualifications } from '../../../utils/qualificationService';
 
@@ -42,7 +42,6 @@ interface EnhancedPilot extends Pilot {
 
 const EventAttendance: React.FC<EventAttendanceProps> = ({ event }) => {
   const [attendance, setAttendance] = useState<AttendanceData[]>([]);
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pollInterval, setPollInterval] = useState<NodeJS.Timeout | null>(null);
   const [cycles, setCycles] = useState<Cycle[]>([]);
@@ -50,7 +49,6 @@ const EventAttendance: React.FC<EventAttendanceProps> = ({ event }) => {
   // Function to fetch attendance data from API
   const fetchAttendance = async (eventId: string) => {
     try {
-      setLoading(true);
       setError(null);
       
       // Show the header spinner
@@ -59,7 +57,7 @@ const EventAttendance: React.FC<EventAttendanceProps> = ({ event }) => {
         spinner.style.opacity = '1';
       }
       
-      const response = await fetch(`http://localhost:3001/api/events/${eventId}/attendance`);
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/events/${eventId}/attendance`);
       if (!response.ok) {
         throw new Error(`Failed to fetch attendance: ${response.statusText}`);
       }
@@ -87,7 +85,7 @@ const EventAttendance: React.FC<EventAttendanceProps> = ({ event }) => {
             const { data: pilotData } = await getPilotByDiscordOriginalId(attendee.discord_id);
             
             // Extract role information and fetch qualifications
-            let enhancedPilot: EnhancedPilot | null = pilotData;
+            let enhancedPilot: EnhancedPilot | null = pilotData as unknown as EnhancedPilot;
             if (enhancedPilot) {
               // Try to extract role name from joined role data or use billet as fallback
               const roleObject = enhancedPilot.roles as any;
@@ -123,8 +121,6 @@ const EventAttendance: React.FC<EventAttendanceProps> = ({ event }) => {
       setError(err instanceof Error ? err.message : 'Failed to fetch attendance');
       setAttendance([]);
     } finally {
-      setLoading(false);
-      
       // Hide the header spinner
       const spinner = document.getElementById('attendance-loading-spinner');
       if (spinner) {
@@ -185,7 +181,7 @@ const EventAttendance: React.FC<EventAttendanceProps> = ({ event }) => {
   } => {
     const attendeesWithPilots = attendance
       .filter(a => a.status === status && a.pilotRecord)
-      .sort((a, b) => (a.pilotRecord?.boardNumber || 0) - (b.pilotRecord?.boardNumber || 0));
+      .sort((a, b) => Number(a.pilotRecord?.boardNumber || 0) - Number(b.pilotRecord?.boardNumber || 0));
     
     const attendeesWithoutPilots = attendance
       .filter(a => a.status === status && !a.pilotRecord);
@@ -203,11 +199,11 @@ const EventAttendance: React.FC<EventAttendanceProps> = ({ event }) => {
       if (isTrainingEvent) {
         // Training events: Group by IP and Trainee
         const instructorPilots = attendeesWithPilots.filter(a => 
-          a.pilotRecord?.qualifications?.some(q => q.type === 'Instructor Pilot')
+          a.pilotRecord?.qualifications?.some((q: any) => q.type === 'Instructor Pilot')
         );
         
         const trainees = attendeesWithPilots.filter(a => 
-          !a.pilotRecord?.qualifications?.some(q => q.type === 'Instructor Pilot')
+          !a.pilotRecord?.qualifications?.some((q: any) => q.type === 'Instructor Pilot')
         );
 
         return { 
@@ -237,7 +233,7 @@ const EventAttendance: React.FC<EventAttendanceProps> = ({ event }) => {
           // Find the highest priority qualification this pilot has (excluding Instructor Pilot)
           let highestQual = 'Wingman'; // Default to Wingman if no other qualifications found
           for (const qual of qualPriority) {
-            if (a.pilotRecord.qualifications.some(q => q.type === qual)) {
+            if (a.pilotRecord.qualifications.some((q: any) => q.type === qual)) {
               highestQual = qual;
               break;
             }
@@ -319,7 +315,7 @@ const EventAttendance: React.FC<EventAttendanceProps> = ({ event }) => {
               marginLeft: 'auto',
               height: '24px'
             }}>
-              {pilot.pilotRecord?.qualifications?.map((qual, qualIndex) => (
+              {pilot.pilotRecord?.qualifications?.map((qual: any, qualIndex: number) => (
                 <QualificationBadge 
                   key={`${qual.type}-${qualIndex}`} 
                   type={qual.type as any}
@@ -458,7 +454,7 @@ const EventAttendance: React.FC<EventAttendanceProps> = ({ event }) => {
                 marginLeft: 'auto',
                 height: '24px'
               }}>
-                {pilot.pilotRecord?.qualifications?.map((qual, index) => (
+                {pilot.pilotRecord?.qualifications?.map((qual: any, index: number) => (
                   <QualificationBadge 
                     key={`${qual.type}-${index}`} 
                     type={qual.type as any}
@@ -586,7 +582,7 @@ const EventAttendance: React.FC<EventAttendanceProps> = ({ event }) => {
                 marginLeft: 'auto',
                 height: '24px'
               }}>
-                {pilot.pilotRecord?.qualifications?.map((qual, index) => (
+                {pilot.pilotRecord?.qualifications?.map((qual: any, index: number) => (
                   <QualificationBadge 
                     key={`${qual.type}-${index}`} 
                     type={qual.type as any}
@@ -714,7 +710,7 @@ const EventAttendance: React.FC<EventAttendanceProps> = ({ event }) => {
                 marginLeft: 'auto',
                 height: '24px'
               }}>
-                {pilot.pilotRecord?.qualifications?.map((qual, index) => (
+                {pilot.pilotRecord?.qualifications?.map((qual: any, index: number) => (
                   <QualificationBadge 
                     key={`${qual.type}-${index}`} 
                     type={qual.type as any}

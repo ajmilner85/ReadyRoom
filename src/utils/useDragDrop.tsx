@@ -1,13 +1,8 @@
 import { useState, useEffect } from 'react';
 import { DragStartEvent, DragEndEvent } from '@dnd-kit/core';
-import type { Pilot } from '../types/PilotTypes';
 import type { MissionCommanderInfo } from '../types/MissionCommanderTypes';
+import type { AssignedPilot } from '../types/MissionPrepTypes';
 import { removePilotFromAllFlights, handleMissionCommanderCheck } from './dragDropUtils';
-
-interface AssignedPilot extends Pilot {
-  dashNumber: string;
-  attendanceStatus?: 'accepted' | 'tentative';
-}
 
 interface UseDragDropProps {
   missionCommander: MissionCommanderInfo | null;
@@ -122,7 +117,7 @@ export const useDragDrop = ({
         const targetData = over.data.current as { currentPilot?: AssignedPilot };
         
         if (targetData.currentPilot && targetData.currentPilot.boardNumber) {
-          console.log('Target already has pilot:', targetData.currentPilot.callsign);
+          // console.log('Target already has pilot:', targetData.currentPilot.callsign);
           
           // If target position pilot is the current pilot, do nothing
           if (targetData.currentPilot.boardNumber === pilot.boardNumber) {
@@ -159,7 +154,7 @@ export const useDragDrop = ({
             });
           }
           
-          console.log('Updated assignments after swap:', updatedPilots);
+          // console.log('Updated assignments after swap:', updatedPilots);
           
           // Apply the pilots update first, then check for mission commander updates
           // This ensures that getMissionCommanderCandidates will have the latest pilot positions 
@@ -176,7 +171,7 @@ export const useDragDrop = ({
           );
           
           if (newMissionCommander !== missionCommander) {
-            console.log('Mission commander status updated:', newMissionCommander);
+            // console.log('Mission commander status updated:', newMissionCommander);
             setMissionCommander(newMissionCommander);
           }
           
@@ -190,7 +185,7 @@ export const useDragDrop = ({
             );
               
             if (displacedMissionCommander !== missionCommander && displacedMissionCommander !== newMissionCommander) {
-              console.log('Displaced pilot mission commander status updated:', displacedMissionCommander);
+              // console.log('Displaced pilot mission commander status updated:', displacedMissionCommander);
               setMissionCommander(displacedMissionCommander);
             }
           }
@@ -218,7 +213,7 @@ export const useDragDrop = ({
           );
           
           if (newMissionCommander !== missionCommander) {
-            console.log('Mission commander status updated:', newMissionCommander);
+            // console.log('Mission commander status updated:', newMissionCommander);
             setMissionCommander(newMissionCommander);
           }
         }
@@ -241,12 +236,12 @@ export const useDragDrop = ({
         const roleIdPart = targetData.roleId;
         const dashNumber = targetData.dashNumber;
         
-        console.log('[SUPPORT-DEBUG] Support role drop data:', {
-          overId,
-          roleIdFromData: roleIdPart,
-          dashNumberFromData: dashNumber,
-          targetData
-        });
+        // console.log('[SUPPORT-DEBUG] Support role drop data:', {
+        //   overId,
+        //   roleIdFromData: roleIdPart,
+        //   dashNumberFromData: dashNumber,
+        //   targetData
+        // });
           // Use currentFlightId from the active element's data (this could be a flight ID or support role ID)
         const currentFlightId = active.data.current.currentFlightId;
         
@@ -255,15 +250,15 @@ export const useDragDrop = ({
         
         // Check if target position has a pilot - use the data from the over element
         if (targetData.currentPilot && targetData.currentPilot.boardNumber) {
-          console.log('[SUPPORT-DEBUG] Target support role already has pilot:', {
-            targetPilot: targetData.currentPilot.callsign,
-            targetBoardNumber: targetData.currentPilot.boardNumber,
-            draggingPilotBoardNumber: pilot.boardNumber
-          });
+          // console.log('[SUPPORT-DEBUG] Target support role already has pilot:', {
+          //   targetPilot: targetData.currentPilot.callsign,
+          //   targetBoardNumber: targetData.currentPilot.boardNumber,
+          //   draggingPilotBoardNumber: pilot.boardNumber
+          // });
           
           // If target position pilot is the current pilot, do nothing
           if (targetData.currentPilot.boardNumber === pilot.boardNumber) {
-            console.log('[SUPPORT-DEBUG] Same pilot, no action needed');
+            // console.log('[SUPPORT-DEBUG] Same pilot, no action needed');
             setDraggedPilot(null);
             setDragSource(null);
             return;
@@ -313,11 +308,11 @@ export const useDragDrop = ({
             });
           }
           
-          console.log('[SUPPORT-DEBUG] Updated assignments after support role swap:', {
-            roleId: roleIdPart,
-            dashNumber,
-            updatedPilots: updatedPilots[roleIdPart]
-          });
+          // console.log('[SUPPORT-DEBUG] Updated assignments after support role swap:', {
+          //   roleId: roleIdPart,
+          //   dashNumber,
+          //   updatedPilots: updatedPilots[roleIdPart]
+          // });
           
           // Apply the pilots update
           setAssignedPilots(updatedPilots);
@@ -331,12 +326,12 @@ export const useDragDrop = ({
           
           // Check if this role already has a pilot with this dashNumber
           const existingPilotAtPosition = updatedPilots[roleIdPart].find(p => p.dashNumber === dashNumber);
-              console.log('[SUPPORT-DEBUG] Before adding pilot to empty position:', {
-            roleIdPart,
-            dashNumber,
-            existingAtPosition: existingPilotAtPosition,
-            updatedPilotsAtRole: updatedPilots[roleIdPart] || []
-          });            // Initialize the support role array if it doesn't exist
+              // console.log('[SUPPORT-DEBUG] Before adding pilot to empty position:', {
+            //   roleIdPart,
+            //   dashNumber,
+            //   existingAtPosition: existingPilotAtPosition,
+            //   updatedPilotsAtRole: updatedPilots[roleIdPart] || []
+            // });            // Initialize the support role array if it doesn't exist
             if (!updatedPilots[roleIdPart]) {
               updatedPilots[roleIdPart] = [];
             }
@@ -360,26 +355,26 @@ export const useDragDrop = ({
             return aNum - bNum;
           });
           
-          console.log('[SUPPORT-DEBUG] Updated assignments after adding to support role:', {
-            roleId: roleIdPart,
-            dashNumber,
-            updatedPilots: updatedPilots[roleIdPart],
-            fullPilotData: pilot
-          });
+          // console.log('[SUPPORT-DEBUG] Updated assignments after adding to support role:', {
+          //   roleId: roleIdPart,
+          //   dashNumber,
+          //   updatedPilots: updatedPilots[roleIdPart],
+          //   fullPilotData: pilot
+          // });
           
           // Log support role assignments after the update
-          console.log(`[SUPPORT-DEBUG] After updating support role ${roleIdPart}:`, 
-            Object.keys(updatedPilots)
-              .filter(id => id.startsWith('support-'))
-              .reduce((acc: Record<string, any>, key) => {
-                acc[key] = updatedPilots[key]?.map(p => ({
-                  boardNumber: p.boardNumber,
-                  dashNumber: p.dashNumber,
-                  callsign: p.callsign
-                }));
-                return acc;
-              }, {})
-          );
+          // console.log(`[SUPPORT-DEBUG] After updating support role ${roleIdPart}:`, 
+          //   Object.keys(updatedPilots)
+          //     .filter(id => id.startsWith('support-'))
+          //     .reduce((acc: Record<string, any>, key) => {
+          //       acc[key] = updatedPilots[key]?.map(p => ({
+          //         boardNumber: p.boardNumber,
+          //         dashNumber: p.dashNumber,
+          //         callsign: p.callsign
+          //       }));
+          //       return acc;
+          //     }, {})
+          // });
           
           setAssignedPilots(updatedPilots);
         }

@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import type { User, Session } from '@supabase/supabase-js';
-import { supabase, getCurrentUser, onAuthStateChange } from '../utils/supabaseClient';
+import { supabase, onAuthStateChange } from '../utils/supabaseClient';
 import { getUserProfile, type UserProfile } from '../utils/userProfileService';
 import { triggerRoleSync } from '../utils/discordRoleSync';
 
