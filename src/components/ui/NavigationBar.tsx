@@ -73,10 +73,39 @@ const NavigationBar: React.FC<NavigationBarProps> = ({ activeButton }) => {
 
   const handleLogout = async () => {
     try {
-      await signOut();
-      // The auth context will handle the state change
+      console.log('Logout initiated...');
+      const { error } = await signOut();
+      
+      if (error) {
+        console.error('Supabase signOut error:', error);
+      } else {
+        console.log('Supabase signOut successful');
+      }
+      
+      // Force clear any remaining auth storage
+      try {
+        Object.keys(localStorage).forEach(key => {
+          if (key.startsWith('sb-') || key.includes('supabase')) {
+            localStorage.removeItem(key);
+          }
+        });
+        Object.keys(sessionStorage).forEach(key => {
+          if (key.startsWith('sb-') || key.includes('supabase')) {
+            sessionStorage.removeItem(key);
+          }
+        });
+        console.log('Cleared auth storage');
+      } catch (storageError) {
+        console.error('Error clearing storage:', storageError);
+      }
+      
+      // Force reload to ensure clean state
+      window.location.href = '/';
+      
     } catch (error) {
       console.error('Error logging out:', error);
+      // Force reload as fallback
+      window.location.href = '/';
     }
   };
   
