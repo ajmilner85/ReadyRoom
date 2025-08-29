@@ -114,7 +114,22 @@ export async function assignPilotToSquadron(
   console.log('🔄 Squadron ID type:', typeof squadronId, 'Value:', squadronId);
   
   try {
-    // End any existing active squadron assignments for this pilot
+    // Step 1: Verify pilot exists in database before attempting assignment
+    console.log('🔍 Verifying pilot exists:', pilotId);
+    const { data: pilotVerification, error: pilotVerifyError } = await supabase
+      .from('pilots')
+      .select('id')
+      .eq('id', pilotId)
+      .single();
+
+    if (pilotVerifyError || !pilotVerification) {
+      console.error('❌ Pilot not found in database:', pilotVerifyError);
+      return { success: false, error: { message: 'Pilot not found in database', details: pilotVerifyError } };
+    }
+
+    console.log('✅ Pilot verified in database');
+
+    // Step 2: End any existing active squadron assignments for this pilot
     console.log('🔄 Ending existing assignments for pilot:', pilotId);
     const { error: endExistingError } = await supabase
       .from('pilot_assignments')
@@ -130,20 +145,39 @@ export async function assignPilotToSquadron(
       return { success: false, error: endExistingError };
     }
 
-    // If squadronId is provided, create new assignment
+    // Step 3: If squadronId is provided, create new assignment with retry logic
     if (squadronId) {
       console.log('🔄 Creating new assignment for squadron:', squadronId);
-      const { error: insertError } = await supabase
-        .from('pilot_assignments')
-        .insert({
-          pilot_id: pilotId,
-          squadron_id: squadronId,
-          start_date: startDate
-          // end_date defaults to NULL for active assignment
-        });
+      
+      let insertError = null;
+      let retries = 3;
+      
+      while (retries > 0) {
+        const { error } = await supabase
+          .from('pilot_assignments')
+          .insert({
+            pilot_id: pilotId,
+            squadron_id: squadronId,
+            start_date: startDate
+            // end_date defaults to NULL for active assignment
+          });
+        
+        if (!error) {
+          insertError = null;
+          break;
+        }
+        
+        insertError = error;
+        retries--;
+        
+        if (retries > 0) {
+          console.log(`❌ Assignment failed, retrying (${retries} attempts left):`, error);
+          await new Promise(resolve => setTimeout(resolve, 200));
+        }
+      }
       
       if (insertError) {
-        console.error('❌ Error creating new assignment:', insertError);
+        console.error('❌ Error creating new assignment after retries:', insertError);
         return { success: false, error: insertError };
       }
 
