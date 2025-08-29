@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { supabase, fetchEvents } from '../utils/supabaseClient';
+import { fetchEvents } from '../utils/supabaseClient';
 import { getAllPilots } from '../utils/pilotService';
 import { getBatchPilotQualifications } from '../utils/qualificationService';
 import { adaptSupabasePilots } from '../utils/pilotDataUtils';

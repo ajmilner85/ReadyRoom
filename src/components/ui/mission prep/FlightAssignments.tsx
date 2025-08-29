@@ -124,6 +124,7 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
 
   // Effect to create flight cards from extracted flights
   useEffect(() => {
+    console.log('FlightAssignments: Received extracted flights:', extractedFlights.length);
     if (!extractedFlights.length) return;
 
     // Create a unique timestamp for this batch of flights
