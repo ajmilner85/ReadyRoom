@@ -48,14 +48,12 @@ const MissionSupportAssignments: React.FC<MissionSupportAssignmentsProps> = ({
       // Update the counter to be greater than the maximum order
       const maxOrder = Math.max(...savedRoles.map(r => r.creationOrder), -1);
       setCreationOrderCounter(maxOrder + 1);
-      console.log("[SUPPORT_ROLES] Loaded saved support roles:", savedRoles.length);
     }
   }, []); 
   // Save supportRoles to local storage whenever they change
   useEffect(() => {
     if (supportRoles.length > 0) {
       saveSupportRoles(supportRoles);
-      console.log("[SUPPORT_ROLES] Saved support roles:", supportRoles.length);
     }
   }, [supportRoles]);  // Whenever supportRoles change and assignedPilots exists, ensure empty support roles are preserved
   useEffect(() => {
@@ -70,7 +68,6 @@ const MissionSupportAssignments: React.FC<MissionSupportAssignmentsProps> = ({
       setAssignedPilots((prev) => {
         return { ...prev, ...assignedPilotsWithRoles };
       });
-      console.log("[SUPPORT_ROLES] Updated assignedPilots to preserve support roles");
     }
   }, [supportRoles, assignedPilots, setAssignedPilots]);
 
@@ -80,13 +77,11 @@ const MissionSupportAssignments: React.FC<MissionSupportAssignmentsProps> = ({
       setCarriersLoading(true);
       try {
         const data = await fetchCarriers();
-        console.log("[CARRIER_FETCH] Fetched carriers:", data); // Log fetched data
         setAllCarriers(data);
       } catch (error) {
         console.error("[CARRIER_FETCH] Error fetching carriers:", error);
       } finally { // Use finally to ensure loading state is set
         setCarriersLoading(false);
-        console.log("[CARRIER_FETCH] Carriers loading finished.");
       }
     };
     loadCarriers();
@@ -98,7 +93,6 @@ const MissionSupportAssignments: React.FC<MissionSupportAssignmentsProps> = ({
     allCarriers.forEach(carrier => {
       map.set(carrier.id, { hull: carrier.hull, name: carrier.name });
     });
-    console.log("[CARRIER_MAP] Memoized carrierMap updated. Size:", map.size, "Keys:", Array.from(map.keys())); // Log map update
     return map;
   }, [allCarriers]); // Depends only on allCarriers
   // Function to handle adding or updating a support role
@@ -233,7 +227,6 @@ const MissionSupportAssignments: React.FC<MissionSupportAssignmentsProps> = ({
   const handleDeleteRole = useCallback((id: string) => {
     setSupportRoles(prevRoles => {
       const updatedRoles = prevRoles.filter(role => role.id !== id);
-      console.log(`[SUPPORT_ROLES] Deleted role ${id}, remaining roles: ${updatedRoles.length}`);
       return updatedRoles;
     });
   }, []);
@@ -248,13 +241,11 @@ const MissionSupportAssignments: React.FC<MissionSupportAssignmentsProps> = ({
   // Convert assignedPilots to supportRoles format, using fetched carrier data
   useEffect(() => {    // Explicitly wait for carriers to finish loading AND map to have entries if carriers exist
     if (carriersLoading || (allCarriers.length > 0 && carrierMap.size === 0)) {
-      console.log(`[SYNC_EFFECT] Skipping sync: carriersLoading=${carriersLoading}, allCarriers.length=${allCarriers.length}, carrierMap.size=${carrierMap.size}`);
       return; 
     }
     
     // If assignedPilots is empty, just clear the pilots in existing support roles without removing the roles
     if (!assignedPilots || Object.keys(assignedPilots).length === 0) {
-      console.log("[SYNC_EFFECT] assignedPilots is empty - preserving support roles with empty pilots");
       setSupportRoles(prev => {
         if (prev.length > 0) {
           return prev.map(role => {
@@ -290,7 +281,7 @@ const MissionSupportAssignments: React.FC<MissionSupportAssignmentsProps> = ({
       return;
     }
     
-    console.log("[SYNC_EFFECT] Running sync. Current carrierMap keys:", Array.from(carrierMap.keys()));      setSupportRoles(prevRoles => {
+    setSupportRoles(prevRoles => {
         const updatedRoles: SupportRole[] = [];
         const processedRoleIds = new Set<string>(); 
         let maxOrder = -1;// Process roles from assignedPilots
@@ -314,7 +305,6 @@ const MissionSupportAssignments: React.FC<MissionSupportAssignmentsProps> = ({
                 if (foundCarrier) {
                    targetRole.carrier = { ...foundCarrier, carrierId: extractedCarrierId };
                    targetRole.callsign = `${foundCarrier.hull} ${foundCarrier.name}`.toUpperCase();
-                   console.log(`[SYNC_EFFECT] Rehydrated missing carrier info for existing role ${targetRole.id}`);
                 }
              }
           }
@@ -335,14 +325,10 @@ const MissionSupportAssignments: React.FC<MissionSupportAssignmentsProps> = ({
             if (lastHyphenIndex > 0 && lastHyphenIndex === 36 && idPart.length > 37) { 
               const extractedCarrierId = idPart.substring(0, lastHyphenIndex); 
 
-              console.log(`[SYNC_EFFECT] Reconstructing role ${roleId}. Extracted full carrierId: "${extractedCarrierId}" (length ${extractedCarrierId.length})`); 
-              
-              // *** Log right before lookup ***
-              console.log(`[SYNC_EFFECT] Attempting lookup in carrierMap with key: "${extractedCarrierId}"`);
               const foundCarrier = carrierMap.get(extractedCarrierId); 
               
               if (foundCarrier) {
-                console.log(`[SYNC_EFFECT] Found carrier in map: ${foundCarrier.hull} ${foundCarrier.name}`); 
+ 
                 callsign = `${foundCarrier.hull} ${foundCarrier.name}`.toUpperCase();
                 carrierInfo = { ...foundCarrier, carrierId: extractedCarrierId }; 
               } else {
@@ -467,7 +453,6 @@ const MissionSupportAssignments: React.FC<MissionSupportAssignmentsProps> = ({
 
 
       setCreationOrderCounter(maxOrder + 1);
-      console.log("[SYNC_EFFECT] Sync finished. Updated roles:", updatedRoles);
       return updatedRoles.sort((a, b) => a.creationOrder - b.creationOrder);
     });
   // Add allCarriers explicitly to dependencies to ensure effect re-runs when carriers are fetched
