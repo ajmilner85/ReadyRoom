@@ -33,6 +33,104 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
+
+  // Check if we need to clear cache due to deployment changes
+  const checkForDeploymentChanges = () => {
+    try {
+      const currentVersion = new Date().toDateString(); // Simple version check
+      const storedVersion = localStorage.getItem('app_version');
+      
+      if (!storedVersion) {
+        // First time - store current version
+        localStorage.setItem('app_version', currentVersion);
+        return false;
+      }
+      
+      // If we detect potential deployment issues (could be enhanced with actual build hash)
+      const hasAuthStorage = Object.keys(localStorage).some(key => key.startsWith('sb-'));
+      if (hasAuthStorage && session === null && user === null && error) {
+        console.log('Detected potential deployment-related auth issues, clearing cache');
+        return true;
+      }
+      
+      return false;
+    } catch (err) {
+      console.error('Error checking deployment changes:', err);
+      return false;
+    }
+  };
+
+  // Clear corrupted auth storage
+  const clearAuthStorage = () => {
+    try {
+      Object.keys(localStorage).forEach(key => {
+        if (key.startsWith('sb-') || key.includes('supabase')) {
+          localStorage.removeItem(key);
+        }
+      });
+      Object.keys(sessionStorage).forEach(key => {
+        if (key.startsWith('sb-') || key.includes('supabase')) {
+          sessionStorage.removeItem(key);
+        }
+      });
+      console.log('Cleared auth storage');
+      return true;
+    } catch (err) {
+      console.error('Error clearing auth storage:', err);
+      return false;
+    }
+  };
+
+  // Attempt to refresh session with retry logic
+  const attemptSessionRefresh = async (maxRetries = 2) => {
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      try {
+        console.log(`Attempting session refresh (attempt ${attempt + 1}/${maxRetries})`);
+        
+        // First try to refresh the session
+        const { data, error: refreshError } = await supabase.auth.refreshSession();
+        
+        if (!refreshError && data.session) {
+          console.log('Session refresh successful');
+          setSession(data.session);
+          setUser(data.session.user);
+          setError(null);
+          setRetryCount(0);
+          return true;
+        }
+        
+        // If refresh failed, try getting existing session
+        const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+        
+        if (!sessionError && sessionData.session) {
+          console.log('Existing session recovered');
+          setSession(sessionData.session);
+          setUser(sessionData.session.user);
+          setError(null);
+          setRetryCount(0);
+          return true;
+        }
+        
+        console.warn(`Session refresh attempt ${attempt + 1} failed:`, refreshError || sessionError);
+        
+        // If this is not the last attempt, clear storage and try again
+        if (attempt < maxRetries - 1) {
+          clearAuthStorage();
+          // Wait a bit before retrying
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+        
+      } catch (err) {
+        console.error(`Session refresh attempt ${attempt + 1} error:`, err);
+        if (attempt < maxRetries - 1) {
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+      }
+    }
+    
+    return false;
+  };
 
   const refreshProfile = async () => {
     if (!user) {
@@ -86,37 +184,31 @@ export function AuthProvider({ children }: AuthProviderProps) {
     // Get initial session
     const initializeAuth = async () => {
       try {
-        // Clear any corrupted auth storage if we detect issues
-        const clearCorruptedStorage = () => {
-          try {
-            // Clear all Supabase auth related items
-            Object.keys(localStorage).forEach(key => {
-              if (key.startsWith('sb-') || key.includes('supabase')) {
-                localStorage.removeItem(key);
-              }
-            });
-            Object.keys(sessionStorage).forEach(key => {
-              if (key.startsWith('sb-') || key.includes('supabase')) {
-                sessionStorage.removeItem(key);
-              }
-            });
-            console.log('Cleared corrupted auth storage');
-          } catch (err) {
-            console.error('Error clearing storage:', err);
-          }
-        };
+        // Check for deployment-related issues first
+        const needsCacheClearing = checkForDeploymentChanges();
+        if (needsCacheClearing) {
+          console.log('Clearing cache due to detected deployment issues');
+          clearAuthStorage();
+        }
 
         // Try getSession first (with timeout protection)
         const sessionResult = await Promise.race([
           supabase.auth.getSession(),
           new Promise((_, reject) => setTimeout(() => reject(new Error('getSession timeout')), 10000))
-        ]).catch(err => {
-          console.error('Session check failed:', err.message);
-          // If it's a timeout or parse error, clear storage and retry once
+        ]).catch(async (err) => {
+          console.error('Initial session check failed:', err.message);
+          
+          // If it's a timeout or parse error, try session refresh
           if (err.message.includes('timeout') || err.message.includes('parse') || err.message.includes('JSON')) {
-            clearCorruptedStorage();
+            console.log('Attempting session recovery due to error:', err.message);
+            const recoverySuccessful = await attemptSessionRefresh();
+            
+            if (recoverySuccessful) {
+              return await supabase.auth.getSession();
+            }
           }
-          return { data: { session: null }, error: null }; // Don't treat timeout as error in production
+          
+          return { data: { session: null }, error: null }; // Don't treat as error in production
         }) as any;
         
         const sessionData = sessionResult.data || { session: null };
@@ -125,11 +217,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
         let initialUser = sessionData.session?.user || null;
         let userError = sessionError;
         
-        // Skip getCurrentUser entirely since it hangs - just rely on session
-        if (!initialUser && !sessionError) {
-          userError = null; // Don't treat this as an error
-        }
-        
         if (!isMounted) {
           clearTimeout(timeout);
           return;
@@ -137,11 +224,25 @@ export function AuthProvider({ children }: AuthProviderProps) {
         
         if (userError) {
           console.error('Error getting initial user:', userError);
-          setError(userError.message);
+          
+          // Try one more recovery attempt before showing error
+          if (retryCount < 2) {
+            console.log('Attempting auth recovery...');
+            setRetryCount(prev => prev + 1);
+            
+            const recoverySuccessful = await attemptSessionRefresh();
+            if (!recoverySuccessful) {
+              setError('Authentication failed - please try logging in again');
+            }
+          } else {
+            setError(userError.message);
+          }
+          
           setUser(null);
           setUserProfile(null);
         } else {
           setUser(initialUser);
+          setSession(sessionData.session);
           
           // If we have a user, fetch their profile
           if (initialUser) {
