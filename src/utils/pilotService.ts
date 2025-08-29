@@ -312,7 +312,7 @@ export async function createPilotWithStatusAndStanding(
       };
     }
 
-    // Step 1: Create the pilot
+    // Step 1: Create the pilot with explicit commit
     const { data: newPilot, error: pilotError } = await supabase
       .from('pilots')
       .insert(pilotData)
@@ -326,20 +326,55 @@ export async function createPilotWithStatusAndStanding(
 
     console.log('✅ Pilot created:', newPilot);
 
-    // Step 2: Assign status
+    // Wait briefly to ensure transaction commits
+    await new Promise(resolve => setTimeout(resolve, 100));
+
+    // Verify pilot exists before proceeding with assignments
+    const { data: verifyPilot, error: verifyError } = await supabase
+      .from('pilots')
+      .select('id')
+      .eq('id', newPilot.id)
+      .single();
+
+    if (verifyError || !verifyPilot) {
+      console.error('❌ Failed to verify pilot creation:', verifyError);
+      return { data: null, error: new Error('Pilot creation verification failed') };
+    }
+
+    console.log('✅ Pilot verified in database');
+
+    // Step 2: Assign status with retry logic
     const today = new Date().toISOString().split('T')[0];
     
-    const { error: statusError } = await supabase
-      .from('pilot_statuses')
-      .insert({
-        pilot_id: newPilot.id,
-        status_id: statusId,
-        start_date: today,
-        end_date: null
-      });
+    let statusError = null;
+    let statusRetries = 3;
+    
+    while (statusRetries > 0) {
+      const { error } = await supabase
+        .from('pilot_statuses')
+        .insert({
+          pilot_id: newPilot.id,
+          status_id: statusId,
+          start_date: today,
+          end_date: null
+        });
+      
+      if (!error) {
+        statusError = null;
+        break;
+      }
+      
+      statusError = error;
+      statusRetries--;
+      
+      if (statusRetries > 0) {
+        console.log(`❌ Status assignment failed, retrying (${statusRetries} attempts left):`, error);
+        await new Promise(resolve => setTimeout(resolve, 200));
+      }
+    }
 
     if (statusError) {
-      console.error('❌ Error assigning status:', statusError);
+      console.error('❌ Error assigning status after retries:', statusError);
       // Try to delete the pilot since we couldn't assign status
       await supabase.from('pilots').delete().eq('id', newPilot.id);
       return { data: null, error: statusError };
@@ -347,18 +382,36 @@ export async function createPilotWithStatusAndStanding(
 
     console.log('✅ Status assigned');
 
-    // Step 3: Assign standing
-    const { error: standingError } = await supabase
-      .from('pilot_standings')
-      .insert({
-        pilot_id: newPilot.id,
-        standing_id: standingId,
-        start_date: today,
-        end_date: null
-      });
+    // Step 3: Assign standing with retry logic
+    let standingError = null;
+    let standingRetries = 3;
+    
+    while (standingRetries > 0) {
+      const { error } = await supabase
+        .from('pilot_standings')
+        .insert({
+          pilot_id: newPilot.id,
+          standing_id: standingId,
+          start_date: today,
+          end_date: null
+        });
+      
+      if (!error) {
+        standingError = null;
+        break;
+      }
+      
+      standingError = error;
+      standingRetries--;
+      
+      if (standingRetries > 0) {
+        console.log(`❌ Standing assignment failed, retrying (${standingRetries} attempts left):`, error);
+        await new Promise(resolve => setTimeout(resolve, 200));
+      }
+    }
 
     if (standingError) {
-      console.error('❌ Error assigning standing:', standingError);
+      console.error('❌ Error assigning standing after retries:', standingError);
       // Try to delete the pilot and status since we couldn't assign standing
       await supabase.from('pilot_statuses').delete().eq('pilot_id', newPilot.id);
       await supabase.from('pilots').delete().eq('id', newPilot.id);
@@ -368,6 +421,9 @@ export async function createPilotWithStatusAndStanding(
     console.log('✅ Standing assigned');
 
     // Step 4: Fetch the complete pilot data with status and standing
+    // Add a small delay to ensure all assignments are committed
+    await new Promise(resolve => setTimeout(resolve, 200));
+    
     const result = await getAllPilots();
     if (result.error || !result.data) {
       return { data: null, error: result.error };
@@ -722,6 +778,21 @@ export async function updatePilotRole(
     
     // If found by Discord ID, use the actual UUID from the database
     const actualPilotId = pilotByDiscordId ? pilotByDiscordId.id : id;
+
+    // Verify pilot exists in database before attempting role assignment
+    console.log('🔍 Verifying pilot exists for role assignment:', actualPilotId);
+    const { data: pilotVerification, error: pilotVerifyError } = await supabase
+      .from('pilots')
+      .select('id')
+      .eq('id', actualPilotId)
+      .single();
+
+    if (pilotVerifyError || !pilotVerification) {
+      console.error('❌ Pilot not found in database for role assignment:', pilotVerifyError);
+      return { success: false, error: { message: 'Pilot not found in database', details: pilotVerifyError } };
+    }
+
+    console.log('✅ Pilot verified in database for role assignment');
     
     // Check if the role is exclusive
     const { data: roleData, error: roleError } = await supabase
@@ -818,7 +889,7 @@ export async function updatePilotRole(
       throw endPilotRolesError;
     }
     
-    // Create new role assignment (end_date defaults to NULL)
+    // Create new role assignment with retry logic (end_date defaults to NULL)
     console.log('Creating new role assignment with data:', {
       pilot_id: actualPilotId,
       role_id: roleId,
@@ -826,19 +897,39 @@ export async function updatePilotRole(
       is_acting: isActing
     });
     
-    const { data: insertData, error: insertError } = await supabase
-      .from('pilot_roles')
-      .insert({
-        pilot_id: actualPilotId,
-        role_id: roleId,
-        effective_date: effectiveDate,
-        is_acting: isActing
-        // end_date is intentionally omitted to default to NULL
-      })
-      .select(); // Add select to see what was inserted
+    let insertError = null;
+    let insertData = null;
+    let retries = 3;
+    
+    while (retries > 0) {
+      const { data, error } = await supabase
+        .from('pilot_roles')
+        .insert({
+          pilot_id: actualPilotId,
+          role_id: roleId,
+          effective_date: effectiveDate,
+          is_acting: isActing
+          // end_date is intentionally omitted to default to NULL
+        })
+        .select(); // Add select to see what was inserted
+      
+      if (!error) {
+        insertData = data;
+        insertError = null;
+        break;
+      }
+      
+      insertError = error;
+      retries--;
+      
+      if (retries > 0) {
+        console.log(`❌ Role assignment failed, retrying (${retries} attempts left):`, error);
+        await new Promise(resolve => setTimeout(resolve, 200));
+      }
+    }
     
     if (insertError) {
-      console.error('Error inserting role assignment:', insertError);
+      console.error('Error inserting role assignment after retries:', insertError);
       throw insertError;
     }
     

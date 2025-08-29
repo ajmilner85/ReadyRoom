@@ -33,6 +33,21 @@ export async function assignPilotStatus(
   startDate?: string
 ): Promise<{ data: PilotStatusAssignment | null; error: any }> {
   try {
+    // Verify pilot exists in database before attempting status assignment
+    console.log('🔍 Verifying pilot exists for status assignment:', pilotId);
+    const { data: pilotVerification, error: pilotVerifyError } = await supabase
+      .from('pilots')
+      .select('id')
+      .eq('id', pilotId)
+      .single();
+
+    if (pilotVerifyError || !pilotVerification) {
+      console.error('❌ Pilot not found in database for status assignment:', pilotVerifyError);
+      return { data: null, error: { message: 'Pilot not found in database', details: pilotVerifyError } };
+    }
+
+    console.log('✅ Pilot verified in database for status assignment');
+
     const today = new Date().toISOString().split('T')[0];
     const effectiveStartDate = startDate || today;
 
@@ -47,19 +62,39 @@ export async function assignPilotStatus(
       return { data: null, error: endError };
     }
 
-    // Create new status assignment
-    const { data, error } = await supabase
-      .from('pilot_statuses')
-      .insert({
-        pilot_id: pilotId,
-        status_id: statusId,
-        start_date: effectiveStartDate,
-        end_date: null
-      })
-      .select()
-      .single();
+    // Create new status assignment with retry logic
+    let insertError = null;
+    let insertData = null;
+    let retries = 3;
+    
+    while (retries > 0) {
+      const { data, error } = await supabase
+        .from('pilot_statuses')
+        .insert({
+          pilot_id: pilotId,
+          status_id: statusId,
+          start_date: effectiveStartDate,
+          end_date: null
+        })
+        .select()
+        .single();
+      
+      if (!error) {
+        insertData = data;
+        insertError = null;
+        break;
+      }
+      
+      insertError = error;
+      retries--;
+      
+      if (retries > 0) {
+        console.log(`❌ Status assignment failed, retrying (${retries} attempts left):`, error);
+        await new Promise(resolve => setTimeout(resolve, 200));
+      }
+    }
 
-    return { data, error };
+    return { data: insertData, error: insertError };
   } catch (error) {
     return { data: null, error };
   }
@@ -74,6 +109,21 @@ export async function assignPilotStanding(
   startDate?: string
 ): Promise<{ data: PilotStandingAssignment | null; error: any }> {
   try {
+    // Verify pilot exists in database before attempting standing assignment
+    console.log('🔍 Verifying pilot exists for standing assignment:', pilotId);
+    const { data: pilotVerification, error: pilotVerifyError } = await supabase
+      .from('pilots')
+      .select('id')
+      .eq('id', pilotId)
+      .single();
+
+    if (pilotVerifyError || !pilotVerification) {
+      console.error('❌ Pilot not found in database for standing assignment:', pilotVerifyError);
+      return { data: null, error: { message: 'Pilot not found in database', details: pilotVerifyError } };
+    }
+
+    console.log('✅ Pilot verified in database for standing assignment');
+
     const today = new Date().toISOString().split('T')[0];
     const effectiveStartDate = startDate || today;
 
@@ -88,19 +138,39 @@ export async function assignPilotStanding(
       return { data: null, error: endError };
     }
 
-    // Create new standing assignment
-    const { data, error } = await supabase
-      .from('pilot_standings')
-      .insert({
-        pilot_id: pilotId,
-        standing_id: standingId,
-        start_date: effectiveStartDate,
-        end_date: null
-      })
-      .select()
-      .single();
+    // Create new standing assignment with retry logic
+    let insertError = null;
+    let insertData = null;
+    let retries = 3;
+    
+    while (retries > 0) {
+      const { data, error } = await supabase
+        .from('pilot_standings')
+        .insert({
+          pilot_id: pilotId,
+          standing_id: standingId,
+          start_date: effectiveStartDate,
+          end_date: null
+        })
+        .select()
+        .single();
+      
+      if (!error) {
+        insertData = data;
+        insertError = null;
+        break;
+      }
+      
+      insertError = error;
+      retries--;
+      
+      if (retries > 0) {
+        console.log(`❌ Standing assignment failed, retrying (${retries} attempts left):`, error);
+        await new Promise(resolve => setTimeout(resolve, 200));
+      }
+    }
 
-    return { data, error };
+    return { data: insertData, error: insertError };
   } catch (error) {
     return { data: null, error };
   }
