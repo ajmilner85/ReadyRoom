@@ -350,23 +350,33 @@ const RosterManagement: React.FC = () => {
       // Handle field mapping for preview display
       const updates: Partial<Pilot> = {};
       
-      if (field === 'squadron_id' && value) {
-        const squadron = squadrons.find(s => s.id === value);
-        updates.currentSquadron = squadron;
-      } else if (field === 'role_id' && value) {
-        const role = roles.find(r => r.id === value);
-        if (role) {
-          updates.roles = [{
-            id: '',
-            pilot_id: prev.id,
-            role_id: role.id,
-            effective_date: new Date().toISOString(),
-            is_acting: false,
-            end_date: null,
-            created_at: new Date().toISOString(),
-            updated_at: null,
-            role: role
-          }];
+      if (field === 'squadron_id') {
+        if (value) {
+          const squadron = squadrons.find(s => s.id === value);
+          updates.currentSquadron = squadron;
+          (updates as any).squadron_id = value;
+        } else {
+          updates.currentSquadron = undefined;
+          (updates as any).squadron_id = '';
+        }
+      } else if (field === 'role_id') {
+        if (value) {
+          const role = roles.find(r => r.id === value);
+          if (role) {
+            updates.roles = [{
+              id: '',
+              pilot_id: prev.id,
+              role_id: role.id,
+              effective_date: new Date().toISOString(),
+              is_acting: false,
+              end_date: null,
+              created_at: new Date().toISOString(),
+              updated_at: null,
+              role: role
+            }];
+          }
+        } else {
+          updates.roles = [];
         }
       } else if (field === 'status_id' && value) {
         const status = statuses.find(s => s.id === value);
@@ -419,31 +429,26 @@ const RosterManagement: React.FC = () => {
         throw new Error('No pilot data returned from creation');
       }
       
-      console.log('✅ Pilot created successfully, now assigning squadron and role if selected');
       
       // Step 2: Assign squadron if selected
       if (newPilot.squadron_id) {
-        console.log('🏛️ Assigning pilot to squadron:', newPilot.squadron_id);
         const squadronResult = await assignPilotToSquadron(data.id, newPilot.squadron_id);
         if (!squadronResult.success) {
           console.error('❌ Failed to assign squadron:', squadronResult.error);
           // Don't throw error - pilot was created successfully, just log the squadron assignment failure
           setSaveError('Pilot created but squadron assignment failed. Please assign manually.');
         } else {
-          console.log('✅ Squadron assigned successfully');
         }
       }
       
       // Step 3: Assign role if selected
       if (newPilot.role_id) {
-        console.log('👮 Assigning pilot role:', newPilot.role_id);
         const roleResult = await updatePilotRole(data.id, newPilot.role_id);
         if (!roleResult.success) {
           console.error('❌ Failed to assign role:', roleResult.error);
           // Don't throw error - pilot was created successfully, just log the role assignment failure
           setSaveError(prev => prev ? prev + ' Role assignment also failed.' : 'Pilot created but role assignment failed. Please assign manually.');
         } else {
-          console.log('✅ Role assigned successfully');
         }
       }
       
@@ -652,7 +657,6 @@ const RosterManagement: React.FC = () => {
       if (conflictingAssignments.length > 0) {
         // Check if any of the conflicting pilots are active
         const conflictingPilotIds = conflictingAssignments.map(assignment => assignment.pilot_id);
-        console.log('🔍 Checking if conflicting pilots are active:', conflictingPilotIds);
         
         const { data: activeConflictingPilots, error: activeError } = await supabase
           .from('pilot_statuses')
@@ -666,14 +670,12 @@ const RosterManagement: React.FC = () => {
           .eq('statuses.isActive', true)
           .is('end_date', null);
           
-        console.log('✅ Active conflicting pilots:', activeConflictingPilots?.length || 0, activeConflictingPilots);
           
         if (!activeError && activeConflictingPilots && activeConflictingPilots.length > 0) {
           // Find the first active conflicting pilot
           const activeConflictId = activeConflictingPilots[0].pilot_id;
           const conflictingPilot = squadronPilots.find(p => p.pilot_id === activeConflictId);
           
-          console.log('🚨 CONFLICT DETECTED with pilot:', conflictingPilot?.pilots?.callsign);
           
           return {
             hasConflict: true,
@@ -681,10 +683,8 @@ const RosterManagement: React.FC = () => {
             conflictingRole: pilotRole.name
           };
         } else {
-          console.log('✅ No active conflicting pilots found');
         }
       } else {
-        console.log('✅ No conflicting assignments found');
       }
       
       return { hasConflict: false };
@@ -697,22 +697,16 @@ const RosterManagement: React.FC = () => {
 
   // Function to handle pilot squadron change
   const handleSquadronChange = useCallback(async (squadronId: string) => {
-    console.log('🚀 handleSquadronChange called with squadronId:', squadronId);
     if (!selectedPilot) {
-      console.log('❌ No selected pilot');
       return;
     }
     
-    console.log('👤 Selected pilot:', selectedPilot.callsign, 'Current role:', selectedPilot.roles?.[0]?.role?.name);
     
     // Check for role conflicts before proceeding
     if (squadronId) {
-      console.log('🔍 Checking for role conflicts...');
       const conflict = await checkSquadronRoleConflicts(selectedPilot.id, squadronId);
-      console.log('⚔️ Conflict check result:', conflict);
       
       if (conflict.hasConflict) {
-        console.log('🚨 Setting squadron conflict warning');
         setSquadronConflictWarning({
           show: true,
           pilotData: { pilotId: selectedPilot.id, squadronId },
@@ -723,7 +717,6 @@ const RosterManagement: React.FC = () => {
       }
     }
     
-    console.log('✅ No conflicts found, proceeding with squadron change');
     // Proceed with the squadron change
     await executeSquadronChange(selectedPilot.id, squadronId);
   }, [selectedPilot]);
@@ -1203,7 +1196,6 @@ const RosterManagement: React.FC = () => {
 
   // Callback for when a qualification is added via repair dialog
   const handleQualificationAddedViaRepair = (pilotId: string, qualificationData: any[]) => {
-    console.log('🔄 Parent: Updating qualification states after repair dialog addition');
     
     // Update pilotQualifications if this is the selected pilot
     if (selectedPilot && selectedPilot.id === pilotId) {
@@ -1216,7 +1208,6 @@ const RosterManagement: React.FC = () => {
       [pilotId]: qualificationData
     }));
     
-    console.log('🔄 Parent: Qualification states updated successfully');
   };
 
   // Function to add a qualification to a pilot
@@ -1397,11 +1388,9 @@ const RosterManagement: React.FC = () => {
       const squadronChanged = (originalPilot as any)?.currentSquadron?.id !== (updatedPilot as any)?.currentSquadron?.id;
       
       if (squadronChanged && (updatedPilot as any)?.currentSquadron?.id && updatedPilot.roles?.[0]?.role?.isExclusive) {
-        console.log('🔍 Checking for squadron role conflicts before save...');
         const conflict = await checkSquadronRoleConflicts(updatedPilot.id, (updatedPilot as any).currentSquadron.id);
         
         if (conflict.hasConflict) {
-          console.log('🚨 Squadron conflict detected, showing dialog');
           
           return new Promise((resolve) => {
             setSquadronConflictWarning({
@@ -1534,7 +1523,6 @@ const RosterManagement: React.FC = () => {
       const squadronChanged = originalSquadronId !== newSquadronId;
       
       if (squadronChanged) {
-        console.log('🔄 Squadron changed during save:', { originalSquadronId, newSquadronId });
         const { error: squadronError } = await assignPilotToSquadron(actualPilotId, newSquadronId || null);
         if (squadronError) {
           console.error('Error updating pilot squadron during save:', squadronError);
@@ -1603,7 +1591,6 @@ const RosterManagement: React.FC = () => {
     // Fetch all statuses, standings, roles, qualifications, and pilots simultaneously
     const fetchAllData = async () => {
       try {
-        console.log('🔍 Starting RosterManagement data fetch...');
         
         // Add timeout wrapper for all operations
         const withTimeout = function <T>(promise: Promise<T>, timeoutMs: number = 15000): Promise<T> {
@@ -1626,7 +1613,6 @@ const RosterManagement: React.FC = () => {
           10000
         );
 
-        console.log('✅ Basic data fetched successfully');
 
         // Handle statuses
         if (statusResult.error) {
@@ -1657,19 +1643,15 @@ const RosterManagement: React.FC = () => {
         }
 
         // Fetch qualifications with timeout
-        console.log('🔍 Fetching qualifications...');
         try {
           await withTimeout(fetchAvailableQualifications(), 8000);
-          console.log('✅ Qualifications fetched successfully');
         } catch (qualErr) {
           console.error('Error fetching qualifications (continuing anyway):', qualErr);
         }
 
         // Fetch pilots with timeout
-        console.log('🔍 Fetching pilots...');
         try {
           await withTimeout(refreshPilots(), 10000);
-          console.log('✅ Pilots fetched successfully');
         } catch (pilotsErr) {
           console.error('Error fetching pilots (stopping loading anyway):', pilotsErr);
           setLoading(false);

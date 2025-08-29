@@ -282,22 +282,17 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
       setRepairDialogData(null);
       
       // Clear the qualifications cache for this pilot to force fresh data fetch
-      console.log('🧹 Clearing qualification cache for pilot:', selectedPilot.id);
       clearPilotQualificationsCache(selectedPilot.id);
       
       // Force refresh the local qualifications by re-fetching them directly
       try {
-        console.log('🔄 Re-fetching pilot qualifications directly...');
         const result = await getPilotQualifications(selectedPilot.id);
-        console.log('🔄 Updated qualifications result:', result);
         
         // Update local state with fresh qualification data - extract the data array from the result
         setLocalPilotQualifications(result?.data || []);
-        console.log('🔄 Local qualifications state updated');
         
         // Call the parent callback to update parent component states
         if (onQualificationAdded && result?.data) {
-          console.log('🔄 Calling parent onQualificationAdded callback...');
           onQualificationAdded(selectedPilot.id, result.data);
         }
       } catch (error) {
@@ -377,29 +372,6 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
         setDiscordRoles(rolesResult.roles);
         setDiscordRoleError(null);
         
-        // Targeted debugging for Discord roles
-        console.log('🔍 DISCORD ROLES DEBUG:', {
-          pilot: selectedPilot.callsign,
-          discordIdUsed: discordIdForLookup,
-          memberFound: !!memberResult.member,
-          memberUsername: memberResult.member?.user?.username,
-          memberRoleIds: memberResult.member?.roles || [],
-          memberRoleCount: memberResult.member?.roles?.length || 0,
-          totalGuildRoles: rolesResult.roles.length,
-          guildRolesSample: rolesResult.roles.slice(0, 3).map(r => ({ id: r.id, name: r.name }))
-        });
-        
-        // Check for role matching
-        if (memberResult.member?.roles) {
-          const matchingRoles = rolesResult.roles.filter(role => 
-            memberResult.member!.roles.includes(role.id)
-          );
-          console.log('🎯 ROLE MATCHING:', {
-            memberRoleIds: memberResult.member.roles,
-            matchingRoleNames: matchingRoles.map(r => r.name),
-            matchingRoleCount: matchingRoles.length
-          });
-        }
       }
     } catch (error) {
       console.error('Error loading Discord roles:', error);
@@ -691,7 +663,7 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
             <div style={{ ...sectionSpacingStyle }}>
               <SquadronSelector
                 squadrons={squadrons}
-                selectedSquadronId={selectedPilot.currentSquadron?.id || (selectedPilot as any).squadron_id || ''}
+                selectedSquadronId={(selectedPilot as any)?.squadron_id || ''}
                 updatingSquadron={false}
                 handleSquadronChange={handleNewPilotSquadronChange}
               />
@@ -700,7 +672,7 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
             <div style={{ ...sectionSpacingStyle, marginTop: '12px' }}>
               <RoleSelector
                 roles={roles}
-                pilotRoles={pilotRoles}
+                pilotRoles={selectedPilot?.roles && selectedPilot.roles.length > 0 && selectedPilot.roles[0].role ? [selectedPilot.roles[0].role] : []}
                 updatingRoles={false}
                 loadingRoles={false}
                 disabledRoles={{}}

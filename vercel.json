@@ -6,6 +6,12 @@
   "env": {
     "NODE_ENV": "production"
   },
+  "git": {
+    "deploymentEnabled": {
+      "main": true,
+      "development": true
+    }
+  },
   "headers": [
     {
       "source": "/assets/(.*)",
