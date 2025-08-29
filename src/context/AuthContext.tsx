@@ -44,41 +44,23 @@ export function AuthProvider({ children }: AuthProviderProps) {
     if (error && !isRecovering && retryCount < 1) {
       console.log('Authentication error detected, starting silent recovery:', error);
       setIsRecovering(true);
-      
-      // Small delay to avoid race conditions
-      recoveryTimeout = setTimeout(async () => {
-        try {
-          // First attempt: try session refresh
-          console.log('Attempting session refresh...');
-          const refreshSuccess = await attemptSessionRefresh(1);
-          
-          if (refreshSuccess) {
-            console.log('Session refresh successful');
-            setError(null);
-            setIsRecovering(false);
-            return;
-          }
-          
-          // Second attempt: clear storage and reload
-          console.log('Session refresh failed, clearing storage and reloading...');
-          clearAuthStorage();
-          
-          // Clear app version to ensure fresh start
-          localStorage.removeItem('app_version');
-          
-          // Force page reload after clearing storage
-          window.location.reload();
-          
-        } catch (recoveryError) {
-          console.error('Recovery failed:', recoveryError);
-          // If all else fails, clear storage and reload anyway
-          clearAuthStorage();
-          localStorage.removeItem('app_version');
-          window.location.reload();
-        }
-      }, 1000);
-      
       setRetryCount(prev => prev + 1);
+      
+      // Very short delay, then immediately clear cache and reload
+      recoveryTimeout = setTimeout(() => {
+        console.log('Authentication error - clearing cache and reloading immediately');
+        
+        try {
+          // Clear all authentication storage
+          clearAuthStorage();
+          localStorage.removeItem('app_version');
+        } catch (storageError) {
+          console.error('Error clearing storage:', storageError);
+        }
+        
+        // Force immediate page reload - no complex recovery attempts
+        window.location.reload();
+      }, 500); // Very short delay
     }
     
     return () => {
@@ -135,55 +117,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   };
 
-  // Attempt to refresh session with retry logic
-  const attemptSessionRefresh = async (maxRetries = 2) => {
-    for (let attempt = 0; attempt < maxRetries; attempt++) {
-      try {
-        console.log(`Attempting session refresh (attempt ${attempt + 1}/${maxRetries})`);
-        
-        // First try to refresh the session
-        const { data, error: refreshError } = await supabase.auth.refreshSession();
-        
-        if (!refreshError && data.session) {
-          console.log('Session refresh successful');
-          setSession(data.session);
-          setUser(data.session.user);
-          setError(null);
-          setRetryCount(0);
-          return true;
-        }
-        
-        // If refresh failed, try getting existing session
-        const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-        
-        if (!sessionError && sessionData.session) {
-          console.log('Existing session recovered');
-          setSession(sessionData.session);
-          setUser(sessionData.session.user);
-          setError(null);
-          setRetryCount(0);
-          return true;
-        }
-        
-        console.warn(`Session refresh attempt ${attempt + 1} failed:`, refreshError || sessionError);
-        
-        // If this is not the last attempt, clear storage and try again
-        if (attempt < maxRetries - 1) {
-          clearAuthStorage();
-          // Wait a bit before retrying
-          await new Promise(resolve => setTimeout(resolve, 1000));
-        }
-        
-      } catch (err) {
-        console.error(`Session refresh attempt ${attempt + 1} error:`, err);
-        if (attempt < maxRetries - 1) {
-          await new Promise(resolve => setTimeout(resolve, 1000));
-        }
-      }
-    }
-    
-    return false;
-  };
+  // Simplified - no complex session refresh logic needed anymore
 
   const refreshProfile = async () => {
     if (!user) {
@@ -244,24 +178,16 @@ export function AuthProvider({ children }: AuthProviderProps) {
           clearAuthStorage();
         }
 
-        // Try getSession first (with timeout protection)
+        // Try getSession with shorter timeout and simpler error handling
         const sessionResult = await Promise.race([
           supabase.auth.getSession(),
-          new Promise((_, reject) => setTimeout(() => reject(new Error('getSession timeout')), 10000))
-        ]).catch(async (err) => {
+          new Promise((_, reject) => setTimeout(() => reject(new Error('getSession timeout')), 5000))
+        ]).catch((err) => {
           console.error('Initial session check failed:', err.message);
           
-          // If it's a timeout or parse error, try session refresh
-          if (err.message.includes('timeout') || err.message.includes('parse') || err.message.includes('JSON')) {
-            console.log('Attempting session recovery due to error:', err.message);
-            const recoverySuccessful = await attemptSessionRefresh();
-            
-            if (recoverySuccessful) {
-              return await supabase.auth.getSession();
-            }
-          }
-          
-          return { data: { session: null }, error: null }; // Don't treat as error in production
+          // For any error (timeout, parse, etc.), just return no session
+          // Let the error handling above take care of clearing cache and reloading
+          return { data: { session: null }, error: err };
         }) as any;
         
         const sessionData = sessionResult.data || { session: null };
@@ -278,19 +204,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
         if (userError) {
           console.error('Error getting initial user:', userError);
           
-          // Try one more recovery attempt before showing error
-          if (retryCount < 2) {
-            console.log('Attempting auth recovery...');
-            setRetryCount(prev => prev + 1);
-            
-            const recoverySuccessful = await attemptSessionRefresh();
-            if (!recoverySuccessful) {
-              setError('Authentication failed - please try logging in again');
-            }
-          } else {
-            setError(userError.message);
-          }
-          
+          // Set error immediately - let the recovery useEffect handle it
+          setError('Authentication failed - clearing cache automatically');
           setUser(null);
           setUserProfile(null);
         } else {

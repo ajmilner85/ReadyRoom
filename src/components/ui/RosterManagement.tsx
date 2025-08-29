@@ -1495,13 +1495,30 @@ const RosterManagement: React.FC = () => {
     // Fetch all statuses, standings, roles, qualifications, and pilots simultaneously
     const fetchAllData = async () => {
       try {
-        // Start all fetch operations in parallel
-        const [statusResult, standingResult, roleResult, squadronResult] = await Promise.all([
-          getAllStatuses(),
-          getAllStandings(), 
-          getAllRoles(),
-          getAllSquadrons()
-        ]);
+        console.log('🔍 Starting RosterManagement data fetch...');
+        
+        // Add timeout wrapper for all operations
+        const withTimeout = function <T>(promise: Promise<T>, timeoutMs: number = 15000): Promise<T> {
+          return Promise.race([
+            promise,
+            new Promise<never>((_, reject) => 
+              setTimeout(() => reject(new Error(`Operation timed out after ${timeoutMs}ms`)), timeoutMs)
+            )
+          ]);
+        };
+
+        // Start all fetch operations in parallel with timeouts
+        const [statusResult, standingResult, roleResult, squadronResult] = await withTimeout(
+          Promise.all([
+            getAllStatuses(),
+            getAllStandings(), 
+            getAllRoles(),
+            getAllSquadrons()
+          ]),
+          10000
+        );
+
+        console.log('✅ Basic data fetched successfully');
 
         // Handle statuses
         if (statusResult.error) {
@@ -1531,11 +1548,24 @@ const RosterManagement: React.FC = () => {
           setSquadrons(squadronResult.data);
         }
 
-        // Fetch qualifications
-        await fetchAvailableQualifications();
+        // Fetch qualifications with timeout
+        console.log('🔍 Fetching qualifications...');
+        try {
+          await withTimeout(fetchAvailableQualifications(), 8000);
+          console.log('✅ Qualifications fetched successfully');
+        } catch (qualErr) {
+          console.error('Error fetching qualifications (continuing anyway):', qualErr);
+        }
 
-        // Fetch pilots - no longer dependent on statusMap
-        await refreshPilots();
+        // Fetch pilots with timeout
+        console.log('🔍 Fetching pilots...');
+        try {
+          await withTimeout(refreshPilots(), 10000);
+          console.log('✅ Pilots fetched successfully');
+        } catch (pilotsErr) {
+          console.error('Error fetching pilots (stopping loading anyway):', pilotsErr);
+          setLoading(false);
+        }
         
       } catch (err) {
         console.error('Error fetching initial data:', err);

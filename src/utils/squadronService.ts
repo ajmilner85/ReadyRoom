@@ -22,8 +22,6 @@ export interface Squadron {
  * Fetch all squadrons from the database
  */
 export async function getAllSquadrons(): Promise<{ data: Squadron[] | null; error: any }> {
-  console.log('🔍 Fetching all squadrons...');
-  
   try {
     const { data, error } = await supabase
       .from('org_squadrons')

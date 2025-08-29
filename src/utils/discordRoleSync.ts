@@ -198,7 +198,7 @@ export async function triggerRoleSync(userProfile: UserProfile): Promise<boolean
   const botToken = import.meta.env.VITE_DISCORD_BOT_TOKEN;
 
   if (!guildId || !botToken) {
-    console.warn('Discord guild ID or bot token not configured for role sync');
+    // Discord role sync is optional - no need to warn about this
     return false;
   }
 
