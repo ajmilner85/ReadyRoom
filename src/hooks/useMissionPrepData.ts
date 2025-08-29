@@ -26,19 +26,21 @@ export const useMissionPrepData = () => {
         .from('squadron_settings')
         .select('value')
         .eq('key', 'discord_guild_id')
-        .single();
+        .limit(1);
       
       if (settingsError) {
         console.warn('Error fetching Discord guild ID:', settingsError.message);
         return;
       }
       
-      if (!settingsData?.value) {
+      // Handle array result from .limit(1)
+      const guildIdValue = settingsData && settingsData.length > 0 ? settingsData[0].value : null;
+      if (!guildIdValue) {
         console.warn('No Discord guild ID found in squadron settings');
         return;
       }
       
-      const guildId = settingsData.value;
+      const guildId = guildIdValue;
       console.log('Using Discord guild ID for filtering events:', guildId);
       
       // Fetch events for this guild
