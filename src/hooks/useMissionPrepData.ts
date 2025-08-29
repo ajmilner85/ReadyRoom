@@ -3,7 +3,7 @@ import { supabase, fetchEvents } from '../utils/supabaseClient';
 import { getAllPilots } from '../utils/pilotService';
 import { getBatchPilotQualifications } from '../utils/qualificationService';
 import { adaptSupabasePilots } from '../utils/pilotDataUtils';
-import { loadSelectedEvent, saveSelectedEvent } from '../utils/localStorageUtils';
+import { loadSelectedEvent, saveSelectedEvent, STORAGE_KEYS } from '../utils/localStorageUtils';
 import type { Event } from '../types/EventTypes';
 import type { Pilot } from '../types/PilotTypes';
 
@@ -18,51 +18,46 @@ export const useMissionPrepData = () => {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [allPilotQualifications, setAllPilotQualifications] = useState<Record<string, any[]>>({});
 
-  // Fetch events filtered by Discord guild ID
+  // Fetch events (guild filtering removed since fetchEvents no longer supports it)
   const loadEventsForCurrentGuild = async () => {
     try {
-      // First get the Discord guild ID from squadron settings
-      const { data: settingsData, error: settingsError } = await supabase
-        .from('squadron_settings')
-        .select('value')
-        .eq('key', 'discord_guild_id')
-        .limit(1);
-      
-      if (settingsError) {
-        console.warn('Error fetching Discord guild ID:', settingsError.message);
-        return;
-      }
-      
-      // Handle array result from .limit(1)
-      const guildIdValue = settingsData && settingsData.length > 0 ? settingsData[0].value : null;
-      if (!guildIdValue) {
-        console.warn('No Discord guild ID found in squadron settings');
-        return;
-      }
-      
-      const guildId = guildIdValue;
-      console.log('Using Discord guild ID for filtering events:', guildId);
-      
-      // Fetch events for this guild
-      const { events: guildEvents, error } = await fetchEvents(undefined, guildId);
+      // Fetch all events since guild filtering is no longer supported in fetchEvents
+      const { events: allEvents, error } = await fetchEvents();
       
       if (error) {
         console.error('Error fetching events:', error);
         return;
       }
       
-      if (guildEvents && guildEvents.length > 0) {
-        console.log(`Fetched ${guildEvents.length} events for guild ${guildId}`);
+      if (allEvents && allEvents.length > 0) {
+        console.log(`Fetched ${allEvents.length} events`);
         // Events are already sorted in reverse chronological order by the query
-        setEvents(guildEvents);
+        setEvents(allEvents);
         
-        // If there's no selected event yet but we have events, select the most recent one
-        if (!selectedEvent && guildEvents.length > 0) {
-          setSelectedEventWrapper(guildEvents[0]);
+        // Validate that the currently selected event still exists in the fetched events
+        if (selectedEvent) {
+          const eventStillExists = allEvents.find(event => event.id === selectedEvent.id);
+          if (!eventStillExists) {
+            // The previously selected event no longer exists, clear the selection
+            console.log('Previously selected event no longer exists, clearing selection');
+            setSelectedEventWrapper(null);
+          }
+        } else {
+          // Only auto-select an event if this is truly the first time (no localStorage entry exists)
+          // Check if localStorage has ever been set (even if it was set to null)
+          const hasStoredSelection = localStorage.getItem(STORAGE_KEYS.SELECTED_EVENT) !== null;
+          if (!hasStoredSelection && allEvents.length > 0) {
+            console.log('First time user - auto-selecting most recent event');
+            setSelectedEventWrapper(allEvents[0]);
+          }
         }
       } else {
-        console.log('No events found for guild:', guildId);
+        console.log('No events found');
         setEvents([]);
+        // Clear selected event if no events are available
+        if (selectedEvent) {
+          setSelectedEventWrapper(null);
+        }
       }
     } catch (err: any) {
       console.error('Failed to fetch events:', err.message);
@@ -114,14 +109,14 @@ export const useMissionPrepData = () => {
       }
       
       if (data && data.length > 0) {
-        // Adapt the data to legacy format
-        const legacyPilots = adaptSupabasePilots(data);
+        // Adapt the data to the expected Pilot format
+        const adaptedPilots = adaptSupabasePilots(data);
         
-        // Set pilots state to the adapted legacy format
-        setPilots(legacyPilots);
+        // Set pilots state to the adapted Pilot format
+        setPilots(adaptedPilots);
         
         // After fetching pilots, also fetch their qualifications
-        await fetchAllPilotQualifications(legacyPilots);
+        await fetchAllPilotQualifications(adaptedPilots);
         
         setLoadError(null);
       } else {

@@ -2,17 +2,16 @@
  * Utility functions for working with pilot data directly from Supabase
  * without needing to convert to legacy formats
  */
-import { SupabasePilot, PilotStatus, Pilot, convertSupabasePilotToLegacy, QualificationType } from '../types/PilotTypes';
+import { SupabasePilot, PilotStatus, Pilot, QualificationType } from '../types/PilotTypes';
 import { supabase } from './supabaseClient';
 import { getPilotQualifications } from './qualificationService';
 
 /**
- * Adapter function to safely prepare Supabase pilot data for use in components
- * that still expect legacy Pilot format. This is a transitional function
- * to help with migration to directly using SupabasePilot objects.
+ * Safely prepare Supabase pilot data and convert to the expected Pilot format
+ * without using the deprecated convertSupabasePilotToLegacy function
  * 
  * @param pilots - Array of raw pilot data from Supabase
- * @returns Array of legacy Pilot objects that can be used in existing components
+ * @returns Array of Pilot objects that can be used in existing components
  */
 export function adaptSupabasePilots(pilots: any[]): Pilot[] {
   if (!pilots || pilots.length === 0) return [];
@@ -36,15 +35,30 @@ export function adaptSupabasePilots(pilots: any[]): Pilot[] {
         id: pilot.id || `temp-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`
       } as SupabasePilot;
       
-      // Then convert to legacy format
-      return convertSupabasePilotToLegacy(safePilot);
+      // Convert to Pilot format directly (without using deprecated function)
+      return {
+        id: safePilot.id,
+        discordId: safePilot.discord_original_id,
+        discord_original_id: safePilot.discord_original_id,
+        callsign: safePilot.callsign,
+        boardNumber: safePilot.boardNumber.toString(),
+        status: determinePilotStatus(safePilot),
+        status_id: safePilot.status_id,
+        billet: getPilotRoleName(safePilot),
+        qualifications: (safePilot.qualifications || []).map((q, index) => ({
+          id: `${safePilot.id}-${index}`,
+          type: q as QualificationType,
+          dateAchieved: new Date().toISOString().split('T')[0]
+        })),
+        discordUsername: safePilot.discordId || ''
+      } as Pilot;
     } catch (err) {
       console.error('Error adapting pilot:', err, pilot);
-      // Return a minimal valid pilot object to prevent crashes
+      // Return a minimal valid Pilot object to prevent crashes
       return {
         id: pilot?.id || `error-${Date.now()}`,
         callsign: pilot?.callsign || 'Error',
-        boardNumber: typeof pilot?.boardNumber === 'string' ? pilot.boardNumber : '0',
+        boardNumber: typeof pilot?.boardNumber === 'number' ? pilot.boardNumber.toString() : '0',
         status: 'Inactive',
         billet: '',
         qualifications: [],

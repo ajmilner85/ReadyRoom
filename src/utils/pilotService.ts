@@ -286,7 +286,6 @@ export async function createPilotWithStatusAndStanding(
   statusId: string,
   standingId: string
 ): Promise<{ data: Pilot | null; error: any }> {
-  console.log('🔍 Creating new pilot with status and standing...');
   
   try {
     // Check if board number already exists for active pilots only (exclude Retired/Removed)
@@ -324,7 +323,6 @@ export async function createPilotWithStatusAndStanding(
       return { data: null, error: pilotError };
     }
 
-    console.log('✅ Pilot created:', newPilot);
 
     // Wait briefly to ensure transaction commits
     await new Promise(resolve => setTimeout(resolve, 100));
@@ -341,7 +339,6 @@ export async function createPilotWithStatusAndStanding(
       return { data: null, error: new Error('Pilot creation verification failed') };
     }
 
-    console.log('✅ Pilot verified in database');
 
     // Step 2: Assign status with retry logic
     const today = new Date().toISOString().split('T')[0];
@@ -368,7 +365,6 @@ export async function createPilotWithStatusAndStanding(
       statusRetries--;
       
       if (statusRetries > 0) {
-        console.log(`❌ Status assignment failed, retrying (${statusRetries} attempts left):`, error);
         await new Promise(resolve => setTimeout(resolve, 200));
       }
     }
@@ -380,7 +376,6 @@ export async function createPilotWithStatusAndStanding(
       return { data: null, error: statusError };
     }
 
-    console.log('✅ Status assigned');
 
     // Step 3: Assign standing with retry logic
     let standingError = null;
@@ -405,7 +400,6 @@ export async function createPilotWithStatusAndStanding(
       standingRetries--;
       
       if (standingRetries > 0) {
-        console.log(`❌ Standing assignment failed, retrying (${standingRetries} attempts left):`, error);
         await new Promise(resolve => setTimeout(resolve, 200));
       }
     }
@@ -418,7 +412,6 @@ export async function createPilotWithStatusAndStanding(
       return { data: null, error: standingError };
     }
 
-    console.log('✅ Standing assigned');
 
     // Step 4: Fetch the complete pilot data with status and standing
     // Add a small delay to ensure all assignments are committed
@@ -434,7 +427,6 @@ export async function createPilotWithStatusAndStanding(
       return { data: null, error: new Error('Failed to fetch created pilot') };
     }
 
-    console.log('🎉 Pilot created successfully with status and standing');
     return { data: completePilot, error: null };
 
   } catch (error) {
@@ -494,10 +486,8 @@ export async function updatePilot(id: string, updates: UpdatePilot): Promise<{ d
  */
 export async function deletePilot(id: string): Promise<{ success: boolean; error: any }> {
   try {
-    console.log('🗑️ Starting pilot deletion process for:', id);
     
     // Delete all foreign key references first to avoid constraint violations
-    console.log('🗑️ Deleting pilot statuses...');
     const { error: statusError } = await supabase
       .from('pilot_statuses')
       .delete()
@@ -508,7 +498,6 @@ export async function deletePilot(id: string): Promise<{ success: boolean; error
       return { success: false, error: statusError };
     }
 
-    console.log('🗑️ Deleting pilot standings...');
     const { error: standingError } = await supabase
       .from('pilot_standings')
       .delete()
@@ -519,7 +508,6 @@ export async function deletePilot(id: string): Promise<{ success: boolean; error
       return { success: false, error: standingError };
     }
 
-    console.log('🗑️ Deleting pilot roles...');
     const { error: rolesError } = await supabase
       .from('pilot_roles')
       .delete()
@@ -530,7 +518,6 @@ export async function deletePilot(id: string): Promise<{ success: boolean; error
       return { success: false, error: rolesError };
     }
 
-    console.log('🗑️ Deleting pilot assignments...');
     const { error: assignmentsError } = await supabase
       .from('pilot_assignments')
       .delete()
@@ -541,7 +528,6 @@ export async function deletePilot(id: string): Promise<{ success: boolean; error
       return { success: false, error: assignmentsError };
     }
 
-    console.log('🗑️ Deleting pilot qualifications...');
     const { error: qualificationsError } = await supabase
       .from('pilot_qualifications')
       .delete()
@@ -553,7 +539,6 @@ export async function deletePilot(id: string): Promise<{ success: boolean; error
     }
 
     // Finally delete the pilot record itself
-    console.log('🗑️ Deleting pilot record...');
     const { error: pilotError } = await supabase
       .from('pilots')
       .delete()
@@ -564,7 +549,6 @@ export async function deletePilot(id: string): Promise<{ success: boolean; error
       return { success: false, error: pilotError };
     }
 
-    console.log('✅ Pilot deletion completed successfully');
     return { success: true, error: null };
   } catch (error) {
     console.error('❌ Unexpected error during pilot deletion:', error);
@@ -851,7 +835,6 @@ export async function updatePilotRole(
     const actualPilotId = pilotByDiscordId ? pilotByDiscordId.id : id;
 
     // Verify pilot exists in database before attempting role assignment
-    console.log('🔍 Verifying pilot exists for role assignment:', actualPilotId);
     const { data: pilotVerification, error: pilotVerifyError } = await supabase
       .from('pilots')
       .select('id')
@@ -863,7 +846,6 @@ export async function updatePilotRole(
       return { success: false, error: { message: 'Pilot not found in database', details: pilotVerifyError } };
     }
 
-    console.log('✅ Pilot verified in database for role assignment');
     
     // Check if the role is exclusive
     const { data: roleData, error: roleError } = await supabase
@@ -994,7 +976,6 @@ export async function updatePilotRole(
       retries--;
       
       if (retries > 0) {
-        console.log(`❌ Role assignment failed, retrying (${retries} attempts left):`, error);
         await new Promise(resolve => setTimeout(resolve, 200));
       }
     }

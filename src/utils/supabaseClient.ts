@@ -250,7 +250,7 @@ export const deleteCycle = async (cycleId: string) => {
 };
 
 // Events API
-export const fetchEvents = async (cycleId?: string, _discordGuildId?: string) => {  
+export const fetchEvents = async (cycleId?: string) => {  
   let query = supabase.from('events').select(`
     id,
     name,

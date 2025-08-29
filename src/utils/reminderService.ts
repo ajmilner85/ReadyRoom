@@ -552,7 +552,6 @@ export async function sendEventReminder(eventId: string): Promise<{ success: boo
       }
       
       const result = await response.json();
-      // console.log(`✅ Manual reminder sent successfully to channel ${channelKey}:`, result);
       
       if (result.success) {
         totalSent++;

@@ -1,6 +1,6 @@
 import { supabase } from './supabaseClient';
-import type { Pilot } from '../types/PilotTypes'; // Removed unused SupabasePilot import
-import { convertSupabasePilotToLegacy } from '../types/PilotTypes';
+import type { Pilot } from '../types/PilotTypes';
+import { adaptSupabasePilots } from './pilotDataUtils';
 import { updatePilotRole } from './pilotService';
 
 export interface DiscordMember {
@@ -277,8 +277,8 @@ export async function matchDiscordMembersWithPilots(discordMembers: DiscordMembe
   console.log('Total Discord members:', discordMembers.length);
   console.log('Total existing pilots:', existingPilots.length);
   
-  // Convert to legacy format for consistency
-  const pilots = existingPilots.map(pilot => convertSupabasePilotToLegacy(pilot as any));
+  // Get properly typed SupabasePilot objects
+  const pilots = adaptSupabasePilots(existingPilots);
   
   const matches = await Promise.all(discordMembers.map(async member => {
     console.log(`\n---- Processing Discord member: ${member.displayName} (${member.username}) ----`);

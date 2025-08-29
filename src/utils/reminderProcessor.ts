@@ -202,7 +202,6 @@ async function sendReminderMessage(
       }
       
       // const result = await response.json();
-      // console.log(`✅ Reminder sent successfully to channel ${channelKey}:`, result);
     }
     
   } catch (error) {

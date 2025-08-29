@@ -48,7 +48,6 @@ export async function getPilotSquadronAssignment(pilotId: string): Promise<{
   data: { squadron: Squadron; assignment: any } | null; 
   error: any 
 }> {
-  console.log('🔍 Fetching pilot squadron assignment for:', pilotId);
   
   try {
     // Get the pilot's current active squadron assignment
@@ -87,7 +86,6 @@ export async function getPilotSquadronAssignment(pilotId: string): Promise<{
       return { data: null, error: null };
     }
 
-    console.log('✅ Found squadron assignment for pilot:', assignment.org_squadrons.designation);
     return { 
       data: {
         squadron: assignment.org_squadrons,
@@ -110,12 +108,9 @@ export async function assignPilotToSquadron(
   squadronId: string | null,
   startDate: string = new Date().toISOString().split('T')[0]
 ): Promise<{ success: boolean; error: any }> {
-  console.log('🔄 Assigning pilot to squadron:', { pilotId, squadronId, startDate });
-  console.log('🔄 Squadron ID type:', typeof squadronId, 'Value:', squadronId);
   
   try {
     // Step 1: Verify pilot exists in database before attempting assignment
-    console.log('🔍 Verifying pilot exists:', pilotId);
     const { data: pilotVerification, error: pilotVerifyError } = await supabase
       .from('pilots')
       .select('id')
@@ -127,10 +122,8 @@ export async function assignPilotToSquadron(
       return { success: false, error: { message: 'Pilot not found in database', details: pilotVerifyError } };
     }
 
-    console.log('✅ Pilot verified in database');
 
     // Step 2: End any existing active squadron assignments for this pilot
-    console.log('🔄 Ending existing assignments for pilot:', pilotId);
     const { error: endExistingError } = await supabase
       .from('pilot_assignments')
       .update({ 
@@ -147,7 +140,6 @@ export async function assignPilotToSquadron(
 
     // Step 3: If squadronId is provided, create new assignment with retry logic
     if (squadronId) {
-      console.log('🔄 Creating new assignment for squadron:', squadronId);
       
       let insertError = null;
       let retries = 3;
@@ -171,7 +163,6 @@ export async function assignPilotToSquadron(
         retries--;
         
         if (retries > 0) {
-          console.log(`❌ Assignment failed, retrying (${retries} attempts left):`, error);
           await new Promise(resolve => setTimeout(resolve, 200));
         }
       }
@@ -181,25 +172,19 @@ export async function assignPilotToSquadron(
         return { success: false, error: insertError };
       }
 
-      console.log('✅ Successfully assigned pilot to squadron');
     } else {
-      console.log('✅ Successfully removed pilot from squadron (unassigned) - no new assignment created');
     }
     
-    // Verify the assignment was actually updated/removed
-    const { data: verifyAssignments, error: verifyError } = await supabase
+    // Verify the assignment was actually updated/removed (optional logging)
+    const { error: verifyError } = await supabase
       .from('pilot_assignments')
-      .select('id, pilot_id, squadron_id, end_date')
+      .select('id')
       .eq('pilot_id', pilotId)
       .order('created_at', { ascending: false })
-      .limit(3);
+      .limit(1);
     
     if (verifyError) {
-      console.error('❌ Error verifying assignment:', verifyError);
-    } else {
-      console.log('🔍 Assignment verification for pilot', pilotId, ':', verifyAssignments);
-      const activeAssignments = verifyAssignments?.filter(a => !a.end_date) || [];
-      console.log('🔍 Active assignments:', activeAssignments);
+      console.error('Error verifying assignment:', verifyError);
     }
     
     return { success: true, error: null };
@@ -217,7 +202,6 @@ export async function getPilotsBySquadron(squadronId: string): Promise<{
   data: Array<{ pilot: any; assignment: any }> | null; 
   error: any 
 }> {
-  console.log('🔍 Fetching pilots for squadron:', squadronId);
   
   try {
     const { data: assignments, error } = await supabase
@@ -247,7 +231,6 @@ export async function getPilotsBySquadron(squadronId: string): Promise<{
       assignment
     }));
 
-    console.log('✅ Found pilots for squadron:', result.length);
     return { data: result, error: null };
 
   } catch (error) {

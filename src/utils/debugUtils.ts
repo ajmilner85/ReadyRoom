@@ -48,7 +48,6 @@ async function debugPilotRoles() {
   const rolesTodayEnded = endedRoles.filter(pr => pr.end_date === today);
   
   if (rolesTodayEnded.length > 0) {
-    console.log(`\n⚠️  Roles ended today (${today}):`, rolesTodayEnded.length);
     rolesTodayEnded.forEach(pr => {
       console.log(`  - ${pr.pilots?.callsign}: ${pr.roles?.name} (ended: ${pr.end_date})`);
     });
@@ -90,7 +89,6 @@ async function debugPilotsWithRoles() {
     return;
   }
   
-  console.log('✅ Pilots query successful. Sample data:');
   data?.forEach((pilot, index) => {
     console.log(`${index + 1}. ${pilot.callsign}:`, {
       id: pilot.id,
@@ -114,15 +112,12 @@ async function testPilotRolesRelationship() {
     return;
   }
   
-  console.log('📊 pilot_roles table data:', allRoles);
   
   if (!allRoles || allRoles.length === 0) {
-    console.log('⚠️  No data in pilot_roles table!');
     return;
   }
   
   // Test different join approaches
-  console.log('\n🔍 Testing different join syntaxes:');
   
   // Method 1: Simple join
   const { data: method1, error: error1 } = await supabase

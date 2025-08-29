@@ -146,28 +146,3 @@ export function convertPilotToSupabase(pilot: Pilot): Omit<SupabasePilot, 'creat
   };
 }
 
-/**
- * @deprecated This function is deprecated and should not be used for new development.
- * Your application should work directly with SupabasePilot objects.
- * Use pilotDataUtils.ts functions instead for working with pilot data.
- */
-export function convertSupabasePilotToLegacy(pilot: SupabasePilot): Pilot {
-  console.warn('convertSupabasePilotToLegacy is deprecated - use pilotDataUtils.ts instead');
-  return {
-    id: pilot.id,                        // Use Supabase UUID as the primary ID
-    discordId: pilot.discord_original_id, // Store Discord ID in dedicated field
-    discord_original_id: pilot.discord_original_id, // Preserve numeric Discord ID
-    callsign: pilot.callsign,
-    boardNumber: pilot.boardNumber.toString(),
-    status: 'Provisional',               // Default, should be updated with actual value
-    status_id: pilot.status_id,          // Include status_id if available
-    billet: pilot.roles?.squadron || '',
-    qualifications: (pilot.qualifications || []).map((q, index) => ({
-      id: `${pilot.id}-${index}`,
-      type: q as QualificationType,
-      dateAchieved: new Date().toISOString().split('T')[0]
-    })),
-    discordUsername: pilot.discordId || '', // Use discordId (username) for display
-    // Removed role field - UI should get role from roles array only
-  };
-}

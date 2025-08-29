@@ -34,7 +34,6 @@ export async function assignPilotStatus(
 ): Promise<{ data: PilotStatusAssignment | null; error: any }> {
   try {
     // Verify pilot exists in database before attempting status assignment
-    console.log('🔍 Verifying pilot exists for status assignment:', pilotId);
     const { data: pilotVerification, error: pilotVerifyError } = await supabase
       .from('pilots')
       .select('id')
@@ -46,7 +45,6 @@ export async function assignPilotStatus(
       return { data: null, error: { message: 'Pilot not found in database', details: pilotVerifyError } };
     }
 
-    console.log('✅ Pilot verified in database for status assignment');
 
     const today = new Date().toISOString().split('T')[0];
     const effectiveStartDate = startDate || today;
@@ -89,7 +87,6 @@ export async function assignPilotStatus(
       retries--;
       
       if (retries > 0) {
-        console.log(`❌ Status assignment failed, retrying (${retries} attempts left):`, error);
         await new Promise(resolve => setTimeout(resolve, 200));
       }
     }
@@ -110,7 +107,6 @@ export async function assignPilotStanding(
 ): Promise<{ data: PilotStandingAssignment | null; error: any }> {
   try {
     // Verify pilot exists in database before attempting standing assignment
-    console.log('🔍 Verifying pilot exists for standing assignment:', pilotId);
     const { data: pilotVerification, error: pilotVerifyError } = await supabase
       .from('pilots')
       .select('id')
@@ -122,7 +118,6 @@ export async function assignPilotStanding(
       return { data: null, error: { message: 'Pilot not found in database', details: pilotVerifyError } };
     }
 
-    console.log('✅ Pilot verified in database for standing assignment');
 
     const today = new Date().toISOString().split('T')[0];
     const effectiveStartDate = startDate || today;
@@ -165,7 +160,6 @@ export async function assignPilotStanding(
       retries--;
       
       if (retries > 0) {
-        console.log(`❌ Standing assignment failed, retrying (${retries} attempts left):`, error);
         await new Promise(resolve => setTimeout(resolve, 200));
       }
     }
