@@ -493,12 +493,83 @@ export async function updatePilot(id: string, updates: UpdatePilot): Promise<{ d
  * @param id The ID of the pilot to delete
  */
 export async function deletePilot(id: string): Promise<{ success: boolean; error: any }> {
-  const { error } = await supabase
-    .from('pilots')
-    .delete()
-    .eq('id', id);
+  try {
+    console.log('🗑️ Starting pilot deletion process for:', id);
+    
+    // Delete all foreign key references first to avoid constraint violations
+    console.log('🗑️ Deleting pilot statuses...');
+    const { error: statusError } = await supabase
+      .from('pilot_statuses')
+      .delete()
+      .eq('pilot_id', id);
+    
+    if (statusError) {
+      console.error('❌ Error deleting pilot statuses:', statusError);
+      return { success: false, error: statusError };
+    }
 
-  return { success: !error, error };
+    console.log('🗑️ Deleting pilot standings...');
+    const { error: standingError } = await supabase
+      .from('pilot_standings')
+      .delete()
+      .eq('pilot_id', id);
+    
+    if (standingError) {
+      console.error('❌ Error deleting pilot standings:', standingError);
+      return { success: false, error: standingError };
+    }
+
+    console.log('🗑️ Deleting pilot roles...');
+    const { error: rolesError } = await supabase
+      .from('pilot_roles')
+      .delete()
+      .eq('pilot_id', id);
+    
+    if (rolesError) {
+      console.error('❌ Error deleting pilot roles:', rolesError);
+      return { success: false, error: rolesError };
+    }
+
+    console.log('🗑️ Deleting pilot assignments...');
+    const { error: assignmentsError } = await supabase
+      .from('pilot_assignments')
+      .delete()
+      .eq('pilot_id', id);
+    
+    if (assignmentsError) {
+      console.error('❌ Error deleting pilot assignments:', assignmentsError);
+      return { success: false, error: assignmentsError };
+    }
+
+    console.log('🗑️ Deleting pilot qualifications...');
+    const { error: qualificationsError } = await supabase
+      .from('pilot_qualifications')
+      .delete()
+      .eq('pilot_id', id);
+    
+    if (qualificationsError) {
+      console.error('❌ Error deleting pilot qualifications:', qualificationsError);
+      return { success: false, error: qualificationsError };
+    }
+
+    // Finally delete the pilot record itself
+    console.log('🗑️ Deleting pilot record...');
+    const { error: pilotError } = await supabase
+      .from('pilots')
+      .delete()
+      .eq('id', id);
+
+    if (pilotError) {
+      console.error('❌ Error deleting pilot record:', pilotError);
+      return { success: false, error: pilotError };
+    }
+
+    console.log('✅ Pilot deletion completed successfully');
+    return { success: true, error: null };
+  } catch (error) {
+    console.error('❌ Unexpected error during pilot deletion:', error);
+    return { success: false, error };
+  }
 }
 
 /**

@@ -64,13 +64,28 @@ const RosterManagement: React.FC = () => {
     onCancel?: () => void;
   }>({ show: false, pilotData: null });
   const [isAddingNewPilot, setIsAddingNewPilot] = useState(false);
-  const [newPilot, setNewPilot] = useState<Partial<Pilot>>({
+  // Interface for new pilot creation form data
+  interface NewPilotFormData {
+    id: string;
+    callsign: string;
+    boardNumber: string;
+    discordUsername: string;
+    status_id: string;
+    standing_id: string;
+    squadron_id: string;
+    role_id: string;
+    qualifications: any[];
+  }
+
+  const [newPilot, setNewPilot] = useState<NewPilotFormData>({
     id: '',
     callsign: '',
     boardNumber: '',
     discordUsername: '',
     status_id: '',
     standing_id: '',
+    squadron_id: '',
+    role_id: '',
     qualifications: []
   });
   const [isSavingNewPilot, setIsSavingNewPilot] = useState(false);
@@ -289,21 +304,35 @@ const RosterManagement: React.FC = () => {
 
   // Function to handle adding a new pilot
   const handleAddPilot = () => {
-    // Create a temporary blank pilot
+    // Create a temporary blank pilot for the form
     const tempId = uuidv4();
+    const blankFormData: NewPilotFormData = {
+      id: tempId,
+      callsign: '',
+      boardNumber: '',
+      discordUsername: '',
+      status_id: statuses.find(s => s.name === 'Provisional')?.id || '',
+      standing_id: standings.find(s => s.name === 'Good')?.id || '',
+      squadron_id: '',
+      role_id: '',
+      qualifications: []
+    };
+    
+    // Create a temporary blank pilot for preview display
     const blankPilot: Pilot = {
       id: tempId,
       callsign: '',
       boardNumber: '',
-      billet: '', // Add missing billet property
+      billet: '',
       status: 'Provisional',
-      status_id: statuses.find(s => s.name === 'Provisional')?.id || '',
+      status_id: blankFormData.status_id,
+      standing_id: blankFormData.standing_id,
       qualifications: [],
       discordUsername: ''
     };
     
     setIsAddingNewPilot(true);
-    setNewPilot(blankPilot);
+    setNewPilot(blankFormData);
     setSelectedPilot(blankPilot);
   };
 
@@ -314,8 +343,46 @@ const RosterManagement: React.FC = () => {
       [field]: value
     }));
     
-    // Also update the selected pilot for real-time preview
-    setSelectedPilot(prev => prev ? { ...prev, [field]: value } : null);
+    // Also update the selected pilot for real-time preview with proper field mapping
+    setSelectedPilot(prev => {
+      if (!prev) return null;
+      
+      // Handle field mapping for preview display
+      const updates: Partial<Pilot> = {};
+      
+      if (field === 'squadron_id' && value) {
+        const squadron = squadrons.find(s => s.id === value);
+        updates.currentSquadron = squadron;
+      } else if (field === 'role_id' && value) {
+        const role = roles.find(r => r.id === value);
+        if (role) {
+          updates.roles = [{
+            id: '',
+            pilot_id: prev.id,
+            role_id: role.id,
+            effective_date: new Date().toISOString(),
+            is_acting: false,
+            end_date: null,
+            created_at: new Date().toISOString(),
+            updated_at: null,
+            role: role
+          }];
+        }
+      } else if (field === 'status_id' && value) {
+        const status = statuses.find(s => s.id === value);
+        updates.currentStatus = status;
+        updates.status_id = value;
+      } else if (field === 'standing_id' && value) {
+        const standing = standings.find(s => s.id === value);
+        updates.currentStanding = standing;
+        updates.standing_id = value;
+      } else {
+        // For simple fields, just update directly
+        updates[field as keyof Pilot] = value as any;
+      }
+      
+      return { ...prev, ...updates };
+    });
   };
 
   // Save new pilot
@@ -348,6 +415,38 @@ const RosterManagement: React.FC = () => {
         throw new Error(error.message || 'Failed to create pilot');
       }
       
+      if (!data) {
+        throw new Error('No pilot data returned from creation');
+      }
+      
+      console.log('✅ Pilot created successfully, now assigning squadron and role if selected');
+      
+      // Step 2: Assign squadron if selected
+      if (newPilot.squadron_id) {
+        console.log('🏛️ Assigning pilot to squadron:', newPilot.squadron_id);
+        const squadronResult = await assignPilotToSquadron(data.id, newPilot.squadron_id);
+        if (!squadronResult.success) {
+          console.error('❌ Failed to assign squadron:', squadronResult.error);
+          // Don't throw error - pilot was created successfully, just log the squadron assignment failure
+          setSaveError('Pilot created but squadron assignment failed. Please assign manually.');
+        } else {
+          console.log('✅ Squadron assigned successfully');
+        }
+      }
+      
+      // Step 3: Assign role if selected
+      if (newPilot.role_id) {
+        console.log('👮 Assigning pilot role:', newPilot.role_id);
+        const roleResult = await updatePilotRole(data.id, newPilot.role_id);
+        if (!roleResult.success) {
+          console.error('❌ Failed to assign role:', roleResult.error);
+          // Don't throw error - pilot was created successfully, just log the role assignment failure
+          setSaveError(prev => prev ? prev + ' Role assignment also failed.' : 'Pilot created but role assignment failed. Please assign manually.');
+        } else {
+          console.log('✅ Role assigned successfully');
+        }
+      }
+      
       // Refresh pilots to get the new one with correct status and standing data
       if (data) {
         await refreshPilots();
@@ -368,6 +467,9 @@ const RosterManagement: React.FC = () => {
           boardNumber: '',
           discordUsername: '',
           status_id: '',
+          standing_id: '',
+          squadron_id: '',
+          role_id: '',
           qualifications: []
         });
         
@@ -399,6 +501,9 @@ const RosterManagement: React.FC = () => {
           boardNumber: '',
           discordUsername: '',
           status_id: '',
+          standing_id: '',
+          squadron_id: '',
+          role_id: '',
           qualifications: []
         });
         setSelectedPilot(null);
@@ -420,6 +525,9 @@ const RosterManagement: React.FC = () => {
       boardNumber: '',
       discordUsername: '',
       status_id: '',
+      standing_id: '',
+      squadron_id: '',
+      role_id: '',
       qualifications: []
     });
     setSelectedPilot(null);
