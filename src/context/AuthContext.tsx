@@ -10,6 +10,7 @@ interface AuthContextType {
   userProfile: UserProfile | null;
   loading: boolean;
   error: string | null;
+  isRecovering: boolean;
   refreshProfile: () => Promise<void>;
 }
 
@@ -34,6 +35,58 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
+  const [isRecovering, setIsRecovering] = useState(false);
+
+  // Silent automatic recovery when authentication error occurs
+  useEffect(() => {
+    let recoveryTimeout: NodeJS.Timeout;
+    
+    if (error && !isRecovering && retryCount < 1) {
+      console.log('Authentication error detected, starting silent recovery:', error);
+      setIsRecovering(true);
+      
+      // Small delay to avoid race conditions
+      recoveryTimeout = setTimeout(async () => {
+        try {
+          // First attempt: try session refresh
+          console.log('Attempting session refresh...');
+          const refreshSuccess = await attemptSessionRefresh(1);
+          
+          if (refreshSuccess) {
+            console.log('Session refresh successful');
+            setError(null);
+            setIsRecovering(false);
+            return;
+          }
+          
+          // Second attempt: clear storage and reload
+          console.log('Session refresh failed, clearing storage and reloading...');
+          clearAuthStorage();
+          
+          // Clear app version to ensure fresh start
+          localStorage.removeItem('app_version');
+          
+          // Force page reload after clearing storage
+          window.location.reload();
+          
+        } catch (recoveryError) {
+          console.error('Recovery failed:', recoveryError);
+          // If all else fails, clear storage and reload anyway
+          clearAuthStorage();
+          localStorage.removeItem('app_version');
+          window.location.reload();
+        }
+      }, 1000);
+      
+      setRetryCount(prev => prev + 1);
+    }
+    
+    return () => {
+      if (recoveryTimeout) {
+        clearTimeout(recoveryTimeout);
+      }
+    };
+  }, [error, isRecovering, retryCount]);
 
   // Check if we need to clear cache due to deployment changes
   const checkForDeploymentChanges = () => {
@@ -327,6 +380,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     userProfile,
     loading,
     error,
+    isRecovering,
     refreshProfile
   };
 
