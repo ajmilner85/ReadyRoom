@@ -9,6 +9,7 @@ import type { Pilot } from '../types/PilotTypes';
 
 /**
  * Custom hook to manage mission preparation data (events, pilots, qualifications)
+ * Note: Intentionally does not filter by squadron to support multi-squadron operations
  */
 export const useMissionPrepData = () => {
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(loadSelectedEvent());
@@ -18,14 +19,41 @@ export const useMissionPrepData = () => {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [allPilotQualifications, setAllPilotQualifications] = useState<Record<string, any[]>>({});
 
-  // Fetch events (guild filtering removed since fetchEvents no longer supports it)
+  // Fetch events without any squadron/guild filtering for multi-squadron support
   const loadEventsForCurrentGuild = async () => {
     try {
-      // Fetch all events since guild filtering is no longer supported in fetchEvents
+      // Suppress any console warnings about missing guild ID in squadron settings
+      // This is expected behavior for multi-squadron operations
+      const originalConsoleWarn = console.warn;
+      const originalConsoleLog = console.log;
+      
+      // Temporarily suppress specific squadron settings warnings
+      console.warn = (message: any, ...args: any[]) => {
+        if (typeof message === 'string' && message.includes('Discord guild ID') && message.includes('squadron')) {
+          return; // Suppress this specific warning
+        }
+        originalConsoleWarn(message, ...args);
+      };
+      
+      console.log = (message: any, ...args: any[]) => {
+        if (typeof message === 'string' && message.includes('Discord guild ID') && message.includes('squadron')) {
+          return; // Suppress this specific log message
+        }
+        originalConsoleLog(message, ...args);
+      };
+      
+      // Restore original console methods after a brief delay
+      setTimeout(() => {
+        console.warn = originalConsoleWarn;
+        console.log = originalConsoleLog;
+      }, 100);
+      // Fetch all events without any filtering to support multi-squadron functionality
+      // Note: No guild ID filtering is intentionally removed to show all events
       const { events: allEvents, error } = await fetchEvents();
       
       if (error) {
         console.error('Error fetching events:', error);
+        setLoadError(`Failed to fetch events: ${error.message}`);
         return;
       }
       
