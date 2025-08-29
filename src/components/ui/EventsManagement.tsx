@@ -86,16 +86,18 @@ const EventsManagement: React.FC = () => {
         .from('squadron_settings')
         .select('value')
         .eq('key', 'discord_guild_id')
-        .single();
+        .limit(1);
       
       if (error) {
         console.warn('Error fetching Discord guild ID:', error.message);
         return;
       }
       
-      if (data?.value) {
-        setDiscordGuildId(data.value);
-        console.log('Using Discord guild ID for filtering:', data.value);
+      // Handle array result from .limit(1)
+      const guildIdValue = data && data.length > 0 ? data[0].value : null;
+      if (guildIdValue) {
+        setDiscordGuildId(guildIdValue);
+        console.log('Using Discord guild ID for filtering:', guildIdValue);
       }
     } catch (err: any) {
       console.warn('Failed to get Discord guild ID:', err.message);
@@ -161,8 +163,8 @@ const EventsManagement: React.FC = () => {
         .from('squadron_settings')
         .select('value')
         .eq('key', 'discord_guild_id')
-        .single();
-      const guildId = settingsData?.value || null;
+        .limit(1);
+      const guildId = (settingsData && settingsData.length > 0) ? settingsData[0].value : null;
       setDiscordGuildId(guildId);
       
       // Fetch cycles without guild ID filtering (supports multi-squadron operations)
