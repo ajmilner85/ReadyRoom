@@ -102,10 +102,6 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
   availableQualifications,
   pilotQualifications,
   loadingRoles,
-  updatingRoles,
-  updatingStatus,
-  updatingStanding,
-  updatingSquadron,
   loadingQualifications,
   disabledRoles,
   selectedQualification,
@@ -114,10 +110,6 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
   updatingQualifications,
   setSelectedQualification,
   setQualificationAchievedDate,
-  handleStatusChange,
-  handleStandingChange,
-  handleRoleChange,
-  handleSquadronChange,
   handleAddQualification,
   handleRemoveQualification,
   handleDeletePilot,
@@ -608,6 +600,43 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
     height: '35px',
   };
 
+  // Create local handlers for new pilots that only update state, don't save to DB
+  const handleNewPilotStatusChange = (statusId: string) => {
+    if (onPilotFieldChange) {
+      const status = statuses.find(s => s.id === statusId);
+      onPilotFieldChange('status_id', statusId);
+      // Store the status object as a string representation for consistency with onPilotFieldChange
+      onPilotFieldChange('currentStatus', status ? JSON.stringify(status) : '');
+    }
+  };
+
+  const handleNewPilotStandingChange = (standingId: string) => {
+    if (onPilotFieldChange) {
+      const standing = standings.find(s => s.id === standingId);
+      onPilotFieldChange('standing_id', standingId);
+      // Store the standing object as a string representation for consistency with onPilotFieldChange
+      onPilotFieldChange('currentStanding', standing ? JSON.stringify(standing) : '');
+    }
+  };
+
+  const handleNewPilotSquadronChange = (squadronId: string) => {
+    if (onPilotFieldChange) {
+      const squadron = squadrons.find(s => s.id === squadronId);
+      onPilotFieldChange('squadron_id', squadronId);
+      // Store the squadron object as a string representation for consistency with onPilotFieldChange
+      onPilotFieldChange('currentSquadron', squadron ? JSON.stringify(squadron) : '');
+    }
+  };
+
+  const handleNewPilotRoleChange = (roleId: string) => {
+    if (onPilotFieldChange) {
+      const role = roles.find(r => r.id === roleId);
+      onPilotFieldChange('role_id', roleId);
+      // Store the role object as a string representation for consistency with onPilotFieldChange
+      onPilotFieldChange('currentRole', role ? JSON.stringify(role) : '');
+    }
+  };
+
   const renderEditableBasicInfo = () => {
     return (
       <>
@@ -642,18 +671,18 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
             <div style={{ ...sectionSpacingStyle }}>
               <StatusSelector
                 statuses={statuses}
-                selectedStatusId={selectedPilot.currentStatus?.id || ''}
-                updatingStatus={updatingStatus}
-                handleStatusChange={handleStatusChange}
+                selectedStatusId={selectedPilot.currentStatus?.id || selectedPilot.status_id || ''}
+                updatingStatus={false}
+                handleStatusChange={handleNewPilotStatusChange}
               />
             </div>
 
             <div style={{ ...sectionSpacingStyle, marginTop: '12px' }}>
               <StandingSelector
                 standings={standings}
-                selectedStandingId={selectedPilot.currentStanding?.id || ''}
-                updatingStanding={updatingStanding}
-                handleStandingChange={handleStandingChange}
+                selectedStandingId={selectedPilot.currentStanding?.id || selectedPilot.standing_id || ''}
+                updatingStanding={false}
+                handleStandingChange={handleNewPilotStandingChange}
               />
             </div>
           </div>
@@ -662,9 +691,9 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
             <div style={{ ...sectionSpacingStyle }}>
               <SquadronSelector
                 squadrons={squadrons}
-                selectedSquadronId={selectedPilot.currentSquadron?.id || ''}
-                updatingSquadron={updatingSquadron}
-                handleSquadronChange={handleSquadronChange}
+                selectedSquadronId={selectedPilot.currentSquadron?.id || (selectedPilot as any).squadron_id || ''}
+                updatingSquadron={false}
+                handleSquadronChange={handleNewPilotSquadronChange}
               />
             </div>
 
@@ -672,10 +701,10 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
               <RoleSelector
                 roles={roles}
                 pilotRoles={pilotRoles}
-                updatingRoles={updatingRoles}
-                loadingRoles={loadingRoles}
-                disabledRoles={disabledRoles}
-                handleRoleChange={handleRoleChange}
+                updatingRoles={false}
+                loadingRoles={false}
+                disabledRoles={{}}
+                handleRoleChange={handleNewPilotRoleChange}
               />
             </div>
           </div>
