@@ -41,10 +41,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
   useEffect(() => {
     let recoveryTimeout: NodeJS.Timeout;
     
-    if (error && !isRecovering && retryCount < 1) {
+    if (error && !isRecovering && retryCount < 2) { // Increased retry limit
       console.log('Authentication error detected, starting silent recovery:', error);
       setIsRecovering(true);
       setRetryCount(prev => prev + 1);
+      
+      // Check for persistent failures before attempting recovery
+      const persistentFailures = localStorage.getItem('session_failures') || '0';
+      const failureCount = parseInt(persistentFailures);
       
       // Very short delay, then immediately clear cache and reload
       recoveryTimeout = setTimeout(() => {
@@ -54,13 +58,32 @@ export function AuthProvider({ children }: AuthProviderProps) {
           // Clear all authentication storage
           clearAuthStorage();
           localStorage.removeItem('app_version');
+          
+          if (failureCount >= 2) {
+            console.log('Persistent session failures detected - forcing clean start');
+            // Clear all localStorage except essential user preferences
+            try {
+              const keysToKeep = ['theme', 'user_preferences']; // Keep non-auth data
+              const storage: { [key: string]: string } = {};
+              keysToKeep.forEach(key => {
+                const value = localStorage.getItem(key);
+                if (value) storage[key] = value;
+              });
+              localStorage.clear();
+              Object.entries(storage).forEach(([key, value]) => {
+                localStorage.setItem(key, value);
+              });
+            } catch (e) {
+              console.error('Error cleaning localStorage:', e);
+            }
+          }
         } catch (storageError) {
           console.error('Error clearing storage:', storageError);
         }
         
         // Force immediate page reload - no complex recovery attempts
         window.location.reload();
-      }, 500); // Very short delay
+      }, 1000); // Slightly longer delay to avoid rapid reloads
     }
     
     return () => {
@@ -178,20 +201,40 @@ export function AuthProvider({ children }: AuthProviderProps) {
           clearAuthStorage();
         }
 
-        // Try getSession with shorter timeout and simpler error handling
+        // Try getSession with longer timeout and better error handling
         const sessionResult = await Promise.race([
           supabase.auth.getSession(),
-          new Promise((_, reject) => setTimeout(() => reject(new Error('getSession timeout')), 5000))
+          new Promise((_, reject) => setTimeout(() => reject(new Error('getSession timeout')), 10000))
         ]).catch((err) => {
           console.error('Initial session check failed:', err.message);
           
-          // For any error (timeout, parse, etc.), just return no session
-          // Let the error handling above take care of clearing cache and reloading
+          // Check if we've been having persistent session issues
+          const persistentFailures = localStorage.getItem('session_failures') || '0';
+          const failureCount = parseInt(persistentFailures) + 1;
+          
+          console.log(`Session failure count: ${failureCount}`);
+          localStorage.setItem('session_failures', failureCount.toString());
+          
+          // If we've had multiple consecutive session failures, skip session check entirely
+          if (failureCount >= 3) {
+            console.log('Multiple session failures detected - bypassing session check');
+            localStorage.removeItem('session_failures');
+            // Clear all auth storage and start fresh
+            clearAuthStorage();
+            return { data: { session: null }, error: null }; // No error to avoid triggering recovery
+          }
+          
+          // For fewer failures, return error to trigger recovery
           return { data: { session: null }, error: err };
         }) as any;
         
         const sessionData = sessionResult.data || { session: null };
         const sessionError = sessionResult.error;
+        
+        // Clear failure count on successful session retrieval
+        if (!sessionError) {
+          localStorage.removeItem('session_failures');
+        }
         
         let initialUser = sessionData.session?.user || null;
         let userError = sessionError;
