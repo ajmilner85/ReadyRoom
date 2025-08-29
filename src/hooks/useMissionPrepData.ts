@@ -1,7 +1,7 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { supabase, fetchEvents } from '../utils/supabaseClient';
 import { getAllPilots } from '../utils/pilotService';
-import { getPilotQualifications } from '../utils/qualificationService';
+import { getBatchPilotQualifications } from '../utils/qualificationService';
 import { adaptSupabasePilots } from '../utils/pilotDataUtils';
 import { loadSelectedEvent, saveSelectedEvent } from '../utils/localStorageUtils';
 import type { Event } from '../types/EventTypes';
@@ -69,58 +69,35 @@ export const useMissionPrepData = () => {
     }
   };
 
-  // Function to fetch qualifications for all pilots
+  // Function to fetch qualifications for all pilots using batch operation
   const fetchAllPilotQualifications = async (pilotsList: Pilot[]) => {
     if (!pilotsList || pilotsList.length === 0) return;
     
     try {
-      const qualMap: Record<string, any[]> = {};
-      console.log(`Fetching qualifications for ${pilotsList.length} pilots...`);
+      // Extract pilot IDs for batch operation
+      const pilotIds = pilotsList
+        .filter(pilot => pilot.id) // Only include pilots with valid IDs
+        .map(pilot => pilot.id);
       
-      // Create an array to track all qualification fetch promises
-      const fetchPromises: Promise<void>[] = [];
-      
-      // Fetch qualifications for each pilot
-      for (const pilot of pilotsList) {
-        // Use the id property (Supabase UUID) for qualification lookups
-        // This is the key to making Supabase the source of truth
-        const pilotId = pilot.id;
-        
-        if (!pilotId) {
-          console.warn(`Skipping qualification fetch for pilot with no ID: ${pilot.callsign} (${pilot.boardNumber})`);
-          continue;
-        }
-        
-        // Create a promise for fetching this pilot's qualifications
-        const fetchPromise = async () => {
-          const { data, error } = await getPilotQualifications(pilotId);
-            if (error) {
-            console.warn(`Error fetching qualifications for ${pilot.callsign} with ID ${pilotId}:`, error);
-          } else if (data) {
-            // Store in qualMap using pilot ID and board number for easier lookup
-            qualMap[pilot.boardNumber] = data;
-            qualMap[pilot.id] = data;
-            
-            // Only log if we actually found qualifications
-            if (data.length > 0) {
-              console.log(`Found ${data.length} qualifications for ${pilot.callsign} (${pilot.boardNumber})`);
-            }
-          } else {
-            // Initialize empty arrays to avoid undefined checks later
-            qualMap[pilot.boardNumber] = [];
-            qualMap[pilot.id] = [];
-          }
-        };
-        
-        // Add this promise to our array
-        fetchPromises.push(fetchPromise());
+      if (pilotIds.length === 0) {
+        console.warn('No valid pilot IDs found for qualification fetch');
+        return;
       }
       
-      // Wait for all qualification fetches to complete
-      await Promise.all(fetchPromises);
+      // Use batch fetch for better performance
+      const batchQualMap = await getBatchPilotQualifications(pilotIds);
+      
+      // Transform the batch result to include both ID and board number mappings
+      const qualMap: Record<string, any[]> = {};
+      
+      pilotsList.forEach(pilot => {
+        const pilotQualifications = batchQualMap[pilot.id] || [];
+        // Store in qualMap using both pilot ID and board number for easier lookup
+        qualMap[pilot.boardNumber] = pilotQualifications;
+        qualMap[pilot.id] = pilotQualifications;
+      });
       
       setAllPilotQualifications(qualMap);
-      console.log('Pilot qualifications map updated', Object.keys(qualMap).length);
     } catch (err: any) {
       console.error('Error fetching all pilot qualifications:', err);
     }
@@ -170,10 +147,10 @@ export const useMissionPrepData = () => {
     );
   }, [pilots]);
 
-  const setSelectedEventWrapper = (event: Event | null) => {
+  const setSelectedEventWrapper = useCallback((event: Event | null) => {
     setSelectedEvent(event);
     saveSelectedEvent(event);
-  };
+  }, []);
 
   // Fetch events on component mount
   useEffect(() => {
@@ -185,7 +162,8 @@ export const useMissionPrepData = () => {
     fetchPilots();
   }, []);
 
-  return {
+  // Memoize the return object to prevent unnecessary re-renders
+  return useMemo(() => ({
     events,
     selectedEvent,
     setSelectedEvent: setSelectedEventWrapper,
@@ -194,5 +172,5 @@ export const useMissionPrepData = () => {
     isLoading,
     loadError,
     allPilotQualifications
-  };
+  }), [events, selectedEvent, pilots, activePilots, isLoading, loadError, allPilotQualifications]);
 };
