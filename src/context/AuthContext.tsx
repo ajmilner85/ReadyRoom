@@ -37,11 +37,28 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [retryCount, setRetryCount] = useState(0);
   const [isRecovering, setIsRecovering] = useState(false);
 
+  // Check for deployment-related recovery loops and prevent them
+  useEffect(() => {
+    const reloadCount = sessionStorage.getItem('auth_reload_count') || '0';
+    const reloadCountNum = parseInt(reloadCount);
+    
+    // If we've had multiple reloads in this session, stop the cycle
+    if (reloadCountNum >= 2) {
+      console.log('Multiple authentication reloads detected - stopping recovery cycle');
+      sessionStorage.removeItem('auth_reload_count');
+      // Clear auth storage and let user manually sign in
+      clearAuthStorage();
+      setError(null);
+      setLoading(false);
+      return;
+    }
+  }, []);
+
   // Silent automatic recovery when authentication error occurs
   useEffect(() => {
     let recoveryTimeout: NodeJS.Timeout;
     
-    if (error && !isRecovering && retryCount < 2) { // Increased retry limit
+    if (error && !isRecovering && retryCount < 1) { // Reduced to single retry
       console.log('Authentication error detected, starting silent recovery:', error);
       setIsRecovering(true);
       setRetryCount(prev => prev + 1);
@@ -50,20 +67,35 @@ export function AuthProvider({ children }: AuthProviderProps) {
       const persistentFailures = localStorage.getItem('session_failures') || '0';
       const failureCount = parseInt(persistentFailures);
       
-      // Very short delay, then immediately clear cache and reload
+      // Track reload attempts in this session to prevent infinite loops
+      const reloadCount = sessionStorage.getItem('auth_reload_count') || '0';
+      const reloadCountNum = parseInt(reloadCount);
+      
+      if (reloadCountNum >= 2) {
+        console.log('Too many reload attempts in this session - giving up recovery');
+        setIsRecovering(false);
+        clearAuthStorage();
+        setError(null);
+        setLoading(false);
+        return;
+      }
+      
       recoveryTimeout = setTimeout(() => {
-        console.log('Authentication error - clearing cache and reloading immediately');
+        console.log('Authentication error - clearing cache and attempting recovery');
         
         try {
           // Clear all authentication storage
           clearAuthStorage();
           localStorage.removeItem('app_version');
           
-          if (failureCount >= 2) {
+          // Increment reload counter
+          sessionStorage.setItem('auth_reload_count', (reloadCountNum + 1).toString());
+          
+          if (failureCount >= 1) { // Reduced threshold
             console.log('Persistent session failures detected - forcing clean start');
             // Clear all localStorage except essential user preferences
             try {
-              const keysToKeep = ['theme', 'user_preferences']; // Keep non-auth data
+              const keysToKeep = ['theme', 'user_preferences'];
               const storage: { [key: string]: string } = {};
               keysToKeep.forEach(key => {
                 const value = localStorage.getItem(key);
@@ -81,9 +113,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
           console.error('Error clearing storage:', storageError);
         }
         
-        // Force immediate page reload - no complex recovery attempts
+        // Force immediate page reload - but only if we haven't exceeded reload limit
         window.location.reload();
-      }, 1000); // Slightly longer delay to avoid rapid reloads
+      }, 1500); // Longer delay to prevent rapid reloads
     }
     
     return () => {
@@ -186,14 +218,43 @@ export function AuthProvider({ children }: AuthProviderProps) {
     // Fallback timeout to prevent infinite loading
     const timeout = setTimeout(() => {
       if (isMounted && loading) {
+        console.log('Authentication timeout reached - forcing clean state');
         setLoading(false);
-        setError('Authentication timeout - please try refreshing');
+        setError(null); // Don't set error to avoid triggering recovery
+        setUser(null);
+        setSession(null);
+        setUserProfile(null);
       }
-    }, 5000); // 5 second timeout
+    }, 8000); // Longer timeout
     
     // Get initial session
     const initializeAuth = async () => {
       try {
+        // Check if we're in a reload loop after deployment
+        const reloadCount = sessionStorage.getItem('auth_reload_count') || '0';
+        const reloadCountNum = parseInt(reloadCount);
+        const persistentFailures = localStorage.getItem('session_failures') || '0';
+        const failureCount = parseInt(persistentFailures);
+        
+        // If we've had failures or reloads, be more aggressive about bypassing session check
+        if (reloadCountNum >= 1 || failureCount >= 2) {
+          console.log('Post-deployment recovery detected - bypassing session check completely');
+          clearAuthStorage();
+          localStorage.removeItem('session_failures');
+          sessionStorage.removeItem('auth_reload_count');
+          
+          // Skip session check entirely and start fresh
+          if (isMounted) {
+            setUser(null);
+            setSession(null);
+            setUserProfile(null);
+            setError(null);
+            setLoading(false);
+          }
+          clearTimeout(timeout);
+          return;
+        }
+
         // Check for deployment-related issues first
         const needsCacheClearing = checkForDeploymentChanges();
         if (needsCacheClearing) {
@@ -201,30 +262,25 @@ export function AuthProvider({ children }: AuthProviderProps) {
           clearAuthStorage();
         }
 
-        // Try getSession with longer timeout and better error handling
+        // Try getSession with shorter timeout and better error handling
         const sessionResult = await Promise.race([
           supabase.auth.getSession(),
-          new Promise((_, reject) => setTimeout(() => reject(new Error('getSession timeout')), 10000))
+          new Promise((_, reject) => setTimeout(() => reject(new Error('getSession timeout')), 5000)) // Reduced timeout
         ]).catch((err) => {
           console.error('Initial session check failed:', err.message);
           
-          // Check if we've been having persistent session issues
-          const persistentFailures = localStorage.getItem('session_failures') || '0';
-          const failureCount = parseInt(persistentFailures) + 1;
+          // Immediately increment failure count
+          const currentFailures = parseInt(localStorage.getItem('session_failures') || '0') + 1;
+          console.log(`Session failure count: ${currentFailures}`);
+          localStorage.setItem('session_failures', currentFailures.toString());
           
-          console.log(`Session failure count: ${failureCount}`);
-          localStorage.setItem('session_failures', failureCount.toString());
-          
-          // If we've had multiple consecutive session failures, skip session check entirely
-          if (failureCount >= 3) {
-            console.log('Multiple session failures detected - bypassing session check');
-            localStorage.removeItem('session_failures');
-            // Clear all auth storage and start fresh
+          // If this is the first or second failure, bypass session entirely
+          if (currentFailures >= 1) {
+            console.log('Session timeout detected - bypassing session check');
             clearAuthStorage();
             return { data: { session: null }, error: null }; // No error to avoid triggering recovery
           }
           
-          // For fewer failures, return error to trigger recovery
           return { data: { session: null }, error: err };
         }) as any;
         
@@ -304,7 +360,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
       setUser(session?.user ?? null);
 
       if (event === 'SIGNED_IN' && session?.user) {
+        // Clear recovery flags on successful sign in
+        localStorage.removeItem('session_failures');
+        sessionStorage.removeItem('auth_reload_count');
+        console.log('Successful sign in - cleared recovery flags');
+        
         setLoading(true);
+        setError(null); // Clear any existing errors
+        setIsRecovering(false); // Stop any recovery process
+        
         // Profile will be created/updated by the onAuthStateChange handler in supabaseClient
         // Wait a moment for that to complete, then refresh
         setTimeout(async () => {
@@ -315,6 +379,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         setUserProfile(null);
         setError(null);
         setLoading(false);
+        setIsRecovering(false);
       }
     });
 
