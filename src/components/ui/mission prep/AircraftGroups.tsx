@@ -91,16 +91,33 @@ const AircraftGroups: React.FC<AircraftGroupsProps> = ({
 
   // Get aircraft groups from mission data
   const getAircraftGroups = (): AircraftGroup[] => {
-    if (!missionData?.coalition?.blue?.country) return [];
+    console.log('AircraftGroups: Processing mission data for aircraft type:', aircraftType);
+    
+    if (!missionData?.coalition?.blue?.country) {
+      console.log('AircraftGroups: No blue coalition country data found');
+      return [];
+    }
 
     const groups: AircraftGroup[] = [];
     
     // Iterate through all countries in blue coalition
-    Object.values(missionData.coalition.blue.country).forEach((country: any) => {
+    // Handle both array and object formats
+    const countries = Array.isArray(missionData.coalition.blue.country) 
+      ? missionData.coalition.blue.country 
+      : Object.values(missionData.coalition.blue.country);
+    
+    countries.forEach((country: any, countryIndex: number) => {
+      console.log(`AircraftGroups: Processing country ${countryIndex}:`, country.name || 'Unknown');
+      
       // Process both plane and helicopter groups
       const categories = ['plane', 'helicopter'] as const;
       categories.forEach((category) => {
-        if (!country[category]?.group) return;
+        if (!country[category]?.group) {
+          console.log(`AircraftGroups: No ${category} groups found in country`);
+          return;
+        }
+        
+        console.log(`AircraftGroups: Found ${category} groups in country`);
         
         const countryGroups = (Array.isArray(country[category].group) 
           ? country[category].group
@@ -108,19 +125,28 @@ const AircraftGroups: React.FC<AircraftGroupsProps> = ({
         ).filter((group: MissionGroup) => {
           if (!group.units) return false;
           const units = Array.isArray(group.units) ? group.units : [group.units];
-          return aircraftType 
-            ? units.some((unit: Unit) => unit.type === aircraftType)
-            : true;
+          
+          if (aircraftType) {
+            const hasMatchingType = units.some((unit: Unit) => {
+              console.log(`AircraftGroups: Checking unit type '${unit.type}' against '${aircraftType}'`);
+              return unit.type === aircraftType;
+            });
+            console.log(`AircraftGroups: Group '${group.name}' has matching aircraft type:`, hasMatchingType);
+            return hasMatchingType;
+          }
+          return true;
         }).map((group: MissionGroup): AircraftGroup => ({
           ...group,
           name: group.name.replace('-', ' '),
           units: Array.isArray(group.units) ? group.units : [group.units]
         }));
         
+        console.log(`AircraftGroups: Adding ${countryGroups.length} ${category} groups`);
         groups.push(...countryGroups);
       });
     });
 
+    console.log(`AircraftGroups: Total groups found: ${groups.length}`);
     return groups;
   };
 
@@ -128,7 +154,8 @@ const AircraftGroups: React.FC<AircraftGroupsProps> = ({
 
   // Call onExtractedFlights when groups are available
   useEffect(() => {
-    if (onExtractedFlights && aircraftType === 'FA-18C_hornet') {
+    if (onExtractedFlights && aircraftType === 'FA-18C_hornet' && filteredGroups.length > 0) {
+      console.log('AircraftGroups: Calling onExtractedFlights with', filteredGroups.length, 'groups');
       onExtractedFlights(filteredGroups);
     }
   }, [filteredGroups, onExtractedFlights, aircraftType]);

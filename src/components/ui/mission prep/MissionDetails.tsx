@@ -359,6 +359,9 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
         // Parse the JSON into a JavaScript object
         const missionData = JSON.parse(jsonResult);
         
+        console.log('MissionDetails: Successfully parsed mission data');
+        console.log('MissionDetails: Coalition structure:', missionData.coalition?.blue?.country ? 'Present' : 'Missing');
+        
         // Store the parsed mission data
         setParsedMission(missionData);
         
