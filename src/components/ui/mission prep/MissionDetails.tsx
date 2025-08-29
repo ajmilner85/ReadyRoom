@@ -56,9 +56,17 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
   onExtractedFlights
 }) => {
   // Sort events by date (newest first)
-  const sortedEvents = [...events].sort((a, b) => 
-    new Date(b.datetime).getTime() - new Date(a.datetime).getTime()
-  );
+  const sortedEvents = [...events].sort((a, b) => {
+    const dateA = new Date(a.datetime).getTime();
+    const dateB = new Date(b.datetime).getTime();
+    
+    // Handle invalid dates by putting them at the end
+    if (isNaN(dateA) && isNaN(dateB)) return 0;
+    if (isNaN(dateA)) return 1;
+    if (isNaN(dateB)) return -1;
+    
+    return dateB - dateA;
+  });
 
   const [missionDetails, setMissionDetails] = useState<MissionDetailsData>(() => {
     // Load mission details from localStorage or use defaults
@@ -585,11 +593,26 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
               }}
             >
               <option value="">Select an event</option>
-              {sortedEvents.map(event => (
-                <option key={event.id} value={event.id}>
-                  {new Date(event.datetime).toLocaleString()} - {event.title}
-                </option>
-              ))}
+              {sortedEvents.map(event => {
+                const eventDate = new Date(event.datetime);
+                const isValidDate = !isNaN(eventDate.getTime());
+                const formattedDate = isValidDate 
+                  ? eventDate.toLocaleString('en-US', { 
+                      year: 'numeric', 
+                      month: 'short', 
+                      day: 'numeric', 
+                      hour: '2-digit', 
+                      minute: '2-digit',
+                      timeZoneName: 'short'
+                    })
+                  : 'Invalid Date';
+                
+                return (
+                  <option key={event.id} value={event.id}>
+                    {formattedDate} - {event.title}
+                  </option>
+                );
+              })}
             </select>
           </div>
 
