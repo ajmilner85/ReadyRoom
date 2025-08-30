@@ -111,6 +111,17 @@ export const getCurrentUser = async () => {
   }
 };
 
+// Direct auth operations that bypass retry wrapper - for critical auth flows
+export const getCurrentUserDirect = async () => {
+  try {
+    const { data: { user }, error } = await supabase.auth.getUser();
+    return { user, error };
+  } catch (err: any) {
+    console.error('Error in getCurrentUserDirect:', err);
+    return { user: null, error: err };
+  }
+};
+
 export const onAuthStateChange = (callback: (event: string, session: any) => void) => {
   return supabase.auth.onAuthStateChange(async (event, session) => {
     // Handle user profile creation/update on sign in

@@ -21,8 +21,15 @@ const AuthCallback: React.FC = () => {
         
         if (code) {
           // For PKCE flow, pass the entire URL to exchangeCodeForSession
-          // Supabase will extract code and use stored code_verifier
-          const { data, error } = await supabase.auth.exchangeCodeForSession(window.location.href);
+          // Use raw supabase client to avoid retry wrapper timeouts during auth
+          console.log('🔑 Exchanging code for session...');
+          
+          const { data, error } = await Promise.race([
+            supabase.auth.exchangeCodeForSession(window.location.href),
+            new Promise<never>((_, reject) => 
+              setTimeout(() => reject(new Error('Auth exchange timeout')), 30000)
+            )
+          ]);
           
           if (error) {
             console.error('❌ Auth callback error:', error);
@@ -38,8 +45,14 @@ const AuthCallback: React.FC = () => {
           }
         }
         
-        // Fallback: check for existing session
-        const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+        // Fallback: check for existing session (with timeout)
+        console.log('🔍 Checking for existing session...');
+        const { data: sessionData, error: sessionError } = await Promise.race([
+          supabase.auth.getSession(),
+          new Promise<never>((_, reject) => 
+            setTimeout(() => reject(new Error('Session check timeout')), 15000)
+          )
+        ]);
         
         if (sessionError) {
           console.error('❌ Session check error:', sessionError);
