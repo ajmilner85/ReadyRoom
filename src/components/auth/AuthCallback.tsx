@@ -10,38 +10,51 @@ const AuthCallback: React.FC = () => {
   useEffect(() => {
     const handleAuthCallback = async () => {
       try {
-        // Check if we have auth code in URL
+        console.log('🔄 Processing auth callback...', window.location.href);
+        
+        // Check if we have auth parameters in URL  
         const urlParams = new URLSearchParams(window.location.search);
         const code = urlParams.get('code');
+        const state = urlParams.get('state');
+        
+        console.log('Auth params:', { code: !!code, state: !!state });
         
         if (code) {
-          // Exchange the code for a session
-          const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+          // For PKCE flow, pass the entire URL to exchangeCodeForSession
+          // Supabase will extract code and use stored code_verifier
+          const { data, error } = await supabase.auth.exchangeCodeForSession(window.location.href);
           
           if (error) {
+            console.error('❌ Auth callback error:', error);
             throw error;
           }
           
           if (data.session) {
+            console.log('✅ Authentication successful, redirecting...');
+            // Clear the URL parameters before redirecting
+            window.history.replaceState({}, document.title, '/');
             navigate('/', { replace: true });
             return;
           }
         }
         
-        // Fallback: try to get existing session
-        const { data, error } = await supabase.auth.getSession();
+        // Fallback: check for existing session
+        const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
         
-        if (error) {
-          throw error;
+        if (sessionError) {
+          console.error('❌ Session check error:', sessionError);
+          throw sessionError;
         }
 
-        if (data.session) {
+        if (sessionData.session) {
+          console.log('✅ Existing session found, redirecting...');
           navigate('/', { replace: true });
         } else {
-          navigate('/', { replace: true }); // Go to main page which will show login
+          console.warn('⚠️ No session found, redirecting to login');
+          navigate('/', { replace: true });
         }
       } catch (err: any) {
-        console.error('Auth callback error:', err);
+        console.error('💥 Auth callback error:', err);
         setError(err.message || 'Authentication failed');
         setTimeout(() => {
           navigate('/', { replace: true });
