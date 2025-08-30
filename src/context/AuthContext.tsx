@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import type { User, Session } from '@supabase/supabase-js';
-import { supabase, onAuthStateChange } from '../utils/supabaseClient';
+import { supabaseAuth, onAuthStateChange } from '../utils/supabaseClient';
 import { getUserProfile, type UserProfile } from '../utils/userProfileService';
 import { triggerRoleSync } from '../utils/discordRoleSync';
 
@@ -262,9 +262,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
           clearAuthStorage();
         }
 
-        // Try getSession with longer timeout to avoid auth conflicts during OAuth callback
+        // Try getSession with longer timeout using dedicated auth client
         const sessionResult = await Promise.race([
-          supabase.auth.getSession(),
+          supabaseAuth.auth.getSession(),
           new Promise((_, reject) => setTimeout(() => reject(new Error('getSession timeout')), 20000)) // Increased timeout for auth flow
         ]).catch((err) => {
           console.error('Initial session check failed:', err.message);

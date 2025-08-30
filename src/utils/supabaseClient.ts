@@ -32,6 +32,21 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
   }
 });
 
+// Separate client for auth operations that bypasses all retry/connection wrappers
+export const supabaseAuth = createClient<Database>(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: true,
+    flowType: 'pkce'
+  },
+  global: {
+    headers: {
+      'x-client-info': 'readyroom-auth',
+    },
+  }
+});
+
 // Add debug logging for client initialization
 // console.log('🚀 [SUPABASE] Client initialized with enhanced configuration', {
 //   url: supabaseUrl,
@@ -72,7 +87,7 @@ export const signIn = async (email: string, password: string) => {
 };
 
 export const signInWithDiscord = async () => {
-  const { data, error } = await supabase.auth.signInWithOAuth({
+  const { data, error } = await supabaseAuth.auth.signInWithOAuth({
     provider: 'discord',
     options: {
       scopes: 'identify guilds',
@@ -114,7 +129,7 @@ export const getCurrentUser = async () => {
 // Direct auth operations that bypass retry wrapper - for critical auth flows
 export const getCurrentUserDirect = async () => {
   try {
-    const { data: { user }, error } = await supabase.auth.getUser();
+    const { data: { user }, error } = await supabaseAuth.auth.getUser();
     return { user, error };
   } catch (err: any) {
     console.error('Error in getCurrentUserDirect:', err);
