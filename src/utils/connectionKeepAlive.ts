@@ -129,6 +129,25 @@ class ConnectionKeepAlive {
   isRunning() {
     return this.isActive;
   }
+
+  // Temporarily pause keep-alive during critical operations
+  pause() {
+    if (this.keepAliveInterval) {
+      clearInterval(this.keepAliveInterval);
+      this.keepAliveInterval = null;
+    }
+    console.log('🔇 [KEEP-ALIVE] Temporarily paused');
+  }
+
+  // Resume keep-alive after critical operations
+  resume() {
+    if (this.isActive && !this.keepAliveInterval) {
+      this.keepAliveInterval = setInterval(() => {
+        this.performHeartbeat();
+      }, this.KEEP_ALIVE_INTERVAL);
+      console.log('🔊 [KEEP-ALIVE] Resumed');
+    }
+  }
 }
 
 // Export singleton instance

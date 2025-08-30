@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabaseAuth } from '../../utils/supabaseClient';
+import { supabase, withAuthSafety } from '../../utils/supabaseClient';
 
 const AuthCallback: React.FC = () => {
   const navigate = useNavigate();
@@ -25,7 +25,7 @@ const AuthCallback: React.FC = () => {
           console.log('🔑 Exchanging code for session...');
           
           const { data, error } = await Promise.race([
-            supabaseAuth.auth.exchangeCodeForSession(window.location.href),
+            withAuthSafety(() => supabase.auth.exchangeCodeForSession(window.location.href)),
             new Promise<never>((_, reject) => 
               setTimeout(() => reject(new Error('Auth exchange timeout')), 30000)
             )
@@ -48,7 +48,7 @@ const AuthCallback: React.FC = () => {
         // Fallback: check for existing session (with timeout)
         console.log('🔍 Checking for existing session...');
         const { data: sessionData, error: sessionError } = await Promise.race([
-          supabaseAuth.auth.getSession(),
+          withAuthSafety(() => supabase.auth.getSession()),
           new Promise<never>((_, reject) => 
             setTimeout(() => reject(new Error('Session check timeout')), 15000)
           )

@@ -32,20 +32,22 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
   }
 });
 
-// Separate client for auth operations that bypasses all retry/connection wrappers
-export const supabaseAuth = createClient<Database>(supabaseUrl, supabaseAnonKey, {
-  auth: {
-    autoRefreshToken: true,
-    persistSession: true,
-    detectSessionInUrl: true,
-    flowType: 'pkce'
-  },
-  global: {
-    headers: {
-      'x-client-info': 'readyroom-auth',
-    },
+// Helper to temporarily disable connection pool monitoring during auth
+export const withAuthSafety = async <T>(operation: () => Promise<T>): Promise<T> => {
+  const { connectionKeepAlive } = await import('./connectionKeepAlive');
+  
+  // Pause connection monitoring during auth operations
+  connectionKeepAlive.pause();
+  
+  try {
+    return await operation();
+  } finally {
+    // Resume monitoring after a delay
+    setTimeout(() => {
+      connectionKeepAlive.resume();
+    }, 2000);
   }
-});
+};
 
 // Add debug logging for client initialization
 // console.log('🚀 [SUPABASE] Client initialized with enhanced configuration', {
@@ -87,14 +89,16 @@ export const signIn = async (email: string, password: string) => {
 };
 
 export const signInWithDiscord = async () => {
-  const { data, error } = await supabaseAuth.auth.signInWithOAuth({
-    provider: 'discord',
-    options: {
-      scopes: 'identify guilds',
-      redirectTo: `${window.location.origin}/auth/callback`
-    }
+  return await withAuthSafety(async () => {
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: 'discord',
+      options: {
+        scopes: 'identify guilds',
+        redirectTo: `${window.location.origin}/auth/callback`
+      }
+    });
+    return { data, error };
   });
-  return { data, error };
 };
 
 export const signOut = async () => {
@@ -128,13 +132,15 @@ export const getCurrentUser = async () => {
 
 // Direct auth operations that bypass retry wrapper - for critical auth flows
 export const getCurrentUserDirect = async () => {
-  try {
-    const { data: { user }, error } = await supabaseAuth.auth.getUser();
-    return { user, error };
-  } catch (err: any) {
-    console.error('Error in getCurrentUserDirect:', err);
-    return { user: null, error: err };
-  }
+  return await withAuthSafety(async () => {
+    try {
+      const { data: { user }, error } = await supabase.auth.getUser();
+      return { user, error };
+    } catch (err: any) {
+      console.error('Error in getCurrentUserDirect:', err);
+      return { user: null, error: err };
+    }
+  });
 };
 
 export const onAuthStateChange = (callback: (event: string, session: any) => void) => {
