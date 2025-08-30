@@ -13,6 +13,7 @@ import NavigationBar from './components/ui/NavigationBar';
 import OnboardingGuide from './components/onboarding/OnboardingGuide';
 import { useAuth } from './context/AuthContext';
 import { initializeApp, cleanupApp } from './utils/appInitialization';
+import { initializeKeepAlive } from './utils/connectionKeepAlive';
 import type { Pilot } from './types/PilotTypes';
 
 // Define AssignedPilot here since it's not exported from PilotTypes
@@ -92,6 +93,7 @@ const App: React.FC = () => {
   // Initialize app services
   useEffect(() => {
     initializeApp();
+    initializeKeepAlive();
     
     // Cleanup on unmount
     return () => {

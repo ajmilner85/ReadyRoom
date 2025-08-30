@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { Database } from '../types/supabase';
 import { Cycle, CycleType, Event, EventType } from '../types/EventTypes';
+import { withRetry, withRetryAuth } from './dbRetryWrapper';
 
 // Replace these with your actual Supabase URL and anon key
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
@@ -10,7 +11,33 @@ if (!supabaseUrl || !supabaseAnonKey) {
   console.error('Supabase URL and Anon Key must be provided in environment variables');
 }
 
-export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey);
+export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
+  db: {
+    schema: 'public',
+  },
+  auth: {
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: true,
+    flowType: 'pkce'
+  },
+  global: {
+    headers: {
+      'x-client-info': 'readyroom-webapp',
+    },
+  },
+  realtime: {
+    timeout: 30000,
+    heartbeatIntervalMs: 30000,
+  }
+});
+
+// Add debug logging for client initialization
+// console.log('🚀 [SUPABASE] Client initialized with enhanced configuration', {
+//   url: supabaseUrl,
+//   hasAnonKey: !!supabaseAnonKey,
+//   timestamp: new Date().toISOString()
+// });
 
 // Real-time subscriptions helper
 export const subscribeToTable = (
@@ -76,8 +103,8 @@ export const updatePassword = async (password: string) => {
 
 export const getCurrentUser = async () => {
   try {
-    const { data: { user }, error } = await supabase.auth.getUser();
-    return { user, error };
+    const result = await withRetryAuth(() => supabase.auth.getUser().then(({ data: { user }, error }) => ({ data: user, error })));
+    return { user: result.data, error: result.error };
   } catch (err: any) {
     console.error('Error in getCurrentUser:', err);
     return { user: null, error: err };
@@ -103,22 +130,29 @@ export const onAuthStateChange = (callback: (event: string, session: any) => voi
 
 // Cycles API
 export const fetchCycles = async (discordGuildId?: string) => {
-  let query = supabase
-    .from('cycles')
-    .select('*')
-    .order('start_date', { ascending: false });
+  const { data, error } = await withRetry(async () => {
+    let query = supabase
+      .from('cycles')
+      .select('*')
+      .order('start_date', { ascending: false });
 
-  // If a Discord guild ID is provided, filter cycles for that guild
-  if (discordGuildId) {
-    query = query.eq('discord_guild_id', discordGuildId);
-  }
+    // If a Discord guild ID is provided, filter cycles for that guild
+    if (discordGuildId) {
+      query = query.eq('discord_guild_id', discordGuildId);
+    }
 
-  const { data, error } = await query;
+    return await query;
+  }, `fetchCycles${discordGuildId ? ` (guild: ${discordGuildId})` : ''}`);
 
   if (error) {
     console.error('Error fetching cycles:', error);
     return { cycles: [], error };
   }
+
+  if (!data) {
+    return { cycles: [], error: new Error('No data returned from query') };
+  }
+
   // Transform database cycles to frontend format
   const cycles: Cycle[] = data.map(dbCycle => ({
     id: dbCycle.id,
@@ -251,35 +285,41 @@ export const deleteCycle = async (cycleId: string) => {
 
 // Events API
 export const fetchEvents = async (cycleId?: string) => {  
-  let query = supabase.from('events').select(`
-    id,
-    name,
-    start_datetime,
-    end_datetime,
-    type,
-    description,
-    status,
-    event_type,
-    cycle_id,
-    discord_event_id,
-    discord_guild_id,
-    image_url,
-    created_at,
-    updated_at
-  `);
-  // If a cycle ID is provided, filter events for that cycle
-  if (cycleId) {
-    query = query.eq('cycle_id', cycleId);
-  }
-  
-  // Note: Removed Discord guild ID filtering to support multi-squadron publishing
-  // Events can now be published to multiple squadron-specific Discord servers
-  // so filtering by a single guild ID would hide events published to other guilds
-  const { data, error } = await query.order('start_datetime', { ascending: false });
+  const { data, error } = await withRetry(async () => {
+    let query = supabase.from('events').select(`
+      id,
+      name,
+      start_datetime,
+      end_datetime,
+      type,
+      description,
+      status,
+      event_type,
+      cycle_id,
+      discord_event_id,
+      discord_guild_id,
+      image_url,
+      created_at,
+      updated_at
+    `);
+    // If a cycle ID is provided, filter events for that cycle
+    if (cycleId) {
+      query = query.eq('cycle_id', cycleId);
+    }
+    
+    // Note: Removed Discord guild ID filtering to support multi-squadron publishing
+    // Events can now be published to multiple squadron-specific Discord servers
+    // so filtering by a single guild ID would hide events published to other guilds
+    return await query.order('start_datetime', { ascending: false });
+  }, `fetchEvents${cycleId ? ` (cycle: ${cycleId})` : ''}`);
 
   if (error) {
     console.error('Error fetching events:', error);
     return { events: [], error };
+  }
+
+  if (!data) {
+    return { events: [], error: new Error('No data returned from query') };
   }
   
   // Transform database events to frontend format without attendance data
