@@ -45,17 +45,19 @@ const app = express();
 const PORT = process.env.SERVER_PORT || 3001;
 
 // Configure CORS with specific options to ensure it works properly
+const corsOrigins = process.env.CORS_ORIGINS 
+  ? process.env.CORS_ORIGINS.split(',').map(origin => origin.trim())
+  : ['http://localhost:5173']; // Fallback for local development
+
+// Add regex patterns for dynamic Vercel deployments
+const corsOriginsWithPatterns = [
+  ...corsOrigins,
+  /https:\/\/ready-room-.+-adams-projects-02cc7519\.vercel\.app$/, // All preview deployments
+  /\.vercel\.app$/ // Fallback for all Vercel deployments
+];
+
 app.use(cors({
-  origin: [
-    'http://localhost:5173', 
-    'http://127.0.0.1:5173', 
-    'http://localhost:4173',
-    'https://ready-room-gamma.vercel.app',
-    'https://ready-room-goqnnsf7e-adams-projects-02cc7519.vercel.app', // Current Vercel deployment
-    'https://readyroom.ajmilner.com', // Custom domain if configured
-    /https:\/\/ready-room-.+-adams-projects-02cc7519\.vercel\.app$/, // All preview deployments
-    /\.vercel\.app$/ // Fallback for all Vercel deployments
-  ],
+  origin: corsOriginsWithPatterns,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-ID'],
   credentials: true
