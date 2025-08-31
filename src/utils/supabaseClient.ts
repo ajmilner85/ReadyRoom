@@ -1,22 +1,42 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { Database } from '../types/supabase';
 import { Cycle, CycleType, Event, EventType } from '../types/EventTypes';
 
-// Replace these with your actual Supabase URL and anon key
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+let client: SupabaseClient<Database> | null = null;
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  console.error('Supabase URL and Anon Key must be provided in environment variables');
+export function getSupabase(): SupabaseClient<Database> {
+  if (!client) {
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
+    const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+
+    if (!supabaseUrl || !supabaseAnonKey) {
+      throw new Error('Supabase URL and Anon Key must be provided in environment variables');
+    }
+
+    client = createClient<Database>(supabaseUrl, supabaseAnonKey, {
+      auth: {
+        persistSession: true,
+        autoRefreshToken: true,
+        detectSessionInUrl: true,
+        // multiTab: true, // leave default unless you intentionally want per-tab isolation
+      },
+    });
+  }
+  return client;
 }
 
-export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey);
+// Import the resilient wrapper
+import { sb } from './sb';
+
+// Maintain backward compatibility
+export const supabase = getSupabase();
 
 // Real-time subscriptions helper
 export const subscribeToTable = (
   tableName: string, 
   callback: (payload: any) => void
 ) => {
+  const supabase = getSupabase();
   return supabase
     .channel(`${tableName}-changes`)
     .on(
@@ -29,55 +49,69 @@ export const subscribeToTable = (
 
 // Authentication helpers
 export const signUp = async (email: string, password: string) => {
-  const { data, error } = await supabase.auth.signUp({
-    email,
-    password,
+  return await sb(async (supabase) => {
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+    });
+    return { data, error };
   });
-  return { data, error };
 };
 
 export const signIn = async (email: string, password: string) => {
-  const { data, error } = await supabase.auth.signInWithPassword({
-    email,
-    password,
+  return await sb(async (supabase) => {
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+    return { data, error };
   });
-  return { data, error };
 };
 
 export const signInWithDiscord = async () => {
-  const { data, error } = await supabase.auth.signInWithOAuth({
-    provider: 'discord',
-    options: {
-      scopes: 'identify guilds',
-      redirectTo: `${window.location.origin}/auth/callback`
-    }
+  return await sb(async (supabase) => {
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: 'discord',
+      options: {
+        scopes: 'identify guilds',
+        redirectTo: `${window.location.origin}/auth/callback`
+      }
+    });
+    return { data, error };
   });
-  return { data, error };
 };
 
 export const signOut = async () => {
-  const { error } = await supabase.auth.signOut();
-  return { error };
+  return await sb(async (supabase) => {
+    const { error } = await supabase.auth.signOut();
+    return { error };
+  });
 };
 
 export const resetPassword = async (email: string) => {
-  const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
-    redirectTo: `${window.location.origin}/auth/reset-password`
+  return await sb(async (supabase) => {
+    const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/auth/reset-password`
+    });
+    return { data, error };
   });
-  return { data, error };
 };
 
 export const updatePassword = async (password: string) => {
-  const { data, error } = await supabase.auth.updateUser({
-    password: password
+  return await sb(async (supabase) => {
+    const { data, error } = await supabase.auth.updateUser({
+      password: password
+    });
+    return { data, error };
   });
-  return { data, error };
 };
 
 export const getCurrentUser = async () => {
   try {
-    const { data: { user }, error } = await supabase.auth.getUser();
-    return { user, error };
+    return await sb(async (supabase) => {
+      const { data: { user }, error } = await supabase.auth.getUser();
+      return { user, error };
+    });
   } catch (err: any) {
     console.error('Error in getCurrentUser:', err);
     return { user: null, error: err };
@@ -85,15 +119,19 @@ export const getCurrentUser = async () => {
 };
 
 export const onAuthStateChange = (callback: (event: string, session: any) => void) => {
+  const supabase = getSupabase();
   return supabase.auth.onAuthStateChange(async (event, session) => {
     // Handle user profile creation/update on sign in
     if (event === 'SIGNED_IN' && session?.user) {
-      try {
-        const { createOrUpdateUserProfile } = await import('./userProfileService');
-        await createOrUpdateUserProfile(session.user);
-      } catch (error) {
-        console.error('Error creating/updating user profile:', error);
-      }
+      // Use setTimeout to avoid race conditions as suggested in the GitHub forum post
+      setTimeout(async () => {
+        try {
+          const { createOrUpdateUserProfile } = await import('./userProfileService');
+          await createOrUpdateUserProfile(session.user);
+        } catch (error) {
+          console.error('Error creating/updating user profile:', error);
+        }
+      }, 100);
     }
     
     // Call the original callback
@@ -103,42 +141,45 @@ export const onAuthStateChange = (callback: (event: string, session: any) => voi
 
 // Cycles API
 export const fetchCycles = async (discordGuildId?: string) => {
-  let query = supabase
-    .from('cycles')
-    .select('*')
-    .order('start_date', { ascending: false });
+  return await sb(async (supabase) => {
+    let query = supabase
+      .from('cycles')
+      .select('*')
+      .order('start_date', { ascending: false });
 
-  // If a Discord guild ID is provided, filter cycles for that guild
-  if (discordGuildId) {
-    query = query.eq('discord_guild_id', discordGuildId);
-  }
-
-  const { data, error } = await query;
-
-  if (error) {
-    console.error('Error fetching cycles:', error);
-    return { cycles: [], error };
-  }
-  // Transform database cycles to frontend format
-  const cycles: Cycle[] = data.map(dbCycle => ({
-    id: dbCycle.id,
-    name: dbCycle.name,
-    description: dbCycle.description || '',
-    startDate: dbCycle.start_date,
-    endDate: dbCycle.end_date,
-    type: dbCycle.type as CycleType,
-    status: dbCycle.status as 'active' | 'completed' | 'upcoming',
-    restrictedTo: dbCycle.restricted_to || [],
-    participants: [], // Default value - field not in current database schema
-    discordGuildId: dbCycle.discord_guild_id || undefined,
-    creator: {
-      boardNumber: dbCycle.creator_board_number || '',
-      callsign: dbCycle.creator_call_sign || '',
-      billet: dbCycle.creator_billet || ''
+    // If a Discord guild ID is provided, filter cycles for that guild
+    if (discordGuildId) {
+      query = query.eq('discord_guild_id', discordGuildId);
     }
-  }));
 
-  return { cycles, error: null };
+    const { data, error } = await query;
+
+    if (error) {
+      console.error('Error fetching cycles:', error);
+      return { cycles: [], error };
+    }
+    
+    // Transform database cycles to frontend format
+    const cycles: Cycle[] = data.map(dbCycle => ({
+      id: dbCycle.id,
+      name: dbCycle.name,
+      description: dbCycle.description || '',
+      startDate: dbCycle.start_date,
+      endDate: dbCycle.end_date,
+      type: dbCycle.type as CycleType,
+      status: dbCycle.status as 'active' | 'completed' | 'upcoming',
+      restrictedTo: dbCycle.restricted_to || [],
+      participants: [], // Default value - field not in current database schema
+      discordGuildId: dbCycle.discord_guild_id || undefined,
+      creator: {
+        boardNumber: dbCycle.creator_board_number || '',
+        callsign: dbCycle.creator_call_sign || '',
+        billet: dbCycle.creator_billet || ''
+      }
+    }));
+
+    return { cycles, error: null };
+  });
 };
 
 export const createCycle = async (cycle: Omit<Cycle, 'id' | 'creator'> & { discordGuildId?: string }) => {
@@ -772,15 +813,17 @@ export const fetchEventAttendance = async (eventId: string) => {
 
 // Carrier data fetching
 export const fetchCarriers = async () => {
-  const { data, error } = await supabase
-    .from('carriers')
-    .select('*')
-    .order('name');
-  
-  if (error) {
-    console.error('Error fetching carriers:', error);
-    return [];
-  }
-  
-  return data || [];
+  return await sb(async (supabase) => {
+    const { data, error } = await supabase
+      .from('carriers')
+      .select('*')
+      .order('name');
+    
+    if (error) {
+      console.error('Error fetching carriers:', error);
+      return [];
+    }
+    
+    return data || [];
+  });
 };
