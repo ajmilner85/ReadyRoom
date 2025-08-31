@@ -8,9 +8,14 @@ import { AuthProvider } from './context/AuthContext'
 import ProtectedRoute from './components/auth/ProtectedRoute'
 import AuthCallback from './components/auth/AuthCallback'
 import ResetPassword from './components/auth/ResetPassword'
+import { registerWakeHandlers, wake } from './utils/wake'
 
 // Import debug utilities for development
 import './utils/debugUtils.ts'
+
+// Register wake handlers for tab visibility/resume events
+registerWakeHandlers()
+wake() // optional: wake once on initial load
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
