@@ -32,6 +32,7 @@ export interface PilotAssignment {
   mids_b_channel?: string;
   assigned_by?: string;
   assigned_at?: string;
+  roll_call_status?: 'Present' | 'Absent' | 'Tentative' | null;
 }
 
 // Support role assignment (mission commander, etc.)

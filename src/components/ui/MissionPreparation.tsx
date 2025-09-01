@@ -329,7 +329,7 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
     // If any flight array was replaced, update the state with the new top-level object
     if (needsOverallUpdate) {
       // console.log("[TENTATIVE-DEBUG] Applying updated attendance statuses to assignedPilots state.");
-      setAssignedPilots(nextAssignedPilots); // This is now guaranteed to be a new object reference
+      setAssignedPilots(nextAssignedPilots, true); // Skip database save - this is just attendance status update
     }
   }, [realtimeAttendanceData, assignedPilots, setAssignedPilots]);
   // --- END EFFECT TO UPDATE ASSIGNED PILOTS ---

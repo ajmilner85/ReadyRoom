@@ -20,7 +20,7 @@ interface FlightAssignmentCardProps {
     boardNumber: string;
     callsign: string;
     dashNumber: string;
-    attendanceStatus?: 'accepted' | 'tentative';
+    attendanceStatus?: 'accepted' | 'tentative' | 'declined';
     rollCallStatus?: 'Present' | 'Absent' | 'Tentative';
   }>;
   midsA?: string;
@@ -263,7 +263,7 @@ interface DroppableAircraftTileProps {
     boardNumber: string; 
     callsign: string; 
     dashNumber: string; 
-    attendanceStatus?: 'accepted' | 'tentative';
+    attendanceStatus?: 'accepted' | 'tentative' | 'declined';
     rollCallStatus?: 'Present' | 'Absent' | 'Tentative'; 
   };
   flightId: string;

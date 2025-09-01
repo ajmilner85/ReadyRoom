@@ -262,7 +262,7 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
       boardNumber: "",
       callsign: "",
       dashNumber: p.dashNumber,
-      attendanceStatus: undefined as 'accepted' | 'tentative' | undefined
+      attendanceStatus: undefined as 'accepted' | 'tentative' | 'declined' | undefined
     }));
     
     // Place each assigned pilot in their designated position by dashNumber
@@ -277,7 +277,7 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
       if (index !== -1) {        updatedPilots[index] = {
           ...assignedPilot,  // Spread all properties from the assigned pilot
           dashNumber: dashNumberStr, // Ensure the dashNumber is properly set
-          attendanceStatus: assignedPilot.attendanceStatus === 'declined' ? undefined : assignedPilot.attendanceStatus // Filter out declined status
+          attendanceStatus: assignedPilot.attendanceStatus // Keep all attendance statuses including declined
         };
       }
     });

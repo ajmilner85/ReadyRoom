@@ -44,6 +44,13 @@ export const useMissionPrepDataPersistence = (
     externalPrepFlights || []
   );
 
+  // Add a flag to prevent circular updates during saves
+  const [isSyncing, setIsSyncing] = useState(false);
+
+  // Track the last sync to prevent circular updates
+  const [lastSyncMissionId, setLastSyncMissionId] = useState<string | null>(null);
+  const [lastSyncEventId, setLastSyncEventId] = useState<string | null>(null);
+
   // Clear state when switching events
   useEffect(() => {
     // Clear state whenever the selectedEvent changes, regardless of mission state
@@ -52,125 +59,172 @@ export const useMissionPrepDataPersistence = (
     setPrepFlightsLocal([]);
     setExtractedFlights([]);
     setHasPendingChanges(false);
+    setIsSyncing(false);
+    setLastSyncMissionId(null);
+    setLastSyncEventId(null);
   }, [selectedEvent?.id]);
 
-  // Sync state with mission data when mission loads
+  // Sync state with mission data when mission loads - ONLY run once per mission/event combination
   useEffect(() => {
-    if (mission && activePilots) {
-      console.log('🔄 Persistence: Mission data loaded, syncing state:', {
-        missionId: mission.id,
-        hasPilotAssignments: !!mission.pilot_assignments,
-        activePilotsCount: activePilots?.length || 0,
-        pilotAssignments: JSON.stringify(mission.pilot_assignments)
+    // Skip if no mission, still syncing, or no active pilots
+    if (!mission || isSyncing || !activePilots || missionLoading) {
+      return;
+    }
+    
+    // Skip if not for current event
+    if (!selectedEvent || mission.event_id !== selectedEvent.id) {
+      return;
+    }
+    
+    // Skip if we already synced this mission/event combination
+    const syncKey = `${mission.id}-${selectedEvent.id}`;
+    const lastSyncKey = `${lastSyncMissionId}-${lastSyncEventId}`;
+    if (syncKey === lastSyncKey) {
+      return;
+    }
+      
+    console.log('🔄 Persistence: Mission data loaded, syncing state:', {
+      missionId: mission.id,
+      eventId: selectedEvent.id,
+      hasPilotAssignments: !!mission.pilot_assignments,
+      activePilotsCount: activePilots?.length || 0,
+      pilotAssignments: JSON.stringify(mission.pilot_assignments)
+    });
+    
+    // Mark this mission/event as synced
+    setLastSyncMissionId(mission.id);
+    setLastSyncEventId(selectedEvent.id);
+    
+    // Convert database pilot assignments back to the format expected by the UI (skip save since this is loading)
+    if (mission.pilot_assignments) {
+      console.log('📥 Persistence: Loading pilot assignments from database');
+      
+      // Get current assignments to preserve roll call status
+      const currentAssignments = assignedPilots || {};
+      
+      // Convert PilotAssignment[] to AssignedPilotsRecord format
+      const convertedAssignments: AssignedPilotsRecord = {};
+      
+      Object.entries(mission.pilot_assignments as Record<string, any[]>).forEach(([flightId, assignments]) => {
+        convertedAssignments[flightId] = assignments.map(assignment => {
+          // If it's already in UI format (has dashNumber), use it as-is
+          if (assignment.dashNumber) {
+            // Preserve roll call status from current assignments or database
+            const existingPilot = currentAssignments[flightId]?.find(p => p.id === assignment.id || p.boardNumber === assignment.boardNumber);
+            return {
+              ...assignment,
+              // Prioritize database roll call status over existing pilot data
+              rollCallStatus: assignment.roll_call_status || existingPilot?.rollCallStatus
+            };
+          }
+          
+          // Convert from database format (PilotAssignment) to UI format (AssignedPilot)
+          // Look up the full pilot data using pilot_id
+          const fullPilotData = activePilots?.find(pilot => pilot.id === assignment.pilot_id);
+          
+          if (fullPilotData) {
+            // Check if there's existing roll call data for this pilot
+            const existingPilot = currentAssignments[flightId]?.find(p => p.id === assignment.pilot_id || p.boardNumber === fullPilotData.boardNumber);
+            
+            // Use full pilot data with database assignment info
+            return {
+              ...fullPilotData,
+              dashNumber: assignment.dash_number,
+              flight_id: assignment.flight_id,
+              slot_number: assignment.slot_number,
+              mids_a_channel: assignment.mids_a_channel || '',
+              mids_b_channel: assignment.mids_b_channel || '',
+              // Prioritize database roll call status over existing pilot data
+              rollCallStatus: assignment.roll_call_status || existingPilot?.rollCallStatus
+            };
+          } else {
+            // Fallback to minimal pilot object if lookup fails
+            console.warn('🚨 Persistence: Could not find pilot data for ID:', assignment.pilot_id);
+            return {
+              id: assignment.pilot_id,
+              dashNumber: assignment.dash_number,
+              flight_id: assignment.flight_id,
+              slot_number: assignment.slot_number,
+              mids_a_channel: assignment.mids_a_channel || '',
+              mids_b_channel: assignment.mids_b_channel || '',
+              // Add minimal pilot info as fallback
+              callsign: 'Unknown',
+              boardNumber: 'Unknown',
+              status: '',
+              billet: '',
+              qualifications: [],
+              rollCallStatus: assignment.roll_call_status
+            };
+          }
+        });
       });
       
-      // Convert database pilot assignments back to the format expected by the UI (skip save since this is loading)
-      if (mission.pilot_assignments) {
-        console.log('📥 Persistence: Loading pilot assignments from database');
-        
-        // Convert PilotAssignment[] to AssignedPilotsRecord format
-        const convertedAssignments: AssignedPilotsRecord = {};
-        
-        Object.entries(mission.pilot_assignments as Record<string, any[]>).forEach(([flightId, assignments]) => {
-          convertedAssignments[flightId] = assignments.map(assignment => {
-            // If it's already in UI format (has dashNumber), use it as-is
-            if (assignment.dashNumber) {
-              return assignment;
-            }
-            
-            // Convert from database format (PilotAssignment) to UI format (AssignedPilot)
-            // Look up the full pilot data using pilot_id
-            const fullPilotData = activePilots?.find(pilot => pilot.id === assignment.pilot_id);
-            
-            if (fullPilotData) {
-              // Use full pilot data with database assignment info
-              return {
-                ...fullPilotData,
-                dashNumber: assignment.dash_number,
-                flight_id: assignment.flight_id,
-                slot_number: assignment.slot_number,
-                mids_a_channel: assignment.mids_a_channel || '',
-                mids_b_channel: assignment.mids_b_channel || ''
-              };
-            } else {
-              // Fallback to minimal pilot object if lookup fails
-              console.warn('🚨 Persistence: Could not find pilot data for ID:', assignment.pilot_id);
-              return {
-                id: assignment.pilot_id,
-                dashNumber: assignment.dash_number,
-                flight_id: assignment.flight_id,
-                slot_number: assignment.slot_number,
-                mids_a_channel: assignment.mids_a_channel || '',
-                mids_b_channel: assignment.mids_b_channel || '',
-                // Add minimal pilot info as fallback
-                callsign: 'Unknown',
-                boardNumber: 'Unknown',
-                status: '',
-                billet: '',
-                qualifications: []
-              };
-            }
-          });
-        });
-        
-        console.log('📥 Persistence: Converted assignments:', JSON.stringify(convertedAssignments));
-        setAssignedPilotsLocal(convertedAssignments);
-      } else {
-        console.log('📭 Persistence: No pilot assignments in database, using empty state');
-        setAssignedPilotsLocal({});
-      }
-
-      // Convert support roles back to mission commander format
-      if (mission.support_role_assignments) {
-        const mcRole = mission.support_role_assignments.find(role => role.role_type === 'mission_commander');
-        if (mcRole) {
-          // This would need to be enhanced to get full pilot info
-          // For now, storing basic info in the support role assignment
-          setMissionCommanderLocal({
-            boardNumber: (mcRole as any).boardNumber || '',
-            callsign: (mcRole as any).callsign || '',
-            flightId: (mcRole as any).flightId || '',
-            flightCallsign: (mcRole as any).flightCallsign || '',
-            flightNumber: (mcRole as any).flightNumber || ''
-          });
-        } else {
-          setMissionCommanderLocal(null);
+      console.log('📥 Persistence: Converted assignments with preserved roll call data:', JSON.stringify(convertedAssignments));
+      
+      // Debug log roll call status preservation
+      Object.entries(convertedAssignments).forEach(([flightId, pilots]) => {
+        const pilotsWithRollCall = pilots.filter(p => p.rollCallStatus);
+        if (pilotsWithRollCall.length > 0) {
+          console.log(`🎯 Persistence: Flight ${flightId} has ${pilotsWithRollCall.length} pilots with roll call status:`, 
+            pilotsWithRollCall.map(p => `${p.callsign}: ${p.rollCallStatus}`));
         }
+      });
+      setAssignedPilotsLocal(convertedAssignments);
+    } else {
+      console.log('📭 Persistence: No pilot assignments in database, using empty state');
+      setAssignedPilotsLocal({});
+    }
+
+    // Convert support roles back to mission commander format
+    if (mission.support_role_assignments) {
+      const mcRole = mission.support_role_assignments.find(role => role.role_type === 'mission_commander');
+      if (mcRole) {
+        // This would need to be enhanced to get full pilot info
+        // For now, storing basic info in the support role assignment
+        setMissionCommanderLocal({
+          boardNumber: (mcRole as any).boardNumber || '',
+          callsign: (mcRole as any).callsign || '',
+          flightId: (mcRole as any).flightId || '',
+          flightCallsign: (mcRole as any).flightCallsign || '',
+          flightNumber: (mcRole as any).flightNumber || ''
+        });
       } else {
         setMissionCommanderLocal(null);
       }
-
-      // Convert flights from mission database format to UI format
-      if (mission.flights && mission.flights.length > 0) {
-        const convertedFlights = mission.flights.map((missionFlight, index) => {
-          // Extract MIDS channels from the flight_data or use defaults
-          const flightData = missionFlight.flight_data || {};
-          
-          return {
-            id: missionFlight.id,
-            callsign: missionFlight.callsign || 'UNKNOWN',
-            flightNumber: flightData.flightNumber || '1',
-            pilots: flightData.pilots || [
-              { boardNumber: "", callsign: "", dashNumber: "1" },
-              { boardNumber: "", callsign: "", dashNumber: "2" },
-              { boardNumber: "", callsign: "", dashNumber: "3" },
-              { boardNumber: "", callsign: "", dashNumber: "4" }
-            ],
-            midsA: flightData.midsA || '',
-            midsB: flightData.midsB || '',
-            creationOrder: flightData.creationOrder || index,
-            // Preserve any additional metadata
-            metadata: flightData.metadata
-          };
-        });
-        
-        setPrepFlightsLocal(convertedFlights);
-      } else {
-        // Clear flights if mission has no flights
-        setPrepFlightsLocal([]);
-      }
+    } else {
+      setMissionCommanderLocal(null);
     }
-  }, [mission, activePilots]);
+
+    // Convert flights from mission database format to UI format
+    if (mission.flights && mission.flights.length > 0) {
+      const convertedFlights = mission.flights.map((missionFlight, index) => {
+        // Extract MIDS channels from the flight_data or use defaults
+        const flightData = missionFlight.flight_data || {};
+        
+        return {
+          id: missionFlight.id,
+          callsign: missionFlight.callsign || 'UNKNOWN',
+          flightNumber: flightData.flightNumber || '1',
+          pilots: flightData.pilots || [
+            { boardNumber: "", callsign: "", dashNumber: "1" },
+            { boardNumber: "", callsign: "", dashNumber: "2" },
+            { boardNumber: "", callsign: "", dashNumber: "3" },
+            { boardNumber: "", callsign: "", dashNumber: "4" }
+          ],
+          midsA: flightData.midsA || '',
+          midsB: flightData.midsB || '',
+          creationOrder: flightData.creationOrder || index,
+          // Preserve any additional metadata
+          metadata: flightData.metadata
+        };
+      });
+      
+      setPrepFlightsLocal(convertedFlights);
+    } else {
+      // Clear flights if mission has no flights
+      setPrepFlightsLocal([]);
+    }
+  }, [mission?.id, selectedEvent?.id, activePilots?.length, missionLoading, isSyncing, lastSyncMissionId, lastSyncEventId]);
 
   // Auto-create mission when event is selected but no mission exists
   // Removed auto-creation to prevent duplicate missions when navigating from Events Management
@@ -276,36 +330,63 @@ export const useMissionPrepDataPersistence = (
     
     // Only save to database if this is a user-initiated change
     if (mission && !skipSave) {
+      // Only save if this mission belongs to the currently selected event
+      if (selectedEvent && mission.event_id !== selectedEvent.id) {
+        console.log('🚫 Persistence: Skipping pilot assignment save - mission belongs to different event:', {
+          missionEventId: mission.event_id,
+          selectedEventId: selectedEvent.id,
+          missionId: mission.id
+        });
+        return;
+      }
+      
       console.log('💾 Persistence: Scheduling database save...');
       debouncedSave(async () => {
-        const pilotAssignments: Record<string, PilotAssignment[]> = {};
-        
-        Object.entries(pilots).forEach(([flightId, pilotsList]) => {
-          pilotAssignments[flightId] = pilotsList.map((pilot, index) => ({
-            pilot_id: pilot.id,
-            flight_id: flightId,
-            slot_number: index + 1,
-            dash_number: pilot.dashNumber,
-            mids_a_channel: (pilot as any).midsAChannel || '',
-            mids_b_channel: (pilot as any).midsBChannel || ''
-          }));
-        });
+        setIsSyncing(true);
+        try {
+          const pilotAssignments: Record<string, PilotAssignment[]> = {};
+          
+          Object.entries(pilots).forEach(([flightId, pilotsList]) => {
+            pilotAssignments[flightId] = pilotsList.map((pilot, index) => ({
+              pilot_id: pilot.id,
+              flight_id: flightId,
+              slot_number: index + 1,
+              dash_number: pilot.dashNumber,
+              mids_a_channel: (pilot as any).midsAChannel || '',
+              mids_b_channel: (pilot as any).midsBChannel || '',
+              roll_call_status: pilot.rollCallStatus || null
+            }));
+          });
 
-        console.log('🔄 Persistence: Executing database save with assignments:', pilotAssignments);
-        const result = await updatePilotAssignments(pilotAssignments);
-        console.log('✅ Persistence: Database save result:', result);
-        return result;
+          console.log('🔄 Persistence: Executing database save with assignments (including roll call):', pilotAssignments);
+          const result = await updatePilotAssignments(pilotAssignments);
+          console.log('✅ Persistence: Database save result:', result);
+          return result;
+        } finally {
+          // Reset the syncing flag after a short delay to allow UI to stabilize
+          setTimeout(() => setIsSyncing(false), 500);
+        }
       });
     } else {
       console.log('⏭️ Persistence: Skipping save (skipSave=true or no mission)');
     }
-  }, [mission, debouncedSave, updatePilotAssignments]);
+  }, [mission, selectedEvent, debouncedSave, updatePilotAssignments]);
 
   const setMissionCommander = useCallback((commander: MissionCommanderInfo | null) => {
     setMissionCommanderLocal(commander);
     
     // Save to database
     if (mission) {
+      // Only save if this mission belongs to the currently selected event
+      if (selectedEvent && mission.event_id !== selectedEvent.id) {
+        console.log('🚫 Persistence: Skipping mission commander save - mission belongs to different event:', {
+          missionEventId: mission.event_id,
+          selectedEventId: selectedEvent.id,
+          missionId: mission.id
+        });
+        return;
+      }
+      
       debouncedSave(async () => {
         const supportRoles: SupportRoleAssignment[] = commander ? [{
           role_type: 'mission_commander',
@@ -317,13 +398,23 @@ export const useMissionPrepDataPersistence = (
         return updateSupportRoles(supportRoles);
       });
     }
-  }, [mission, debouncedSave, updateSupportRoles]);
+  }, [mission, selectedEvent, debouncedSave, updateSupportRoles]);
 
   const setPrepFlights = useCallback((flights: any[], skipSave: boolean = false) => {
     setPrepFlightsLocal(flights);
     
     // Save to database with shorter delay for flights (immediate user feedback)
     if (mission && selectedEvent && !skipSave) {
+      // Only save if this mission belongs to the currently selected event
+      if (mission.event_id !== selectedEvent.id) {
+        console.log('🚫 Persistence: Skipping flight save - mission belongs to different event:', {
+          missionEventId: mission.event_id,
+          selectedEventId: selectedEvent.id,
+          missionId: mission.id
+        });
+        return;
+      }
+      
       const currentMissionId = mission.id;
       const currentEventId = selectedEvent.id;
       
