@@ -336,6 +336,7 @@ const DroppableAircraftTile = React.memo(({
         flightCallsign={roleName} // Use the position name passed from parent
         isEmpty={isEmpty}
         iconType="personnel"
+        pilot={isEmpty ? undefined : pilot} // Pass the full pilot object for drag operations
       />
       {isOver && (
         <div style={{

@@ -28,7 +28,7 @@ const PilotDragOverlay: React.FC<PilotDragOverlayProps> = ({ draggedPilot, dragS
     >
       <img
         src="/src/assets/Aircraft Icon.svg"
-        alt="Aircraft"
+        alt=""
         style={{
           width: '24px',
           height: '32px',

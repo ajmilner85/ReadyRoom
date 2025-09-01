@@ -159,6 +159,12 @@ export const useDragDrop = ({
           // Apply the pilots update first, then check for mission commander updates
           // This ensures that getMissionCommanderCandidates will have the latest pilot positions 
           // when determining eligibility
+          console.log('🎯 DragDrop: Setting assigned pilots after drag operation:', {
+            pilot: pilot.boardNumber,
+            flightId: flightIdPart,
+            dashNumber,
+            updatedPilots: JSON.stringify(updatedPilots)
+          });
           setAssignedPilots(updatedPilots);
           
           // Now update mission commander status after the positions are updated
