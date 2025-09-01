@@ -80,8 +80,7 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
     externalMissionCommander,
     externalExtractedFlights,
     externalPrepFlights,
-    activePilots,
-    false  // Will be updated below
+    activePilots
   );
 
   const [realtimeAttendanceData, setRealtimeAttendanceData] = useState<RealtimeAttendanceRecord[]>([]);
