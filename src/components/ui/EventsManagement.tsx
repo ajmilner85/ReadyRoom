@@ -15,6 +15,8 @@ import LoadingSpinner from './LoadingSpinner';
 import { useWebSocket } from '../../context/WebSocketContext';
 import { getAllSquadrons } from '../../utils/organizationService';
 import { Squadron } from '../../types/OrganizationTypes';
+import { createMission, getMissionByEventId } from '../../utils/missionService';
+import type { Mission } from '../../types/MissionTypes';
 
 // Standard card width matching MissionPreparation component
 const CARD_WIDTH = '550px';
@@ -50,6 +52,10 @@ const EventsManagement: React.FC = () => {
   
   const [editingEvent, setEditingEvent] = useState<Event | null>(null);
   const [editingCycle, setEditingCycle] = useState<Cycle | null>(null);
+  
+  // State for mission management
+  const [eventMissions, setEventMissions] = useState<Record<string, Mission>>({});
+  const [missionLoading, setMissionLoading] = useState<Record<string, boolean>>({});
 
   // Reference to keep track of last processed event update
   const lastProcessedUpdateRef = useRef<string | null>(null);
@@ -789,6 +795,121 @@ const EventsManagement: React.FC = () => {
     setIsDeleteCycle(false);
     setShowDeleteDialog(true);
   };
+
+  // Mission handlers
+  const handleCreateMission = async (event: Event) => {
+    if (!event.id) return;
+    
+    setMissionLoading(prev => ({ ...prev, [event.id]: true }));
+    
+    try {
+      const missionName = `${event.title} Mission`;
+      const { mission, error } = await createMission({
+        event_id: event.id,
+        name: missionName,
+        description: `Mission planning for ${event.title}`,
+        selected_squadrons: event.participants || []
+      });
+
+      if (error) {
+        console.error('Error creating mission:', error);
+        setError(`Failed to create mission: ${error}`);
+        return;
+      }
+
+      // Update state with new mission
+      setEventMissions(prev => ({ ...prev, [event.id]: mission }));
+      
+      // Navigate to Mission Preparation with the event pre-selected
+      const missionPrepUrl = `/mission-prep?eventId=${event.id}`;
+      window.location.href = missionPrepUrl;
+      
+    } catch (err: any) {
+      console.error('Error creating mission:', err);
+      setError(`Failed to create mission: ${err.message}`);
+    } finally {
+      setMissionLoading(prev => ({ ...prev, [event.id]: false }));
+    }
+  };
+
+  const handleGoToMission = (event: Event) => {
+    if (!event.id) return;
+    
+    // Navigate to Mission Preparation with the event pre-selected
+    const missionPrepUrl = `/mission-prep?eventId=${event.id}`;
+    window.location.href = missionPrepUrl;
+  };
+
+  const handlePlanMission = async (event: Event) => {
+    if (!event.id) return;
+    
+    // Check if mission already exists for this event
+    const existingMission = eventMissions[event.id];
+    
+    if (existingMission) {
+      // Mission exists, go to it
+      const missionPrepUrl = `/mission-prep?eventId=${event.id}`;
+      window.location.href = missionPrepUrl;
+    } else {
+      // No mission exists, create one first
+      setMissionLoading(prev => ({ ...prev, [event.id]: true }));
+      
+      try {
+        const missionName = `${event.title} Mission`;
+        const { mission, error } = await createMission({
+          event_id: event.id,
+          name: missionName,
+          description: `Mission planning for ${event.title}`,
+          selected_squadrons: event.participants || []
+        });
+
+        if (error) {
+          console.error('Error creating mission:', error);
+          setError(`Failed to create mission: ${error}`);
+          return;
+        }
+
+        // Navigate to Mission Preparation immediately (don't update state to avoid button flicker)
+        const missionPrepUrl = `/mission-prep?eventId=${event.id}`;
+        window.location.href = missionPrepUrl;
+        
+        // Update state with new mission (for when user returns to this page)
+        setEventMissions(prev => ({ ...prev, [event.id]: mission }));
+        
+      } catch (err: any) {
+        console.error('Error creating mission:', err);
+        setError(`Failed to create mission: ${err.message}`);
+      } finally {
+        setMissionLoading(prev => ({ ...prev, [event.id]: false }));
+      }
+    }
+  };
+
+  const checkEventMission = async (eventId: string) => {
+    if (missionLoading[eventId] || eventMissions[eventId]) return;
+    
+    setMissionLoading(prev => ({ ...prev, [eventId]: true }));
+    
+    try {
+      const { mission, error } = await getMissionByEventId(eventId);
+      
+      if (!error && mission && mission.id) {
+        setEventMissions(prev => ({ ...prev, [eventId]: mission }));
+      }
+    } catch (err) {
+      // Silently fail - this just means no mission exists for this event
+      console.log(`No mission found for event ${eventId}`);
+    } finally {
+      setMissionLoading(prev => ({ ...prev, [eventId]: false }));
+    }
+  };
+
+  // Check for missions when events are loaded or selected event changes
+  useEffect(() => {
+    if (selectedEvent?.id) {
+      checkEventMission(selectedEvent.id);
+    }
+  }, [selectedEvent?.id]);
   
   // Cycle handlers
   const handleCreateCycle = async (cycleData: {
@@ -1237,19 +1358,23 @@ const EventsManagement: React.FC = () => {
             </div>
           </div>
           
-          {/* Event Attendance */}
-          <div style={{ 
-            width: CARD_WIDTH, 
-            minWidth: '350px', 
+          {/* Right Side Container - Attendance and Mission Cards */}
+          <div style={{
+            width: CARD_WIDTH,
+            minWidth: '350px',
             height: 'calc(100vh - 40px)',
             boxSizing: 'border-box',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '20px',
             overflowY: 'visible'
           }}>
+            {/* Event Attendance */}
             <div style={{
               backgroundColor: '#FFFFFF',
               boxShadow: '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)',
               borderRadius: '8px',
-              height: '100%',
+              flex: 1,
               display: 'flex',
               flexDirection: 'column',
               overflow: 'hidden'
@@ -1296,6 +1421,108 @@ const EventsManagement: React.FC = () => {
               {/* Content */}
               <div style={{ flex: 1, overflow: 'hidden' }}>
                 <EventAttendance event={selectedEvent} />
+              </div>
+            </div>
+
+            {/* Mission Card */}
+            <div style={{
+              backgroundColor: '#FFFFFF',
+              boxShadow: '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)',
+              borderRadius: '8px',
+              height: 'auto',
+              display: 'flex',
+              flexDirection: 'column',
+              padding: '24px',
+              boxSizing: 'border-box'
+            }}>
+              {/* Header */}
+              <div style={{
+                textAlign: 'center',
+                marginBottom: '16px'
+              }}>
+                <span style={{
+                  fontFamily: 'Inter',
+                  fontStyle: 'normal',
+                  fontWeight: 300,
+                  fontSize: '20px',
+                  lineHeight: '24px',
+                  color: '#64748B',
+                  textTransform: 'uppercase'
+                }}>Mission</span>
+              </div>
+              {/* Content */}
+              <div style={{
+                display: 'flex',
+                justifyContent: 'space-around',
+                padding: '16px'
+              }}>
+                {selectedEvent ? (
+                  <button
+                    onClick={() => handlePlanMission(selectedEvent)}
+                    disabled={selectedEvent?.id ? missionLoading[selectedEvent.id] : false}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      padding: '12px 24px',
+                      border: '1px solid #D1D5DB',
+                      borderRadius: '6px',
+                      backgroundColor: 'transparent',
+                      color: '#6B7280',
+                      fontFamily: 'Inter',
+                      fontSize: '14px',
+                      fontWeight: 500,
+                      cursor: selectedEvent?.id && missionLoading[selectedEvent.id] ? 'not-allowed' : 'pointer',
+                      opacity: selectedEvent?.id && missionLoading[selectedEvent.id] ? 0.5 : 1,
+                      transition: 'all 0.2s ease',
+                      ':hover': {
+                        borderColor: '#9CA3AF',
+                        backgroundColor: '#F9FAFB'
+                      }
+                    }}
+                    onMouseOver={(e) => {
+                      if (!(selectedEvent?.id && missionLoading[selectedEvent.id])) {
+                        e.currentTarget.style.borderColor = '#9CA3AF';
+                        e.currentTarget.style.backgroundColor = '#F9FAFB';
+                      }
+                    }}
+                    onMouseOut={(e) => {
+                      e.currentTarget.style.borderColor = '#D1D5DB';
+                      e.currentTarget.style.backgroundColor = 'transparent';
+                    }}
+                  >
+                    {/* Compass Icon */}
+                    <svg 
+                      width="18" 
+                      height="18" 
+                      viewBox="0 0 24 24" 
+                      fill="none" 
+                      stroke="currentColor" 
+                      strokeWidth="2" 
+                      strokeLinecap="round" 
+                      strokeLinejoin="round"
+                    >
+                      <circle cx="12" cy="12" r="10"/>
+                      <polygon points="16.24,7.76 14.12,14.12 7.76,16.24 9.88,9.88"/>
+                    </svg>
+                    {selectedEvent?.id && missionLoading[selectedEvent.id] ? (
+                      'Loading...'
+                    ) : selectedEvent?.id && eventMissions[selectedEvent.id] ? (
+                      'Go to Mission'
+                    ) : (
+                      'Plan Mission'
+                    )}
+                  </button>
+                ) : (
+                  <div style={{
+                    color: '#9CA3AF',
+                    fontFamily: 'Inter',
+                    fontSize: '14px',
+                    textAlign: 'center'
+                  }}>
+                    Select an event to plan mission
+                  </div>
+                )}
               </div>
             </div>
           </div>

@@ -15,6 +15,7 @@ import { autoAssignPilots } from '../../utils/autoAssignUtils';
 import { getMissionCommanderCandidatesWithFlightInfo } from '../../utils/missionCommanderUtils';
 import { useMissionPrepData } from '../../hooks/useMissionPrepData';
 import { useMissionPrepState } from '../../hooks/useMissionPrepState';
+import { useMissionPrepDataPersistence } from '../../hooks/useMissionPrepDataPersistence';
 import type { AssignedPilot, AssignedPilotsRecord } from '../../types/MissionPrepTypes';
 
 // Define the structure for the polled attendance data
@@ -61,25 +62,42 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
     allPilotQualifications
   } = useMissionPrepData();
   
-  // Use custom hook to manage state
+  // Use database-backed state management
   const {
     assignedPilots,
     setAssignedPilots,
     missionCommander,
     setMissionCommander,
     extractedFlights,
+    setExtractedFlights,
     prepFlights,
     setPrepFlights,
+    mission,
+    missionLoading,
+    missionError,
+    missionSaving,
+    updateSelectedSquadrons,
+    updateMissionSettings
+  } = useMissionPrepDataPersistence(
+    selectedEvent,
+    externalAssignedPilots,
+    externalMissionCommander,
+    externalExtractedFlights,
+    externalPrepFlights
+  );
+
+  // Legacy state management for backwards compatibility
+  const {
     handleExtractedFlights,
     resetProcessedFlag
   } = useMissionPrepState(
-    externalAssignedPilots,
+    assignedPilots,
     onAssignedPilotsChange,
-    externalMissionCommander,
+    missionCommander,
     onMissionCommanderChange,
-    externalExtractedFlights,
+    extractedFlights,
     onExtractedFlightsChange,
-    externalPrepFlights,
+    prepFlights,
     onPrepFlightsChange
   );
 
@@ -99,8 +117,8 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
   }, [assignedPilots]);
 
   // Update flights when FlightAssignments updates them
-  const handleFlightsChange = useCallback((updatedFlights: any[]) => {
-    setPrepFlights(updatedFlights);
+  const handleFlightsChange = useCallback((updatedFlights: any[], skipSave: boolean = false) => {
+    setPrepFlights(updatedFlights, skipSave);
   }, [setPrepFlights]);
 
   // Clear all pilot assignments and the mission commander
@@ -310,6 +328,26 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
           boxSizing: 'border-box',
           overflow: 'visible'
         }}>
+        {/* Mission Status Indicator */}
+        {(missionLoading || missionSaving || missionError) && (
+          <div style={{
+            position: 'fixed',
+            top: '20px',
+            right: '20px',
+            padding: '8px 16px',
+            borderRadius: '6px',
+            fontSize: '14px',
+            zIndex: 1000,
+            backgroundColor: missionError ? '#FEE2E2' : missionSaving ? '#FEF3C7' : '#DBEAFE',
+            color: missionError ? '#B91C1C' : missionSaving ? '#92400E' : '#1E40AF',
+            border: `1px solid ${missionError ? '#FCA5A5' : missionSaving ? '#FCD34D' : '#93C5FD'}`
+          }}>
+            {missionError ? `Mission Error: ${missionError}` : 
+             missionSaving ? 'Saving mission...' : 
+             missionLoading ? 'Loading mission...' : ''}
+          </div>
+        )}
+
         <div style={{
             display: 'flex',
             gap: '20px',
