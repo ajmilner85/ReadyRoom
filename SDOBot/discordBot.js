@@ -1166,10 +1166,33 @@ client.on('interactionCreate', async interaction => {
   const additionalEmbeds = createAdditionalImageEmbeds(embedData.imageData, 'https://readyroom.app');
   const allEmbeds = [updatedEmbed, ...additionalEmbeds];
   
-  await interaction.update({
-    embeds: allEmbeds,
-    components: [createAttendanceButtons()]
-  });
+  // Update interaction with comprehensive error handling
+  try {
+    await interaction.update({
+      embeds: allEmbeds,
+      components: [createAttendanceButtons()]
+    });
+  } catch (error) {
+    // Handle common Discord API errors gracefully
+    if (error.code === 40060) {
+      console.warn(`[DISCORD-API] Interaction already acknowledged for user ${displayName} (${userId}) on event: ${eventData.title}`);
+    } else if (error.code === 10062) {
+      console.warn(`[DISCORD-API] Unknown interaction for user ${displayName} (${userId}) on event: ${eventData.title}`);
+    } else if (error.message?.includes('timeout') || error.message?.includes('timed out')) {
+      console.warn(`[DISCORD-API] Interaction timeout for user ${displayName} (${userId}) on event: ${eventData.title}`);
+    } else {
+      console.error(`[DISCORD-API] Failed to update interaction for user ${displayName} (${userId}) on event: ${eventData.title}`, {
+        errorCode: error.code,
+        errorMessage: error.message,
+        stack: error.stack
+      });
+    }
+    
+    // Even if the interaction update fails, the database has been updated
+    // The attendance response was still recorded successfully above
+    console.log(`[DISCORD-API] Attendance response still recorded successfully for ${displayName} (${customId})`);
+    return; // Exit gracefully without crashing
+  }
   
   // No need to call saveEventResponses() here as we're using the database directly
   // for storing attendance data via the upsertEventAttendance() function call above

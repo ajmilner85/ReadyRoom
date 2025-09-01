@@ -43,7 +43,7 @@ const RECOGNIZED_QUALIFICATIONS: QualificationType[] = [
 
 interface PilotEntryProps {
   pilot: Pilot & { 
-    attendanceStatus?: 'accepted' | 'tentative';
+    attendanceStatus?: 'accepted' | 'tentative' | 'declined';
     rollCallStatus?: 'Present' | 'Absent' | 'Tentative';
   };
   isAssigned?: boolean;
@@ -492,7 +492,7 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
       return pilots.map(pilot => {
       const pilotCopy = { 
         ...pilot, 
-        attendanceStatus: undefined as ('accepted' | 'tentative' | undefined),
+        attendanceStatus: undefined as ('accepted' | 'tentative' | 'declined' | undefined),
         rollCallStatus: undefined as ('Present' | 'Absent' | 'Tentative' | undefined)
       };
       const pilotId = pilotCopy.id || pilotCopy.boardNumber;
@@ -566,8 +566,8 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
     const resultGroups: Record<string, Pilot[]> = {};
     let groupingOrder: string[] = [];
     
-    if (isRollCallMode) {
-      // In roll call mode, group by Discord attendance response (user_response)
+    if (isRollCallMode || showOnlyAttending) {
+      // In roll call mode OR when availability filter is enabled, group by Discord attendance response
       const attendanceGroups = ['accepted', 'tentative', 'declined', 'No Response'];
       groupingOrder = attendanceGroups;
       
@@ -650,7 +650,7 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
       groups: resultGroups, 
       order: groupingOrder 
     };
-  }, [filteredPilots, pilotQualifications, allQualifications]);
+  }, [filteredPilots, pilotQualifications, allQualifications, isRollCallMode, showOnlyAttending, realtimeAttendanceData]);
 
   // Set up some style attributes for drag operations
   useEffect(() => {
@@ -948,8 +948,8 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
                       textTransform: 'uppercase'
                     }}
                   >
-                    {/* Display friendly names for attendance statuses in roll call mode */}
-                    {isRollCallMode 
+                    {/* Display friendly names for attendance statuses in roll call mode or when filtering by attendance */}
+                    {(isRollCallMode || showOnlyAttending) 
                       ? (groupName === 'accepted' ? 'Attending' :
                          groupName === 'tentative' ? 'Tentative' :
                          groupName === 'declined' ? 'Declined' :
@@ -968,7 +968,7 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
                     const pilotWithRollCall = {
                       ...pilot,
                       rollCallStatus: rollCallResponses[pilotIdKey],
-                      attendanceStatus: pilot.attendanceStatus === 'declined' ? undefined : pilot.attendanceStatus
+                      attendanceStatus: pilot.attendanceStatus
                     };
                     
                     return (
