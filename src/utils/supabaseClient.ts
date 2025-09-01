@@ -28,8 +28,8 @@ export function getSupabase(): SupabaseClient<Database> {
 // Resilient wrapper function (duplicated from sb.ts to avoid circular dependency)
 export async function sb<T>(fn: (c: SupabaseClient<Database>) => Promise<T>): Promise<T> {
   const supabase = getSupabase();
-  await supabase.auth.getSession(); // proactively ensure freshness
-
+  // Removed proactive session check - Supabase handles auth automatically
+  
   try {
     return await fn(supabase);
   } catch (err: any) {

@@ -796,49 +796,6 @@ const EventsManagement: React.FC = () => {
     setShowDeleteDialog(true);
   };
 
-  // Mission handlers
-  const handleCreateMission = async (event: Event) => {
-    if (!event.id) return;
-    
-    setMissionLoading(prev => ({ ...prev, [event.id]: true }));
-    
-    try {
-      const missionName = `${event.title} Mission`;
-      const { mission, error } = await createMission({
-        event_id: event.id,
-        name: missionName,
-        description: `Mission planning for ${event.title}`,
-        selected_squadrons: event.participants || []
-      });
-
-      if (error) {
-        console.error('Error creating mission:', error);
-        setError(`Failed to create mission: ${error}`);
-        return;
-      }
-
-      // Update state with new mission
-      setEventMissions(prev => ({ ...prev, [event.id]: mission }));
-      
-      // Navigate to Mission Preparation with the event pre-selected
-      const missionPrepUrl = `/mission-prep?eventId=${event.id}`;
-      window.location.href = missionPrepUrl;
-      
-    } catch (err: any) {
-      console.error('Error creating mission:', err);
-      setError(`Failed to create mission: ${err.message}`);
-    } finally {
-      setMissionLoading(prev => ({ ...prev, [event.id]: false }));
-    }
-  };
-
-  const handleGoToMission = (event: Event) => {
-    if (!event.id) return;
-    
-    // Navigate to Mission Preparation with the event pre-selected
-    const missionPrepUrl = `/mission-prep?eventId=${event.id}`;
-    window.location.href = missionPrepUrl;
-  };
 
   const handlePlanMission = async (event: Event) => {
     if (!event.id) return;
@@ -1474,11 +1431,7 @@ const EventsManagement: React.FC = () => {
                       fontWeight: 500,
                       cursor: selectedEvent?.id && missionLoading[selectedEvent.id] ? 'not-allowed' : 'pointer',
                       opacity: selectedEvent?.id && missionLoading[selectedEvent.id] ? 0.5 : 1,
-                      transition: 'all 0.2s ease',
-                      ':hover': {
-                        borderColor: '#9CA3AF',
-                        backgroundColor: '#F9FAFB'
-                      }
+                      transition: 'all 0.2s ease'
                     }}
                     onMouseOver={(e) => {
                       if (!(selectedEvent?.id && missionLoading[selectedEvent.id])) {

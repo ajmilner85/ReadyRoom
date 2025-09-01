@@ -175,7 +175,7 @@ async function debugAuth() {
     
     if (session) {
       console.log('✅ User authenticated:', session.user.email || session.user.id);
-      console.log('Session expires:', new Date(session.expires_at * 1000));
+      console.log('Session expires:', session.expires_at ? new Date(session.expires_at * 1000) : 'No expiration');
       
       // Test database access
       const { data: events, error: eventsError } = await supabase
@@ -271,7 +271,7 @@ function debugRender() {
   window.onunhandledrejection = (event) => {
     unhandledRejections++;
     console.error('Unhandled promise rejection:', event.reason);
-    if (originalHandler) originalHandler(event);
+    if (originalHandler) originalHandler.call(window, event);
   };
   
   console.log('Debug setup complete. Monitoring for issues...');

@@ -45,7 +45,7 @@ interface FlightAssignmentsProps {
   assignedPilots?: Record<string, AssignedPilot[]> | null;
   missionCommander?: MissionCommanderInfo | null;
   extractedFlights?: ExtractedFlight[];
-  onFlightsChange?: (flights: Flight[]) => void;
+  onFlightsChange?: (flights: Flight[], skipSave?: boolean) => void;
   initialFlights?: Flight[];
 }
 

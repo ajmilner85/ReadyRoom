@@ -48,11 +48,6 @@ const convertRowToMission = (row: MissionRow): Mission => {
   };
 };
 
-// Get current user ID for created_by/updated_by fields
-const getCurrentUserId = async (): Promise<string | null> => {
-  const { data: { user } } = await supabase.auth.getUser();
-  return user?.id || null;
-};
 
 // Get current user's profile ID for foreign key references
 const getCurrentUserProfileId = async (): Promise<string | null> => {
@@ -145,8 +140,8 @@ export const getMissionById = async (missionId: string): Promise<MissionResponse
         datetime: data.event.start_datetime,
         endDatetime: data.event.end_datetime,
         status: data.event.status,
-        eventType: data.event.event_type,
-        cycleId: data.event.cycle_id,
+        eventType: data.event.event_type as any || undefined,
+        cycleId: data.event.cycle_id || undefined,
         creator: {
           boardNumber: data.event.creator_board_number || '',
           callsign: data.event.creator_call_sign || '',
@@ -193,8 +188,8 @@ export const getMissionByEventId = async (eventId: string): Promise<MissionRespo
         datetime: data.event.start_datetime,
         endDatetime: data.event.end_datetime,
         status: data.event.status,
-        eventType: data.event.event_type,
-        cycleId: data.event.cycle_id,
+        eventType: data.event.event_type as any || undefined,
+        cycleId: data.event.cycle_id || undefined,
         creator: {
           boardNumber: data.event.creator_board_number || '',
           callsign: data.event.creator_call_sign || '',
@@ -220,6 +215,9 @@ export const updateMission = async (
     
     const updateData: MissionUpdate = {
       ...missionData,
+      flights: missionData.flights ? missionData.flights as any : undefined,
+      pilot_assignments: missionData.pilot_assignments ? missionData.pilot_assignments as any : undefined,
+      support_role_assignments: missionData.support_role_assignments ? missionData.support_role_assignments as any : undefined,
       updated_by: userId,
       updated_at: new Date().toISOString()
     };
@@ -413,8 +411,8 @@ export const getMissions = async (params?: {
           datetime: row.event.start_datetime,
           endDatetime: row.event.end_datetime,
           status: row.event.status,
-          eventType: row.event.event_type,
-          cycleId: row.event.cycle_id,
+          eventType: row.event.event_type as any || undefined,
+          cycleId: row.event.cycle_id || undefined,
           creator: {
             boardNumber: row.event.creator_board_number || '',
             callsign: row.event.creator_call_sign || '',
