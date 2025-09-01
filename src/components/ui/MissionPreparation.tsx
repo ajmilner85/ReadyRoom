@@ -61,8 +61,8 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
     loadError,
     allPilotQualifications
   } = useMissionPrepData();
-  
-  // Use database-backed state management
+
+  // Use database-backed state management first
   const {
     assignedPilots,
     setAssignedPilots,
@@ -79,8 +79,37 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
     externalAssignedPilots,
     externalMissionCommander,
     externalExtractedFlights,
-    externalPrepFlights
+    externalPrepFlights,
+    activePilots,
+    false  // Will be updated below
   );
+
+  const [realtimeAttendanceData, setRealtimeAttendanceData] = useState<RealtimeAttendanceRecord[]>([]);
+
+  // Wrapper for setAssignedPilots to handle React setState signature
+  const setAssignedPilotsWrapper = useCallback((pilots: AssignedPilotsRecord | ((prev: AssignedPilotsRecord) => AssignedPilotsRecord)) => {
+    console.log('🔄 MissionPreparation: setAssignedPilotsWrapper called:', { 
+      isFunction: typeof pilots === 'function',
+      currentAssignedPilots: JSON.stringify(assignedPilots)
+    });
+    
+    if (typeof pilots === 'function') {
+      // Handle function updates - get current value and call function
+      const currentPilots = assignedPilots || {};
+      const newPilots = pilots(currentPilots);
+      console.log('💾 MissionPreparation: Calling setAssignedPilots with function result:', {
+        newPilots: JSON.stringify(newPilots),
+        skipSave: false
+      });
+      setAssignedPilots(newPilots, false); // false = don't skip save for user actions
+    } else {
+      console.log('💾 MissionPreparation: Calling setAssignedPilots with direct value:', {
+        pilots: JSON.stringify(pilots),
+        skipSave: false
+      });
+      setAssignedPilots(pilots, false); // false = don't skip save for user actions
+    }
+  }, [assignedPilots, setAssignedPilots]);
 
   // Legacy state management for backwards compatibility
   const {
@@ -97,14 +126,12 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
     onPrepFlightsChange
   );
 
-  const [realtimeAttendanceData, setRealtimeAttendanceData] = useState<RealtimeAttendanceRecord[]>([]);
-
   // Use custom hook for drag and drop functionality
   const { draggedPilot, dragSource, handleDragStart, handleDragEnd } = useDragDrop({
     missionCommander,
     setMissionCommander,
     assignedPilots,
-    setAssignedPilots
+    setAssignedPilots: setAssignedPilotsWrapper
   });
 
   // Get mission commander candidates with additional flight info
@@ -116,18 +143,6 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
   const handleFlightsChange = useCallback((updatedFlights: any[], skipSave: boolean = false) => {
     setPrepFlights(updatedFlights, skipSave);
   }, [setPrepFlights]);
-
-  // Wrapper for setAssignedPilots to handle React setState signature
-  const setAssignedPilotsWrapper = useCallback((pilots: AssignedPilotsRecord | ((prev: AssignedPilotsRecord) => AssignedPilotsRecord)) => {
-    if (typeof pilots === 'function') {
-      // Handle function updates - get current value and call function
-      const currentPilots = assignedPilots || {};
-      const newPilots = pilots(currentPilots);
-      setAssignedPilots(newPilots, false); // false = don't skip save for user actions
-    } else {
-      setAssignedPilots(pilots, false); // false = don't skip save for user actions
-    }
-  }, [assignedPilots, setAssignedPilots]);
 
   // Clear all pilot assignments and the mission commander
   const handleClearAssignments = useCallback(() => {

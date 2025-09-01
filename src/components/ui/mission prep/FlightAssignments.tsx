@@ -268,7 +268,8 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
     // Place each assigned pilot in their designated position by dashNumber
     assigned.forEach(assignedPilot => {
       const dashNumber = assignedPilot.dashNumber;
-      // Make sure dashNumber is a string
+      // Make sure dashNumber is a string - skip if undefined
+      if (!dashNumber) return;
       const dashNumberStr = dashNumber.toString();
       
       // Find the position with matching dashNumber

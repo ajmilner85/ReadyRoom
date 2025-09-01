@@ -346,6 +346,7 @@ const DroppableAircraftTile: React.FC<DroppableAircraftTileProps> = ({
         midsB={midsB}
         isMissionCommander={isMissionCommander}
         verticalOffset={verticalOffset} // Pass the verticalOffset to AircraftTile
+        pilot={pilot} // Pass the full pilot object for drag operations
       />
       {isOver && (
         <div style={{

@@ -20,6 +20,7 @@ interface AircraftTileProps {
   attendanceStatus?: 'accepted' | 'tentative' | 'declined'; // Discord attendance status - ADDED 'declined'
   rollCallStatus?: 'Present' | 'Absent' | 'Tentative'; // Roll call attendance status
   iconType?: 'aircraft' | 'personnel'; // Add prop to specify icon type
+  pilot?: any; // Add full pilot object for drag operations
 }
 
 const AircraftTile: React.FC<AircraftTileProps> = ({
@@ -38,7 +39,8 @@ const AircraftTile: React.FC<AircraftTileProps> = ({
   isMissionCommander = false,
   attendanceStatus,
   rollCallStatus,
-  iconType = 'aircraft'
+  iconType = 'aircraft',
+  pilot
 }) => {
   // Track local drag state
   const [localDragging, setLocalDragging] = useState(false);
@@ -79,12 +81,12 @@ const AircraftTile: React.FC<AircraftTileProps> = ({
     id: `pilot-tile-${boardNumber}`,
     data: {
       type: 'Pilot',
-      pilot: isEmpty ? null : {
+      pilot: isEmpty ? null : (pilot || {
         boardNumber,
         callsign,
         dashNumber,
-        attendanceStatus // CRITICAL FIX: Include attendance status in drag data
-      },
+        attendanceStatus // Fallback to minimal data if pilot object not available
+      }),
       currentFlightId: flightId
     },
     disabled: isEmpty
@@ -253,7 +255,7 @@ const AircraftTile: React.FC<AircraftTileProps> = ({
             }}
           >            {/* Aircraft/Personnel icon - faded when empty */}            <img
               src={iconType === 'personnel' ? flightDeckPersonnelIcon : aircraftIcon}
-              alt={iconType === 'personnel' ? "Flight Deck Personnel" : "Aircraft"}
+              alt=""
               style={{
                 width: '34px',
                 height: iconType === 'personnel' ? '34px' : '46px', // Make personnel icon square

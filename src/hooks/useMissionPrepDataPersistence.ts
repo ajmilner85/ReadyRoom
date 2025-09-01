@@ -15,7 +15,8 @@ export const useMissionPrepDataPersistence = (
   externalAssignedPilots?: AssignedPilotsRecord,
   externalMissionCommander?: MissionCommanderInfo | null,
   externalExtractedFlights?: any[],
-  externalPrepFlights?: any[]
+  externalPrepFlights?: any[],
+  activePilots?: any[],
 ) => {
   const { 
     mission, 
@@ -55,11 +56,67 @@ export const useMissionPrepDataPersistence = (
 
   // Sync state with mission data when mission loads
   useEffect(() => {
-    if (mission) {
+    if (mission && activePilots) {
+      console.log('🔄 Persistence: Mission data loaded, syncing state:', {
+        missionId: mission.id,
+        hasPilotAssignments: !!mission.pilot_assignments,
+        activePilotsCount: activePilots?.length || 0,
+        pilotAssignments: JSON.stringify(mission.pilot_assignments)
+      });
+      
       // Convert database pilot assignments back to the format expected by the UI (skip save since this is loading)
       if (mission.pilot_assignments) {
-        setAssignedPilotsLocal(mission.pilot_assignments as unknown as AssignedPilotsRecord);
+        console.log('📥 Persistence: Loading pilot assignments from database');
+        
+        // Convert PilotAssignment[] to AssignedPilotsRecord format
+        const convertedAssignments: AssignedPilotsRecord = {};
+        
+        Object.entries(mission.pilot_assignments as Record<string, any[]>).forEach(([flightId, assignments]) => {
+          convertedAssignments[flightId] = assignments.map(assignment => {
+            // If it's already in UI format (has dashNumber), use it as-is
+            if (assignment.dashNumber) {
+              return assignment;
+            }
+            
+            // Convert from database format (PilotAssignment) to UI format (AssignedPilot)
+            // Look up the full pilot data using pilot_id
+            const fullPilotData = activePilots?.find(pilot => pilot.id === assignment.pilot_id);
+            
+            if (fullPilotData) {
+              // Use full pilot data with database assignment info
+              return {
+                ...fullPilotData,
+                dashNumber: assignment.dash_number,
+                flight_id: assignment.flight_id,
+                slot_number: assignment.slot_number,
+                mids_a_channel: assignment.mids_a_channel || '',
+                mids_b_channel: assignment.mids_b_channel || ''
+              };
+            } else {
+              // Fallback to minimal pilot object if lookup fails
+              console.warn('🚨 Persistence: Could not find pilot data for ID:', assignment.pilot_id);
+              return {
+                id: assignment.pilot_id,
+                dashNumber: assignment.dash_number,
+                flight_id: assignment.flight_id,
+                slot_number: assignment.slot_number,
+                mids_a_channel: assignment.mids_a_channel || '',
+                mids_b_channel: assignment.mids_b_channel || '',
+                // Add minimal pilot info as fallback
+                callsign: 'Unknown',
+                boardNumber: 'Unknown',
+                status: '',
+                billet: '',
+                qualifications: []
+              };
+            }
+          });
+        });
+        
+        console.log('📥 Persistence: Converted assignments:', JSON.stringify(convertedAssignments));
+        setAssignedPilotsLocal(convertedAssignments);
       } else {
+        console.log('📭 Persistence: No pilot assignments in database, using empty state');
         setAssignedPilotsLocal({});
       }
 
@@ -113,7 +170,7 @@ export const useMissionPrepDataPersistence = (
         setPrepFlightsLocal([]);
       }
     }
-  }, [mission]);
+  }, [mission, activePilots]);
 
   // Auto-create mission when event is selected but no mission exists
   // Removed auto-creation to prevent duplicate missions when navigating from Events Management
@@ -132,6 +189,10 @@ export const useMissionPrepDataPersistence = (
   // Debounced save function to avoid too many database calls
   const [saveTimeout, setSaveTimeout] = useState<NodeJS.Timeout | null>(null);
   const [hasPendingChanges, setHasPendingChanges] = useState<boolean>(false);
+  const [pendingOperations, setPendingOperations] = useState<Array<() => Promise<boolean>>>([]);
+
+  // Check if any drag operation is in progress globally
+  const isDragInProgress = document.body.classList.contains('dragging');
 
   const debouncedSave = useCallback((
     saveFunction: () => Promise<boolean>,
@@ -141,10 +202,30 @@ export const useMissionPrepDataPersistence = (
       clearTimeout(saveTimeout);
     }
 
+    // Check for drag state at call time
+    const dragInProgress = document.body.classList.contains('dragging');
+    
+    // If drag is in progress, queue the operation instead of executing immediately
+    if (dragInProgress) {
+      console.log('🚫 Persistence: Drag in progress, queuing save operation');
+      setPendingOperations(prev => [...prev, saveFunction]);
+      return;
+    }
+
     setHasPendingChanges(true);
 
     const timeout = setTimeout(async () => {
+      // Double-check drag state before executing
+      const stillDragging = document.body.classList.contains('dragging');
+      if (stillDragging) {
+        console.log('🚫 Persistence: Drag started during delay, re-queuing operation');
+        setPendingOperations(prev => [...prev, saveFunction]);
+        setHasPendingChanges(false);
+        return;
+      }
+
       try {
+        console.log('💾 Persistence: Executing save operation');
         await saveFunction();
       } catch (error) {
         console.error('Error saving mission data:', error);
@@ -156,12 +237,46 @@ export const useMissionPrepDataPersistence = (
     setSaveTimeout(timeout);
   }, [saveTimeout]);
 
+  // Monitor for drag completion and execute queued operations
+  useEffect(() => {
+    if (!isDragInProgress && pendingOperations.length > 0) {
+      console.log(`🚀 Persistence: Drag completed, executing ${pendingOperations.length} queued operations`);
+      
+      // Execute the most recent operation (latest user state)
+      const latestOperation = pendingOperations[pendingOperations.length - 1];
+      setPendingOperations([]);
+      
+      // Execute with a small delay to ensure UI has settled
+      const timeout = setTimeout(async () => {
+        try {
+          setHasPendingChanges(true);
+          await latestOperation();
+          console.log('✅ Persistence: Queued operation completed');
+        } catch (error) {
+          console.error('Error executing queued operation:', error);
+        } finally {
+          setHasPendingChanges(false);
+        }
+      }, 100);
+
+      return () => clearTimeout(timeout);
+    }
+  }, [isDragInProgress, pendingOperations]);
+
   // Enhanced setters that save to database
   const setAssignedPilots = useCallback((pilots: AssignedPilotsRecord, skipSave: boolean = false) => {
+    console.log('📝 Persistence: setAssignedPilots called:', {
+      pilots: JSON.stringify(pilots),
+      skipSave,
+      hasMission: !!mission,
+      missionId: mission?.id
+    });
+    
     setAssignedPilotsLocal(pilots);
     
     // Only save to database if this is a user-initiated change
     if (mission && !skipSave) {
+      console.log('💾 Persistence: Scheduling database save...');
       debouncedSave(async () => {
         const pilotAssignments: Record<string, PilotAssignment[]> = {};
         
@@ -176,8 +291,13 @@ export const useMissionPrepDataPersistence = (
           }));
         });
 
-        return updatePilotAssignments(pilotAssignments);
+        console.log('🔄 Persistence: Executing database save with assignments:', pilotAssignments);
+        const result = await updatePilotAssignments(pilotAssignments);
+        console.log('✅ Persistence: Database save result:', result);
+        return result;
       });
+    } else {
+      console.log('⏭️ Persistence: Skipping save (skipSave=true or no mission)');
     }
   }, [mission, debouncedSave, updatePilotAssignments]);
 
