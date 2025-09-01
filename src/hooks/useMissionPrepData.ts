@@ -12,7 +12,14 @@ import type { Pilot } from '../types/PilotTypes';
  * Note: Intentionally does not filter by squadron to support multi-squadron operations
  */
 export const useMissionPrepData = () => {
+  // Check for eventId in URL parameters
+  const getEventIdFromUrl = () => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get('eventId');
+  };
+
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(loadSelectedEvent());
+  const [urlEventId] = useState<string | null>(getEventIdFromUrl());
   const [events, setEvents] = useState<Event[]>([]);
   const [pilots, setPilots] = useState<Pilot[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -62,16 +69,29 @@ export const useMissionPrepData = () => {
         // Events are already sorted in reverse chronological order by the query
         setEvents(allEvents);
         
-        // Validate that the currently selected event still exists in the fetched events
-        if (selectedEvent) {
+        // Priority 1: If URL has eventId, select that event
+        if (urlEventId) {
+          const urlEvent = allEvents.find(event => event.id === urlEventId);
+          if (urlEvent) {
+            console.log('Auto-selecting event from URL:', urlEvent.title);
+            setSelectedEventWrapper(urlEvent);
+            // Clear URL parameter after selection (optional)
+            // window.history.replaceState({}, '', window.location.pathname);
+          } else {
+            console.warn('Event ID from URL not found in events list:', urlEventId);
+          }
+        } 
+        // Priority 2: Validate that the currently selected event still exists in the fetched events
+        else if (selectedEvent) {
           const eventStillExists = allEvents.find(event => event.id === selectedEvent.id);
           if (!eventStillExists) {
             // The previously selected event no longer exists, clear the selection
             console.log('Previously selected event no longer exists, clearing selection');
             setSelectedEventWrapper(null);
           }
-        } else {
-          // Only auto-select an event if this is truly the first time (no localStorage entry exists)
+        } 
+        // Priority 3: Only auto-select an event if this is truly the first time (no localStorage entry exists)
+        else {
           // Check if localStorage has ever been set (even if it was set to null)
           const hasStoredSelection = localStorage.getItem(STORAGE_KEYS.SELECTED_EVENT) !== null;
           if (!hasStoredSelection && allEvents.length > 0) {

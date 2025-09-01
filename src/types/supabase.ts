@@ -218,6 +218,7 @@ export type Database = {
           event_type: string | null
           id: string
           image_url: Json | null
+          mission_id: string | null
           name: string
           participants: Json | null
           start_datetime: string
@@ -242,6 +243,7 @@ export type Database = {
           event_type?: string | null
           id?: string
           image_url?: Json | null
+          mission_id?: string | null
           name: string
           participants?: Json | null
           start_datetime: string
@@ -266,6 +268,7 @@ export type Database = {
           event_type?: string | null
           id?: string
           image_url?: Json | null
+          mission_id?: string | null
           name?: string
           participants?: Json | null
           start_datetime?: string
@@ -287,6 +290,85 @@ export type Database = {
             columns: ["cycle_id"]
             isOneToOne: false
             referencedRelation: "cycles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      missions: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          description: string | null
+          event_id: string | null
+          flight_import_filter: string
+          flights: Json
+          id: string
+          mission_settings: Json
+          miz_file_data: Json
+          name: string
+          pilot_assignments: Json
+          selected_squadrons: Json
+          status: string
+          support_role_assignments: Json
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          event_id?: string | null
+          flight_import_filter?: string
+          flights?: Json
+          id?: string
+          mission_settings?: Json
+          miz_file_data?: Json
+          name: string
+          pilot_assignments?: Json
+          selected_squadrons?: Json
+          status?: string
+          support_role_assignments?: Json
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          event_id?: string | null
+          flight_import_filter?: string
+          flights?: Json
+          id?: string
+          mission_settings?: Json
+          miz_file_data?: Json
+          name?: string
+          pilot_assignments?: Json
+          selected_squadrons?: Json
+          status?: string
+          support_role_assignments?: Json
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "missions_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "missions_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: true
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "missions_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
             referencedColumns: ["id"]
           },
         ]

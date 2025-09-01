@@ -158,4 +158,156 @@ async function testPilotRolesRelationship() {
 (window as any).debugPilotsWithRoles = debugPilotsWithRoles;
 (window as any).testPilotRolesRelationship = testPilotRolesRelationship;
 
+// Expose Supabase client for debugging
+(window as any).supabase = supabase;
+
+// Debug authentication and mission integration
+async function debugAuth() {
+  console.log('=== ReadyRoom Authentication Debug ===');
+  
+  try {
+    const { data: { session }, error } = await supabase.auth.getSession();
+    
+    if (error) {
+      console.error('❌ Auth error:', error);
+      return;
+    }
+    
+    if (session) {
+      console.log('✅ User authenticated:', session.user.email || session.user.id);
+      console.log('Session expires:', new Date(session.expires_at * 1000));
+      
+      // Test database access
+      const { data: events, error: eventsError } = await supabase
+        .from('events')
+        .select('id, name')
+        .limit(5);
+        
+      if (eventsError) {
+        console.error('❌ Events query error:', eventsError);
+      } else {
+        console.log('✅ Events accessible:', events?.length || 0, 'events');
+      }
+      
+      // Test missions table
+      const { data: missions, error: missionsError } = await supabase
+        .from('missions')
+        .select('id, name')
+        .limit(5);
+        
+      if (missionsError) {
+        console.error('❌ Missions table error (table may not exist):', missionsError);
+      } else {
+        console.log('✅ Missions table accessible:', missions?.length || 0, 'missions');
+      }
+      
+    } else {
+      console.log('❌ No active session');
+    }
+    
+  } catch (err) {
+    console.error('❌ Debug failed:', err);
+  }
+}
+
+(window as any).debugAuth = debugAuth;
+
+// Debug auth state changes to track UI flashing issue
+function debugAuthStateChanges() {
+  console.log('=== Auth State Change Monitoring ===');
+  
+  // Monitor auth state changes
+  const unsubscribe = supabase.auth.onAuthStateChange((event, session) => {
+    console.log(`🔄 Auth state change: ${event}`, {
+      event,
+      hasSession: !!session,
+      hasUser: !!session?.user,
+      userEmail: session?.user?.email,
+      timestamp: new Date().toISOString()
+    });
+  });
+  
+  console.log('✅ Auth state monitoring started. Call stopAuthDebug() to stop.');
+  
+  // Make stop function available
+  (window as any).stopAuthDebug = () => {
+    unsubscribe.data.subscription.unsubscribe();
+    console.log('🛑 Auth state monitoring stopped');
+  };
+}
+
+(window as any).debugAuthStateChanges = debugAuthStateChanges;
+
+// Debug React rendering issues
+function debugRender() {
+  console.log('=== React Render Debug ===');
+  
+  // Check if React root exists
+  const root = document.getElementById('root');
+  console.log('Root element exists:', !!root);
+  console.log('Root innerHTML length:', root?.innerHTML?.length || 0);
+  console.log('Root children count:', root?.children?.length || 0);
+  
+  // Check for React components in the DOM
+  const reactElements = document.querySelectorAll('[data-reactroot], [data-react-*]');
+  console.log('React elements found:', reactElements.length);
+  
+  // Check for error boundaries or crash indicators
+  const errorElements = document.querySelectorAll('.error, .crash, [data-error="true"]');
+  console.log('Error elements found:', errorElements.length);
+  
+  // Check if main app components are rendered
+  const navBar = document.querySelector('nav, .navigation, .navbar');
+  const mainContent = document.querySelector('main, .main-content, .content');
+  console.log('Navigation found:', !!navBar);
+  console.log('Main content found:', !!mainContent);
+  
+  // Check React DevTools
+  console.log('React DevTools available:', !!(window as any).__REACT_DEVTOOLS_GLOBAL_HOOK__);
+  
+  // Check for unhandled promise rejections
+  let unhandledRejections = 0;
+  const originalHandler = window.onunhandledrejection;
+  window.onunhandledrejection = (event) => {
+    unhandledRejections++;
+    console.error('Unhandled promise rejection:', event.reason);
+    if (originalHandler) originalHandler(event);
+  };
+  
+  console.log('Debug setup complete. Monitoring for issues...');
+  
+  // Return cleanup function
+  return () => {
+    window.onunhandledrejection = originalHandler;
+  };
+}
+
+(window as any).debugRender = debugRender;
+
+// Debug component mounting
+function debugComponentMounting() {
+  console.log('=== Component Mounting Debug ===');
+  
+  // Hook into React error boundaries
+  const originalError = console.error;
+  console.error = (...args) => {
+    if (args[0] && args[0].includes && (
+      args[0].includes('React') || 
+      args[0].includes('component') || 
+      args[0].includes('render')
+    )) {
+      console.log('🔴 React Error Detected:', ...args);
+    }
+    originalError(...args);
+  };
+  
+  console.log('✅ Component mounting debug active');
+  
+  return () => {
+    console.error = originalError;
+  };
+}
+
+(window as any).debugComponentMounting = debugComponentMounting;
+
 export { debugPilotRoles, debugPilotsWithRoles, testPilotRolesRelationship };

@@ -35,12 +35,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [error, setError] = useState<string | null>(null);
 
   const refreshProfile = async () => {
+    console.log('refreshProfile called, user:', user?.id);
     if (!user) {
+      console.log('No user in refreshProfile, setting profile to null');
       setUserProfile(null);
       return;
     }
 
     try {
+      console.log('Fetching user profile for user:', user.id);
       const { profile, error: profileError } = await getUserProfile(user.id);
       
       if (profileError) {
@@ -49,6 +52,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         return;
       }
       
+      console.log('Profile fetched:', !!profile, profile?.id);
       if (profile) {
         // Trigger Discord role sync if needed
         try {
@@ -73,7 +77,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   };
 
-  // Initialize auth - much simpler now with wake system handling recovery
+  // Simplified auth initialization
   useEffect(() => {
     let isMounted = true;
     
@@ -87,35 +91,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
         if (error) {
           console.error('Error getting initial session:', error);
           setError('Authentication failed');
-          setUser(null);
-          setSession(null);
-          setUserProfile(null);
         } else {
           setUser(session?.user || null);
           setSession(session);
           setError(null);
-          
-          // If we have a user, ensure profile exists and fetch it
-          if (session?.user) {
-            try {
-              const { createOrUpdateUserProfile } = await import('../utils/userProfileService');
-              await createOrUpdateUserProfile(session.user);
-              await refreshProfile();
-            } catch (profileError) {
-              console.error('Error with user profile:', profileError);
-              // Don't fail the whole auth process if profile creation fails
-            }
-          } else {
-            setUserProfile(null);
-          }
         }
       } catch (err: any) {
         console.error('Error initializing auth:', err);
         if (isMounted) {
           setError(err.message || 'Authentication initialization failed');
-          setUser(null);
-          setSession(null);
-          setUserProfile(null);
         }
       } finally {
         if (isMounted) {
@@ -136,28 +120,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
     const { data: { subscription } } = onAuthStateChange(async (event, session) => {
       setSession(session);
       setUser(session?.user ?? null);
+      setError(null);
 
-      if (event === 'SIGNED_IN' && session?.user) {
-        setLoading(true);
-        setError(null);
-        
-        // Use setTimeout to avoid race conditions with auth state changes
-        // This is a known pattern for Supabase auth state management
-        setTimeout(async () => {
-          try {
-            // Profile will be created/updated by the onAuthStateChange handler in supabaseClient
-            // Wait a moment for that to complete, then refresh
-            await refreshProfile();
-          } catch (err) {
-            console.error('Error refreshing profile after sign in:', err);
-          } finally {
-            setLoading(false);
-          }
-        }, 100); // Short delay to avoid race conditions
-      } else if (event === 'SIGNED_OUT') {
+      if (event === 'SIGNED_OUT') {
         setUserProfile(null);
-        setError(null);
-        setLoading(false);
       }
     });
 
@@ -166,17 +132,28 @@ export function AuthProvider({ children }: AuthProviderProps) {
     };
   }, []);
 
-  // Update profile when user changes (but don't call refreshProfile if we don't have a user)
+  // Load profile when user is available
   useEffect(() => {
+    console.log('Profile loading effect triggered:', { 
+      hasUser: !!user, 
+      loading, 
+      userId: user?.id,
+      currentProfile: !!userProfile 
+    });
+    
     if (user && !loading) {
-      // Use setTimeout here too to avoid race conditions
-      setTimeout(() => {
-        refreshProfile();
-      }, 50);
-    } else if (!user && !loading) {
+      console.log('Starting profile refresh...');
+      refreshProfile().catch(err => {
+        console.warn('Profile loading failed, continuing with auth:', err);
+        // Don't fail the auth process if profile fails
+      });
+    } else if (!user) {
+      console.log('No user, clearing profile');
       setUserProfile(null);
+    } else {
+      console.log('Waiting for loading to finish before loading profile');
     }
-  }, [user?.id, loading]);
+  }, [user?.id, loading]); // Added loading to dependencies
 
   const value: AuthContextType = {
     user,

@@ -35,7 +35,10 @@ interface EventDetailsProps {
   onEventUpdated?: () => void;
 }
 
-const EventDetails: React.FC<EventDetailsProps> = ({ event, onEventUpdated }) => {
+const EventDetails: React.FC<EventDetailsProps> = ({ 
+  event, 
+  onEventUpdated
+}) => {
   const [publishing, setPublishing] = useState(false);
   const [publishMessage, setPublishMessage] = useState<{type: 'success' | 'error', text: string} | null>(null);
   const [imageLoading, setImageLoading] = useState(false);
@@ -1068,7 +1071,7 @@ const EventDetails: React.FC<EventDetailsProps> = ({ event, onEventUpdated }) =>
             {publishMessage.text}
           </div>
         )}
-        
+
         <button
           onClick={handlePublishToDiscord}
           disabled={publishing || isPublished}

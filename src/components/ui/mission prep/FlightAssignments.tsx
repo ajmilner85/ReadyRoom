@@ -67,40 +67,63 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
   const processedFlightTimestamps = useRef<Set<string>>(new Set());
   const initializedRef = useRef(false);
 
-  // Initialize flights from initialFlights when first mounted
+  // Normalize flight data to ensure it has the correct structure
+  const normalizeFlight = (flight: any): Flight => {
+    return {
+      ...flight,
+      pilots: flight.pilots || [
+        { boardNumber: "", callsign: "", dashNumber: "1" },
+        { boardNumber: "", callsign: "", dashNumber: "2" },
+        { boardNumber: "", callsign: "", dashNumber: "3" },
+        { boardNumber: "", callsign: "", dashNumber: "4" }
+      ],
+      creationOrder: flight.creationOrder || 0
+    };
+  };
+
+  // Track the last initialFlights to prevent circular updates
+  const lastInitialFlightsRef = useRef<string>('');
+  
+  // Initialize flights from initialFlights when they change
   useEffect(() => {
-    if (!initializedRef.current && initialFlights.length > 0) {
-      setFlights(initialFlights);
+    // Create a stable identifier for the current initialFlights
+    const initialFlightsId = initialFlights.map(f => `${f.id}:${f.callsign}`).sort().join('|');
+    
+    // Only update if initialFlights actually changed (not just a re-render with same data)
+    if (initialFlightsId !== lastInitialFlightsRef.current) {
+      console.log('FlightAssignments: initialFlights changed:', initialFlights.length, initialFlights.map(f => f.callsign));
+      lastInitialFlightsRef.current = initialFlightsId;
+      
+      const normalizedFlights = initialFlights.map(normalizeFlight);
+      setFlights(normalizedFlights);
       
       // Calculate the highest creation order for future additions
-      const maxCreationOrder = Math.max(...initialFlights.map(f => f.creationOrder), -1);
+      const maxCreationOrder = Math.max(...normalizedFlights.map(f => f.creationOrder), -1);
       setCreationOrderCounter(maxCreationOrder + 1);
       
-      initializedRef.current = true;
+      // Reset the initialization flag when flights change
+      initializedRef.current = normalizedFlights.length > 0;
     }
-  }, [initialFlights]);
+  }, [initialFlights]); // Remove flights dependency to break circular loop
+  // Track if this is a user-initiated change vs system update
+  const isUserInitiatedChange = useRef(false);
+  
   // Notify parent component when flights change or when assigned pilots change
   useEffect(() => {
     if (onFlightsChange) {
-      onFlightsChange(flights);
+      // Only trigger save for user-initiated changes
+      onFlightsChange(flights, !isUserInitiatedChange.current);
     }
-  }, [flights, onFlightsChange]);
-    // Force re-render when assignedPilots changes to update attendance status badges
+    // Reset the flag after notifying
+    isUserInitiatedChange.current = false;
+  }, [flights]); // Removed onFlightsChange from dependencies to prevent infinite re-render
+  // Force re-render when assignedPilots changes to update attendance status badges
+  // Note: We don't need to update flights array, just force a re-render of the component
+  // The getUpdatedFlightPilots function will use the latest assignedPilots automatically
+  const [, forceUpdate] = useState({});
   useEffect(() => {
-    // Add debug logging for attendance status
-    // console.log('[TENTATIVE-DEBUG] AssignedPilots changed, updating attendance badges');
-    
-    // Log any tentative pilots
-    for (const flightId in assignedPilots) {
-      for (const _pilot of assignedPilots[flightId]) {
-        // if (pilot.attendanceStatus === 'tentative') {
-        //   console.log(`[TENTATIVE-DEBUG] Found tentative pilot in flight ${flightId}: ${pilot.callsign}`);
-        // }
-      }
-    }
-    
-    // Create a copy of current flights to trigger a re-render
-    setFlights(currentFlights => [...currentFlights]);
+    // Just force a re-render without changing flights array
+    forceUpdate({});
   }, [assignedPilots]);
 
   // Parse a group name into callsign and flight number
@@ -232,8 +255,10 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
   const existingCallsigns = [...new Set(flights.map(flight => flight.callsign))];  // Transform assigned pilots into the format needed for display
   const getUpdatedFlightPilots = (flight: Flight) => {
     const assigned = assignedPilots?.[flight.id] || [];
-    // Create a fresh array with empty positions
-    const updatedPilots = flight.pilots.map(p => ({
+    // Normalize the flight first to ensure pilots array exists
+    const normalizedFlight = normalizeFlight(flight);
+    const flightPilots = normalizedFlight.pilots;
+    const updatedPilots = flightPilots.map(p => ({
       boardNumber: "",
       callsign: "",
       dashNumber: p.dashNumber,
@@ -312,6 +337,8 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
 
   // Function to add a new flight with the given callsign
   const handleAddFlight = useCallback(({ callsign }: { callsign: string }) => {
+    isUserInitiatedChange.current = true;
+    
     if (editFlightId) {
       // Update an existing flight's callsign
       setFlights(prevFlights => {
@@ -387,6 +414,7 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
 
   // Handle deleting a flight
   const handleDeleteFlight = useCallback((id: string) => {
+    isUserInitiatedChange.current = true;
     setFlights(prevFlights => prevFlights.filter(flight => flight.id !== id));
   }, []);
 
