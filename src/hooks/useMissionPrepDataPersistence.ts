@@ -22,7 +22,6 @@ export const useMissionPrepDataPersistence = (
     loading: missionLoading, 
     error: missionError,
     saving: missionSaving,
-    createNewMission,
     updateFlights,
     updatePilotAssignments,
     updateSupportRoles,
@@ -59,7 +58,7 @@ export const useMissionPrepDataPersistence = (
     if (mission) {
       // Convert database pilot assignments back to the format expected by the UI (skip save since this is loading)
       if (mission.pilot_assignments) {
-        setAssignedPilotsLocal(mission.pilot_assignments as AssignedPilotsRecord);
+        setAssignedPilotsLocal(mission.pilot_assignments as unknown as AssignedPilotsRecord);
       } else {
         setAssignedPilotsLocal({});
       }

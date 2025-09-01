@@ -69,15 +69,11 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
     missionCommander,
     setMissionCommander,
     extractedFlights,
-    setExtractedFlights,
     prepFlights,
     setPrepFlights,
-    mission,
     missionLoading,
     missionError,
-    missionSaving,
-    updateSelectedSquadrons,
-    updateMissionSettings
+    missionSaving
   } = useMissionPrepDataPersistence(
     selectedEvent,
     externalAssignedPilots,
@@ -120,6 +116,18 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
   const handleFlightsChange = useCallback((updatedFlights: any[], skipSave: boolean = false) => {
     setPrepFlights(updatedFlights, skipSave);
   }, [setPrepFlights]);
+
+  // Wrapper for setAssignedPilots to handle React setState signature
+  const setAssignedPilotsWrapper = useCallback((pilots: AssignedPilotsRecord | ((prev: AssignedPilotsRecord) => AssignedPilotsRecord)) => {
+    if (typeof pilots === 'function') {
+      // Handle function updates - get current value and call function
+      const currentPilots = assignedPilots || {};
+      const newPilots = pilots(currentPilots);
+      setAssignedPilots(newPilots, false); // false = don't skip save for user actions
+    } else {
+      setAssignedPilots(pilots, false); // false = don't skip save for user actions
+    }
+  }, [assignedPilots, setAssignedPilots]);
 
   // Clear all pilot assignments and the mission commander
   const handleClearAssignments = useCallback(() => {
@@ -388,7 +396,7 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
                 pilots={activePilots}
                 selectedEvent={selectedEvent}
                 assignedPilots={assignedPilots}
-                setAssignedPilots={setAssignedPilots}
+                setAssignedPilots={setAssignedPilotsWrapper}
                 onAutoAssign={handleAutoAssign}
                 onClearAssignments={handleClearAssignments}
                 pilotQualifications={allPilotQualifications}
@@ -411,7 +419,7 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
                 <MissionSupportAssignments
                   width={CARD_WIDTH}
                   assignedPilots={assignedPilots}
-                  setAssignedPilots={setAssignedPilots}
+                  setAssignedPilots={setAssignedPilotsWrapper}
                 />
                 <Communications 
                   width={CARD_WIDTH} 

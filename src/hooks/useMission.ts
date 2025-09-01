@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { 
   getMissionById, 
   getMissionByEventId, 
@@ -14,8 +14,9 @@ import type {
   PilotAssignment,
   SupportRoleAssignment
 } from '../types/MissionTypes';
-import type { AssignedPilotsRecord } from '../types/MissionPrepTypes';
-import type { MissionCommanderInfo } from '../types/MissionCommanderTypes';
+
+// Global cache for mission loading requests to prevent duplicates
+const loadingCache = new Map<string, Promise<any>>();
 
 /**
  * Custom hook for mission database operations
@@ -25,6 +26,7 @@ export const useMission = (initialMissionId?: string, eventId?: string) => {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState<boolean>(false);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   // Load mission on mount
   useEffect(() => {
@@ -35,16 +37,43 @@ export const useMission = (initialMissionId?: string, eventId?: string) => {
         return;
       }
 
+      // Abort any existing request
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+      abortControllerRef.current = new AbortController();
+
+      // Create cache key for deduplication
+      const cacheKey = initialMissionId ? `mission:${initialMissionId}` : `event:${eventId}`;
+      
       console.log(`Loading mission for eventId: ${eventId}, missionId: ${initialMissionId}`);
       setLoading(true);
       setError(null);
 
       try {
-        let result;
-        if (initialMissionId) {
-          result = await getMissionById(initialMissionId);
-        } else if (eventId) {
-          result = await getMissionByEventId(eventId);
+        // Check if this exact request is already in progress
+        let loadingPromise = loadingCache.get(cacheKey);
+        
+        if (!loadingPromise) {
+          // Create new loading promise
+          loadingPromise = initialMissionId 
+            ? getMissionById(initialMissionId)
+            : getMissionByEventId(eventId!);
+          
+          // Cache the promise
+          loadingCache.set(cacheKey, loadingPromise);
+          
+          // Clean up cache after completion
+          loadingPromise.finally(() => {
+            loadingCache.delete(cacheKey);
+          });
+        }
+
+        const result = await loadingPromise;
+
+        // Check if request was aborted
+        if (abortControllerRef.current?.signal.aborted) {
+          return;
         }
 
         if (result?.error) {
@@ -59,14 +88,27 @@ export const useMission = (initialMissionId?: string, eventId?: string) => {
           setMission(result.mission);
         }
       } catch (err: any) {
+        // Ignore abort errors
+        if (err.name === 'AbortError' || abortControllerRef.current?.signal.aborted) {
+          return;
+        }
         console.error('Error loading mission:', err);
         setError(err.message || 'Failed to load mission');
       } finally {
-        setLoading(false);
+        if (!abortControllerRef.current?.signal.aborted) {
+          setLoading(false);
+        }
       }
     };
 
     loadMission();
+    
+    // Cleanup on unmount
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
   }, [initialMissionId, eventId]);
 
   // Create a new mission
