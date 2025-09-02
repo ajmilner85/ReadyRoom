@@ -212,7 +212,6 @@ export type Database = {
           cycle_id: string | null
           description: string | null
           discord_event_id: Json | null
-          discord_guild_id: string | null
           end_datetime: string | null
           event_settings: Json | null
           event_type: string | null
@@ -237,7 +236,6 @@ export type Database = {
           cycle_id?: string | null
           description?: string | null
           discord_event_id?: Json | null
-          discord_guild_id?: string | null
           end_datetime?: string | null
           event_settings?: Json | null
           event_type?: string | null
@@ -262,7 +260,6 @@ export type Database = {
           cycle_id?: string | null
           description?: string | null
           discord_event_id?: Json | null
-          discord_guild_id?: string | null
           end_datetime?: string | null
           event_settings?: Json | null
           event_type?: string | null

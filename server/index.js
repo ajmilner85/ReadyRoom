@@ -138,18 +138,19 @@ app.delete('/api/events/:discordMessageId', async (req, res) => {
       // Look up the event in the database using the Discord message ID
       const { data: eventData, error: eventError } = await supabase
         .from('events')
-        .select('discord_guild_id, discord_channel_id')
+        .select('discord_event_id')
         .eq('discord_event_id', discordMessageId)
         .single();
         
       if (!eventError && eventData) {
-        if (eventData.discord_guild_id && !discordGuildId) {
-          discordGuildId = eventData.discord_guild_id;
+        // Extract guild ID and channel ID from discord_event_id JSONB structure
+        if (eventData.discord_event_id && Array.isArray(eventData.discord_event_id) && eventData.discord_event_id.length > 0 && !discordGuildId) {
+          discordGuildId = eventData.discord_event_id[0].guildId;
           // console.log(`[DEBUG] Found guild ID ${discordGuildId} for message ${discordMessageId}`);
         }
         
-        if (eventData.discord_channel_id && !discordChannelId) {
-          discordChannelId = eventData.discord_channel_id;
+        if (eventData.discord_event_id && Array.isArray(eventData.discord_event_id) && eventData.discord_event_id.length > 0 && !discordChannelId) {
+          discordChannelId = eventData.discord_event_id[0].channelId;
           // console.log(`[DEBUG] Found channel ID ${discordChannelId} for message ${discordMessageId}`);
         }
       }
@@ -320,8 +321,7 @@ app.post('/api/events/publish', async (req, res) => {
       
       // Include the image URL in the database update to persist it across restarts
       const updateData = { 
-        discord_event_id: result.messageId,
-        discord_guild_id: result.guildId
+        discord_event_id: result.messageId
       };
       
       // Store the image URL if provided
