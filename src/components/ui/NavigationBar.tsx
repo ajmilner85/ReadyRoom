@@ -328,63 +328,75 @@ const NavigationBar: React.FC<NavigationBarProps> = ({ activeButton }) => {
                 >
                   {userProfile.pilot.callsign}
                 </div>
-                {(() => {
-                  const insigniaUrl = userProfile.pilot.currentSquadron?.insignia_url;
-                  
-                  return insigniaUrl ? (
-                    <div 
-                      style={{
-                        width: '40px',
-                        height: '40px',
-                        backgroundImage: `url(${insigniaUrl})`,
-                        backgroundSize: 'contain',
-                        backgroundRepeat: 'no-repeat',
-                        backgroundPosition: 'center',
-                        marginTop: '4px'
-                      }} 
-                    />
-                  ) : userProfile.pilot.currentSquadron ? (
-                    <div 
-                      style={{
-                        width: '40px',
-                        height: '40px',
-                        backgroundColor: '#575A58',
-                        borderRadius: '50%',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        marginTop: '4px'
-                      }}
-                    >
-                      <span style={{ color: 'white', fontSize: '20px', fontWeight: 'bold' }}>
-                        {userProfile.pilot.currentSquadron.tail_code?.charAt(0) || 'S'}
-                      </span>
-                    </div>
-                  ) : null;
-                })()}
+{/* Discord Avatar */}
+                {userProfile.discordAvatarUrl ? (
+                  <div 
+                    style={{
+                      width: '40px',
+                      height: '40px',
+                      borderRadius: '50%',
+                      backgroundImage: `url(${userProfile.discordAvatarUrl})`,
+                      backgroundSize: 'cover',
+                      backgroundRepeat: 'no-repeat',
+                      backgroundPosition: 'center',
+                      marginTop: '4px'
+                    }} 
+                  />
+                ) : (
+                  <div 
+                    style={{
+                      width: '40px',
+                      height: '40px',
+                      backgroundColor: '#575A58',
+                      borderRadius: '50%',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      marginTop: '4px'
+                    }}
+                  >
+                    <span style={{ color: 'white', fontSize: '16px', fontWeight: 'bold' }}>
+                      {userProfile.pilot.callsign?.charAt(0).toUpperCase() || userProfile.discordUsername?.charAt(0).toUpperCase() || 'U'}
+                    </span>
+                  </div>
+                )}
               </>
             ) : (
-              // Discord Avatar Display - Circular avatar with first letter
+              // Non-pilot Discord Avatar Display
               <>
-                <div 
-                  style={{
-                    width: '30px',
-                    height: '30px',
-                    borderRadius: '50%',
-                    backgroundColor: 'rgba(99, 102, 241, 0.1)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center'
-                  }}
-                >
-                  <span style={{
-                    fontSize: '16px',
-                    fontWeight: 500,
-                    color: '#6366f1'
-                  }}>
-                    {userProfile?.discordUsername?.charAt(0).toUpperCase() || 'U'}
-                  </span>
-                </div>
+                {userProfile?.discordAvatarUrl ? (
+                  <div 
+                    style={{
+                      width: '40px',
+                      height: '40px',
+                      borderRadius: '50%',
+                      backgroundImage: `url(${userProfile.discordAvatarUrl})`,
+                      backgroundSize: 'cover',
+                      backgroundRepeat: 'no-repeat',
+                      backgroundPosition: 'center'
+                    }} 
+                  />
+                ) : (
+                  <div 
+                    style={{
+                      width: '40px',
+                      height: '40px',
+                      borderRadius: '50%',
+                      backgroundColor: 'rgba(99, 102, 241, 0.1)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center'
+                    }}
+                  >
+                    <span style={{
+                      fontSize: '18px',
+                      fontWeight: 500,
+                      color: '#6366f1'
+                    }}>
+                      {userProfile?.discordUsername?.charAt(0).toUpperCase() || 'U'}
+                    </span>
+                  </div>
+                )}
                 <div style={{
                   fontSize: '10px',
                   textAlign: 'center',
