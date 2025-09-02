@@ -4,6 +4,7 @@ const dotenv = require('dotenv');
 const express = require('express');
 const cors = require('cors');
 const bodyParser = require('body-parser');
+const multer = require('multer');
 
 // Load environment variables from the root .env file
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
@@ -63,6 +64,12 @@ app.use(cors({
   credentials: true
 }));
 app.use(bodyParser.json());
+
+// Configure multer for file uploads
+const upload = multer({ 
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 } // 10MB limit
+});
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
@@ -1056,6 +1063,72 @@ app.get('/api/discord/guild/:guildId/member/:userId', async (req, res) => {
     console.error('[ERROR] Error fetching Discord guild member:', error);
     res.status(500).json({ 
       error: error.message || 'Failed to fetch Discord guild member'
+    });
+  }
+});
+
+// API endpoint to post image to Discord
+app.post('/api/discord/post-image', upload.single('image'), async (req, res) => {
+  try {
+    console.log('[DISCORD-POST-IMAGE] Received request to post image to Discord');
+    
+    const { guildId, channelId, message } = req.body;
+    
+    if (!guildId || !channelId) {
+      return res.status(400).json({ 
+        error: 'guildId and channelId are required' 
+      });
+    }
+    
+    // Check if image file was uploaded
+    if (!req.file) {
+      return res.status(400).json({ 
+        error: 'Image file is required' 
+      });
+    }
+    
+    const imageFile = req.file;
+    
+    // Get the Discord client
+    const guild = await discordClient.guilds.fetch(guildId);
+    if (!guild) {
+      return res.status(404).json({ 
+        error: 'Discord server not found' 
+      });
+    }
+    
+    const channel = await guild.channels.fetch(channelId);
+    if (!channel) {
+      return res.status(404).json({ 
+        error: 'Discord channel not found' 
+      });
+    }
+    
+    // Send the message with image attachment
+    const attachment = {
+      attachment: imageFile.buffer,
+      name: imageFile.originalname
+    };
+    
+    const messageOptions = {
+      content: message || '',
+      files: [attachment]
+    };
+    
+    const sentMessage = await channel.send(messageOptions);
+    
+    console.log(`[DISCORD-POST-IMAGE] Successfully posted image to Discord channel ${channelId}`);
+    
+    res.json({ 
+      success: true,
+      messageId: sentMessage.id,
+      channelId: sentMessage.channel.id
+    });
+    
+  } catch (error) {
+    console.error('[ERROR] Error posting image to Discord:', error);
+    res.status(500).json({ 
+      error: error.message || 'Failed to post image to Discord' 
     });
   }
 });
