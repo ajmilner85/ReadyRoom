@@ -5,6 +5,7 @@ import { useAuth } from '../../context/AuthContext';
 import { signOut } from '../../utils/supabaseClient';
 import { getUserPermissions } from '../../utils/permissions';
 import { useAppSettings } from '../../context/AppSettingsContext';
+import { usePageLoading } from '../../context/PageLoadingContext';
 
 interface NavigationButton {
   id: string;
@@ -68,8 +69,36 @@ const NavigationBar: React.FC<NavigationBarProps> = ({ activeButton }) => {
   const navigate = useNavigate();
   const { userProfile } = useAuth();
   const { settings } = useAppSettings();
+  const { setPageLoading, isPageLoading, loadingPage } = usePageLoading();
   const userPermissions = getUserPermissions(userProfile);
 
+  // Add pulsing animation CSS if not already present
+  React.useEffect(() => {
+    const styleId = 'nav-button-pulse-keyframes';
+    if (!document.getElementById(styleId)) {
+      const style = document.createElement('style');
+      style.id = styleId;
+      style.innerHTML = `
+        @keyframes navButtonPulse {
+          0% {
+            opacity: 1;
+          }
+          50% {
+            opacity: 0.6;
+          }
+          100% {
+            opacity: 1;
+          }
+        }
+      `;
+      document.head.appendChild(style);
+    }
+  }, []);
+
+  const handleNavigation = (route: string, buttonId: string) => {
+    setPageLoading(buttonId, true);
+    navigate(route);
+  };
 
   const handleLogout = async () => {
     try {
@@ -191,7 +220,7 @@ const NavigationBar: React.FC<NavigationBarProps> = ({ activeButton }) => {
             <div 
               key={button.id} 
               style={buttonStyle}
-              onClick={() => navigate(button.route)}
+              onClick={() => handleNavigation(button.route, button.id)}
               onMouseEnter={() => setTooltipVisible(button.id)}
               onMouseLeave={() => setTooltipVisible(null)}
             >
@@ -203,6 +232,9 @@ const NavigationBar: React.FC<NavigationBarProps> = ({ activeButton }) => {
                       ? userProfile.pilot.currentSquadron.color_palette.accent
                       : '#82728C')
                     : '#E0E4E9',
+                  animation: isPageLoading && loadingPage === button.id 
+                    ? 'navButtonPulse 1.5s ease-in-out infinite' 
+                    : 'none',
                 }}
                 onMouseEnter={(e) => {
                   if (activeButton !== button.id) {

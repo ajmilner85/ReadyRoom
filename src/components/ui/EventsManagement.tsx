@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { usePageLoading } from '../../context/PageLoadingContext';
+import StandardPageLoader from './StandardPageLoader';
 import EventsList from './events/EventsList';
 import EventDetails from './events/EventDetails';
 import EventAttendance from './events/EventAttendance';
@@ -22,6 +24,8 @@ import type { Mission } from '../../types/MissionTypes';
 const CARD_WIDTH = '550px';
 
 const EventsManagement: React.FC = () => {
+  const { setPageLoading } = usePageLoading();
+  
   // State for data
   const [events, setEvents] = useState<Event[]>([]);
   const [cycles, setCycles] = useState<Cycle[]>([]);
@@ -32,6 +36,13 @@ const EventsManagement: React.FC = () => {
     squadrons: false,
     initial: true // Add initial loading state to prevent flash of unfiltered content
   });
+  
+  // Clear page loading when component data is loaded
+  useEffect(() => {
+    if (!loading.initial) {
+      setPageLoading('events', false);
+    }
+  }, [loading.initial, setPageLoading]);
   const [error, setError] = useState<string | null>(null);
   const [discordGuildId, setDiscordGuildId] = useState<string | null>(null);
   
@@ -1122,8 +1133,7 @@ const EventsManagement: React.FC = () => {
             alignItems: 'center',
             gap: '20px'
           }}>
-            <LoadingSpinner />
-            <div>Loading events data...</div>
+            <StandardPageLoader message="Loading events data..." />
           </div>
         </div>
       ) : (

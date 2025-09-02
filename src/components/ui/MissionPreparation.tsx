@@ -1,4 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import { usePageLoading } from '../../context/PageLoadingContext';
+import StandardPageLoader from './StandardPageLoader';
 import { DndContext, DragOverlay } from '@dnd-kit/core';
 import { restrictToWindowEdges } from '@dnd-kit/modifiers';
 import MissionDetails from './mission prep/MissionDetails';
@@ -51,6 +53,8 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
   prepFlights: externalPrepFlights,
   onPrepFlightsChange
 }) => {
+  const { setPageLoading } = usePageLoading();
+  
   // Use custom hooks to manage data fetching and state
   const {
     events,
@@ -61,6 +65,13 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
     loadError,
     allPilotQualifications
   } = useMissionPrepData();
+
+  // Clear page loading when component data is loaded
+  useEffect(() => {
+    if (!isLoading) {
+      setPageLoading('mission-prep', false);
+    }
+  }, [isLoading, setPageLoading]);
 
   // Use database-backed state management first
   const {
@@ -395,9 +406,7 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
             margin: '-15px',
           }}>
           {isLoading ? (
-            <div className="flex items-center justify-center w-full">
-              <p className="text-lg">Loading pilots data...</p>
-            </div>
+            <StandardPageLoader message="Loading pilots data..." />
           ) : loadError ? (
             <div className="flex items-center justify-center w-full">
               <p className="text-red-500">{loadError}</p>

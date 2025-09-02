@@ -1,6 +1,13 @@
-import React from 'react';
+import React, { useEffect } from 'react';
+import { usePageLoading } from '../../context/PageLoadingContext';
 
 const Home: React.FC = () => {
+  const { setPageLoading } = usePageLoading();
+
+  // Clear page loading immediately since home loads fast
+  useEffect(() => {
+    setPageLoading('home', false);
+  }, [setPageLoading]);
   return (
     <div 
       style={{ 

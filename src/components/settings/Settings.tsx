@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { usePageLoading } from '../../context/PageLoadingContext';
 import { Card } from '../ui/card';
 import { User, Users, Building, Plane, PaintBucket, Calendar, Network } from 'lucide-react';
 
@@ -60,8 +61,14 @@ const settingsNavItems: SettingsNavItem[] = [
 ];
 
 const Settings: React.FC = () => {
+  const { setPageLoading } = usePageLoading();
   const [activeSettingsPage, setActiveSettingsPage] = useState<SettingsPage>('roster');
   const [error, setError] = useState<string | null>(null);
+
+  // Clear page loading immediately since settings load fast
+  useEffect(() => {
+    setPageLoading('admin', false);
+  }, [setPageLoading]);
 
   // Navigate between settings pages
   const handleSettingsNavigate = (page: SettingsPage) => {
