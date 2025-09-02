@@ -982,6 +982,7 @@ export type Database = {
           discord_guilds: string[] | null
           discord_id: string | null
           discord_username: string | null
+          discord_avatar_url: string | null
           id: string
           pilot_id: string | null
           updated_at: string | null
@@ -992,6 +993,7 @@ export type Database = {
           discord_guilds?: string[] | null
           discord_id?: string | null
           discord_username?: string | null
+          discord_avatar_url?: string | null
           id?: string
           pilot_id?: string | null
           updated_at?: string | null
@@ -1002,6 +1004,7 @@ export type Database = {
           discord_guilds?: string[] | null
           discord_id?: string | null
           discord_username?: string | null
+          discord_avatar_url?: string | null
           id?: string
           pilot_id?: string | null
           updated_at?: string | null

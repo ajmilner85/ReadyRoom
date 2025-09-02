@@ -6,6 +6,7 @@ export interface UserProfile {
   authUserId: string;
   discordId?: string;
   discordUsername?: string;
+  discordAvatarUrl?: string;
   discordGuilds?: string[];
   pilotId?: string;
   appPermission?: 'admin' | 'flight_lead' | 'member' | 'guest';
@@ -76,6 +77,7 @@ export async function createOrUpdateUserProfile(user: User): Promise<{ profile: 
       auth_user_id: user.id,
       discord_id: discordData?.id,
       discord_username: discordData?.username,
+      discord_avatar_url: discordData?.avatar,
       discord_guilds: discordData?.guilds?.map(g => g.id) || [],
       pilot_id: pilotId,
       updated_at: new Date().toISOString()
@@ -225,6 +227,7 @@ function convertToUserProfile(dbRecord: any): UserProfile {
     authUserId: dbRecord.auth_user_id,
     discordId: dbRecord.discord_id,
     discordUsername: dbRecord.discord_username,
+    discordAvatarUrl: dbRecord.discord_avatar_url,
     discordGuilds: dbRecord.discord_guilds || [],
     pilotId: dbRecord.pilot_id,
     createdAt: dbRecord.created_at,
