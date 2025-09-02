@@ -23,10 +23,12 @@ export async function getAllEvents(): Promise<{ data: Event[] | null; error: any
  * @param guildId The Discord guild/server ID
  */
 export async function getEventsByGuildId(guildId: string): Promise<{ data: Event[] | null; error: any }> {
+  // Since guild ID is now stored in discord_event_id JSONB array, we need to use a JSONB query
+  // Query for events where the discord_event_id contains an object with the matching guildId
   const { data, error } = await supabase
     .from('events')
     .select('*')
-    .eq('discord_guild_id', guildId)
+    .contains('discord_event_id', [{ guildId }])
     .order('start_datetime', { ascending: false });  // Reverse chronological order
 
   return { data, error };
@@ -342,7 +344,10 @@ export function convertDatabaseEventToAppEvent(dbEvent: Event): any {
     eventType: dbEvent.event_type || dbEvent.type,
     discordEventId: dbEvent.discord_event_id,
     cycleId: dbEvent.cycle_id,
-    guildId: dbEvent.discord_guild_id,
+    // Extract guildId from discord_event_id JSONB structure (use first guild if multiple)
+    guildId: Array.isArray(dbEvent.discord_event_id) && dbEvent.discord_event_id.length > 0 && dbEvent.discord_event_id[0]
+      ? (dbEvent.discord_event_id[0] as any).guildId 
+      : undefined,
     imageUrl: dbEvent.image_url
   };
 }

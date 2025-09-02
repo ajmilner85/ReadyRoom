@@ -483,9 +483,10 @@ export async function sendEventReminder(eventId: string): Promise<{ success: boo
     if (Array.isArray(event.discord_event_id)) {
       discordEventIds = event.discord_event_id;
     } else {
+      // For legacy single message ID format, we can't extract guild ID without the new structure
       discordEventIds = [{ 
         messageId: event.discord_event_id,
-        guildId: event.discord_guild_id || '',
+        guildId: '',
         channelId: '',
         squadronId: ''
       }];

@@ -598,16 +598,11 @@ export async function publishEventToDiscord(event: Event): Promise<PublishEventR
 export async function updateEventDiscordId(
   eventId: string, 
   discordMessageId: string,
-  guildId?: string
+  _guildId?: string // Legacy parameter - guild ID now stored in discord_event_id JSONB
 ): Promise<boolean> {
   try {
     // Update object to apply to the database
     const updateObj: any = { discord_event_id: discordMessageId };
-    
-    // Include guild ID if provided
-    if (guildId) {
-      updateObj.discord_guild_id = guildId;
-    }
     
     // Update the event in the database with Discord information
     const { error } = await supabase
@@ -656,8 +651,7 @@ export async function updateEventMultipleDiscordIds(
     const { error } = await supabase
       .from('events')
       .update({
-        discord_event_id: discordPublications,
-        discord_guild_id: publishedChannels[0].guildId // Keep first guild ID for backward compatibility
+        discord_event_id: discordPublications
       })
       .eq('id', eventId);
     
@@ -1051,12 +1045,13 @@ export async function deleteDiscordMessage(eventOrMessageId: Event | string, gui
       // console.log(`[DEBUG] Extracted message ID from event object: ${discordMessageId}`);
       
       // Also check for guild ID and channel ID in the event if we don't have them yet
-      if (!guildId && eventObj.discord_guild_id) {
-        guildId = eventObj.discord_guild_id;
+      // Extract from discord_event_id JSONB structure if available
+      if (!guildId && eventObj.discord_event_id && Array.isArray(eventObj.discord_event_id) && eventObj.discord_event_id.length > 0) {
+        guildId = eventObj.discord_event_id[0].guildId;
       }
       
-      if (!channelId && eventObj.discord_channel_id) {
-        channelId = eventObj.discord_channel_id;
+      if (!channelId && eventObj.discord_event_id && Array.isArray(eventObj.discord_event_id) && eventObj.discord_event_id.length > 0) {
+        channelId = eventObj.discord_event_id[0].channelId;
       }
     } else {
       // It's already a string
@@ -1084,7 +1079,7 @@ export async function deleteDiscordMessage(eventOrMessageId: Event | string, gui
           // First try to get IDs from the events table
         const { data: eventData, error: eventError } = await supabase
           .from('events')
-          .select('id, discord_event_id, discordEventId')
+          .select('id, discord_event_id')
           .eq('discord_event_id', discordMessageId)
           .single();
           
@@ -1096,37 +1091,36 @@ export async function deleteDiscordMessage(eventOrMessageId: Event | string, gui
         if (!eventError && eventData) {
           // console.log(`[DEBUG] Found event with message ID ${discordMessageId}: ${JSON.stringify(eventData)}`);
           
-          // Note: It appears discord_guild_id and discord_channel_id might not exist in your schema
-          // Using type checking to safely access potentially non-existent properties
-          if (!guildId && 'discord_guild_id' in eventData) {
-            guildId = eventData['discord_guild_id'] as string;
-            // console.log(`[DEBUG] Using guild ID from events table: ${guildId}`);
+          // Extract guild ID and channel ID from discord_event_id JSONB structure
+          if (!guildId && eventData.discord_event_id && Array.isArray(eventData.discord_event_id) && eventData.discord_event_id.length > 0 && eventData.discord_event_id[0]) {
+            guildId = (eventData.discord_event_id[0] as any).guildId;
+            // console.log(`[DEBUG] Using guild ID from discord_event_id: ${guildId}`);
           }
           
-          if (!channelId && 'discord_channel_id' in eventData) {
-            channelId = eventData['discord_channel_id'] as string;
-            // console.log(`[DEBUG] Using channel ID from events table: ${channelId}`);
+          if (!channelId && eventData.discord_event_id && Array.isArray(eventData.discord_event_id) && eventData.discord_event_id.length > 0 && eventData.discord_event_id[0]) {
+            channelId = (eventData.discord_event_id[0] as any).channelId;
+            // console.log(`[DEBUG] Using channel ID from discord_event_id: ${channelId}`);
           }
         } else {          // If not found with discord_event_id, try looking up with discordMessageId as the field name
           // console.log(`[DEBUG] Trying alternative lookup with field 'discordMessageId'`);
           const { data: altEventData, error: altEventError } = await supabase
             .from('events')
-            .select('id, discordMessageId, discordEventId')
-            .eq('discordMessageId', discordMessageId)
+            .select('id, discord_event_id')
+            .eq('discord_event_id', discordMessageId)
             .single();
             
           if (!altEventError && altEventData) {
             // console.log(`[DEBUG] Found event with alt field lookup: ${JSON.stringify(altEventData)}`);
             
-            // Safe access with type checking for alternative lookup as well
-            if (!guildId && 'discord_guild_id' in altEventData) {
-              guildId = altEventData['discord_guild_id'] as string;
-              // console.log(`[DEBUG] Using guild ID from alternative lookup: ${guildId}`);
+            // Extract guild ID and channel ID from discord_event_id JSONB structure in alternative lookup
+            if (!guildId && altEventData.discord_event_id && Array.isArray(altEventData.discord_event_id) && altEventData.discord_event_id.length > 0 && altEventData.discord_event_id[0]) {
+              guildId = (altEventData.discord_event_id[0] as any).guildId;
+              // console.log(`[DEBUG] Using guild ID from alternative lookup discord_event_id: ${guildId}`);
             }
             
-            if (!channelId && 'discord_channel_id' in altEventData) {
-              channelId = altEventData['discord_channel_id'] as string;
-              // console.log(`[DEBUG] Using channel ID from alternative lookup: ${channelId}`);
+            if (!channelId && altEventData.discord_event_id && Array.isArray(altEventData.discord_event_id) && altEventData.discord_event_id.length > 0 && altEventData.discord_event_id[0]) {
+              channelId = (altEventData.discord_event_id[0] as any).channelId;
+              // console.log(`[DEBUG] Using channel ID from alternative lookup discord_event_id: ${channelId}`);
             }
           } else if (altEventError) {
             // console.log(`[DEBUG] Alt lookup error: ${altEventError.message}`);

@@ -324,7 +324,6 @@ export const fetchEvents = async (cycleId?: string) => {
     event_type,
     cycle_id,
     discord_event_id,
-    discord_guild_id,
     image_url,
     created_at,
     updated_at
@@ -497,7 +496,6 @@ export const createEvent = async (event: Omit<Event, 'id' | 'creator' | 'attenda
       status: event.status,
       event_type: event.eventType,
       cycle_id: event.cycleId,
-      discord_guild_id: event.discordGuildId || '', // Add Discord guild ID with empty string fallback
       // participants field not in current database schema
       track_qualifications: event.trackQualifications || false, // Keep for backward compatibility
       event_settings: eventSettings, // Store all event-specific settings
@@ -577,7 +575,6 @@ export const updateEvent = async (eventId: string, updates: Partial<Omit<Event, 
   if ((updates as any).eventType !== undefined) dbUpdates.event_type = (updates as any).eventType;
   if ((updates as any).cycleId !== undefined) dbUpdates.cycle_id = (updates as any).cycleId;
   if ((updates as any).discordEventId !== undefined) dbUpdates.discord_event_id = (updates as any).discordEventId;
-  if ((updates as any).discordGuildId !== undefined) dbUpdates.discord_guild_id = (updates as any).discordGuildId;
   // participants field not in current database schema
   // track_qualifications field not in current database schema
   // Handle event settings updates

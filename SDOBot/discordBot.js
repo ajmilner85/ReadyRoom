@@ -117,7 +117,7 @@ async function loadEventResponses() {  try {
     // Get all events with Discord message IDs from the database
     const { data, error } = await supabase
       .from('events')
-      .select('id, name, description, start_datetime, end_datetime, discord_event_id, discord_guild_id, image_url, creator_board_number, creator_call_sign, creator_billet, event_settings, track_qualifications, event_type')
+      .select('id, name, description, start_datetime, end_datetime, discord_event_id, image_url, creator_board_number, creator_call_sign, creator_billet, event_settings, track_qualifications, event_type')
       .not('discord_event_id', 'is', null);
     
     if (error) {
@@ -161,7 +161,10 @@ async function loadEventResponses() {  try {
           start: new Date(event.start_datetime),
           end: event.end_datetime ? new Date(event.end_datetime) : new Date(new Date(event.start_datetime).getTime() + (60 * 60 * 1000))
         },
-        guildId: event.discord_guild_id,
+        // Extract guild ID from discord_event_id JSONB structure
+        guildId: Array.isArray(event.discord_event_id) && event.discord_event_id.length > 0 
+          ? event.discord_event_id[0].guildId 
+          : null,
         channelId: channelId,        // Store image data using the same structure as database extraction
         images: event.image_url ? extractEmbedDataFromDatabaseEvent(event).imageData : null,
         // Store creator info using the same structure as database extraction
@@ -916,7 +919,10 @@ client.on('interactionCreate', async interaction => {
           callsign: dbEvent.creator_call_sign || '',
           billet: dbEvent.creator_billet || ''
         },
-        guildId: dbEvent.discord_guild_id,
+        // Extract guild ID from discord_event_id JSONB structure
+        guildId: Array.isArray(dbEvent.discord_event_id) && dbEvent.discord_event_id.length > 0 
+          ? dbEvent.discord_event_id[0].guildId 
+          : null,
         accepted: [],
         declined: [],
         tentative: []
@@ -1648,7 +1654,8 @@ class CountdownUpdateManager {
         // Handle both old format (single string) and new format (JSONB array)
         let messageIds = [];
         if (typeof event.discord_event_id === 'string') {
-          messageIds = [{ messageId: event.discord_event_id, guildId: event.discord_guild_id }];
+          // For legacy single message ID format, we can't extract guild ID
+          messageIds = [{ messageId: event.discord_event_id, guildId: null }];
         } else if (Array.isArray(event.discord_event_id)) {
           messageIds = event.discord_event_id.filter(entry => entry.messageId);
         }
