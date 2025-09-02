@@ -3,6 +3,18 @@ import { Card } from '../card';
 import FlightAssignmentCard from '../flight cards/FlightAssignmentCard';
 import AddFlightDialog from '../dialogs/AddFlightDialog';
 import type { AssignedPilot } from '../../../types/MissionPrepTypes';
+import { supabase } from '../../../utils/supabaseClient';
+import { Trash2 } from 'lucide-react';
+import { useMissionPrepData } from '../../../hooks/useMissionPrepData';
+
+// Discord SVG icon component  
+const DiscordIcon = ({ className = "", size = 16 }: { className?: string; size?: number }) => (
+  <svg className={className} width={size} height={size} viewBox="0 -28.5 256 256" version="1.1" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid">
+    <g>
+      <path d="M216.856339,16.5966031 C200.285002,8.84328665 182.566144,3.2084988 164.041564,0 C161.766523,4.11318106 159.108624,9.64549908 157.276099,14.0464379 C137.583995,11.0849896 118.072967,11.0849896 98.7430163,14.0464379 C96.9108417,9.64549908 94.1925838,4.11318106 91.8971895,0 C73.3526068,3.2084988 55.6133949,8.86399117 39.0420583,16.6376612 C5.61752293,67.146514 -3.4433191,116.400813 1.08711069,164.955721 C23.2560196,181.510915 44.7403634,191.567697 65.8621325,198.148576 C71.0772151,190.971126 75.7283628,183.341335 79.7352139,175.300261 C72.104019,172.400575 64.7949724,168.822202 57.8887866,164.667963 C59.7209612,163.310589 61.5131304,161.891452 63.2445898,160.431257 C105.36741,180.133187 151.134928,180.133187 192.754523,160.431257 C194.506336,161.891452 196.298154,163.310589 198.110326,164.667963 C191.183787,168.842556 183.854737,172.420929 176.223542,175.320965 C180.230393,183.341335 184.861538,190.991831 190.096624,198.16893 C211.238746,191.588051 232.743023,181.531619 254.911949,164.955721 C260.227747,108.668201 245.831087,59.8662432 216.856339,16.5966031 Z M85.4738752,135.09489 C72.8290281,135.09489 62.4592217,123.290155 62.4592217,108.914901 C62.4592217,94.5396472 72.607595,82.7145587 85.4738752,82.7145587 C98.3405064,82.7145587 108.709962,94.5189427 108.488529,108.914901 C108.508531,123.290155 98.3405064,135.09489 85.4738752,135.09489 Z M170.525237,135.09489 C157.88039,135.09489 147.510584,123.290155 147.510584,108.914901 C147.510584,94.5396472 157.658606,82.7145587 170.525237,82.7145587 C183.391518,82.7145587 193.761324,94.5189427 193.539891,108.914901 C193.539891,123.290155 183.391518,135.09489 170.525237,135.09489 Z" fill="#5865F2" fillRule="nonzero"></path>
+    </g>
+  </svg>
+);
 
 interface Flight {
   id: string;
@@ -19,6 +31,20 @@ interface Flight {
 }
 
 // Extended Pilot type with dashNumber for flight assignments
+
+interface Squadron {
+  id: string;
+  name: string;
+  designation: string;
+  callsigns: any;
+  discord_integration: any;
+  insignia_url?: string | null;
+}
+
+interface SquadronFlightGroup {
+  squadron: Squadron;
+  flights: Flight[];
+}
 
 // Add mission commander interface
 interface MissionCommanderInfo {
@@ -57,11 +83,43 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
   onFlightsChange,
   initialFlights = []
 }) => {
+  // Debug logging for assignedPilots data
+  // React.useEffect(() => {
+  //   if (assignedPilots && Object.keys(assignedPilots).length > 0) {
+  //     console.log('🔍 FlightAssignments: Received assignedPilots data:', Object.keys(assignedPilots).length, 'flights with assignments');
+  //     Object.entries(assignedPilots).forEach(([flightId, pilots]) => {
+  //       console.log(`Flight ${flightId}:`, pilots.map(p => ({ callsign: p.callsign, boardNumber: p.boardNumber, dashNumber: p.dashNumber })));
+  //     });
+  //   }
+  // }, [assignedPilots]);
+
   const [flights, setFlights] = useState<Flight[]>(initialFlights);
   const [showAddFlightDialog, setShowAddFlightDialog] = useState(false);
+  
+  // Update flights when initialFlights prop changes (e.g., from database restoration)
+  React.useEffect(() => {
+    // console.log('🔄 FlightAssignments: initialFlights prop changed:', {
+    //   hasFlights: !!initialFlights,
+    //   length: initialFlights?.length || 0,
+    //   flights: initialFlights?.map(f => ({ id: f.id, callsign: f.callsign })) || []
+    // });
+    
+    // Always sync with initialFlights, even if empty (to clear stale state)
+    setFlights(initialFlights || []);
+    
+    // if (initialFlights && initialFlights.length > 0) {
+    //   console.log('🔄 FlightAssignments: Updated flights from initialFlights prop:', initialFlights.length, 'flights');
+    // } else {
+    //   console.log('🔄 FlightAssignments: Cleared flights (initialFlights is empty or null)');
+    // }
+  }, [initialFlights]);
   const [editFlightId, setEditFlightId] = useState<string | null>(null);
   const [initialEditCallsign, setInitialEditCallsign] = useState("");
   const [creationOrderCounter, setCreationOrderCounter] = useState(0);
+  const [showRemoveAllDialog, setShowRemoveAllDialog] = useState(false);
+  
+  // Get selected event for Discord message
+  const { selectedEvent } = useMissionPrepData();
   
   // Use a ref to track which extracted flights we've already processed
   const processedFlightTimestamps = useRef<Set<string>>(new Set());
@@ -91,7 +149,7 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
     
     // Only update if initialFlights actually changed (not just a re-render with same data)
     if (initialFlightsId !== lastInitialFlightsRef.current) {
-      console.log('FlightAssignments: initialFlights changed:', initialFlights.length, initialFlights.map(f => f.callsign));
+      // console.log('FlightAssignments: initialFlights changed:', initialFlights.length, initialFlights.map(f => f.callsign));
       lastInitialFlightsRef.current = initialFlightsId;
       
       const normalizedFlights = initialFlights.map(normalizeFlight);
@@ -147,7 +205,7 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
 
   // Effect to create flight cards from extracted flights
   useEffect(() => {
-    console.log('FlightAssignments: Received extracted flights:', extractedFlights.length);
+    // console.log('FlightAssignments: Received extracted flights:', extractedFlights.length);
     if (!extractedFlights.length) return;
 
     // Create a unique timestamp for this batch of flights
@@ -255,6 +313,14 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
   const existingCallsigns = [...new Set(flights.map(flight => flight.callsign))];  // Transform assigned pilots into the format needed for display
   const getUpdatedFlightPilots = (flight: Flight) => {
     const assigned = assignedPilots?.[flight.id] || [];
+    
+    // Debug logging for pilot data issues
+    // if (assigned.length > 0) {
+    //   console.log(`🔍 FlightAssignments: Processing flight ${flight.callsign} ${flight.flightNumber} with ${assigned.length} assigned pilots:`, 
+    //     assigned.map(p => ({ id: p.id, callsign: p.callsign, boardNumber: p.boardNumber, dashNumber: p.dashNumber }))
+    //   );
+    // }
+    
     // Normalize the flight first to ensure pilots array exists
     const normalizedFlight = normalizeFlight(flight);
     const flightPilots = normalizedFlight.pilots;
@@ -426,6 +492,407 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
     setShowAddFlightDialog(true);
   }, []);
 
+  // Handle removing all flights
+  const handleRemoveAll = useCallback(() => {
+    setShowRemoveAllDialog(true);
+  }, []);
+
+  // Confirm remove all flights
+  const confirmRemoveAll = useCallback(() => {
+    isUserInitiatedChange.current = true;
+    setFlights([]);
+    setCreationOrderCounter(0);
+    setShowRemoveAllDialog(false);
+  }, []);
+
+  // Cancel remove all
+  const cancelRemoveAll = useCallback(() => {
+    setShowRemoveAllDialog(false);
+  }, []);
+
+  // Fetch all squadrons with their callsigns and Discord settings
+  const fetchSquadrons = useCallback(async (): Promise<Squadron[]> => {
+    try {
+      const { data, error } = await supabase
+        .from('org_squadrons')
+        .select('id, name, designation, callsigns, discord_integration, insignia_url');
+
+      if (error) {
+        console.error('Error fetching squadrons:', error);
+        return [];
+      }
+
+      return data || [];
+    } catch (error) {
+      console.error('Error fetching squadrons:', error);
+      return [];
+    }
+  }, []);
+
+  // Group flights by squadron based on callsigns
+  const groupFlightsBySquadron = useCallback(async (): Promise<SquadronFlightGroup[]> => {
+    const squadrons = await fetchSquadrons();
+    const squadronGroups: SquadronFlightGroup[] = [];
+
+    for (const squadron of squadrons) {
+      if (!squadron.callsigns || !Array.isArray(squadron.callsigns)) {
+        continue;
+      }
+
+      const squadronFlights = flights.filter(flight => 
+        squadron.callsigns!.some((callsign: string) => 
+          flight.callsign.toUpperCase() === callsign.toUpperCase()
+        )
+      );
+
+      if (squadronFlights.length > 0) {
+        squadronGroups.push({
+          squadron,
+          flights: squadronFlights
+        });
+      }
+    }
+
+    return squadronGroups;
+  }, [flights, fetchSquadrons]);
+
+  // Generate flight assignment table image for a squadron using Canvas
+  const generateFlightAssignmentImage = useCallback(async (squadronGroup: SquadronFlightGroup): Promise<Blob | null> => {
+    try {
+      // Canvas dimensions  
+      const padding = 20;
+      const columnWidths = [140, 130, 90, 90]; // Slot, Pilot (much narrower), MIDS A, MIDS B
+      const tablePadding = 15; // Left padding inside table
+      const rightPadding = 15; // Right padding after last column
+      const tableWidth = columnWidths.reduce((sum, width) => sum + width, 0) + tablePadding + rightPadding;
+      const width = tableWidth + padding * 2; // Canvas width = table width + left/right padding
+      const titleHeight = 80; // Increased for squadron name
+      const headerHeight = 40;
+      const rowHeight = 35;
+      
+      // Prepare flight data - each flight gets its own table
+      const flightTables: { flightName: string; data: string[][]; }[] = [];
+      const headers = ['Slot', 'Pilot', 'MIDS A', 'MIDS B'];
+      
+      if (squadronGroup.flights.length === 0) {
+        flightTables.push({
+          flightName: 'No Flights',
+          data: [['No flight assignments found', '', '', '']]
+        });
+      } else {
+        squadronGroup.flights.forEach((flight) => {
+          const updatedPilots = getUpdatedFlightPilots(flight);
+          const flightData: string[][] = [];
+          
+          if (updatedPilots.length === 0) {
+            // Show empty slots if no pilots assigned
+            for (let i = 1; i <= 4; i++) {
+              flightData.push([
+                `${flight.callsign} ${flight.flightNumber}-${i}`,
+                '—',
+                flight.midsA || '—',
+                flight.midsB || '—'
+              ]);
+            }
+          } else {
+            updatedPilots.forEach((pilot) => {
+              // Get pilot info - check multiple possible properties
+              const boardNumber = pilot.boardNumber || (pilot as any).board_number || (pilot as any).onboard_num || (pilot as any).pilotBoardNumber || '000';
+              const callsign = pilot.callsign || (pilot as any).pilot_callsign || (pilot as any).pilotCallsign || '—';
+              const pilotDisplay = callsign !== '—' ? `${boardNumber} ${callsign}` : '—';
+              
+              flightData.push([
+                `${flight.callsign} ${flight.flightNumber}-${pilot.dashNumber}`,
+                pilotDisplay,
+                flight.midsA || '—',
+                flight.midsB || '—'
+              ]);
+            });
+          }
+          
+          flightTables.push({
+            flightName: `${flight.callsign} ${flight.flightNumber}`,
+            data: flightData
+          });
+        });
+      }
+
+      // Calculate total height: title + header (once) + all flight tables + spacing between tables
+      const tableSpacing = 20; // Space between flight tables
+      const totalRows = flightTables.reduce((sum, table) => sum + table.data.length, 0);
+      const totalHeight = padding * 2 + titleHeight + headerHeight + (totalRows * rowHeight) + (flightTables.length - 1) * tableSpacing + 20;
+      
+      // Create canvas
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = totalHeight;
+      const ctx = canvas.getContext('2d');
+      
+      if (!ctx) {
+        throw new Error('Could not get canvas context');
+      }
+
+      // Background - updated color
+      ctx.fillStyle = '#1A1A1E';
+      ctx.fillRect(0, 0, width, totalHeight);
+
+      // Load and draw squadron insignia
+      const insigniaSize = 40;
+      const insigniaY = padding + 10;
+      const insigniaX = width / 2 - 120; // Position to left of text
+      
+      // Try to load squadron insignia if URL exists
+      if (squadronGroup.squadron.insignia_url) {
+        try {
+          const img = new Image();
+          img.crossOrigin = 'anonymous';
+          
+          await new Promise((resolve, reject) => {
+            img.onload = resolve;
+            img.onerror = reject;
+            img.src = squadronGroup.squadron.insignia_url!;
+          });
+          
+          ctx.drawImage(img, insigniaX, insigniaY, insigniaSize, insigniaSize);
+        } catch (error) {
+          // Draw placeholder on error
+          ctx.strokeStyle = '#666666';
+          ctx.lineWidth = 1;
+          ctx.strokeRect(insigniaX, insigniaY, insigniaSize, insigniaSize);
+          ctx.fillStyle = '#333333';
+          ctx.fillRect(insigniaX, insigniaY, insigniaSize, insigniaSize);
+        }
+      } else {
+        // Draw placeholder if no URL
+        ctx.strokeStyle = '#666666';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(insigniaX, insigniaY, insigniaSize, insigniaSize);
+        ctx.fillStyle = '#333333';
+        ctx.fillRect(insigniaX, insigniaY, insigniaSize, insigniaSize);
+      }
+      
+      // Squadron designation (no "Flight Assignments" text)
+      ctx.fillStyle = '#FFFFFF';
+      ctx.font = 'bold 24px Arial, sans-serif';
+      ctx.textAlign = 'left';
+      const designationText = squadronGroup.squadron.designation;
+      const designationX = insigniaX + insigniaSize + 15;
+      ctx.fillText(designationText, designationX, insigniaY + 25);
+
+      // Squadron name below designation (smaller, not bold)
+      ctx.font = '16px Arial, sans-serif';
+      ctx.fillStyle = '#CCCCCC';
+      const squadronName = squadronGroup.squadron.name;
+      ctx.fillText(squadronName, designationX, insigniaY + 45);
+
+      // Render separate tables for each flight
+      let currentY = padding + titleHeight;
+      
+      flightTables.forEach((flightTable, tableIndex) => {
+        const isFirstTable = tableIndex === 0;
+        
+        // Add spacing between tables (but not before first table)
+        if (!isFirstTable) {
+          currentY += tableSpacing;
+        }
+        
+        // Calculate the current table's row section height
+        const tableRowsHeight = flightTable.data.length * rowHeight;
+        
+        // Draw table background for the rows only (header drawn separately if first table)
+        ctx.fillStyle = '#4A5568';
+        const backgroundY = currentY + (isFirstTable ? headerHeight : 0);
+        const backgroundHeight = tableRowsHeight;
+        ctx.fillRect(padding, backgroundY, tableWidth, backgroundHeight);
+        
+        // Draw header only on first table
+        if (isFirstTable) {
+          ctx.fillStyle = '#2D3748';
+          ctx.fillRect(padding, currentY, tableWidth, headerHeight);
+          
+          ctx.fillStyle = '#FFFFFF';
+          ctx.font = 'bold 16px Arial, sans-serif';
+          ctx.textAlign = 'left';
+          
+          let headerX = padding + tablePadding;
+          headers.forEach((header, index) => {
+            if (index >= 2) { // MIDS A and MIDS B columns
+              ctx.textAlign = 'center';
+              ctx.fillText(header, headerX + columnWidths[index] / 2, currentY + 25);
+            } else {
+              ctx.textAlign = 'left';
+              ctx.fillText(header, headerX, currentY + 25);
+            }
+            headerX += columnWidths[index];
+          });
+          
+          currentY += headerHeight;
+        }
+        
+        // Draw table rows
+        ctx.font = '14px Arial, sans-serif';
+        
+        flightTable.data.forEach((row, rowIndex) => {
+          const rowY = currentY + (rowIndex * rowHeight);
+          
+          // Alternate row colors
+          ctx.fillStyle = rowIndex % 2 === 0 ? '#4A5568' : '#374151';
+          ctx.fillRect(padding, rowY, tableWidth, rowHeight);
+          
+          // Row text
+          ctx.fillStyle = '#FFFFFF';
+          let cellX = padding + tablePadding;
+          
+          row.forEach((cell, cellIndex) => {
+            // Special handling for empty pilot cells
+            if (cellIndex === 1 && cell === '—') {
+              ctx.fillStyle = '#9CA3AF';
+            } else {
+              ctx.fillStyle = '#FFFFFF';
+            }
+            
+            // Text alignment for MIDS columns (center) and others (left)
+            if (cellIndex >= 2) {
+              ctx.textAlign = 'center';
+              ctx.fillText(cell, cellX + columnWidths[cellIndex] / 2, rowY + 22);
+            } else {
+              ctx.textAlign = 'left';
+              ctx.fillText(cell, cellX, rowY + 22);
+            }
+            
+            cellX += columnWidths[cellIndex];
+          });
+        });
+        
+        // Move to next table position
+        currentY += tableRowsHeight;
+      });
+
+      // Convert canvas to blob
+      return new Promise((resolve) => {
+        canvas.toBlob(resolve, 'image/png', 0.95);
+      });
+      
+    } catch (error) {
+      console.error('Error generating canvas flight assignment image:', error);
+      return null;
+    }
+  }, [getUpdatedFlightPilots]);
+
+  // Publish flight assignments to Discord
+  const publishToDiscordChannel = useCallback(async (squadronGroup: SquadronFlightGroup, imageBlob: Blob): Promise<boolean> => {
+    try {
+      if (!squadronGroup.squadron.discord_integration) {
+        console.error('No Discord integration configured for squadron:', squadronGroup.squadron.name);
+        return false;
+      }
+
+      const discordIntegration = squadronGroup.squadron.discord_integration;
+      const briefingChannel = discordIntegration.discordChannels?.find((ch: any) => ch.type === 'briefing');
+      
+      if (!briefingChannel) {
+        console.error('No briefing channel configured for squadron:', squadronGroup.squadron.name);
+        return false;
+      }
+
+      // Create FormData for the image upload
+      const formData = new FormData();
+      formData.append('image', imageBlob, `${squadronGroup.squadron.designation}_flight_assignments.png`);
+      formData.append('guildId', discordIntegration.selectedGuildId);
+      formData.append('channelId', briefingChannel.id);
+      // Get event date for Discord message
+      const eventDate = selectedEvent?.datetime ? 
+        new Date(selectedEvent.datetime).toLocaleDateString('en-US', { 
+          year: 'numeric', 
+          month: 'short', 
+          day: 'numeric' 
+        }) : 'TBD';
+        
+      formData.append('message', `**${eventDate} Flight Assignments**`);
+
+      // Send to the backend API for Discord posting
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/discord/post-image`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('Failed to post to Discord:', errorData);
+        return false;
+      }
+
+      const result = await response.json();
+      console.log('Successfully posted flight assignments to Discord:', result);
+      return true;
+    } catch (error) {
+      console.error('Error posting to Discord:', error);
+      return false;
+    }
+  }, []);
+
+  // Handle publish to Discord
+  const handlePublishToDiscord = useCallback(async () => {
+    try {
+      if (flights.length === 0) {
+        alert('No flight assignments to publish.');
+        return;
+      }
+
+      const squadronGroups = await groupFlightsBySquadron();
+      
+      if (squadronGroups.length === 0) {
+        alert('No squadrons found with matching callsigns. Please ensure squadrons have their callsigns configured in Organization > Squadron Settings.');
+        return;
+      }
+
+      const publishPromises = squadronGroups.map(async (squadronGroup) => {
+        try {
+          const imageBlob = await generateFlightAssignmentImage(squadronGroup);
+          if (!imageBlob) {
+            console.error('Failed to generate image for squadron:', squadronGroup.squadron.name);
+            return { squadron: squadronGroup.squadron.name, success: false, error: 'Failed to generate image' };
+          }
+
+          const success = await publishToDiscordChannel(squadronGroup, imageBlob);
+          return { 
+            squadron: squadronGroup.squadron.name, 
+            success, 
+            error: success ? null : 'Failed to post to Discord'
+          };
+        } catch (error) {
+          return { 
+            squadron: squadronGroup.squadron.name, 
+            success: false, 
+            error: error instanceof Error ? error.message : 'Unknown error'
+          };
+        }
+      });
+
+      const results = await Promise.all(publishPromises);
+      
+      const successCount = results.filter(r => r.success).length;
+      const failedResults = results.filter(r => !r.success);
+      
+      if (successCount > 0) {
+        const successMessage = `Successfully published flight assignments to ${successCount} squadron${successCount > 1 ? 's' : ''}.`;
+        if (failedResults.length > 0) {
+          const failedMessage = failedResults.map(r => `${r.squadron}: ${r.error}`).join('\n');
+          console.error(`${successMessage}\n\nFailed to publish to:\n${failedMessage}`);
+        } else {
+          // Removed success alert dialog
+          console.log(successMessage);
+        }
+      } else {
+        const failedMessage = failedResults.map(r => `${r.squadron}: ${r.error}`).join('\n');
+        console.error(`Failed to publish flight assignments:\n${failedMessage}`);
+      }
+    } catch (error) {
+      console.error('Error publishing to Discord:', error);
+      alert('An unexpected error occurred while publishing to Discord.');
+    }
+  }, [flights, groupFlightsBySquadron, generateFlightAssignmentImage, publishToDiscordChannel]);
+
   return (
     <div style={{ 
       width, 
@@ -488,12 +955,39 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
         </div>
         <div style={{
           display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          marginTop: 'auto',
-          padding: '24px 0 0 0',
-          borderTop: '1px solid #E2E8F0'
+          justifyContent: 'space-around',
+          padding: '0'
         }}>
+          <button
+            onClick={handleRemoveAll}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px',
+              padding: '8px 16px',
+              backgroundColor: '#FFFFFF',
+              color: '#64748B',
+              borderRadius: '8px',
+              border: '1px solid #CBD5E1',
+              cursor: 'pointer',
+              transition: 'background-color 0.2s ease',
+              fontFamily: 'Inter',
+              fontSize: '14px',
+              fontWeight: 400,
+              flex: '0 0 30%',
+              margin: '0 8px'
+            }}
+            onMouseEnter={e => {
+              e.currentTarget.style.backgroundColor = '#F8FAFC';
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.backgroundColor = '#FFFFFF';
+            }}
+          >
+            <Trash2 size={16} />
+            Remove All
+          </button>
           <button
             onClick={() => setShowAddFlightDialog(true)}
             style={{
@@ -523,6 +1017,36 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
           >
             +
           </button>
+          <button
+            onClick={handlePublishToDiscord}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px',
+              padding: '8px 16px',
+              backgroundColor: '#FFFFFF',
+              color: '#64748B',
+              borderRadius: '8px',
+              border: '1px solid #CBD5E1',
+              cursor: 'pointer',
+              transition: 'background-color 0.2s ease',
+              fontFamily: 'Inter',
+              fontSize: '14px',
+              fontWeight: 400,
+              flex: '0 0 30%',
+              margin: '0 8px'
+            }}
+            onMouseEnter={e => {
+              e.currentTarget.style.backgroundColor = '#F8FAFC';
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.backgroundColor = '#FFFFFF';
+            }}
+          >
+            <DiscordIcon size={16} />
+            Publish
+          </button>
         </div>
       </Card>
 
@@ -548,6 +1072,94 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
             initialCallsign={initialEditCallsign}
             title={editFlightId ? "Edit Flight" : "Add Flight"}
           />
+        </>
+      )}
+
+      {/* Remove All Confirmation Dialog */}
+      {showRemoveAllDialog && (
+        <>
+          {/* Semi-transparent overlay */}
+          <div style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            zIndex: 1000
+          }} onClick={cancelRemoveAll} />
+          
+          {/* Dialog */}
+          <div style={{
+            position: 'fixed',
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+            backgroundColor: '#FFFFFF',
+            borderRadius: '8px',
+            padding: '24px',
+            boxShadow: '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)',
+            zIndex: 1001,
+            minWidth: '400px'
+          }}>
+            <div style={{
+              fontFamily: 'Inter',
+              fontSize: '18px',
+              fontWeight: 500,
+              color: '#1F2937',
+              marginBottom: '16px',
+              textAlign: 'center'
+            }}>
+              Remove All Flight Assignments?
+            </div>
+            <div style={{
+              fontFamily: 'Inter',
+              fontSize: '14px',
+              color: '#6B7280',
+              marginBottom: '24px',
+              textAlign: 'center'
+            }}>
+              This will remove all flight cards and pilot assignments, restoring the Flight Assignments section to a clean slate. This action cannot be undone.
+            </div>
+            <div style={{
+              display: 'flex',
+              justifyContent: 'center',
+              gap: '12px'
+            }}>
+              <button
+                onClick={cancelRemoveAll}
+                style={{
+                  width: '100px',
+                  height: '32px',
+                  background: '#F3F4F6',
+                  borderRadius: '6px',
+                  border: 'none',
+                  cursor: 'pointer',
+                  fontFamily: 'Inter',
+                  fontSize: '14px',
+                  color: '#374151'
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmRemoveAll}
+                style={{
+                  width: '100px',
+                  height: '32px',
+                  background: '#EF4444',
+                  borderRadius: '6px',
+                  border: 'none',
+                  cursor: 'pointer',
+                  fontFamily: 'Inter',
+                  fontSize: '14px',
+                  color: '#FFFFFF'
+                }}
+              >
+                Remove All
+              </button>
+            </div>
+          </div>
         </>
       )}
     </div>
