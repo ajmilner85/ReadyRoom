@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { usePageLoading } from '../../context/PageLoadingContext';
+import StandardPageLoader from './StandardPageLoader';
 import { Pilot } from '../../types/PilotTypes';
 import { 
   getAllPilots, 
@@ -33,6 +35,8 @@ import { DiscordPilotsDialog } from './dialogs/DiscordPilotsDialog';
 import { v4 as uuidv4 } from 'uuid';
 
 const RosterManagement: React.FC = () => {
+  const { setPageLoading } = usePageLoading();
+  
   // State for pilots and filtering
   const [pilots, setPilots] = useState<Pilot[]>([]);
   const [statuses, setStatuses] = useState<Status[]>([]);
@@ -41,6 +45,13 @@ const RosterManagement: React.FC = () => {
   const [roles, setRoles] = useState<Role[]>([]);
   const [qualifications, setQualifications] = useState<Qualification[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
+  
+  // Clear page loading when component data is loaded
+  useEffect(() => {
+    if (!loading) {
+      setPageLoading('roster', false);
+    }
+  }, [loading, setPageLoading]);
   const [selectedPilot, setSelectedPilot] = useState<Pilot | null>(null);
   const [hoveredPilot, setHoveredPilot] = useState<string | null>(null);
   const [selectedSquadronIds, setSelectedSquadronIds] = useState<string[]>([]); // empty means show all
@@ -1899,9 +1910,7 @@ const RosterManagement: React.FC = () => {
       )}
       
       {loading && !pilots.length ? (
-        <div style={rosterStyles.loading}>
-          <div>Loading roster data...</div>
-        </div>
+        <StandardPageLoader message="Loading roster data..." />
       ) : (
         <div style={rosterStyles.contentWrapper}>
           {/* Admin toolbar */}

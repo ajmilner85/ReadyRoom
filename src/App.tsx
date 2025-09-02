@@ -4,6 +4,9 @@ import { DndContext, DragEndEvent, DragOverlay, DragStartEvent } from '@dnd-kit/
 import GridLayout from './components/layout/GridLayout';
 import { SectionProvider } from './components/layout/SectionContext';
 import { AppSettingsProvider } from './context/AppSettingsContext';
+import { PageLoadingProvider } from './context/PageLoadingContext';
+import StandardPageLoader from './components/ui/StandardPageLoader';
+import AppContent from './components/ui/AppContent';
 import { splitFlight, divideFlight, updateFlightPosition, type Flight } from './types/FlightData';
 import FlightCard from './components/ui/flight cards/FlightCard';
 import SingleFlightCard from './components/ui/flight cards/SingleFlightCard';
@@ -304,22 +307,24 @@ const App: React.FC = () => {
 
   return (
     <AppSettingsProvider>
-      <SectionProvider>
-        <div style={{ display: 'grid', gridTemplateColumns: '100px 1fr' }} className="min-h-screen">
+      <PageLoadingProvider>
+        <SectionProvider>
+          <div style={{ display: 'grid', gridTemplateColumns: '100px 1fr' }} className="min-h-screen">
           <NavigationBar activeButton={activeButton} />
-          <Routes>
+          <AppContent>
+            <Routes>
             <Route path="/home" element={
-              <Suspense fallback={<div className="bg-slate-50" style={{ width: '100%', height: '100%' }} />}>
+              <Suspense fallback={<StandardPageLoader message="Loading home..." />}>
                 <Home />
               </Suspense>
             } />
             <Route path="/roster" element={
-              <Suspense fallback={<div className="bg-slate-50" style={{ width: '100%', height: '100%' }} />}>
+              <Suspense fallback={<StandardPageLoader message="Loading roster..." />}>
                 <RosterManagement />
               </Suspense>
             } />
             <Route path="/mission-prep" element={
-              <Suspense fallback={<div className="bg-slate-50" style={{ width: '100%', height: '100%' }} />}>
+              <Suspense fallback={<StandardPageLoader message="Loading mission preparation..." />}>
                 <MissionPreparation 
                   onTransferToMission={handleTransferToMission}
                   assignedPilots={assignedPilots}
@@ -334,7 +339,7 @@ const App: React.FC = () => {
               </Suspense>
             } />
             <Route path="/settings" element={
-              <Suspense fallback={<div className="bg-slate-50" style={{ width: '100%', height: '100%' }} />}>
+              <Suspense fallback={<StandardPageLoader message="Loading settings..." />}>
                 <Settings />
               </Suspense>
             } />
@@ -416,11 +421,12 @@ const App: React.FC = () => {
               </DndContext>
             } />
             <Route path="/" element={
-              <Suspense fallback={<div className="bg-slate-50" style={{ width: '100%', height: '100%' }} />}>
+              <Suspense fallback={<StandardPageLoader message="Loading events data..." />}>
                 <EventsManagement />
               </Suspense>
             } />
-          </Routes>
+            </Routes>
+          </AppContent>
         </div>
         
         {/* Onboarding Guide */}
@@ -429,6 +435,7 @@ const App: React.FC = () => {
           onClose={handleOnboardingComplete}
         />
       </SectionProvider>
+      </PageLoadingProvider>
     </AppSettingsProvider>
   );
 };
