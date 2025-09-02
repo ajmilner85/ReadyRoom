@@ -2,6 +2,7 @@ import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { Card } from '../card';
 import FlightAssignmentCard from '../flight cards/FlightAssignmentCard';
 import AddFlightDialog from '../dialogs/AddFlightDialog';
+import FlightPostOptionsDialog from '../dialogs/FlightPostOptionsDialog';
 import type { AssignedPilot } from '../../../types/MissionPrepTypes';
 import { supabase } from '../../../utils/supabaseClient';
 import { Trash2 } from 'lucide-react';
@@ -95,6 +96,8 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
 
   const [flights, setFlights] = useState<Flight[]>(initialFlights);
   const [showAddFlightDialog, setShowAddFlightDialog] = useState(false);
+  const [showPostOptionsDialog, setShowPostOptionsDialog] = useState(false);
+  const [existingPosts, setExistingPosts] = useState<any[]>([]);
   
   // Update flights when initialFlights prop changes (e.g., from database restoration)
   React.useEffect(() => {
@@ -120,6 +123,31 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
   
   // Get selected event for Discord message
   const { selectedEvent } = useMissionPrepData();
+
+  // Check for existing flight assignment posts
+  const checkExistingPosts = useCallback(async () => {
+    if (!selectedEvent?.id) {
+      return { hasExisting: false, posts: [] };
+    }
+
+    try {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/discord/flight-posts/${selectedEvent.id}`);
+      const data = await response.json();
+      
+      if (data.success) {
+        return {
+          hasExisting: data.hasExistingPosts,
+          posts: data.existingPosts || []
+        };
+      } else {
+        console.error('Error checking existing posts:', data.error);
+        return { hasExisting: false, posts: [] };
+      }
+    } catch (error) {
+      console.error('Error checking existing posts:', error);
+      return { hasExisting: false, posts: [] };
+    }
+  }, [selectedEvent?.id]);
   
   // Use a ref to track which extracted flights we've already processed
   const processedFlightTimestamps = useRef<Set<string>>(new Set());
@@ -584,13 +612,20 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
           const updatedPilots = getUpdatedFlightPilots(flight);
           const flightData: string[][] = [];
           
+          // Calculate MIDS channels for second section (dash 3 & 4)
+          const midsANum = parseInt(flight.midsA || '0');
+          const secondSectionMidsA = midsANum > 0 ? (midsANum + 1).toString() : '—';
+          
           if (updatedPilots.length === 0) {
             // Show empty slots if no pilots assigned
             for (let i = 1; i <= 4; i++) {
+              // Determine MIDS A channel based on section
+              const sectionMidsA = (i === 1 || i === 2) ? (flight.midsA || '—') : secondSectionMidsA;
+              
               flightData.push([
                 `${flight.callsign} ${flight.flightNumber}-${i}`,
                 '—',
-                flight.midsA || '—',
+                sectionMidsA,
                 flight.midsB || '—'
               ]);
             }
@@ -601,10 +636,14 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
               const callsign = pilot.callsign || (pilot as any).pilot_callsign || (pilot as any).pilotCallsign || '—';
               const pilotDisplay = callsign !== '—' ? `${boardNumber} ${callsign}` : '—';
               
+              // Determine MIDS A channel based on section
+              const dashNum = parseInt(pilot.dashNumber);
+              const sectionMidsA = (dashNum === 1 || dashNum === 2) ? (flight.midsA || '—') : secondSectionMidsA;
+              
               flightData.push([
                 `${flight.callsign} ${flight.flightNumber}-${pilot.dashNumber}`,
                 pilotDisplay,
-                flight.midsA || '—',
+                sectionMidsA,
                 flight.midsB || '—'
               ]);
             });
@@ -636,10 +675,10 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
       ctx.fillStyle = '#1A1A1E';
       ctx.fillRect(0, 0, width, totalHeight);
 
-      // Load and draw squadron insignia
+      // LEFT SIDE: Squadron insignia and info
       const insigniaSize = 40;
       const insigniaY = padding + 10;
-      const insigniaX = width / 2 - 120; // Position to left of text
+      const insigniaX = padding + 10; // Position to far left
       
       // Try to load squadron insignia if URL exists
       if (squadronGroup.squadron.insignia_url) {
@@ -671,7 +710,7 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
         ctx.fillRect(insigniaX, insigniaY, insigniaSize, insigniaSize);
       }
       
-      // Squadron designation (no "Flight Assignments" text)
+      // Squadron designation next to insignia
       ctx.fillStyle = '#FFFFFF';
       ctx.font = 'bold 24px Arial, sans-serif';
       ctx.textAlign = 'left';
@@ -679,11 +718,38 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
       const designationX = insigniaX + insigniaSize + 15;
       ctx.fillText(designationText, designationX, insigniaY + 25);
 
-      // Squadron name below designation (smaller, not bold)
+      // Squadron name below designation (same size as event info)
       ctx.font = '16px Arial, sans-serif';
       ctx.fillStyle = '#CCCCCC';
       const squadronName = squadronGroup.squadron.name;
       ctx.fillText(squadronName, designationX, insigniaY + 45);
+
+      // RIGHT SIDE: Event name and date/time
+      ctx.textAlign = 'right';
+      const rightX = width - padding - 10;
+      
+      // Event name (bold, same size as squadron name)
+      const eventName = selectedEvent?.title || selectedEvent?.name || 'Event';
+      ctx.font = 'bold 16px Arial, sans-serif';
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillText(eventName, rightX, insigniaY + 25);
+      
+      // Event date and time (regular weight, same size as squadron name)
+      if (selectedEvent?.datetime) {
+        const eventDate = new Date(selectedEvent.datetime);
+        const formattedDateTime = eventDate.toLocaleString('en-US', {
+          weekday: 'short',
+          month: 'short', 
+          day: 'numeric',
+          hour: 'numeric',
+          minute: '2-digit',
+          hour12: true
+        });
+        
+        ctx.font = '16px Arial, sans-serif';
+        ctx.fillStyle = '#CCCCCC';
+        ctx.fillText(formattedDateTime, rightX, insigniaY + 45);
+      }
 
       // Render separate tables for each flight
       let currentY = padding + titleHeight;
@@ -779,6 +845,86 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
     }
   }, [getUpdatedFlightPilots]);
 
+  // Save flight post record to database
+  const saveFlightPostRecord = useCallback(async (eventId: number, squadronId: number, guildId: string, channelId: string, messageId: string, isUpdate: boolean = false) => {
+    try {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/discord/save-flight-post`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          eventId,
+          squadronId,
+          guildId,
+          channelId,
+          messageId,
+          isUpdate
+        }),
+      });
+
+      const result = await response.json();
+      if (!result.success) {
+        console.error('Failed to save flight post record:', result.error);
+      }
+      return result.success;
+    } catch (error) {
+      console.error('Error saving flight post record:', error);
+      return false;
+    }
+  }, []);
+
+  // Update existing Discord message with new image
+  const updateExistingDiscordMessage = useCallback(async (squadronGroup: SquadronFlightGroup, imageBlob: Blob, existingPost: any): Promise<boolean> => {
+    try {
+      // Create FormData for the image upload
+      const formData = new FormData();
+      formData.append('image', imageBlob, `${squadronGroup.squadron.designation}_flight_assignments.png`);
+      formData.append('guildId', existingPost.guildId);
+      formData.append('channelId', existingPost.channelId);
+      
+      // Get event date for Discord message
+      const eventDate = selectedEvent?.datetime ? 
+        new Date(selectedEvent.datetime).toLocaleDateString('en-US', { 
+          year: 'numeric', 
+          month: 'short', 
+          day: 'numeric' 
+        }) : 'TBD';
+        
+      formData.append('message', `**${eventDate} Flight Assignments**`);
+
+      // Send to the backend API for Discord message update
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/discord/update-image/${existingPost.messageId}`, {
+        method: 'PUT',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('Failed to update Discord message:', errorData);
+        return false;
+      }
+
+      const result = await response.json();
+      console.log('Successfully updated Discord message:', result);
+      
+      // Save/update the flight post record
+      await saveFlightPostRecord(
+        selectedEvent?.id || 0,
+        squadronGroup.squadron.id,
+        existingPost.guildId,
+        existingPost.channelId,
+        existingPost.messageId,
+        true
+      );
+      
+      return true;
+    } catch (error) {
+      console.error('Error updating Discord message:', error);
+      return false;
+    }
+  }, [selectedEvent, saveFlightPostRecord]);
+
   // Publish flight assignments to Discord
   const publishToDiscordChannel = useCallback(async (squadronGroup: SquadronFlightGroup, imageBlob: Blob): Promise<boolean> => {
     try {
@@ -824,6 +970,19 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
 
       const result = await response.json();
       console.log('Successfully posted flight assignments to Discord:', result);
+      
+      // Save the flight post record to the database
+      if (selectedEvent?.id && result.messageId) {
+        await saveFlightPostRecord(
+          selectedEvent.id,
+          squadronGroup.squadron.id,
+          discordIntegration.selectedGuildId,
+          briefingChannel.id,
+          result.messageId,
+          false
+        );
+      }
+      
       return true;
     } catch (error) {
       console.error('Error posting to Discord:', error);
@@ -831,14 +990,25 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
     }
   }, []);
 
-  // Handle publish to Discord
-  const handlePublishToDiscord = useCallback(async () => {
-    try {
-      if (flights.length === 0) {
-        alert('No flight assignments to publish.');
-        return;
-      }
+  // Handle dialog responses
+  const handleUpdateExisting = useCallback(async () => {
+    setShowPostOptionsDialog(false);
+    await performPublishAction('update');
+  }, [existingPosts, groupFlightsBySquadron, generateFlightAssignmentImage, publishToDiscordChannel, updateExistingDiscordMessage]);
 
+  const handleCreateNew = useCallback(async () => {
+    setShowPostOptionsDialog(false);
+    await performPublishAction('create');
+  }, [groupFlightsBySquadron, generateFlightAssignmentImage, publishToDiscordChannel]);
+
+  const handleCancelDialog = useCallback(() => {
+    setShowPostOptionsDialog(false);
+    setExistingPosts([]);
+  }, []);
+
+  // Perform the actual publish action
+  const performPublishAction = useCallback(async (action: 'create' | 'update') => {
+    try {
       const squadronGroups = await groupFlightsBySquadron();
       
       if (squadronGroups.length === 0) {
@@ -854,11 +1024,26 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
             return { squadron: squadronGroup.squadron.name, success: false, error: 'Failed to generate image' };
           }
 
-          const success = await publishToDiscordChannel(squadronGroup, imageBlob);
+          let success: boolean;
+
+          if (action === 'update') {
+            // Find existing post for this squadron (note: squadronId instead of squadron_id)
+            const existingPost = existingPosts.find(post => post.squadronId === squadronGroup.squadron.id);
+            if (existingPost) {
+              success = await updateExistingDiscordMessage(squadronGroup, imageBlob, existingPost);
+            } else {
+              // No existing post found, create new one
+              success = await publishToDiscordChannel(squadronGroup, imageBlob);
+            }
+          } else {
+            // Create new post
+            success = await publishToDiscordChannel(squadronGroup, imageBlob);
+          }
+
           return { 
             squadron: squadronGroup.squadron.name, 
             success, 
-            error: success ? null : 'Failed to post to Discord'
+            error: success ? null : `Failed to ${action} Discord post`
           };
         } catch (error) {
           return { 
@@ -875,23 +1060,55 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
       const failedResults = results.filter(r => !r.success);
       
       if (successCount > 0) {
-        const successMessage = `Successfully published flight assignments to ${successCount} squadron${successCount > 1 ? 's' : ''}.`;
+        const successMessage = action === 'update' 
+          ? `Successfully updated flight assignments for ${successCount} squadron${successCount > 1 ? 's' : ''}.`
+          : `Successfully published flight assignments to ${successCount} squadron${successCount > 1 ? 's' : ''}.`;
+        
         if (failedResults.length > 0) {
           const failedMessage = failedResults.map(r => `${r.squadron}: ${r.error}`).join('\n');
-          console.error(`${successMessage}\n\nFailed to publish to:\n${failedMessage}`);
+          console.error(`${successMessage}\n\nFailed to ${action}:\n${failedMessage}`);
         } else {
-          // Removed success alert dialog
           console.log(successMessage);
         }
       } else {
         const failedMessage = failedResults.map(r => `${r.squadron}: ${r.error}`).join('\n');
-        console.error(`Failed to publish flight assignments:\n${failedMessage}`);
+        console.error(`Failed to ${action} flight assignments:\n${failedMessage}`);
       }
+
+      // Clear existing posts after action is complete
+      setExistingPosts([]);
     } catch (error) {
-      console.error('Error publishing to Discord:', error);
-      alert('An unexpected error occurred while publishing to Discord.');
+      console.error(`Error ${action === 'update' ? 'updating' : 'publishing'} to Discord:`, error);
+      alert(`An unexpected error occurred while ${action === 'update' ? 'updating' : 'publishing'} to Discord.`);
     }
-  }, [flights, groupFlightsBySquadron, generateFlightAssignmentImage, publishToDiscordChannel]);
+  }, [existingPosts, groupFlightsBySquadron, generateFlightAssignmentImage, publishToDiscordChannel, updateExistingDiscordMessage]);
+
+  // Handle publish to Discord
+  const handlePublishToDiscord = useCallback(async () => {
+    try {
+      if (flights.length === 0) {
+        alert('No flight assignments to publish.');
+        return;
+      }
+
+      // Check for existing posts
+      const { hasExisting, posts } = await checkExistingPosts();
+      
+      if (hasExisting && posts.length > 0) {
+        // Show dialog for user to choose action
+        setExistingPosts(posts);
+        setShowPostOptionsDialog(true);
+        return;
+      }
+
+      // No existing posts, proceed with normal publish
+      await performPublishAction('create');
+    } catch (error) {
+      console.error('Error in handlePublishToDiscord:', error);
+      alert('An unexpected error occurred while preparing to publish to Discord.');
+    }
+  }, [flights, checkExistingPosts, performPublishAction]);
+
 
   return (
     <div style={{ 
@@ -1161,6 +1378,16 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
             </div>
           </div>
         </>
+      )}
+
+      {/* Flight Post Options Dialog */}
+      {showPostOptionsDialog && (
+        <FlightPostOptionsDialog
+          onCancel={handleCancelDialog}
+          onUpdateExisting={handleUpdateExisting}
+          onCreateNew={handleCreateNew}
+          existingPostsCount={existingPosts.length}
+        />
       )}
     </div>
   );
