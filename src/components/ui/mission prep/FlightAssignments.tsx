@@ -589,7 +589,7 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
     try {
       // Canvas dimensions  
       const padding = 20;
-      const columnWidths = [140, 130, 90, 90]; // Slot, Pilot (much narrower), MIDS A, MIDS B
+      const columnWidths = [25, 140, 130, 90, 90]; // MC indicator (very small), Slot, Pilot (much narrower), MIDS A, MIDS B
       const tablePadding = 15; // Left padding inside table
       const rightPadding = 15; // Right padding after last column
       const tableWidth = columnWidths.reduce((sum, width) => sum + width, 0) + tablePadding + rightPadding;
@@ -600,12 +600,20 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
       
       // Prepare flight data - each flight gets its own table
       const flightTables: { flightName: string; data: string[][]; }[] = [];
-      const headers = ['Slot', 'Pilot', 'MIDS A', 'MIDS B'];
+      const headers = ['', 'Slot', 'Pilot', 'MIDS A', 'MIDS B']; // Empty header for MC indicator column
       
+      // Helper function to check if a pilot is the mission commander
+      const isMissionCommander = (pilot: any, flight: Flight) => {
+        if (!missionCommander) return false;
+        const boardNumber = pilot.boardNumber || (pilot as any).board_number || (pilot as any).onboard_num || (pilot as any).pilotBoardNumber || '000';
+        return missionCommander.boardNumber === boardNumber && 
+               missionCommander.flightId === flight.id;
+      };
+
       if (squadronGroup.flights.length === 0) {
         flightTables.push({
           flightName: 'No Flights',
-          data: [['No flight assignments found', '', '', '']]
+          data: [['', 'No flight assignments found', '', '', '']]
         });
       } else {
         squadronGroup.flights.forEach((flight) => {
@@ -623,6 +631,7 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
               const sectionMidsA = (i === 1 || i === 2) ? (flight.midsA || '—') : secondSectionMidsA;
               
               flightData.push([
+                '', // No mission commander indicator for empty slots
                 `${flight.callsign} ${flight.flightNumber}-${i}`,
                 '—',
                 sectionMidsA,
@@ -640,7 +649,11 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
               const dashNum = parseInt(pilot.dashNumber);
               const sectionMidsA = (dashNum === 1 || dashNum === 2) ? (flight.midsA || '—') : secondSectionMidsA;
               
+              // Check if this pilot is the mission commander
+              const mcIndicator = isMissionCommander(pilot, flight) ? '★' : '';
+              
               flightData.push([
+                mcIndicator, // Mission commander indicator (star or empty)
                 `${flight.callsign} ${flight.flightNumber}-${pilot.dashNumber}`,
                 pilotDisplay,
                 sectionMidsA,
@@ -729,7 +742,7 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
       const rightX = width - padding - 10;
       
       // Event name (bold, same size as squadron name)
-      const eventName = selectedEvent?.title || selectedEvent?.name || 'Event';
+      const eventName = selectedEvent?.title || 'Event';
       ctx.font = 'bold 16px Arial, sans-serif';
       ctx.fillStyle = '#FFFFFF';
       ctx.fillText(eventName, rightX, insigniaY + 25);
@@ -782,7 +795,10 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
           
           let headerX = padding + tablePadding;
           headers.forEach((header, index) => {
-            if (index >= 2) { // MIDS A and MIDS B columns
+            if (index >= 3) { // MIDS A and MIDS B columns (adjusted for new column)
+              ctx.textAlign = 'center';
+              ctx.fillText(header, headerX + columnWidths[index] / 2, currentY + 25);
+            } else if (index === 0) { // Mission commander indicator column
               ctx.textAlign = 'center';
               ctx.fillText(header, headerX + columnWidths[index] / 2, currentY + 25);
             } else {
@@ -805,20 +821,33 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
           ctx.fillStyle = rowIndex % 2 === 0 ? '#4A5568' : '#374151';
           ctx.fillRect(padding, rowY, tableWidth, rowHeight);
           
+          // Check if this row contains mission commander (has star in first column)
+          const isMCRow = row[0] === '★';
+          
           // Row text
           ctx.fillStyle = '#FFFFFF';
           let cellX = padding + tablePadding;
           
           row.forEach((cell, cellIndex) => {
+            // Set font weight based on mission commander status and column
+            if (isMCRow && (cellIndex === 1 || cellIndex === 2)) { // Slot and Pilot columns
+              ctx.font = 'bold 14px Arial, sans-serif';
+            } else {
+              ctx.font = '14px Arial, sans-serif';
+            }
+            
             // Special handling for empty pilot cells
-            if (cellIndex === 1 && cell === '—') {
+            if (cellIndex === 2 && cell === '—') { // Pilot column (adjusted index)
               ctx.fillStyle = '#9CA3AF';
             } else {
               ctx.fillStyle = '#FFFFFF';
             }
             
-            // Text alignment for MIDS columns (center) and others (left)
-            if (cellIndex >= 2) {
+            // Text alignment
+            if (cellIndex === 0) { // Mission commander indicator column
+              ctx.textAlign = 'center';
+              ctx.fillText(cell, cellX + columnWidths[cellIndex] / 2, rowY + 22);
+            } else if (cellIndex >= 3) { // MIDS columns (adjusted for new column)
               ctx.textAlign = 'center';
               ctx.fillText(cell, cellX + columnWidths[cellIndex] / 2, rowY + 22);
             } else {
@@ -880,8 +909,8 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
       // Create FormData for the image upload
       const formData = new FormData();
       formData.append('image', imageBlob, `${squadronGroup.squadron.designation}_flight_assignments.png`);
-      formData.append('guildId', existingPost.guildId);
-      formData.append('channelId', existingPost.channelId);
+      formData.append('guildId', String(existingPost.guildId));
+      formData.append('channelId', String(existingPost.channelId));
       
       // Get event date for Discord message
       const eventDate = selectedEvent?.datetime ? 
@@ -910,8 +939,8 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
       
       // Save/update the flight post record
       await saveFlightPostRecord(
-        selectedEvent?.id || 0,
-        squadronGroup.squadron.id,
+        Number(selectedEvent?.id) || 0,
+        Number(squadronGroup.squadron.id),
         existingPost.guildId,
         existingPost.channelId,
         existingPost.messageId,
@@ -944,8 +973,8 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
       // Create FormData for the image upload
       const formData = new FormData();
       formData.append('image', imageBlob, `${squadronGroup.squadron.designation}_flight_assignments.png`);
-      formData.append('guildId', discordIntegration.selectedGuildId);
-      formData.append('channelId', briefingChannel.id);
+      formData.append('guildId', String(discordIntegration.selectedGuildId));
+      formData.append('channelId', String(briefingChannel.id));
       // Get event date for Discord message
       const eventDate = selectedEvent?.datetime ? 
         new Date(selectedEvent.datetime).toLocaleDateString('en-US', { 
@@ -974,8 +1003,8 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
       // Save the flight post record to the database
       if (selectedEvent?.id && result.messageId) {
         await saveFlightPostRecord(
-          selectedEvent.id,
-          squadronGroup.squadron.id,
+          Number(selectedEvent.id),
+          Number(squadronGroup.squadron.id),
           discordIntegration.selectedGuildId,
           briefingChannel.id,
           result.messageId,
