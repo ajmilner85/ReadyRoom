@@ -862,6 +862,7 @@ app.get('/api/discord/servers/:guildId/channels', async (req, res) => {
   }
 });
 
+
 // Reminder API endpoint
 app.post('/api/reminders/send', async (req, res) => {
   try {

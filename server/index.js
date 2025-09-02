@@ -1049,6 +1049,90 @@ app.get('/api/discord/guild/:guildId/member/:userId', async (req, res) => {
   }
 });
 
+// API endpoint to post image to Discord channel
+app.post('/api/discord/post-image', async (req, res) => {
+  try {
+    const multer = require('multer');
+    const upload = multer();
+    
+    // Use multer to handle the file upload
+    upload.single('image')(req, res, async (err) => {
+      if (err) {
+        console.error('[POST-IMAGE] Multer error:', err);
+        return res.status(400).json({ error: 'File upload error' });
+      }
+
+      const { guildId, channelId, message } = req.body;
+      const imageFile = req.file;
+
+      if (!guildId || !channelId || !imageFile) {
+        return res.status(400).json({ 
+          error: 'Missing required fields: guildId, channelId, and image file' 
+        });
+      }
+
+      console.log(`[POST-IMAGE] Posting image to Discord - Guild: ${guildId}, Channel: ${channelId}, Message: ${message || 'No message'}`);
+
+      try {
+        // Wait for Discord client to be ready
+        if (!discordClient.isReady()) {
+          await new Promise((resolve) => {
+            discordClient.once('ready', resolve);
+          });
+        }
+
+        // Get the guild and channel
+        const guild = discordClient.guilds.cache.get(guildId);
+        if (!guild) {
+          return res.status(404).json({ 
+            error: `Discord server with ID ${guildId} not found or bot doesn't have access` 
+          });
+        }
+
+        const channel = guild.channels.cache.get(channelId);
+        if (!channel) {
+          return res.status(404).json({ 
+            error: `Channel with ID ${channelId} not found in server` 
+          });
+        }
+
+        // Create attachment from the uploaded file
+        const { AttachmentBuilder } = require('discord.js');
+        const attachment = new AttachmentBuilder(imageFile.buffer, { 
+          name: imageFile.originalname || 'flight_assignments.png' 
+        });
+
+        // Send the message with the image
+        const discordMessage = await channel.send({
+          content: message || '',
+          files: [attachment]
+        });
+
+        console.log(`[POST-IMAGE] Successfully posted image to Discord - Message ID: ${discordMessage.id}`);
+
+        res.json({
+          success: true,
+          messageId: discordMessage.id,
+          guildId: guildId,
+          channelId: channelId
+        });
+
+      } catch (discordError) {
+        console.error('[POST-IMAGE] Discord API error:', discordError);
+        res.status(500).json({ 
+          error: `Discord API error: ${discordError.message}` 
+        });
+      }
+    });
+
+  } catch (error) {
+    console.error('[POST-IMAGE] Unexpected error:', error);
+    res.status(500).json({ 
+      error: `Server error: ${error.message}` 
+    });
+  }
+});
+
 // Server-side reminder processing functions
 async function processReminders() {
   try {

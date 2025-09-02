@@ -44,6 +44,14 @@ export const useMissionPrepDataPersistence = (
     externalPrepFlights || []
   );
 
+  // Debug prepFlights changes
+  // useEffect(() => {
+  //   console.log('🔄 Persistence: prepFlights state changed:', {
+  //     length: prepFlights?.length || 0,
+  //     flights: prepFlights?.map(f => ({ id: f.id, callsign: f.callsign })) || []
+  //   });
+  // }, [prepFlights]);
+
   // Add a flag to prevent circular updates during saves
   const [isSyncing, setIsSyncing] = useState(false);
 
@@ -66,8 +74,15 @@ export const useMissionPrepDataPersistence = (
 
   // Sync state with mission data when mission loads - ONLY run once per mission/event combination
   useEffect(() => {
-    // Skip if no mission, still syncing, or no active pilots
-    if (!mission || isSyncing || !activePilots || missionLoading) {
+    // Skip if no mission, still syncing, or mission still loading
+    if (!mission || isSyncing || missionLoading) {
+      return;
+    }
+    
+    // If activePilots is not available but we have pilot assignments to restore,
+    // we should wait for activePilots to load to properly map pilot data
+    if ((!activePilots || activePilots.length === 0) && mission.pilot_assignments && Object.keys(mission.pilot_assignments).length > 0) {
+      // console.log('🔄 Persistence: Waiting for pilot data to load before restoring assignments');
       return;
     }
     
@@ -83,13 +98,13 @@ export const useMissionPrepDataPersistence = (
       return;
     }
       
-    console.log('🔄 Persistence: Mission data loaded, syncing state:', {
-      missionId: mission.id,
-      eventId: selectedEvent.id,
-      hasPilotAssignments: !!mission.pilot_assignments,
-      activePilotsCount: activePilots?.length || 0,
-      pilotAssignments: JSON.stringify(mission.pilot_assignments)
-    });
+    // console.log('🔄 Persistence: Mission data loaded, syncing state:', {
+    //   missionId: mission.id,
+    //   eventId: selectedEvent.id,
+    //   hasPilotAssignments: !!mission.pilot_assignments,
+    //   activePilotsCount: activePilots?.length || 0,
+    //   pilotAssignments: JSON.stringify(mission.pilot_assignments)
+    // });
     
     // Mark this mission/event as synced
     setLastSyncMissionId(mission.id);
@@ -97,7 +112,7 @@ export const useMissionPrepDataPersistence = (
     
     // Convert database pilot assignments back to the format expected by the UI (skip save since this is loading)
     if (mission.pilot_assignments) {
-      console.log('📥 Persistence: Loading pilot assignments from database');
+      // console.log('📥 Persistence: Loading pilot assignments from database');
       
       // Get current assignments to preserve roll call status
       const currentAssignments = assignedPilots || {};
@@ -139,7 +154,8 @@ export const useMissionPrepDataPersistence = (
             };
           } else {
             // Fallback to minimal pilot object if lookup fails
-            console.warn('🚨 Persistence: Could not find pilot data for ID:', assignment.pilot_id);
+            // This should not happen if activePilots is properly loaded
+            console.warn('🚨 Persistence: Could not find pilot data for ID:', assignment.pilot_id, 'Available pilots:', activePilots?.length || 0);
             return {
               id: assignment.pilot_id,
               dashNumber: assignment.dash_number,
@@ -148,8 +164,8 @@ export const useMissionPrepDataPersistence = (
               mids_a_channel: assignment.mids_a_channel || '',
               mids_b_channel: assignment.mids_b_channel || '',
               // Add minimal pilot info as fallback
-              callsign: 'Unknown',
-              boardNumber: 'Unknown',
+              callsign: '',
+              boardNumber: '',
               status: '',
               billet: '',
               qualifications: [],
@@ -159,7 +175,7 @@ export const useMissionPrepDataPersistence = (
         });
       });
       
-      console.log('📥 Persistence: Converted assignments with preserved roll call data:', JSON.stringify(convertedAssignments));
+      // console.log('📥 Persistence: Converted assignments with preserved roll call data:', JSON.stringify(convertedAssignments));
       
       // Debug log roll call status preservation
       Object.entries(convertedAssignments).forEach(([flightId, pilots]) => {
@@ -196,7 +212,15 @@ export const useMissionPrepDataPersistence = (
     }
 
     // Convert flights from mission database format to UI format
+    // console.log('🔍 Persistence: Mission data for flight restoration:', {
+    //   hasMissionFlights: !!mission.flights,
+    //   flightCount: mission.flights?.length || 0,
+    //   missionKeys: Object.keys(mission),
+    //   flights: mission.flights
+    // });
+    
     if (mission.flights && mission.flights.length > 0) {
+      // console.log('📝 Persistence: Restoring flights from database:', mission.flights.map(f => ({ id: f.id, callsign: f.callsign })));
       const convertedFlights = mission.flights.map((missionFlight, index) => {
         // Extract MIDS channels from the flight_data or use defaults
         const flightData = missionFlight.flight_data || {};
@@ -219,12 +243,28 @@ export const useMissionPrepDataPersistence = (
         };
       });
       
+      // console.log('🔄 Persistence: Setting prepFlights to restored flights:', convertedFlights.length, 'flights');
+      // console.log('🔄 Persistence: About to call setPrepFlightsLocal with:', convertedFlights);
       setPrepFlightsLocal(convertedFlights);
+      // console.log('🔄 Persistence: prepFlights setState called - should trigger re-render');
+      
+      // Force a re-render by using functional update
+      setTimeout(() => {
+        setPrepFlightsLocal(prev => {
+          // console.log('🔄 Persistence: Functional update check - current state:', prev?.length || 0, 'flights');
+          if (prev?.length === 0 && convertedFlights.length > 0) {
+            // console.log('🔄 Persistence: State was not updated, forcing update');
+            return convertedFlights;
+          }
+          return prev;
+        });
+      }, 10);
     } else {
+      // console.log('🔄 Persistence: No flights to restore, clearing prepFlights');
       // Clear flights if mission has no flights
       setPrepFlightsLocal([]);
     }
-  }, [mission?.id, selectedEvent?.id, activePilots?.length, missionLoading, isSyncing, lastSyncMissionId, lastSyncEventId]);
+  }, [mission?.id, selectedEvent?.id, activePilots?.length, missionLoading, isSyncing]);
 
   // Auto-create mission when event is selected but no mission exists
   // Removed auto-creation to prevent duplicate missions when navigating from Events Management
@@ -319,12 +359,12 @@ export const useMissionPrepDataPersistence = (
 
   // Enhanced setters that save to database
   const setAssignedPilots = useCallback((pilots: AssignedPilotsRecord, skipSave: boolean = false) => {
-    console.log('📝 Persistence: setAssignedPilots called:', {
-      pilots: JSON.stringify(pilots),
-      skipSave,
-      hasMission: !!mission,
-      missionId: mission?.id
-    });
+    // console.log('📝 Persistence: setAssignedPilots called:', {
+    //   pilots: JSON.stringify(pilots),
+    //   skipSave,
+    //   hasMission: !!mission,
+    //   missionId: mission?.id
+    // });
     
     setAssignedPilotsLocal(pilots);
     
@@ -358,7 +398,7 @@ export const useMissionPrepDataPersistence = (
             }));
           });
 
-          console.log('🔄 Persistence: Executing database save with assignments (including roll call):', pilotAssignments);
+          // console.log('🔄 Persistence: Executing database save with assignments (including roll call):', pilotAssignments);
           const result = await updatePilotAssignments(pilotAssignments);
           console.log('✅ Persistence: Database save result:', result);
           return result;

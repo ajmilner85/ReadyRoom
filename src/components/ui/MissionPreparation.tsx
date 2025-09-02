@@ -83,6 +83,15 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
     activePilots
   );
 
+  // Debug prepFlights changes in MissionPreparation
+  // React.useEffect(() => {
+  //   console.log('🔍 MissionPreparation: prepFlights changed:', {
+  //     length: prepFlights?.length || 0,
+  //     flights: prepFlights?.map(f => ({ id: f.id, callsign: f.callsign })) || []
+  //   });
+  //   console.log('🔍 MissionPreparation: Raw prepFlights value:', prepFlights);
+  // }, [prepFlights]);
+
   const [realtimeAttendanceData, setRealtimeAttendanceData] = useState<RealtimeAttendanceRecord[]>([]);
 
   // Wrapper for setAssignedPilots to handle React setState signature
