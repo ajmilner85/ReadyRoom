@@ -51,13 +51,17 @@ export function getUserPermissions(userProfile: UserProfile | null): UserPermiss
   }
 
   // Use stored permission level from Discord role sync, with fallback logic
-  let permission: AppPermission = userProfile.appPermission || 'guest';
+  let permission: AppPermission = userProfile.appPermission || 'flight_lead';
   
-  // Fallback logic for users without synced permissions
+  // TEMPORARY: Grant broader access to all authenticated users until proper permissions system is implemented
+  // This allows testers to access all areas of the application
   if (!userProfile.appPermission) {
+    // Default to flight_lead permissions for all authenticated users
+    permission = 'flight_lead';
+    
     // If user has a linked pilot record, they're at least a member
     if (userProfile.pilot) {
-      permission = 'member';
+      permission = 'flight_lead';
     }
     
     // Temporary admin check for development (you can modify this)
@@ -72,18 +76,6 @@ export function getUserPermissions(userProfile: UserProfile | null): UserPermiss
 
   // Define permissions based on role level
   switch (permission) {
-    case 'admin': // was 'developer'
-      return {
-        canAccessSettings: true,
-        canManageRoster: true,
-        canManageFlights: true,
-        canManageEvents: true,
-        canAccessMissionPrep: true,
-        canEditSquadrons: true,
-        canViewAdminTools: true,
-        level: 'developer'
-      };
-    
     case 'admin':
       return {
         canAccessSettings: true,

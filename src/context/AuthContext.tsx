@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import type { User, Session } from '@supabase/supabase-js';
 import { getSupabase, onAuthStateChange } from '../utils/supabaseClient';
-import { getUserProfile, type UserProfile } from '../utils/userProfileService';
+import { getUserProfile, createOrUpdateUserProfile, type UserProfile } from '../utils/userProfileService';
 import { triggerRoleSync } from '../utils/discordRoleSync';
 
 interface AuthContextType {
@@ -33,12 +33,20 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isCreatingProfile, setIsCreatingProfile] = useState(false);
 
   const refreshProfile = async () => {
-    console.log('refreshProfile called, user:', user?.id);
+    console.log('refreshProfile called, user:', user?.id, 'isCreatingProfile:', isCreatingProfile);
     if (!user) {
       console.log('No user in refreshProfile, setting profile to null');
       setUserProfile(null);
+      setIsCreatingProfile(false);
+      return;
+    }
+
+    // Prevent concurrent profile creation attempts
+    if (isCreatingProfile) {
+      console.log('Profile creation already in progress, skipping...');
       return;
     }
 
@@ -53,14 +61,63 @@ export function AuthProvider({ children }: AuthProviderProps) {
       }
       
       console.log('Profile fetched:', !!profile, profile?.id);
+      
+      // If no profile exists, create one for the new user
+      if (!profile && !isCreatingProfile) {
+        console.log('No profile found, creating new user profile...');
+        setIsCreatingProfile(true);
+        
+        try {
+          const { profile: newProfile, error: createError } = await createOrUpdateUserProfile(user);
+          
+          if (createError) {
+            // Handle the case where profile was created by another concurrent call
+            if ((createError as any).code === '23505') {
+              console.log('Profile already exists (created concurrently), fetching it...');
+              const { profile: existingProfile } = await getUserProfile(user.id);
+              if (existingProfile) {
+                console.log('Found existing profile:', existingProfile.id);
+                setUserProfile(existingProfile);
+                setError(null);
+                setIsCreatingProfile(false);
+                return;
+              }
+            }
+            
+            console.error('Error creating user profile:', createError);
+            setError(createError.message);
+            setIsCreatingProfile(false);
+            return;
+          }
+          
+          if (newProfile) {
+            console.log('New profile created:', newProfile.id);
+            setUserProfile(newProfile);
+            setError(null);
+            setIsCreatingProfile(false);
+            return;
+          } else {
+            console.error('Profile creation returned null without error');
+            setError('Failed to create user profile');
+            setIsCreatingProfile(false);
+            return;
+          }
+        } catch (createErr: any) {
+          console.error('Unexpected error during profile creation:', createErr);
+          setError(createErr.message || 'Failed to create user profile');
+          setIsCreatingProfile(false);
+          return;
+        }
+      }
+      
+      // Profile exists, continue with role sync
       if (profile) {
-        // Trigger Discord role sync if needed
         try {
           const syncSuccess = await triggerRoleSync(profile);
           if (syncSuccess) {
             // Refetch profile to get updated permissions
             const { profile: updatedProfile } = await getUserProfile(user.id);
-            setUserProfile(updatedProfile);
+            setUserProfile(updatedProfile || profile);
           } else {
             setUserProfile(profile);
           }
@@ -68,9 +125,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
           console.warn('Role sync failed, using existing profile:', syncError);
           setUserProfile(profile);
         }
-        
-        setError(null);
       }
+      
+      setError(null);
     } catch (err: any) {
       console.error('Unexpected error fetching profile:', err);
       setError(err.message || 'Failed to load user profile');
@@ -121,6 +178,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       setSession(session);
       setUser(session?.user ?? null);
       setError(null);
+      setIsCreatingProfile(false); // Reset profile creation flag on auth state change
 
       if (event === 'SIGNED_OUT') {
         setUserProfile(null);

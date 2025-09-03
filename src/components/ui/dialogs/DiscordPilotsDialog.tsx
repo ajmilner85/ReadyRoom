@@ -70,7 +70,7 @@ export const DiscordPilotsDialog: React.FC<DiscordPilotsDialogProps> = ({
   const [allPilots, setAllPilots] = useState<Pilot[]>([]);
   const [roles, setRoles] = useState<Role[]>([]);
   const [statuses, setStatuses] = useState<Status[]>([]);
-  const [disabledRoles, setDisabledRoles] = useState<Record<string, boolean>>({});
+  // const [disabledRoles, setDisabledRoles] = useState<Record<string, boolean>>({});
   const [enableRoleSync, setEnableRoleSync] = useState(true);
   const [roleSyncResults, setRoleSyncResults] = useState<{
     synced: number;
@@ -137,7 +137,6 @@ export const DiscordPilotsDialog: React.FC<DiscordPilotsDialogProps> = ({
   const loadData = async () => {
     setLoading(true);
     setError(null);
-    const startTime = Date.now();
     console.log('Starting Discord Pilots Dialog load...');
     
     try {
@@ -439,7 +438,7 @@ export const DiscordPilotsDialog: React.FC<DiscordPilotsDialogProps> = ({
       }
       
       console.log('Disabled roles:', newDisabledRoles);
-      setDisabledRoles(newDisabledRoles);
+      // setDisabledRoles(newDisabledRoles);
     } catch (err) {
       console.error('Error fetching exclusive role assignments:', err);
     }
@@ -530,32 +529,32 @@ export const DiscordPilotsDialog: React.FC<DiscordPilotsDialogProps> = ({
   };
   
   // Check if a role should be disabled for a specific pilot
-  const isRoleDisabled = (roleId: string, pilotId: string | null) => {
-    // If the role is not in the disabled map, it's available to everyone
-    if (!disabledRoles[roleId]) {
-      return false;
-    }
-    
-    // If no pilot is selected or it's a new pilot, the role is disabled if it's exclusive and already assigned
-    if (!pilotId) {
-      return true;
-    }
-    
-    // For existing pilots, check if they currently have this role assigned
-    // This requires checking the database or the current pilot role assignments
-    // Check with supabase if this pilot already has this role
-    const role = roles.find(r => r.id === roleId);
-    if (!role || !role.isExclusive) {
-      return false;
-    }
-    
-    // For existing pilots, check matches to see if they have this role already assigned
-    const hasRole = matches.some(m => 
-      m.selectedPilotId === pilotId && m.roleId === roleId
-    );
-    
-    return !hasRole;
-  };
+  // const isRoleDisabled = (roleId: string, pilotId: string | null) => {
+  //   // If the role is not in the disabled map, it's available to everyone
+  //   if (!disabledRoles[roleId]) {
+  //     return false;
+  //   }
+  //   
+  //   // If no pilot is selected or it's a new pilot, the role is disabled if it's exclusive and already assigned
+  //   if (!pilotId) {
+  //     return true;
+  //   }
+  //   
+  //   // For existing pilots, check if they currently have this role assigned
+  //   // This requires checking the database or the current pilot role assignments
+  //   // Check with supabase if this pilot already has this role
+  //   const role = roles.find(r => r.id === roleId);
+  //   if (!role || !role.isExclusive) {
+  //     return false;
+  //   }
+  //   
+  //   // For existing pilots, check matches to see if they have this role already assigned
+  //   const hasRole = matches.some(m => 
+  //     m.selectedPilotId === pilotId && m.roleId === roleId
+  //   );
+  //   
+  //   return !hasRole;
+  // };
 
   // Save changes and process matches
   const handleSave = async () => {
@@ -1226,12 +1225,6 @@ export const DiscordPilotsDialog: React.FC<DiscordPilotsDialogProps> = ({
                               <select 
                                 className="custom-pilot-select"
                                 value={match.selectedPilotId || (match.action === 'create-new' ? 'create-new' : 'do-nothing')}
-                                style={{
-                                  width: '152px',
-                                  maxWidth: '152px',
-                                  overflow: 'hidden',
-                                  textOverflow: 'ellipsis'
-                                }}
                                 onChange={(e) => {
                                   const value = e.target.value;
                                   
@@ -1276,7 +1269,10 @@ export const DiscordPilotsDialog: React.FC<DiscordPilotsDialogProps> = ({
                                 }}
                                 disabled={loading}
                                 style={{
-                                  width: '100%',
+                                  width: '152px',
+                                  maxWidth: '152px',
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis',
                                   padding: '4px 8px',
                                   border: '1px solid #CBD5E1',
                                   borderRadius: '4px',
@@ -1494,7 +1490,7 @@ export const DiscordPilotsDialog: React.FC<DiscordPilotsDialogProps> = ({
                                         flexWrap: 'wrap',
                                         gap: '4px'
                                       }}>
-                                        {match.discordMember.roles?.map((role, index) => {
+                                        {match.discordMember.roles?.map((role) => {
                                           return (
                                             <div
                                               key={role}
