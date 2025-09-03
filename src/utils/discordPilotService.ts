@@ -23,6 +23,7 @@ export interface DiscordPilotMatch {
   selectedPilotId: string | null;
   roleId: string | null; // Added roleId field
   statusId: string | null; // Added statusId field
+  squadronId: string | null; // Added squadronId field
 }
 
 /**
@@ -107,8 +108,8 @@ export async function fetchDiscordGuildMembers(squadronId?: string): Promise<Dis
         roles: member.roles || [],
         boardNumber: boardNumberMatch ? boardNumberMatch[1] : null,
         callsign: boardNumberMatch ? boardNumberMatch[2] : null,
-        status: determineStatusFromRoles(member.roles || []),
-        role: determineRoleFromName(member.displayName),
+        status: null,
+        role: null,
         isBot: member.isBot || false
       };
     });
@@ -121,55 +122,6 @@ export async function fetchDiscordGuildMembers(squadronId?: string): Promise<Dis
   }
 }
 
-/**
- * Determine pilot status from Discord roles
- */
-function determineStatusFromRoles(roles: string[]): string | null {
-  const roleMap = {
-    'Command': ['CO', 'XO', 'Command'],
-    'Staff': ['Staff', 'Department Head', 'Officer'],
-    'Cadre': ['Cadre', 'Instructor'],
-    'Provisional': ['Provisional', 'Student'],
-    'Inactive': ['Inactive'],
-    'Retired': ['Retired', 'Alumni'],
-    'On Leave': ['On Leave', 'LOA']
-  };
-
-  for (const [status, keywords] of Object.entries(roleMap)) {
-    if (roles.some(role => keywords.some(keyword => 
-      role.toLowerCase().includes(keyword.toLowerCase())))) {
-      return status;
-    }
-  }
-
-  return 'Provisional'; // Default status
-}
-
-/**
- * Determine pilot role from Discord display name
- * This extracts role strings like "Admin OIC" from the display name
- */
-function determineRoleFromName(displayName: string): string | null {
-  // We'll extract any potential role strings from the display name
-  // Example: "123 Callsign - Admin OIC" would extract "Admin OIC"
-  
-  // Look for role indicators after separators like "-", "|", etc.
-  const roleSeparators = ['-', '|', '/', '–', '—', ':', '('];
-  let rolePart = null;
-  
-  // Check for each separator and extract the part after it
-  for (const separator of roleSeparators) {
-    if (displayName.includes(separator)) {
-      const parts = displayName.split(separator);
-      if (parts.length > 1) {
-        rolePart = parts[1].trim();
-        break;
-      }
-    }
-  }
-  
-  return rolePart;
-}
 
 /**
  * Helper function to get status ID by name
@@ -285,22 +237,25 @@ export async function matchDiscordMembersWithPilots(discordMembers: DiscordMembe
     console.log('Board Number:', member.boardNumber);
     console.log('Callsign:', member.callsign);
     console.log('Discord ID:', member.id);
+    console.log('Discord Username:', member.username);
     console.log('Discord Role:', member.role);
     console.log('Discord Status:', member.status);
     
-    // Try to find an exact match by Discord ID first
-    const exactMatchById = pilots.find(p => p.discordUsername === member.id || p.id === member.id);
-    if (exactMatchById) {
-      console.log('MATCH FOUND: Exact match by Discord ID:', exactMatchById.callsign, exactMatchById.boardNumber);
-      console.log('Matched pilot UUID:', exactMatchById.id);
-      console.log('Matched pilot Discord username:', exactMatchById.discordUsername);
+    // Try to find an exact match by Discord Username first (this is the primary matching criteria now)
+    const exactMatchByUsername = pilots.find(p => p.discordUsername === member.username);
+    if (exactMatchByUsername) {
+      console.log('MATCH FOUND: Exact match by Discord Username:', exactMatchByUsername.callsign, exactMatchByUsername.boardNumber);
+      console.log('Matched pilot UUID:', exactMatchByUsername.id);
+      console.log('Matched pilot Discord username:', exactMatchByUsername.discordUsername);
     }
     
-    // If no exact match by Discord ID, try to match by board number and/or callsign
+    // Only proceed with fallback matching if Discord Username is empty/null for this member
+    // This prevents false matches for users with usernames like "mrs.zapp" or "zapp0651"
     let potentialMatches: Pilot[] = [];
     let bestMatch: Pilot | null = null;
     
-    if (!exactMatchById && member.boardNumber) {
+    if (!exactMatchByUsername && !member.username && member.boardNumber) {
+      console.log('FALLBACK MATCHING: No Discord username provided, attempting board/callsign match');
       // Try to find matches by board number
       const boardMatches = pilots.filter(p => p.boardNumber === member.boardNumber);
       
@@ -341,10 +296,12 @@ export async function matchDiscordMembersWithPilots(discordMembers: DiscordMembe
           }
         }
       }
+    } else if (!exactMatchByUsername && member.username) {
+      console.log(`NO MATCH: Discord username "${member.username}" not found in pilot records. Skipping fallback matching to prevent false positives.`);
     }
     
-    // Determine the matched pilot (exact match by ID takes precedence)
-    const matchedPilot = exactMatchById || bestMatch;
+    // Determine the matched pilot (exact match by Discord Username takes precedence)
+    const matchedPilot = exactMatchByUsername || bestMatch;
     
     // Set appropriate action and selectedPilotId based on matching results
     let action: 'do-nothing' | 'create-new' | 'update-existing' = 'do-nothing';
@@ -408,7 +365,8 @@ export async function matchDiscordMembersWithPilots(discordMembers: DiscordMembe
       action: action,
       selectedPilotId: selectedPilotId,
       roleId: roleId,
-      statusId: statusId
+      statusId: statusId,
+      squadronId: null // Default to no squadron assignment
     };
   }));
   
@@ -517,6 +475,12 @@ export async function processPilotMatches(matches: DiscordPilotMatch[]): Promise
           throw updateError;
         }
         
+        // Handle squadron assignment if specified
+        if (match.squadronId) {
+          const { assignPilotToSquadron } = await import('./squadronService');
+          await assignPilotToSquadron(pilotId, match.squadronId);
+        }
+        
         result.updated++;
       } 
       // If creating a new pilot
@@ -540,8 +504,8 @@ export async function processPilotMatches(matches: DiscordPilotMatch[]): Promise
           discordId: match.discordMember.username      // Discord Username
         };
         
-        // Add status - use selected status or detect from Discord roles
-        const statusId = match.statusId || await getStatusIdByName(match.discordMember.status || 'Provisional');
+        // Add status - use selected status or default to Provisional
+        const statusId = match.statusId || await getStatusIdByName('Provisional');
         newPilot.status_id = statusId;
         
         let shouldAssignRole = false;
@@ -611,6 +575,12 @@ export async function processPilotMatches(matches: DiscordPilotMatch[]): Promise
           if (!success) {
             console.log(`Failed to assign role to newly created pilot ${createdPilot.id}`);
           }
+        }
+        
+        // Handle squadron assignment if specified
+        if (match.squadronId && createdPilot) {
+          const { assignPilotToSquadron } = await import('./squadronService');
+          await assignPilotToSquadron(createdPilot.id, match.squadronId);
         }
         
         result.created++;
