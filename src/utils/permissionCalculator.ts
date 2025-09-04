@@ -213,7 +213,24 @@ export class PermissionCalculator {
       ...userBases.squadronAssignments.map(s => s.id)
     ];
     
-    // Get rules for user's specific bases plus authenticated_user rules
+    // First, get the user's profile ID for manual_override rules
+    const { data: userProfile } = await supabase
+      .from('user_profiles')
+      .select('id')
+      .eq('auth_user_id', userBases.userId)
+      .single();
+    
+    const userProfileId = userProfile?.id;
+    
+    // Build query conditions
+    let queryConditions = `basis_type.eq.authenticated_user,basis_id.in.(${basisIds.join(',')})`;
+    
+    // Add manual_override condition if we have a user profile ID
+    if (userProfileId) {
+      queryConditions += `,basis_type.eq.manual_override.and.basis_id.eq.${userProfileId}`;
+    }
+    
+    // Get rules for user's specific bases plus authenticated_user rules plus manual_override rules
     // Join with app_permissions to get the permission name instead of just UUID
     const { data, error } = await supabase
       .from('permission_rules')
@@ -232,7 +249,7 @@ export class PermissionCalculator {
         )
       `)
       .eq('active', true)
-      .or(`basis_type.eq.authenticated_user,basis_id.in.(${basisIds.join(',')})`);
+      .or(queryConditions);
     
     if (error) {
       console.warn('Error fetching permission rules:', error);
