@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { usePageLoading } from '../../context/PageLoadingContext';
 import { Card } from '../ui/card';
-import { User, Users, Building, Plane, PaintBucket, Calendar, Network } from 'lucide-react';
+import { User, Users, Building, Plane, PaintBucket, Calendar, Network, Shield } from 'lucide-react';
 
 // Import settings subpages
 import SquadronSettings from './SquadronSettings';
@@ -11,9 +11,10 @@ import UserAccounts from './UserAccounts';
 import RosterSettings from './RosterSettings';
 import OrganizationSettings from './OrganizationSettings';
 import EventSettings from './EventSettings';
+import PermissionsSettings from './PermissionsSettings';
 
 // Define the types of settings pages
-type SettingsPage = 'roster' | 'squadron' | 'organization' | 'mission' | 'events' | 'appearance' | 'accounts';
+type SettingsPage = 'roster' | 'squadron' | 'organization' | 'mission' | 'events' | 'permissions' | 'appearance' | 'accounts';
 
 interface SettingsNavItem {
   id: SettingsPage;
@@ -47,6 +48,11 @@ const settingsNavItems: SettingsNavItem[] = [
     id: 'events',
     icon: <Calendar size={20} />,
     label: 'Events'
+  },
+  {
+    id: 'permissions',
+    icon: <Shield size={20} />,
+    label: 'Permissions'
   },
   {
     id: 'appearance',
@@ -88,6 +94,8 @@ const Settings: React.FC = () => {
         return <MissionDefaults error={error} setError={setError} />;
       case 'events':
         return <EventSettings error={error} setError={setError} />;
+      case 'permissions':
+        return <PermissionsSettings />;
       case 'appearance':
         return <Appearance error={error} setError={setError} />;
       case 'accounts':
@@ -136,7 +144,7 @@ const Settings: React.FC = () => {
       }}
     >
       <div style={{
-        maxWidth: '1200px',
+        maxWidth: '1350px',
         width: '100%',
         margin: '0 auto',
         padding: '0 20px'
@@ -164,7 +172,7 @@ const Settings: React.FC = () => {
               Settings
             </h1>
             
-            <div className="flex" style={{ minHeight: 'calc(100vh - 170px)' }}>
+            <div className="flex" style={{ height: 'calc(100vh - 170px)', maxHeight: 'calc(100vh - 170px)', overflow: 'hidden' }}>
               {/* Settings navigation sidebar */}
               <div 
                 className="w-64 p-6"

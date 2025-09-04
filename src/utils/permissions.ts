@@ -1,7 +1,9 @@
 import { UserProfile } from './userProfileService';
 
+// Legacy permission types (kept for backward compatibility)
 export type AppPermission = 'developer' | 'admin' | 'flight_lead' | 'member' | 'guest';
 
+// Legacy interface (kept for backward compatibility)
 export interface UserPermissions {
   canAccessSettings: boolean;
   canManageRoster: boolean;
@@ -13,10 +15,46 @@ export interface UserPermissions {
   level: AppPermission;
 }
 
+// New permission system imports (will be available after migration)
+let newPermissionService: any = null;
+try {
+  // Dynamically import the new permission service to avoid circular dependencies
+  import('./permissionService').then(module => {
+    newPermissionService = module.permissionService;
+  }).catch(() => {
+    // New system not available yet, fall back to legacy
+  });
+} catch {
+  // New system not available yet, fall back to legacy
+}
+
+// Feature flag to enable new permission system
+const USE_NEW_PERMISSION_SYSTEM = false; // Will be set to true after migration
+
 /**
  * Determine user permissions based on their profile and role assignments
+ * This function now supports both legacy and new permission systems
  */
-export function getUserPermissions(userProfile: UserProfile | null): UserPermissions {
+export async function getUserPermissions(userProfile: UserProfile | null): Promise<UserPermissions> {
+  // If new permission system is enabled and available, use it
+  if (USE_NEW_PERMISSION_SYSTEM && newPermissionService && userProfile?.authUserId) {
+    try {
+      const newPermissions = await newPermissionService.getUserPermissions(userProfile.authUserId);
+      return mapNewPermissionsToLegacy(newPermissions);
+    } catch (error) {
+      console.warn('New permission system failed, falling back to legacy:', error);
+      // Fall through to legacy system
+    }
+  }
+  
+  // Legacy permission system (original logic)
+  return getLegacyUserPermissions(userProfile);
+}
+
+/**
+ * Legacy permission calculation (original implementation)
+ */
+function getLegacyUserPermissions(userProfile: UserProfile | null): UserPermissions {
   // Default permissions for guests/unauthenticated users
   const guestPermissions: UserPermissions = {
     canAccessSettings: false,
@@ -118,19 +156,71 @@ export function getUserPermissions(userProfile: UserProfile | null): UserPermiss
 }
 
 /**
- * Check if user has specific permission
+ * Map new permission system to legacy interface for backward compatibility
  */
-export function hasPermission(
+function mapNewPermissionsToLegacy(newPermissions: any): UserPermissions {
+  // Determine legacy level based on permissions
+  let level: AppPermission = 'guest';
+  
+  if (newPermissions.canAccessAdminTools) {
+    level = 'developer';
+  } else if (newPermissions.canEditOrganizationSettings || newPermissions.canManageUserAccounts) {
+    level = 'admin';
+  } else if (newPermissions.canManageRoster?.length > 0 || newPermissions.canManageEvents?.length > 0) {
+    level = 'flight_lead';
+  } else if (newPermissions.canAccessMissionPrep) {
+    level = 'member';
+  }
+  
+  return {
+    canAccessSettings: newPermissions.canAccessSettings || false,
+    canManageRoster: (newPermissions.canManageRoster?.length > 0) || false,
+    canManageFlights: newPermissions.canAccessFlights || false,
+    canManageEvents: (newPermissions.canManageEvents?.length > 0) || false,
+    canAccessMissionPrep: newPermissions.canAccessMissionPrep || false,
+    canEditSquadrons: (newPermissions.canManageSquadronSettings?.length > 0) || false,
+    canViewAdminTools: newPermissions.canAccessAdminTools || false,
+    level
+  };
+}
+
+/**
+ * Check if user has specific permission (legacy interface)
+ */
+export async function hasPermission(
   userProfile: UserProfile | null, 
   permission: keyof Omit<UserPermissions, 'level'>
-): boolean {
-  const permissions = getUserPermissions(userProfile);
+): Promise<boolean> {
+  const permissions = await getUserPermissions(userProfile);
   return permissions[permission];
 }
 
 /**
- * Get user's permission level
+ * Get user's permission level (legacy interface)
  */
-export function getUserLevel(userProfile: UserProfile | null): AppPermission {
-  return getUserPermissions(userProfile).level;
+export async function getUserLevel(userProfile: UserProfile | null): Promise<AppPermission> {
+  const permissions = await getUserPermissions(userProfile);
+  return permissions.level;
+}
+
+/**
+ * Synchronous version of getUserPermissions for backward compatibility
+ * @deprecated Use async getUserPermissions instead
+ */
+export function getUserPermissionsSync(userProfile: UserProfile | null): UserPermissions {
+  console.warn('getUserPermissionsSync is deprecated, use async getUserPermissions instead');
+  return getLegacyUserPermissions(userProfile);
+}
+
+/**
+ * Synchronous version of hasPermission for backward compatibility  
+ * @deprecated Use async hasPermission instead
+ */
+export function hasPermissionSync(
+  userProfile: UserProfile | null, 
+  permission: keyof Omit<UserPermissions, 'level'>
+): boolean {
+  console.warn('hasPermissionSync is deprecated, use async hasPermission instead');
+  const permissions = getLegacyUserPermissions(userProfile);
+  return permissions[permission];
 }

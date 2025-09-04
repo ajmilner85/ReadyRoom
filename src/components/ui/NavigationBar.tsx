@@ -3,7 +3,8 @@ import { Users, Layout, Calendar, FileText, Settings, LogOut, Home } from 'lucid
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { signOut } from '../../utils/supabaseClient';
-import { getUserPermissions } from '../../utils/permissions';
+import { getUserPermissionsSync } from '../../utils/permissions'; // Use sync version for now
+import { useSimplePermissions } from '../../hooks/usePermissions';
 import { useAppSettings } from '../../context/AppSettingsContext';
 import { usePageLoading } from '../../context/PageLoadingContext';
 
@@ -12,7 +13,10 @@ interface NavigationButton {
   icon: React.ReactNode;
   label: string;
   route: string;
-  requiresPermission: 'canManageRoster' | 'canManageFlights' | 'canManageEvents' | 'canAccessMissionPrep' | 'canAccessSettings';
+  // Updated to use new permission names
+  requiresPermission: 'access_home' | 'access_roster' | 'access_events' | 'access_mission_prep' | 'access_flights' | 'access_settings';
+  // Legacy permission for backward compatibility during migration
+  legacyPermission?: 'canManageRoster' | 'canManageFlights' | 'canManageEvents' | 'canAccessMissionPrep' | 'canAccessSettings';
 }
 
 const buttons: NavigationButton[] = [
@@ -20,43 +24,49 @@ const buttons: NavigationButton[] = [
     id: 'home',
     icon: <Home size={24} />,
     label: 'Home',
-    route: '/home',
-    requiresPermission: 'canManageEvents'
+    route: '/',
+    requiresPermission: 'access_home',
+    // No legacy permission - home should always be accessible
   },
   {
     id: 'roster',
     icon: <Users size={24} />,
     label: 'Squadron Roster',
     route: '/roster',
-    requiresPermission: 'canManageRoster'
+    requiresPermission: 'access_roster',
+    legacyPermission: 'canManageRoster'
   },
   {
     id: 'events',
     icon: <Calendar size={24} />,
     label: 'Squadron Events',
-    route: '/',
-    requiresPermission: 'canManageEvents'
+    route: '/events',
+    requiresPermission: 'access_events',
+    legacyPermission: 'canManageEvents'
   },
   {
     id: 'mission-prep',
     icon: <FileText size={24} />,
     label: 'Mission Preparation',
     route: '/mission-prep',
-    requiresPermission: 'canAccessMissionPrep'
+    requiresPermission: 'access_mission_prep',
+    legacyPermission: 'canAccessMissionPrep'
   },
   {
     id: 'flights',
     icon: <Layout size={24} />,
     label: 'Flight Management',
     route: '/mission-coordination',
-    requiresPermission: 'canManageFlights'
+    requiresPermission: 'access_flights',
+    legacyPermission: 'canManageFlights'
   },
   {
     id: 'admin',
     icon: <Settings size={24} />,
     label: 'Settings',
     route: '/settings',
-    requiresPermission: 'canAccessSettings'
+    requiresPermission: 'access_settings',
+    legacyPermission: 'canManageEvents' // Temporary: use a permission you have
   }
 ];
 
@@ -70,7 +80,16 @@ const NavigationBar: React.FC<NavigationBarProps> = ({ activeButton }) => {
   const { userProfile } = useAuth();
   const { settings } = useAppSettings();
   const { setPageLoading, isPageLoading, loadingPage } = usePageLoading();
-  const userPermissions = getUserPermissions(userProfile);
+  
+  // Always call both hook systems to maintain stable hooks order
+  const newPermissions = useSimplePermissions();
+  const legacyPermissions = getUserPermissionsSync(userProfile);
+  
+  // Feature flag to determine which system to use
+  const useNewPermissionSystem = true; // Re-enabled - hooks order fixed
+  
+  const activePermissions = useNewPermissionSystem ? newPermissions : legacyPermissions;
+  
 
   // Add pulsing animation CSS if not already present
   React.useEffect(() => {
@@ -215,7 +234,26 @@ const NavigationBar: React.FC<NavigationBarProps> = ({ activeButton }) => {
       <div className="flex-1 flex items-center justify-center">
         <div className="flex flex-col items-center">
           {buttons
-            .filter((button) => userPermissions[button.requiresPermission]) // Only show buttons user has access to
+            .filter((button) => {
+              // Check permissions using appropriate system
+              if (useNewPermissionSystem && !newPermissions.loading) {
+                // Use new permission system - map permission names to useSimplePermissions methods
+                switch (button.requiresPermission) {
+                  case 'access_home': return newPermissions.canAccessHome;
+                  case 'access_roster': return newPermissions.canAccessRoster;
+                  case 'access_events': return newPermissions.canAccessEvents;
+                  case 'access_mission_prep': return newPermissions.canAccessMissionPrep;
+                  case 'access_flights': return newPermissions.canAccessFlights;
+                  case 'access_settings': return newPermissions.canAccessSettings;
+                  default: return false;
+                }
+              } else {
+                // Use legacy permission system
+                return button.legacyPermission ? 
+                  activePermissions[button.legacyPermission] : 
+                  true; // If no legacy permission specified, allow access (like Home)
+              }
+            })
             .map((button) => (
             <div 
               key={button.id} 
@@ -440,7 +478,7 @@ const NavigationBar: React.FC<NavigationBarProps> = ({ activeButton }) => {
                   Discord: {userProfile?.discordUsername || 'Not connected'}
                 </div>
                 <div className="text-xs opacity-80">
-                  Role: {userPermissions.level.charAt(0).toUpperCase() + userPermissions.level.slice(1)}
+                  Role: {legacyPermissions.level ? legacyPermissions.level.charAt(0).toUpperCase() + legacyPermissions.level.slice(1) : 'Unknown'}
                 </div>
                 {!userProfile?.pilot && (
                   <div className="text-xs opacity-80 text-yellow-600">

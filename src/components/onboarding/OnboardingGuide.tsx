@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { X, CheckCircle, Users, Calendar, FileText, Layout, Settings, Lock, ArrowRight } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import { getUserPermissions } from '../../utils/permissions';
+import { getUserPermissionsSync } from '../../utils/permissions';
 
 interface OnboardingGuideProps {
   isOpen: boolean;
@@ -11,7 +11,7 @@ interface OnboardingGuideProps {
 const OnboardingGuide: React.FC<OnboardingGuideProps> = ({ isOpen, onClose }) => {
   const [currentStep, setCurrentStep] = useState(0);
   const { userProfile } = useAuth();
-  const permissions = getUserPermissions(userProfile);
+  const permissions = getUserPermissionsSync(userProfile);
 
   const features = [
     {

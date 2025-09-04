@@ -50,13 +50,13 @@ const App: React.FC = () => {
   // Determine current view from URL path
   const getCurrentView = () => {
     const path = location.pathname;
-    if (path === '/home') return 'home';
+    if (path === '/') return 'home'; // Root is now Home
+    if (path === '/events') return 'events';
     if (path === '/roster') return 'roster';
     if (path === '/mission-coordination') return 'flights';
     if (path === '/mission-prep') return 'mission-prep';
     if (path === '/settings') return 'admin';
-    if (path === '/') return 'events';
-    return 'events'; // default to events
+    return 'home'; // default to home
   };
   
   const [activeButton, setActiveButton] = useState<string>(getCurrentView());
@@ -313,9 +313,14 @@ const App: React.FC = () => {
           <NavigationBar activeButton={activeButton} />
           <AppContent>
             <Routes>
-            <Route path="/home" element={
+            <Route path="/" element={
               <Suspense fallback={<StandardPageLoader message="Loading home..." />}>
                 <Home />
+              </Suspense>
+            } />
+            <Route path="/events" element={
+              <Suspense fallback={<StandardPageLoader message="Loading events data..." />}>
+                <EventsManagement />
               </Suspense>
             } />
             <Route path="/roster" element={
@@ -419,11 +424,6 @@ const App: React.FC = () => {
                   )}
                 </div>
               </DndContext>
-            } />
-            <Route path="/" element={
-              <Suspense fallback={<StandardPageLoader message="Loading events data..." />}>
-                <EventsManagement />
-              </Suspense>
             } />
             </Routes>
           </AppContent>
