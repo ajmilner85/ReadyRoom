@@ -110,11 +110,11 @@ export const PermissionGate: React.FC<PermissionGateProps> = ({
   // Handle disable modes
   if ((mode === 'disable' || mode === 'show-tooltip') && shouldDisable) {
     // Clone the child element and apply disabled properties
-    const childElement = React.Children.only(children) as React.ReactElement;
+    const childElement = React.Children.only(children) as React.ReactElement<any>;
     
     const disabledElement = React.cloneElement(childElement, {
       disabled: true,
-      className: `${childElement.props.className || ''} ${getPermissionClasses(permission, context)} ${className}`.trim(),
+      className: `${(childElement.props as any).className || ''} ${getPermissionClasses(permission, context)} ${className}`.trim(),
       onClick: undefined, // Remove click handlers
       onSubmit: undefined, // Remove submit handlers
       'aria-disabled': true,
@@ -135,12 +135,12 @@ export const PermissionGate: React.FC<PermissionGateProps> = ({
   }
 
   // Permission granted - render normally
-  const childElement = React.Children.only(children) as React.ReactElement;
+  const childElement = React.Children.only(children) as React.ReactElement<any>;
   
   // Apply permission classes if provided
   if (className) {
     return React.cloneElement(childElement, {
-      className: `${childElement.props.className || ''} ${className}`.trim()
+      className: `${(childElement.props as any).className || ''} ${className}`.trim()
     });
   }
 
@@ -279,11 +279,11 @@ export const AnyPermissionGate: React.FC<AnyPermissionGateProps> = ({
   }
 
   if (!hasAccess && (mode === 'disable' || mode === 'show-tooltip')) {
-    const childElement = React.Children.only(children) as React.ReactElement;
+    const childElement = React.Children.only(children) as React.ReactElement<any>;
     
     const disabledElement = React.cloneElement(childElement, {
       disabled: true,
-      className: `${childElement.props.className || ''} opacity-50 cursor-not-allowed`.trim(),
+      className: `${(childElement.props as any).className || ''} opacity-50 cursor-not-allowed`.trim(),
       onClick: undefined,
       'aria-disabled': true
     });
@@ -323,24 +323,24 @@ export const AllPermissionGate: React.FC<AllPermissionGateProps> = ({
   deniedMessage,
   children
 }) => {
-  const { hasAllPermissions, loading } = useComponentPermissions();
+  const { hasAnyPermission, loading } = useComponentPermissions();
 
   if (loading) {
     return <div className="animate-pulse bg-gray-200 rounded h-8 w-24"></div>;
   }
 
-  const hasAccess = hasAllPermissions(permissions, context);
+  const hasAccess = hasAnyPermission(permissions, context);
 
   if (!hasAccess && mode === 'hide') {
     return <>{fallback || null}</>;
   }
 
   if (!hasAccess && (mode === 'disable' || mode === 'show-tooltip')) {
-    const childElement = React.Children.only(children) as React.ReactElement;
+    const childElement = React.Children.only(children) as React.ReactElement<any>;
     
     const disabledElement = React.cloneElement(childElement, {
       disabled: true,
-      className: `${childElement.props.className || ''} opacity-50 cursor-not-allowed`.trim(),
+      className: `${(childElement.props as any).className || ''} opacity-50 cursor-not-allowed`.trim(),
       onClick: undefined,
       'aria-disabled': true
     });

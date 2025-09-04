@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { RefreshCw } from 'lucide-react';
+// import { Save } from 'lucide-react';
 import type { AppPermission, PermissionRule, BasisOption, BasisType, GroupedPermissions } from '../../types/PermissionTypes';
 import { permissionService } from '../../utils/permissionService';
 
@@ -445,7 +445,7 @@ export const PermissionMatrix: React.FC<PermissionMatrixProps> = ({
               </div>
               
               {/* Permission Rows */}
-              {categoryPerms.map((permission, index) => {
+              {categoryPerms.map((permission: AppPermission) => {
                 const hasAnyRule = basisOptions.some(basis => 
                   getEffectiveState(permission.id, basis.id).scope !== 'none'
                 );

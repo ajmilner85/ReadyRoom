@@ -1,9 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Card } from '../ui/card';
-import { Shield, Users, UserCheck, Settings2, Info, Plus, Search, Filter, Save, RefreshCw, CheckCircle, AlertCircle } from 'lucide-react';
+import { RefreshCw } from 'lucide-react';
 import { permissionService } from '../../utils/permissionService';
-import type { AppPermission, PermissionRule, BasisOption, BasisType, GroupedPermissions } from '../../types/PermissionTypes';
-import { SCOPE_LABELS } from '../../types/PermissionTypes';
+import type { PermissionRule, GroupedPermissions } from '../../types/PermissionTypes';
 import { PermissionMatrix } from './PermissionsMatrix';
 import { useAuth } from '../../context/AuthContext';
 
@@ -13,7 +11,7 @@ const PermissionsSettings: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [permissions, setPermissions] = useState<GroupedPermissions | null>(null);
   const [rules, setRules] = useState<PermissionRule[]>([]);
-  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const [, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   
   // Load data on component mount
   useEffect(() => {

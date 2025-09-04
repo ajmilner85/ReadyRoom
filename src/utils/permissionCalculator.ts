@@ -5,11 +5,10 @@ import type {
   PermissionRule, 
   PermissionScopeContext, 
   PermissionCheckContext,
-  AppPermission,
   BasisType,
   PermissionScope
 } from '../types/PermissionTypes';
-import { BASE_AUTHENTICATED_PERMISSIONS, BASIS_PRIORITIES } from '../types/PermissionTypes';
+import { BASIS_PRIORITIES } from '../types/PermissionTypes';
 
 export class PermissionCalculator {
   
@@ -71,9 +70,9 @@ export class PermissionCalculator {
     }
     
     // Get current squadron assignment
-    const currentAssignment = userProfile.pilots?.pilot_assignments
-      ?.filter(assignment => !assignment.end_date)
-      ?.sort((a, b) => new Date(b.start_date).getTime() - new Date(a.start_date).getTime())[0];
+    const currentAssignment = (userProfile as any).pilots?.pilot_assignments
+      ?.filter((assignment: any) => !assignment.end_date)
+      ?.sort((a: any, b: any) => new Date(b.start_date).getTime() - new Date(a.start_date).getTime())[0];
     
     // Fetch all bases in parallel
     const [standingsResult, qualificationsResult, billetsResult] = await Promise.all([
@@ -90,10 +89,10 @@ export class PermissionCalculator {
       standings: standingsResult,
       qualifications: qualificationsResult,
       billets: billetsResult,
-      squadronAssignments: userProfile.pilots?.pilot_assignments?.map(assignment => ({
+      squadronAssignments: (userProfile as any).pilots?.pilot_assignments?.map((assignment: any) => ({
         id: assignment.org_squadrons.id,
         name: assignment.org_squadrons.name,
-        startDate: assignment.start_date,
+        startDate: assignment.start_date || '',
         endDate: assignment.end_date
       })) || []
     };
@@ -132,10 +131,10 @@ export class PermissionCalculator {
       return [];
     }
     
-    return data?.map(item => ({
+    return data?.map((item: any) => ({
       id: item.standing_id,
       name: item.standings.name,
-      startDate: item.start_date,
+      startDate: item.start_date || '',
       endDate: item.end_date
     })) || [];
   }
@@ -163,10 +162,10 @@ export class PermissionCalculator {
       return [];
     }
     
-    return data?.map(item => ({
+    return data?.map((item: any) => ({
       id: item.qualification_id,
       name: item.qualifications.name,
-      achievedDate: item.achieved_date,
+      achievedDate: item.achieved_date || '',
       expiryDate: item.expiry_date
     })) || [];
   }
@@ -194,10 +193,10 @@ export class PermissionCalculator {
       return [];
     }
     
-    return data?.map(item => ({
-      id: item.role_id,
+    return data?.map((item: any) => ({
+      id: item.role_id || '',
       name: item.roles.name,
-      effectiveDate: item.effective_date,
+      effectiveDate: item.effective_date || '',
       endDate: item.end_date
     })) || [];
   }
@@ -222,50 +221,124 @@ export class PermissionCalculator {
     
     const userProfileId = userProfile?.id;
     
-    // Build query conditions
-    let queryConditions = `basis_type.eq.authenticated_user,basis_id.in.(${basisIds.join(',')})`;
+    console.log('Permission calculator: User bases:', { userProfileId, basisIds });
     
-    // Add manual_override condition if we have a user profile ID
+    // Get rules in separate queries for better clarity
+    const queries = [];
+    
+    // 1. Authenticated user rules (basis_type = 'authenticated_user' AND basis_id IS NULL)
+    queries.push(
+      supabase
+        .from('permission_rules' as any)
+        .select(`
+          id,
+          permission_id,
+          basis_type,
+          basis_id,
+          scope,
+          active,
+          created_at,
+          updated_at,
+          created_by,
+          app_permissions!inner (
+            name
+          )
+        `)
+        .eq('active', true)
+        .eq('basis_type', 'authenticated_user')
+        .is('basis_id', null)
+    );
+    
+    // 2. User's specific bases rules (standings, qualifications, billets, squadron assignments)
+    if (basisIds.length > 0) {
+      queries.push(
+        supabase
+          .from('permission_rules' as any)
+          .select(`
+            id,
+            permission_id,
+            basis_type,
+            basis_id,
+            scope,
+            active,
+            created_at,
+            updated_at,
+            created_by,
+            app_permissions!inner (
+              name
+            )
+          `)
+          .eq('active', true)
+          .in('basis_id', basisIds)
+      );
+    }
+    
+    // 3. Manual override rules for this specific user
     if (userProfileId) {
-      queryConditions += `,basis_type.eq.manual_override.and.basis_id.eq.${userProfileId}`;
+      queries.push(
+        supabase
+          .from('permission_rules' as any)
+          .select(`
+            id,
+            permission_id,
+            basis_type,
+            basis_id,
+            scope,
+            active,
+            created_at,
+            updated_at,
+            created_by,
+            app_permissions!inner (
+              name
+            )
+          `)
+          .eq('active', true)
+          .eq('basis_type', 'manual_override')
+          .eq('basis_id', userProfileId)
+      );
+      console.log('Permission calculator: Added manual_override query for user profile:', userProfileId);
     }
     
-    // Get rules for user's specific bases plus authenticated_user rules plus manual_override rules
-    // Join with app_permissions to get the permission name instead of just UUID
-    const { data, error } = await supabase
-      .from('permission_rules')
-      .select(`
-        id,
-        permission_id,
-        basis_type,
-        basis_id,
-        scope,
-        active,
-        created_at,
-        updated_at,
-        created_by,
-        app_permissions!inner (
-          name
-        )
-      `)
-      .eq('active', true)
-      .or(queryConditions);
+    // Execute all queries in parallel
+    const results = await Promise.all(queries);
     
-    if (error) {
-      console.warn('Error fetching permission rules:', error);
-      return [];
+    // Combine all results
+    let allData = [];
+    let hasErrors = false;
+    
+    for (const { data, error } of results) {
+      if (error) {
+        console.warn('Error fetching permission rules:', error);
+        hasErrors = true;
+      } else if (data) {
+        allData.push(...data);
+      }
     }
     
-    return data?.map(rule => ({
-      id: rule.id,
-      permissionId: rule.app_permissions.name, // Use permission name instead of UUID
-      basisType: rule.basis_type as BasisType,
-      basisId: rule.basis_id,
-      scope: rule.scope as PermissionScope,
-      active: rule.active,
-      createdAt: rule.created_at,
-      updatedAt: rule.updated_at,
-      createdBy: rule.created_by
+    if (hasErrors) {
+      console.warn('Some permission rule queries failed');
+    }
+    
+    console.log('Permission calculator: Retrieved rules:', allData.length, 'rules for user', userBases.userId);
+    if (allData.length > 0) {
+      console.log('Permission rules detail:', allData.map(rule => ({
+        permission: (rule as any).app_permissions.name,
+        basisType: (rule as any).basis_type,
+        basisId: (rule as any).basis_id,
+        scope: (rule as any).scope
+      })));
+    }
+    
+    return allData?.map(rule => ({
+      id: (rule as any).id,
+      permissionId: (rule as any).app_permissions.name, // Use permission name instead of UUID
+      basisType: (rule as any).basis_type as BasisType,
+      basisId: (rule as any).basis_id,
+      scope: (rule as any).scope as PermissionScope,
+      active: (rule as any).active,
+      createdAt: (rule as any).created_at,
+      updatedAt: (rule as any).updated_at,
+      createdBy: (rule as any).created_by
     })) || [];
   }
   
@@ -565,7 +638,7 @@ export class PermissionCalculator {
     
     // Scoped permissions  
     if (Array.isArray(permissionValue)) {
-      return this.checkScopedPermission(permissionValue, context);
+      return this.checkScopedPermission(permissionValue as PermissionScopeContext[], context);
     }
     
     return false;
