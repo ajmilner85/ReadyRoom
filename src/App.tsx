@@ -7,6 +7,7 @@ import { AppSettingsProvider } from './context/AppSettingsContext';
 import { PageLoadingProvider } from './context/PageLoadingContext';
 import StandardPageLoader from './components/ui/StandardPageLoader';
 import AppContent from './components/ui/AppContent';
+import PermissionGuardedRoute from './components/auth/PermissionGuardedRoute';
 import { splitFlight, divideFlight, updateFlightPosition, type Flight } from './types/FlightData';
 import FlightCard from './components/ui/flight cards/FlightCard';
 import SingleFlightCard from './components/ui/flight cards/SingleFlightCard';
@@ -314,116 +315,128 @@ const App: React.FC = () => {
           <AppContent>
             <Routes>
             <Route path="/" element={
-              <Suspense fallback={<StandardPageLoader message="Loading home..." />}>
-                <Home />
-              </Suspense>
+              <PermissionGuardedRoute requiredPermission="access_home">
+                <Suspense fallback={<StandardPageLoader message="Loading home..." />}>
+                  <Home />
+                </Suspense>
+              </PermissionGuardedRoute>
             } />
             <Route path="/events" element={
-              <Suspense fallback={<StandardPageLoader message="Loading events data..." />}>
-                <EventsManagement />
-              </Suspense>
+              <PermissionGuardedRoute requiredPermission="access_events">
+                <Suspense fallback={<StandardPageLoader message="Loading events data..." />}>
+                  <EventsManagement />
+                </Suspense>
+              </PermissionGuardedRoute>
             } />
             <Route path="/roster" element={
-              <Suspense fallback={<StandardPageLoader message="Loading roster..." />}>
-                <RosterManagement />
-              </Suspense>
+              <PermissionGuardedRoute requiredPermission="access_roster">
+                <Suspense fallback={<StandardPageLoader message="Loading roster..." />}>
+                  <RosterManagement />
+                </Suspense>
+              </PermissionGuardedRoute>
             } />
             <Route path="/mission-prep" element={
-              <Suspense fallback={<StandardPageLoader message="Loading mission preparation..." />}>
-                <MissionPreparation 
-                  onTransferToMission={handleTransferToMission}
-                  assignedPilots={assignedPilots}
-                  onAssignedPilotsChange={handleAssignedPilotsChange}
-                  missionCommander={missionCommander}
-                  onMissionCommanderChange={handleMissionCommanderChange}
-                  extractedFlights={extractedFlights}
-                  onExtractedFlightsChange={handleExtractedFlightsChange}
-                  prepFlights={prepFlights}
-                  onPrepFlightsChange={handlePrepFlightsChange}
-                />
-              </Suspense>
+              <PermissionGuardedRoute requiredPermission="access_mission_prep">
+                <Suspense fallback={<StandardPageLoader message="Loading mission preparation..." />}>
+                  <MissionPreparation 
+                    onTransferToMission={handleTransferToMission}
+                    assignedPilots={assignedPilots}
+                    onAssignedPilotsChange={handleAssignedPilotsChange}
+                    missionCommander={missionCommander}
+                    onMissionCommanderChange={handleMissionCommanderChange}
+                    extractedFlights={extractedFlights}
+                    onExtractedFlightsChange={handleExtractedFlightsChange}
+                    prepFlights={prepFlights}
+                    onPrepFlightsChange={handlePrepFlightsChange}
+                  />
+                </Suspense>
+              </PermissionGuardedRoute>
             } />
             <Route path="/settings" element={
-              <Suspense fallback={<StandardPageLoader message="Loading settings..." />}>
-                <Settings />
-              </Suspense>
+              <PermissionGuardedRoute requiredPermission="access_settings">
+                <Suspense fallback={<StandardPageLoader message="Loading settings..." />}>
+                  <Settings />
+                </Suspense>
+              </PermissionGuardedRoute>
             } />
             <Route path="/mission-coordination" element={
-              <DndContext 
-                onDragStart={handleDragStart}
-                onDragEnd={handleDragEnd}
-              >
-                <div 
-                  onMouseMove={(e) => {
-                    const target = e.target as HTMLElement;
-                    const boardNumber = target.getAttribute('data-board-number');
-                    if (boardNumber) {
-                      setHoveredBoardNumber(boardNumber);
-                      setIsHoveringBoardNumber(true);
-                    } else {
-                      setIsHoveringBoardNumber(false);
-                    }
-
-                    let currentElement: HTMLElement | null = target;
-                    while (currentElement && !currentElement.getAttribute('data-flight-id')) {
-                      currentElement = currentElement.parentElement;
-                    }
-                    
-                    const flightId = currentElement?.getAttribute('data-flight-id') || null;
-                    setHoveredFlightId(flightId);
-                  }}
-                  onMouseLeave={() => {
-                    setIsHoveringBoardNumber(false);
-                    setHoveredFlightId(null);
-                  }}
-                  className="bg-slate-50"
+              <PermissionGuardedRoute requiredPermission="access_flights">
+                <DndContext 
+                  onDragStart={handleDragStart}
+                  onDragEnd={handleDragEnd}
                 >
-                  <GridLayout 
-                    flights={flights}
-                    onUpdateMemberFuel={handleUpdateMemberFuel}
-                  />
-                  <DragOverlay>
-                    {activeFlight && (
-                      activeFlight.formation === 'single' ? (
-                        <SingleFlightCard 
-                          {...activeFlight}
-                          isDragging={true}
-                        />
-                      ) : (
-                        <FlightCard 
-                          {...activeFlight}
-                          isDragging={true}
-                        />
-                      )
+                  <div 
+                    onMouseMove={(e) => {
+                      const target = e.target as HTMLElement;
+                      const boardNumber = target.getAttribute('data-board-number');
+                      if (boardNumber) {
+                        setHoveredBoardNumber(boardNumber);
+                        setIsHoveringBoardNumber(true);
+                      } else {
+                        setIsHoveringBoardNumber(false);
+                      }
+
+                      let currentElement: HTMLElement | null = target;
+                      while (currentElement && !currentElement.getAttribute('data-flight-id')) {
+                        currentElement = currentElement.parentElement;
+                      }
+                      
+                      const flightId = currentElement?.getAttribute('data-flight-id') || null;
+                      setHoveredFlightId(flightId);
+                    }}
+                    onMouseLeave={() => {
+                      setIsHoveringBoardNumber(false);
+                      setHoveredFlightId(null);
+                    }}
+                    className="bg-slate-50"
+                  >
+                    <GridLayout 
+                      flights={flights}
+                      onUpdateMemberFuel={handleUpdateMemberFuel}
+                    />
+                    <DragOverlay>
+                      {activeFlight && (
+                        activeFlight.formation === 'single' ? (
+                          <SingleFlightCard 
+                            {...activeFlight}
+                            isDragging={true}
+                          />
+                        ) : (
+                          <FlightCard 
+                            {...activeFlight}
+                            isDragging={true}
+                          />
+                        )
+                      )}
+                    </DragOverlay>
+                    {showFuelDialog && (
+                      <FuelStateDialog
+                        initialBoardNumber={initialBoardNumber}
+                        onClose={() => {
+                          setShowFuelDialog(false);
+                          setInitialBoardNumber('');
+                        }}
+                        onUpdateFuel={(boardNumber, newFuel) => {
+                          const flightInfo = findFlightByBoardNumber(boardNumber);
+                          if (flightInfo) {
+                            handleUpdateMemberFuel(flightInfo.flight.id, flightInfo.dashNumber, newFuel);
+                          }
+                        }}
+                      />
                     )}
-                  </DragOverlay>
-                  {showFuelDialog && (
-                    <FuelStateDialog
-                      initialBoardNumber={initialBoardNumber}
-                      onClose={() => {
-                        setShowFuelDialog(false);
-                        setInitialBoardNumber('');
-                      }}
-                      onUpdateFuel={(boardNumber, newFuel) => {
-                        const flightInfo = findFlightByBoardNumber(boardNumber);
-                        if (flightInfo) {
-                          handleUpdateMemberFuel(flightInfo.flight.id, flightInfo.dashNumber, newFuel);
-                        }
-                      }}
-                    />
-                  )}
-                  {showPositionDialog && (
-                    <PositionReportDialog
-                      initialBoardNumber={initialBoardNumber}
-                      onClose={() => {
-                        setShowPositionDialog(false);
-                        setInitialBoardNumber('');
-                      }}
-                      onUpdatePosition={handleUpdatePosition}
-                    />
-                  )}
-                </div>
-              </DndContext>
+                    {showPositionDialog && (
+                      <PositionReportDialog
+                        initialBoardNumber={initialBoardNumber}
+                        onClose={() => {
+                          setShowPositionDialog(false);
+                          setInitialBoardNumber('');
+                        }}
+                        onUpdatePosition={handleUpdatePosition}
+                      />
+                    )}
+                  </div>
+                </DndContext>
+              </PermissionGuardedRoute>
             } />
             </Routes>
           </AppContent>

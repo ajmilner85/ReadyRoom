@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { X, CheckCircle, Users, Calendar, FileText, Layout, Settings, Lock, ArrowRight } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import { getUserPermissionsSync } from '../../utils/permissions';
+import { useSimplePermissions } from '../../hooks/usePermissions';
 
 interface OnboardingGuideProps {
   isOpen: boolean;
@@ -11,7 +11,7 @@ interface OnboardingGuideProps {
 const OnboardingGuide: React.FC<OnboardingGuideProps> = ({ isOpen, onClose }) => {
   const [currentStep, setCurrentStep] = useState(0);
   const { userProfile } = useAuth();
-  const permissions = getUserPermissionsSync(userProfile);
+  const permissions = useSimplePermissions();
 
   const features = [
     {
@@ -19,14 +19,14 @@ const OnboardingGuide: React.FC<OnboardingGuideProps> = ({ isOpen, onClose }) =>
       icon: <Users size={24} />,
       name: 'Squadron Roster',
       description: 'View and manage squadron member information',
-      hasAccess: permissions.canManageRoster
+      hasAccess: permissions.hasPermission('manage_roster')
     },
     {
       id: 'events',
       icon: <Calendar size={24} />,
       name: 'Squadron Events',
       description: 'Create and manage squadron events and attendance',
-      hasAccess: permissions.canManageEvents
+      hasAccess: permissions.hasPermission('manage_events')
     },
     {
       id: 'mission-prep',
@@ -40,7 +40,7 @@ const OnboardingGuide: React.FC<OnboardingGuideProps> = ({ isOpen, onClose }) =>
       icon: <Layout size={24} />,
       name: 'Flight Management',
       description: 'Organize and manage flight assignments',
-      hasAccess: permissions.canManageFlights
+      hasAccess: permissions.hasPermission('edit_flight_assignments')
     },
     {
       id: 'settings',
@@ -88,7 +88,7 @@ const OnboardingGuide: React.FC<OnboardingGuideProps> = ({ isOpen, onClose }) =>
               <div className="flex items-center justify-between">
                 <span>Permission Level:</span>
                 <span className="font-medium text-blue-600">
-                  {permissions.level.charAt(0).toUpperCase() + permissions.level.slice(1)}
+                  {permissions.canAccessAdminTools ? 'Administrator' : 'Squadron Member'}
                 </span>
               </div>
             </div>
@@ -101,7 +101,7 @@ const OnboardingGuide: React.FC<OnboardingGuideProps> = ({ isOpen, onClose }) =>
       content: (
         <div>
           <p className="text-gray-600 mb-6">
-            Based on your role as a <strong>{permissions.level}</strong>, here are the features available to you:
+            Based on your permissions, here are the features available to you:
           </p>
           
           <div className="space-y-3">
@@ -186,13 +186,13 @@ const OnboardingGuide: React.FC<OnboardingGuideProps> = ({ isOpen, onClose }) =>
               </ul>
             </div>
             
-            {permissions.level === 'guest' && (
+            {!permissions.hasPermission('manage_roster') && !permissions.hasPermission('manage_events') && (
               <div className="bg-red-50 border border-red-200 rounded-lg p-4">
                 <h5 className="font-medium text-red-800 mb-2">
                   Limited Access
                 </h5>
                 <p className="text-sm text-red-700">
-                  You currently have guest-level access. Contact your squadron administrator 
+                  You currently have limited access. Contact your squadron administrator 
                   to get proper role assignments and unlock additional features.
                 </p>
               </div>

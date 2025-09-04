@@ -29,7 +29,7 @@ try {
 }
 
 // Feature flag to enable new permission system
-const USE_NEW_PERMISSION_SYSTEM = false; // Will be set to true after migration
+const USE_NEW_PERMISSION_SYSTEM = true; // New permission system is now fully operational
 
 /**
  * Determine user permissions based on their profile and role assignments
@@ -203,24 +203,4 @@ export async function getUserLevel(userProfile: UserProfile | null): Promise<App
   return permissions.level;
 }
 
-/**
- * Synchronous version of getUserPermissions for backward compatibility
- * @deprecated Use async getUserPermissions instead
- */
-export function getUserPermissionsSync(userProfile: UserProfile | null): UserPermissions {
-  console.warn('getUserPermissionsSync is deprecated, use async getUserPermissions instead');
-  return getLegacyUserPermissions(userProfile);
-}
-
-/**
- * Synchronous version of hasPermission for backward compatibility  
- * @deprecated Use async hasPermission instead
- */
-export function hasPermissionSync(
-  userProfile: UserProfile | null, 
-  permission: keyof Omit<UserPermissions, 'level'>
-): boolean {
-  console.warn('hasPermissionSync is deprecated, use async hasPermission instead');
-  const permissions = getLegacyUserPermissions(userProfile);
-  return permissions[permission];
-}
+// Deprecated sync methods have been removed - use async getUserPermissions and hasPermission instead

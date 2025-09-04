@@ -94,7 +94,12 @@ export function usePermissions() {
     
     // Scoped permissions
     if (Array.isArray(permissionValue)) {
-      return checkScopedPermission(permissionValue, context);
+      // Check if it's PermissionScopeContext[] or PermissionBasis[]
+      if (permissionValue.length > 0 && 'type' in permissionValue[0] && 'squadronId' in permissionValue[0]) {
+        return checkScopedPermission(permissionValue as PermissionScopeContext[], context);
+      }
+      // If it's PermissionBasis[], return true if user has any bases
+      return permissionValue.length > 0;
     }
     
     return false;
@@ -114,42 +119,7 @@ export function usePermissions() {
     return permissions.every(permission => hasPermission(permission, context));
   }, [hasPermission]);
 
-  /**
-   * Get all matching scopes for a scoped permission
-   */
-  const getPermissionScopes = useCallback((permission: string): PermissionScopeContext[] => {
-    if (!state.permissions) return [];
-    
-    const permissionValue = state.permissions[permission as keyof UserPermissions];
-    
-    if (Array.isArray(permissionValue)) {
-      return permissionValue;
-    }
-    
-    return [];
-  }, [state.permissions]);
 
-  /**
-   * Check if user has permission for their own squadron
-   */
-  const canAccessOwnSquadron = useCallback((permission: string): boolean => {
-    const scopes = getPermissionScopes(permission);
-    return scopes.some(scope => 
-      scope.type === 'own_squadron' || 
-      scope.type === 'all_squadrons' ||
-      scope.type === 'own_wing' ||
-      scope.type === 'all_wings' ||
-      scope.type === 'global'
-    );
-  }, [getPermissionScopes]);
-
-  /**
-   * Check if user has global permission (can access anything)
-   */
-  const hasGlobalAccess = useCallback((permission: string): boolean => {
-    const scopes = getPermissionScopes(permission);
-    return scopes.some(scope => scope.type === 'global');
-  }, [getPermissionScopes]);
 
   /**
    * Refresh permissions from server (bypass cache)
@@ -202,9 +172,6 @@ export function usePermissions() {
     hasPermission,
     hasAnyPermission,
     hasAllPermissions,
-    getPermissionScopes,
-    canAccessOwnSquadron,
-    hasGlobalAccess,
     
     // Utilities
     refreshPermissions,
@@ -348,7 +315,7 @@ export function useComponentPermissions() {
  * Provides convenience methods for common squadron-based operations
  */
 export function useSquadronPermissions(squadronId?: string) {
-  const { hasPermission, getPermissionScopes, userContext } = usePermissions();
+  const { hasPermission, userContext } = usePermissions();
 
   const context: PermissionCheckContext | undefined = useMemo(() => {
     if (squadronId) {

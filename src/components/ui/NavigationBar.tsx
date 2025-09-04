@@ -3,7 +3,7 @@ import { Users, Layout, Calendar, FileText, Settings, LogOut, Home } from 'lucid
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { signOut } from '../../utils/supabaseClient';
-import { getUserPermissionsSync } from '../../utils/permissions'; // Use sync version for now
+// Removed deprecated getUserPermissionsSync import - using new permission system
 import { useSimplePermissions } from '../../hooks/usePermissions';
 import { useAppSettings } from '../../context/AppSettingsContext';
 import { usePageLoading } from '../../context/PageLoadingContext';
@@ -81,14 +81,8 @@ const NavigationBar: React.FC<NavigationBarProps> = ({ activeButton }) => {
   const { settings } = useAppSettings();
   const { setPageLoading, isPageLoading, loadingPage } = usePageLoading();
   
-  // Always call both hook systems to maintain stable hooks order
-  const newPermissions = useSimplePermissions();
-  const legacyPermissions = getUserPermissionsSync(userProfile);
-  
-  // Feature flag to determine which system to use
-  const useNewPermissionSystem = true; // Re-enabled - hooks order fixed
-  
-  const activePermissions = useNewPermissionSystem ? newPermissions : legacyPermissions;
+  // Use the new permission system
+  const activePermissions = useSimplePermissions();
   
 
   // Add pulsing animation CSS if not already present
@@ -235,23 +229,17 @@ const NavigationBar: React.FC<NavigationBarProps> = ({ activeButton }) => {
         <div className="flex flex-col items-center">
           {buttons
             .filter((button) => {
-              // Check permissions using appropriate system
-              if (useNewPermissionSystem && !newPermissions.loading) {
-                // Use new permission system - map permission names to useSimplePermissions methods
-                switch (button.requiresPermission) {
-                  case 'access_home': return newPermissions.canAccessHome;
-                  case 'access_roster': return newPermissions.canAccessRoster;
-                  case 'access_events': return newPermissions.canAccessEvents;
-                  case 'access_mission_prep': return newPermissions.canAccessMissionPrep;
-                  case 'access_flights': return newPermissions.canAccessFlights;
-                  case 'access_settings': return newPermissions.canAccessSettings;
-                  default: return false;
-                }
-              } else {
-                // Use legacy permission system
-                return button.legacyPermission ? 
-                  activePermissions[button.legacyPermission] : 
-                  true; // If no legacy permission specified, allow access (like Home)
+              // Check permissions using new permission system
+              if (activePermissions.loading) return false; // Hide all while loading (secure by default)
+              
+              switch (button.requiresPermission) {
+                case 'access_home': return activePermissions.canAccessHome;
+                case 'access_roster': return activePermissions.canAccessRoster;
+                case 'access_events': return activePermissions.canAccessEvents;
+                case 'access_mission_prep': return activePermissions.canAccessMissionPrep;
+                case 'access_flights': return activePermissions.canAccessFlights;
+                case 'access_settings': return activePermissions.canAccessSettings;
+                default: return false;
               }
             })
             .map((button) => (
@@ -478,7 +466,7 @@ const NavigationBar: React.FC<NavigationBarProps> = ({ activeButton }) => {
                   Discord: {userProfile?.discordUsername || 'Not connected'}
                 </div>
                 <div className="text-xs opacity-80">
-                  Role: {legacyPermissions.level ? legacyPermissions.level.charAt(0).toUpperCase() + legacyPermissions.level.slice(1) : 'Unknown'}
+                  Role: {activePermissions.canAccessAdminTools ? 'Administrator' : 'Squadron Member'}
                 </div>
                 {!userProfile?.pilot && (
                   <div className="text-xs opacity-80 text-yellow-600">
