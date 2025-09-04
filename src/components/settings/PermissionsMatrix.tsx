@@ -69,7 +69,19 @@ export const PermissionMatrix: React.FC<PermissionMatrixProps> = ({
   const currentRuleState = rules
     .filter(rule => rule.basisType === selectedBasisType)
     .reduce((acc, rule) => {
-      const key = getMatrixKey(rule.permissionId, rule.basisId || 'default');
+      // Map NULL basis_id back to the appropriate identifier based on basis type
+      let matrixBasisId = rule.basisId;
+      if (!matrixBasisId) {
+        if (selectedBasisType === 'authenticated_user') {
+          matrixBasisId = 'authenticated_user';
+        } else if (selectedBasisType === 'manual_override') {
+          matrixBasisId = 'manual_override';
+        } else {
+          matrixBasisId = 'default';
+        }
+      }
+      
+      const key = getMatrixKey(rule.permissionId, matrixBasisId);
       acc[key] = {
         scope: rule.scope,
         active: rule.active
@@ -130,9 +142,12 @@ export const PermissionMatrix: React.FC<PermissionMatrixProps> = ({
     try {
       for (const [key, changes] of Object.entries(matrixChanges)) {
         const [permissionId, basisId] = key.split('::');
+        // Convert matrix basisId back to database basisId for matching
+        const dbBasisId = (basisId === 'authenticated_user' || basisId === 'manual_override') ? null : basisId;
+        
         const currentRule = rules.find(r => 
           r.permissionId === permissionId && 
-          r.basisId === basisId && 
+          r.basisId === dbBasisId && 
           r.basisType === selectedBasisType
         );
         
@@ -146,7 +161,7 @@ export const PermissionMatrix: React.FC<PermissionMatrixProps> = ({
           const ruleData = {
             permissionId,
             basisType: selectedBasisType,
-            basisId: basisId === 'default' ? null : basisId,
+            basisId: (basisId === 'default' || basisId === 'authenticated_user' || basisId === 'manual_override') ? null : basisId,
             scope: changes.scope || 'own_squadron',
             active: changes.active ?? true
           };

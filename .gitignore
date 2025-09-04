@@ -1,3 +1,10 @@
+# Dependencies
+node_modules
+
+# Build outputs
+dist
+dist-ssr
+
 # Logs
 logs
 *.log
@@ -7,15 +14,11 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-node_modules
-dist
-dist-ssr
+# Runtime data
 *.local
 
-# Tool and configuration directories
-.playwright-mcp
-.claude
-.github
+# Environment variables
+.env
 
 # Editor directories and files
 .vscode/*
@@ -27,26 +30,41 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
-*.sql
-.env
 
+# Database files
+*.sql
+
+# Development tools and configuration
+.playwright-mcp/
+.claude/
+.mcp.json
+.claude/settings.local.json
+
+# Project-specific directories
+.github/
 reference/
 documentation/
-src/assets/CV-NATOPS-JUL09.pdf
-src/assets/MS33558ver0.1.ttf
-Useful Commands.txt
-DISCORD_AUTH_SETUP.md
-.mcp.json
-DISCORD_OAUTH_SETUP.md
-CLAUDE.md
-.vercel
-TODO.md
-.claude/settings.local.json
+
+# Deployment
+.vercel/
 .vercel/README.txt
 .vercel/project.json
+
+# Project assets and resources
+src/assets/CV-NATOPS-JUL09.pdf
+src/assets/MS33558ver0.1.ttf
+
+# Documentation and planning files
+Useful Commands.txt
+DISCORD_AUTH_SETUP.md
+DISCORD_OAUTH_SETUP.md
+CLAUDE.md
+TODO.md
 EVENT_MISSION_INTEGRATION_PLAN.md
-debug_auth.js
 IMPLEMENTATION_PROGRESS.md
 DEPLOYMENT.md
 USER_PERMISSIONS_PLAN.md
 PERMISSIONS_IMPLEMENTATION_SUMMARY.md
+
+# Debug files
+debug_auth.js
