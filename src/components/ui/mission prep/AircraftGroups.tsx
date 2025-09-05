@@ -154,9 +154,27 @@ const AircraftGroups: React.FC<AircraftGroupsProps> = ({
 
   // Call onExtractedFlights when groups are available
   useEffect(() => {
+    console.log('🔍 AircraftGroups: useEffect triggered:', {
+      hasCallback: !!onExtractedFlights,
+      aircraftType,
+      groupsLength: filteredGroups.length,
+      groups: filteredGroups.map(g => ({ name: g.name, units: g.units.length }))
+    });
+    
     if (onExtractedFlights && aircraftType === 'FA-18C_hornet' && filteredGroups.length > 0) {
-      console.log('AircraftGroups: Calling onExtractedFlights with', filteredGroups.length, 'groups');
+      console.log('✈️ AircraftGroups: Calling onExtractedFlights with', filteredGroups.length, 'F/A-18C groups');
+      console.log('✈️ AircraftGroups: Group details:', filteredGroups.map(g => ({
+        name: g.name,
+        unitCount: g.units.length,
+        unitTypes: g.units.map(u => u.type)
+      })));
       onExtractedFlights(filteredGroups);
+    } else {
+      console.log('⚠️ AircraftGroups: Not calling onExtractedFlights because:', {
+        noCallback: !onExtractedFlights,
+        wrongAircraftType: aircraftType !== 'FA-18C_hornet',
+        noGroups: filteredGroups.length === 0
+      });
     }
   }, [filteredGroups, onExtractedFlights, aircraftType]);
 

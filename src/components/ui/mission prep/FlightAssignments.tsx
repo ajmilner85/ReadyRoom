@@ -233,8 +233,16 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
 
   // Effect to create flight cards from extracted flights
   useEffect(() => {
-    // console.log('FlightAssignments: Received extracted flights:', extractedFlights.length);
-    if (!extractedFlights.length) return;
+    console.log('🛫 FlightAssignments: useEffect triggered for extracted flights:', {
+      extractedFlightsLength: extractedFlights.length,
+      currentFlightsLength: flights.length,
+      extractedFlights: extractedFlights.map(f => ({ name: f.name, units: f.units.length }))
+    });
+    
+    if (!extractedFlights.length) {
+      console.log('⚠️ FlightAssignments: No extracted flights to process');
+      return;
+    }
 
     // Create a unique timestamp for this batch of flights
     const batchTimestamp = Date.now().toString();
@@ -242,28 +250,36 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
     // If we've already processed a batch with the same size recently, skip it to prevent duplicates
     if (processedFlightTimestamps.current.size > 0 && 
         processedFlightTimestamps.current.size === extractedFlights.length) {
+      console.log('⚠️ FlightAssignments: Skipping duplicate batch processing');
       return;
     }
     
+    console.log('🔄 FlightAssignments: Processing new batch of extracted flights');
     // Add this batch to our processed set
     processedFlightTimestamps.current.add(batchTimestamp);
     
     // Convert extracted flights to our Flight format while preserving existing flights
     setFlights(prevFlights => {
+      console.log('🔄 FlightAssignments: Converting extracted flights to Flight format');
+      console.log('🔍 FlightAssignments: Current flights:', prevFlights.map(f => ({ id: f.id, callsign: f.callsign })));
+      
       // Check if we already have extracted flights (with IDs starting with "extracted-")
       const hasExistingExtracted = prevFlights.some(flight => flight.id.startsWith('extracted-'));
+      console.log('🔍 FlightAssignments: Has existing extracted flights:', hasExistingExtracted);
       
       // If we already have extracted flights, don't add more
       if (hasExistingExtracted) {
+        console.log('⚠️ FlightAssignments: Skipping - extracted flights already exist');
         return prevFlights;
       }
       
       const existingFlights = prevFlights;
       const maxCreationOrder = Math.max(...existingFlights.map(f => f.creationOrder), -1);
       
+      console.log('🛩️ FlightAssignments: Creating flight cards from extracted flights');
       const newFlights = extractedFlights.map((extractedFlight, index) => {
         const { callsign, flightNumber } = parseGroupName(extractedFlight.name);
-        return {
+        const newFlight = {
           id: `extracted-${batchTimestamp}-${index}`, // Make IDs unique with timestamp
           callsign: callsign.toUpperCase(),
           flightNumber,
@@ -283,7 +299,18 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
             fuelValues: extractedFlight.units.map(unit => unit.fuel)
           }
         };
+        
+        console.log(`✈️ FlightAssignments: Created flight ${index + 1}:`, {
+          id: newFlight.id,
+          callsign: newFlight.callsign,
+          flightNumber: newFlight.flightNumber,
+          originalName: extractedFlight.name
+        });
+        
+        return newFlight;
       });
+      
+      console.log('✅ FlightAssignments: Created', newFlights.length, 'new flights from extracted data');
 
       const allFlights = [...existingFlights, ...newFlights];
 
@@ -318,12 +345,22 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
       });
 
       // Sort flights by creation order and then by callsign/flight number
-      return allFlights.sort((a, b) => {
+      const sortedFlights = allFlights.sort((a, b) => {
         if (a.callsign === b.callsign) {
           return parseInt(a.flightNumber) - parseInt(b.flightNumber);
         }
         return a.creationOrder - b.creationOrder;
       });
+      
+      console.log('🎯 FlightAssignments: Final flight list:', sortedFlights.map(f => ({
+        id: f.id,
+        callsign: f.callsign,
+        flightNumber: f.flightNumber,
+        midsA: f.midsA,
+        midsB: f.midsB
+      })));
+      
+      return sortedFlights;
     });
 
     // Update the creation order counter
