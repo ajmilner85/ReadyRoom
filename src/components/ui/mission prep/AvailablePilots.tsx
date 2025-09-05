@@ -2,7 +2,7 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Card } from '../card';
 import QualificationBadge from '../QualificationBadge';
-import { Filter, ClipboardCheck } from 'lucide-react';
+import { Filter, ClipboardCheck, Settings } from 'lucide-react';
 import { useDraggable } from '@dnd-kit/core';
 import type { Pilot, QualificationType } from '../../../types/PilotTypes';
 import type { Event } from '../../../types/EventTypes';
@@ -24,6 +24,7 @@ interface AvailablePilotsProps {
   assignedPilots?: Record<string, AssignedPilot[]>; // Use AssignedPilot type
   setAssignedPilots: React.Dispatch<React.SetStateAction<Record<string, AssignedPilot[]>>>; // *** ADD THIS PROP ***
   onAutoAssign: (pilotsForAssignment?: Pilot[]) => void; // *** FIX TYPE for onAutoAssign ***
+  onAutoAssignSettings: () => void; // *** ADD SETTINGS HANDLER ***
   onClearAssignments: () => void;
   pilotQualifications?: Record<string, any[]>;
   realtimeAttendanceData: RealtimeAttendanceRecord[];
@@ -323,6 +324,7 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
   assignedPilots = {},
   setAssignedPilots, // *** Destructure the new prop ***
   onAutoAssign,
+  onAutoAssignSettings, // *** Destructure the new settings prop ***
   onClearAssignments,
   pilotQualifications = {},
   realtimeAttendanceData
@@ -1028,59 +1030,94 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
               Roll Call
             </button>
             
-            {/* Auto Assign Button */}
-            <button
-              onClick={() => {
-                if (onAutoAssign) {
-                  // Prepare pilot data including both Discord and Roll Call statuses
-                  const pilotsForAutoAssign = pilotsWithAttendanceStatus
-                    .map(pilot => ({
-                      // Include all necessary pilot fields for autoAssignUtils
-                      ...pilot, 
-                      // Ensure both statuses are explicitly passed
-                      attendanceStatus: pilot.attendanceStatus, 
-                      rollCallStatus: pilot.rollCallStatus 
-                    }));
-                  
-                  // console.log('[ROLL-CALL-DEBUG] Passing pilots to onAutoAssign:', pilotsForAutoAssign.map(p => ({ c: p.callsign, d: p.attendanceStatus, r: p.rollCallStatus }))); // LOGGING
-                  
-                  // Pass the enriched pilot data array directly
-                  onAutoAssign(pilotsForAutoAssign); // Pass the full Pilot objects
-                }
-              }}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '8px',
-                padding: '8px 16px',
-                backgroundColor: '#FFFFFF',
-                color: '#64748B',
-                borderRadius: '8px',
-                border: '1px solid #CBD5E1',
-                cursor: 'pointer',
-                transition: 'background-color 0.2s ease',
-                fontFamily: 'Inter',
-                fontSize: '14px',
-                fontWeight: 400,
-                flex: '0 0 30%',
-                margin: '0 8px'
-              }}
-              onMouseEnter={e => {
-                e.currentTarget.style.backgroundColor = '#F8FAFC';
-              }}
-              onMouseLeave={e => {
-                e.currentTarget.style.backgroundColor = '#FFFFFF';
-              }}
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M9 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-4" />
-                <line x1="14" y1="15" x2="20" y2="9" />
-                <path d="M9 15h4.5c.28 0 .5-.22.5-.5v-4c0-.28-.22-.5-.5-.5H9" />
-                <line x1="5" y1="9" x2="5" y2="15" />
-              </svg>
-              Auto Assign
-            </button>
+            {/* Split Auto Assign Button */}
+            <div style={{
+              display: 'flex',
+              flex: '0 0 calc(30% + 20px)',
+              margin: '0 8px',
+              borderRadius: '8px',
+              border: '1px solid #CBD5E1',
+              overflow: 'hidden'
+            }}>
+              {/* Main Auto Assign Button */}
+              <button
+                onClick={() => {
+                  if (onAutoAssign) {
+                    // Prepare pilot data including both Discord and Roll Call statuses
+                    const pilotsForAutoAssign = pilotsWithAttendanceStatus
+                      .map(pilot => ({
+                        // Include all necessary pilot fields for autoAssignUtils
+                        ...pilot, 
+                        // Ensure both statuses are explicitly passed
+                        attendanceStatus: pilot.attendanceStatus, 
+                        rollCallStatus: pilot.rollCallStatus 
+                      }));
+                    
+                    // console.log('[ROLL-CALL-DEBUG] Passing pilots to onAutoAssign:', pilotsForAutoAssign.map(p => ({ c: p.callsign, d: p.attendanceStatus, r: p.rollCallStatus }))); // LOGGING
+                    
+                    // Pass the enriched pilot data array directly
+                    onAutoAssign(pilotsForAutoAssign); // Pass the full Pilot objects
+                  }
+                }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px',
+                  padding: '8px 12px',
+                  backgroundColor: '#FFFFFF',
+                  color: '#64748B',
+                  border: 'none',
+                  cursor: 'pointer',
+                  transition: 'background-color 0.2s ease',
+                  fontFamily: 'Inter',
+                  fontSize: '14px',
+                  fontWeight: 400,
+                  flex: 1,
+                  borderRight: '1px solid #CBD5E1'
+                }}
+                onMouseEnter={e => {
+                  e.currentTarget.style.backgroundColor = '#F8FAFC';
+                }}
+                onMouseLeave={e => {
+                  e.currentTarget.style.backgroundColor = '#FFFFFF';
+                }}
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M9 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-4" />
+                  <line x1="14" y1="15" x2="20" y2="9" />
+                  <path d="M9 15h4.5c.28 0 .5-.22.5-.5v-4c0-.28-.22-.5-.5-.5H9" />
+                  <line x1="5" y1="9" x2="5" y2="15" />
+                </svg>
+                Auto Assign
+              </button>
+              
+              {/* Settings Button */}
+              <button
+                onClick={onAutoAssignSettings}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: '8px',
+                  backgroundColor: '#FFFFFF',
+                  color: '#64748B',
+                  border: 'none',
+                  cursor: 'pointer',
+                  transition: 'background-color 0.2s ease',
+                  minWidth: '32px'
+                }}
+                onMouseEnter={e => {
+                  e.currentTarget.style.backgroundColor = '#F8FAFC';
+                }}
+                onMouseLeave={e => {
+                  e.currentTarget.style.backgroundColor = '#FFFFFF';
+                }}
+                title="Auto-assignment settings"
+              >
+                <Settings size={16} />
+              </button>
+            </div>
             
             {/* Clear Assignments Button */}
             <button

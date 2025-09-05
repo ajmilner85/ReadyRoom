@@ -286,26 +286,39 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
   // Function to process the uploaded mission file
   const processMissionFile = async (file: File) => {
     setIsProcessingFile(true);
+    console.log('🔄 MissionDetails: Starting .miz file processing for:', file.name);
+    
     try {
       // Make sure json2Lua is loaded
       if (!json2Lua) {
+        console.error('❌ MissionDetails: json2.lua not loaded');
         throw new Error("json2.lua hasn't been loaded yet. Please try again.");
       }
+      console.log('✅ MissionDetails: json2.lua is loaded');
       
       // Load the .miz file as a JSZip archive
       const zip = new JSZip();
+      console.log('🔄 MissionDetails: Loading ZIP archive...');
       const archive = await zip.loadAsync(file);
+      console.log('✅ MissionDetails: ZIP archive loaded successfully');
+      
+      // List all files in the archive for debugging
+      console.log('📁 MissionDetails: Files in .miz archive:', Object.keys(archive.files));
       
       // Look for the mission file in the archive (usually named "mission")
       const missionFile = archive.file('mission');
       
       if (!missionFile) {
-        console.error('Mission file not found in ZIP');
+        console.error('❌ MissionDetails: Mission file not found in ZIP archive');
+        console.error('Available files:', Object.keys(archive.files));
         throw new Error("Could not find mission file in the .miz archive");
       }
+      console.log('✅ MissionDetails: Mission file found in archive');
       
       // Extract and read the mission file content
+      console.log('🔄 MissionDetails: Extracting mission file content...');
       const missionContent = await missionFile.async('string');
+      console.log('✅ MissionDetails: Mission content extracted, length:', missionContent.length);
       
       // Process the mission content to extract coordinates
       const coordinateData = processMissionCoordinates(missionContent);
@@ -325,9 +338,12 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
       
       try {
         // First execute json2.lua to define the json module
+        console.log('🔄 MissionDetails: Loading json2.lua module...');
         load(json2Lua)();
+        console.log('✅ MissionDetails: json2.lua module loaded successfully');
         
         // Create and execute the Lua code to process the mission
+        console.log('🔄 MissionDetails: Preparing Lua code for mission parsing...');
         const luaCode = `
           local mission_content = [=[${missionContent}]=]
           
@@ -357,20 +373,49 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
         `;
         
         // Execute the Lua code and get the JSON result
+        console.log('🔄 MissionDetails: Executing Lua code...');
         const jsonResult = load(luaCode)();
+        console.log('✅ MissionDetails: Lua code executed successfully');
         
         if (typeof jsonResult !== 'string') {
-          console.error('Invalid result type:', typeof jsonResult);
+          console.error('❌ MissionDetails: Invalid result type:', typeof jsonResult);
           throw new Error('Invalid JSON result from Lua conversion');
         }
         
-        // Parse the JSON into a JavaScript object
-        const missionData = JSON.parse(jsonResult);
+        if (!jsonResult || jsonResult === 'null') {
+          console.error('❌ MissionDetails: Empty or null JSON result');
+          throw new Error('JSON conversion resulted in null or empty output');
+        }
         
-        console.log('MissionDetails: Successfully parsed mission data');
-        console.log('MissionDetails: Coalition structure:', missionData.coalition?.blue?.country ? 'Present' : 'Missing');
+        console.log('✅ MissionDetails: JSON result received, length:', jsonResult.length);
+        
+        // Parse the JSON into a JavaScript object
+        console.log('🔄 MissionDetails: Parsing JSON data...');
+        const missionData = JSON.parse(jsonResult);
+        console.log('✅ MissionDetails: Successfully parsed mission data');
+        
+        // Detailed coalition structure logging
+        console.log('🔍 MissionDetails: Mission data structure check:');
+        console.log('- Coalition exists:', !!missionData.coalition);
+        console.log('- Blue coalition exists:', !!missionData.coalition?.blue);
+        console.log('- Blue coalition countries:', !!missionData.coalition?.blue?.country);
+        
+        if (missionData.coalition?.blue?.country) {
+          const countries = Array.isArray(missionData.coalition.blue.country) 
+            ? missionData.coalition.blue.country 
+            : Object.values(missionData.coalition.blue.country);
+          console.log('- Number of blue countries:', countries.length);
+          
+          // Check for aircraft groups in each country
+          countries.forEach((country: any, index: number) => {
+            console.log(`- Country ${index}:`, country.name || 'Unknown');
+            console.log(`  - Has planes:`, !!country.plane?.group);
+            console.log(`  - Has helicopters:`, !!country.helicopter?.group);
+          });
+        }
         
         // Store the parsed mission data
+        console.log('💾 MissionDetails: Storing parsed mission data');
         setParsedMission(missionData);
         
         // Update any other details based on mission data
@@ -415,13 +460,25 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
         }
         
       } catch (luaError) {
-        console.error('Error in Lua execution:', luaError);
+        console.error('❌ MissionDetails: Error in Lua execution:', luaError);
+        console.error('❌ MissionDetails: Lua error details:', {
+          error: luaError,
+          type: typeof luaError,
+          message: luaError instanceof Error ? luaError.message : String(luaError)
+        });
         throw new Error(`Failed to process mission file using Lua: ${luaError}`);
       }
     } catch (error) {
-      console.error('Error processing mission file:', error);
+      console.error('❌ MissionDetails: Error processing mission file:', error);
+      console.error('❌ MissionDetails: Full error details:', {
+        error: error,
+        type: typeof error,
+        message: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined
+      });
       alert(`Error processing mission file: ${error instanceof Error ? error.message : String(error)}`);
     } finally {
+      console.log('🏁 MissionDetails: Finished processing .miz file');
       setIsProcessingFile(false);
     }
   };

@@ -19,6 +19,7 @@ import { useMissionPrepData } from '../../hooks/useMissionPrepData';
 import { useMissionPrepState } from '../../hooks/useMissionPrepState';
 import { useMissionPrepDataPersistence } from '../../hooks/useMissionPrepDataPersistence';
 import type { AssignedPilot, AssignedPilotsRecord } from '../../types/MissionPrepTypes';
+import AutoAssignConfigModal, { type AutoAssignConfig } from './mission prep/AutoAssignConfig';
 
 // Define the structure for the polled attendance data
 interface RealtimeAttendanceRecord {
@@ -63,7 +64,8 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
     activePilots,
     isLoading,
     loadError,
-    allPilotQualifications
+    allPilotQualifications,
+    pilotSquadronMap
   } = useMissionPrepData();
 
   // Clear page loading when component data is loaded
@@ -104,28 +106,17 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
   // }, [prepFlights]);
 
   const [realtimeAttendanceData, setRealtimeAttendanceData] = useState<RealtimeAttendanceRecord[]>([]);
+  const [isAutoAssignConfigOpen, setIsAutoAssignConfigOpen] = useState(false);
 
   // Wrapper for setAssignedPilots to handle React setState signature
   const setAssignedPilotsWrapper = useCallback((pilots: AssignedPilotsRecord | ((prev: AssignedPilotsRecord) => AssignedPilotsRecord)) => {
-    console.log('🔄 MissionPreparation: setAssignedPilotsWrapper called:', { 
-      isFunction: typeof pilots === 'function',
-      currentAssignedPilots: JSON.stringify(assignedPilots)
-    });
     
     if (typeof pilots === 'function') {
       // Handle function updates - get current value and call function
       const currentPilots = assignedPilots || {};
       const newPilots = pilots(currentPilots);
-      console.log('💾 MissionPreparation: Calling setAssignedPilots with function result:', {
-        newPilots: JSON.stringify(newPilots),
-        skipSave: false
-      });
       setAssignedPilots(newPilots, false); // false = don't skip save for user actions
     } else {
-      console.log('💾 MissionPreparation: Calling setAssignedPilots with direct value:', {
-        pilots: JSON.stringify(pilots),
-        skipSave: false
-      });
       setAssignedPilots(pilots, false); // false = don't skip save for user actions
     }
   }, [assignedPilots, setAssignedPilots]);
@@ -169,10 +160,36 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
     setMissionCommander(null);
   }, [setAssignedPilots, setMissionCommander]);
 
-  // Function to handle auto-assignment logic
-  const handleAutoAssign = useCallback((pilotsForAssignment?: Pilot[]) => { 
+  // Function to handle showing auto-assignment settings
+  const handleAutoAssignSettings = useCallback(() => {
+    setIsAutoAssignConfigOpen(true);
+  }, []);
+
+  // Load auto-assignment configuration from sessionStorage
+  const getStoredAutoAssignConfig = (): AutoAssignConfig => {
+    try {
+      const stored = sessionStorage.getItem('autoAssignConfig');
+      if (stored) {
+        return JSON.parse(stored);
+      }
+    } catch (error) {
+      console.warn('Failed to load auto-assign config from sessionStorage:', error);
+    }
+    return {
+      assignmentScope: 'clear',
+      includeTentative: false,
+      flightFillingPriority: 'breadth',
+      squadronCohesion: 'enforced',
+      assignUnqualified: false,
+      nonStandardCallsigns: 'ignore'
+    };
+  };
+
+  // Function to handle auto-assignment logic - uses saved settings directly
+  const handleAutoAssign = useCallback(async (pilotsForAssignment?: Pilot[]) => {
+    
     if (!prepFlights || prepFlights.length === 0) { 
-      // console.log("Cannot auto-assign: no flights available");
+      alert("No flights available for assignment. Please import a .miz file or add flights manually first.");
       return;
     }
 
@@ -182,24 +199,49 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
       : []; // If no pilots are passed, assign no one.
 
     if (pilotsToAssign.length === 0) {
-      // console.log("[DEBUG] No pilots provided or available for auto-assignment.");
+      alert("No pilots available for assignment. Please ensure pilots are available and have appropriate attendance status.");
       return;
     }
 
-    // Call the utility function - autoAssignPilots needs to handle the statuses internally
-    const { newAssignments, suggestedMissionCommander } = autoAssignPilots(
-      prepFlights, 
-      pilotsToAssign, // Pass the prepared list with statuses
-      assignedPilots, // Pass current assignments for context
-      allPilotQualifications
-    );
+    // Load configuration and execute assignment directly
+    const config = getStoredAutoAssignConfig();
 
-    // Update state
-    setAssignedPilots(newAssignments);
-    if (suggestedMissionCommander) {
-      setMissionCommander(suggestedMissionCommander);
+    try {
+      // Call the auto-assign function with configuration
+      const { newAssignments, suggestedMissionCommander } = await autoAssignPilots(
+        prepFlights,
+        pilotsToAssign,
+        assignedPilots,
+        allPilotQualifications,
+        config,
+        pilotSquadronMap
+      );
+
+
+      // Update state with new assignments
+      setAssignedPilots(newAssignments);
+      
+      // Set mission commander if one was determined
+      if (suggestedMissionCommander) {
+        setMissionCommander(suggestedMissionCommander);
+      }
+    } catch (error) {
+      console.error('❌ MissionPreparation: Auto-assignment failed:', error);
+      alert(`Auto-assignment failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
-  }, [prepFlights, assignedPilots, allPilotQualifications, setAssignedPilots, setMissionCommander]);
+  }, [prepFlights, selectedEvent?.id, setAssignedPilots, setMissionCommander, assignedPilots, allPilotQualifications, pilotSquadronMap]);
+
+
+  // Handle settings modal cancellation
+  const handleAutoAssignSettingsCancel = useCallback(() => {
+    setIsAutoAssignConfigOpen(false);
+  }, []);
+
+  // Handle settings modal save
+  const handleAutoAssignSettingsSave = useCallback((_config: AutoAssignConfig) => {
+    setIsAutoAssignConfigOpen(false);
+    // Configuration is already saved to sessionStorage by the modal
+  }, []);
 
   // Reset the processed flag when component unmounts
   useEffect(() => {
@@ -430,6 +472,7 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
                 assignedPilots={assignedPilots}
                 setAssignedPilots={setAssignedPilotsWrapper}
                 onAutoAssign={handleAutoAssign}
+                onAutoAssignSettings={handleAutoAssignSettings}
                 onClearAssignments={handleClearAssignments}
                 pilotQualifications={allPilotQualifications}
                 realtimeAttendanceData={realtimeAttendanceData}
@@ -476,6 +519,13 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
           dragSource={dragSource} 
         />
       </DragOverlay>
+
+      {/* Auto-Assignment Configuration Modal */}
+      <AutoAssignConfigModal
+        isOpen={isAutoAssignConfigOpen}
+        onCancel={handleAutoAssignSettingsCancel}
+        onSave={handleAutoAssignSettingsSave}
+      />
     </DndContext>
   );
 };

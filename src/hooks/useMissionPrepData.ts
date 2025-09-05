@@ -2,10 +2,12 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { fetchEvents } from '../utils/supabaseClient';
 import { getAllPilots } from '../utils/pilotService';
 import { getBatchPilotQualifications } from '../utils/qualificationService';
+import { getOptimizedSquadronMapping, prefetchSquadronMapping } from '../utils/squadronMappingCache';
 import { adaptSupabasePilots } from '../utils/pilotDataUtils';
 import { loadSelectedEvent, saveSelectedEvent, STORAGE_KEYS } from '../utils/localStorageUtils';
 import type { Event } from '../types/EventTypes';
 import type { Pilot } from '../types/PilotTypes';
+import type { Squadron } from '../utils/squadronService';
 
 /**
  * Custom hook to manage mission preparation data (events, pilots, qualifications)
@@ -25,6 +27,8 @@ export const useMissionPrepData = () => {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [allPilotQualifications, setAllPilotQualifications] = useState<Record<string, any[]>>({});
+  const [squadrons, setSquadrons] = useState<Squadron[]>([]);
+  const [pilotSquadronMap, setPilotSquadronMap] = useState<Record<string, Squadron>>({});
 
   // Fetch events without any squadron/guild filtering for multi-squadron support
   const loadEventsForCurrentGuild = async () => {
@@ -65,7 +69,6 @@ export const useMissionPrepData = () => {
       }
       
       if (allEvents && allEvents.length > 0) {
-        console.log(`Fetched ${allEvents.length} events`);
         // Events are already sorted in reverse chronological order by the query
         setEvents(allEvents);
         
@@ -73,7 +76,6 @@ export const useMissionPrepData = () => {
         if (urlEventId) {
           const urlEvent = allEvents.find(event => event.id === urlEventId);
           if (urlEvent) {
-            console.log('Auto-selecting event from URL:', urlEvent.title);
             setSelectedEventWrapper(urlEvent);
             // Clear URL parameter after selection (optional)
             // window.history.replaceState({}, '', window.location.pathname);
@@ -86,7 +88,6 @@ export const useMissionPrepData = () => {
           const eventStillExists = allEvents.find(event => event.id === selectedEvent.id);
           if (!eventStillExists) {
             // The previously selected event no longer exists, clear the selection
-            console.log('Previously selected event no longer exists, clearing selection');
             setSelectedEventWrapper(null);
           }
         } 
@@ -95,12 +96,10 @@ export const useMissionPrepData = () => {
           // Check if localStorage has ever been set (even if it was set to null)
           const hasStoredSelection = localStorage.getItem(STORAGE_KEYS.SELECTED_EVENT) !== null;
           if (!hasStoredSelection && allEvents.length > 0) {
-            console.log('First time user - auto-selecting most recent event');
             setSelectedEventWrapper(allEvents[0]);
           }
         }
       } else {
-        console.log('No events found');
         setEvents([]);
         // Clear selected event if no events are available
         if (selectedEvent) {
@@ -109,6 +108,24 @@ export const useMissionPrepData = () => {
       }
     } catch (err: any) {
       console.error('Failed to fetch events:', err.message);
+    }
+  };
+
+  // Function to fetch squadron data and pilot squadron assignments (optimized)
+  const fetchSquadronData = async (pilotsList: Pilot[]) => {
+    try {
+      const { pilotSquadronMap, squadrons, error } = await getOptimizedSquadronMapping(pilotsList);
+      
+      if (error) {
+        console.error('❌ Error fetching optimized squadron data:', error);
+        return;
+      }
+
+      setSquadrons(squadrons);
+      setPilotSquadronMap(pilotSquadronMap);
+      
+    } catch (err) {
+      console.error('❌ Error fetching squadron data:', err);
     }
   };
 
@@ -163,8 +180,9 @@ export const useMissionPrepData = () => {
         // Set pilots state to the adapted Pilot format
         setPilots(adaptedPilots);
         
-        // After fetching pilots, also fetch their qualifications
+        // After fetching pilots, also fetch their qualifications and squadron data
         await fetchAllPilotQualifications(adaptedPilots);
+        await fetchSquadronData(adaptedPilots);
         
         setLoadError(null);
       } else {
@@ -205,6 +223,13 @@ export const useMissionPrepData = () => {
     fetchPilots();
   }, []);
 
+  // Background prefetch squadron mapping when pilots change
+  useEffect(() => {
+    if (pilots && pilots.length > 0) {
+      prefetchSquadronMapping(pilots);
+    }
+  }, [pilots]);
+
   // Memoize the return object to prevent unnecessary re-renders
   return useMemo(() => ({
     events,
@@ -214,6 +239,8 @@ export const useMissionPrepData = () => {
     activePilots,
     isLoading,
     loadError,
-    allPilotQualifications
-  }), [events, selectedEvent, pilots, activePilots, isLoading, loadError, allPilotQualifications]);
+    allPilotQualifications,
+    squadrons,
+    pilotSquadronMap
+  }), [events, selectedEvent, pilots, activePilots, isLoading, loadError, allPilotQualifications, squadrons, pilotSquadronMap]);
 };
