@@ -4,7 +4,6 @@ import FlightAssignmentCard from '../flight cards/FlightAssignmentCard';
 import AddFlightDialog from '../dialogs/AddFlightDialog';
 import FlightPostOptionsDialog from '../dialogs/FlightPostOptionsDialog';
 import type { AssignedPilot } from '../../../types/MissionPrepTypes';
-import { supabase } from '../../../utils/supabaseClient';
 import { Trash2 } from 'lucide-react';
 import { useMissionPrepData } from '../../../hooks/useMissionPrepData';
 
@@ -33,18 +32,18 @@ interface Flight {
 
 // Extended Pilot type with dashNumber for flight assignments
 
-interface Squadron {
+interface LocalSquadron {
   id: string;
   name: string;
   designation: string;
   callsigns: any;
-  discord_integration: any;
+  discord_integration?: any;
   insignia_url?: string | null;
   color_palette: any;
 }
 
 interface SquadronFlightGroup {
-  squadron: Squadron;
+  squadron: LocalSquadron;
   flights: Flight[];
 }
 
@@ -123,48 +122,11 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
   const [initialEditCallsign, setInitialEditCallsign] = useState("");
   const [creationOrderCounter, setCreationOrderCounter] = useState(0);
   const [showRemoveAllDialog, setShowRemoveAllDialog] = useState(false);
-  const [squadronCallsigns, setSquadronCallsigns] = useState<Array<{ squadronId: string; name: string; designation: string; insignia_url?: string | null; color_palette?: any; callsigns: string[] }>>([]);
   
-  // Get selected event for Discord message
-  const { selectedEvent } = useMissionPrepData();
+  // Get selected event, participating squadrons, and all squadrons for Discord message and flight dialog
+  const { selectedEvent, participatingSquadrons, squadrons } = useMissionPrepData();
   
 
-  // Fetch all squadrons with their callsigns and Discord settings
-  const fetchSquadrons = useCallback(async (): Promise<Squadron[]> => {
-    try {
-      const { data, error } = await supabase
-        .from('org_squadrons')
-        .select('id, name, designation, callsigns, discord_integration, insignia_url, color_palette');
-
-      if (error) {
-        console.error('Error fetching squadrons:', error);
-        return [];
-      }
-
-      return data || [];
-    } catch (error) {
-      console.error('Error fetching squadrons:', error);
-      return [];
-    }
-  }, []);
-
-  // Load squadron callsigns when component mounts
-  useEffect(() => {
-    const loadSquadronCallsigns = async () => {
-      const squadrons = await fetchSquadrons();
-      const squadronData = squadrons.map(squadron => ({
-        squadronId: squadron.id,
-        name: squadron.name,
-        designation: squadron.designation,
-        insignia_url: squadron.insignia_url,
-        color_palette: squadron.color_palette,
-        callsigns: Array.isArray(squadron.callsigns) ? squadron.callsigns : []
-      }));
-      setSquadronCallsigns(squadronData);
-    };
-    
-    loadSquadronCallsigns();
-  }, [fetchSquadrons]);
 
   // Check for existing flight assignment posts
   const checkExistingPosts = useCallback(async () => {
@@ -673,7 +635,6 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
 
   // Group flights by squadron based on callsigns
   const groupFlightsBySquadron = useCallback(async (): Promise<SquadronFlightGroup[]> => {
-    const squadrons = await fetchSquadrons();
     const squadronGroups: SquadronFlightGroup[] = [];
 
     for (const squadron of squadrons) {
@@ -689,14 +650,17 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
 
       if (squadronFlights.length > 0) {
         squadronGroups.push({
-          squadron,
+          squadron: {
+            ...squadron,
+            discord_integration: null
+          } as LocalSquadron,
           flights: squadronFlights
         });
       }
     }
 
     return squadronGroups;
-  }, [flights, fetchSquadrons]);
+  }, [flights, squadrons]);
 
   // Generate flight assignment table image for a squadron using Canvas
   const generateFlightAssignmentImage = useCallback(async (squadronGroup: SquadronFlightGroup): Promise<Blob | null> => {
@@ -1431,7 +1395,7 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
             existingCallsigns={existingCallsigns}
             initialCallsign={initialEditCallsign}
             title={editFlightId ? "Edit Flight" : "Add Flights"}
-            squadronCallsigns={squadronCallsigns}
+            squadronCallsigns={participatingSquadrons}
             selectedEvent={selectedEvent}
           />
         </>

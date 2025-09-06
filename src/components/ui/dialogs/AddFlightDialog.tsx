@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { Trash2 } from 'lucide-react';
-import { supabase } from '../../../utils/supabaseClient';
 
 interface FlightEntry {
   callsign: string;
@@ -21,48 +20,13 @@ export const AddFlightDialog: React.FC<AddFlightDialogProps> = ({
   onSave,
   onCancel,
   existingCallsigns = [],
-  squadronCallsigns = [],
-  selectedEvent
+  squadronCallsigns = []
 }) => {
   const [squadronFlights, setSquadronFlights] = useState<Record<string, number>>({});
   const [otherCallsign, setOtherCallsign] = useState('');
   const [otherFlights, setOtherFlights] = useState<Record<string, number>>({});
   const [error, setError] = useState('');
-  const [freshEventData, setFreshEventData] = useState<any>(null);
-  const [isLoadingEventData, setIsLoadingEventData] = useState(true);
   
-  // Fetch fresh event data when dialog opens
-  useEffect(() => {
-    const fetchFreshEventData = async () => {
-      if (!selectedEvent?.id) {
-        setIsLoadingEventData(false);
-        return;
-      }
-
-      try {
-        const { data, error } = await supabase
-          .from('events')
-          .select('id, name, participants')
-          .eq('id', selectedEvent.id)
-          .single();
-
-        if (error) {
-          console.error('Error fetching fresh event data:', error);
-          setFreshEventData(selectedEvent); // Fallback to passed data
-        } else {
-          setFreshEventData(data);
-        }
-      } catch (error) {
-        console.error('Error fetching fresh event data:', error);
-        setFreshEventData(selectedEvent); // Fallback to passed data
-      } finally {
-        setIsLoadingEventData(false);
-      }
-    };
-
-    fetchFreshEventData();
-  }, [selectedEvent?.id]);
-
   // Auto-clear error message after 3 seconds
   useEffect(() => {
     if (error) {
@@ -72,16 +36,8 @@ export const AddFlightDialog: React.FC<AddFlightDialogProps> = ({
   }, [error]);
 
 
-  // Use fresh event data for all operations, fallback to passed data if still loading
-  const eventDataToUse = freshEventData || selectedEvent;
-  
-  // Get participating squadrons from the fresh event's participants array
-  // The participants in event should be squadron IDs, not pilot IDs
-  const participatingSquadrons = squadronCallsigns.filter(squad => {
-    if (!eventDataToUse?.participants || eventDataToUse.participants.length === 0) return false;
-    // Check if this squadron's ID is in the event participants
-    return eventDataToUse.participants.includes(squad.squadronId);
-  });
+  // Use the pre-filtered participating squadrons directly from the cache
+  const participatingSquadrons = squadronCallsigns;
 
   // Add squadron flight
   const addSquadronFlight = (callsign: string) => {
@@ -267,22 +223,35 @@ export const AddFlightDialog: React.FC<AddFlightDialogProps> = ({
 ADD FLIGHT
       </div>
 
-      {/* Loading indicator */}
-      {isLoadingEventData && (
+      {/* Loading spinner */}
+      {participatingSquadrons.length === 0 && (
         <div style={{
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          padding: '20px',
-          color: '#6B7280',
-          fontSize: '14px'
+          padding: '40px',
         }}>
-          Loading fresh event data...
+          <div style={{
+            width: '24px',
+            height: '24px',
+            border: '2px solid #E5E7EB',
+            borderTop: '2px solid #3B82F6',
+            borderRadius: '50%',
+            animation: 'spin 1s linear infinite'
+          }} />
+          <style dangerouslySetInnerHTML={{
+            __html: `
+              @keyframes spin {
+                0% { transform: rotate(0deg); }
+                100% { transform: rotate(360deg); }
+              }
+            `
+          }} />
         </div>
       )}
 
       {/* Participating Squadrons */}
-      {!isLoadingEventData && (
+      {participatingSquadrons.length > 0 && (
         <div style={{ marginBottom: '24px' }}>
           <div style={{
             fontSize: '14px',
@@ -438,7 +407,7 @@ ADD FLIGHT
       )}
 
       {/* Other Callsign */}
-      {!isLoadingEventData && (
+      {participatingSquadrons.length > 0 && (
       <div style={{ marginBottom: '32px' }}>
         <div style={{
           fontSize: '14px',
@@ -510,7 +479,7 @@ ADD FLIGHT
       )}
 
       {/* Flights to be added */}
-      {!isLoadingEventData && (
+      {participatingSquadrons.length > 0 && (
       <div style={{ marginBottom: '24px' }}>
         <div style={{
           fontSize: '14px',
@@ -610,7 +579,7 @@ ADD FLIGHT
       )}
 
       {/* Error message */}
-      {!isLoadingEventData && error && (
+      {participatingSquadrons.length > 0 && error && (
         <div style={{
           color: '#EF4444',
           fontSize: '14px',
@@ -622,7 +591,7 @@ ADD FLIGHT
       )}
 
       {/* Buttons */}
-      {!isLoadingEventData && (
+      {participatingSquadrons.length > 0 && (
         <div style={{
           display: 'flex',
           justifyContent: 'flex-end',
