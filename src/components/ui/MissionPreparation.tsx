@@ -65,7 +65,8 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
     isLoading,
     loadError,
     allPilotQualifications,
-    pilotSquadronMap
+    pilotSquadronMap,
+    refreshParticipatingSquadrons
   } = useMissionPrepData();
 
   // Clear page loading when component data is loaded
@@ -274,6 +275,11 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
         ].filter(record => record.discord_id);
 
         setRealtimeAttendanceData(attendanceRecords);
+        
+        // Also refresh participating squadrons cache silently
+        if (refreshParticipatingSquadrons) {
+          refreshParticipatingSquadrons();
+        }
       } catch (err) {
         console.error("Error fetching realtime attendance:", err);
         setRealtimeAttendanceData([]);

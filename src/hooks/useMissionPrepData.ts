@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { fetchEvents } from '../utils/supabaseClient';
+import { fetchEvents, supabase } from '../utils/supabaseClient';
 import { getAllPilots } from '../utils/pilotService';
 import { getBatchPilotQualifications } from '../utils/qualificationService';
 import { getOptimizedSquadronMapping, prefetchSquadronMapping } from '../utils/squadronMappingCache';
@@ -29,6 +29,7 @@ export const useMissionPrepData = () => {
   const [allPilotQualifications, setAllPilotQualifications] = useState<Record<string, any[]>>({});
   const [squadrons, setSquadrons] = useState<Squadron[]>([]);
   const [pilotSquadronMap, setPilotSquadronMap] = useState<Record<string, Squadron>>({});
+  const [participatingSquadrons, setParticipatingSquadrons] = useState<any[]>([]);
 
   // Fetch events without any squadron/guild filtering for multi-squadron support
   const loadEventsForCurrentGuild = async () => {
@@ -128,6 +129,46 @@ export const useMissionPrepData = () => {
       console.error('❌ Error fetching squadron data:', err);
     }
   };
+
+  // Function to fetch and cache participating squadrons for selected event
+  const fetchParticipatingSquadrons = useCallback(async (eventId: string) => {
+    if (!eventId || squadrons.length === 0) {
+      setParticipatingSquadrons([]);
+      return;
+    }
+
+    try {
+      // Fetch fresh event data to get current participants
+      const { data: eventData, error } = await supabase
+        .from('events')
+        .select('participants')
+        .eq('id', eventId)
+        .single();
+
+      if (error || !eventData?.participants) {
+        setParticipatingSquadrons([]);
+        return;
+      }
+
+      // Filter squadrons based on participants and format for AddFlightDialog
+      const participants = Array.isArray(eventData.participants) ? eventData.participants : [];
+      const participating = squadrons
+        .filter(squadron => participants.includes(squadron.id))
+        .map(squadron => ({
+          squadronId: squadron.id,
+          name: squadron.name,
+          designation: squadron.designation,
+          insignia_url: squadron.insignia_url,
+          color_palette: squadron.color_palette,
+          callsigns: Array.isArray(squadron.callsigns) ? squadron.callsigns : []
+        }));
+
+      setParticipatingSquadrons(participating);
+    } catch (error) {
+      console.error('Error fetching participating squadrons:', error);
+      setParticipatingSquadrons([]);
+    }
+  }, [squadrons]);
 
   // Function to fetch qualifications for all pilots using batch operation
   const fetchAllPilotQualifications = async (pilotsList: Pilot[]) => {
@@ -230,6 +271,15 @@ export const useMissionPrepData = () => {
     }
   }, [pilots]);
 
+  // Cache participating squadrons when event or squadrons change
+  useEffect(() => {
+    if (selectedEvent?.id && squadrons.length > 0) {
+      fetchParticipatingSquadrons(selectedEvent.id);
+    } else {
+      setParticipatingSquadrons([]);
+    }
+  }, [selectedEvent?.id, squadrons, fetchParticipatingSquadrons]);
+
   // Memoize the return object to prevent unnecessary re-renders
   return useMemo(() => ({
     events,
@@ -241,6 +291,8 @@ export const useMissionPrepData = () => {
     loadError,
     allPilotQualifications,
     squadrons,
-    pilotSquadronMap
-  }), [events, selectedEvent, pilots, activePilots, isLoading, loadError, allPilotQualifications, squadrons, pilotSquadronMap]);
+    pilotSquadronMap,
+    participatingSquadrons,
+    refreshParticipatingSquadrons: () => selectedEvent?.id && fetchParticipatingSquadrons(selectedEvent.id)
+  }), [events, selectedEvent, pilots, activePilots, isLoading, loadError, allPilotQualifications, squadrons, pilotSquadronMap, participatingSquadrons, fetchParticipatingSquadrons]);
 };
