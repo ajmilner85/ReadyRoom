@@ -190,7 +190,7 @@ export const fetchCycles = async (discordGuildId?: string) => {
       type: dbCycle.type as CycleType,
       status: dbCycle.status as 'active' | 'completed' | 'upcoming',
       restrictedTo: dbCycle.restricted_to || [],
-      participants: [], // Default value - field not in current database schema
+      participants: Array.isArray(dbCycle.participants) ? dbCycle.participants as string[] : [], // Get participants from database
       discordGuildId: dbCycle.discord_guild_id || undefined,
       creator: {
         boardNumber: dbCycle.creator_board_number || '',
@@ -219,7 +219,7 @@ export const createCycle = async (cycle: Omit<Cycle, 'id' | 'creator'> & { disco
       type: cycle.type,
       status: cycle.status,
       restricted_to: cycle.restrictedTo,
-      // participants field not in current database schema
+      participants: cycle.participants || [], // Store participants in database
       discord_guild_id: cycle.discordGuildId || '', // Add Discord guild ID with empty string fallback
       creator_id: user.id,
       // Optional user profile info
@@ -266,7 +266,7 @@ export const updateCycle = async (cycleId: string, updates: Partial<Omit<Cycle, 
   if (updates.type !== undefined) dbUpdates.type = updates.type;
   if (updates.status !== undefined) dbUpdates.status = updates.status;
   if (updates.restrictedTo !== undefined) dbUpdates.restricted_to = updates.restrictedTo;
-  // participants field not in current database schema
+  if (updates.participants !== undefined) dbUpdates.participants = updates.participants;
 
   const { data, error } = await supabase
     .from('cycles')
@@ -290,7 +290,7 @@ export const updateCycle = async (cycleId: string, updates: Partial<Omit<Cycle, 
     type: data.type as CycleType,
     status: data.status as 'active' | 'completed' | 'upcoming',
     restrictedTo: data.restricted_to || [],
-    participants: [], // Default value - field not in current database schema
+    participants: Array.isArray(data.participants) ? data.participants as string[] : [], // Get participants from database
     discordGuildId: data.discord_guild_id || undefined,
     creator: {
       boardNumber: data.creator_board_number || '',
@@ -325,6 +325,7 @@ export const fetchEvents = async (cycleId?: string) => {
     cycle_id,
     discord_event_id,
     image_url,
+    participants,
     created_at,
     updated_at
   `);
@@ -382,7 +383,7 @@ export const fetchEvents = async (cycleId?: string) => {
         ? (dbEvent.image_url as any).additionalImages
         : [],
       restrictedTo: [], // No restricted_to in the DB schema
-      participants: [], // Default value - field not in current database schema
+      participants: Array.isArray(dbEvent.participants) ? dbEvent.participants as string[] : [], // Get participants from database
       creator: {
         boardNumber: '',
         callsign: '',
@@ -496,7 +497,7 @@ export const createEvent = async (event: Omit<Event, 'id' | 'creator' | 'attenda
       status: event.status,
       event_type: event.eventType,
       cycle_id: event.cycleId,
-      // participants field not in current database schema
+      participants: event.participants || [], // Store participants in database
       track_qualifications: event.trackQualifications || false, // Keep for backward compatibility
       event_settings: eventSettings, // Store all event-specific settings
       creator_id: user.id,
@@ -575,7 +576,7 @@ export const updateEvent = async (eventId: string, updates: Partial<Omit<Event, 
   if ((updates as any).eventType !== undefined) dbUpdates.event_type = (updates as any).eventType;
   if ((updates as any).cycleId !== undefined) dbUpdates.cycle_id = (updates as any).cycleId;
   if ((updates as any).discordEventId !== undefined) dbUpdates.discord_event_id = (updates as any).discordEventId;
-  // participants field not in current database schema
+  if (updates.participants !== undefined) dbUpdates.participants = updates.participants;
   // track_qualifications field not in current database schema
   // Handle event settings updates
   if (updates.timezone !== undefined || updates.reminders !== undefined || updates.reminderRecipients !== undefined || updates.eventSettings !== undefined) {

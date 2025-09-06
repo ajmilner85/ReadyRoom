@@ -234,6 +234,7 @@ const EventsManagement: React.FC = () => {
         throw error;
       }
       
+      
       // Load Discord message IDs from localStorage
       const storedMap = localStorage.getItem('eventDiscordMessageIds');
       const eventDiscordMap = storedMap ? JSON.parse(storedMap) : {};

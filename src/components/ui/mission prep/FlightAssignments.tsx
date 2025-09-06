@@ -40,6 +40,7 @@ interface Squadron {
   callsigns: any;
   discord_integration: any;
   insignia_url?: string | null;
+  color_palette: any;
 }
 
 interface SquadronFlightGroup {
@@ -74,6 +75,7 @@ interface FlightAssignmentsProps {
   extractedFlights?: ExtractedFlight[];
   onFlightsChange?: (flights: Flight[], skipSave?: boolean) => void;
   initialFlights?: Flight[];
+  onClearAssignments?: () => void;
 }
 
 const FlightAssignments: React.FC<FlightAssignmentsProps> = ({ 
@@ -82,7 +84,8 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
   missionCommander,
   extractedFlights = [],
   onFlightsChange,
-  initialFlights = []
+  initialFlights = [],
+  onClearAssignments
 }) => {
   // Debug logging for assignedPilots data
   // React.useEffect(() => {
@@ -120,9 +123,48 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
   const [initialEditCallsign, setInitialEditCallsign] = useState("");
   const [creationOrderCounter, setCreationOrderCounter] = useState(0);
   const [showRemoveAllDialog, setShowRemoveAllDialog] = useState(false);
+  const [squadronCallsigns, setSquadronCallsigns] = useState<Array<{ squadronId: string; name: string; designation: string; insignia_url?: string | null; color_palette?: any; callsigns: string[] }>>([]);
   
   // Get selected event for Discord message
   const { selectedEvent } = useMissionPrepData();
+  
+
+  // Fetch all squadrons with their callsigns and Discord settings
+  const fetchSquadrons = useCallback(async (): Promise<Squadron[]> => {
+    try {
+      const { data, error } = await supabase
+        .from('org_squadrons')
+        .select('id, name, designation, callsigns, discord_integration, insignia_url, color_palette');
+
+      if (error) {
+        console.error('Error fetching squadrons:', error);
+        return [];
+      }
+
+      return data || [];
+    } catch (error) {
+      console.error('Error fetching squadrons:', error);
+      return [];
+    }
+  }, []);
+
+  // Load squadron callsigns when component mounts
+  useEffect(() => {
+    const loadSquadronCallsigns = async () => {
+      const squadrons = await fetchSquadrons();
+      const squadronData = squadrons.map(squadron => ({
+        squadronId: squadron.id,
+        name: squadron.name,
+        designation: squadron.designation,
+        insignia_url: squadron.insignia_url,
+        color_palette: squadron.color_palette,
+        callsigns: Array.isArray(squadron.callsigns) ? squadron.callsigns : []
+      }));
+      setSquadronCallsigns(squadronData);
+    };
+    
+    loadSquadronCallsigns();
+  }, [fetchSquadrons]);
 
   // Check for existing flight assignment posts
   const checkExistingPosts = useCallback(async () => {
@@ -300,17 +342,10 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
           }
         };
         
-        console.log(`✈️ FlightAssignments: Created flight ${index + 1}:`, {
-          id: newFlight.id,
-          callsign: newFlight.callsign,
-          flightNumber: newFlight.flightNumber,
-          originalName: extractedFlight.name
-        });
         
         return newFlight;
       });
       
-      console.log('✅ FlightAssignments: Created', newFlights.length, 'new flights from extracted data');
 
       const allFlights = [...existingFlights, ...newFlights];
 
@@ -374,8 +409,8 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
     };
   }, []);
 
-  // Get unique existing callsigns for the dialog suggestions
-  const existingCallsigns = [...new Set(flights.map(flight => flight.callsign))];  // Transform assigned pilots into the format needed for display
+  // Get all existing callsigns (including duplicates) for the dialog
+  const existingCallsigns = flights.map(flight => flight.callsign);  // Transform assigned pilots into the format needed for display
   const getUpdatedFlightPilots = (flight: Flight) => {
     const assigned = assignedPilots?.[flight.id] || [];
     
@@ -468,60 +503,114 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
   }, [flights]);
 
   // Function to add a new flight with the given callsign
-  const handleAddFlight = useCallback(({ callsign }: { callsign: string }) => {
+  const handleAddFlight = useCallback(({ flights: flightEntries }: { flights: { callsign: string; quantity: number }[] }) => {
     isUserInitiatedChange.current = true;
     
     if (editFlightId) {
-      // Update an existing flight's callsign
-      setFlights(prevFlights => {
-        const updatedFlights = prevFlights.map(flight => {
-          if (flight.id === editFlightId) {
-            return {
-              ...flight,
-              callsign: callsign.toUpperCase(),
-              // If callsign changed, update flight number to be next in sequence
-              flightNumber: flight.callsign === callsign ? 
-                flight.flightNumber : getNextFlightNumber(callsign)
-            };
-          }
-          return flight;
-        });
+      // Legacy edit mode - expect single flight entry
+      const singleFlight = flightEntries[0];
+      if (singleFlight) {
+        // Update an existing flight's callsign
+        setFlights(prevFlights => {
+          const updatedFlights = prevFlights.map(flight => {
+            if (flight.id === editFlightId) {
+              return {
+                ...flight,
+                callsign: singleFlight.callsign.toUpperCase(),
+                // If callsign changed, update flight number to be next in sequence
+                flightNumber: flight.callsign === singleFlight.callsign ? 
+                  flight.flightNumber : getNextFlightNumber(singleFlight.callsign)
+              };
+            }
+            return flight;
+          });
 
-        // Re-sort flights by callsign and flight number, preserving creation order groups
-        return updatedFlights.sort((a, b) => {
-          if (a.callsign === b.callsign) {
-            return parseInt(a.flightNumber) - parseInt(b.flightNumber);
-          }
-          return a.creationOrder - b.creationOrder;
+          // Re-sort flights by callsign and flight number, preserving creation order groups
+          return updatedFlights.sort((a, b) => {
+            if (a.callsign === b.callsign) {
+              return parseInt(a.flightNumber) - parseInt(b.flightNumber);
+            }
+            return a.creationOrder - b.creationOrder;
+          });
         });
-      });
-      
-      // Reset edit state
-      setEditFlightId(null);
-      setInitialEditCallsign("");
+        
+        // Reset edit state
+        setEditFlightId(null);
+        setInitialEditCallsign("");
+      }
     } else {
-      // Add a new flight
-      const flightNumber = getNextFlightNumber(callsign);
-      const { midsA, midsB } = findNextAvailableMIDS();
+      // Multi-flight creation mode
+      const newFlights: Flight[] = [];
+      let currentCreationOrder = creationOrderCounter;
       
-      const newFlight: Flight = {
-        id: Date.now().toString(),
-        callsign: callsign.toUpperCase(),
-        flightNumber,
-        pilots: [
-          { boardNumber: "", callsign: "", dashNumber: "1" },
-          { boardNumber: "", callsign: "", dashNumber: "2" },
-          { boardNumber: "", callsign: "", dashNumber: "3" },
-          { boardNumber: "", callsign: "", dashNumber: "4" }
-        ],
-        midsA,
-        midsB,
-        creationOrder: creationOrderCounter
-      };
-  
-      // Add the new flight and sort by creation order, then by callsign, then by flight number
+      // Pre-calculate flight numbers to avoid conflicts within the batch
+      const flightNumberTracker: Record<string, number> = {};
+      
+      // Initialize tracker with existing flight numbers
+      flights.forEach(flight => {
+        const callsignUpper = flight.callsign.toUpperCase();
+        const flightNum = parseInt(flight.flightNumber);
+        if (!flightNumberTracker[callsignUpper] || flightNumberTracker[callsignUpper] < flightNum) {
+          flightNumberTracker[callsignUpper] = flightNum;
+        }
+      });
+      
+      // Create flights for each entry
+      flightEntries.forEach(({ callsign, quantity }) => {
+        const callsignUpper = callsign.toUpperCase();
+        
+        for (let i = 0; i < quantity; i++) {
+          // Get next flight number for this callsign
+          flightNumberTracker[callsignUpper] = (flightNumberTracker[callsignUpper] || 0) + 1;
+          const flightNumber = flightNumberTracker[callsignUpper].toString();
+          
+          const { midsA, midsB } = findNextAvailableMIDS();
+          
+          const newFlight: Flight = {
+            id: `${Date.now()}-${callsignUpper}-${i}-${Math.random()}`,
+            callsign: callsignUpper,
+            flightNumber,
+            pilots: [
+              { boardNumber: "", callsign: "", dashNumber: "1" },
+              { boardNumber: "", callsign: "", dashNumber: "2" },
+              { boardNumber: "", callsign: "", dashNumber: "3" },
+              { boardNumber: "", callsign: "", dashNumber: "4" }
+            ],
+            midsA,
+            midsB,
+            creationOrder: currentCreationOrder
+          };
+          
+          newFlights.push(newFlight);
+          currentCreationOrder++;
+        }
+      });
+      
+      // Add the new flights and sort
       setFlights(prev => {
-        const updatedFlights = [...prev, newFlight];
+        const updatedFlights = [...prev, ...newFlights];
+        // Group flights by callsign and renumber them properly
+        const groupedByCallsign = updatedFlights.reduce<Record<string, Flight[]>>((acc, flight) => {
+          if (!acc[flight.callsign]) {
+            acc[flight.callsign] = [];
+          }
+          acc[flight.callsign].push(flight);
+          return acc;
+        }, {});
+
+        // Sort and fix flight numbers within each group
+        Object.values(groupedByCallsign).forEach(flightGroup => {
+          flightGroup.sort((a, b) => parseInt(a.flightNumber) - parseInt(b.flightNumber));
+          
+          let expectedNumber = 1;
+          flightGroup.forEach(flight => {
+            if (parseInt(flight.flightNumber) !== expectedNumber) {
+              flight.flightNumber = expectedNumber.toString();
+            }
+            expectedNumber++;
+          });
+        });
+        
         return updatedFlights.sort((a, b) => {
           if (a.callsign === b.callsign) {
             return parseInt(a.flightNumber) - parseInt(b.flightNumber);
@@ -530,8 +619,8 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
         });
       });
   
-      // Increment the creation order counter for the next flight
-      setCreationOrderCounter(counter => counter + 1);
+      // Update the creation order counter
+      setCreationOrderCounter(currentCreationOrder);
     }
     
     setShowAddFlightDialog(false);
@@ -565,33 +654,21 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
   // Confirm remove all flights
   const confirmRemoveAll = useCallback(() => {
     isUserInitiatedChange.current = true;
+    
+    // Clear pilot assignments first
+    if (onClearAssignments) {
+      onClearAssignments();
+    }
+    
+    // Then clear the flights
     setFlights([]);
     setCreationOrderCounter(0);
     setShowRemoveAllDialog(false);
-  }, []);
+  }, [onClearAssignments]);
 
   // Cancel remove all
   const cancelRemoveAll = useCallback(() => {
     setShowRemoveAllDialog(false);
-  }, []);
-
-  // Fetch all squadrons with their callsigns and Discord settings
-  const fetchSquadrons = useCallback(async (): Promise<Squadron[]> => {
-    try {
-      const { data, error } = await supabase
-        .from('org_squadrons')
-        .select('id, name, designation, callsigns, discord_integration, insignia_url');
-
-      if (error) {
-        console.error('Error fetching squadrons:', error);
-        return [];
-      }
-
-      return data || [];
-    } catch (error) {
-      console.error('Error fetching squadrons:', error);
-      return [];
-    }
   }, []);
 
   // Group flights by squadron based on callsigns
@@ -1353,7 +1430,9 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
             onCancel={handleCancelAddFlight}
             existingCallsigns={existingCallsigns}
             initialCallsign={initialEditCallsign}
-            title={editFlightId ? "Edit Flight" : "Add Flight"}
+            title={editFlightId ? "Edit Flight" : "Add Flights"}
+            squadronCallsigns={squadronCallsigns}
+            selectedEvent={selectedEvent}
           />
         </>
       )}

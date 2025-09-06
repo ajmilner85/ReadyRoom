@@ -2,7 +2,6 @@ import { supabase } from './supabaseClient';
 import { permissionCalculator } from './permissionCalculator';
 import type { UserPermissions, UserPermissionCache } from '../types/PermissionTypes';
 import { PERMISSION_CACHE_CONFIG } from '../types/PermissionTypes';
-import crypto from 'crypto';
 
 export class PermissionCacheService {
   private memoryCache = new Map<string, UserPermissionCache>();
@@ -138,7 +137,12 @@ export class PermissionCacheService {
         ...assignments.map(a => `squadron:${a.id}`)
       ].sort().join('|');
       
-      return crypto.createHash('sha256').update(basesData).digest('hex');
+      // Use Web Crypto API for browser compatibility
+      const encoder = new TextEncoder();
+      const data = encoder.encode(basesData);
+      const hashBuffer = await window.crypto.subtle.digest('SHA-256', data);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
       
     } catch (error) {
       console.warn('Error in manual bases hash calculation:', error);

@@ -484,6 +484,7 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
                 extractedFlights={extractedFlights}
                 onFlightsChange={handleFlightsChange}
                 initialFlights={prepFlights}
+                onClearAssignments={handleClearAssignments}
               />              <div style={{ 
                 display: 'flex', 
                 flexDirection: 'column', 
