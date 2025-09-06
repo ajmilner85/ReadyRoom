@@ -97,6 +97,7 @@ export const EventDialog: React.FC<EventDialogProps> = ({
   const [participants, setParticipatingSquadrons] = useState<string[]>(
     initialData?.participants !== undefined ? initialData.participants : (selectedCycle?.participants || [])
   );
+  
   const [trackQualifications, setTrackQualifications] = useState(
     initialData?.eventSettings?.groupResponsesByQualification !== undefined 
       ? initialData.eventSettings.groupResponsesByQualification
