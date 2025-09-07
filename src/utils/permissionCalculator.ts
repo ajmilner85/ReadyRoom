@@ -385,6 +385,12 @@ export class PermissionCalculator {
       canAccessAdminTools: false,
       canViewOwnProfile: false,
       
+      // Polls and Change Log (global only)
+      canManagePolls: false,
+      canVoteInPolls: false,
+      canManageChangeLog: false,
+      canReactToPosts: false,
+      
       // Meta
       bases: this.extractPermissionBases(userBases),
       calculatedAt: new Date(),
@@ -524,6 +530,20 @@ export class PermissionCalculator {
         break;
       case 'view_own_profile':
         permissions.canViewOwnProfile = true;
+        break;
+        
+      // Polls and Change Log permissions (global only)
+      case 'manage_polls':
+        permissions.canManagePolls = true;
+        break;
+      case 'vote_in_polls':
+        permissions.canVoteInPolls = true;
+        break;
+      case 'manage_change_log':
+        permissions.canManageChangeLog = true;
+        break;
+      case 'react_to_posts':
+        permissions.canReactToPosts = true;
         break;
     }
   }
