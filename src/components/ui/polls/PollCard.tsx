@@ -50,10 +50,12 @@ const PollCard: React.FC<PollCardProps> = ({ onCreatePoll, onManagePolls, refres
     backgroundColor: '#FFFFFF',
     borderRadius: '8px',
     border: '1px solid #E2E8F0',
-    height: '100%',
+    height: 'calc(100vh - 48px)',
+    maxHeight: 'calc(100vh - 48px)',
     display: 'flex',
     flexDirection: 'column',
     boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
+    overflow: 'hidden',
   };
 
   const headerStyle: React.CSSProperties = {
@@ -67,7 +69,7 @@ const PollCard: React.FC<PollCardProps> = ({ onCreatePoll, onManagePolls, refres
   const titleStyle: React.CSSProperties = {
     fontSize: '20px',
     fontWeight: 300,
-    color: '#1F2937',
+    color: '#64748B',
     textTransform: 'uppercase',
     letterSpacing: '0.5px',
     textAlign: 'center',
@@ -102,10 +104,11 @@ const PollCard: React.FC<PollCardProps> = ({ onCreatePoll, onManagePolls, refres
 
   const contentStyle: React.CSSProperties = {
     flex: 1,
-    padding: '0 16px 16px 16px',
-    overflow: 'hidden',
+    padding: '0 16px 16px 16px', // Restore normal padding
     display: 'flex',
     flexDirection: 'column',
+    minHeight: 0, // Important for flex child with overflow
+    overflow: 'hidden', // Prevent content from expanding beyond bounds
   };
 
   const emptyStateStyle: React.CSSProperties = {
@@ -134,7 +137,7 @@ const PollCard: React.FC<PollCardProps> = ({ onCreatePoll, onManagePolls, refres
     return (
       <div style={cardStyle}>
         <div style={headerStyle}>
-          <div style={titleStyle}>Feature Polls</div>
+          <div style={titleStyle}>Polls</div>
         </div>
         <div style={errorStyle}>
           <p>Failed to load polls</p>
@@ -148,7 +151,7 @@ const PollCard: React.FC<PollCardProps> = ({ onCreatePoll, onManagePolls, refres
     <div style={cardStyle}>
       {/* Header */}
       <div style={headerStyle}>
-        <div style={titleStyle}>Feature Polls</div>
+        <div style={titleStyle}>Polls</div>
         {canManagePolls && (
           <div style={actionsStyle}>
             {onManagePolls && (

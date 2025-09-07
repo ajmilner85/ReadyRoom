@@ -156,6 +156,8 @@ const EditPollDialog: React.FC<EditPollDialogProps> = ({
     maxHeight: '80vh',
     overflow: 'hidden',
     boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+    display: 'flex',
+    flexDirection: 'column',
   };
 
   const headerStyle: React.CSSProperties = {
@@ -189,7 +191,8 @@ const EditPollDialog: React.FC<EditPollDialogProps> = ({
   const contentStyle: React.CSSProperties = {
     padding: '24px',
     overflowY: 'auto',
-    maxHeight: 'calc(80vh - 140px)',
+    flex: 1,
+    minHeight: 0,
   };
 
   const fieldStyle: React.CSSProperties = {
@@ -239,7 +242,7 @@ const EditPollDialog: React.FC<EditPollDialogProps> = ({
 
   const optionContainerStyle: React.CSSProperties = {
     display: 'flex',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     gap: '8px',
     marginBottom: '16px',
     padding: '12px',
@@ -263,6 +266,7 @@ const EditPollDialog: React.FC<EditPollDialogProps> = ({
     height: '24px',
     color: '#9CA3AF',
     cursor: 'grab',
+    flexShrink: 0,
   };
 
   const handleDragStart = (e: React.DragEvent, index: number) => {
@@ -295,6 +299,7 @@ const EditPollDialog: React.FC<EditPollDialogProps> = ({
     color: '#EF4444',
     cursor: 'pointer',
     transition: 'all 0.2s ease',
+    flexShrink: 0,
   };
 
   const addButtonStyle: React.CSSProperties = {
@@ -319,6 +324,8 @@ const EditPollDialog: React.FC<EditPollDialogProps> = ({
     justifyContent: 'space-between',
     padding: '20px 24px 24px 24px',
     borderTop: '1px solid #F3F4F6',
+    flexShrink: 0,
+    backgroundColor: '#FFFFFF',
   };
 
   const buttonStyle: React.CSSProperties = {
@@ -369,188 +376,187 @@ const EditPollDialog: React.FC<EditPollDialogProps> = ({
         </div>
 
         {/* Content */}
-        <form onSubmit={handleSubmit}>
-          <div style={contentStyle}>
-            {error && (
-              <div style={{
-                padding: '12px',
-                backgroundColor: '#FEF2F2',
-                borderRadius: '6px',
-                border: '1px solid #FECACA',
-                marginBottom: '20px',
-              }}>
-                <div style={{ color: '#DC2626', fontSize: '14px' }}>
-                  {error}
-                </div>
+        <div style={contentStyle}>
+          {error && (
+            <div style={{
+              padding: '12px',
+              backgroundColor: '#FEF2F2',
+              borderRadius: '6px',
+              border: '1px solid #FECACA',
+              marginBottom: '20px',
+            }}>
+              <div style={{ color: '#DC2626', fontSize: '14px' }}>
+                {error}
               </div>
-            )}
-
-            {/* Title Field */}
-            <div style={fieldStyle}>
-              <label style={labelStyle}>
-                Poll Title *
-              </label>
-              <input
-                type="text"
-                value={title}
-                onChange={e => setTitle(e.target.value)}
-                placeholder="What should we prioritize next?"
-                style={inputStyle}
-                maxLength={500}
-              />
             </div>
+          )}
 
-            {/* Description Field */}
-            <div style={fieldStyle}>
-              <label style={labelStyle}>
-                Description (optional)
-              </label>
-              <textarea
-                value={description}
-                onChange={e => setDescription(e.target.value)}
-                placeholder="Provide additional context about this poll..."
-                style={textareaStyle}
-                maxLength={2000}
-              />
-            </div>
+          {/* Title Field */}
+          <div style={fieldStyle}>
+            <label style={labelStyle}>
+              Poll Title *
+            </label>
+            <input
+              type="text"
+              value={title}
+              onChange={e => setTitle(e.target.value)}
+              placeholder="What should we prioritize next?"
+              style={inputStyle}
+              maxLength={500}
+            />
+          </div>
 
-            {/* Options */}
-            <div style={fieldStyle}>
-              <label style={labelStyle}>
-                Options * (at least 2 required)
-              </label>
-              
-              {options.map((option, index) => (
+          {/* Description Field */}
+          <div style={fieldStyle}>
+            <label style={labelStyle}>
+              Description (optional)
+            </label>
+            <textarea
+              value={description}
+              onChange={e => setDescription(e.target.value)}
+              placeholder="Provide additional context about this poll..."
+              style={textareaStyle}
+              maxLength={2000}
+            />
+          </div>
+
+          {/* Options */}
+          <div style={fieldStyle}>
+            <label style={labelStyle}>
+              Options * (at least 2 required)
+            </label>
+            
+            {options.map((option, index) => (
+              <div 
+                key={index} 
+                style={optionContainerStyle}
+                onDragOver={handleDragOver}
+                onDrop={e => handleDrop(e, index)}
+              >
                 <div 
-                  key={index} 
-                  style={optionContainerStyle}
+                  style={dragHandleStyle}
                   draggable={true}
                   onDragStart={e => handleDragStart(e, index)}
-                  onDragOver={handleDragOver}
-                  onDrop={e => handleDrop(e, index)}
+                  onMouseDown={e => {
+                    e.currentTarget.style.cursor = 'grabbing';
+                  }}
+                  onMouseUp={e => {
+                    e.currentTarget.style.cursor = 'grab';
+                  }}
                 >
-                  <div 
-                    style={dragHandleStyle}
-                    onMouseDown={e => {
-                      e.currentTarget.style.cursor = 'grabbing';
+                  <GripVertical size={16} />
+                </div>
+                
+                <div style={optionFieldsStyle}>
+                  <input
+                    type="text"
+                    value={option.title}
+                    onChange={e => updateOptionTitle(index, e.target.value)}
+                    placeholder={`Option ${index + 1} Title`}
+                    style={optionTitleStyle}
+                    maxLength={200}
+                  />
+                  <textarea
+                    value={option.description || ''}
+                    onChange={e => updateOptionDescription(index, e.target.value)}
+                    placeholder={`Description for option ${index + 1} (optional)`}
+                    style={optionDescriptionStyle}
+                    maxLength={500}
+                  />
+                </div>
+                
+                {options.length > 2 && (
+                  <button
+                    type="button"
+                    onClick={() => removeOption(index)}
+                    style={removeButtonStyle}
+                    onMouseEnter={e => {
+                      e.currentTarget.style.backgroundColor = '#FEF2F2';
+                      e.currentTarget.style.borderColor = '#FECACA';
                     }}
-                    onMouseUp={e => {
-                      e.currentTarget.style.cursor = 'grab';
+                    onMouseLeave={e => {
+                      e.currentTarget.style.backgroundColor = '#FFFFFF';
+                      e.currentTarget.style.borderColor = '#E5E7EB';
                     }}
                   >
-                    <GripVertical size={16} />
-                  </div>
-                  
-                  <div style={optionFieldsStyle}>
-                    <input
-                      type="text"
-                      value={option.title}
-                      onChange={e => updateOptionTitle(index, e.target.value)}
-                      placeholder={`Option ${index + 1} Title`}
-                      style={optionTitleStyle}
-                      maxLength={200}
-                    />
-                    <textarea
-                      value={option.description || ''}
-                      onChange={e => updateOptionDescription(index, e.target.value)}
-                      placeholder={`Description for option ${index + 1} (optional)`}
-                      style={optionDescriptionStyle}
-                      maxLength={500}
-                    />
-                  </div>
-                  
-                  {options.length > 2 && (
-                    <button
-                      type="button"
-                      onClick={() => removeOption(index)}
-                      style={removeButtonStyle}
-                      onMouseEnter={e => {
-                        e.currentTarget.style.backgroundColor = '#FEF2F2';
-                        e.currentTarget.style.borderColor = '#FECACA';
-                      }}
-                      onMouseLeave={e => {
-                        e.currentTarget.style.backgroundColor = '#FFFFFF';
-                        e.currentTarget.style.borderColor = '#E5E7EB';
-                      }}
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  )}
-                </div>
-              ))}
-              
-              <button
-                type="button"
-                onClick={addOption}
-                style={addButtonStyle}
-                onMouseEnter={e => {
-                  e.currentTarget.style.backgroundColor = '#F9FAFB';
-                  e.currentTarget.style.borderColor = '#9CA3AF';
-                }}
-                onMouseLeave={e => {
-                  e.currentTarget.style.backgroundColor = 'transparent';
-                  e.currentTarget.style.borderColor = '#D1D5DB';
-                }}
-              >
-                <Plus size={16} />
-                Add Option
-              </button>
-            </div>
-          </div>
-
-          {/* Footer */}
-          <div style={footerStyle}>
-            <button
-              type="button"
-              onClick={handleClose}
-              style={cancelButtonStyle}
-              onMouseEnter={e => {
-                e.currentTarget.style.backgroundColor = '#F9FAFB';
-              }}
-              onMouseLeave={e => {
-                e.currentTarget.style.backgroundColor = '#FFFFFF';
-              }}
-            >
-              Cancel
-            </button>
+                    <Trash2 size={14} />
+                  </button>
+                )}
+              </div>
+            ))}
             
             <button
-              type="submit"
-              disabled={isSubmitting}
-              style={{
-                ...updateButtonStyle,
-                opacity: isSubmitting ? 0.7 : 1,
-                cursor: isSubmitting ? 'not-allowed' : 'pointer',
-              }}
+              type="button"
+              onClick={addOption}
+              style={addButtonStyle}
               onMouseEnter={e => {
-                if (!isSubmitting) {
-                  e.currentTarget.style.opacity = '0.9';
-                }
+                e.currentTarget.style.backgroundColor = '#F9FAFB';
+                e.currentTarget.style.borderColor = '#9CA3AF';
               }}
               onMouseLeave={e => {
-                if (!isSubmitting) {
-                  e.currentTarget.style.opacity = '1';
-                }
+                e.currentTarget.style.backgroundColor = 'transparent';
+                e.currentTarget.style.borderColor = '#D1D5DB';
               }}
             >
-              {isSubmitting ? (
-                <>
-                  <div style={{
-                    width: '16px',
-                    height: '16px',
-                    border: '2px solid currentColor',
-                    borderTopColor: 'transparent',
-                    borderRadius: '50%',
-                    animation: 'spin 1s linear infinite',
-                  }} />
-                  Updating...
-                </>
-              ) : (
-                'Update Poll'
-              )}
+              <Plus size={16} />
+              Add Option
             </button>
           </div>
-        </form>
+        </div>
+
+        {/* Footer */}
+        <div style={footerStyle}>
+          <button
+            type="button"
+            onClick={handleClose}
+            style={cancelButtonStyle}
+            onMouseEnter={e => {
+              e.currentTarget.style.backgroundColor = '#F9FAFB';
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.backgroundColor = '#FFFFFF';
+            }}
+          >
+            Cancel
+          </button>
+          
+          <button
+            type="submit"
+            onClick={handleSubmit}
+            disabled={isSubmitting}
+            style={{
+              ...updateButtonStyle,
+              opacity: isSubmitting ? 0.7 : 1,
+              cursor: isSubmitting ? 'not-allowed' : 'pointer',
+            }}
+            onMouseEnter={e => {
+              if (!isSubmitting) {
+                e.currentTarget.style.opacity = '0.9';
+              }
+            }}
+            onMouseLeave={e => {
+              if (!isSubmitting) {
+                e.currentTarget.style.opacity = '1';
+              }
+            }}
+          >
+            {isSubmitting ? (
+              <>
+                <div style={{
+                  width: '16px',
+                  height: '16px',
+                  border: '2px solid currentColor',
+                  borderTopColor: 'transparent',
+                  borderRadius: '50%',
+                  animation: 'spin 1s linear infinite',
+                }} />
+                Updating...
+              </>
+            ) : (
+              'Update Poll'
+            )}
+          </button>
+        </div>
       </div>
     </div>
   );

@@ -11,8 +11,6 @@ const Home: React.FC = () => {
   const { settings } = useAppSettings();
   const [showCreatePollDialog, setShowCreatePollDialog] = useState(false);
   const [showManagePollsDialog, setShowManagePollsDialog] = useState(false);
-  const [showCreatePostDialog, setShowCreatePostDialog] = useState(false);
-  const [showManagePostsDialog, setShowManagePostsDialog] = useState(false);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   // Squadron color theming
@@ -46,11 +44,10 @@ const Home: React.FC = () => {
   const contentStyle: React.CSSProperties = {
     maxWidth: '1400px',
     margin: '0 auto',
-    height: 'calc(100vh - 48px)',
     display: 'grid',
     gridTemplateColumns: '1fr 1fr',
     gap: '24px',
-    alignItems: 'stretch',
+    alignItems: 'start',
   };
 
   // Responsive breakpoint for mobile
@@ -82,10 +79,7 @@ const Home: React.FC = () => {
         />
 
         {/* Change Log Card */}
-        <ChangeLogCard
-          onCreatePost={() => setShowCreatePostDialog(true)}
-          onManagePosts={() => setShowManagePostsDialog(true)}
-        />
+        <ChangeLogCard />
       </div>
 
       {/* Poll Admin Dialogs */}
@@ -103,13 +97,6 @@ const Home: React.FC = () => {
         primaryColor={primaryColor}
       />
 
-      {/* Change Log Admin Dialogs - TODO: Implement */}
-      {showCreatePostDialog && (
-        <div>TODO: Create Post Dialog</div>
-      )}
-      {showManagePostsDialog && (
-        <div>TODO: Manage Posts Dialog</div>
-      )}
     </div>
   );
 };

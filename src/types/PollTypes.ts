@@ -42,6 +42,7 @@ export interface CreatePollRequest {
   title: string;
   description?: string;
   options: Omit<PollOption, 'id'>[];
+  created_at?: string;
 }
 
 export interface UpdatePollRequest {
@@ -50,6 +51,7 @@ export interface UpdatePollRequest {
   options?: Omit<PollOption, 'id'>[];
   is_active?: boolean;
   archived_at?: string | null;
+  created_at?: string;
 }
 
 export interface VoteRequest {

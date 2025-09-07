@@ -95,7 +95,7 @@ export const createPoll = async (poll: CreatePollRequest): Promise<Poll> => {
 
   console.log('createPoll: Options with IDs:', optionsWithIds);
 
-  const insertData = {
+  const insertData: any = {
     title: poll.title,
     description: poll.description || null,
     options: optionsWithIds,
@@ -104,6 +104,11 @@ export const createPoll = async (poll: CreatePollRequest): Promise<Poll> => {
     is_active: true,
     archived_at: null
   };
+
+  // Add custom creation time if provided
+  if (poll.created_at) {
+    insertData.created_at = poll.created_at;
+  }
 
   console.log('createPoll: Insert data:', insertData);
 
@@ -130,6 +135,7 @@ export const updatePoll = async (id: string, updates: UpdatePollRequest): Promis
   
   if (updates.title !== undefined) updateData.title = updates.title;
   if (updates.description !== undefined) updateData.description = updates.description || null;
+  if (updates.created_at !== undefined) updateData.created_at = updates.created_at;
   
   // Handle options update with proper IDs
   if (updates.options !== undefined) {

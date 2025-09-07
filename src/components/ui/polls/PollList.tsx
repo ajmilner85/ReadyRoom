@@ -23,7 +23,11 @@ const PollList: React.FC<PollListProps> = ({
     gap: '20px',
     flex: 1,
     overflowY: 'auto',
-    paddingRight: '4px', // Space for scrollbar
+    paddingRight: '12px', // Create space for centered scrollbar
+    marginRight: '-12px', // Pull container back to use the space
+    // Firefox scrollbar styling
+    scrollbarWidth: 'thin',
+    scrollbarColor: '#CBD5E0 transparent',
   };
 
   // Sort polls by creation date (newest first)
@@ -32,18 +36,37 @@ const PollList: React.FC<PollListProps> = ({
   );
 
   return (
-    <div style={containerStyle}>
-      {sortedPolls.map(poll => (
-        <PollItem
-          key={poll.id}
-          poll={poll}
-          onVote={onVote}
-          onRemoveVote={onRemoveVote}
-          primaryColor={primaryColor}
-          accentColor={accentColor}
-        />
-      ))}
-    </div>
+    <>
+      <style>{`
+        .poll-list-container::-webkit-scrollbar {
+          width: 12px; /* Match the padding/margin space */
+        }
+        .poll-list-container::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        .poll-list-container::-webkit-scrollbar-thumb {
+          background-color: #CBD5E0;
+          border-radius: 6px;
+          border: 2px solid transparent;
+          background-clip: padding-box;
+        }
+        .poll-list-container::-webkit-scrollbar-thumb:hover {
+          background-color: #9CA3AF;
+        }
+      `}</style>
+      <div className="poll-list-container" style={containerStyle}>
+        {sortedPolls.map(poll => (
+          <PollItem
+            key={poll.id}
+            poll={poll}
+            onVote={onVote}
+            onRemoveVote={onRemoveVote}
+            primaryColor={primaryColor}
+            accentColor={accentColor}
+          />
+        ))}
+      </div>
+    </>
   );
 };
 
