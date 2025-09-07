@@ -88,6 +88,12 @@ export interface UserPermissions {
   canAccessAdminTools: boolean;                  // Global only
   canViewOwnProfile: boolean;                    // Global only
   
+  // Polls and Change Log (global only)
+  canManagePolls: boolean;                       // Global only
+  canVoteInPolls: boolean;                       // Global only
+  canManageChangeLog: boolean;                   // Global only
+  canReactToPosts: boolean;                      // Global only
+  
   // Meta information
   bases: PermissionBasis[];
   calculatedAt: Date;
@@ -270,5 +276,7 @@ export const BASE_AUTHENTICATED_PERMISSIONS = [
   'view_own_profile',
   'access_settings',
   'view_public_roster', 
-  'access_home'
+  'access_home',
+  'vote_in_polls',
+  'react_to_posts'
 ];

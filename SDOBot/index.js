@@ -81,6 +81,468 @@ app.head('/api/health', (req, res) => {
   res.status(200).end();
 });
 
+// ====================
+// POLLS API ENDPOINTS
+// ====================
+
+// Get all active polls with results
+app.get('/api/polls', async (req, res) => {
+  try {
+    const { include_archived } = req.query;
+    
+    let query = supabase
+      .from('polls')
+      .select(`
+        id,
+        title, 
+        description,
+        options,
+        votes,
+        active,
+        archived,
+        created_at,
+        updated_at,
+        created_by
+      `)
+      .eq('active', true);
+    
+    if (include_archived !== 'true') {
+      query = query.eq('archived', false);
+    }
+    
+    query = query.order('created_at', { ascending: false });
+    
+    const { data: polls, error } = await query;
+    
+    if (error) {
+      throw error;
+    }
+    
+    // Calculate results for each poll
+    const pollsWithResults = polls.map(poll => {
+      const results = {};
+      const totalVotes = poll.votes.length;
+      
+      // Initialize results for all options
+      poll.options.forEach(option => {
+        results[option.id] = {
+          count: 0,
+          percentage: 0,
+          voters: [],
+        };
+      });
+      
+      // Count votes
+      poll.votes.forEach(vote => {
+        if (results[vote.option_id]) {
+          results[vote.option_id].count++;
+          results[vote.option_id].voters.push(vote.user_id);
+        }
+      });
+      
+      // Calculate percentages
+      Object.keys(results).forEach(optionId => {
+        if (totalVotes > 0) {
+          results[optionId].percentage = Math.round((results[optionId].count / totalVotes) * 100);
+        }
+      });
+      
+      return {
+        ...poll,
+        results,
+        totalVotes,
+      };
+    });
+    
+    res.json(pollsWithResults);
+  } catch (error) {
+    console.error('[ERROR] Error fetching polls:', error);
+    res.status(500).json({ error: error.message || 'Failed to fetch polls' });
+  }
+});
+
+// Get a specific poll by ID with results
+app.get('/api/polls/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const { data: poll, error } = await supabase
+      .from('polls')
+      .select(`
+        id,
+        title, 
+        description,
+        options,
+        votes,
+        active,
+        archived,
+        created_at,
+        updated_at,
+        created_by
+      `)
+      .eq('id', id)
+      .single();
+    
+    if (error) {
+      throw error;
+    }
+    
+    if (!poll) {
+      return res.status(404).json({ error: 'Poll not found' });
+    }
+    
+    // Calculate results
+    const results = {};
+    const totalVotes = poll.votes.length;
+    
+    poll.options.forEach(option => {
+      results[option.id] = {
+        count: 0,
+        percentage: 0,
+        voters: [],
+      };
+    });
+    
+    poll.votes.forEach(vote => {
+      if (results[vote.option_id]) {
+        results[vote.option_id].count++;
+        results[vote.option_id].voters.push(vote.user_id);
+      }
+    });
+    
+    Object.keys(results).forEach(optionId => {
+      if (totalVotes > 0) {
+        results[optionId].percentage = Math.round((results[optionId].count / totalVotes) * 100);
+      }
+    });
+    
+    const pollWithResults = {
+      ...poll,
+      results,
+      totalVotes,
+    };
+    
+    res.json(pollWithResults);
+  } catch (error) {
+    console.error('[ERROR] Error fetching poll:', error);
+    res.status(500).json({ error: error.message || 'Failed to fetch poll' });
+  }
+});
+
+// Create a new poll
+app.post('/api/polls', async (req, res) => {
+  try {
+    const { title, description, options } = req.body;
+    
+    if (!title || !options || !Array.isArray(options) || options.length < 2) {
+      return res.status(400).json({ 
+        error: 'Title and at least 2 options are required' 
+      });
+    }
+    
+    // TODO: Get actual user ID from authentication context
+    // For now, using a placeholder - you'll need to implement proper auth middleware
+    const createdBy = 'placeholder-user-id';
+    
+    // Generate IDs for options
+    const processedOptions = options.map((option, index) => ({
+      id: `opt_${Date.now()}_${index}`,
+      text: option.text,
+      order: option.order || index + 1
+    }));
+    
+    const { data: poll, error } = await supabase
+      .from('polls')
+      .insert({
+        title,
+        description,
+        options: processedOptions,
+        votes: [],
+        active: true,
+        archived: false,
+        created_by: createdBy
+      })
+      .select()
+      .single();
+    
+    if (error) {
+      throw error;
+    }
+    
+    res.status(201).json(poll);
+  } catch (error) {
+    console.error('[ERROR] Error creating poll:', error);
+    res.status(500).json({ error: error.message || 'Failed to create poll' });
+  }
+});
+
+// Update a poll
+app.put('/api/polls/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { title, description, options, active, archived } = req.body;
+    
+    const updateData = {};
+    
+    if (title !== undefined) updateData.title = title;
+    if (description !== undefined) updateData.description = description;
+    if (active !== undefined) updateData.active = active;
+    if (archived !== undefined) updateData.archived = archived;
+    
+    if (options && Array.isArray(options)) {
+      // Process options with IDs
+      updateData.options = options.map((option, index) => ({
+        id: option.id || `opt_${Date.now()}_${index}`,
+        text: option.text,
+        order: option.order || index + 1
+      }));
+    }
+    
+    const { data: poll, error } = await supabase
+      .from('polls')
+      .update(updateData)
+      .eq('id', id)
+      .select()
+      .single();
+    
+    if (error) {
+      throw error;
+    }
+    
+    if (!poll) {
+      return res.status(404).json({ error: 'Poll not found' });
+    }
+    
+    res.json(poll);
+  } catch (error) {
+    console.error('[ERROR] Error updating poll:', error);
+    res.status(500).json({ error: error.message || 'Failed to update poll' });
+  }
+});
+
+// Delete a poll
+app.delete('/api/polls/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const { error } = await supabase
+      .from('polls')
+      .delete()
+      .eq('id', id);
+    
+    if (error) {
+      throw error;
+    }
+    
+    res.status(204).send();
+  } catch (error) {
+    console.error('[ERROR] Error deleting poll:', error);
+    res.status(500).json({ error: error.message || 'Failed to delete poll' });
+  }
+});
+
+// Archive/unarchive a poll
+app.post('/api/polls/:id/archive', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { archived = true } = req.body;
+    
+    const { data: poll, error } = await supabase
+      .from('polls')
+      .update({ archived })
+      .eq('id', id)
+      .select()
+      .single();
+    
+    if (error) {
+      throw error;
+    }
+    
+    if (!poll) {
+      return res.status(404).json({ error: 'Poll not found' });
+    }
+    
+    res.json(poll);
+  } catch (error) {
+    console.error('[ERROR] Error archiving poll:', error);
+    res.status(500).json({ error: error.message || 'Failed to archive poll' });
+  }
+});
+
+// Activate/deactivate a poll
+app.post('/api/polls/:id/activate', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { active = true } = req.body;
+    
+    const { data: poll, error } = await supabase
+      .from('polls')
+      .update({ active })
+      .eq('id', id)
+      .select()
+      .single();
+    
+    if (error) {
+      throw error;
+    }
+    
+    if (!poll) {
+      return res.status(404).json({ error: 'Poll not found' });
+    }
+    
+    res.json(poll);
+  } catch (error) {
+    console.error('[ERROR] Error activating poll:', error);
+    res.status(500).json({ error: error.message || 'Failed to activate poll' });
+  }
+});
+
+// Submit or update a vote
+app.post('/api/polls/:id/vote', async (req, res) => {
+  try {
+    const { id: pollId } = req.params;
+    const { option_id } = req.body;
+    
+    if (!option_id) {
+      return res.status(400).json({ error: 'option_id is required' });
+    }
+    
+    // TODO: Get actual user ID from authentication context
+    const userId = 'placeholder-user-id';
+    
+    // Get the current poll
+    const { data: poll, error: fetchError } = await supabase
+      .from('polls')
+      .select('votes, options, active')
+      .eq('id', pollId)
+      .single();
+    
+    if (fetchError) {
+      throw fetchError;
+    }
+    
+    if (!poll) {
+      return res.status(404).json({ error: 'Poll not found' });
+    }
+    
+    if (!poll.active) {
+      return res.status(400).json({ error: 'Poll is not active' });
+    }
+    
+    // Validate option exists
+    const validOption = poll.options.find(opt => opt.id === option_id);
+    if (!validOption) {
+      return res.status(400).json({ error: 'Invalid option_id' });
+    }
+    
+    // Remove any existing vote from this user
+    const updatedVotes = poll.votes.filter(vote => vote.user_id !== userId);
+    
+    // Add the new vote
+    updatedVotes.push({
+      user_id: userId,
+      option_id,
+      timestamp: new Date().toISOString()
+    });
+    
+    // Update the poll
+    const { error: updateError } = await supabase
+      .from('polls')
+      .update({ votes: updatedVotes })
+      .eq('id', pollId);
+    
+    if (updateError) {
+      throw updateError;
+    }
+    
+    res.status(204).send();
+  } catch (error) {
+    console.error('[ERROR] Error voting in poll:', error);
+    res.status(500).json({ error: error.message || 'Failed to submit vote' });
+  }
+});
+
+// Remove a vote
+app.delete('/api/polls/:id/vote', async (req, res) => {
+  try {
+    const { id: pollId } = req.params;
+    
+    // TODO: Get actual user ID from authentication context
+    const userId = 'placeholder-user-id';
+    
+    // Get the current poll
+    const { data: poll, error: fetchError } = await supabase
+      .from('polls')
+      .select('votes')
+      .eq('id', pollId)
+      .single();
+    
+    if (fetchError) {
+      throw fetchError;
+    }
+    
+    if (!poll) {
+      return res.status(404).json({ error: 'Poll not found' });
+    }
+    
+    // Remove user's vote
+    const updatedVotes = poll.votes.filter(vote => vote.user_id !== userId);
+    
+    // Update the poll
+    const { error: updateError } = await supabase
+      .from('polls')
+      .update({ votes: updatedVotes })
+      .eq('id', pollId);
+    
+    if (updateError) {
+      throw updateError;
+    }
+    
+    res.status(204).send();
+  } catch (error) {
+    console.error('[ERROR] Error removing vote:', error);
+    res.status(500).json({ error: error.message || 'Failed to remove vote' });
+  }
+});
+
+// Get updates for real-time polling
+app.get('/api/polls/updates', async (req, res) => {
+  try {
+    const { since } = req.query;
+    const sinceTimestamp = since ? new Date(parseInt(since)) : new Date(0);
+    
+    let query = supabase
+      .from('polls')
+      .select('id, votes, updated_at')
+      .eq('active', true)
+      .eq('archived', false);
+    
+    if (since) {
+      query = query.gte('updated_at', sinceTimestamp.toISOString());
+    }
+    
+    const { data: polls, error } = await query;
+    
+    if (error) {
+      throw error;
+    }
+    
+    // Format response as updates object
+    const updates = {};
+    polls.forEach(poll => {
+      updates[poll.id] = {
+        votes: poll.votes,
+        timestamp: new Date(poll.updated_at).getTime()
+      };
+    });
+    
+    res.json(updates);
+  } catch (error) {
+    console.error('[ERROR] Error fetching poll updates:', error);
+    res.status(500).json({ error: error.message || 'Failed to fetch updates' });
+  }
+});
+
 // API endpoint to save reference timezone setting
 app.post('/api/settings/timezone', async (req, res) => {
   try {

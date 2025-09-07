@@ -1,7 +1,7 @@
 import React from 'react';
 
 interface LoadingSpinnerProps {
-  size?: 'small' | 'medium' | 'large';
+  size?: 'sm' | 'small' | 'medium' | 'large';
   color?: string;
 }
 
@@ -11,6 +11,7 @@ const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({
 }) => {
   // Size mapping with reduced sizes
   const sizeMap = {
+    sm: 14,
     small: 18,
     medium: 32,
     large: 48
