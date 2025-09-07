@@ -3,9 +3,16 @@ import React from 'react';
 interface MarkdownRendererProps {
   content: string;
   primaryColor: string;
+  headingColor?: string;
+  textColor?: string;
 }
 
-const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, primaryColor }) => {
+const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ 
+  content, 
+  primaryColor, 
+  headingColor = '#1F2937', 
+  textColor = '#6B7280' 
+}) => {
   // Basic markdown rendering - for production, consider using a library like marked or remark
   const renderMarkdown = (text: string): string => {
     return text
@@ -64,8 +71,8 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, primaryCol
   const renderedContent = cleanupLists(renderMarkdown(content));
 
   const containerStyle: React.CSSProperties = {
-    lineHeight: '1.6',
-    color: '#374151',
+    lineHeight: '1.5',
+    color: textColor,
     fontSize: '14px',
   };
 
@@ -74,7 +81,7 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, primaryCol
     .md-h1 {
       font-size: 20px;
       font-weight: 600;
-      color: #1F2937;
+      color: ${headingColor};
       margin: 0 0 12px 0;
       line-height: 1.3;
     }
@@ -82,7 +89,7 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, primaryCol
     .md-h2 {
       font-size: 18px;
       font-weight: 600;
-      color: #1F2937;
+      color: ${headingColor};
       margin: 16px 0 8px 0;
       line-height: 1.3;
     }
@@ -90,7 +97,7 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, primaryCol
     .md-h3 {
       font-size: 16px;
       font-weight: 600;
-      color: #1F2937;
+      color: ${headingColor};
       margin: 12px 0 6px 0;
       line-height: 1.3;
     }

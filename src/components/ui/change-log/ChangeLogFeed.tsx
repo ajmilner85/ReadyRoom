@@ -39,7 +39,11 @@ const ChangeLogFeed: React.FC<ChangeLogFeedProps> = ({
   const scrollAreaStyle: React.CSSProperties = {
     flex: 1,
     overflowY: 'auto',
-    paddingRight: '4px', // Space for scrollbar
+    paddingRight: '12px', // Create space for centered scrollbar
+    marginRight: '-12px', // Pull container back to use the space
+    // Firefox scrollbar styling
+    scrollbarWidth: 'thin',
+    scrollbarColor: '#CBD5E0 transparent',
   };
 
   const feedStyle: React.CSSProperties = {
@@ -119,7 +123,24 @@ const ChangeLogFeed: React.FC<ChangeLogFeedProps> = ({
 
   return (
     <div style={containerStyle}>
-      <div ref={scrollContainerRef} style={scrollAreaStyle}>
+      <style>{`
+        .changelog-scroll-container::-webkit-scrollbar {
+          width: 12px; /* Match the padding/margin space */
+        }
+        .changelog-scroll-container::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        .changelog-scroll-container::-webkit-scrollbar-thumb {
+          background-color: #CBD5E0;
+          border-radius: 6px;
+          border: 2px solid transparent;
+          background-clip: padding-box;
+        }
+        .changelog-scroll-container::-webkit-scrollbar-thumb:hover {
+          background-color: #9CA3AF;
+        }
+      `}</style>
+      <div ref={scrollContainerRef} className="changelog-scroll-container" style={scrollAreaStyle}>
         <div style={feedStyle}>
           {posts.map(post => (
             <ChangeLogPost

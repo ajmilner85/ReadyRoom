@@ -71,6 +71,7 @@ const ChangeLogPost: React.FC<ChangeLogPostProps> = ({
   const headerStyle: React.CSSProperties = {
     padding: '16px 20px 12px 20px',
     borderBottom: '1px solid #F3F4F6',
+    backgroundColor: '#F9FAFB',
   };
 
   const titleStyle: React.CSSProperties = {
@@ -105,6 +106,7 @@ const ChangeLogPost: React.FC<ChangeLogPostProps> = ({
     justifyContent: 'space-between',
     padding: '12px 20px 16px 20px',
     borderTop: '1px solid #F3F4F6',
+    backgroundColor: '#F9FAFB',
   };
 
   const reactionsStyle: React.CSSProperties = {
@@ -125,6 +127,9 @@ const ChangeLogPost: React.FC<ChangeLogPostProps> = ({
     fontSize: '12px',
     fontWeight: 500,
     transition: 'all 0.2s ease',
+    minWidth: '56px', // Ensure consistent minimum width
+    minHeight: '28px', // Ensure consistent height
+    justifyContent: 'center',
   });
 
   const statsStyle: React.CSSProperties = {
@@ -158,6 +163,8 @@ const ChangeLogPost: React.FC<ChangeLogPostProps> = ({
         <MarkdownRenderer 
           content={post.content} 
           primaryColor={primaryColor}
+          headingColor="#1F2937"
+          textColor="#6B7280"
         />
       </div>
 

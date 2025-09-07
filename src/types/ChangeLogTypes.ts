@@ -10,7 +10,7 @@ export interface ChangeLogPost {
   title: string;
   content: string; // markdown content
   reactions: ChangeLogReactions;
-  archived: boolean;
+  is_archived: boolean;
   created_at: string;
   updated_at: string;
   created_by: string;
@@ -28,10 +28,14 @@ export interface ChangeLogPostWithStats extends ChangeLogPost {
 export interface CreatePostRequest {
   title: string;
   content: string; // markdown
+  created_at?: string; // optional custom creation timestamp
 }
 
-export interface UpdatePostRequest extends CreatePostRequest {
-  archived?: boolean;
+export interface UpdatePostRequest {
+  title?: string;
+  content?: string; // markdown
+  is_archived?: boolean;
+  created_at?: string; // optional custom creation timestamp
 }
 
 export interface ReactionRequest {

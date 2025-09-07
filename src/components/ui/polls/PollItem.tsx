@@ -193,7 +193,7 @@ const PollItem: React.FC<PollItemProps> = ({
                       Voting...
                     </>
                   ) : (
-                    <div style={{ flex: 1, maxWidth: '75%' }}>
+                    <div style={{ flex: 1, minWidth: 0, marginRight: '16px' }}>
                       <div style={{ 
                         fontWeight: 500,
                         fontSize: '14px',
@@ -207,7 +207,8 @@ const PollItem: React.FC<PollItemProps> = ({
                           color: '#6B7280',
                           marginTop: '4px',
                           lineHeight: '1.4',
-                          wordWrap: 'break-word'
+                          wordWrap: 'break-word',
+                          whiteSpace: 'normal'
                         }}>
                           {(option as any).description}
                         </div>

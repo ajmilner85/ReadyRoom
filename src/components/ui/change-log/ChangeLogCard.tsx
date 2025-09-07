@@ -1,23 +1,26 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Plus, FileText, Settings } from 'lucide-react';
 import { useChangeLog } from '../../../hooks/useChangeLog';
 import { usePermissions } from '../../../hooks/usePermissions';
 import { useAppSettings } from '../../../context/AppSettingsContext';
 import ChangeLogFeed from './ChangeLogFeed';
 import LoadingSpinner from '../LoadingSpinner';
+import CreatePostDialog from './CreatePostDialog';
+import PostManagementDialog from './PostManagementDialog';
 
 interface ChangeLogCardProps {
-  onCreatePost?: () => void;
-  onManagePosts?: () => void;
+  // No external handlers needed - component manages its own dialogs
 }
 
-const ChangeLogCard: React.FC<ChangeLogCardProps> = ({ onCreatePost, onManagePosts }) => {
-  const { posts, loading, error, hasMore, loadMore, react, removeReaction } = useChangeLog();
-  const { hasPermission } = usePermissions();
+const ChangeLogCard: React.FC<ChangeLogCardProps> = () => {
+  const { posts, loading, error, hasMore, loadMore, react, removeReaction, refresh } = useChangeLog();
+  const { permissions } = usePermissions();
   const { settings } = useAppSettings();
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [showManageDialog, setShowManageDialog] = useState(false);
 
-  const canManageChangeLog = hasPermission('manage_change_log');
-  const canReactToPosts = hasPermission('react_to_posts');
+  const canManageChangeLog = permissions?.canManageChangeLog || false;
+  const canReactToPosts = permissions?.canReactToPosts || false;
 
   // Squadron color theming
   const useSquadronColors = settings.interfaceThemeUsesSquadronColors;
@@ -28,10 +31,12 @@ const ChangeLogCard: React.FC<ChangeLogCardProps> = ({ onCreatePost, onManagePos
     backgroundColor: '#FFFFFF',
     borderRadius: '8px',
     border: '1px solid #E2E8F0',
-    height: '100%',
+    height: 'calc(100vh - 48px)',
+    maxHeight: 'calc(100vh - 48px)',
     display: 'flex',
     flexDirection: 'column',
     boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
+    overflow: 'hidden',
   };
 
   const headerStyle: React.CSSProperties = {
@@ -45,7 +50,7 @@ const ChangeLogCard: React.FC<ChangeLogCardProps> = ({ onCreatePost, onManagePos
   const titleStyle: React.CSSProperties = {
     fontSize: '20px',
     fontWeight: 300,
-    color: '#1F2937',
+    color: '#64748B',
     textTransform: 'uppercase',
     letterSpacing: '0.5px',
     textAlign: 'center',
@@ -80,11 +85,11 @@ const ChangeLogCard: React.FC<ChangeLogCardProps> = ({ onCreatePost, onManagePos
 
   const contentStyle: React.CSSProperties = {
     flex: 1,
-    padding: '0 16px 16px 16px',
-    overflow: 'hidden',
+    padding: '0 16px 16px 16px', // Restore normal padding
     display: 'flex',
     flexDirection: 'column',
     minHeight: 0, // Important for flex child with overflow
+    overflow: 'hidden', // Prevent content from expanding beyond bounds
   };
 
   const emptyStateStyle: React.CSSProperties = {
@@ -130,38 +135,34 @@ const ChangeLogCard: React.FC<ChangeLogCardProps> = ({ onCreatePost, onManagePos
         <div style={titleStyle}>Change Log</div>
         {canManageChangeLog && (
           <div style={actionsStyle}>
-            {onManagePosts && (
-              <button
-                onClick={onManagePosts}
-                style={buttonStyle}
-                onMouseEnter={e => {
-                  e.currentTarget.style.backgroundColor = '#F3F4F6';
-                  e.currentTarget.style.borderColor = '#9CA3AF';
-                }}
-                onMouseLeave={e => {
-                  e.currentTarget.style.backgroundColor = '#FFFFFF';
-                  e.currentTarget.style.borderColor = '#D1D5DB';
-                }}
-                title="Manage Posts"
-              >
-                <Settings size={16} />
-              </button>
-            )}
-            {onCreatePost && (
-              <button
-                onClick={onCreatePost}
-                style={createButtonStyle}
-                onMouseEnter={e => {
-                  e.currentTarget.style.opacity = '0.9';
-                }}
-                onMouseLeave={e => {
-                  e.currentTarget.style.opacity = '1';
-                }}
-                title="Create Post"
-              >
-                <Plus size={16} />
-              </button>
-            )}
+            <button
+              onClick={() => setShowManageDialog(true)}
+              style={buttonStyle}
+              onMouseEnter={e => {
+                e.currentTarget.style.backgroundColor = '#F3F4F6';
+                e.currentTarget.style.borderColor = '#9CA3AF';
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.backgroundColor = '#FFFFFF';
+                e.currentTarget.style.borderColor = '#D1D5DB';
+              }}
+              title="Manage Posts"
+            >
+              <Settings size={16} />
+            </button>
+            <button
+              onClick={() => setShowCreateDialog(true)}
+              style={createButtonStyle}
+              onMouseEnter={e => {
+                e.currentTarget.style.opacity = '0.9';
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.opacity = '1';
+              }}
+              title="Create Post"
+            >
+              <Plus size={16} />
+            </button>
           </div>
         )}
       </div>
@@ -197,6 +198,25 @@ const ChangeLogCard: React.FC<ChangeLogCardProps> = ({ onCreatePost, onManagePos
           />
         )}
       </div>
+
+      {/* Create Post Dialog */}
+      <CreatePostDialog
+        isOpen={showCreateDialog}
+        onClose={() => setShowCreateDialog(false)}
+        onPostCreated={() => {
+          setShowCreateDialog(false);
+          refresh();
+        }}
+        primaryColor={primaryColor}
+      />
+
+      {/* Post Management Dialog */}
+      <PostManagementDialog
+        isOpen={showManageDialog}
+        onClose={() => setShowManageDialog(false)}
+        onPostUpdated={refresh}
+        primaryColor={primaryColor}
+      />
     </div>
   );
 };
