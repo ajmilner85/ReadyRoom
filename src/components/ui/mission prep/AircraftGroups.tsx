@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import { Card } from '../card';
 import { styles } from '../../../styles/MissionPrepStyles';
 
@@ -150,7 +150,10 @@ const AircraftGroups: React.FC<AircraftGroupsProps> = ({
     return groups;
   };
 
-  const filteredGroups = getAircraftGroups();
+  const filteredGroups = useMemo(() => getAircraftGroups(), [missionData, aircraftType]);
+  
+  // Use a ref to track if we've already processed this mission data to prevent infinite loops
+  const processedMissionRef = useRef<string | null>(null);
 
   // Call onExtractedFlights when groups are available
   useEffect(() => {
@@ -161,14 +164,23 @@ const AircraftGroups: React.FC<AircraftGroupsProps> = ({
       groups: filteredGroups.map(g => ({ name: g.name, units: g.units.length }))
     });
     
+    // Create a unique identifier for this mission data + aircraftType combination
+    const missionKey = `${aircraftType}-${filteredGroups.length}-${filteredGroups.map(g => g.name).join(',')}`;
+    
     if (onExtractedFlights && aircraftType === 'FA-18C_hornet' && filteredGroups.length > 0) {
-      console.log('✈️ AircraftGroups: Calling onExtractedFlights with', filteredGroups.length, 'F/A-18C groups');
-      console.log('✈️ AircraftGroups: Group details:', filteredGroups.map(g => ({
-        name: g.name,
-        unitCount: g.units.length,
-        unitTypes: g.units.map(u => u.type)
-      })));
-      onExtractedFlights(filteredGroups);
+      // Only call onExtractedFlights if we haven't already processed this exact mission data
+      if (processedMissionRef.current !== missionKey) {
+        console.log('✈️ AircraftGroups: Calling onExtractedFlights with', filteredGroups.length, 'F/A-18C groups');
+        console.log('✈️ AircraftGroups: Group details:', filteredGroups.map(g => ({
+          name: g.name,
+          unitCount: g.units.length,
+          unitTypes: g.units.map(u => u.type)
+        })));
+        processedMissionRef.current = missionKey;
+        onExtractedFlights(filteredGroups);
+      } else {
+        console.log('⚠️ AircraftGroups: Skipping duplicate processing for mission key:', missionKey);
+      }
     } else {
       console.log('⚠️ AircraftGroups: Not calling onExtractedFlights because:', {
         noCallback: !onExtractedFlights,
