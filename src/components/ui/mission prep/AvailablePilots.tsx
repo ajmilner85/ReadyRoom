@@ -354,7 +354,8 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
 
     // *** NEW: Update the assignedPilots state in the parent component ***
     setAssignedPilots((prevAssignedPilots: Record<string, AssignedPilot[]>) => { // Add type for prevAssignedPilots
-      // console.log('[ROLL-CALL-DEBUG] Updating parent assignedPilots state. Prev state:', JSON.stringify(prevAssignedPilots)); // LOGGING
+      console.log(`[ROLL-CALL-UPDATE-DEBUG] Updating parent assignedPilots state for ${pilotId} with response ${responseValue}`);
+      console.log('[ROLL-CALL-UPDATE-DEBUG] Previous state:', JSON.stringify(prevAssignedPilots));
       let needsUpdate = false;
       const nextAssignedPilots = { ...prevAssignedPilots }; // Shallow copy
 
@@ -388,7 +389,10 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
         }
       }
 
-      // console.log(`[ROLL-CALL-DEBUG] Finished processing. needsUpdate: ${needsUpdate}. Next state:`, JSON.stringify(nextAssignedPilots)); // LOGGING
+      console.log(`[ROLL-CALL-UPDATE-DEBUG] Finished processing. needsUpdate: ${needsUpdate}`);
+      if (needsUpdate) {
+        console.log('[ROLL-CALL-UPDATE-DEBUG] Next state:', JSON.stringify(nextAssignedPilots));
+      }
       // Only return the new object if an update actually occurred
       return needsUpdate ? nextAssignedPilots : prevAssignedPilots;
     });
@@ -503,6 +507,9 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
       // Add roll call status first (higher priority)
       if (pilotId && rollCallResponses[pilotId]) {
         pilotCopy.rollCallStatus = rollCallResponses[pilotId];
+        console.log(`[ROLL-CALL-DEBUG] Applied roll call status to ${pilotCopy.callsign}: ${rollCallResponses[pilotId]}`);
+      } else if (pilotId) {
+        console.log(`[ROLL-CALL-DEBUG] No roll call status for ${pilotCopy.callsign} (pilotId: ${pilotId}), available responses:`, Object.keys(rollCallResponses));
       }
       
       // Then add Discord attendance status (lower priority)
@@ -1041,22 +1048,71 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
             }}>
               {/* Main Auto Assign Button */}
               <button
-                onClick={() => {
+                onClick={async () => {
                   if (onAutoAssign) {
-                    // Prepare pilot data including both Discord and Roll Call statuses
-                    const pilotsForAutoAssign = pilotsWithAttendanceStatus
-                      .map(pilot => ({
-                        // Include all necessary pilot fields for autoAssignUtils
-                        ...pilot, 
-                        // Ensure both statuses are explicitly passed
-                        attendanceStatus: pilot.attendanceStatus, 
-                        rollCallStatus: pilot.rollCallStatus 
-                      }));
+                    // First, sync the latest roll call data from Discord to ensure we have fresh data
+                    let freshRollCallResponses = { ...rollCallResponses };
                     
-                    // console.log('[ROLL-CALL-DEBUG] Passing pilots to onAutoAssign:', pilotsForAutoAssign.map(p => ({ c: p.callsign, d: p.attendanceStatus, r: p.rollCallStatus }))); // LOGGING
+                    if (selectedEvent?.discordEventId) {
+                      console.log('[ROLL-CALL-DEBUG] Syncing fresh roll call data from Discord before auto-assign...');
+                      try {
+                        const freshRollCallData = await syncRollCallResponses(selectedEvent.discordEventId);
+                        console.log('[ROLL-CALL-DEBUG] Fresh roll call data from Discord:', freshRollCallData);
+                        
+                        // Convert Discord ID based responses to pilot ID based responses
+                        const freshPilotResponses: Record<string, 'Present' | 'Absent' | 'Tentative'> = {};
+                        
+                        pilots.forEach(pilot => {
+                          const pilotId = pilot.id || pilot.boardNumber;
+                          const discordId = pilot.discordId || (pilot as any).discord_original_id || (pilot as any).discord_id;
+                          
+                          if (discordId && freshRollCallData[discordId]) {
+                            freshPilotResponses[pilotId] = freshRollCallData[discordId];
+                          }
+                        });
+                        
+                        console.log('[ROLL-CALL-DEBUG] Converted fresh responses to pilot IDs:', freshPilotResponses);
+                        freshRollCallResponses = freshPilotResponses;
+                        
+                        // Update local state with fresh data
+                        setRollCallResponses(freshRollCallResponses);
+                      } catch (error) {
+                        console.error('[ROLL-CALL-DEBUG] Error syncing roll call data:', error);
+                        // Continue with existing data if sync fails
+                      }
+                    }
+
+                    // Prepare pilot data with fresh roll call data
+                    const pilotsForAutoAssign = pilots
+                      .map(pilot => {
+                        const pilotId = pilot.id || pilot.boardNumber;
+                        const discordId = pilot.discordId || (pilot as any).discord_original_id || (pilot as any).discord_id;
+                        
+                        // Apply fresh roll call status
+                        let rollCallStatus = freshRollCallResponses[pilotId];
+                        
+                        // Apply Discord attendance status
+                        let attendanceStatus: 'accepted' | 'tentative' | 'declined' | undefined;
+                        if (discordId) {
+                          const attendanceRecord = realtimeAttendanceData.find(record => record.discord_id === discordId);
+                          if (attendanceRecord) {
+                            if (attendanceRecord.response === 'tentative') attendanceStatus = 'tentative';
+                            else if (attendanceRecord.response === 'accepted') attendanceStatus = 'accepted';
+                            else if (attendanceRecord.response === 'declined') attendanceStatus = 'declined';
+                          }
+                        }
+                        
+                        return {
+                          ...pilot, 
+                          attendanceStatus, 
+                          rollCallStatus 
+                        };
+                      });
+                    
+                    console.log('[ROLL-CALL-DEBUG] Final pilot data for auto-assign:', pilotsForAutoAssign.map(p => ({ c: p.callsign, d: p.attendanceStatus, r: p.rollCallStatus })));
                     
                     // Pass the enriched pilot data array directly
-                    onAutoAssign(pilotsForAutoAssign); // Pass the full Pilot objects
+                    onAutoAssign(pilotsForAutoAssign);
                   }
                 }}
                 style={{
