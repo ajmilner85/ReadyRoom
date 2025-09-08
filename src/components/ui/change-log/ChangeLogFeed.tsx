@@ -12,7 +12,6 @@ interface ChangeLogFeedProps {
   onReact?: (postId: string, type: 'thumbs_up' | 'thumbs_down') => Promise<void>;
   onRemoveReaction?: (postId: string) => Promise<void>;
   primaryColor: string;
-  accentColor: string;
 }
 
 const ChangeLogFeed: React.FC<ChangeLogFeedProps> = ({ 
@@ -22,8 +21,7 @@ const ChangeLogFeed: React.FC<ChangeLogFeedProps> = ({
   onLoadMore, 
   onReact, 
   onRemoveReaction, 
-  primaryColor, 
-  accentColor 
+  primaryColor 
 }) => {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [showScrollButton, setShowScrollButton] = useState(false);
@@ -149,7 +147,6 @@ const ChangeLogFeed: React.FC<ChangeLogFeedProps> = ({
               onReact={onReact}
               onRemoveReaction={onRemoveReaction}
               primaryColor={primaryColor}
-              accentColor={accentColor}
             />
           ))}
         </div>

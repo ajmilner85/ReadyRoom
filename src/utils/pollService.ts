@@ -6,7 +6,7 @@ export const getActivePolls = async (): Promise<PollWithResults[]> => {
   console.log('getActivePolls: Starting query...');
   
   const { data: polls, error } = await supabase
-    .from('polls')
+    .from('polls' as any)
     .select('*')
     .eq('is_active', true)
     .is('archived_at', null)
@@ -21,7 +21,7 @@ export const getActivePolls = async (): Promise<PollWithResults[]> => {
 
   // Calculate results for each poll
   const pollsWithResults = await Promise.all(
-    (polls || []).map(async (poll) => calculateResults(poll))
+    (polls || []).map(async (poll) => calculateResults(poll as any))
   );
 
   return pollsWithResults;
@@ -30,7 +30,7 @@ export const getActivePolls = async (): Promise<PollWithResults[]> => {
 // Get all polls (including archived) - admin only
 export const getAllPolls = async (): Promise<PollWithResults[]> => {
   const { data: polls, error } = await supabase
-    .from('polls')
+    .from('polls' as any)
     .select('*')
     .order('created_at', { ascending: false });
 
@@ -38,7 +38,7 @@ export const getAllPolls = async (): Promise<PollWithResults[]> => {
 
   // Calculate results for each poll
   const pollsWithResults = await Promise.all(
-    (polls || []).map(async (poll) => calculateResults(poll))
+    (polls || []).map(async (poll) => calculateResults(poll as any))
   );
 
   return pollsWithResults;
@@ -47,14 +47,14 @@ export const getAllPolls = async (): Promise<PollWithResults[]> => {
 // Get a specific poll by ID
 export const getPoll = async (id: string): Promise<PollWithResults> => {
   const { data: poll, error } = await supabase
-    .from('polls')
+    .from('polls' as any)
     .select('*')
     .eq('id', id)
     .single();
 
   if (error) throw error;
 
-  return calculateResults(poll);
+  return calculateResults(poll as any);
 };
 
 // Create a new poll
@@ -99,7 +99,7 @@ export const createPoll = async (poll: CreatePollRequest): Promise<Poll> => {
     title: poll.title,
     description: poll.description || null,
     options: optionsWithIds,
-    votes: [],
+    votes: [] as any,
     created_by: profileId,
     is_active: true,
     archived_at: null
@@ -113,7 +113,7 @@ export const createPoll = async (poll: CreatePollRequest): Promise<Poll> => {
   console.log('createPoll: Insert data:', insertData);
 
   const { data: newPoll, error } = await supabase
-    .from('polls')
+    .from('polls' as any)
     .insert(insertData)
     .select()
     .single();
@@ -126,7 +126,7 @@ export const createPoll = async (poll: CreatePollRequest): Promise<Poll> => {
   }
 
   console.log('createPoll: Success!', newPoll);
-  return newPoll;
+  return newPoll as unknown as Poll;
 };
 
 // Update an existing poll
@@ -149,7 +149,7 @@ export const updatePoll = async (id: string, updates: UpdatePollRequest): Promis
   }
 
   const { data: updatedPoll, error } = await supabase
-    .from('polls')
+    .from('polls' as any)
     .update(updateData)
     .eq('id', id)
     .select()
@@ -157,13 +157,13 @@ export const updatePoll = async (id: string, updates: UpdatePollRequest): Promis
 
   if (error) throw error;
 
-  return updatedPoll;
+  return updatedPoll as unknown as Poll;
 };
 
 // Delete a poll
 export const deletePoll = async (id: string): Promise<void> => {
   const { error } = await supabase
-    .from('polls')
+    .from('polls' as any)
     .delete()
     .eq('id', id);
 
@@ -173,7 +173,7 @@ export const deletePoll = async (id: string): Promise<void> => {
 // Archive a poll
 export const archivePoll = async (id: string): Promise<Poll> => {
   const { data: updatedPoll, error } = await supabase
-    .from('polls')
+    .from('polls' as any)
     .update({ 
       archived_at: new Date().toISOString(),
       is_active: false
@@ -184,13 +184,13 @@ export const archivePoll = async (id: string): Promise<Poll> => {
 
   if (error) throw error;
 
-  return updatedPoll;
+  return updatedPoll as unknown as Poll;
 };
 
 // Activate a poll
 export const activatePoll = async (id: string): Promise<Poll> => {
   const { data: updatedPoll, error } = await supabase
-    .from('polls')
+    .from('polls' as any)
     .update({ is_active: true })
     .eq('id', id)
     .select()
@@ -198,13 +198,13 @@ export const activatePoll = async (id: string): Promise<Poll> => {
 
   if (error) throw error;
 
-  return updatedPoll;
+  return updatedPoll as unknown as Poll;
 };
 
 // Deactivate a poll
 export const deactivatePoll = async (id: string): Promise<Poll> => {
   const { data: updatedPoll, error } = await supabase
-    .from('polls')
+    .from('polls' as any)
     .update({ is_active: false })
     .eq('id', id)
     .select()
@@ -212,7 +212,7 @@ export const deactivatePoll = async (id: string): Promise<Poll> => {
 
   if (error) throw error;
 
-  return updatedPoll;
+  return updatedPoll as unknown as Poll;
 };
 
 // Submit or update a vote
@@ -237,7 +237,7 @@ export const vote = async (pollId: string, voteRequest: VoteRequest): Promise<vo
 
   // Get current poll
   const { data: poll, error: pollError } = await supabase
-    .from('polls')
+    .from('polls' as any)
     .select('votes')
     .eq('id', pollId)
     .single();
@@ -245,7 +245,7 @@ export const vote = async (pollId: string, voteRequest: VoteRequest): Promise<vo
   if (pollError) throw pollError;
 
   // Remove any existing vote by this user
-  const existingVotes = (poll.votes as any[]).filter((v: any) => v.user_id !== profileId);
+  const existingVotes = ((poll as any).votes as any[]).filter((v: any) => v.user_id !== profileId);
   
   // Add new vote
   const newVotes = [
@@ -258,8 +258,8 @@ export const vote = async (pollId: string, voteRequest: VoteRequest): Promise<vo
   ];
 
   const { error: updateError } = await supabase
-    .from('polls')
-    .update({ votes: newVotes })
+    .from('polls' as any)
+    .update({ votes: newVotes } as any)
     .eq('id', pollId);
 
   if (updateError) throw updateError;
@@ -287,7 +287,7 @@ export const removeVote = async (pollId: string): Promise<void> => {
 
   // Get current poll
   const { data: poll, error: pollError } = await supabase
-    .from('polls')
+    .from('polls' as any)
     .select('votes')
     .eq('id', pollId)
     .single();
@@ -295,11 +295,11 @@ export const removeVote = async (pollId: string): Promise<void> => {
   if (pollError) throw pollError;
 
   // Remove vote by this user
-  const updatedVotes = (poll.votes as any[]).filter((v: any) => v.user_id !== profileId);
+  const updatedVotes = ((poll as any).votes as any[]).filter((v: any) => v.user_id !== profileId);
 
   const { error: updateError } = await supabase
-    .from('polls')
-    .update({ votes: updatedVotes })
+    .from('polls' as any)
+    .update({ votes: updatedVotes } as any)
     .eq('id', pollId);
 
   if (updateError) throw updateError;
@@ -311,7 +311,7 @@ export const getPollResults = async (id: string): Promise<PollWithResults> => {
 };
 
 // Get updates for real-time polling (simplified - just return empty for now)
-export const getPollUpdates = async (since?: number): Promise<PollUpdates> => {
+export const getPollUpdates = async (): Promise<PollUpdates> => {
   // For now, return empty updates - real-time updates can be implemented later
   return {};
 };
@@ -376,7 +376,7 @@ export const calculateResults = async (poll: Poll, currentUserId?: string): Prom
       total_votes: totalVotes,
       user_vote: userVote,
     }
-  };
+  } as any;
 };
 
 // Legacy class-based service for backward compatibility
@@ -429,8 +429,8 @@ class PollService {
     return getPollResults(id);
   }
 
-  async getPollUpdates(since?: number): Promise<PollUpdates> {
-    return getPollUpdates(since);
+  async getPollUpdates(): Promise<PollUpdates> {
+    return getPollUpdates();
   }
 
   calculateResults(poll: Poll, currentUserId?: string): PollWithResults {
@@ -477,7 +477,7 @@ class PollService {
         total_votes: totalVotes,
         user_vote: userVote,
       }
-    };
+    } as any;
   }
 }
 

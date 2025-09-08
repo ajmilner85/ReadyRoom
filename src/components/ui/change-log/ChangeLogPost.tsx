@@ -8,15 +8,13 @@ interface ChangeLogPostProps {
   onReact?: (postId: string, type: 'thumbs_up' | 'thumbs_down') => Promise<void>;
   onRemoveReaction?: (postId: string) => Promise<void>;
   primaryColor: string;
-  accentColor: string;
 }
 
 const ChangeLogPost: React.FC<ChangeLogPostProps> = ({ 
   post, 
   onReact, 
   onRemoveReaction, 
-  primaryColor, 
-  accentColor 
+  primaryColor 
 }) => {
   const [isReacting, setIsReacting] = useState<string | null>(null);
 
@@ -114,7 +112,7 @@ const ChangeLogPost: React.FC<ChangeLogPostProps> = ({
     gap: '8px',
   };
 
-  const getReactionButtonStyle = (type: 'thumbs_up' | 'thumbs_down', isActive: boolean) => ({
+  const getReactionButtonStyle = (isActive: boolean) => ({
     display: 'flex',
     alignItems: 'center',
     gap: '6px',
@@ -173,7 +171,7 @@ const ChangeLogPost: React.FC<ChangeLogPostProps> = ({
         <div style={reactionsStyle}>
           <button
             onClick={() => canReact && handleReaction('thumbs_up')}
-            style={getReactionButtonStyle('thumbs_up', post.stats.user_reaction === 'thumbs_up')}
+            style={getReactionButtonStyle(post.stats.user_reaction === 'thumbs_up')}
             disabled={!canReact || isReacting === 'thumbs_up'}
             onMouseEnter={e => {
               if (canReact && post.stats.user_reaction !== 'thumbs_up') {
@@ -205,7 +203,7 @@ const ChangeLogPost: React.FC<ChangeLogPostProps> = ({
 
           <button
             onClick={() => canReact && handleReaction('thumbs_down')}
-            style={getReactionButtonStyle('thumbs_down', post.stats.user_reaction === 'thumbs_down')}
+            style={getReactionButtonStyle(post.stats.user_reaction === 'thumbs_down')}
             disabled={!canReact || isReacting === 'thumbs_down'}
             onMouseEnter={e => {
               if (canReact && post.stats.user_reaction !== 'thumbs_down') {

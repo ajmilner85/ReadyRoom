@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { pollService } from '../utils/pollService';
-import type { PollWithResults, VoteRequest } from '../types/PollTypes';
+import type { PollWithResults } from '../types/PollTypes';
 import { useAuth } from '../context/AuthContext';
 
 interface UsePollsState {
@@ -71,7 +71,7 @@ export const usePolls = (enablePolling: boolean = false): UsePollsReturn => {
   // Poll for updates
   const pollForUpdates = useCallback(async () => {
     try {
-      const updates = await pollService.getPollUpdates(lastUpdateTimestampRef.current);
+      const updates = await pollService.getPollUpdates();
       
       if (Object.keys(updates).length === 0) {
         return; // No updates

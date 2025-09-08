@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Eye, EyeOff, Archive, Trash2, Edit3, FileText } from 'lucide-react';
+import { X, Eye, EyeOff, Trash2, Edit3, FileText } from 'lucide-react';
 import { getAllPosts, updatePost, deletePost, archivePost, unarchivePost } from '../../../utils/changeLogService';
 import type { ChangeLogPostWithStats } from '../../../types/ChangeLogTypes';
 import { ConfirmationDialog } from '../dialogs/ConfirmationDialog';

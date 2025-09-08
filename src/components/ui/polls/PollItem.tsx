@@ -7,15 +7,13 @@ interface PollItemProps {
   onVote?: (pollId: string, optionId: string) => Promise<void>;
   onRemoveVote?: (pollId: string) => Promise<void>;
   primaryColor: string;
-  accentColor: string;
 }
 
 const PollItem: React.FC<PollItemProps> = ({ 
   poll, 
   onVote, 
   onRemoveVote, 
-  primaryColor, 
-  accentColor 
+  primaryColor 
 }) => {
   const [isVoting, setIsVoting] = useState<string | null>(null);
 
