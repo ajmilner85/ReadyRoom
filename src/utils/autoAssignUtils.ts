@@ -213,6 +213,13 @@ export const autoAssignPilots = async (
   suggestedMissionCommander: MissionCommanderInfo | null
 }> => {
   
+  console.log('[AUTO-ASSIGN-DEBUG] Starting auto-assign with:', {
+    flightsCount: flights?.length || 0,
+    pilotsCount: availablePilots?.length || 0,
+    pilotsWithRollCall: availablePilots?.filter(p => p.rollCallStatus).map(p => ({ callsign: p.callsign, rollCall: p.rollCallStatus, discord: p.attendanceStatus })),
+    config
+  });
+  
   if (!flights || flights.length === 0 || !availablePilots || availablePilots.length === 0) {
     return {
       newAssignments: { ...assignedPilots },
@@ -584,16 +591,41 @@ function filterPilotsByGate(
   pilotSquadronMap?: Record<string, any>
 ): Pilot[] {
   return pilots.filter(pilot => {
-    // Check attendance
+    // Check attendance - prioritize Roll Call over Discord
     const rollCall = pilot.rollCallStatus;
     const discord = pilot.attendanceStatus;
     
     let attendanceMatch = false;
-    if (gate.attendance.includes('accepted') && (rollCall === 'Present' || discord === 'accepted')) {
-      attendanceMatch = true;
+    
+    // If roll call status exists, use that (it takes precedence over Discord)
+    if (rollCall) {
+      if (gate.attendance.includes('accepted') && rollCall === 'Present') {
+        attendanceMatch = true;
+        console.log(`[ATTENDANCE-DEBUG] ${pilot.callsign}: Roll call Present matched accepted gate`);
+      }
+      if (gate.attendance.includes('tentative') && rollCall === 'Tentative') {
+        attendanceMatch = true;
+        console.log(`[ATTENDANCE-DEBUG] ${pilot.callsign}: Roll call Tentative matched tentative gate`);
+      }
+      // Roll call 'Absent' means pilot is not available, regardless of Discord status
+      if (rollCall === 'Absent') {
+        attendanceMatch = false;
+        console.log(`[ATTENDANCE-DEBUG] ${pilot.callsign}: Roll call Absent - not available`);
+      }
+    } else {
+      // Fall back to Discord attendance only if no roll call status
+      if (gate.attendance.includes('accepted') && discord === 'accepted') {
+        attendanceMatch = true;
+        console.log(`[ATTENDANCE-DEBUG] ${pilot.callsign}: Discord accepted matched accepted gate`);
+      }
+      if (gate.attendance.includes('tentative') && discord === 'tentative') {
+        attendanceMatch = true;
+        console.log(`[ATTENDANCE-DEBUG] ${pilot.callsign}: Discord tentative matched tentative gate`);
+      }
     }
-    if (gate.attendance.includes('tentative') && (rollCall === 'Tentative' || discord === 'tentative')) {
-      attendanceMatch = true;
+    
+    if (!attendanceMatch) {
+      console.log(`[ATTENDANCE-DEBUG] ${pilot.callsign}: NO MATCH - rollCall: ${rollCall}, discord: ${discord}, gateAttendance: ${gate.attendance.join(',')}`);
     }
     
     if (!attendanceMatch) return false;

@@ -387,6 +387,7 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
     const normalizedFlight = normalizeFlight(flight);
     const flightPilots = normalizedFlight.pilots;
     const updatedPilots = flightPilots.map(p => ({
+      id: `empty-${flight.id}-${p.dashNumber}`, // Provide a default id for empty slots
       boardNumber: "",
       callsign: "",
       dashNumber: p.dashNumber,
