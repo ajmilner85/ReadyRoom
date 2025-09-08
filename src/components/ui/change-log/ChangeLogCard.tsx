@@ -25,7 +25,6 @@ const ChangeLogCard: React.FC<ChangeLogCardProps> = () => {
   // Squadron color theming
   const useSquadronColors = settings.interfaceThemeUsesSquadronColors;
   const primaryColor = useSquadronColors ? '#3B82F6' : '#3B82F6'; // TODO: Get actual squadron color
-  const accentColor = useSquadronColors ? '#10B981' : '#10B981'; // TODO: Get actual squadron accent color
 
   const cardStyle: React.CSSProperties = {
     backgroundColor: '#FFFFFF',
@@ -194,7 +193,6 @@ const ChangeLogCard: React.FC<ChangeLogCardProps> = () => {
             onReact={canReactToPosts ? react : undefined}
             onRemoveReaction={canReactToPosts ? removeReaction : undefined}
             primaryColor={primaryColor}
-            accentColor={accentColor}
           />
         )}
       </div>

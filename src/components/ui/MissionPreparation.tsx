@@ -20,6 +20,7 @@ import { useMissionPrepState } from '../../hooks/useMissionPrepState';
 import { useMissionPrepDataPersistence } from '../../hooks/useMissionPrepDataPersistence';
 import type { AssignedPilot, AssignedPilotsRecord } from '../../types/MissionPrepTypes';
 import AutoAssignConfigModal, { type AutoAssignConfig } from './mission prep/AutoAssignConfig';
+import NoFlightsWarningDialog from './dialogs/NoFlightsWarningDialog';
 
 // Define the structure for the polled attendance data
 interface RealtimeAttendanceRecord {
@@ -108,6 +109,7 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
 
   const [realtimeAttendanceData, setRealtimeAttendanceData] = useState<RealtimeAttendanceRecord[]>([]);
   const [isAutoAssignConfigOpen, setIsAutoAssignConfigOpen] = useState(false);
+  const [showNoFlightsDialog, setShowNoFlightsDialog] = useState(false);
 
   // Wrapper for setAssignedPilots to handle React setState signature
   const setAssignedPilotsWrapper = useCallback((pilots: AssignedPilotsRecord | ((prev: AssignedPilotsRecord) => AssignedPilotsRecord)) => {
@@ -190,7 +192,7 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
   const handleAutoAssign = useCallback(async (pilotsForAssignment?: Pilot[]) => {
     
     if (!prepFlights || prepFlights.length === 0) { 
-      alert("No flights available for assignment. Please import a .miz file or add flights manually first.");
+      setShowNoFlightsDialog(true);
       return;
     }
 
@@ -198,6 +200,12 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
     const pilotsToAssign = pilotsForAssignment && pilotsForAssignment.length > 0 
       ? pilotsForAssignment 
       : []; // If no pilots are passed, assign no one.
+
+    console.log('[AUTO-ASSIGN-DEBUG] MissionPreparation received pilots:', {
+      providedCount: pilotsForAssignment?.length || 0,
+      finalCount: pilotsToAssign.length,
+      pilotsWithRollCall: pilotsToAssign.filter(p => p.rollCallStatus).map(p => ({ callsign: p.callsign, rollCall: p.rollCallStatus }))
+    });
 
     if (pilotsToAssign.length === 0) {
       alert("No pilots available for assignment. Please ensure pilots are available and have appropriate attendance status.");
@@ -274,6 +282,17 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
           ...data.declined.map((attendee: any) => ({ discord_id: attendee.discord_id, response: 'declined' }))
         ].filter(record => record.discord_id);
 
+        // Debug the attendance data update
+        const dsrmRecord = attendanceRecords.find(record => {
+          return activePilots?.find(pilot => {
+            const discordId = pilot.discordId || pilot.discord_original_id;
+            return discordId === record.discord_id && pilot.callsign === 'DSRM';
+          });
+        });
+        if (dsrmRecord) {
+          console.log(`[POLLING-DEBUG] Updated attendance data for DSRM:`, dsrmRecord);
+        }
+        
         setRealtimeAttendanceData(attendanceRecords);
         
         // Also refresh participating squadrons cache silently
@@ -314,11 +333,11 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
         const originalFlightPilots = assignedPilots[flightId];
         let flightNeedsClearing = false;
         const clearedFlightPilots = originalFlightPilots.map(pilot => {
-          // If either status exists, it needs clearing
-          if (pilot.attendanceStatus !== undefined || pilot.rollCallStatus !== undefined) {
+          // Only clear attendanceStatus (from Discord), preserve rollCallStatus (from roll call buttons)
+          if (pilot.attendanceStatus !== undefined) {
             flightNeedsClearing = true;
-            // Return a new pilot object with statuses cleared
-            return { ...pilot, attendanceStatus: undefined, rollCallStatus: undefined };
+            // Return a new pilot object with only attendanceStatus cleared
+            return { ...pilot, attendanceStatus: undefined };
           }
           // Otherwise, return the original pilot object
           return pilot;
@@ -533,6 +552,13 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
         onCancel={handleAutoAssignSettingsCancel}
         onSave={handleAutoAssignSettingsSave}
       />
+
+      {/* No Flights Warning Dialog */}
+      {showNoFlightsDialog && (
+        <NoFlightsWarningDialog
+          onClose={() => setShowNoFlightsDialog(false)}
+        />
+      )}
     </DndContext>
   );
 };

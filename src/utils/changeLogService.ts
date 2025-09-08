@@ -14,7 +14,7 @@ export const getPosts = async (limit: number = 20, cursor?: string): Promise<Cha
   console.log('getPosts: Starting query...', { limit, cursor });
   
   let query = supabase
-    .from('change_log_posts')
+    .from('change_log_posts' as any)
     .select(`
       id,
       title,
@@ -59,7 +59,7 @@ export const getPosts = async (limit: number = 20, cursor?: string): Promise<Cha
   );
 
   const nextCursor = hasMore && postsToReturn.length > 0 
-    ? postsToReturn[postsToReturn.length - 1].created_at 
+    ? (postsToReturn[postsToReturn.length - 1] as any).created_at 
     : undefined;
 
   return {
@@ -72,7 +72,7 @@ export const getPosts = async (limit: number = 20, cursor?: string): Promise<Cha
 // Get all posts (including archived) - admin only
 export const getAllPosts = async (limit: number = 50, cursor?: string): Promise<ChangeLogFeedResponse> => {
   let query = supabase
-    .from('change_log_posts')
+    .from('change_log_posts' as any)
     .select(`
       id,
       title,
@@ -111,7 +111,7 @@ export const getAllPosts = async (limit: number = 50, cursor?: string): Promise<
   );
 
   const nextCursor = hasMore && postsToReturn.length > 0 
-    ? postsToReturn[postsToReturn.length - 1].created_at 
+    ? (postsToReturn[postsToReturn.length - 1] as any).created_at 
     : undefined;
 
   return {
@@ -124,7 +124,7 @@ export const getAllPosts = async (limit: number = 50, cursor?: string): Promise<
 // Get a specific post by ID
 export const getPost = async (id: string): Promise<ChangeLogPostWithStats> => {
   const { data: post, error } = await supabase
-    .from('change_log_posts')
+    .from('change_log_posts' as any)
     .select(`
       id,
       title,
@@ -188,7 +188,7 @@ export const createPost = async (post: CreatePostRequest): Promise<ChangeLogPost
   console.log('createPost: Insert data:', insertData);
 
   const { data: newPost, error } = await supabase
-    .from('change_log_posts')
+    .from('change_log_posts' as any)
     .insert(insertData)
     .select()
     .single();
@@ -201,7 +201,7 @@ export const createPost = async (post: CreatePostRequest): Promise<ChangeLogPost
   }
 
   console.log('createPost: Success!', newPost);
-  return newPost;
+  return newPost as unknown as ChangeLogPost;
 };
 
 // Update an existing post
@@ -214,7 +214,7 @@ export const updatePost = async (id: string, updates: UpdatePostRequest): Promis
   if (updates.created_at !== undefined) updateData.created_at = updates.created_at;
 
   const { data: updatedPost, error } = await supabase
-    .from('change_log_posts')
+    .from('change_log_posts' as any)
     .update(updateData)
     .eq('id', id)
     .select()
@@ -222,13 +222,13 @@ export const updatePost = async (id: string, updates: UpdatePostRequest): Promis
 
   if (error) throw error;
 
-  return updatedPost;
+  return updatedPost as unknown as ChangeLogPost;
 };
 
 // Delete a post
 export const deletePost = async (id: string): Promise<void> => {
   const { error } = await supabase
-    .from('change_log_posts')
+    .from('change_log_posts' as any)
     .delete()
     .eq('id', id);
 
@@ -238,33 +238,33 @@ export const deletePost = async (id: string): Promise<void> => {
 // Archive a post
 export const archivePost = async (id: string): Promise<ChangeLogPost> => {
   const { data: updatedPost, error } = await supabase
-    .from('change_log_posts')
+    .from('change_log_posts' as any)
     .update({ 
       is_archived: true
-    })
+    } as any)
     .eq('id', id)
     .select()
     .single();
 
   if (error) throw error;
 
-  return updatedPost;
+  return updatedPost as unknown as ChangeLogPost;
 };
 
 // Unarchive a post
 export const unarchivePost = async (id: string): Promise<ChangeLogPost> => {
   const { data: updatedPost, error } = await supabase
-    .from('change_log_posts')
+    .from('change_log_posts' as any)
     .update({ 
       is_archived: false
-    })
+    } as any)
     .eq('id', id)
     .select()
     .single();
 
   if (error) throw error;
 
-  return updatedPost;
+  return updatedPost as unknown as ChangeLogPost;
 };
 
 // Add or update a reaction to a post
@@ -289,7 +289,7 @@ export const reactToPost = async (postId: string, reaction: ReactionRequest): Pr
 
   // Get current post
   const { data: post, error: postError } = await supabase
-    .from('change_log_posts')
+    .from('change_log_posts' as any)
     .select('reactions')
     .eq('id', postId)
     .single();
@@ -297,7 +297,7 @@ export const reactToPost = async (postId: string, reaction: ReactionRequest): Pr
   if (postError) throw postError;
 
   // Update reactions
-  const currentReactions = post.reactions as any;
+  const currentReactions = (post as any).reactions;
   const newReactions = {
     thumbs_up: [...(currentReactions.thumbs_up || [])],
     thumbs_down: [...(currentReactions.thumbs_down || [])]
@@ -311,7 +311,7 @@ export const reactToPost = async (postId: string, reaction: ReactionRequest): Pr
   newReactions[reaction.type].push(profileId);
 
   const { error: updateError } = await supabase
-    .from('change_log_posts')
+    .from('change_log_posts' as any)
     .update({ reactions: newReactions })
     .eq('id', postId);
 
@@ -340,7 +340,7 @@ export const removeReaction = async (postId: string): Promise<void> => {
 
   // Get current post
   const { data: post, error: postError } = await supabase
-    .from('change_log_posts')
+    .from('change_log_posts' as any)
     .select('reactions')
     .eq('id', postId)
     .single();
@@ -348,14 +348,14 @@ export const removeReaction = async (postId: string): Promise<void> => {
   if (postError) throw postError;
 
   // Remove user from all reactions
-  const currentReactions = post.reactions as any;
+  const currentReactions = (post as any).reactions;
   const newReactions = {
     thumbs_up: (currentReactions.thumbs_up || []).filter((id: string) => id !== profileId),
     thumbs_down: (currentReactions.thumbs_down || []).filter((id: string) => id !== profileId)
   };
 
   const { error: updateError } = await supabase
-    .from('change_log_posts')
+    .from('change_log_posts' as any)
     .update({ reactions: newReactions })
     .eq('id', postId);
 
@@ -363,7 +363,7 @@ export const removeReaction = async (postId: string): Promise<void> => {
 };
 
 // Get updates for real-time polling (simplified - just return empty for now)
-export const getUpdates = async (since?: number): Promise<ChangeLogUpdates> => {
+export const getUpdates = async (): Promise<ChangeLogUpdates> => {
   // For now, return empty updates - real-time updates can be implemented later
   return {};
 };
@@ -470,8 +470,8 @@ class ChangeLogService {
     return removeReaction(postId);
   }
 
-  async getUpdates(since?: number): Promise<ChangeLogUpdates> {
-    return getUpdates(since);
+  async getUpdates(): Promise<ChangeLogUpdates> {
+    return getUpdates();
   }
 
   calculateStats(post: ChangeLogPost, currentUserId?: string): ChangeLogPostWithStats {

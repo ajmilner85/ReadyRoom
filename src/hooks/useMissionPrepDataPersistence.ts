@@ -79,6 +79,12 @@ export const useMissionPrepDataPersistence = (
       return;
     }
     
+    // Skip sync if there are pending changes to avoid overwriting user updates
+    if (hasPendingChanges) {
+      console.log('🚫 Persistence: Skipping sync - pending changes detected');
+      return;
+    }
+    
     // If activePilots is not available but we have pilot assignments to restore,
     // we should wait for activePilots to load to properly map pilot data
     if ((!activePilots || activePilots.length === 0) && mission.pilot_assignments && Object.keys(mission.pilot_assignments).length > 0) {
@@ -128,8 +134,8 @@ export const useMissionPrepDataPersistence = (
             const existingPilot = currentAssignments[flightId]?.find(p => p.id === assignment.id || p.boardNumber === assignment.boardNumber);
             return {
               ...assignment,
-              // Prioritize database roll call status over existing pilot data
-              rollCallStatus: assignment.roll_call_status || existingPilot?.rollCallStatus
+              // Prioritize existing pilot data if database value is null (prevents overwriting local changes)
+              rollCallStatus: existingPilot?.rollCallStatus || assignment.roll_call_status
             };
           }
           
@@ -149,8 +155,8 @@ export const useMissionPrepDataPersistence = (
               slot_number: assignment.slot_number,
               mids_a_channel: assignment.mids_a_channel || '',
               mids_b_channel: assignment.mids_b_channel || '',
-              // Prioritize database roll call status over existing pilot data
-              rollCallStatus: assignment.roll_call_status || existingPilot?.rollCallStatus
+              // Prioritize existing pilot data if database value is null (prevents overwriting local changes)
+              rollCallStatus: existingPilot?.rollCallStatus || assignment.roll_call_status
             };
           } else {
             // Fallback to minimal pilot object if lookup fails
@@ -175,7 +181,7 @@ export const useMissionPrepDataPersistence = (
         });
       });
       
-      // console.log('📥 Persistence: Converted assignments with preserved roll call data:', JSON.stringify(convertedAssignments));
+      console.log('📥 Persistence: Converted assignments with preserved roll call data:', JSON.stringify(convertedAssignments));
       
       // Debug log roll call status preservation
       Object.entries(convertedAssignments).forEach(([flightId, pilots]) => {
@@ -184,6 +190,18 @@ export const useMissionPrepDataPersistence = (
           console.log(`🎯 Persistence: Flight ${flightId} has ${pilotsWithRollCall.length} pilots with roll call status:`, 
             pilotsWithRollCall.map(p => `${p.callsign}: ${p.rollCallStatus}`));
         }
+        
+        // Debug all pilots in this flight to see if anyone lost roll call status
+        pilots.forEach(pilot => {
+          if (pilot.callsign === 'DSRM') {
+            console.log(`🔍 Persistence: DSRM pilot data in flight ${flightId}:`, {
+              callsign: pilot.callsign,
+              rollCallStatus: pilot.rollCallStatus,
+              attendanceStatus: pilot.attendanceStatus,
+              boardNumber: pilot.boardNumber
+            });
+          }
+        });
       });
       setAssignedPilotsLocal(convertedAssignments);
     } else {
@@ -359,12 +377,26 @@ export const useMissionPrepDataPersistence = (
 
   // Enhanced setters that save to database
   const setAssignedPilots = useCallback((pilots: AssignedPilotsRecord, skipSave: boolean = false) => {
-    // console.log('📝 Persistence: setAssignedPilots called:', {
-    //   pilots: JSON.stringify(pilots),
-    //   skipSave,
-    //   hasMission: !!mission,
-    //   missionId: mission?.id
-    // });
+    // Debug tracking for DSRM
+    Object.entries(pilots).forEach(([flightId, pilotsList]) => {
+      pilotsList.forEach(pilot => {
+        if (pilot.callsign === 'DSRM') {
+          console.log(`[SET-ASSIGNED-PILOTS-DEBUG] Setting DSRM in flight ${flightId}:`, {
+            rollCallStatus: pilot.rollCallStatus,
+            attendanceStatus: pilot.attendanceStatus,
+            skipSave
+          });
+          console.trace('Call stack for setAssignedPilots');
+        }
+      });
+    });
+    
+    console.log('📝 Persistence: setAssignedPilots called:', {
+      pilotsCount: Object.values(pilots).reduce((total, flight) => total + flight.length, 0),
+      skipSave,
+      hasMission: !!mission,
+      missionId: mission?.id
+    });
     
     setAssignedPilotsLocal(pilots);
     
@@ -398,7 +430,24 @@ export const useMissionPrepDataPersistence = (
             }));
           });
 
-          // console.log('🔄 Persistence: Executing database save with assignments (including roll call):', pilotAssignments);
+          // Debug save data for DSRM specifically
+          Object.entries(pilotAssignments).forEach(([flightId, assignments]) => {
+            assignments.forEach(assignment => {
+              if (assignment.pilot_id && activePilots) {
+                const pilot = activePilots.find(p => p.id === assignment.pilot_id);
+                if (pilot && pilot.callsign === 'DSRM') {
+                  console.log(`💾 Persistence: Saving DSRM assignment in flight ${flightId}:`, {
+                    pilot_id: assignment.pilot_id,
+                    dash_number: assignment.dash_number,
+                    roll_call_status: assignment.roll_call_status,
+                    originalPilotRollCall: pilot.rollCallStatus
+                  });
+                }
+              }
+            });
+          });
+          
+          console.log('🔄 Persistence: Executing database save with assignments (including roll call):', pilotAssignments);
           const result = await updatePilotAssignments(pilotAssignments);
           console.log('✅ Persistence: Database save result:', result);
           return result;

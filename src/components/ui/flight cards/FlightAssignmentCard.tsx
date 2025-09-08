@@ -17,6 +17,7 @@ interface FlightAssignmentCardProps {
   callsign: string;
   flightNumber: string;
   pilots: Array<{
+    id: string;
     boardNumber: string;
     callsign: string;
     dashNumber: string;
@@ -45,6 +46,7 @@ const FlightAssignmentCard: React.FC<FlightAssignmentCardProps> = ({
 
   const getPilotByDashNumber = (dashNumber: string) => {
     return pilots.find(p => p.dashNumber === dashNumber) || {
+      id: `empty-${id}-${dashNumber}`,
       boardNumber: "",
       callsign: "",
       dashNumber
@@ -260,6 +262,7 @@ const FlightAssignmentCard: React.FC<FlightAssignmentCardProps> = ({
 // New component to handle droppable empty tiles
 interface DroppableAircraftTileProps {
   pilot: { 
+    id: string;
     boardNumber: string; 
     callsign: string; 
     dashNumber: string; 
@@ -304,8 +307,13 @@ const DroppableAircraftTile: React.FC<DroppableAircraftTileProps> = ({
     setKey(Date.now());
     
     // Debug logging for roll call status
-    if (pilot.rollCallStatus) {
-      // console.log(`[ROLL-CALL-DEBUG] DroppableAircraftTile ${flightId}-${dashNumber} has roll call status: ${pilot.rollCallStatus} for ${pilot.callsign}`);
+    if (pilot.callsign === 'DSRM') {
+      console.log(`[DROPPABLE-TILE-DEBUG] ${pilot.callsign} in flight ${flightId}-${dashNumber}:`, {
+        rollCallStatus: pilot.rollCallStatus,
+        attendanceStatus: pilot.attendanceStatus,
+        boardNumber: pilot.boardNumber,
+        id: pilot.id
+      });
     }
   }, [pilot.attendanceStatus, pilot.rollCallStatus, flightId, dashNumber, pilot.callsign]);
   

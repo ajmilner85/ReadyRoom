@@ -434,6 +434,12 @@ export class PermissionCacheService {
       canAccessAdminTools: false,
       canViewOwnProfile: true, // Always allow viewing own profile
       
+      // New permissions for polls and change log
+      canManagePolls: false,
+      canVoteInPolls: false,
+      canManageChangeLog: false,
+      canReactToPosts: false,
+      
       bases: [],
       calculatedAt: new Date(),
       expiresAt: new Date(Date.now() + PERMISSION_CACHE_CONFIG.DURATION_MS)

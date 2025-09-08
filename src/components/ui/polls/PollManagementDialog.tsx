@@ -357,7 +357,7 @@ const PollManagementDialog: React.FC<PollManagementDialogProps> = ({
                       <p style={pollDescriptionStyle}>{poll.description}</p>
                     )}
                     <div style={statsStyle}>
-                      <span>{poll.stats.total_votes} votes</span>
+                      <span>{(poll as any).stats?.total_votes || 0} votes</span>
                       <span>{poll.options.length} options</span>
                       <span>Created {new Date(poll.created_at).toLocaleDateString()}</span>
                     </div>

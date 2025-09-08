@@ -7,15 +7,13 @@ interface PollListProps {
   onVote?: (pollId: string, optionId: string) => Promise<void>;
   onRemoveVote?: (pollId: string) => Promise<void>;
   primaryColor: string;
-  accentColor: string;
 }
 
 const PollList: React.FC<PollListProps> = ({ 
   polls, 
   onVote, 
   onRemoveVote, 
-  primaryColor, 
-  accentColor 
+  primaryColor 
 }) => {
   const containerStyle: React.CSSProperties = {
     display: 'flex',
@@ -62,7 +60,6 @@ const PollList: React.FC<PollListProps> = ({
             onVote={onVote}
             onRemoveVote={onRemoveVote}
             primaryColor={primaryColor}
-            accentColor={accentColor}
           />
         ))}
       </div>

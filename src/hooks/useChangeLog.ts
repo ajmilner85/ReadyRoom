@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { changeLogService } from '../utils/changeLogService';
-import type { ChangeLogPostWithStats, ReactionRequest } from '../types/ChangeLogTypes';
+import type { ChangeLogPostWithStats } from '../types/ChangeLogTypes';
 import { useAuth } from '../context/AuthContext';
 
 interface UseChangeLogState {
@@ -32,7 +32,7 @@ export const useChangeLog = (enablePolling: boolean = false): UseChangeLogReturn
 
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const lastUpdateTimestampRef = useRef<number>(0);
-  const nextCursorRef = useRef<string | undefined>();
+  const nextCursorRef = useRef<string | undefined>(undefined);
   const optimisticUpdatesRef = useRef<Map<string, { oldReaction?: 'thumbs_up' | 'thumbs_down'; newReaction?: 'thumbs_up' | 'thumbs_down' }>>(new Map());
 
   // Load initial posts
@@ -102,7 +102,7 @@ export const useChangeLog = (enablePolling: boolean = false): UseChangeLogReturn
   // Poll for reaction updates
   const pollForUpdates = useCallback(async () => {
     try {
-      const updates = await changeLogService.getUpdates(lastUpdateTimestampRef.current);
+      const updates = await changeLogService.getUpdates();
       
       if (Object.keys(updates).length === 0) {
         return; // No updates
@@ -313,7 +313,7 @@ export const useChangeLog = (enablePolling: boolean = false): UseChangeLogReturn
 
   // Initial load
   useEffect(() => {
-    loadPosts();
+    loadPosts(true);
   }, [loadPosts]);
 
   // Set up polling for real-time updates
