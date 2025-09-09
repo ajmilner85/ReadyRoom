@@ -101,13 +101,59 @@ export const useMissionPrepState = (
     }
   }, [rollCallResponses, onRollCallResponsesChange]);
 
+  // Parse a group name into callsign and flight number
+  const parseGroupName = (name: string): { callsign: string; flightNumber: string } => {
+    // Split on last space to handle callsigns with spaces
+    const lastSpaceIndex = name.lastIndexOf(' ');
+    if (lastSpaceIndex === -1) {
+      return { callsign: name, flightNumber: "1" };
+    }
+    
+    const callsign = name.substring(0, lastSpaceIndex);
+    const flightNumber = name.substring(lastSpaceIndex + 1);
+    
+    // Validate that flight number is actually a number
+    if (!/^\d+$/.test(flightNumber)) {
+      return { callsign: name, flightNumber: "1" };
+    }
+    
+    return { callsign, flightNumber };
+  };
+
   // Handle extracted flights from AircraftGroups with safeguard against infinite loops
   const handleExtractedFlights = useCallback((flights: ExtractedFlight[]) => {
     if (flights.length > 0 && !processedMizRef.current) {
       processedMizRef.current = true;
+      console.log('🛫 useMissionPrepState: Processing extracted flights:', flights.length);
+      
       setExtractedFlights(flights);
+      
+      // Convert extracted flights to prep flights format
+      const batchTimestamp = Date.now().toString();
+      const convertedFlights = flights.map((extractedFlight, index) => {
+        const { callsign, flightNumber } = parseGroupName(extractedFlight.name);
+        return {
+          id: `extracted-${batchTimestamp}-${index}`,
+          callsign: callsign.toUpperCase(),
+          flightNumber,
+          pilots: [
+            { boardNumber: "", callsign: "", dashNumber: "1" },
+            { boardNumber: "", callsign: "", dashNumber: "2" },
+            { boardNumber: "", callsign: "", dashNumber: "3" },
+            { boardNumber: "", callsign: "", dashNumber: "4" }
+          ],
+          midsA: "",
+          midsB: "",
+          creationOrder: index,
+          // Store metadata about the original extracted flight
+          extractedFlightData: extractedFlight
+        };
+      });
+      
+      console.log('🔄 useMissionPrepState: Converted flights to prep format:', convertedFlights.map(f => f.callsign));
+      setPrepFlights(convertedFlights);
     }
-  }, [setExtractedFlights]);
+  }, [setExtractedFlights, setPrepFlights]);
 
   // Reset the processed flag
   const resetProcessedFlag = useCallback(() => {

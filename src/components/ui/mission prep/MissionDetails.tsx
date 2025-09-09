@@ -87,6 +87,7 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
   const [parsedMission, setParsedMission] = useState<any>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [json2Lua, setJson2Lua] = useState<string | null>(null);
+  const [hasExtractedForCurrentFile, setHasExtractedForCurrentFile] = useState(false);
 
   // Load the json2.lua file on component mount
   useEffect(() => {
@@ -418,6 +419,16 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
         console.log('💾 MissionDetails: Storing parsed mission data');
         setParsedMission(missionData);
         
+        // Reset selected file after successful processing to allow new imports
+        // Add a small delay to ensure AircraftGroups processes the data first
+        setTimeout(() => {
+          console.log('🔄 MissionDetails: Resetting selected file for future imports');
+          setSelectedFile(null);
+          if (fileInputRef.current) {
+            fileInputRef.current.value = '';
+          }
+        }, 1000);
+        
         // Update any other details based on mission data
         if (missionData.date) {
           const missionDate = new Date(
@@ -486,6 +497,7 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
   const handleFileSelect = (file: File) => {
     if (file && file.name.endsWith('.miz')) {
       setSelectedFile(file);
+      setHasExtractedForCurrentFile(false); // Reset extraction flag for new file
       processMissionFile(file);
     } else {
       alert('Only .miz files are supported');
@@ -797,7 +809,21 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
             missionData={parsedMission} 
             width="100%"
             aircraftType="FA-18C_hornet"
-            onExtractedFlights={onExtractedFlights}
+            onExtractedFlights={(flights) => {
+              // Only extract flights once per file upload
+              if (!!selectedFile && !hasExtractedForCurrentFile && onExtractedFlights) {
+                console.log('🎯 MissionDetails: Extracting flights for new file upload');
+                setHasExtractedForCurrentFile(true);
+                onExtractedFlights(flights);
+              } else {
+                console.log('⚠️ MissionDetails: Skipping extraction:', {
+                  hasFile: !!selectedFile,
+                  alreadyExtracted: hasExtractedForCurrentFile,
+                  hasCallback: !!onExtractedFlights
+                });
+              }
+            }}
+            shouldExtractFlights={!!selectedFile}
           />
         </div>
       )}

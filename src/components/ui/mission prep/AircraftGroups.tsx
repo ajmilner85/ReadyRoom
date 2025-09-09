@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import { Card } from '../card';
 import { styles } from '../../../styles/MissionPrepStyles';
 
@@ -23,6 +23,7 @@ interface AircraftGroupsProps {
   width: string;
   aircraftType?: string;
   onExtractedFlights?: (flights: AircraftGroup[]) => void;
+  shouldExtractFlights?: boolean;
 }
 
 // Add interface for group structure from mission file
@@ -35,7 +36,8 @@ const AircraftGroups: React.FC<AircraftGroupsProps> = ({
   missionData, 
   width, 
   aircraftType,
-  onExtractedFlights
+  onExtractedFlights,
+  shouldExtractFlights = false
 }) => {
   // Function to calculate total fuel including external tanks
   const calculateTotalFuel = (unit: Unit): number => {
@@ -150,19 +152,21 @@ const AircraftGroups: React.FC<AircraftGroupsProps> = ({
     return groups;
   };
 
-  const filteredGroups = getAircraftGroups();
+  const filteredGroups = useMemo(() => getAircraftGroups(), [missionData, aircraftType]);
 
-  // Call onExtractedFlights when groups are available
+  // Call onExtractedFlights only when explicitly requested
   useEffect(() => {
     console.log('🔍 AircraftGroups: useEffect triggered:', {
       hasCallback: !!onExtractedFlights,
       aircraftType,
       groupsLength: filteredGroups.length,
+      shouldExtractFlights,
       groups: filteredGroups.map(g => ({ name: g.name, units: g.units.length }))
     });
     
-    if (onExtractedFlights && aircraftType === 'FA-18C_hornet' && filteredGroups.length > 0) {
-      console.log('✈️ AircraftGroups: Calling onExtractedFlights with', filteredGroups.length, 'F/A-18C groups');
+    // Only extract flights when explicitly requested via shouldExtractFlights flag
+    if (onExtractedFlights && aircraftType === 'FA-18C_hornet' && filteredGroups.length > 0 && shouldExtractFlights) {
+      console.log('✈️ AircraftGroups: Calling onExtractedFlights with', filteredGroups.length, 'F/A-18C groups (triggered by file upload)');
       console.log('✈️ AircraftGroups: Group details:', filteredGroups.map(g => ({
         name: g.name,
         unitCount: g.units.length,
@@ -173,10 +177,11 @@ const AircraftGroups: React.FC<AircraftGroupsProps> = ({
       console.log('⚠️ AircraftGroups: Not calling onExtractedFlights because:', {
         noCallback: !onExtractedFlights,
         wrongAircraftType: aircraftType !== 'FA-18C_hornet',
-        noGroups: filteredGroups.length === 0
+        noGroups: filteredGroups.length === 0,
+        shouldNotExtract: !shouldExtractFlights
       });
     }
-  }, [filteredGroups, onExtractedFlights, aircraftType]);
+  }, [filteredGroups, onExtractedFlights, aircraftType, shouldExtractFlights]);
 
   // No groups found - either return null or a message
   if (filteredGroups.length === 0) {

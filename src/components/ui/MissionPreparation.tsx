@@ -88,7 +88,8 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
     setPrepFlights,
     missionLoading,
     missionError,
-    missionSaving
+    missionSaving,
+    handleExtractedFlights: persistenceHandleExtractedFlights
   } = useMissionPrepDataPersistence(
     selectedEvent,
     externalAssignedPilots,
@@ -126,7 +127,6 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
 
   // Legacy state management for backwards compatibility
   const {
-    handleExtractedFlights,
     resetProcessedFlag
   } = useMissionPrepState(
     assignedPilots,
@@ -488,7 +488,7 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
                 missionCommander={missionCommander}
                 getMissionCommanderCandidates={getMissionCommanderCandidatesWrapper}
                 setMissionCommander={setMissionCommander}
-                onExtractedFlights={handleExtractedFlights}
+                onExtractedFlights={persistenceHandleExtractedFlights}
               />
               <AvailablePilots
                 width={CARD_WIDTH}
