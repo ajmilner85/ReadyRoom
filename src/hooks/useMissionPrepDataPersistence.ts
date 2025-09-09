@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useMission } from './useMission';
 import type { AssignedPilotsRecord } from '../types/MissionPrepTypes';
 import type { MissionCommanderInfo } from '../types/MissionCommanderTypes';
@@ -492,6 +492,12 @@ export const useMissionPrepDataPersistence = (
   const setPrepFlights = useCallback((flights: any[], skipSave: boolean = false) => {
     setPrepFlightsLocal(flights);
     
+    // If flights are being cleared, reset the processed flights ref to allow re-importing
+    if (flights.length === 0) {
+      console.log('🔄 useMissionPrepDataPersistence: Flights cleared, resetting processed flights ref');
+      processedFlightsRef.current = null;
+    }
+    
     // Save to database with shorter delay for flights (immediate user feedback)
     if (mission && selectedEvent && !skipSave) {
       // Only save if this mission belongs to the currently selected event
@@ -564,6 +570,73 @@ export const useMissionPrepDataPersistence = (
     };
   }, [saveTimeout]);
 
+  // Parse a group name into callsign and flight number
+  const parseGroupName = (name: string): { callsign: string; flightNumber: string } => {
+    const lastSpaceIndex = name.lastIndexOf(' ');
+    if (lastSpaceIndex === -1) {
+      return { callsign: name, flightNumber: "1" };
+    }
+    
+    const callsign = name.substring(0, lastSpaceIndex);
+    const flightNumber = name.substring(lastSpaceIndex + 1);
+    
+    if (!/^\d+$/.test(flightNumber)) {
+      return { callsign: name, flightNumber: "1" };
+    }
+    
+    return { callsign, flightNumber };
+  };
+
+  // Use a ref to track processed flights to prevent duplicate processing
+  const processedFlightsRef = useRef<string | null>(null);
+
+  // Reset processed flights ref when event changes
+  useEffect(() => {
+    processedFlightsRef.current = null;
+  }, [selectedEvent?.id]);
+
+  // Handle extracted flights from .miz import
+  const handleExtractedFlights = useCallback((flights: any[]) => {
+    console.log('🛫 useMissionPrepDataPersistence: Processing extracted flights:', flights.length);
+    
+    // Create a unique key for this batch of flights
+    const flightKey = flights.map(f => f.name).sort().join(',');
+    
+    // Only process if we haven't already processed this exact set of flights in the current session
+    if (processedFlightsRef.current === flightKey) {
+      console.log('⚠️ useMissionPrepDataPersistence: Skipping duplicate flight processing for key:', flightKey);
+      return;
+    }
+    
+    processedFlightsRef.current = flightKey;
+    
+    setExtractedFlights(flights);
+    
+    // Convert extracted flights to prep flights format
+    const batchTimestamp = Date.now().toString();
+    const convertedFlights = flights.map((extractedFlight, index) => {
+      const { callsign, flightNumber } = parseGroupName(extractedFlight.name);
+      return {
+        id: `extracted-${batchTimestamp}-${index}`,
+        callsign: callsign.toUpperCase(),
+        flightNumber,
+        pilots: [
+          { boardNumber: "", callsign: "", dashNumber: "1" },
+          { boardNumber: "", callsign: "", dashNumber: "2" },
+          { boardNumber: "", callsign: "", dashNumber: "3" },
+          { boardNumber: "", callsign: "", dashNumber: "4" }
+        ],
+        midsA: "",
+        midsB: "",
+        creationOrder: index,
+        extractedFlightData: extractedFlight
+      };
+    });
+    
+    console.log('🔄 useMissionPrepDataPersistence: Converted flights to prep format:', convertedFlights.map(f => f.callsign));
+    setPrepFlights(convertedFlights);
+  }, [setPrepFlights]);
+
   return {
     // State
     assignedPilots,
@@ -596,6 +669,9 @@ export const useMissionPrepDataPersistence = (
         return updateSettings(settings);
       }
       return Promise.resolve(false);
-    }
+    },
+
+    // Flight extraction handler
+    handleExtractedFlights
   };
 };
