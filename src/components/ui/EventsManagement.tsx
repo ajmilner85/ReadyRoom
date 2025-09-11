@@ -99,19 +99,10 @@ const EventsManagement: React.FC = () => {
   // Fetch Discord guild ID from squadron settings
   const fetchDiscordGuildId = async () => {
     try {
-      const { data, error } = await supabase
-        .from('squadron_settings')
-        .select('value')
-        .eq('key', 'discord_guild_id')
-        .limit(1);
-      
-      if (error) {
-        console.warn('Error fetching Discord guild ID:', error.message);
-        return;
-      }
-      
-      // Handle array result from .limit(1)
-      const guildIdValue = data && data.length > 0 ? data[0].value : null;
+      // Discord guild ID should be retrieved from org_squadrons.discord_integration
+      // This is a legacy fallback that should be updated
+      console.warn('EventsManagement component needs update to use discord_integration field');
+      const guildIdValue = null; // Remove fallback query
       if (guildIdValue) {
         setDiscordGuildId(guildIdValue);
         console.log('Using Discord guild ID for filtering:', guildIdValue);
@@ -175,13 +166,10 @@ const EventsManagement: React.FC = () => {
   const loadCycles = async () => {
     setLoading(prev => ({ ...prev, cycles: true }));
     try {
-      // When fetching cycles, filter by Discord guild ID if available
-      const { data: settingsData } = await supabase
-        .from('squadron_settings')
-        .select('value')
-        .eq('key', 'discord_guild_id')
-        .limit(1);
-      const guildId = (settingsData && settingsData.length > 0) ? settingsData[0].value : null;
+      // Discord guild ID should be retrieved from org_squadrons.discord_integration
+      // This is a legacy fallback that should be updated  
+      console.warn('EventsManagement loadCycles needs update to use discord_integration field');
+      const guildId = null; // Remove fallback query
       setDiscordGuildId(guildId);
       
       // Fetch cycles without guild ID filtering (supports multi-squadron operations)
@@ -745,7 +733,7 @@ const EventsManagement: React.FC = () => {
           });
           
           try {
-            const discordResult = await updateMultiChannelEvent(updatedEvent, editingEvent.datetime);
+            const discordResult = await updateMultiChannelEvent(updatedEvent, editingEvent.datetime, eventData.reminders);
             console.log(`[UPDATE-EVENT] Discord update result:`, discordResult);
             
             if (discordResult.errors.length > 0) {

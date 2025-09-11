@@ -449,29 +449,11 @@ export async function publishEventToDiscord(event: Event): Promise<PublishEventR
           endTime = endDate.toISOString();
         }
         
-        // Get Discord settings from database
-        const { data: settingsData, error: settingsError } = await supabase
-          .from('squadron_settings')
-          .select('key, value')
-          .in('key', ['discord_guild_id', 'events_channel_id']);
-        
-        if (settingsError) {
-          throw new Error(`Failed to fetch Discord settings: ${settingsError.message}`);
-        }
-        
+        // Discord settings should be retrieved from org_squadrons.discord_integration
+        // This is a legacy fallback that should be updated
+        console.warn('discordService needs update to use discord_integration field');
         let guildId = null;
         let channelId = null;
-        
-        // Extract settings from the response
-        if (settingsData) {
-          settingsData.forEach(setting => {
-            if (setting.key === 'discord_guild_id' && setting.value) {
-              guildId = setting.value;
-            } else if (setting.key === 'events_channel_id' && setting.value) {
-              channelId = setting.value;
-            }
-          });
-        }
         
         // Fall back to localStorage only if database settings are missing
         if (!guildId) {
@@ -1126,33 +1108,9 @@ export async function deleteDiscordMessage(eventOrMessageId: Event | string, gui
             // console.log(`[DEBUG] Alt lookup error: ${altEventError.message}`);
           }
         }
-          // If still missing IDs, try to get them from squadron_settings
-        if (!guildId || !channelId) {
-          // console.log(`[DEBUG] Still missing ${!guildId ? 'guildId' : ''}${(!guildId && !channelId) ? ' and ' : ''}${!channelId ? 'channelId' : ''}, checking squadron_settings`);
-          
-          const { data: settingsData, error: settingsError } = await supabase
-            .from('squadron_settings')
-            .select('key, value')
-            .in('key', ['discord_guild_id', 'events_channel_id']);
-            
-          if (settingsError) {
-            // console.log(`[DEBUG] Error fetching Discord settings: ${settingsError.message}`);
-          }
-          
-          if (!settingsError && settingsData) {
-            // console.log(`[DEBUG] Found settings data: ${JSON.stringify(settingsData)}`);
-            
-            for (const setting of settingsData) {
-              if (setting.key === 'discord_guild_id' && setting.value && !guildId) {
-                guildId = setting.value;
-                // console.log(`[DEBUG] Using guild ID from squadron_settings: ${guildId}`);
-              } else if (setting.key === 'events_channel_id' && setting.value && !channelId) {
-                channelId = setting.value;
-                // console.log(`[DEBUG] Using channel ID from squadron_settings: ${channelId}`);
-              }
-            }
-          }
-        }
+          // Discord settings should be retrieved from org_squadrons.discord_integration
+          // This is a legacy fallback that should be updated
+          console.warn('discordService event publishing needs update to use discord_integration field');
       } catch (err) {
         console.error('Error retrieving Discord IDs:', err);
         // Continue without guild/channel IDs if lookup fails
@@ -1309,7 +1267,7 @@ export async function syncDiscordAttendance(_eventId: string, discordMessageId: 
 /**
  * Edits a Discord message in a specific channel
  */
-async function editDiscordMessageInChannel(messageId: string, event: Event, guildId: string, channelId: string, originalStartTime?: string): Promise<{ success: boolean; error?: string }> {
+async function editDiscordMessageInChannel(messageId: string, event: Event, guildId: string, channelId: string, originalStartTime?: string, reminders?: any): Promise<{ success: boolean; error?: string }> {
   try {
     const startTime = event.datetime;
     let endTime = event.endDatetime;
@@ -1339,7 +1297,9 @@ async function editDiscordMessageInChannel(messageId: string, event: Event, guil
       creator: event.creator,
       // Add the original start time and event ID for reminder updates
       originalStartTime: originalStartTime,
-      eventId: event.id
+      eventId: event.id,
+      // Add reminder settings for proper reminder scheduling
+      reminders: reminders
     };
     
     // console.log('[EDIT-REQUEST-DEBUG] Sending to Discord bot:', {
@@ -1383,7 +1343,7 @@ async function editDiscordMessageInChannel(messageId: string, event: Event, guil
  * Updates a multi-channel Discord event by editing existing messages in place where possible,
  * and falling back to delete-and-recreate for multi-channel events
  */
-export async function updateMultiChannelEvent(event: Event, originalStartTime?: string): Promise<{ success: boolean; publishedCount: number; errors: string[] }> {
+export async function updateMultiChannelEvent(event: Event, originalStartTime?: string, reminders?: any): Promise<{ success: boolean; publishedCount: number; errors: string[] }> {
   try {
     console.log(`[UPDATE-MULTI-DISCORD] Starting edit for event ${event.id}`);
     console.log(`[UPDATE-MULTI-DISCORD] Event data:`, {
@@ -1506,7 +1466,8 @@ export async function updateMultiChannelEvent(event: Event, originalStartTime?: 
             event,
             selectedGuildId,
             eventsChannel.id,
-            originalStartTime
+            originalStartTime,
+            reminders
           );
           
           if (editResult.success) {

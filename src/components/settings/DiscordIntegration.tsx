@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { AlertCircle, Check, X } from 'lucide-react';
 import { DiscordServer, getAvailableDiscordServers, getServerChannels } from '../../utils/discordService';
-import { supabase } from '../../utils/supabaseClient';
 
 // Discord SVG icon component
 const DiscordIcon = ({ className = "" }: { className?: string }) => (
@@ -49,27 +48,10 @@ const DiscordIntegration: React.FC<DiscordIntegrationProps> = ({ error: parentEr
         
         setAvailableServers(response.servers || []);
         
-        const { data: settingsData, error: settingsError } = await supabase
-          .from('squadron_settings')
-          .select('key, value')
-          .in('key', ['discord_guild_id', 'events_channel_id']);
-
-        if (settingsError) {
-          console.error('Error fetching Discord settings from database:', settingsError);
-        }
-
+        // Discord settings should be stored in discord_integration JSONB field, not squadron_settings
+        // Remove legacy fallback queries - rely on proper discord_integration configuration
         let dbServerId = null;
         let dbChannelId = null;
-
-        if (settingsData) {
-          settingsData.forEach(setting => {
-            if (setting.key === 'discord_guild_id' && setting.value) {
-              dbServerId = setting.value;
-            } else if (setting.key === 'events_channel_id' && setting.value) {
-              dbChannelId = setting.value;
-            }
-          });
-        }
         
         const localServerId = localStorage.getItem('discordSelectedServer');
         const localChannelId = localStorage.getItem('discordSelectedChannel');
@@ -167,41 +149,13 @@ const DiscordIntegration: React.FC<DiscordIntegrationProps> = ({ error: parentEr
     }
     
     try {
-      // Create settings objects with required fields
-      const serverSettings = {
-        key: 'discord_guild_id',
-        value: selectedServerId,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      };
+      // TODO: Update this component to save settings to org_squadrons.discord_integration JSONB field
+      // instead of using legacy squadron_settings table
+      console.warn('DiscordIntegration component needs update to use discord_integration JSONB field');
       
-      const channelSettings = {
-        key: 'events_channel_id',
-        value: selectedChannelId,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      };
-      
-      // Use upsert with onConflict parameter to handle existing records
-      const { error: serverError } = await supabase
-        .from('squadron_settings')
-        .upsert(serverSettings, { 
-          onConflict: 'key' 
-        });
-      
-      if (serverError) {
-        throw new Error(`Error saving server settings: ${serverError.message}`);
-      }
-      
-      const { error: channelError } = await supabase
-        .from('squadron_settings')
-        .upsert(channelSettings, { 
-          onConflict: 'key' 
-        });
-      
-      if (channelError) {
-        throw new Error(`Error saving channel settings: ${channelError.message}`);
-      }
+      // For now, just save to localStorage as fallback
+      localStorage.setItem('discordSelectedServer', selectedServerId);
+      localStorage.setItem('discordSelectedChannel', selectedChannelId);
       
       // Update the UI state to show successful save
       setSavedServerId(selectedServerId);

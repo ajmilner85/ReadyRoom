@@ -68,3 +68,5 @@ PERMISSIONS_IMPLEMENTATION_SUMMARY.md
 
 # Debug files
 debug_auth.js
+docs/miz-import-infinite-loop-fix.md
+docs/miz-import-merge-resolution.md
