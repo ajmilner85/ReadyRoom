@@ -1,28 +1,23 @@
 /**
- * MAIN APPLICATION SERVER (ReadyRoom)
+ * LOCAL DEVELOPMENT SERVER (ReadyRoom)
  * 
- * PURPOSE: Primary Express server handling all application logic and API endpoints
+ * PURPOSE: Express server for local development with Discord bot integration
  * 
  * RESPONSIBILITIES:
- * - Express server on port 3001
+ * - Express server on port 3001 (127.0.0.1 for local development)
  * - All API endpoints (/api/events, /api/reminders, etc.)
  * - Event creation, editing, deletion logic
  * - Reminder processing and scheduling
  * - Database operations (Supabase)
- * - Discord integration via discordBot.js imports
+ * - Discord bot initialization and integration
  * - User authentication and authorization
+ * - Local development CORS configuration
  * 
- * WHAT BELONGS HERE:
- * - All business logic
- * - Database queries and operations
- * - API request/response handling
- * - Event and reminder management
- * - Import Discord functions from SDOBot/discordBot.js
- * 
- * WHAT SHOULD NOT BE DUPLICATED:
- * - Do not duplicate code in SDOBot/index.js
- * - Discord bot initialization (that's in SDOBot/index.js)
- * - Pure Discord API functions (those are in SDOBot/discordBot.js)
+ * DEVELOPMENT CONTEXT:
+ * - Used for local development only (npm run dev in server directory)
+ * - Loads .env.local for development overrides
+ * - Points to Discord bot in ../SDOBot/discordBot.js
+ * - Production deployment uses SDOBot/index.js instead
  */
 const path = require('path');
 const dotenv = require('dotenv');
