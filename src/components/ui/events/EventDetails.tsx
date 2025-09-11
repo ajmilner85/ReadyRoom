@@ -521,14 +521,36 @@ const EventDetails: React.FC<EventDetailsProps> = ({
         }}>
           {event.title}
         </h1>
-        <div style={{
-          fontSize: '14px',
-          color: '#64748B',
-          marginBottom: '4px'
-        }}>
-          Created by <span style={{ fontWeight: 500, color: '#475569' }}>{event.creator.callsign} ({event.creator.boardNumber})</span>
-          {event.creator.billet && <span style={{ color: '#64748B' }}> - {event.creator.billet}</span>}
-        </div>
+        
+        {event.creator && (event.creator.callsign || event.creator.boardNumber) ? (
+          <div style={{
+            fontSize: '14px',
+            color: '#64748B',
+            marginBottom: '4px'
+          }}>
+            Created by <span style={{ fontWeight: 500, color: '#475569' }}>
+              {event.creator.boardNumber && `${event.creator.boardNumber} `}
+              {event.creator.callsign || 'Unknown'}
+            </span>
+            {event.creator.billet && <span style={{ color: '#64748B' }}> - {event.creator.billet}</span>}
+          </div>
+        ) : event.creator ? (
+          <div style={{
+            fontSize: '14px',
+            color: '#64748B',
+            marginBottom: '4px'
+          }}>
+            Created by <span style={{ fontWeight: 500, color: '#475569' }}>Unknown User</span>
+          </div>
+        ) : (
+          <div style={{
+            fontSize: '14px',
+            color: '#64748B',
+            marginBottom: '4px'
+          }}>
+            Created by <span style={{ fontWeight: 500, color: '#475569' }}>System</span>
+          </div>
+        )}
       </div>
 
       <Card className="p-4" style={{ marginBottom: '10px' }}>

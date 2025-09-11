@@ -326,6 +326,10 @@ export const fetchEvents = async (cycleId?: string) => {
     discord_event_id,
     image_url,
     participants,
+    creator_call_sign,
+    creator_board_number,
+    creator_billet,
+    event_settings,
     created_at,
     updated_at
   `);
@@ -364,8 +368,8 @@ export const fetchEvents = async (cycleId?: string) => {
       status: dbEvent.status || 'upcoming',
       eventType: dbEvent.event_type as EventType | undefined,
       cycleId: dbEvent.cycle_id || undefined,
-      trackQualifications: false, // Default value - field not in current database schema
-      eventSettings: undefined, // Default value - field not in current database schema
+      trackQualifications: (dbEvent.event_settings as any)?.groupResponsesByQualification || false,
+      eventSettings: dbEvent.event_settings as any || undefined,
       // Handle JSONB discord_event_id - extract first message ID for compatibility or keep as string
       discordEventId: Array.isArray(dbEvent.discord_event_id) 
         ? ((dbEvent.discord_event_id as any)[0]?.messageId || undefined)
@@ -385,9 +389,9 @@ export const fetchEvents = async (cycleId?: string) => {
       restrictedTo: [], // No restricted_to in the DB schema
       participants: Array.isArray(dbEvent.participants) ? dbEvent.participants as string[] : [], // Get participants from database
       creator: {
-        boardNumber: '',
-        callsign: '',
-        billet: ''
+        boardNumber: dbEvent.creator_board_number || '',
+        callsign: dbEvent.creator_call_sign || '',
+        billet: dbEvent.creator_billet || ''
       },
       attendance: {
         accepted: [],
@@ -580,8 +584,17 @@ export const updateEvent = async (eventId: string, updates: Partial<Omit<Event, 
   // track_qualifications field not in current database schema
   // Handle event settings updates
   if (updates.timezone !== undefined || updates.reminders !== undefined || updates.reminderRecipients !== undefined || updates.eventSettings !== undefined) {
-    // Build event_settings object
-    const eventSettings: any = {};
+    // First, get existing event settings to merge with updates
+    const { data: existingEvent } = await supabase
+      .from('events')
+      .select('event_settings')
+      .eq('id', eventId)
+      .single();
+    
+    // Start with existing settings or empty object
+    const eventSettings: any = existingEvent?.event_settings || {};
+    
+    // Apply updates
     if (updates.timezone !== undefined) eventSettings.timezone = updates.timezone;
     if (updates.trackQualifications !== undefined) eventSettings.groupResponsesByQualification = updates.trackQualifications;
     if (updates.eventSettings?.groupResponsesByQualification !== undefined) eventSettings.groupResponsesByQualification = updates.eventSettings.groupResponsesByQualification;
@@ -603,10 +616,9 @@ export const updateEvent = async (eventId: string, updates: Partial<Omit<Event, 
       eventSettings.sendRemindersToAccepted = updates.reminderRecipients.sendToAccepted;
       eventSettings.sendRemindersToTentative = updates.reminderRecipients.sendToTentative;
     }
-    // Merge with existing event settings
-    if (Object.keys(eventSettings).length > 0) {
-      // event_settings field not in current database schema
-    }
+    
+    // Save merged event settings to database
+    dbUpdates.event_settings = eventSettings;
   }
   // Preserve discord_event_id during updates
   if ((updates as any).discord_event_id !== undefined) dbUpdates.discord_event_id = (updates as any).discord_event_id;

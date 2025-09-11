@@ -87,22 +87,31 @@ interface RoleMapping {
   priority: number;
 }
 
+interface ThreadingSettings {
+  useThreads: boolean;
+  autoArchiveDuration: number;
+}
+
 interface SquadronDiscordSettingsProps {
   discordChannels?: DiscordChannel[];
   roleMappings?: RoleMapping[];
   selectedGuildId?: string;
+  threadingSettings?: ThreadingSettings;
   onChannelsChange?: (channels: DiscordChannel[]) => void;
   onRoleMappingsChange?: (mappings: RoleMapping[]) => void;
   onGuildChange?: (guildId: string) => void;
+  onThreadingSettingsChange?: (settings: ThreadingSettings) => void;
 }
 
 const SquadronDiscordSettings: React.FC<SquadronDiscordSettingsProps> = ({
   discordChannels = [],
   roleMappings = [],
   selectedGuildId,
+  threadingSettings = { useThreads: false, autoArchiveDuration: 1440 },
   onChannelsChange,
   onRoleMappingsChange,
-  onGuildChange
+  onGuildChange,
+  onThreadingSettingsChange
 }) => {
   const [showChannelForm, setShowChannelForm] = useState(false);
   const [showRoleForm, setShowRoleForm] = useState(false);
@@ -680,6 +689,159 @@ const SquadronDiscordSettings: React.FC<SquadronDiscordSettingsProps> = ({
               fontSize: '14px'
             }}>
               Please select a Discord server first to add channels.
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Threading Settings Section */}
+      <div style={{ marginBottom: '20px' }}>
+        <label style={{
+          fontSize: '14px',
+          fontWeight: 500,
+          color: '#64748B',
+          marginBottom: '12px',
+          display: 'block'
+        }}>
+          Threading Settings
+        </label>
+        
+        <div style={{
+          backgroundColor: '#FFFFFF',
+          border: '1px solid #E2E8F0',
+          borderRadius: '6px',
+          padding: '16px'
+        }}>
+          {/* Threading Toggle */}
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            marginBottom: '12px'
+          }}>
+            <div>
+              <div style={{
+                fontSize: '14px',
+                fontWeight: 500,
+                color: '#0F172A',
+                marginBottom: '4px'
+              }}>
+                Use Threads for Events and Reminders
+              </div>
+              <div style={{
+                fontSize: '12px',
+                color: '#64748B',
+                lineHeight: '1.4'
+              }}>
+                When enabled, events and reminders will be posted within threads instead of independent messages
+              </div>
+            </div>
+            <div style={{ marginLeft: '16px' }}>
+              <label style={{
+                position: 'relative',
+                display: 'inline-block',
+                width: '44px',
+                height: '24px',
+                cursor: 'pointer'
+              }}>
+                <input
+                  type="checkbox"
+                  checked={threadingSettings.useThreads}
+                  onChange={(e) => onThreadingSettingsChange?.({
+                    ...threadingSettings,
+                    useThreads: e.target.checked
+                  })}
+                  style={{
+                    opacity: 0,
+                    width: 0,
+                    height: 0
+                  }}
+                />
+                <span style={{
+                  position: 'absolute',
+                  cursor: 'pointer',
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  backgroundColor: threadingSettings.useThreads ? '#3B82F6' : '#CBD5E1',
+                  borderRadius: '24px',
+                  transition: 'background-color 0.2s ease',
+                  '::before': {
+                    position: 'absolute',
+                    content: '""',
+                    height: '18px',
+                    width: '18px',
+                    left: threadingSettings.useThreads ? '23px' : '3px',
+                    bottom: '3px',
+                    backgroundColor: 'white',
+                    borderRadius: '50%',
+                    transition: 'left 0.2s ease'
+                  }
+                } as any}>
+                  <div style={{
+                    position: 'absolute',
+                    height: '18px',
+                    width: '18px',
+                    left: threadingSettings.useThreads ? '23px' : '3px',
+                    top: '3px',
+                    backgroundColor: 'white',
+                    borderRadius: '50%',
+                    transition: 'left 0.2s ease'
+                  }} />
+                </span>
+              </label>
+            </div>
+          </div>
+
+          {/* Auto-Archive Duration */}
+          {threadingSettings.useThreads && (
+            <div style={{
+              paddingTop: '12px',
+              borderTop: '1px solid #E2E8F0'
+            }}>
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px'
+              }}>
+                <label style={{
+                  fontSize: '14px',
+                  fontWeight: 500,
+                  color: '#0F172A',
+                  minWidth: '140px'
+                }}>
+                  Auto-Archive Duration:
+                </label>
+                <select
+                  value={threadingSettings.autoArchiveDuration}
+                  onChange={(e) => onThreadingSettingsChange?.({
+                    ...threadingSettings,
+                    autoArchiveDuration: parseInt(e.target.value)
+                  })}
+                  style={{
+                    padding: '6px 8px',
+                    border: '1px solid #CBD5E1',
+                    borderRadius: '4px',
+                    fontSize: '14px',
+                    backgroundColor: 'white',
+                    cursor: 'pointer',
+                    minWidth: '120px'
+                  }}
+                >
+                  <option value={60}>1 hour</option>
+                  <option value={1440}>1 day</option>
+                  <option value={4320}>3 days</option>
+                  <option value={10080}>1 week</option>
+                </select>
+              </div>
+              <div style={{
+                fontSize: '12px',
+                color: '#64748B',
+                marginTop: '6px'
+              }}>
+                Threads will automatically archive after this period of inactivity
+              </div>
             </div>
           )}
         </div>

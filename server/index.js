@@ -1,12 +1,47 @@
-// Use an explicit path for dotenv config
+/**
+ * MAIN APPLICATION SERVER (ReadyRoom)
+ * 
+ * PURPOSE: Primary Express server handling all application logic and API endpoints
+ * 
+ * RESPONSIBILITIES:
+ * - Express server on port 3001
+ * - All API endpoints (/api/events, /api/reminders, etc.)
+ * - Event creation, editing, deletion logic
+ * - Reminder processing and scheduling
+ * - Database operations (Supabase)
+ * - Discord integration via discordBot.js imports
+ * - User authentication and authorization
+ * 
+ * WHAT BELONGS HERE:
+ * - All business logic
+ * - Database queries and operations
+ * - API request/response handling
+ * - Event and reminder management
+ * - Import Discord functions from SDOBot/discordBot.js
+ * 
+ * WHAT SHOULD NOT BE DUPLICATED:
+ * - Do not duplicate code in SDOBot/index.js
+ * - Discord bot initialization (that's in SDOBot/index.js)
+ * - Pure Discord API functions (those are in SDOBot/discordBot.js)
+ */
 const path = require('path');
 const dotenv = require('dotenv');
 const express = require('express');
 const cors = require('cors');
 const bodyParser = require('body-parser');
 
-// Load environment variables from the root .env file
-dotenv.config({ path: path.resolve(__dirname, '../.env') });
+// Load environment variables - check for .env.local first (development), then .env (production)
+const envLocalPath = path.resolve(__dirname, '../.env.local');
+const envPath = path.resolve(__dirname, '../.env');
+
+let result = dotenv.config({ path: envLocalPath });
+if (result.error) {
+  // If .env.local doesn't exist, try .env
+  result = dotenv.config({ path: envPath });
+  if (result.error) {
+    console.error('Error loading environment files:', result.error);
+  }
+}
 
 // Require the Discord bot with an explicit path
 const discordBotPath = path.resolve(__dirname, '../SDOBot/discordBot');
@@ -18,8 +53,12 @@ const {
   getAvailableGuilds,
   countdownManager,
   sendReminderMessage,
+  postMessageToThread,
   getGuildRoles,
-  getGuildMember
+  getGuildMember,
+  shouldUseThreadsForEvent,
+  createThreadFromMessage,
+  deleteThread
 } = require(discordBotPath);
 
 // Import Supabase client
@@ -73,15 +112,10 @@ app.post('/api/settings/timezone', async (req, res) => {
       return res.status(400).json({ error: 'Timezone is required' });
     }
     
-    // Save timezone to squadron settings
+    // Update timezone setting for all squadrons (maintaining current global behavior)
+    // Use raw SQL to update JSONB field since Supabase client doesn't handle JSONB updates well
     const { error } = await supabase
-      .from('squadron_settings')
-      .upsert({
-        key: 'reference_timezone',
-        value: timezone
-      }, {
-        onConflict: 'key'
-      });
+      .rpc('update_squadron_timezone', { new_timezone: timezone });
     
     if (error) {
       throw error;
@@ -156,25 +190,8 @@ app.delete('/api/events/:discordMessageId', async (req, res) => {
       }
     }
     
-    // If still missing guild ID or channel ID, try to get them from squadron_settings
-    if (!discordGuildId || !discordChannelId) {
-      const { data: settingsData, error: settingsError } = await supabase
-        .from('squadron_settings')
-        .select('key, value')
-        .in('key', ['discord_guild_id', 'events_channel_id']);
-        
-      if (!settingsError && settingsData) {
-        settingsData.forEach(setting => {
-          if (setting.key === 'discord_guild_id' && setting.value && !discordGuildId) {
-            discordGuildId = setting.value;
-            // console.log(`[DEBUG] Using guild ID ${discordGuildId} from squadron_settings`);
-          } else if (setting.key === 'events_channel_id' && setting.value && !discordChannelId) {
-            discordChannelId = setting.value;
-            // console.log(`[DEBUG] Using channel ID ${discordChannelId} from squadron_settings`);
-          }
-        });
-      }
-    }
+    // Discord guild/channel IDs should be in discord_integration field, not fallback settings
+    // If missing, this indicates a configuration issue that should be resolved in Discord Integration settings
     
     // If we still don't have a guild ID, we can't proceed
     if (!discordGuildId) {
@@ -186,30 +203,140 @@ app.delete('/api/events/:discordMessageId', async (req, res) => {
     
     // console.log(`[DEBUG] Attempting to delete Discord message: ${discordMessageId}, Guild ID: ${discordGuildId}, Channel ID: ${discordChannelId || 'not specified'}`);
     
-    // Call the Discord bot to delete the message, passing both guild ID and channel ID
-    const result = await deleteEventMessage(discordMessageId, discordGuildId, discordChannelId);
+    // Enhanced deletion: Clean up all traces of the event from Discord
+    let deletionResults = {
+      originalMessage: false,
+      threads: [],
+      reminders: 0,
+      reminderMessages: 0,
+      countdownCleared: false
+    };
     
-    // console.log(`[DEBUG] Delete result for message ${discordMessageId}:`, result);
-    
-    // Return success even if message was already deleted
-    if (result.success) {
+    try {
+      // First, find the event in the database to get full event data including thread IDs
+      const { data: eventData, error: eventLookupError } = await supabase
+        .from('events')
+        .select('id, discord_event_id')
+        .or(`discord_event_id.eq."${discordMessageId}",discord_event_id->0->>messageId.eq."${discordMessageId}"`)
+        .single();
+      
+      let eventId = null;
+      let publications = [];
+      
+      if (!eventLookupError && eventData) {
+        eventId = eventData.id;
+        // Handle both old single ID format and new array format
+        if (Array.isArray(eventData.discord_event_id)) {
+          publications = eventData.discord_event_id;
+        } else if (eventData.discord_event_id === discordMessageId) {
+          // Old format - create a publication entry
+          publications = [{
+            messageId: discordMessageId,
+            guildId: discordGuildId,
+            channelId: discordChannelId,
+            threadId: null
+          }];
+        }
+      }
+      
+      // Delete event reminders from database
+      if (eventId) {
+        const { data: deletedReminders, error: reminderDeleteError } = await supabase
+          .from('event_reminders')
+          .delete()
+          .eq('event_id', eventId)
+          .select('count');
+        
+        if (!reminderDeleteError) {
+          deletionResults.reminders = deletedReminders?.length || 0;
+          console.log(`[DELETE] Removed ${deletionResults.reminders} reminder records for event ${eventId}`);
+        }
+      }
+      
+      // Delete threads and their messages (if any threads exist)
+      for (const publication of publications) {
+        if (publication.threadId) {
+          try {
+            const threadDeleteResult = await deleteThread(publication.threadId, publication.guildId);
+            if (threadDeleteResult.success) {
+              deletionResults.threads.push(publication.threadId);
+              console.log(`[DELETE] Deleted thread ${publication.threadId} and all its messages`);
+            }
+          } catch (threadError) {
+            console.warn(`[DELETE] Failed to delete thread ${publication.threadId}:`, threadError.message);
+          }
+        }
+      }
+      
+      // Delete reminder messages (for non-threaded events)
+      let reminderMessagesDeleted = 0;
+      for (const publication of publications) {
+        if (publication.reminderMessageIds && Array.isArray(publication.reminderMessageIds)) {
+          for (const reminderMessageId of publication.reminderMessageIds) {
+            try {
+              const reminderDeleteResult = await deleteEventMessage(reminderMessageId, publication.guildId, publication.channelId);
+              if (reminderDeleteResult.success) {
+                reminderMessagesDeleted++;
+                console.log(`[DELETE] Deleted reminder message ${reminderMessageId}`);
+              }
+            } catch (reminderError) {
+              console.warn(`[DELETE] Failed to delete reminder message ${reminderMessageId}:`, reminderError.message);
+            }
+          }
+        }
+      }
+      if (reminderMessagesDeleted > 0) {
+        console.log(`[DELETE] Deleted ${reminderMessagesDeleted} reminder messages`);
+      }
+      deletionResults.reminderMessages = reminderMessagesDeleted;
+      
+      // Delete the original event message
+      const result = await deleteEventMessage(discordMessageId, discordGuildId, discordChannelId);
+      deletionResults.originalMessage = result.success;
+      
       // Clear countdown updates for this message
       try {
         countdownManager.clearEventUpdate(discordMessageId);
-        console.log(`[COUNTDOWN] Cleared countdown updates for deleted message ${discordMessageId}`);
+        deletionResults.countdownCleared = true;
+        console.log(`[DELETE] Cleared countdown updates for deleted message ${discordMessageId}`);
       } catch (countdownError) {
-        console.warn(`[COUNTDOWN] Error clearing countdown updates: ${countdownError.message}`);
+        console.warn(`[DELETE] Error clearing countdown updates: ${countdownError.message}`);
       }
       
+      console.log(`[DELETE] Complete deletion results:`, deletionResults);
+      
+      // Return success if at least the original message was handled
       return res.json({ 
         success: true,
+        deletionResults,
         alreadyDeleted: !!result.alreadyDeleted
       });
-    } else {
-      return res.status(500).json({
-        success: false,
-        error: result.error || 'Failed to delete Discord message'
-      });
+      
+    } catch (enhancedDeleteError) {
+      console.error('[DELETE] Error during enhanced deletion:', enhancedDeleteError);
+      
+      // Fallback to basic deletion if enhanced deletion fails
+      const result = await deleteEventMessage(discordMessageId, discordGuildId, discordChannelId);
+      
+      if (result.success) {
+        try {
+          countdownManager.clearEventUpdate(discordMessageId);
+          console.log(`[DELETE] Cleared countdown updates for deleted message ${discordMessageId}`);
+        } catch (countdownError) {
+          console.warn(`[DELETE] Error clearing countdown updates: ${countdownError.message}`);
+        }
+        
+        return res.json({ 
+          success: true,
+          alreadyDeleted: !!result.alreadyDeleted,
+          warning: 'Enhanced deletion failed, performed basic deletion only'
+        });
+      } else {
+        return res.status(500).json({
+          success: false,
+          error: result.error || 'Failed to delete Discord message'
+        });
+      }
     }
   } catch (error) {
     console.error('[ERROR] Error deleting Discord message:', error);
@@ -278,18 +405,24 @@ app.post('/api/events/publish', async (req, res) => {
       // Fetch event options and creator info from database if eventId is provided
     let eventOptions = {};
     let creatorFromDb = creator; // Use provided creator as fallback
+    let participatingSquadrons = []; // For threading decision
     if (eventId) {
       try {
         const { data: eventData, error: eventError } = await supabase
           .from('events')
-          .select('track_qualifications, event_type, creator_call_sign, creator_board_number, creator_billet')
+          .select('track_qualifications, event_type, creator_call_sign, creator_board_number, creator_billet, participants')
           .eq('id', eventId)
           .single();
         
         if (!eventError && eventData) {
+          // Extract participating squadrons for threading decision
+          participatingSquadrons = Array.isArray(eventData.participants) ? eventData.participants : [];
+          console.log(`[THREADING] Event ${eventId} has ${participatingSquadrons.length} participating squadrons:`, participatingSquadrons);
+          
           eventOptions = {
             trackQualifications: eventData.track_qualifications || false,
-            eventType: eventData.event_type || null
+            eventType: eventData.event_type || null,
+            participatingSquadrons: participatingSquadrons // Pass to Discord bot
           };
           
           // Use creator info from database if available
@@ -339,6 +472,41 @@ app.post('/api/events/publish', async (req, res) => {
       } else {
         // console.log(`[DEBUG] Successfully linked event ${eventId} with Discord message ID ${result.messageId} and guild ID ${result.guildId}`);
         
+        // Store thread ID if a thread was created
+        if (result.threadCreated && result.threadId) {
+          try {
+            console.log(`[THREAD-STORE] Storing thread ID ${result.threadId} for event ${eventId}`);
+            
+            // Use the database helper function to store thread ID
+            // Get the first participating squadron ID (we have this from earlier in the function)
+            const squadronId = participatingSquadrons && participatingSquadrons.length > 0 
+              ? participatingSquadrons[0] 
+              : null;
+            
+            if (!squadronId) {
+              console.warn(`[THREAD-STORE] No participating squadron ID available, cannot store thread ID`);
+            } else {
+              const { data: threadStoreResult, error: threadStoreError } = await supabase
+                .rpc('add_event_thread_id', {
+                  p_event_id: eventId,
+                  p_squadron_id: squadronId,
+                  p_guild_id: result.guildId,
+                  p_channel_id: result.channelId,
+                  p_message_id: result.messageId,
+                  p_thread_id: result.threadId
+                });
+            
+              if (threadStoreError) {
+                console.warn(`[THREAD-STORE] Failed to store thread ID: ${threadStoreError.message}`);
+              } else if (threadStoreResult) {
+                console.log(`[THREAD-STORE] Successfully stored thread ID ${result.threadId} for event ${eventId}`);
+              }
+            }
+          } catch (threadError) {
+            console.warn(`[THREAD-STORE] Error storing thread ID: ${threadError.message}`);
+          }
+        }
+        
         // Add the event to countdown update schedule
         if (eventId) {
           try {
@@ -385,7 +553,7 @@ app.post('/api/events/publish', async (req, res) => {
 app.put('/api/events/:messageId/edit', async (req, res) => {
   try {
     const { messageId } = req.params;
-    const { title, description, startTime, endTime, guildId, channelId, imageUrl, images, creator, originalStartTime, eventId } = req.body;
+    const { title, description, startTime, endTime, guildId, channelId, imageUrl, images, creator, originalStartTime, eventId, reminders } = req.body;
     
     // console.log('[DEBUG] Received event edit request:', { 
     //   timestamp: new Date().toISOString(),
@@ -488,28 +656,80 @@ app.put('/api/events/:messageId/edit', async (req, res) => {
           if (cancelError) {
             console.error('[ERROR] Failed to cancel existing reminders:', cancelError);
           } else {
-            // Create new reminder 15 minutes before the new start time
+            // Create new reminders based on provided settings or fallback to 15 minutes
             const newStartTime = new Date(startTime);
-            const reminderTime = new Date(newStartTime.getTime() - (15 * 60 * 1000));
+            const now = new Date();
             
-            // Only schedule if reminder time is in the future
-            if (reminderTime > new Date()) {
-              const { error: scheduleError } = await supabase
-                .from('event_reminders')
-                .insert({
-                  event_id: eventId,
-                  reminder_type: 'first',
-                  scheduled_time: reminderTime.toISOString(),
-                  sent: false
-                });
-              
-              if (scheduleError) {
-                console.error('[ERROR] Failed to schedule new reminder:', scheduleError);
-              } else {
-                // console.log('[DEBUG] Successfully rescheduled reminder for:', reminderTime.toISOString());
+            // Helper function to convert reminder settings to milliseconds
+            const convertToMs = (value, unit) => {
+              switch (unit) {
+                case 'minutes': return value * 60 * 1000;
+                case 'hours': return value * 60 * 60 * 1000;
+                case 'days': return value * 24 * 60 * 60 * 1000;
+                default: return value * 60 * 1000; // Default to minutes
               }
-            } else {
-              // console.log('[DEBUG] New reminder time is in the past, not scheduling');
+            };
+            
+            // Schedule first reminder if enabled
+            if (reminders?.firstReminder?.enabled) {
+              const reminderMs = convertToMs(reminders.firstReminder.value, reminders.firstReminder.unit);
+              const reminderTime = new Date(newStartTime.getTime() - reminderMs);
+              
+              if (reminderTime > now) {
+                const { error: scheduleError } = await supabase
+                  .from('event_reminders')
+                  .insert({
+                    event_id: eventId,
+                    reminder_type: 'first',
+                    scheduled_time: reminderTime.toISOString(),
+                    sent: false
+                  });
+                
+                if (scheduleError) {
+                  console.error('[ERROR] Failed to schedule first reminder:', scheduleError);
+                }
+              }
+            }
+            
+            // Schedule second reminder if enabled
+            if (reminders?.secondReminder?.enabled) {
+              const reminderMs = convertToMs(reminders.secondReminder.value, reminders.secondReminder.unit);
+              const reminderTime = new Date(newStartTime.getTime() - reminderMs);
+              
+              if (reminderTime > now) {
+                const { error: scheduleError } = await supabase
+                  .from('event_reminders')
+                  .insert({
+                    event_id: eventId,
+                    reminder_type: 'second',
+                    scheduled_time: reminderTime.toISOString(),
+                    sent: false
+                  });
+                
+                if (scheduleError) {
+                  console.error('[ERROR] Failed to schedule second reminder:', scheduleError);
+                }
+              }
+            }
+            
+            // If no reminder settings provided, fallback to 15-minute default
+            if (!reminders?.firstReminder?.enabled && !reminders?.secondReminder?.enabled) {
+              const reminderTime = new Date(newStartTime.getTime() - (15 * 60 * 1000));
+              
+              if (reminderTime > now) {
+                const { error: scheduleError } = await supabase
+                  .from('event_reminders')
+                  .insert({
+                    event_id: eventId,
+                    reminder_type: 'first',
+                    scheduled_time: reminderTime.toISOString(),
+                    sent: false
+                  });
+                
+                if (scheduleError) {
+                  console.error('[ERROR] Failed to schedule default reminder:', scheduleError);
+                }
+              }
             }
           }
         } else {
@@ -897,23 +1117,9 @@ app.post('/api/reminders/send', async (req, res) => {
         squadronId: pub.squadronId
       }));
     } else if (eventData.discord_event_id) {
-      // Legacy single channel format - try to find guild/channel from settings
-      const { data: settingsData } = await supabase
-        .from('squadron_settings')
-        .select('key, value')
-        .in('key', ['discord_guild_id', 'events_channel_id']);
-      
-      let guildId = null;
-      let channelId = null;
-      
-      settingsData?.forEach(setting => {
-        if (setting.key === 'discord_guild_id') guildId = setting.value;
-        if (setting.key === 'events_channel_id') channelId = setting.value;
-      });
-      
-      if (guildId && channelId) {
-        channelsToNotify.push({ guildId, channelId, squadronId: 'default' });
-      }
+      // Legacy single channel format - Discord settings should be properly configured in discord_integration
+      console.warn(`[REMINDER] Event ${eventId} has legacy single-channel format. Please update Discord integration settings.`);
+      // Skip processing legacy events with incomplete configuration
     }
     
     if (channelsToNotify.length === 0) {
@@ -924,38 +1130,13 @@ app.post('/api/reminders/send', async (req, res) => {
       });
     }
     
-    // Send reminder to each channel
-    const results = [];
-    for (const channel of channelsToNotify) {
-      try {
-        // Send message to Discord channel using the bot
-        const sendResult = await sendReminderToChannel(channel.guildId, channel.channelId, message);
-        results.push({
-          squadronId: channel.squadronId,
-          guildId: channel.guildId,
-          channelId: channel.channelId,
-          success: sendResult.success,
-          error: sendResult.error
-        });
-      } catch (error) {
-        console.error(`[REMINDER-API] Error sending to channel ${channel.channelId}:`, error);
-        results.push({
-          squadronId: channel.squadronId,
-          guildId: channel.guildId,
-          channelId: channel.channelId,
-          success: false,
-          error: error.message
-        });
-      }
-    }
-    
-    const successCount = results.filter(r => r.success).length;
+    // Use the new threading-aware reminder function instead of individual channel processing
+    console.log('[REMINDER-API] Using new threading-aware reminder system');
+    await sendReminderToDiscordChannels(eventData, message);
     
     res.json({
-      success: successCount > 0,
-      sentToChannels: successCount,
-      totalChannels: channelsToNotify.length,
-      results
+      success: true,
+      message: 'Reminder sent using new threading system'
     });
     
   } catch (error) {
@@ -967,14 +1148,14 @@ app.post('/api/reminders/send', async (req, res) => {
   }
 });
 
-// Helper function to send reminder to a specific Discord channel
-async function sendReminderToChannel(guildId, channelId, message) {
+// Helper function to send reminder to a specific Discord channel or thread
+async function sendReminderToChannel(guildId, channelId, message, eventId = null) {
   try {
     // Use the existing Discord bot client instead of creating a new one
     const { sendReminderMessage } = require(discordBotPath);
     
-    // Call the Discord bot's reminder function
-    const result = await sendReminderMessage(guildId, channelId, message);
+    // Call the Discord bot's reminder function with event ID for thread lookup
+    const result = await sendReminderMessage(guildId, channelId, message, eventId);
     
     return result;
   } catch (error) {
@@ -1561,8 +1742,107 @@ async function sendReminderToDiscordChannels(event, message) {
     // Multi-channel event
     for (const publication of event.discord_event_id) {
       try {
-        await sendReminderMessage(publication.guildId, publication.channelId, message);
-        console.log(`[REMINDER] Sent reminder to guild ${publication.guildId}, channel ${publication.channelId}`);
+        // Thread creation logic: Create thread on first reminder if threading is enabled
+        let createdThreadId = null;
+        let targetChannelId = publication.channelId; // Default to main channel
+        
+        // Check if thread already exists for this publication
+        if (publication.threadId) {
+          // Thread already exists, use it
+          console.log(`[REMINDER-THREAD] Thread already exists for this event: ${publication.threadId}`);
+          targetChannelId = publication.threadId;
+        } else {
+          // No thread exists yet, check if we should create one
+          console.log(`[REMINDER-THREAD] No thread exists yet, checking if thread should be created for event "${event.name}"`);
+          
+          // Get participating squadrons from the publication
+          const participatingSquadrons = publication.squadronId ? [publication.squadronId] : [];
+          const threadDecision = await shouldUseThreadsForEvent(participatingSquadrons, publication.guildId, publication.channelId);
+          
+          if (threadDecision.shouldUseThreads) {
+            console.log(`[REMINDER-THREAD] Creating thread from original event post for event "${event.name}"`);
+            
+            const threadResult = await createThreadFromMessage(
+              publication.messageId,
+              event.name, // Thread name = event name
+              publication.guildId,
+              publication.channelId,
+              threadDecision.autoArchiveDuration
+            );
+            
+            if (threadResult.success) {
+              console.log(`[REMINDER-THREAD] Thread created successfully: ${threadResult.threadId}`);
+              createdThreadId = threadResult.threadId;
+              targetChannelId = threadResult.threadId; // Send reminder to the new thread
+              
+              // Update the database to store the thread ID for future reminders
+              try {
+                // Find the publication entry and update it with thread ID
+                const updatedPublications = event.discord_event_id.map(pub => 
+                  pub.messageId === publication.messageId 
+                    ? { ...pub, threadId: threadResult.threadId }
+                    : pub
+                );
+                
+                await supabase
+                  .from('events')
+                  .update({ discord_event_id: updatedPublications })
+                  .eq('id', event.id);
+                  
+                console.log(`[REMINDER-THREAD] Updated event ${event.id} with thread ID ${threadResult.threadId}`);
+              } catch (updateError) {
+                console.warn(`[REMINDER-THREAD] Failed to update event with thread ID:`, updateError.message);
+              }
+            } else {
+              console.warn(`[REMINDER-THREAD] Thread creation failed: ${threadResult.error}`);
+              // Continue with channel posting if thread creation fails
+              targetChannelId = publication.channelId;
+            }
+          } else {
+            console.log(`[REMINDER-THREAD] Threading disabled for this squadron, no thread will be created`);
+            targetChannelId = publication.channelId;
+          }
+        }
+        
+        // Send the reminder message
+        let reminderResult;
+        if (targetChannelId !== publication.channelId) {
+          // We're sending to a thread, use postMessageToThread directly
+          reminderResult = await postMessageToThread(targetChannelId, publication.guildId, message);
+          console.log(`[REMINDER] Sent reminder to thread ${targetChannelId} in guild ${publication.guildId}`);
+        } else {
+          // No thread, use normal channel messaging
+          reminderResult = await sendReminderMessage(publication.guildId, targetChannelId, message);
+          console.log(`[REMINDER] Sent reminder to channel ${targetChannelId} in guild ${publication.guildId}`);
+          
+          // If threading is disabled and we posted to channel, track the message ID for deletion
+          if (reminderResult.success && reminderResult.messageId) {
+            try {
+              // Store reminder message ID in the publication for later deletion
+              const updatedPublications = event.discord_event_id.map(pub => 
+                pub.messageId === publication.messageId 
+                  ? { 
+                      ...pub, 
+                      reminderMessageIds: [...(pub.reminderMessageIds || []), reminderResult.messageId]
+                    }
+                  : pub
+              );
+              
+              await supabase
+                .from('events')
+                .update({ discord_event_id: updatedPublications })
+                .eq('id', event.id);
+                
+              console.log(`[REMINDER-TRACKING] Stored reminder message ID ${reminderResult.messageId} for event ${event.id}`);
+            } catch (trackingError) {
+              console.warn(`[REMINDER-TRACKING] Failed to store reminder message ID:`, trackingError.message);
+            }
+          }
+        }
+        
+        const threadStatus = createdThreadId ? ' (in newly created thread)' : (publication.threadId ? ' (in existing thread)' : '');
+        console.log(`[REMINDER] Sent reminder to guild ${publication.guildId}, channel ${targetChannelId}${threadStatus}`);
+        
       } catch (error) {
         console.error(`[REMINDER] Failed to send reminder to guild ${publication.guildId}, channel ${publication.channelId}:`, error);
       }

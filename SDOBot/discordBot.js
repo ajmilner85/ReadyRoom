@@ -1,3 +1,34 @@
+/**
+ * DISCORD BOT API WRAPPER
+ * 
+ * PURPOSE: Pure Discord.js client and API function library
+ * 
+ * RESPONSIBILITIES:
+ * - Discord client initialization and authentication
+ * - Message posting, editing, and deletion
+ * - Thread creation and management
+ * - Event publishing to Discord channels
+ * - Button interactions and user responses
+ * - Discord API wrapper functions
+ * 
+ * WHAT BELONGS HERE:
+ * - Discord.js client setup and event handlers
+ * - Functions that directly interact with Discord API
+ * - Message formatting and embed creation
+ * - Thread operations (create, delete, post to)
+ * - Discord-specific utilities and helpers
+ * 
+ * WHAT SHOULD NOT BE HERE:
+ * - Express server or API endpoints
+ * - Database operations (Supabase queries)
+ * - Business logic or reminder scheduling
+ * - Application routing or middleware
+ * - Duplicate code from server/index.js
+ * 
+ * NOTE: This file provides Discord functions that are imported by other files.
+ * It should not contain application logic or server setup.
+ */
+
 const path = require('path');
 const dotenv = require('dotenv');
 const fs = require('fs');
@@ -5,11 +36,18 @@ const { Client, GatewayIntentBits, EmbedBuilder, ButtonBuilder, ActionRowBuilder
 const { format, formatDistanceToNow } = require('date-fns');
 const { toZonedTime, fromZonedTime, formatInTimeZone, getTimezoneOffset } = require('date-fns-tz');
 
-// Load environment variables - in production, use fly.io secrets
-const result = dotenv.config();
-if (result.error && !process.env.BOT_TOKEN) {
-  console.error('Error loading .env file:', result.error);
-  console.log('Make sure environment variables are set via fly.io secrets in production');
+// Load environment variables - check for .env.local first (development), then .env (production)
+const envLocalPath = path.resolve(__dirname, '../.env.local');
+const envPath = path.resolve(__dirname, '../.env');
+
+let result = dotenv.config({ path: envLocalPath });
+if (result.error) {
+  // If .env.local doesn't exist, try .env
+  result = dotenv.config({ path: envPath });
+  if (result.error && !process.env.BOT_TOKEN) {
+    console.error('Error loading environment files:', result.error);
+    console.log('Make sure environment variables are set via fly.io secrets in production');
+  }
 }
 
 // Require Supabase client from local directory  
@@ -52,10 +90,55 @@ function notifyEventUpdate(eventId, eventData) {
 }
 
 /**
+ * Fetch the timezone setting from squadron settings
+ * @param {string} eventId - The event ID to look up participating squadrons
+ * @returns {Promise<string>} - The timezone string (defaults to 'America/New_York')
+ */
+async function fetchSquadronTimezone(eventId) {
+  try {
+    if (!eventId) {
+      return 'America/New_York'; // Default
+    }
+
+    // Get participating squadrons from the event
+    const { data: eventData, error: eventError } = await supabase
+      .from('events')
+      .select('participants')
+      .eq('id', eventId)
+      .single();
+
+    if (eventError || !eventData || !eventData.participants || eventData.participants.length === 0) {
+      console.warn(`[TIMEZONE] Could not fetch participants for event ${eventId}, using default timezone`);
+      return 'America/New_York';
+    }
+
+    // Get timezone from the first participating squadron's settings
+    const firstSquadronId = eventData.participants[0];
+    const { data: squadronData, error: squadronError } = await supabase
+      .from('org_squadrons')
+      .select('settings')
+      .eq('id', firstSquadronId)
+      .single();
+
+    if (squadronError || !squadronData || !squadronData.settings) {
+      console.warn(`[TIMEZONE] Could not fetch settings for squadron ${firstSquadronId}, using default timezone`);
+      return 'America/New_York';
+    }
+
+    const timezone = squadronData.settings.timezone || 'America/New_York';
+    console.log(`[TIMEZONE] Using timezone ${timezone} from squadron ${firstSquadronId}`);
+    return timezone;
+  } catch (error) {
+    console.warn(`[TIMEZONE] Error fetching squadron timezone: ${error.message}`);
+    return 'America/New_York';
+  }
+}
+
+/**
  * Extract complete embed data from database event record
  * This ensures all embed creation paths use the same database field logic
  */
-function extractEmbedDataFromDatabaseEvent(dbEvent) {
+function extractEmbedDataFromDatabaseEvent(dbEvent, overrideTimezone = null) {
   // Extract image data from JSONB or legacy fields
   let imageData = null;
   if (dbEvent.image_url) {
@@ -90,17 +173,50 @@ function extractEmbedDataFromDatabaseEvent(dbEvent) {
     billet: dbEvent.creator_billet || ''
   };
 
+  // Extract timezone - use override if provided, otherwise try event settings, otherwise default
+  let timezone = overrideTimezone || 'America/New_York'; // Use override or default
+  if (!overrideTimezone && dbEvent.event_settings) {
+    try {
+      const settings = typeof dbEvent.event_settings === 'string' 
+        ? JSON.parse(dbEvent.event_settings) 
+        : dbEvent.event_settings;
+      
+      if (settings.timezone) {
+        timezone = settings.timezone;
+      }
+    } catch (error) {
+      console.warn('Failed to parse event settings for timezone, using default');
+    }
+  }
+
   // Extract event options
   const eventOptions = {
     trackQualifications: dbEvent.event_settings?.groupResponsesByQualification || dbEvent.track_qualifications || false,
-    eventType: dbEvent.event_type || null
+    eventType: dbEvent.event_type || null,
+    timezone: timezone
   };
 
-  // Extract time data
-  const eventTime = {
-    start: new Date(dbEvent.start_datetime),
-    end: new Date(dbEvent.end_datetime)
+  // Extract time data - ensure database times are treated as UTC
+  // Helper function to safely parse datetime strings
+  const parseDateTime = (dateTimeString) => {
+    if (!dateTimeString) return new Date();
+    try {
+      // PostgreSQL returns timezone-aware strings like "2025-09-13T03:40:00+00:00"
+      // JavaScript Date constructor handles these correctly, no need to modify
+      const date = new Date(dateTimeString);
+      // Check if date is valid
+      return isNaN(date.getTime()) ? new Date() : date;
+    } catch (error) {
+      console.warn(`[DATE-PARSE] Error parsing datetime "${dateTimeString}":`, error.message);
+      return new Date();
+    }
   };
+
+  const eventTime = {
+    start: parseDateTime(dbEvent.start_datetime),
+    end: parseDateTime(dbEvent.end_datetime)
+  };
+
 
   return {
     title: dbEvent.name || dbEvent.title || 'Event',
@@ -131,17 +247,9 @@ async function loadEventResponses() {  try {
     for (const event of data) {
       if (!event.discord_event_id) continue;
       
-      // Get channel ID from squadron_settings
-      const { data: settingsData, error: settingsError } = await supabase
-        .from('squadron_settings')
-        .select('value')
-        .eq('key', 'events_channel_id')
-        .single();
-      
+      // Channel ID should be available through discord_integration, not fallback settings
+      // This legacy code path should be deprecated
       let channelId = null;
-      if (!settingsError && settingsData && settingsData.value) {
-        channelId = settingsData.value;
-      }
       
       // Get attendance data for this event
       const { data: attendanceData, error: attendanceError } = await supabase
@@ -390,14 +498,36 @@ function createEventEmbed(title, description, eventTime, responses = {}, creator
     // Add a blank field to create space between description and event time
     embed.addFields({ name: '\u200B', value: '\u200B', inline: false });
     
-    const startTime = new Date(eventTime.start);
-    const endTime = new Date(eventTime.end);
+    const startTime = eventTime.start;
+    const endTime = eventTime.end;
+    
+    
+    // Get timezone from event options, default to Eastern
+    const eventTimezone = eventOptions?.timezone || 'America/New_York';
+    
+    
+    // Format times in event timezone
+    const dateFormatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: eventTimezone,
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+    
+    const timeFormatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: eventTimezone,
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true
+    });
     
     const formattedDate = format(startTime, "EEEE, MMMM d, yyyy");
     const formattedStartTime = format(startTime, "h:mm a 'EDT'");
     const formattedEndTime = format(endTime, "h:mm a 'EDT'");
     
     const timeString = `${formattedDate} ${formattedStartTime} - ${formattedEndTime}`;
+    
     
     // Create dynamic countdown string based on event status
     // Use UTC-based comparison (DST-safe) but with timezone-aware display
@@ -430,6 +560,8 @@ function createEventEmbed(title, description, eventTime, responses = {}, creator
     { name: `❌ Declined (${declined.length})`, value: declinedText, inline: true }
   )
   .setTimestamp();
+  
+  console.log(`[EMBED-TIMESTAMP-DEBUG] Set embed timestamp to: ${new Date().toISOString()}`);
   
   // Consistent embed width using footer padding
   const MAX_EMBED_WIDTH = 164;
@@ -498,11 +630,26 @@ function createGoogleCalendarLink(title, description, startTime, endTime) {
   const encodedTitle = encodeURIComponent(title);
   const encodedDescription = encodeURIComponent(description);
   
-  // Format dates for Google Calendar URL (in UTC format)
-  const startTimeISO = startTime.toISOString().replace(/-|:|\.\d+/g, '');
-  const endTimeISO = endTime.toISOString().replace(/-|:|\.\d+/g, '');
+  // Format dates for Google Calendar URL
+  // Since startTime and endTime are already local timezone Date objects, 
+  // we need to format them as local time for the calendar link
+  const formatDateForCalendar = (date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    const seconds = String(date.getSeconds()).padStart(2, '0');
+    return `${year}${month}${day}T${hours}${minutes}${seconds}`;
+  };
   
-  return `https://www.google.com/calendar/render?action=TEMPLATE&text=${encodedTitle}&details=${encodedDescription}&dates=${startTimeISO}/${endTimeISO}`;
+  const startTimeFormatted = formatDateForCalendar(startTime);
+  const endTimeFormatted = formatDateForCalendar(endTime);
+  
+  console.log(`[CALENDAR-LINK-DEBUG] Original times: start=${startTime}, end=${endTime}`);
+  console.log(`[CALENDAR-LINK-DEBUG] Formatted for calendar: start=${startTimeFormatted}, end=${endTimeFormatted}`);
+  
+  return `https://www.google.com/calendar/render?action=TEMPLATE&text=${encodedTitle}&details=${encodedDescription}&dates=${startTimeFormatted}/${endTimeFormatted}`;
 }
 
 // Function to create attendance buttons
@@ -790,6 +937,269 @@ async function deleteEventMessage(messageId, guildId = null, channelId = null) {
   }
 }
 
+// ============================================================================
+// Discord Threading Functions
+// ============================================================================
+
+/**
+ * Create a thread from a Discord message
+ * @param {string} messageId - Discord message ID to create thread from
+ * @param {string} threadName - Name for the thread
+ * @param {string} guildId - Discord guild/server ID
+ * @param {string} channelId - Discord channel ID
+ * @param {number} autoArchiveDuration - Auto-archive duration in minutes
+ * @returns {Promise<Object>} - Result object with success status and thread info
+ */
+async function createThreadFromMessage(messageId, threadName, guildId, channelId, autoArchiveDuration = 1440) {
+  try {
+    console.log(`[THREAD-CREATE] Creating thread "${threadName}" from message ${messageId} in guild ${guildId}, channel ${channelId}`);
+    
+    // Make sure bot is logged in
+    await ensureLoggedIn();
+    
+    // Get the guild
+    const guild = client.guilds.cache.get(guildId);
+    if (!guild) {
+      throw new Error(`Guild ${guildId} not found or bot doesn't have access`);
+    }
+    
+    // Get the channel
+    const channel = guild.channels.cache.get(channelId);
+    if (!channel) {
+      throw new Error(`Channel ${channelId} not found in guild ${guildId}`);
+    }
+    
+    // Get the message to create thread from
+    const message = await channel.messages.fetch(messageId);
+    if (!message) {
+      throw new Error(`Message ${messageId} not found in channel ${channelId}`);
+    }
+    
+    // Create thread from the message
+    const thread = await message.startThread({
+      name: threadName,
+      autoArchiveDuration: autoArchiveDuration,
+      reason: 'ReadyRoom event discussion thread'
+    });
+    
+    console.log(`[THREAD-CREATE-SUCCESS] Thread "${threadName}" created with ID ${thread.id}`);
+    
+    return {
+      success: true,
+      threadId: thread.id,
+      threadName: thread.name,
+      guildId: guildId,
+      channelId: channelId,
+      messageId: messageId
+    };
+  } catch (error) {
+    console.error(`[THREAD-CREATE-ERROR] Failed to create thread from message ${messageId}:`, error);
+    
+    // Provide specific error messages
+    if (error.code === 50013) {
+      return { success: false, error: 'Bot lacks permissions to create threads in this channel' };
+    } else if (error.code === 50035) {
+      return { success: false, error: 'Thread name is invalid or too long' };
+    } else if (error.code === 160004) {
+      return { success: false, error: 'Channel does not support threads' };
+    }
+    
+    return { success: false, error: error.message || 'Unknown error creating thread' };
+  }
+}
+
+/**
+ * Post a message to a Discord thread
+ * @param {string} threadId - Discord thread ID
+ * @param {string} guildId - Discord guild/server ID  
+ * @param {string} message - Message content to post
+ * @returns {Promise<Object>} - Result object with success status
+ */
+async function postMessageToThread(threadId, guildId, message) {
+  try {
+    console.log(`[THREAD-POST] Posting message to thread ${threadId} in guild ${guildId}`);
+    
+    // Make sure bot is logged in
+    await ensureLoggedIn();
+    
+    // Get the guild
+    const guild = client.guilds.cache.get(guildId);
+    if (!guild) {
+      throw new Error(`Guild ${guildId} not found or bot doesn't have access`);
+    }
+    
+    // Get the thread channel
+    const thread = guild.channels.cache.get(threadId);
+    if (!thread) {
+      // Try to fetch the thread if not in cache
+      try {
+        const fetchedThread = await guild.channels.fetch(threadId);
+        if (!fetchedThread || !fetchedThread.isThread()) {
+          throw new Error(`Thread ${threadId} not found or is not a thread`);
+        }
+        
+        // Send message to the fetched thread
+        const sentMessage = await fetchedThread.send(message);
+        console.log(`[THREAD-POST-SUCCESS] Message posted to thread ${threadId}: ${sentMessage.id}`);
+        
+        return {
+          success: true,
+          messageId: sentMessage.id,
+          threadId: threadId
+        };
+      } catch (fetchError) {
+        throw new Error(`Thread ${threadId} not found in guild ${guildId}`);
+      }
+    }
+    
+    // Verify it's actually a thread
+    if (!thread.isThread()) {
+      throw new Error(`Channel ${threadId} is not a thread`);
+    }
+    
+    // Send the message
+    const sentMessage = await thread.send(message);
+    console.log(`[THREAD-POST-SUCCESS] Message posted to thread ${threadId}: ${sentMessage.id}`);
+    
+    return {
+      success: true,
+      messageId: sentMessage.id,
+      threadId: threadId
+    };
+  } catch (error) {
+    console.error(`[THREAD-POST-ERROR] Failed to post message to thread ${threadId}:`, error);
+    
+    // Provide specific error messages
+    if (error.code === 50013) {
+      return { success: false, error: 'Bot lacks permissions to send messages in this thread' };
+    } else if (error.code === 10003) {
+      return { success: false, error: 'Thread not found or has been deleted' };
+    } else if (error.code === 50083) {
+      return { success: false, error: 'Thread is archived and cannot receive new messages' };
+    }
+    
+    return { success: false, error: error.message || 'Unknown error posting to thread' };
+  }
+}
+
+/**
+ * Check if threading should be used for an event based on participating squadrons
+ * @param {Array} participatingSquadrons - Array of squadron IDs or squadron data
+ * @param {string} guildId - Discord guild ID
+ * @param {string} channelId - Discord channel ID
+ * @returns {Promise<Object>} - Result with shouldUseThreads boolean and settings
+ */
+async function shouldUseThreadsForEvent(participatingSquadrons = [], guildId = null, channelId = null) {
+  try {
+    console.log(`[THREAD-DECISION] Checking thread usage for ${participatingSquadrons.length} squadrons in guild ${guildId}, channel ${channelId}`);
+    
+    // If no squadrons provided, default to false
+    if (!participatingSquadrons || participatingSquadrons.length === 0) {
+      console.log(`[THREAD-DECISION] No participating squadrons, defaulting to no threads`);
+      return { shouldUseThreads: false, autoArchiveDuration: 1440 };
+    }
+    
+    // Get squadron IDs (handle both string IDs and objects with id property)
+    const squadronIds = participatingSquadrons.map(squadron => 
+      typeof squadron === 'string' ? squadron : squadron.id || squadron.squadronId
+    ).filter(id => id); // Remove any null/undefined values
+    
+    if (squadronIds.length === 0) {
+      console.log(`[THREAD-DECISION] No valid squadron IDs found, defaulting to no threads`);
+      return { shouldUseThreads: false, autoArchiveDuration: 1440 };
+    }
+    
+    console.log(`[THREAD-DECISION] Checking threading settings for squadron IDs:`, squadronIds);
+    
+    // Query org_squadrons for threading configuration in settings JSONB
+    const { data: squadronData, error: settingsError } = await supabase
+      .from('org_squadrons')
+      .select('id, settings')
+      .in('id', squadronIds);
+    
+    if (settingsError) {
+      console.warn(`[THREAD-DECISION] Error querying squadron settings:`, settingsError);
+      return { shouldUseThreads: false, autoArchiveDuration: 1440 };
+    }
+    
+    console.log(`[THREAD-DECISION] Found ${squadronData?.length || 0} squadron records in database`);
+    if (squadronData) {
+      squadronData.forEach(squadron => {
+        console.log(`[THREAD-DECISION] Squadron ${squadron.id} raw settings:`, JSON.stringify(squadron.settings));
+      });
+    }
+    
+    // Parse settings - if ANY squadron has threading enabled, use threads
+    let useThreads = false;
+    let autoArchiveDuration = 1440; // Default 24 hours
+    
+    squadronData.forEach(squadron => {
+      const settings = squadron.settings || {};
+      
+      // Check if this squadron has threading enabled in discord_integration.threadingSettings
+      const threadingSettings = settings.threadingSettings || {};
+      console.log(`[THREAD-DECISION] Squadron ${squadron.id} threading settings:`, threadingSettings);
+      
+      if (threadingSettings.useThreads === true) {
+        useThreads = true;
+      }
+      
+      // Use the auto-archive setting from the first squadron that has it configured
+      if (threadingSettings.autoArchiveDuration && autoArchiveDuration === 1440) {
+        const duration = parseInt(threadingSettings.autoArchiveDuration);
+        if (!isNaN(duration) && [60, 1440, 4320, 10080].includes(duration)) {
+          autoArchiveDuration = duration;
+        }
+      }
+    });
+    
+    console.log(`[THREAD-DECISION] Threading decision: useThreads=${useThreads}, autoArchiveDuration=${autoArchiveDuration}`);
+    
+    return {
+      shouldUseThreads: useThreads,
+      autoArchiveDuration: autoArchiveDuration
+    };
+  } catch (error) {
+    console.error(`[THREAD-DECISION-ERROR] Error determining thread usage:`, error);
+    // Default to no threading on error
+    return { shouldUseThreads: false, autoArchiveDuration: 1440 };
+  }
+}
+
+/**
+ * Get thread ID for a specific event and channel combination
+ * @param {string} eventId - ReadyRoom event ID
+ * @param {string} guildId - Discord guild ID
+ * @param {string} channelId - Discord channel ID
+ * @returns {Promise<string|null>} - Thread ID or null if not found
+ */
+async function getThreadIdForEvent(eventId, guildId, channelId) {
+  try {
+    console.log(`[THREAD-LOOKUP] Looking up thread ID for event ${eventId}, guild ${guildId}, channel ${channelId}`);
+    
+    // Query database for thread ID using the helper function
+    const { data: threadResult, error: threadError } = await supabase
+      .rpc('get_thread_id_for_channel', {
+        p_event_id: eventId,
+        p_guild_id: guildId,
+        p_channel_id: channelId
+      });
+    
+    if (threadError) {
+      console.warn(`[THREAD-LOOKUP] Error querying thread ID:`, threadError);
+      return null;
+    }
+    
+    const threadId = threadResult || null;
+    console.log(`[THREAD-LOOKUP] Thread ID for event ${eventId}: ${threadId || 'not found'}`);
+    
+    return threadId;
+  } catch (error) {
+    console.error(`[THREAD-LOOKUP-ERROR] Error looking up thread ID:`, error);
+    return null;
+  }
+}
+
 // Function to publish an event to Discord from the server
 async function publishEventToDiscord(title, description, eventTime, guildId = null, channelId = null, imageUrl = null, creator = null, images = null, eventOptions = {}) {
   try {
@@ -830,7 +1240,12 @@ async function publishEventToDiscord(title, description, eventTime, guildId = nu
     });
     
     console.log(`[BOT-PUBLISH-SUCCESS] Message ${eventMessage.id} successfully sent to ${eventsChannel.guild.name} (#${eventsChannel.name})`);
-      // Store response data
+    
+    // Threading will be created later when the first reminder is sent
+    let threadInfo = null;
+    console.log(`[BOT-PUBLISH] Thread creation deferred until first reminder is sent`);
+    
+    // Store response data
     const eventData = {
       title,
       description,
@@ -850,12 +1265,18 @@ async function publishEventToDiscord(title, description, eventTime, guildId = nu
     
     console.log(`Event published to Discord: "${title}" in channel #${eventsChannel.name} (${eventsChannel.id}) in guild ${eventsChannel.guild.name} (${eventsChannel.guild.id})`);
     
-    return {
+    const publishResult = {
       success: true,
       messageId: eventMessage.id,
       guildId: eventsChannel.guild.id,
-      channelId: eventsChannel.id
+      channelId: eventsChannel.id,
+      threadId: threadInfo?.threadId || null,
+      threadCreated: !!threadInfo
     };
+    
+    console.log(`[BOT-PUBLISH] Final result being returned to server:`, JSON.stringify(publishResult));
+    
+    return publishResult;
   } catch (error) {
     console.error(`[BOT-PUBLISH] Error publishing event to Discord guild ${guildId}, channel ${channelId}:`, error);
     
@@ -887,15 +1308,28 @@ client.on('interactionCreate', async interaction => {
   // Try to get fresh event data from the database for timing
   const { event: dbEvent, error: dbEventError } = await getEventByDiscordId(eventId);
   if (!dbEventError && dbEvent) {
-    // Database stores times in UTC, but we need to treat them as UTC Date objects
-    // The Date constructor properly handles ISO strings with timezone info
+    // Database stores times in UTC, ensure they're treated as UTC Date objects
+    // Helper function to safely parse datetime strings
+    const parseDateTime = (dateTimeString, fallback = new Date()) => {
+      if (!dateTimeString) return fallback;
+      try {
+        // PostgreSQL returns timezone-aware strings like "2025-09-13T03:40:00+00:00"
+        // JavaScript Date constructor handles these correctly, no need to modify
+        const date = new Date(dateTimeString);
+        // Check if date is valid
+        return isNaN(date.getTime()) ? fallback : date;
+      } catch (error) {
+        console.warn(`[DATE-PARSE] Error parsing datetime "${dateTimeString}":`, error.message);
+        return fallback;
+      }
+    };
+
     freshEventTime = {
-      start: dbEvent.start_datetime ? new Date(dbEvent.start_datetime) : new Date(),
-      end: dbEvent.end_datetime ? new Date(dbEvent.end_datetime) : new Date(new Date().getTime() + (60 * 60 * 1000))
+      start: parseDateTime(dbEvent.start_datetime),
+      end: parseDateTime(dbEvent.end_datetime, new Date(new Date().getTime() + (60 * 60 * 1000)))
     };
     
-    // console.log(`[TIMING-DEBUG] Database times: start=${dbEvent.start_datetime}, end=${dbEvent.end_datetime}`);
-    // console.log(`[TIMING-DEBUG] Parsed times: start=${freshEventTime.start.toISOString()}, end=${freshEventTime.end.toISOString()}`);
+    
   }
   
   if (!eventData) {
@@ -928,6 +1362,7 @@ client.on('interactionCreate', async interaction => {
         tentative: []
       };
       
+      
       // Store in memory for future interactions
       eventResponses.set(eventId, eventData);
     } else {
@@ -939,12 +1374,9 @@ client.on('interactionCreate', async interaction => {
     // console.log(`[PATH-DEBUG] Event data found in memory for message ID: ${eventId}, updating with fresh timing...`);
     // Update existing cached data with fresh timing info
     if (freshEventTime) {
-      // console.log(`[TIMING-DEBUG] Before update - cached eventTime: start=${eventData.eventTime?.start?.toISOString()}, end=${eventData.eventTime?.end?.toISOString()}`);
       eventData.eventTime = freshEventTime;
-      // console.log(`[TIMING-DEBUG] After update - cached eventTime: start=${eventData.eventTime.start.toISOString()}, end=${eventData.eventTime.end.toISOString()}`);
-      console.log(`[TIMING-FIX] Updated cached event data with fresh timing for message ${eventId}`);
     } else {
-      // console.log(`[PATH-DEBUG] No fresh event time available from database for message ${eventId}`);
+      console.log(`[BUTTON-DEBUG] No fresh event time available from database for message ${eventId}`);
     }
   }
   
@@ -1128,13 +1560,12 @@ client.on('interactionCreate', async interaction => {
   try {
     const { event: dbEvent } = await getEventByDiscordId(eventId);
     if (dbEvent) {
-      embedData = extractEmbedDataFromDatabaseEvent(dbEvent);
-      // console.log('[BUTTON-UNIFIED-DEBUG] Using fresh database embed data');
+      // Fetch the correct timezone from squadron settings
+      const correctTimezone = await fetchSquadronTimezone(dbEvent.id);
+      embedData = extractEmbedDataFromDatabaseEvent(dbEvent, correctTimezone);
     } else {
-      console.warn('[BUTTON-UNIFIED-DEBUG] No database event found for', eventId);
     }
   } catch (error) {
-    console.warn('[BUTTON-UNIFIED-DEBUG] Error fetching database event:', error);
   }
   
   // Fallback to in-memory data if database fetch failed
@@ -1146,7 +1577,7 @@ client.on('interactionCreate', async interaction => {
       eventTime: eventData.eventTime,
       imageData: eventData.images || null,
       creatorInfo: eventData.creator || null,
-      eventOptions: { trackQualifications: false, eventType: null }
+      eventOptions: { trackQualifications: false, eventType: null, timezone: 'America/New_York' }
     };
   }
   
@@ -1158,10 +1589,14 @@ client.on('interactionCreate', async interaction => {
   //   creator: embedData.creatorInfo
   // });
   
+  // ALWAYS use fresh database time to avoid timezone corruption from cached data
+  const finalEventTime = freshEventTime;
+  
+  
   const updatedEmbed = createEventEmbed(
     embedData.title, 
     embedData.description, 
-    embedData.eventTime, 
+    finalEventTime, // Use fresh database time to fix timezone corruption
     eventData, // responses 
     embedData.creatorInfo, 
     embedData.imageData, 
@@ -1559,7 +1994,10 @@ class CountdownUpdateManager {
         }
 
         // Extract all embed data using unified logic
-        const embedData = extractEmbedDataFromDatabaseEvent(eventData);
+        // Fetch the correct timezone from squadron settings
+        const correctTimezone = await fetchSquadronTimezone(eventData.id);
+        const embedData = extractEmbedDataFromDatabaseEvent(eventData, correctTimezone);
+        console.log(`[COUNTDOWN-TIMEZONE-FIX] Using timezone ${correctTimezone} for event ${eventData.id}`);
         
         // console.log('[COUNTDOWN-UNIFIED-DEBUG] Using unified embed data:', {
         //   title: embedData.title,
@@ -1619,14 +2057,14 @@ class CountdownUpdateManager {
       
       try {
         // Try to get the timezone from squadron settings
-        const { data: timezoneData } = await supabase
-          .from('squadron_settings')
-          .select('value')
-          .eq('key', 'reference_timezone')
+        const { data: squadronData } = await supabase
+          .from('org_squadrons')
+          .select('settings')
+          .limit(1)
           .single();
         
-        if (timezoneData?.value) {
-          referenceTimezone = timezoneData.value;
+        if (squadronData?.settings?.referenceTimezone) {
+          referenceTimezone = squadronData.settings.referenceTimezone;
           // console.log(`[COUNTDOWN] Using reference timezone: ${referenceTimezone}`);
         } else {
           // console.log(`[COUNTDOWN] No timezone setting found, using default: ${referenceTimezone}`);
@@ -1706,12 +2144,39 @@ class CountdownUpdateManager {
 const countdownManager = new CountdownUpdateManager();
 
 /**
- * Send reminder message to a Discord channel
+ * Send reminder message to a Discord channel or thread
+ * @param {string} guildId - Discord guild ID
+ * @param {string} channelId - Discord channel ID
+ * @param {string} message - Message content to send
+ * @param {string|null} eventId - Optional event ID to look up thread
+ * @returns {Promise<Object>} - Result object with success status
  */
-async function sendReminderMessage(guildId, channelId, message) {
+async function sendReminderMessage(guildId, channelId, message, eventId = null) {
   try {
-    console.log(`[REMINDER] Sending reminder to guild ${guildId}, channel ${channelId}`);
+    console.log(`[REMINDER] Sending reminder to guild ${guildId}, channel ${channelId}, eventId ${eventId || 'none'}`);
     
+    // If eventId is provided, try to find and use the associated thread
+    if (eventId) {
+      const threadId = await getThreadIdForEvent(eventId, guildId, channelId);
+      
+      if (threadId) {
+        console.log(`[REMINDER] Found thread ${threadId} for event ${eventId}, attempting to post to thread`);
+        
+        const threadResult = await postMessageToThread(threadId, guildId, message);
+        
+        if (threadResult.success) {
+          console.log(`[REMINDER] Successfully sent reminder to thread ${threadId}`);
+          return { success: true, postedToThread: true, threadId: threadId };
+        } else {
+          console.warn(`[REMINDER] Failed to post to thread ${threadId}: ${threadResult.error}, falling back to channel`);
+          // Continue to channel posting below
+        }
+      } else {
+        console.log(`[REMINDER] No thread found for event ${eventId}, posting to channel`);
+      }
+    }
+    
+    // Fallback to channel posting (either no thread ID provided, or thread posting failed)
     const guild = await client.guilds.fetch(guildId);
     if (!guild) {
       throw new Error(`Guild ${guildId} not found`);
@@ -1722,14 +2187,70 @@ async function sendReminderMessage(guildId, channelId, message) {
       throw new Error(`Channel ${channelId} not found or not a text channel`);
     }
     
-    await channel.send(message);
+    const sentMessage = await channel.send(message);
     
     console.log(`[REMINDER] Successfully sent reminder to ${guild.name}/#${channel.name}`);
-    return { success: true };
+    return { success: true, postedToThread: false, messageId: sentMessage.id };
     
   } catch (error) {
     console.error(`[REMINDER] Error sending reminder:`, error);
     return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Delete a thread and all its messages
+ * @param {string} threadId - Discord thread ID to delete
+ * @param {string} guildId - Discord guild ID
+ * @returns {Promise<Object>} - Result object with success status
+ */
+async function deleteThread(threadId, guildId) {
+  try {
+    console.log(`[THREAD-DELETE] Attempting to delete thread ${threadId} in guild ${guildId}`);
+    
+    await ensureLoggedIn();
+    
+    // Get the guild
+    const guild = client.guilds.cache.get(guildId);
+    if (!guild) {
+      throw new Error(`Guild ${guildId} not found or bot doesn't have access`);
+    }
+    
+    // Get the thread channel
+    let thread = guild.channels.cache.get(threadId);
+    if (!thread) {
+      // Try to fetch the thread if not in cache
+      try {
+        thread = await guild.channels.fetch(threadId);
+      } catch (fetchError) {
+        console.warn(`[THREAD-DELETE] Thread ${threadId} not found or already deleted`);
+        return { success: true, alreadyDeleted: true };
+      }
+    }
+    
+    // Verify it's actually a thread
+    if (!thread || !thread.isThread()) {
+      console.warn(`[THREAD-DELETE] ${threadId} is not a thread or doesn't exist`);
+      return { success: false, error: 'Not a thread or thread not found' };
+    }
+    
+    // Delete the thread (this also deletes all messages in the thread)
+    await thread.delete('ReadyRoom event deleted');
+    
+    console.log(`[THREAD-DELETE] Successfully deleted thread ${threadId} and all its messages`);
+    return { success: true };
+    
+  } catch (error) {
+    console.error(`[THREAD-DELETE] Error deleting thread ${threadId}:`, error);
+    
+    // Provide specific error messages
+    if (error.code === 50013) {
+      return { success: false, error: 'Bot lacks permissions to delete threads' };
+    } else if (error.code === 10003) {
+      return { success: false, error: 'Thread not found' };
+    }
+    
+    return { success: false, error: error.message || 'Unknown error deleting thread' };
   }
 }
 
@@ -1744,5 +2265,11 @@ module.exports = {
   countdownManager,
   sendReminderMessage,
   getGuildRoles,
-  getGuildMember
+  getGuildMember,
+  // Threading functions
+  createThreadFromMessage,
+  deleteThread,
+  postMessageToThread,
+  shouldUseThreadsForEvent,
+  getThreadIdForEvent
 };

@@ -26,6 +26,22 @@ interface OrgEntityModalProps {
   onClose: () => void;
 }
 
+const TIMEZONE_OPTIONS = [
+  { value: 'America/New_York', label: 'Eastern Time (ET)' },
+  { value: 'America/Chicago', label: 'Central Time (CT)' },
+  { value: 'America/Denver', label: 'Mountain Time (MT)' },
+  { value: 'America/Los_Angeles', label: 'Pacific Time (PT)' },
+  { value: 'America/Anchorage', label: 'Alaska Time (AKT)' },
+  { value: 'Pacific/Honolulu', label: 'Hawaii Time (HST)' },
+  { value: 'UTC', label: 'Coordinated Universal Time (UTC)' },
+  { value: 'Europe/London', label: 'Greenwich Mean Time (GMT)' },
+  { value: 'Europe/Berlin', label: 'Central European Time (CET)' },
+  { value: 'Asia/Tokyo', label: 'Japan Standard Time (JST)' },
+  { value: 'Asia/Seoul', label: 'Korea Standard Time (KST)' },
+  { value: 'Australia/Sydney', label: 'Australian Eastern Time (AEST)' },
+  { value: 'Pacific/Guam', label: 'Guam Time (ChST)' }
+];
+
 const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
   isOpen,
   mode,
@@ -53,6 +69,7 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
     carrier_id: string;
     callsigns: string;
     color_palette: any;
+    timezone: string;
   }>({
     name: '',
     designation: '',
@@ -71,7 +88,8 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
       primary: '#2563EB',
       secondary: '#64748B',
       accent: '#059669'
-    }
+    },
+    timezone: 'America/New_York'
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -87,6 +105,10 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
       discordChannels: any[];
       roleMappings: any[];
       selectedGuildId: string;
+      threadingSettings: {
+        useThreads: boolean;
+        autoArchiveDuration: number;
+      };
     }
   }>({});
 
@@ -118,7 +140,8 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
             primary: '#2563EB',
             secondary: '#64748B',
             accent: '#059669'
-          }
+          },
+          timezone: ('settings' in entity && (entity as any).settings?.timezone) || 'America/New_York'
         });
         
         // Parse existing callsigns for squadron
@@ -140,13 +163,19 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
         // Initialize Discord settings for this entity from database
         const entityKey = `${entityType}_${entity.id}`;
         const discordIntegration = (entity as any)?.discord_integration || {};
+        const entitySettings = (entity as any)?.settings || {};
         
         setDiscordSettings(prev => ({
           ...prev,
           [entityKey]: {
             discordChannels: discordIntegration.discordChannels || [],
             roleMappings: discordIntegration.roleMappings || [],
-            selectedGuildId: discordIntegration.selectedGuildId || ''
+            selectedGuildId: discordIntegration.selectedGuildId || '',
+            // Try to get threading settings from both locations (settings takes precedence)
+            threadingSettings: entitySettings.threadingSettings || discordIntegration.threadingSettings || {
+              useThreads: false,
+              autoArchiveDuration: 1440
+            }
           }
         }));
       } else {
@@ -169,7 +198,8 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
             primary: '#2563EB',
             secondary: '#64748B',
             accent: '#059669'
-          }
+          },
+          timezone: 'America/New_York'
         });
       }
       setErrors({});
@@ -194,7 +224,11 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
     return discordSettings[entityKey] || {
       discordChannels: [],
       roleMappings: [],
-      selectedGuildId: ''
+      selectedGuildId: '',
+      threadingSettings: {
+        useThreads: false,
+        autoArchiveDuration: 1440
+      }
     };
   };
 
@@ -202,6 +236,10 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
     discordChannels: any[];
     roleMappings: any[];
     selectedGuildId: string;
+    threadingSettings: {
+      useThreads: boolean;
+      autoArchiveDuration: number;
+    };
   }>) => {
     const entityKey = getEntityKey();
     setDiscordSettings(prev => ({
@@ -407,7 +445,11 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
           carrier_id: formData.carrier_id || null,
           callsigns: formData.callsigns ? JSON.parse(formData.callsigns) : null,
           color_palette: formData.color_palette || null,
-          discord_integration: getCurrentDiscordSettings()
+          discord_integration: getCurrentDiscordSettings(),
+          settings: { 
+            timezone: formData.timezone,
+            threadingSettings: getCurrentDiscordSettings().threadingSettings 
+          }
         } as NewSquadron;
         break;
       default:
@@ -752,6 +794,41 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
                   {errors.wing_id}
                 </div>
               )}
+            </div>
+          )}
+
+          {/* Timezone Field (Squadrons only) */}
+          {entityType === 'squadron' && (
+            <div style={{ marginBottom: '16px' }}>
+              <label style={{
+                display: 'block',
+                marginBottom: '8px',
+                fontSize: '14px',
+                fontWeight: 500,
+                color: '#64748B'
+              }}>
+                Reference Timezone
+              </label>
+              <select
+                value={formData.timezone}
+                onChange={(e) => handleInputChange('timezone', e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '8px',
+                  border: '1px solid #CBD5E1',
+                  borderRadius: '4px',
+                  fontSize: '14px',
+                  boxSizing: 'border-box',
+                  height: '35px',
+                  backgroundColor: 'white'
+                }}
+              >
+                {TIMEZONE_OPTIONS.map(option => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
             </div>
           )}
 
@@ -1195,6 +1272,7 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
               discordChannels={getCurrentDiscordSettings().discordChannels}
               roleMappings={getCurrentDiscordSettings().roleMappings}
               selectedGuildId={getCurrentDiscordSettings().selectedGuildId}
+              threadingSettings={getCurrentDiscordSettings().threadingSettings}
               onChannelsChange={(channels) => updateDiscordSettings({ discordChannels: channels })}
               onRoleMappingsChange={(mappings) => updateDiscordSettings({ roleMappings: mappings })}
               onGuildChange={(guildId) => updateDiscordSettings({ 
@@ -1202,6 +1280,7 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
                 discordChannels: [], // Clear channels when server changes
                 roleMappings: [] // Clear role mappings when server changes
               })}
+              onThreadingSettingsChange={(threadingSettings) => updateDiscordSettings({ threadingSettings })}
             />
           )}
         </div>
