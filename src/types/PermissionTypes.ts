@@ -88,6 +88,9 @@ export interface UserPermissions {
   canAccessAdminTools: boolean;                  // Global only
   canViewOwnProfile: boolean;                    // Global only
   
+  // Developer permissions (global only)
+  access_developer_settings: boolean;           // Global only
+  
   // Polls and Change Log (global only)
   canManagePolls: boolean;                       // Global only
   canVoteInPolls: boolean;                       // Global only

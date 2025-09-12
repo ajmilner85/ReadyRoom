@@ -9,6 +9,7 @@ import { syncUserDiscordRoles } from '../../../utils/discordRoleSync';
 import { X, Shield, Filter, Eye, EyeOff } from 'lucide-react';
 import { Pilot, PilotStatus } from '../../../types/PilotTypes';
 import { supabase } from '../../../utils/supabaseClient';
+import DiscordEnvironmentIndicator from '../DiscordEnvironmentIndicator';
 import { Status } from '../../../utils/statusService';
 import { Role } from '../../../utils/roleService';
 
@@ -181,8 +182,9 @@ export const DiscordPilotsDialog: React.FC<DiscordPilotsDialogProps> = ({
         .select('discord_integration')
         .not('discord_integration', 'is', null);
       
-      // Collect all "ignore user" role IDs from all squadrons
+      // Collect all "ignore user" role IDs and squadron role mappings from all squadrons
       const ignoreRoleIds: string[] = [];
+      const squadronRoleMappings: Array<{roleId: string, squadronId: string, squadronName: string}> = [];
       console.log('DEBUG: Squadron discord_integration data:', squadronRoleData);
       
       if (squadronRoleData) {
@@ -217,12 +219,20 @@ export const DiscordPilotsDialog: React.FC<DiscordPilotsDialogProps> = ({
             if (mapping.isIgnoreUsers) {
               console.log(`DEBUG: Found ignore role: ${mapping.discordRoleId}`);
               ignoreRoleIds.push(mapping.discordRoleId);
+            } else if (mapping.squadronId && mapping.discordRoleId) {
+              console.log(`DEBUG: Found squadron role mapping: ${mapping.discordRoleId} -> ${mapping.squadronId}`);
+              squadronRoleMappings.push({
+                roleId: mapping.discordRoleId,
+                squadronId: mapping.squadronId,
+                squadronName: mapping.squadronName || ''
+              });
             }
           });
         });
       }
       
       console.log('DEBUG: Final ignoreRoleIds:', ignoreRoleIds);
+      console.log('DEBUG: Squadron role mappings:', squadronRoleMappings);
       
       // Filter out Discord members who have ignore roles
       const filteredDiscordMembers = discordMembers.filter(member => {
@@ -237,19 +247,34 @@ export const DiscordPilotsDialog: React.FC<DiscordPilotsDialogProps> = ({
       
       // Set default action - matched pilots selected, unmatched clear fields
       const matches = initialMatches.map(match => {
+        // Apply squadron role mappings to determine squadron affiliation
+        let inferredSquadronId = null;
+        const memberRoles = match.discordMember.roles || [];
+        
+        // Find the first matching squadron role mapping
+        for (const roleMapping of squadronRoleMappings) {
+          if (memberRoles.includes(roleMapping.roleId)) {
+            inferredSquadronId = roleMapping.squadronId;
+            console.log(`DEBUG: Member ${match.discordMember.displayName} assigned to squadron ${roleMapping.squadronId} via role ${roleMapping.roleId}`);
+            break; // Use the first matching role
+          }
+        }
+        
         if (match.matchedPilot) {
           // Matched pilot - select them by default for update
           return {
             ...match,
             action: 'update-existing' as 'do-nothing' | 'create-new' | 'update-existing',
-            selectedPilotId: match.matchedPilot.id
+            selectedPilotId: match.matchedPilot.id,
+            squadronId: inferredSquadronId || match.squadronId // Use inferred or existing
           };
         } else {
-          // Unmatched pilot - clear board number and callsign, keep role mappings
+          // Unmatched pilot - clear board number and callsign, use inferred squadron
           return {
             ...match,
             action: 'do-nothing' as 'do-nothing' | 'create-new' | 'update-existing',
             selectedPilotId: null,
+            squadronId: inferredSquadronId, // Use inferred squadron for new pilots
             discordMember: {
               ...match.discordMember,
               boardNumber: null, // Clear board number for unmatched
@@ -736,14 +761,17 @@ export const DiscordPilotsDialog: React.FC<DiscordPilotsDialogProps> = ({
           padding: '16px 24px',
           borderBottom: '1px solid #E2E8F0'
         }}>
-          <h2 style={{
-            fontSize: '18px',
-            fontWeight: 600,
-            color: '#0F172A',
-            margin: 0
-          }}>
-            Discord Pilots Integration
-          </h2>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <h2 style={{
+              fontSize: '18px',
+              fontWeight: 600,
+              color: '#0F172A',
+              margin: 0
+            }}>
+              Discord Pilots Integration
+            </h2>
+            <DiscordEnvironmentIndicator size="small" />
+          </div>
           <button
             onClick={onClose}
             style={{

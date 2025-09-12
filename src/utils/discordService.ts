@@ -1,5 +1,6 @@
 import type { Event } from '../types/EventTypes';
 import { supabase } from './supabaseClient';
+import { getUserSettings } from './userSettingsService';
 
 interface PublishEventResponse {
   success: boolean;
@@ -24,6 +25,43 @@ interface MultiChannelPublishResponse {
 
 // Track our publish requests to detect duplicates
 const publishRequestsInProgress = new Set();
+
+// Helper function to get the Discord bot environment from user settings
+async function getDiscordEnvironment(): Promise<'development' | 'production'> {
+  try {
+    const settingsResult = await getUserSettings();
+    if (settingsResult.success && settingsResult.data?.developer?.discordBotToken) {
+      return settingsResult.data.developer.discordBotToken;
+    }
+  } catch (error) {
+    console.warn('Failed to get user Discord environment setting:', error);
+  }
+  
+  // Default to development if we can't get the setting
+  return 'development';
+}
+
+// Helper function to get the appropriate API base URL based on Discord environment
+async function getDiscordApiBaseUrl(): Promise<string> {
+  const environment = await getDiscordEnvironment();
+  
+  // If using production Discord bot, connect to production server
+  // If using development Discord bot, connect to local development server
+  if (environment === 'production') {
+    return 'https://readyroom.fly.dev';
+  } else {
+    return import.meta.env.VITE_API_URL || 'http://localhost:3001';
+  }
+}
+
+// Helper function to add Discord environment to API request headers
+async function getDiscordHeaders(): Promise<Record<string, string>> {
+  const environment = await getDiscordEnvironment();
+  return {
+    'Content-Type': 'application/json',
+    'X-Discord-Environment': environment
+  };
+}
 
 interface DiscordRole {
   id: string;
@@ -60,7 +98,12 @@ export async function fetchDiscordGuildMember(guildId: string, userId: string): 
   try {
     // console.log(`[DISCORD-MEMBER-DEBUG] Fetching member info for user ${userId} in guild ${guildId}`);
     
-    const response = await fetch(`${import.meta.env.VITE_API_URL}/api/discord/guild/${guildId}/member/${userId}`);
+    const headers = await getDiscordHeaders();
+    const baseUrl = await getDiscordApiBaseUrl();
+    const response = await fetch(`${baseUrl}/api/discord/guild/${guildId}/member/${userId}`, {
+      method: 'GET',
+      headers
+    });
     
     if (!response.ok) {
       const errorData = await response.json();
@@ -101,7 +144,12 @@ export async function fetchDiscordGuildRoles(guildId: string): Promise<{
   try {
     // console.log(`[DISCORD-ROLES-DEBUG] Fetching guild roles for guild ${guildId}`);
     
-    const response = await fetch(`${import.meta.env.VITE_API_URL}/api/discord/guild/${guildId}/roles`);
+    const headers = await getDiscordHeaders();
+    const baseUrl = await getDiscordApiBaseUrl();
+    const response = await fetch(`${baseUrl}/api/discord/guild/${guildId}/roles`, {
+      method: 'GET',
+      headers
+    });
     
     if (!response.ok) {
       const errorData = await response.json();
@@ -374,11 +422,11 @@ async function publishToSpecificChannel(event: Event, guildId: string, channelId
       creator: event.creator
     };
     
-    const response = await fetch(`${import.meta.env.VITE_API_URL}/api/events/publish`, {
+    const headers = await getDiscordHeaders();
+    const baseUrl = await getDiscordApiBaseUrl();
+    const response = await fetch(`${baseUrl}/api/events/publish`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers,
       body: JSON.stringify(requestBody),
     });
     
@@ -480,10 +528,12 @@ export async function publishEventToDiscord(event: Event): Promise<PublishEventR
         // Set a reasonable timeout for the fetch call
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
-          const response = await fetch(`${import.meta.env.VITE_API_URL}/api/events/publish`, {
+        const headers = await getDiscordHeaders();
+        const baseUrl = await getDiscordApiBaseUrl();
+        const response = await fetch(`${baseUrl}/api/events/publish`, {
           method: 'POST',
           headers: {
-            'Content-Type': 'application/json',
+            ...headers,
             'X-Request-ID': requestId // Add a request ID for tracking
           },          body: JSON.stringify({
             title: event.title,
@@ -686,11 +736,11 @@ export async function getAvailableDiscordServers(): Promise<{
   try {
     // console.log('[DEBUG] Fetching available Discord servers');
     
-    const response = await fetch(`${import.meta.env.VITE_API_URL}/api/discord/servers`, {
+    const headers = await getDiscordHeaders();
+    const baseUrl = await getDiscordApiBaseUrl();
+    const response = await fetch(`${baseUrl}/api/discord/servers`, {
       method: 'GET',
-      headers: {
-        'Content-Type': 'application/json'
-      }
+      headers
     });
     
     const data = await response.json();
@@ -729,11 +779,11 @@ export async function getServerChannels(guildId: string): Promise<{
   try {
     // console.log(`[DEBUG] Fetching channels for Discord server ID: ${guildId}`);
     
-    const response = await fetch(`${import.meta.env.VITE_API_URL}/api/discord/servers/${guildId}/channels`, {
+    const headers = await getDiscordHeaders();
+    const baseUrl = await getDiscordApiBaseUrl();
+    const response = await fetch(`${baseUrl}/api/discord/servers/${guildId}/channels`, {
       method: 'GET',
-      headers: {
-        'Content-Type': 'application/json'
-      }
+      headers
     });
     
     const data = await response.json();
@@ -965,8 +1015,11 @@ async function deleteDiscordMessageFromChannel(messageId: string, guildId: strin
     
     // console.log(`[DEBUG] Sending delete request to: http://localhost:3001/api/events/${messageId}?guildId=${guildId}&channelId=${channelId}`);
     
-    const response = await fetch(`${import.meta.env.VITE_API_URL}/api/events/${messageId}?guildId=${guildId}&channelId=${channelId}`, {
+    const headers = await getDiscordHeaders();
+    const baseUrl = await getDiscordApiBaseUrl();
+    const response = await fetch(`${baseUrl}/api/events/${messageId}?guildId=${guildId}&channelId=${channelId}`, {
       method: 'DELETE',
+      headers
     });
     
     const data = await response.json();
@@ -1143,7 +1196,8 @@ export async function deleteDiscordMessage(eventOrMessageId: Event | string, gui
     }
     
     // Build the URL with optional guild ID as a query parameter
-    let url = `${import.meta.env.VITE_API_URL}/api/events/${discordMessageId}`;
+    const baseUrl = await getDiscordApiBaseUrl();
+    let url = `${baseUrl}/api/events/${discordMessageId}`;
     const queryParams = [];
     
     if (guildId) {
@@ -1197,7 +1251,8 @@ export async function deleteDiscordMessage(eventOrMessageId: Event | string, gui
  */
 export async function getEventAttendanceFromDiscord(discordMessageId: string): Promise<DiscordAttendanceResponse> {
   try {
-    const response = await fetch(`${import.meta.env.VITE_API_URL}/api/events/${discordMessageId}/attendance`, {
+    const baseUrl = await getDiscordApiBaseUrl();
+    const response = await fetch(`${baseUrl}/api/events/${discordMessageId}/attendance`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -1310,7 +1365,8 @@ async function editDiscordMessageInChannel(messageId: string, event: Event, guil
     //   creator: requestBody.creator
     // });
     
-    const response = await fetch(`${import.meta.env.VITE_API_URL}/api/events/${messageId}/edit`, {
+    const baseUrl = await getDiscordApiBaseUrl();
+    const response = await fetch(`${baseUrl}/api/events/${messageId}/edit`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',

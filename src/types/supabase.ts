@@ -958,6 +958,7 @@ export type Database = {
           discord_avatar_url: string | null
           id: string
           pilot_id: string | null
+          settings: Json
           updated_at: string | null
         }
         Insert: {
@@ -969,6 +970,7 @@ export type Database = {
           discord_avatar_url?: string | null
           id?: string
           pilot_id?: string | null
+          settings?: Json
           updated_at?: string | null
         }
         Update: {
@@ -980,6 +982,7 @@ export type Database = {
           discord_avatar_url?: string | null
           id?: string
           pilot_id?: string | null
+          settings?: Json
           updated_at?: string | null
         }
         Relationships: [
