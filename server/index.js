@@ -83,7 +83,7 @@ const PORT = process.env.SERVER_PORT || 3001;
 app.use(cors({
   origin: ['http://localhost:5173', 'http://127.0.0.1:5173', 'http://localhost:4173'], // Add your frontend URLs
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-ID'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-ID', 'x-discord-environment'],
   credentials: true
 }));
 app.use(bodyParser.json());
