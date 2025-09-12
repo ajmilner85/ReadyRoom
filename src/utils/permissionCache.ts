@@ -434,6 +434,9 @@ export class PermissionCacheService {
       canAccessAdminTools: false,
       canViewOwnProfile: true, // Always allow viewing own profile
       
+      // Developer permissions
+      access_developer_settings: false,
+      
       // New permissions for polls and change log
       canManagePolls: false,
       canVoteInPolls: false,

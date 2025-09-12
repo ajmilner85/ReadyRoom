@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { usePageLoading } from '../../context/PageLoadingContext';
 import { Card } from '../ui/card';
-import { User, Users, Building, Plane, PaintBucket, Calendar, Network, Shield } from 'lucide-react';
+import { PermissionGate } from '../ui/PermissionGate';
+import { User, Users, Building, Plane, PaintBucket, Calendar, Network, Shield, Code } from 'lucide-react';
 
 // Import settings subpages
 import SquadronSettings from './SquadronSettings';
@@ -12,9 +13,10 @@ import RosterSettings from './RosterSettings';
 import OrganizationSettings from './OrganizationSettings';
 import EventSettings from './EventSettings';
 import PermissionsSettings from './PermissionsSettings';
+import DeveloperSettings from './DeveloperSettings';
 
 // Define the types of settings pages
-type SettingsPage = 'roster' | 'squadron' | 'organization' | 'mission' | 'events' | 'permissions' | 'appearance' | 'accounts';
+type SettingsPage = 'roster' | 'squadron' | 'organization' | 'mission' | 'events' | 'permissions' | 'appearance' | 'accounts' | 'developer';
 
 interface SettingsNavItem {
   id: SettingsPage;
@@ -53,6 +55,11 @@ const settingsNavItems: SettingsNavItem[] = [
     id: 'permissions',
     icon: <Shield size={20} />,
     label: 'Permissions'
+  },
+  {
+    id: 'developer',
+    icon: <Code size={20} />,
+    label: 'Developer Settings'
   },
   {
     id: 'appearance',
@@ -96,6 +103,8 @@ const Settings: React.FC = () => {
         return <EventSettings error={error} setError={setError} />;
       case 'permissions':
         return <PermissionsSettings />;
+      case 'developer':
+        return <DeveloperSettings error={error} setError={setError} />;
       case 'appearance':
         return <Appearance error={error} setError={setError} />;
       case 'accounts':
@@ -183,14 +192,30 @@ const Settings: React.FC = () => {
                   paddingTop: '16px',
                 }}
               >
-                {settingsNavItems.map((item) => (
-                  <SettingsNavItem 
-                    key={item.id}
-                    item={item}
-                    active={activeSettingsPage === item.id}
-                    onClick={() => handleSettingsNavigate(item.id)}
-                  />
-                ))}
+                {settingsNavItems.map((item) => {
+                  // Apply permission guard for developer settings
+                  if (item.id === 'developer') {
+                    return (
+                      <PermissionGate key={item.id} permission="access_developer_settings" mode="hide">
+                        <SettingsNavItem 
+                          item={item}
+                          active={activeSettingsPage === item.id}
+                          onClick={() => handleSettingsNavigate(item.id)}
+                        />
+                      </PermissionGate>
+                    );
+                  }
+                  
+                  // Render other items normally
+                  return (
+                    <SettingsNavItem 
+                      key={item.id}
+                      item={item}
+                      active={activeSettingsPage === item.id}
+                      onClick={() => handleSettingsNavigate(item.id)}
+                    />
+                  );
+                })}
               </div>
 
               {/* Main content area */}

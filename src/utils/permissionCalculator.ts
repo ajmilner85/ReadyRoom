@@ -385,6 +385,9 @@ export class PermissionCalculator {
       canAccessAdminTools: false,
       canViewOwnProfile: false,
       
+      // Developer (global only)
+      access_developer_settings: false,
+      
       // Polls and Change Log (global only)
       canManagePolls: false,
       canVoteInPolls: false,
@@ -401,6 +404,7 @@ export class PermissionCalculator {
     for (const rule of rules) {
       this.applyRule(permissions, rule, userBases);
     }
+    
     
     return permissions;
   }
@@ -530,6 +534,11 @@ export class PermissionCalculator {
         break;
       case 'view_own_profile':
         permissions.canViewOwnProfile = true;
+        break;
+        
+      // Developer permissions (global only)
+      case 'access_developer_settings':
+        permissions.access_developer_settings = true;
         break;
         
       // Polls and Change Log permissions (global only)
