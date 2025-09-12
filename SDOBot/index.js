@@ -89,7 +89,7 @@ app.use(cors({
     'http://localhost:4173'
   ],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-ID'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-ID', 'x-discord-environment'],
   credentials: true
 }));
 app.use(bodyParser.json());
