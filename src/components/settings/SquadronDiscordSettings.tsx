@@ -3,7 +3,6 @@ import { MessageSquare, Plus, Trash, Crown, Shield, Users, User, Server, X } fro
 import { getAvailableDiscordServers, getServerChannels, DiscordServer, fetchDiscordGuildRoles } from '../../utils/discordService';
 import { getAllQualifications } from '../../utils/qualificationService';
 import { supabase } from '../../utils/supabaseClient';
-import DiscordEnvironmentIndicator from '../ui/DiscordEnvironmentIndicator';
 
 // Add custom styles for optgroup indentation
 const optgroupStyles = `
@@ -457,7 +456,6 @@ const SquadronDiscordSettings: React.FC<SquadronDiscordSettingsProps> = ({
             Discord Integration
           </h4>
         </div>
-        <DiscordEnvironmentIndicator size="medium" />
       </div>
 
       {/* Error Display */}
@@ -957,8 +955,8 @@ const SquadronDiscordSettings: React.FC<SquadronDiscordSettingsProps> = ({
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-              {roleMappings.map((mapping) => (
-                <div key={mapping.id} style={{
+              {roleMappings.map((mapping, index) => (
+                <div key={`role-mapping-${mapping.id}-${mapping.discordRoleId}-${index}`} style={{
                   display: 'flex',
                   justifyContent: 'space-between',
                   alignItems: 'center',

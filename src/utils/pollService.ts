@@ -3,8 +3,6 @@ import { supabase, getCurrentUser } from './supabaseClient';
 
 // Get all active polls with results
 export const getActivePolls = async (): Promise<PollWithResults[]> => {
-  console.log('getActivePolls: Starting query...');
-  
   const { data: polls, error } = await supabase
     .from('polls' as any)
     .select('*')
@@ -12,10 +10,7 @@ export const getActivePolls = async (): Promise<PollWithResults[]> => {
     .is('archived_at', null)
     .order('created_at', { ascending: false });
 
-  console.log('getActivePolls: Query result:', { polls, error });
-
   if (error) {
-    console.error('getActivePolls: Database error:', error);
     throw error;
   }
 
@@ -59,15 +54,10 @@ export const getPoll = async (id: string): Promise<PollWithResults> => {
 
 // Create a new poll
 export const createPoll = async (poll: CreatePollRequest): Promise<Poll> => {
-  console.log('createPoll: Starting poll creation...', poll);
-  
   const { user, error: userError } = await getCurrentUser();
   if (userError || !user) {
-    console.error('createPoll: User authentication error:', userError);
     throw userError || new Error('User not authenticated');
   }
-
-  console.log('createPoll: Authenticated user:', user);
 
   // Get the user profile ID from the user_profiles table
   const { data: userProfile, error: profileError } = await supabase
@@ -76,10 +66,7 @@ export const createPoll = async (poll: CreatePollRequest): Promise<Poll> => {
     .eq('auth_user_id', user.id)
     .single();
 
-  console.log('createPoll: User profile lookup:', { userProfile, profileError });
-
   if (profileError || !userProfile) {
-    console.error('createPoll: Failed to find user profile:', profileError);
     throw new Error('User profile not found');
   }
 
@@ -92,8 +79,6 @@ export const createPoll = async (poll: CreatePollRequest): Promise<Poll> => {
     description: option.description || null,
     order: option.order
   }));
-
-  console.log('createPoll: Options with IDs:', optionsWithIds);
 
   const insertData: any = {
     title: poll.title,
@@ -110,22 +95,16 @@ export const createPoll = async (poll: CreatePollRequest): Promise<Poll> => {
     insertData.created_at = poll.created_at;
   }
 
-  console.log('createPoll: Insert data:', insertData);
-
   const { data: newPoll, error } = await supabase
     .from('polls' as any)
     .insert(insertData)
     .select()
     .single();
 
-  console.log('createPoll: Database response:', { newPoll, error });
-
   if (error) {
-    console.error('createPoll: Database error:', error);
     throw error;
   }
 
-  console.log('createPoll: Success!', newPoll);
   return newPoll as unknown as Poll;
 };
 

@@ -7,6 +7,10 @@ export interface UserSettingsResponse {
   success: boolean;
 }
 
+// Cache for user settings to avoid repeated database calls
+const userSettingsCache: Record<string, { data: UserSettings; timestamp: number }> = {};
+const CACHE_DURATION = 30000; // 30 seconds
+
 // Get user settings
 export const getUserSettings = async (userId?: string): Promise<UserSettingsResponse> => {
   try {
@@ -32,6 +36,13 @@ export const getUserSettings = async (userId?: string): Promise<UserSettingsResp
       targetUserId = profile.id;
     }
 
+    // Check cache first
+    const cacheKey = targetUserId;
+    const cached = userSettingsCache[cacheKey];
+    if (cached && (Date.now() - cached.timestamp) < CACHE_DURATION) {
+      return { success: true, data: cached.data };
+    }
+
     const { data: userProfile, error } = await supabase
       .from('user_profiles')
       .select('settings')
@@ -55,6 +66,12 @@ export const getUserSettings = async (userId?: string): Promise<UserSettingsResp
         ...defaultUserSettings.preferences,
         ...settings.preferences
       }
+    };
+
+    // Cache the result
+    userSettingsCache[cacheKey] = {
+      data: mergedSettings,
+      timestamp: Date.now()
     };
 
     return { success: true, data: mergedSettings };
@@ -114,6 +131,9 @@ export const updateUserSettings = async (settings: Partial<UserSettings>, userId
     if (error) {
       return { success: false, error: error.message };
     }
+
+    // Clear cache for this user since settings were updated
+    delete userSettingsCache[targetUserId];
 
     return { success: true, data: updatedSettings };
   } catch (err: any) {

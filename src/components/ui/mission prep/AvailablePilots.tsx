@@ -507,9 +507,6 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
       // Add roll call status first (higher priority)
       if (pilotId && rollCallResponses[pilotId]) {
         pilotCopy.rollCallStatus = rollCallResponses[pilotId];
-        console.log(`[ROLL-CALL-DEBUG] Applied roll call status to ${pilotCopy.callsign}: ${rollCallResponses[pilotId]}`);
-      } else if (pilotId) {
-        console.log(`[ROLL-CALL-DEBUG] No roll call status for ${pilotCopy.callsign} (pilotId: ${pilotId}), available responses:`, Object.keys(rollCallResponses));
       }
       
       // Then add Discord attendance status (lower priority)
@@ -1054,10 +1051,8 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
                     let freshRollCallResponses = { ...rollCallResponses };
                     
                     if (selectedEvent?.discordEventId) {
-                      console.log('[ROLL-CALL-DEBUG] Syncing fresh roll call data from Discord before auto-assign...');
                       try {
                         const freshRollCallData = await syncRollCallResponses(selectedEvent.discordEventId);
-                        console.log('[ROLL-CALL-DEBUG] Fresh roll call data from Discord:', freshRollCallData);
                         
                         // Convert Discord ID based responses to pilot ID based responses
                         const freshPilotResponses: Record<string, 'Present' | 'Absent' | 'Tentative'> = {};
@@ -1071,13 +1066,11 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
                           }
                         });
                         
-                        console.log('[ROLL-CALL-DEBUG] Converted fresh responses to pilot IDs:', freshPilotResponses);
                         freshRollCallResponses = freshPilotResponses;
                         
                         // Update local state with fresh data
                         setRollCallResponses(freshRollCallResponses);
                       } catch (error) {
-                        console.error('[ROLL-CALL-DEBUG] Error syncing roll call data:', error);
                         // Continue with existing data if sync fails
                       }
                     }
@@ -1109,7 +1102,6 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
                         };
                       });
                     
-                    console.log('[ROLL-CALL-DEBUG] Final pilot data for auto-assign:', pilotsForAutoAssign.map(p => ({ c: p.callsign, d: p.attendanceStatus, r: p.rollCallStatus })));
                     
                     // Pass the enriched pilot data array directly
                     onAutoAssign(pilotsForAutoAssign);

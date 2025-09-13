@@ -1,5 +1,6 @@
 // import { supabase } from './supabaseClient';
 import { UserProfile } from './userProfileService';
+import { getUserSettings } from './userSettingsService';
 
 export interface DiscordRoleMapping {
   id: string;
@@ -14,6 +15,40 @@ export interface UserDiscordRole {
   id: string;
   name: string;
   permissions: string;
+}
+
+// Helper function to get the Discord bot environment from user settings
+async function getDiscordEnvironment(): Promise<'development' | 'production'> {
+  try {
+    const settingsResult = await getUserSettings();
+    if (settingsResult.success && settingsResult.data?.developer?.discordBotToken) {
+      return settingsResult.data.developer.discordBotToken;
+    }
+  } catch (error) {
+    console.warn('Failed to get user Discord environment setting:', error);
+  }
+  
+  return 'development';
+}
+
+// Helper function to get the appropriate API base URL based on Discord environment
+async function getDiscordApiBaseUrl(): Promise<string> {
+  const environment = await getDiscordEnvironment();
+  
+  if (environment === 'production') {
+    return 'https://readyroom.fly.dev';
+  } else {
+    return import.meta.env.VITE_API_URL || 'http://localhost:3001';
+  }
+}
+
+// Helper function to add Discord environment to API request headers
+async function getDiscordHeaders(): Promise<Record<string, string>> {
+  const environment = await getDiscordEnvironment();
+  return {
+    'Content-Type': 'application/json',
+    'X-Discord-Environment': environment
+  };
 }
 
 /**
@@ -106,49 +141,43 @@ export async function syncUserDiscordRoles(
  */
 export async function fetchUserDiscordRoles(
   discordId: string,
-  guildId: string,
-  botToken: string
+  guildId: string
 ): Promise<{ roles: UserDiscordRole[]; error?: string }> {
   try {
-    // Note: This requires a Discord bot token and would typically be done server-side
-    // For now, this is a placeholder that would need to be implemented with your Discord bot
+    const baseUrl = await getDiscordApiBaseUrl();
+    const headers = await getDiscordHeaders();
     
-    const response = await fetch(
-      `https://discord.com/api/v10/guilds/${guildId}/members/${discordId}`,
-      {
-        headers: {
-          'Authorization': `Bot ${botToken}`,
-          'Content-Type': 'application/json'
-        }
-      }
+    // Get user's member data from backend API
+    const memberResponse = await fetch(
+      `${baseUrl}/api/discord/guild/${guildId}/member/${discordId}`,
+      { headers }
     );
 
-    if (!response.ok) {
-      throw new Error(`Discord API error: ${response.status}`);
+    if (!memberResponse.ok) {
+      const errorData = await memberResponse.json().catch(() => ({}));
+      throw new Error(errorData.error || `Member API error: ${memberResponse.status}`);
     }
 
-    const memberData = await response.json();
+    const memberData = await memberResponse.json();
     
-    // Get role details
-    const guildResponse = await fetch(
-      `https://discord.com/api/v10/guilds/${guildId}/roles`,
-      {
-        headers: {
-          'Authorization': `Bot ${botToken}`,
-          'Content-Type': 'application/json'
-        }
-      }
+    // Get all guild roles from backend API
+    const rolesResponse = await fetch(
+      `${baseUrl}/api/discord/guild/${guildId}/roles`,
+      { headers }
     );
 
-    if (!guildResponse.ok) {
-      throw new Error(`Discord API error: ${guildResponse.status}`);
+    if (!rolesResponse.ok) {
+      const errorData = await rolesResponse.json().catch(() => ({}));
+      throw new Error(errorData.error || `Roles API error: ${rolesResponse.status}`);
     }
 
-    const allRoles = await guildResponse.json();
+    const rolesData = await rolesResponse.json();
+    const allRoles = rolesData.roles || [];
     
     // Filter to get only the roles this user has
+    const userRoleIds = memberData.member?.roles || [];
     const userRoles = allRoles.filter((role: any) => 
-      memberData.roles.includes(role.id)
+      userRoleIds.includes(role.id)
     ).map((role: any) => ({
       id: role.id,
       name: role.name,
@@ -193,36 +222,54 @@ export async function triggerRoleSync(userProfile: UserProfile): Promise<boolean
     return true; // No Discord account to sync
   }
 
-  // TODO: Get Discord guild ID and bot token from environment/config
-  const guildId = import.meta.env.VITE_DISCORD_GUILD_ID;
-  const botToken = import.meta.env.VITE_DISCORD_BOT_TOKEN;
-
-  if (!guildId || !botToken) {
-    // Discord role sync is optional - no need to warn about this
-    return false;
-  }
-
   try {
-    const { roles, error: fetchError } = await fetchUserDiscordRoles(
-      userProfile.discordId,
-      guildId,
-      botToken
-    );
+    const baseUrl = await getDiscordApiBaseUrl();
+    const headers = await getDiscordHeaders();
 
-    if (fetchError) {
-      console.error('Failed to fetch Discord roles:', fetchError);
-      return false;
-    }
-
-    const { success, error: syncError } = await syncUserDiscordRoles(userProfile, roles);
+    // Get all Discord servers this user has access to
+    const serversResponse = await fetch(`${baseUrl}/api/discord/servers`, { headers });
     
-    if (!success) {
-      console.error('Failed to sync Discord roles:', syncError);
+    if (!serversResponse.ok) {
+      console.error('Failed to fetch Discord servers for role sync');
       return false;
     }
 
-    return true;
+    const serversData = await serversResponse.json();
+    const servers = serversData.guilds || [];
 
+    if (servers.length === 0) {
+      console.log('No Discord servers found for role sync');
+      return true; // No servers to sync, but not an error
+    }
+
+    // Sync roles for each server the user has access to
+    let overallSuccess = true;
+    for (const server of servers) {
+      try {
+        const { roles, error: fetchError } = await fetchUserDiscordRoles(
+          userProfile.discordId,
+          server.id
+        );
+
+        if (fetchError) {
+          console.error(`Failed to fetch Discord roles for server ${server.name}:`, fetchError);
+          overallSuccess = false;
+          continue;
+        }
+
+        const { success, error: syncError } = await syncUserDiscordRoles(userProfile, roles);
+        
+        if (!success) {
+          console.error(`Failed to sync Discord roles for server ${server.name}:`, syncError);
+          overallSuccess = false;
+        }
+      } catch (serverError) {
+        console.error(`Error syncing roles for server ${server.name}:`, serverError);
+        overallSuccess = false;
+      }
+    }
+
+    return overallSuccess;
   } catch (error) {
     console.error('Error during role sync:', error);
     return false;

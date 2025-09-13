@@ -237,14 +237,7 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
 
   // Effect to create flight cards from extracted flights
   useEffect(() => {
-    console.log('🛫 FlightAssignments: useEffect triggered for extracted flights:', {
-      extractedFlightsLength: extractedFlights.length,
-      currentFlightsLength: flights.length,
-      extractedFlights: extractedFlights.map(f => ({ name: f.name, units: f.units.length }))
-    });
-    
     if (!extractedFlights.length) {
-      console.log('⚠️ FlightAssignments: No extracted flights to process');
       return;
     }
 

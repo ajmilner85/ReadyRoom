@@ -11,8 +11,6 @@ import { supabase, getCurrentUser } from './supabaseClient';
 
 // Get change log posts feed with pagination
 export const getPosts = async (limit: number = 20, cursor?: string): Promise<ChangeLogFeedResponse> => {
-  console.log('getPosts: Starting query...', { limit, cursor });
-  
   let query = supabase
     .from('change_log_posts' as any)
     .select(`
@@ -42,10 +40,7 @@ export const getPosts = async (limit: number = 20, cursor?: string): Promise<Cha
 
   const { data: posts, error } = await query;
 
-  console.log('getPosts: Query result:', { posts, error });
-
   if (error) {
-    console.error('getPosts: Database error:', error);
     throw error;
   }
 
@@ -146,15 +141,10 @@ export const getPost = async (id: string): Promise<ChangeLogPostWithStats> => {
 
 // Create a new post
 export const createPost = async (post: CreatePostRequest): Promise<ChangeLogPost> => {
-  console.log('createPost: Starting post creation...', post);
-  
   const { user, error: userError } = await getCurrentUser();
   if (userError || !user) {
-    console.error('createPost: User authentication error:', userError);
     throw userError || new Error('User not authenticated');
   }
-
-  console.log('createPost: Authenticated user:', user);
 
   // Get the user profile ID from the user_profiles table
   const { data: userProfile, error: profileError } = await supabase
@@ -163,10 +153,7 @@ export const createPost = async (post: CreatePostRequest): Promise<ChangeLogPost
     .eq('auth_user_id', user.id)
     .single();
 
-  console.log('createPost: User profile lookup:', { userProfile, profileError });
-
   if (profileError || !userProfile) {
-    console.error('createPost: Failed to find user profile:', profileError);
     throw new Error('User profile not found');
   }
 
@@ -185,22 +172,16 @@ export const createPost = async (post: CreatePostRequest): Promise<ChangeLogPost
     insertData.created_at = post.created_at;
   }
 
-  console.log('createPost: Insert data:', insertData);
-
   const { data: newPost, error } = await supabase
     .from('change_log_posts' as any)
     .insert(insertData)
     .select()
     .single();
 
-  console.log('createPost: Database response:', { newPost, error });
-
   if (error) {
-    console.error('createPost: Database error:', error);
     throw error;
   }
 
-  console.log('createPost: Success!', newPost);
   return newPost as unknown as ChangeLogPost;
 };
 

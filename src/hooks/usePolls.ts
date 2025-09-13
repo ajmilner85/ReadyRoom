@@ -34,10 +34,8 @@ export const usePolls = (enablePolling: boolean = false): UsePollsReturn => {
   // Load initial polls data
   const loadPolls = useCallback(async () => {
     try {
-      console.log('usePolls: loadPolls starting...');
       setState(prev => ({ ...prev, loading: true, error: null }));
       const polls = await pollService.getActivePolls();
-      console.log('usePolls: pollService.getActivePolls success:', polls);
       setState(prev => ({
         ...prev,
         polls,
@@ -46,10 +44,8 @@ export const usePolls = (enablePolling: boolean = false): UsePollsReturn => {
       }));
       lastUpdateTimestampRef.current = Date.now();
     } catch (error) {
-      console.error('usePolls: loadPolls error:', error);
       // If API endpoints don't exist yet, show empty state instead of error
       if (error instanceof Error && error.message.includes('Cannot GET')) {
-        console.log('usePolls: API endpoint error, showing empty state');
         setState(prev => ({
           ...prev,
           polls: [],
@@ -58,7 +54,6 @@ export const usePolls = (enablePolling: boolean = false): UsePollsReturn => {
           lastUpdated: new Date(),
         }));
       } else {
-        console.log('usePolls: Other error, showing error state');
         setState(prev => ({
           ...prev,
           error: error instanceof Error ? error.message : 'Failed to load polls',
