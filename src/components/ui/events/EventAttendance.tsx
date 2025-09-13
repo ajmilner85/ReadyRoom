@@ -4,7 +4,7 @@ import QualificationBadge from '../QualificationBadge';
 import { getPilotByDiscordOriginalId } from '../../../utils/pilotService';
 import type { Pilot } from '../../../types/PilotTypes';
 import { fetchCycles } from '../../../utils/supabaseClient';
-import { getPilotQualifications } from '../../../utils/qualificationService';
+import { getBatchPilotQualifications, getAllQualifications } from '../../../utils/qualificationService';
 
 interface EventAttendanceProps {
   event: Event | null;
@@ -45,9 +45,29 @@ const EventAttendance: React.FC<EventAttendanceProps> = ({ event }) => {
   const [error, setError] = useState<string | null>(null);
   const [pollInterval, setPollInterval] = useState<NodeJS.Timeout | null>(null);
   const [cycles, setCycles] = useState<Cycle[]>([]);
+  const [qualificationConfigs, setQualificationConfigs] = useState<any[]>([]);
+
+  // Load qualification configs once on component mount
+  useEffect(() => {
+    const loadQualificationConfigs = async () => {
+      try {
+        const { data } = await getAllQualifications();
+        if (data) {
+          console.log('🎯 EventAttendance: Loaded', data.length, 'qualification configs for caching');
+          setQualificationConfigs(data);
+        }
+      } catch (error) {
+        console.error('🎯 EventAttendance: Failed to load qualification configs:', error);
+      }
+    };
+    
+    loadQualificationConfigs();
+  }, []);
 
   // Function to fetch attendance data from API
   const fetchAttendance = async (eventId: string) => {
+    // Don't clear previous attendance - let it persist while loading new data
+    setError(null);
     try {
       setError(null);
       
@@ -78,13 +98,13 @@ const EventAttendance: React.FC<EventAttendanceProps> = ({ event }) => {
         ...data.tentative.map(attendee => ({ ...attendee, status: 'tentative' as const }))
       ];
 
-      // Fetch pilot records for each attendee with a discord_id
-      const attendeeWithPilots = await Promise.all(
+      // First pass: fetch all pilot records
+      const attendeeWithPilotRecords = await Promise.all(
         formattedAttendance.map(async (attendee) => {
           if (attendee.discord_id) {
             const { data: pilotData } = await getPilotByDiscordOriginalId(attendee.discord_id);
             
-            // Extract role information and fetch qualifications
+            // Extract role information
             let enhancedPilot: EnhancedPilot | null = pilotData as unknown as EnhancedPilot;
             if (enhancedPilot) {
               // Try to extract role name from joined role data or use billet as fallback
@@ -94,19 +114,6 @@ const EventAttendance: React.FC<EventAttendanceProps> = ({ event }) => {
               } else if (attendee.billet) {
                 enhancedPilot.displayRole = attendee.billet;
               }
-              
-              // Fetch qualifications for this pilot
-              const { data: qualificationsData } = await getPilotQualifications(enhancedPilot.id);
-              if (qualificationsData) {
-                // Map the qualification data to the expected format
-                enhancedPilot.qualifications = qualificationsData.map((pq: any) => ({
-                  id: pq.qualification?.id || '',
-                  type: pq.qualification?.name || '',
-                  dateAchieved: pq.date_achieved || ''
-                }));
-              } else {
-                enhancedPilot.qualifications = [];
-              }
             }
             
             return { ...attendee, pilotRecord: enhancedPilot };
@@ -114,8 +121,47 @@ const EventAttendance: React.FC<EventAttendanceProps> = ({ event }) => {
           return attendee;
         })
       );
+
+      // Set attendance immediately without qualifications for fast initial render
+      setAttendance(attendeeWithPilotRecords);
+
+      // Load qualifications in the background and update
+      const pilotIds = attendeeWithPilotRecords
+        .filter(attendee => attendee.pilotRecord?.id)
+        .map(attendee => attendee.pilotRecord!.id);
       
-      setAttendance(attendeeWithPilots);
+      if (pilotIds.length > 0) {
+        try {
+          // Try batch loading with a timeout
+          const timeoutPromise = new Promise<never>((_, reject) => 
+            setTimeout(() => reject(new Error('Batch qualification fetch timed out')), 3000)
+          );
+          
+          const batchQualifications = await Promise.race([
+            getBatchPilotQualifications(pilotIds),
+            timeoutPromise
+          ]);
+          
+          // Update attendance with qualification data
+          const attendeeWithQualifications = attendeeWithPilotRecords.map(attendee => {
+            if (attendee.pilotRecord?.id) {
+              const qualificationsData = batchQualifications[attendee.pilotRecord.id] || [];
+              attendee.pilotRecord.qualifications = qualificationsData.map((pq: any) => ({
+                id: pq.qualification?.id || '',
+                type: pq.qualification?.name || '',
+                dateAchieved: pq.date_achieved || ''
+              }));
+            }
+            return attendee;
+          });
+          
+          setAttendance(attendeeWithQualifications);
+        } catch (error) {
+          console.warn('EventAttendance: Batch qualification loading failed:', error);
+          // Don't fall back to individual calls to avoid the slow loading issue
+          // Just leave qualifications empty rather than showing the progressive loading
+        }
+      }
     } catch (err) {
       console.error('Error fetching event attendance:', err);
       setError(err instanceof Error ? err.message : 'Failed to fetch attendance');
@@ -315,12 +361,23 @@ const EventAttendance: React.FC<EventAttendanceProps> = ({ event }) => {
               marginLeft: 'auto',
               height: '24px'
             }}>
-              {pilot.pilotRecord?.qualifications?.map((qual: any, qualIndex: number) => (
-                <QualificationBadge 
-                  key={`${qual.type}-${qualIndex}`} 
-                  type={qual.type as any}
-                />
-              ))}
+              {(() => {
+                const hasQuals = pilot.pilotRecord?.qualifications && pilot.pilotRecord.qualifications.length > 0;
+                const hasConfigs = qualificationConfigs.length > 0;
+                console.log(`🎯 EventAttendance: Pilot ${pilot.callsign} - hasQuals: ${hasQuals} (${pilot.pilotRecord?.qualifications?.length || 0}), hasConfigs: ${hasConfigs} (${qualificationConfigs.length})`);
+                
+                // Only render badges if we have both pilot qualifications AND cached configs
+                return hasQuals && hasConfigs && pilot.pilotRecord?.qualifications?.map((qual: any, qualIndex: number) => {
+                  console.log(`🎯 EventAttendance: Rendering QualificationBadge for ${pilot.callsign} - ${qual.type} with cached configs`);
+                  return (
+                    <QualificationBadge 
+                      key={`${qual.type}-${qualIndex}`} 
+                      type={qual.type as any}
+                      qualifications={qualificationConfigs}
+                    />
+                  );
+                });
+              })()}
             </div>
           </div>
         ))}
@@ -454,12 +511,23 @@ const EventAttendance: React.FC<EventAttendanceProps> = ({ event }) => {
                 marginLeft: 'auto',
                 height: '24px'
               }}>
-                {pilot.pilotRecord?.qualifications?.map((qual: any, index: number) => (
-                  <QualificationBadge 
-                    key={`${qual.type}-${index}`} 
-                    type={qual.type as any}
-                  />
-                ))}
+                {(() => {
+                  const hasQuals = pilot.pilotRecord?.qualifications && pilot.pilotRecord.qualifications.length > 0;
+                  const hasConfigs = qualificationConfigs.length > 0;
+                  console.log(`🎯 EventAttendance: Pilot ${pilot.callsign} - hasQuals: ${hasQuals} (${pilot.pilotRecord?.qualifications?.length || 0}), hasConfigs: ${hasConfigs} (${qualificationConfigs.length})`);
+                  
+                  // Only render badges if we have both pilot qualifications AND cached configs
+                  return hasQuals && hasConfigs && pilot.pilotRecord?.qualifications?.map((qual: any, index: number) => {
+                    console.log(`🎯 EventAttendance: Rendering QualificationBadge for ${pilot.callsign} - ${qual.type} with cached configs`);
+                    return (
+                      <QualificationBadge 
+                        key={`${qual.type}-${index}`} 
+                        type={qual.type as any}
+                        qualifications={qualificationConfigs}
+                      />
+                    );
+                  });
+                })()}
               </div>
             </div>
           ));
@@ -582,12 +650,23 @@ const EventAttendance: React.FC<EventAttendanceProps> = ({ event }) => {
                 marginLeft: 'auto',
                 height: '24px'
               }}>
-                {pilot.pilotRecord?.qualifications?.map((qual: any, index: number) => (
-                  <QualificationBadge 
-                    key={`${qual.type}-${index}`} 
-                    type={qual.type as any}
-                  />
-                ))}
+                {(() => {
+                  const hasQuals = pilot.pilotRecord?.qualifications && pilot.pilotRecord.qualifications.length > 0;
+                  const hasConfigs = qualificationConfigs.length > 0;
+                  console.log(`🎯 EventAttendance: Pilot ${pilot.callsign} - hasQuals: ${hasQuals} (${pilot.pilotRecord?.qualifications?.length || 0}), hasConfigs: ${hasConfigs} (${qualificationConfigs.length})`);
+                  
+                  // Only render badges if we have both pilot qualifications AND cached configs
+                  return hasQuals && hasConfigs && pilot.pilotRecord?.qualifications?.map((qual: any, index: number) => {
+                    console.log(`🎯 EventAttendance: Rendering QualificationBadge for ${pilot.callsign} - ${qual.type} with cached configs`);
+                    return (
+                      <QualificationBadge 
+                        key={`${qual.type}-${index}`} 
+                        type={qual.type as any}
+                        qualifications={qualificationConfigs}
+                      />
+                    );
+                  });
+                })()}
               </div>
             </div>
           ));
@@ -710,12 +789,23 @@ const EventAttendance: React.FC<EventAttendanceProps> = ({ event }) => {
                 marginLeft: 'auto',
                 height: '24px'
               }}>
-                {pilot.pilotRecord?.qualifications?.map((qual: any, index: number) => (
-                  <QualificationBadge 
-                    key={`${qual.type}-${index}`} 
-                    type={qual.type as any}
-                  />
-                ))}
+                {(() => {
+                  const hasQuals = pilot.pilotRecord?.qualifications && pilot.pilotRecord.qualifications.length > 0;
+                  const hasConfigs = qualificationConfigs.length > 0;
+                  console.log(`🎯 EventAttendance: Pilot ${pilot.callsign} - hasQuals: ${hasQuals} (${pilot.pilotRecord?.qualifications?.length || 0}), hasConfigs: ${hasConfigs} (${qualificationConfigs.length})`);
+                  
+                  // Only render badges if we have both pilot qualifications AND cached configs
+                  return hasQuals && hasConfigs && pilot.pilotRecord?.qualifications?.map((qual: any, index: number) => {
+                    console.log(`🎯 EventAttendance: Rendering QualificationBadge for ${pilot.callsign} - ${qual.type} with cached configs`);
+                    return (
+                      <QualificationBadge 
+                        key={`${qual.type}-${index}`} 
+                        type={qual.type as any}
+                        qualifications={qualificationConfigs}
+                      />
+                    );
+                  });
+                })()}
               </div>
             </div>
           ));

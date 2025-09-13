@@ -81,9 +81,16 @@ const PORT = process.env.SERVER_PORT || 3001;
 
 // Configure CORS with specific options to ensure it works properly
 app.use(cors({
-  origin: ['http://localhost:5173', 'http://127.0.0.1:5173', 'http://localhost:4173'], // Add your frontend URLs
+  origin: [
+    'http://localhost:5173', 
+    'http://127.0.0.1:5173', 
+    'http://localhost:4173',
+    'https://ready-room.vercel.app',
+    'https://ready-room-git-development-ajmilner85.vercel.app',
+    'https://readyroompreview.ajmilner.com'
+  ],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-ID', 'x-discord-environment'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-ID', 'x-discord-environment', 'X-Discord-Environment'],
   credentials: true
 }));
 app.use(bodyParser.json());

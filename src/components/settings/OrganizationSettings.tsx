@@ -621,13 +621,7 @@ const OrganizationSettings: React.FC<OrganizationSettingsProps> = ({ error, setE
                 </span>
               </div>
             
-            {(() => {
-              const filtered = filterEntities(wings);
-              console.log('Wings before filter:', wings);
-              console.log('Wings after filter:', filtered);
-              console.log('showInactive:', showInactive);
-              return filtered.length === 0;
-            })() ? (
+            {filterEntities(wings).length === 0 ? (
               <div className="text-center py-8 text-slate-500">
                 <p className="mb-4">No wings configured</p>
                 <button

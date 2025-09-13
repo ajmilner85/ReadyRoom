@@ -120,6 +120,7 @@ const QualificationBadge: React.FC<QualificationBadgeProps> = ({ type, count, co
       return;
     }
     
+    // Only fetch if no preloaded qualifications provided (fallback)
     const fetchQualifications = async () => {
       try {
         const { data } = await getAllQualifications();
@@ -127,7 +128,7 @@ const QualificationBadge: React.FC<QualificationBadgeProps> = ({ type, count, co
           setQualifications(data);
         }
       } catch (error) {
-        console.error('Error fetching qualifications:', error);
+        console.error('QualificationBadge: Error fetching qualifications for type:', type, error);
       } finally {
         setLoaded(true);
       }

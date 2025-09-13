@@ -9,7 +9,6 @@ import { syncUserDiscordRoles } from '../../../utils/discordRoleSync';
 import { X, Shield, Filter, Eye, EyeOff } from 'lucide-react';
 import { Pilot, PilotStatus } from '../../../types/PilotTypes';
 import { supabase } from '../../../utils/supabaseClient';
-import DiscordEnvironmentIndicator from '../DiscordEnvironmentIndicator';
 import { Status } from '../../../utils/statusService';
 import { Role } from '../../../utils/roleService';
 
@@ -138,7 +137,6 @@ export const DiscordPilotsDialog: React.FC<DiscordPilotsDialogProps> = ({
   const loadData = async () => {
     setLoading(true);
     setError(null);
-    console.log('Starting Discord Pilots Dialog load...');
     
     try {
       // Fetch roles and statuses for dropdowns
@@ -185,11 +183,9 @@ export const DiscordPilotsDialog: React.FC<DiscordPilotsDialogProps> = ({
       // Collect all "ignore user" role IDs and squadron role mappings from all squadrons
       const ignoreRoleIds: string[] = [];
       const squadronRoleMappings: Array<{roleId: string, squadronId: string, squadronName: string}> = [];
-      console.log('DEBUG: Squadron discord_integration data:', squadronRoleData);
       
       if (squadronRoleData) {
-        squadronRoleData.forEach((squadron, index) => {
-          console.log(`DEBUG: Squadron ${index} discord_integration:`, squadron.discord_integration);
+        squadronRoleData.forEach((squadron) => {
           
           // Try different possible data structures
           const discordIntegration = squadron.discord_integration;
@@ -204,23 +200,17 @@ export const DiscordPilotsDialog: React.FC<DiscordPilotsDialogProps> = ({
             // Try isIgnoreUsers directly in discord_integration
             else if (integrationObj.isIgnoreUsers) {
               // Handle if isIgnoreUsers is stored differently
-              console.log('DEBUG: Found isIgnoreUsers directly in discord_integration');
             }
             // Try if the structure is different
             else {
-              console.log('DEBUG: discord_integration structure:', Object.keys(integrationObj));
             }
           }
           
-          console.log(`DEBUG: Squadron ${index} roleMappings:`, roleMappings);
           
           roleMappings.forEach((mapping: any) => {
-            console.log(`DEBUG: Checking mapping:`, mapping);
             if (mapping.isIgnoreUsers) {
-              console.log(`DEBUG: Found ignore role: ${mapping.discordRoleId}`);
               ignoreRoleIds.push(mapping.discordRoleId);
             } else if (mapping.squadronId && mapping.discordRoleId) {
-              console.log(`DEBUG: Found squadron role mapping: ${mapping.discordRoleId} -> ${mapping.squadronId}`);
               squadronRoleMappings.push({
                 roleId: mapping.discordRoleId,
                 squadronId: mapping.squadronId,
@@ -231,8 +221,6 @@ export const DiscordPilotsDialog: React.FC<DiscordPilotsDialogProps> = ({
         });
       }
       
-      console.log('DEBUG: Final ignoreRoleIds:', ignoreRoleIds);
-      console.log('DEBUG: Squadron role mappings:', squadronRoleMappings);
       
       // Filter out Discord members who have ignore roles
       const filteredDiscordMembers = discordMembers.filter(member => {
@@ -240,7 +228,6 @@ export const DiscordPilotsDialog: React.FC<DiscordPilotsDialogProps> = ({
         return !member.roles?.some(roleId => ignoreRoleIds.includes(roleId));
       });
       
-      console.log(`Filtered ${discordMembers.length - filteredDiscordMembers.length} ignored users from Discord sync`);
       
       // Match the filtered members with existing pilots
       const initialMatches = await matchDiscordMembersWithPilots(filteredDiscordMembers);
@@ -255,7 +242,6 @@ export const DiscordPilotsDialog: React.FC<DiscordPilotsDialogProps> = ({
         for (const roleMapping of squadronRoleMappings) {
           if (memberRoles.includes(roleMapping.roleId)) {
             inferredSquadronId = roleMapping.squadronId;
-            console.log(`DEBUG: Member ${match.discordMember.displayName} assigned to squadron ${roleMapping.squadronId} via role ${roleMapping.roleId}`);
             break; // Use the first matching role
           }
         }
@@ -303,7 +289,6 @@ export const DiscordPilotsDialog: React.FC<DiscordPilotsDialogProps> = ({
         }));
         
         setAllPilots(initialPilots);
-        console.log('Initial pilots loaded for dropdown:', initialPilots.length);
       }
       
       // Load remaining pilots immediately after dialog is shown (non-blocking)
@@ -326,7 +311,6 @@ export const DiscordPilotsDialog: React.FC<DiscordPilotsDialogProps> = ({
             }));
             
             setAllPilots(allPilots);
-            console.log('All pilots loaded for dropdown:', allPilots.length);
           }
         } catch (error) {
           console.warn('Failed to load remaining pilots:', error);
@@ -338,60 +322,48 @@ export const DiscordPilotsDialog: React.FC<DiscordPilotsDialogProps> = ({
         // Check if we have a matched pilot regardless of selectedPilotId since we cleared it
         if (match.matchedPilot) {
           try {
-            console.log(`DEBUG: Loading assignments for pilot ${match.matchedPilot.id} (${match.matchedPilot.callsign})`);
             
-            // Get current squadron assignment
-            const { data: squadronAssignment, error: squadronError } = await supabase
-              .from('pilot_assignments')
-              .select('squadron_id')
-              .eq('pilot_id', match.matchedPilot.id)
-              .is('end_date', null)
-              .single();
-            
-            console.log(`DEBUG: Squadron query result:`, squadronAssignment, squadronError);
-            
-            // Also check if the pilot has a direct squadron reference in pilots table
-            const { data: pilotData } = await supabase
+            // Get pilot data with all assignments through the pilots table to avoid RLS issues
+            const { data: pilotWithAssignments, error: pilotError } = await supabase
               .from('pilots')
-              .select('*')
+              .select(`
+                id,
+                pilot_assignments!left (
+                  squadron_id,
+                  start_date,
+                  end_date
+                ),
+                pilot_statuses!left (
+                  status_id,
+                  start_date,
+                  end_date
+                ),
+                pilot_roles!left (
+                  role_id,
+                  effective_date,
+                  end_date
+                )
+              `)
               .eq('id', match.matchedPilot.id)
               .single();
               
-            console.log(`DEBUG: Pilot data:`, pilotData);
+            if (pilotError) {
+              console.warn('Error fetching pilot assignments:', pilotError);
+            }
             
-            // Get current status
-            const { data: statusAssignment, error: statusError } = await supabase
-              .from('pilot_statuses')
-              .select('status_id, statuses(id, name)')
-              .eq('pilot_id', match.matchedPilot.id)
-              .is('end_date', null)
-              .single();
-            
-            console.log(`DEBUG: Status query result:`, statusAssignment, statusError);
-            
-            // Get current role
-            const { data: roleAssignment, error: roleError } = await supabase
-              .from('pilot_roles')
-              .select('role_id, roles(id, name)')
-              .eq('pilot_id', match.matchedPilot.id)
-              .is('end_date', null)
-              .single();
-            
-            console.log(`DEBUG: Role query result:`, roleAssignment, roleError);
+            // Find current assignments (where end_date is null)
+            const currentSquadronAssignment = pilotWithAssignments?.pilot_assignments?.find(a => !a.end_date);
+            const currentStatusAssignment = pilotWithAssignments?.pilot_statuses?.find(s => !s.end_date);
+            const currentRoleAssignment = pilotWithAssignments?.pilot_roles?.find(r => !r.end_date);
             
             // Update the match with current values
             const updatedMatch = {
               ...match,
-              squadronId: squadronAssignment?.squadron_id || match.squadronId,
-              statusId: statusAssignment?.status_id || match.statusId,
-              roleId: roleAssignment?.role_id || match.roleId
+              squadronId: currentSquadronAssignment?.squadron_id || match.squadronId,
+              statusId: currentStatusAssignment?.status_id || match.statusId,
+              roleId: currentRoleAssignment?.role_id || match.roleId
             };
             
-            console.log(`DEBUG: Updated match for ${match.matchedPilot.callsign}:`, {
-              squadronId: updatedMatch.squadronId,
-              statusId: updatedMatch.statusId,
-              roleId: updatedMatch.roleId
-            });
             
             return updatedMatch;
           } catch (error) {
@@ -402,16 +374,6 @@ export const DiscordPilotsDialog: React.FC<DiscordPilotsDialogProps> = ({
         return match;
       }));
       
-      // Log matches after they're created
-      console.log('Final matches for UI rendering:', enrichedMatches.map(m => ({
-        discord: m.discordMember.displayName,
-        matchedPilot: m.matchedPilot ? `${m.matchedPilot.callsign} (${m.matchedPilot.id})` : 'none',
-        action: m.action,
-        selectedPilotId: m.selectedPilotId,
-        roleId: m.roleId,
-        statusId: m.statusId,
-        squadronId: m.squadronId
-      })));
       
       
       setMatches(enrichedMatches);
@@ -442,27 +404,28 @@ export const DiscordPilotsDialog: React.FC<DiscordPilotsDialogProps> = ({
       // Create a map to track which roles are already assigned
       const newDisabledRoles: Record<string, boolean> = {};
       
-      // For each exclusive role, check if it's already assigned to any pilot
-      for (const role of exclusiveRoles) {
-        // Query for all pilots with this role assigned
-        const { data, error } = await supabase
-          .from('pilots')
-          .select('id, role_id')
-          .eq('role_id', role.id);
-          
-        if (error) {
-          console.error('Error checking role assignments:', error);
-          continue;
-        }
+      // Query all active role assignments for exclusive roles in a single query
+      const exclusiveRoleIds = exclusiveRoles.map(role => role.id);
+      const { data, error } = await supabase
+        .from('pilot_roles')
+        .select('role_id, pilot_id, pilots:pilot_id (id, callsign)')
+        .in('role_id', exclusiveRoleIds)
+        .is('end_date', null); // Only check active role assignments
         
-        // If this role is assigned to any pilot, mark it as disabled
-        if (data && data.length > 0) {
-          console.log(`Role ${role.name} is assigned to ${data.length} pilots`);
-          newDisabledRoles[role.id] = true;
-        }
+      if (error) {
+        console.error('Error checking role assignments:', error);
+        return;
       }
       
-      console.log('Disabled roles:', newDisabledRoles);
+      // Mark roles as disabled if they have active assignments
+      if (data && data.length > 0) {
+        data.forEach(assignment => {
+          if (assignment?.role_id) {
+            newDisabledRoles[assignment.role_id] = true;
+          }
+        });
+      }
+      
       // setDisabledRoles(newDisabledRoles);
     } catch (err) {
       console.error('Error fetching exclusive role assignments:', err);
@@ -770,7 +733,6 @@ export const DiscordPilotsDialog: React.FC<DiscordPilotsDialogProps> = ({
             }}>
               Discord Pilots Integration
             </h2>
-            <DiscordEnvironmentIndicator size="small" />
           </div>
           <button
             onClick={onClose}

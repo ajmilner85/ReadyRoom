@@ -83,13 +83,16 @@ app.use(cors({
   origin: [
     'https://readyroom.vercel.app',
     'https://readyroom.ajmilner.com',
+    'https://readyroompreview.ajmilner.com',
     'https://readyroom-git-development-ajmilner85s-projects.vercel.app',
+    'https://ready-room.vercel.app',
+    'https://ready-room-git-development-ajmilner85.vercel.app',
     'http://localhost:5173', 
     'http://127.0.0.1:5173', 
     'http://localhost:4173'
   ],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-ID', 'x-discord-environment'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-ID', 'x-discord-environment', 'X-Discord-Environment'],
   credentials: true
 }));
 app.use(bodyParser.json());

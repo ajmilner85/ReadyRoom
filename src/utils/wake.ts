@@ -8,8 +8,6 @@ export async function wake() {
   // Note: Since this codebase doesn't use a formal data layer like TanStack Query or SWR,
   // we don't need to add revalidation calls here. The individual components will refresh
   // their data when they detect auth changes through the AuthContext.
-  
-  console.log('Wake: refreshed session')
 }
 
 export function registerWakeHandlers() {
@@ -30,8 +28,6 @@ export function registerWakeHandlers() {
   window.addEventListener('focus', wake)
   window.addEventListener('online', wake)
   window.addEventListener('pageshow', onPageShow)
-  
-  console.log('Wake: registered event handlers')
   
   // Return cleanup function
   return () => {

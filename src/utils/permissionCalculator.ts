@@ -221,8 +221,6 @@ export class PermissionCalculator {
     
     const userProfileId = userProfile?.id;
     
-    console.log('Permission calculator: User bases:', { userProfileId, basisIds });
-    
     // Get rules in separate queries for better clarity
     const queries = [];
     
@@ -296,7 +294,6 @@ export class PermissionCalculator {
           .eq('basis_type', 'manual_override')
           .eq('basis_id', userProfileId)
       );
-      console.log('Permission calculator: Added manual_override query for user profile:', userProfileId);
     }
     
     // Execute all queries in parallel
@@ -319,15 +316,6 @@ export class PermissionCalculator {
       console.warn('Some permission rule queries failed');
     }
     
-    console.log('Permission calculator: Retrieved rules:', allData.length, 'rules for user', userBases.userId);
-    if (allData.length > 0) {
-      console.log('Permission rules detail:', allData.map(rule => ({
-        permission: (rule as any).app_permissions.name,
-        basisType: (rule as any).basis_type,
-        basisId: (rule as any).basis_id,
-        scope: (rule as any).scope
-      })));
-    }
     
     return allData?.map(rule => ({
       id: (rule as any).id,

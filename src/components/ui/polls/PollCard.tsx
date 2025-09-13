@@ -14,7 +14,7 @@ interface PollCardProps {
 
 const PollCard: React.FC<PollCardProps> = ({ onCreatePoll, onManagePolls, refreshTrigger }) => {
   const { polls, loading, error, vote, removeVote, refresh } = usePolls(true); // Enable real-time polling
-  const { hasPermission, permissions, loading: permissionsLoading, error: permissionsError } = usePermissions();
+  const { hasPermission } = usePermissions();
   const { settings } = useAppSettings();
 
   const canManagePolls = hasPermission('canManagePolls');
@@ -28,18 +28,6 @@ const PollCard: React.FC<PollCardProps> = ({ onCreatePoll, onManagePolls, refres
     }
   }, [refreshTrigger, refresh]);
 
-  // Debug permissions and polls
-  console.log('PollCard debug:', { 
-    canManagePolls, 
-    canVoteInPolls, 
-    allPermissions: permissions,
-    permissionsLoading,
-    permissionsError,
-    pollsLoading: loading,
-    pollsError: error,
-    pollsCount: polls.length,
-    refreshTrigger
-  });
 
   // Squadron color theming
   const useSquadronColors = settings.interfaceThemeUsesSquadronColors;

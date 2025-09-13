@@ -99,16 +99,14 @@ const EventsManagement: React.FC = () => {
   // Fetch Discord guild ID from squadron settings
   const fetchDiscordGuildId = async () => {
     try {
-      // Discord guild ID should be retrieved from org_squadrons.discord_integration
-      // This is a legacy fallback that should be updated
-      console.warn('EventsManagement component needs update to use discord_integration field');
-      const guildIdValue = null; // Remove fallback query
+      // Discord guild ID functionality has been deprecated in favor of multi-squadron support
+      // This function is maintained for compatibility but no longer sets a guild ID
+      const guildIdValue = null;
       if (guildIdValue) {
         setDiscordGuildId(guildIdValue);
-        console.log('Using Discord guild ID for filtering:', guildIdValue);
       }
     } catch (err: any) {
-      console.warn('Failed to get Discord guild ID:', err.message);
+      // Silent handling of guild ID fetch errors
     }
   };
 
@@ -166,10 +164,9 @@ const EventsManagement: React.FC = () => {
   const loadCycles = async () => {
     setLoading(prev => ({ ...prev, cycles: true }));
     try {
-      // Discord guild ID should be retrieved from org_squadrons.discord_integration
-      // This is a legacy fallback that should be updated  
-      console.warn('EventsManagement loadCycles needs update to use discord_integration field');
-      const guildId = null; // Remove fallback query
+      // Discord guild ID functionality has been deprecated in favor of multi-squadron support
+      // Guild ID is no longer used for filtering cycles
+      const guildId = null;
       setDiscordGuildId(guildId);
       
       // Fetch cycles without guild ID filtering (supports multi-squadron operations)

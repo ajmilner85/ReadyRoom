@@ -36,9 +36,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [isCreatingProfile, setIsCreatingProfile] = useState(false);
 
   const refreshProfile = async () => {
-    console.log('refreshProfile called, user:', user?.id, 'isCreatingProfile:', isCreatingProfile);
     if (!user) {
-      console.log('No user in refreshProfile, setting profile to null');
       setUserProfile(null);
       setIsCreatingProfile(false);
       return;
@@ -46,12 +44,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
     // Prevent concurrent profile creation attempts
     if (isCreatingProfile) {
-      console.log('Profile creation already in progress, skipping...');
       return;
     }
 
     try {
-      console.log('Fetching user profile for user:', user.id);
       const { profile, error: profileError } = await getUserProfile(user.id);
       
       if (profileError) {
@@ -60,11 +56,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
         return;
       }
       
-      console.log('Profile fetched:', !!profile, profile?.id);
-      
       // If no profile exists, create one for the new user
       if (!profile && !isCreatingProfile) {
-        console.log('No profile found, creating new user profile...');
         setIsCreatingProfile(true);
         
         try {
@@ -73,10 +66,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
           if (createError) {
             // Handle the case where profile was created by another concurrent call
             if ((createError as any).code === '23505') {
-              console.log('Profile already exists (created concurrently), fetching it...');
               const { profile: existingProfile } = await getUserProfile(user.id);
               if (existingProfile) {
-                console.log('Found existing profile:', existingProfile.id);
                 setUserProfile(existingProfile);
                 setError(null);
                 setIsCreatingProfile(false);
@@ -91,7 +82,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
           }
           
           if (newProfile) {
-            console.log('New profile created:', newProfile.id);
             setUserProfile(newProfile);
             setError(null);
             setIsCreatingProfile(false);
@@ -192,24 +182,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   // Load profile when user is available
   useEffect(() => {
-    console.log('Profile loading effect triggered:', { 
-      hasUser: !!user, 
-      loading, 
-      userId: user?.id,
-      currentProfile: !!userProfile 
-    });
-    
     if (user && !loading) {
-      console.log('Starting profile refresh...');
       refreshProfile().catch(err => {
         console.warn('Profile loading failed, continuing with auth:', err);
         // Don't fail the auth process if profile fails
       });
     } else if (!user) {
-      console.log('No user, clearing profile');
       setUserProfile(null);
-    } else {
-      console.log('Waiting for loading to finish before loading profile');
     }
   }, [user?.id, loading]); // Added loading to dependencies
 
