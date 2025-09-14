@@ -85,7 +85,6 @@ export interface UserPermissions {
   
   // Component-level permissions (mixed)
   canSyncWithDiscord: PermissionScopeContext[];
-  canAccessAdminTools: boolean;                  // Global only
   canViewOwnProfile: boolean;                    // Global only
   
   // Developer permissions (global only)

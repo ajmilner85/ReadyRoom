@@ -431,7 +431,6 @@ export class PermissionCacheService {
       canPublishToDiscord: [],
       
       canSyncWithDiscord: [],
-      canAccessAdminTools: false,
       canViewOwnProfile: true, // Always allow viewing own profile
       
       // Developer permissions

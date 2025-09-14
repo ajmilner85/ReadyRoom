@@ -215,13 +215,7 @@ const NavigationBar: React.FC<NavigationBarProps> = ({ activeButton }) => {
             }}
             title={userProfile.pilot.currentSquadron.name || 'Squadron Insignia'}
           />
-        ) : (
-          <img 
-            src="/src/assets/Stingrays Logo 80x80.png" 
-            alt="Default Squadron Logo" 
-            className="w-20 h-20"
-          />
-        )}
+        ) : null}
       </div>
       
       {/* Navigation buttons - centered vertically */}
@@ -459,15 +453,28 @@ const NavigationBar: React.FC<NavigationBarProps> = ({ activeButton }) => {
                 </div>
                 {userProfile?.pilot?.boardNumber && (
                   <div className="text-xs opacity-80">
-                    Board #{userProfile.pilot.boardNumber}
+                    Board {userProfile.pilot.boardNumber}
                   </div>
                 )}
                 <div className="text-xs opacity-80">
                   Discord: {userProfile?.discordUsername || 'Not connected'}
                 </div>
-                <div className="text-xs opacity-80">
-                  Role: {activePermissions.canAccessAdminTools ? 'Administrator' : 'Squadron Member'}
-                </div>
+                {(userProfile?.pilot?.billet || userProfile?.pilot?.currentSquadron?.designation) && (
+                  <div className="text-xs opacity-80">
+                    {userProfile.pilot.billet && userProfile.pilot.currentSquadron?.designation
+                      ? `${userProfile.pilot.billet}, ${userProfile.pilot.currentSquadron.designation} ${userProfile.pilot.currentSquadron.name}`
+                      : userProfile.pilot.billet || userProfile.pilot.currentSquadron?.designation
+                    }
+                  </div>
+                )}
+                {(userProfile?.pilot?.currentStanding?.name || userProfile?.pilot?.currentStatus?.name) && (
+                  <div className="text-xs opacity-80">
+                    {userProfile.pilot.currentStanding?.name && userProfile.pilot.currentStatus?.name
+                      ? `${userProfile.pilot.currentStanding.name} - ${userProfile.pilot.currentStatus.name}`
+                      : userProfile.pilot.currentStanding?.name || userProfile.pilot.currentStatus?.name
+                    }
+                  </div>
+                )}
                 {!userProfile?.pilot && (
                   <div className="text-xs opacity-80 text-yellow-600">
                     Not linked to pilot record

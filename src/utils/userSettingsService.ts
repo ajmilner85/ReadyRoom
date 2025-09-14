@@ -64,7 +64,19 @@ export const getUserSettings = async (userId?: string): Promise<UserSettingsResp
       },
       preferences: {
         ...defaultUserSettings.preferences,
-        ...settings.preferences
+        ...settings.preferences,
+        missionPrep: {
+          ...defaultUserSettings.preferences?.missionPrep,
+          ...settings.preferences?.missionPrep,
+          autoAssignConfig: {
+            ...defaultUserSettings.preferences?.missionPrep?.autoAssignConfig,
+            ...settings.preferences?.missionPrep?.autoAssignConfig
+          }
+        },
+        appearance: {
+          ...defaultUserSettings.preferences?.appearance,
+          ...settings.preferences?.appearance
+        }
       }
     };
 
@@ -119,7 +131,19 @@ export const updateUserSettings = async (settings: Partial<UserSettings>, userId
       },
       preferences: {
         ...currentSettingsResult.data.preferences,
-        ...settings.preferences
+        ...settings.preferences,
+        missionPrep: {
+          ...currentSettingsResult.data.preferences?.missionPrep,
+          ...settings.preferences?.missionPrep,
+          autoAssignConfig: {
+            ...currentSettingsResult.data.preferences?.missionPrep?.autoAssignConfig,
+            ...settings.preferences?.missionPrep?.autoAssignConfig
+          }
+        },
+        appearance: {
+          ...currentSettingsResult.data.preferences?.appearance,
+          ...settings.preferences?.appearance
+        }
       }
     };
 

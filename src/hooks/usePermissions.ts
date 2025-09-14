@@ -183,8 +183,7 @@ export function usePermissions() {
     canAccessEvents: state.permissions?.canAccessEvents || false,
     canAccessMissionPrep: state.permissions?.canAccessMissionPrep || false,
     canAccessFlights: state.permissions?.canAccessFlights || false,
-    canAccessSettings: state.permissions?.canAccessSettings || false,
-    canAccessAdminTools: state.permissions?.canAccessAdminTools || false
+    canAccessSettings: state.permissions?.canAccessSettings || false
   };
 }
 
@@ -234,8 +233,7 @@ export function useSimplePermissions() {
     canAccessEvents,
     canAccessMissionPrep,
     canAccessFlights,
-    canAccessSettings,
-    canAccessAdminTools
+    canAccessSettings
   } = usePermissions();
 
   return {
@@ -246,7 +244,6 @@ export function useSimplePermissions() {
     canAccessMissionPrep,
     canAccessFlights,
     canAccessSettings,
-    canAccessAdminTools,
     
     // Generic permission check
     hasPermission,

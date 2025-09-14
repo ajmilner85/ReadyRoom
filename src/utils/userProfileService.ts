@@ -36,6 +36,18 @@ export interface UserProfile {
       } | null;
       updated_at?: string | null;
     };
+    billet?: string;
+    currentStanding?: {
+      id: string;
+      name: string;
+      order: number;
+    };
+    currentStatus?: {
+      id: string;
+      name: string;
+      isActive: boolean;
+      order: number;
+    };
   };
 }
 
@@ -265,6 +277,38 @@ function convertToUserProfile(dbRecord: any): UserProfile {
         };
       }
     }
+
+    // Find current role assignment (for billet/position)
+    if (dbRecord.pilots.pilot_roles && dbRecord.pilots.pilot_roles.length > 0) {
+      const currentRole = dbRecord.pilots.pilot_roles
+        .filter((roleAssignment: any) => !roleAssignment.end_date) // Active roles only
+        .sort((a: any, b: any) => new Date(b.effective_date).getTime() - new Date(a.effective_date).getTime())[0]; // Most recent
+
+      if (currentRole && currentRole.roles) {
+        profile.pilot.billet = currentRole.roles.name;
+        profile.pilot.currentStatus = {
+          id: currentRole.roles.id,
+          name: currentRole.roles.name,
+          isActive: !currentRole.end_date,
+          order: currentRole.roles.order
+        };
+      }
+    }
+
+    // Find current standing
+    if (dbRecord.pilots.pilot_standings && dbRecord.pilots.pilot_standings.length > 0) {
+      const currentStanding = dbRecord.pilots.pilot_standings
+        .filter((standing: any) => !standing.end_date) // Active standings only
+        .sort((a: any, b: any) => new Date(b.start_date).getTime() - new Date(a.start_date).getTime())[0]; // Most recent
+
+      if (currentStanding && currentStanding.standings) {
+        profile.pilot.currentStanding = {
+          id: currentStanding.standings.id,
+          name: currentStanding.standings.name,
+          order: currentStanding.standings.order
+        };
+      }
+    }
   }
 
   return profile;
@@ -304,6 +348,37 @@ export async function getUserProfile(authUserId: string): Promise<{ profile: Use
               callsigns,
               color_palette,
               updated_at
+            )
+          ),
+          pilot_roles!pilot_roles_pilot_id_fkey (
+            id,
+            pilot_id,
+            role_id,
+            effective_date,
+            is_acting,
+            end_date,
+            created_at,
+            updated_at,
+            roles:role_id (
+              id,
+              name,
+              isExclusive,
+              compatible_statuses,
+              order
+            )
+          ),
+          pilot_standings!pilot_standings_pilot_id_fkey (
+            id,
+            pilot_id,
+            standing_id,
+            start_date,
+            end_date,
+            created_at,
+            updated_at,
+            standings:standing_id (
+              id,
+              name,
+              order
             )
           )
         )

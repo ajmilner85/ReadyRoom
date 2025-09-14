@@ -370,7 +370,6 @@ export class PermissionCalculator {
       
       // Component level (mixed)
       canSyncWithDiscord: [],
-      canAccessAdminTools: false,
       canViewOwnProfile: false,
       
       // Developer (global only)
@@ -516,9 +515,6 @@ export class PermissionCalculator {
         if (!this.hasScopeContext(permissions.canSyncWithDiscord, scopeContext)) {
           permissions.canSyncWithDiscord.push(scopeContext);
         }
-        break;
-      case 'access_admin_tools':
-        permissions.canAccessAdminTools = true;
         break;
       case 'view_own_profile':
         permissions.canViewOwnProfile = true;
