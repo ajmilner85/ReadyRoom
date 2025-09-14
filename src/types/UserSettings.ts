@@ -11,7 +11,24 @@ export interface DeveloperSettings {
 export interface UserPreferences {
   theme?: 'light' | 'dark';
   notifications?: boolean;
-  // Add more preferences as needed
+
+  // Mission Preparation preferences
+  missionPrep?: {
+    autoAssignConfig?: {
+      assignmentScope?: 'clear' | 'fillGaps';
+      includeTentative?: boolean;
+      flightFillingPriority?: 'breadth' | 'depth';
+      squadronCohesion?: 'enforced' | 'prioritized' | 'prioritizeQualifications';
+      assignUnqualified?: boolean;
+      nonStandardCallsigns?: 'ignore' | 'fillLast' | 'fillInSequence' | 'fillFirst';
+    };
+  };
+
+  // Appearance preferences
+  appearance?: {
+    displayPilotsWithSquadronColors?: boolean;
+    interfaceThemeUsesSquadronColors?: boolean;
+  };
 }
 
 // Default settings for new users
@@ -21,6 +38,20 @@ export const defaultUserSettings: UserSettings = {
   },
   preferences: {
     theme: 'light',
-    notifications: true
+    notifications: true,
+    missionPrep: {
+      autoAssignConfig: {
+        assignmentScope: 'clear',
+        includeTentative: false,
+        flightFillingPriority: 'breadth',
+        squadronCohesion: 'enforced',
+        assignUnqualified: false,
+        nonStandardCallsigns: 'ignore'
+      }
+    },
+    appearance: {
+      displayPilotsWithSquadronColors: true,
+      interfaceThemeUsesSquadronColors: false
+    }
   }
 };

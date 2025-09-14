@@ -2,11 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { usePageLoading } from '../../context/PageLoadingContext';
 import { Card } from '../ui/card';
 import { PermissionGate } from '../ui/PermissionGate';
-import { User, Users, Building, Plane, PaintBucket, Calendar, Network, Shield, Code } from 'lucide-react';
+import { User, Users, PaintBucket, Calendar, Network, Shield, Code } from 'lucide-react';
 
 // Import settings subpages
-import SquadronSettings from './SquadronSettings';
-import MissionDefaults from './MissionDefaults';
 import Appearance from './Appearance';
 import UserAccounts from './UserAccounts';
 import RosterSettings from './RosterSettings';
@@ -16,7 +14,7 @@ import PermissionsSettings from './PermissionsSettings';
 import DeveloperSettings from './DeveloperSettings';
 
 // Define the types of settings pages
-type SettingsPage = 'roster' | 'squadron' | 'organization' | 'mission' | 'events' | 'permissions' | 'appearance' | 'accounts' | 'developer';
+type SettingsPage = 'roster' | 'organization' | 'events' | 'permissions' | 'appearance' | 'accounts' | 'developer';
 
 interface SettingsNavItem {
   id: SettingsPage;
@@ -24,52 +22,57 @@ interface SettingsNavItem {
   label: string;
 }
 
-// Navigation items for the settings sidebar
-const settingsNavItems: SettingsNavItem[] = [
+interface SettingsNavSection {
+  title: string;
+  items: SettingsNavItem[];
+}
+
+// Navigation sections for the settings sidebar
+const settingsNavSections: SettingsNavSection[] = [
   {
-    id: 'roster',
-    icon: <Users size={20} />,
-    label: 'Roster Settings'
+    title: 'Account Preferences',
+    items: [
+      {
+        id: 'appearance',
+        icon: <PaintBucket size={20} />,
+        label: 'Appearance'
+      },
+      {
+        id: 'accounts',
+        icon: <User size={20} />,
+        label: 'Account'
+      },
+      {
+        id: 'developer',
+        icon: <Code size={20} />,
+        label: 'Developer Settings'
+      }
+    ]
   },
   {
-    id: 'squadron',
-    icon: <Building size={20} />,
-    label: 'Squadron Administration'
-  },
-  {
-    id: 'organization',
-    icon: <Network size={20} />,
-    label: 'Organization'
-  },
-  {
-    id: 'mission',
-    icon: <Plane size={20} />,
-    label: 'Mission Defaults'
-  },
-  {
-    id: 'events',
-    icon: <Calendar size={20} />,
-    label: 'Events'
-  },
-  {
-    id: 'permissions',
-    icon: <Shield size={20} />,
-    label: 'Permissions'
-  },
-  {
-    id: 'developer',
-    icon: <Code size={20} />,
-    label: 'Developer Settings'
-  },
-  {
-    id: 'appearance',
-    icon: <PaintBucket size={20} />,
-    label: 'Appearance'
-  },
-  {
-    id: 'accounts',
-    icon: <User size={20} />,
-    label: 'Account'
+    title: 'Organization Settings',
+    items: [
+      {
+        id: 'permissions',
+        icon: <Shield size={20} />,
+        label: 'Permissions'
+      },
+      {
+        id: 'organization',
+        icon: <Network size={20} />,
+        label: 'Organization Structure'
+      },
+      {
+        id: 'roster',
+        icon: <Users size={20} />,
+        label: 'Roster Settings'
+      },
+      {
+        id: 'events',
+        icon: <Calendar size={20} />,
+        label: 'Events'
+      }
+    ]
   }
 ];
 
@@ -93,12 +96,8 @@ const Settings: React.FC = () => {
     switch (activeSettingsPage) {
       case 'roster':
         return <RosterSettings error={error} setError={setError} />;
-      case 'squadron':
-        return <SquadronSettings error={error} setError={setError} />;
       case 'organization':
         return <OrganizationSettings error={error} setError={setError} />;
-      case 'mission':
-        return <MissionDefaults error={error} setError={setError} />;
       case 'events':
         return <EventSettings error={error} setError={setError} />;
       case 'permissions':
@@ -183,39 +182,57 @@ const Settings: React.FC = () => {
             
             <div className="flex" style={{ height: 'calc(100vh - 170px)', maxHeight: 'calc(100vh - 170px)', overflow: 'hidden' }}>
               {/* Settings navigation sidebar */}
-              <div 
+              <div
                 className="w-64 p-6"
-                style={{ 
+                style={{
                   borderRight: '1px solid #E2E8F0',
                   backgroundColor: '#FFFFFF',
                   paddingRight: '16px',
                   paddingTop: '16px',
                 }}
               >
-                {settingsNavItems.map((item) => {
-                  // Apply permission guard for developer settings
-                  if (item.id === 'developer') {
-                    return (
-                      <PermissionGate key={item.id} permission="access_developer_settings" mode="hide">
-                        <SettingsNavItem 
+                {settingsNavSections.map((section) => (
+                  <div key={section.title} style={{ marginBottom: '32px' }}>
+                    {/* Section Title */}
+                    <h3 style={{
+                      fontSize: '12px',
+                      fontWeight: 600,
+                      color: '#9CA3AF',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.05em',
+                      marginBottom: '12px',
+                      fontFamily: 'Inter'
+                    }}>
+                      {section.title}
+                    </h3>
+
+                    {/* Section Items */}
+                    {section.items.map((item) => {
+                      // Apply permission guard for developer settings
+                      if (item.id === 'developer') {
+                        return (
+                          <PermissionGate key={item.id} permission="access_developer_settings" mode="hide">
+                            <SettingsNavItem
+                              item={item}
+                              active={activeSettingsPage === item.id}
+                              onClick={() => handleSettingsNavigate(item.id)}
+                            />
+                          </PermissionGate>
+                        );
+                      }
+
+                      // Render other items normally
+                      return (
+                        <SettingsNavItem
+                          key={item.id}
                           item={item}
                           active={activeSettingsPage === item.id}
                           onClick={() => handleSettingsNavigate(item.id)}
                         />
-                      </PermissionGate>
-                    );
-                  }
-                  
-                  // Render other items normally
-                  return (
-                    <SettingsNavItem 
-                      key={item.id}
-                      item={item}
-                      active={activeSettingsPage === item.id}
-                      onClick={() => handleSettingsNavigate(item.id)}
-                    />
-                  );
-                })}
+                      );
+                    })}
+                  </div>
+                ))}
               </div>
 
               {/* Main content area */}

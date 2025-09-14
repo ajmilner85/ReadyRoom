@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { getUserSettings, updateUserSettings } from '../../../utils/userSettingsService';
 
 export interface AutoAssignConfig {
   assignmentScope: 'clear' | 'fillGaps';
@@ -20,15 +21,23 @@ const AutoAssignConfigModal: React.FC<AutoAssignConfigModalProps> = ({
   onCancel,
   onSave
 }) => {
-  // Load settings from sessionStorage or use defaults
-  const getStoredConfig = (): AutoAssignConfig => {
+  // Load settings from user preferences or use defaults
+  const getStoredConfig = async (): Promise<AutoAssignConfig> => {
     try {
-      const stored = sessionStorage.getItem('autoAssignConfig');
-      if (stored) {
-        return JSON.parse(stored);
+      const settingsResult = await getUserSettings();
+      if (settingsResult.success && settingsResult.data?.preferences?.missionPrep?.autoAssignConfig) {
+        const config = settingsResult.data.preferences.missionPrep.autoAssignConfig;
+        return {
+          assignmentScope: config.assignmentScope || 'clear',
+          includeTentative: config.includeTentative || false,
+          flightFillingPriority: config.flightFillingPriority || 'breadth',
+          squadronCohesion: config.squadronCohesion || 'enforced',
+          assignUnqualified: config.assignUnqualified || false,
+          nonStandardCallsigns: config.nonStandardCallsigns || 'ignore'
+        };
       }
     } catch (error) {
-      console.warn('Failed to load auto-assign config from sessionStorage:', error);
+      console.warn('Failed to load auto-assign config from user preferences:', error);
     }
     return {
       assignmentScope: 'clear',
@@ -40,20 +49,33 @@ const AutoAssignConfigModal: React.FC<AutoAssignConfigModalProps> = ({
     };
   };
 
-  const [config, setConfig] = useState<AutoAssignConfig>(getStoredConfig);
+  const [config, setConfig] = useState<AutoAssignConfig>({
+    assignmentScope: 'clear',
+    includeTentative: false,
+    flightFillingPriority: 'breadth',
+    squadronCohesion: 'enforced',
+    assignUnqualified: false,
+    nonStandardCallsigns: 'ignore'
+  });
 
   // Reload settings when modal opens
   React.useEffect(() => {
     if (isOpen) {
-      setConfig(getStoredConfig());
+      getStoredConfig().then(setConfig);
     }
   }, [isOpen]);
 
-  const handleSave = () => {
+  const handleSave = async () => {
     try {
-      sessionStorage.setItem('autoAssignConfig', JSON.stringify(config));
+      await updateUserSettings({
+        preferences: {
+          missionPrep: {
+            autoAssignConfig: config
+          }
+        }
+      });
     } catch (error) {
-      console.warn('Failed to save auto-assign config to sessionStorage:', error);
+      console.warn('Failed to save auto-assign config to user preferences:', error);
     }
     onSave(config);
   };

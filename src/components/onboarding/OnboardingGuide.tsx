@@ -57,11 +57,9 @@ const OnboardingGuide: React.FC<OnboardingGuideProps> = ({ isOpen, onClose }) =>
       content: (
         <div className="text-center">
           <div className="mb-6">
-            <img 
-              src="/src/assets/Stingrays Logo 80x80.png" 
-              alt="ReadyRoom Logo" 
-              className="w-16 h-16 mx-auto mb-4"
-            />
+            <div className="w-16 h-16 mx-auto mb-4 bg-gray-200 rounded-lg flex items-center justify-content">
+              <span className="text-2xl font-bold text-gray-500 mx-auto">RR</span>
+            </div>
             <h3 className="text-xl font-semibold text-gray-800 mb-2">
               Welcome, {userProfile?.pilot?.callsign || userProfile?.discordUsername || 'Pilot'}!
             </h3>
@@ -88,7 +86,7 @@ const OnboardingGuide: React.FC<OnboardingGuideProps> = ({ isOpen, onClose }) =>
               <div className="flex items-center justify-between">
                 <span>Permission Level:</span>
                 <span className="font-medium text-blue-600">
-                  {permissions.canAccessAdminTools ? 'Administrator' : 'Squadron Member'}
+                  Squadron Member
                 </span>
               </div>
             </div>

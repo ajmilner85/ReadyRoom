@@ -11,7 +11,6 @@ export interface UserPermissions {
   canManageEvents: boolean;
   canAccessMissionPrep: boolean;
   canEditSquadrons: boolean;
-  canViewAdminTools: boolean;
   level: AppPermission;
 }
 
@@ -63,7 +62,6 @@ function getLegacyUserPermissions(userProfile: UserProfile | null): UserPermissi
     canManageEvents: false,
     canAccessMissionPrep: false,
     canEditSquadrons: false,
-    canViewAdminTools: false,
     level: 'guest'
   };
 
@@ -83,7 +81,6 @@ function getLegacyUserPermissions(userProfile: UserProfile | null): UserPermissi
       canManageEvents: true,
       canAccessMissionPrep: true,
       canEditSquadrons: true,
-      canViewAdminTools: true,
       level: 'developer'
     };
   }
@@ -122,8 +119,7 @@ function getLegacyUserPermissions(userProfile: UserProfile | null): UserPermissi
         canManageEvents: true,
         canAccessMissionPrep: true,
         canEditSquadrons: true,
-        canViewAdminTools: true,
-        level: 'admin'
+          level: 'admin'
       };
     
     case 'flight_lead':
@@ -134,8 +130,7 @@ function getLegacyUserPermissions(userProfile: UserProfile | null): UserPermissi
         canManageEvents: true,
         canAccessMissionPrep: true,
         canEditSquadrons: false,
-        canViewAdminTools: false,
-        level: 'flight_lead'
+            level: 'flight_lead'
       };
     
     case 'member':
@@ -146,8 +141,7 @@ function getLegacyUserPermissions(userProfile: UserProfile | null): UserPermissi
         canManageEvents: false,
         canAccessMissionPrep: true,
         canEditSquadrons: false,
-        canViewAdminTools: false,
-        level: 'member'
+            level: 'member'
       };
     
     default:
@@ -161,8 +155,8 @@ function getLegacyUserPermissions(userProfile: UserProfile | null): UserPermissi
 function mapNewPermissionsToLegacy(newPermissions: any): UserPermissions {
   // Determine legacy level based on permissions
   let level: AppPermission = 'guest';
-  
-  if (newPermissions.canAccessAdminTools) {
+
+  if (newPermissions.access_developer_settings) {
     level = 'developer';
   } else if (newPermissions.canEditOrganizationSettings || newPermissions.canManageUserAccounts) {
     level = 'admin';
@@ -179,7 +173,6 @@ function mapNewPermissionsToLegacy(newPermissions: any): UserPermissions {
     canManageEvents: (newPermissions.canManageEvents?.length > 0) || false,
     canAccessMissionPrep: newPermissions.canAccessMissionPrep || false,
     canEditSquadrons: (newPermissions.canManageSquadronSettings?.length > 0) || false,
-    canViewAdminTools: newPermissions.canAccessAdminTools || false,
     level
   };
 }

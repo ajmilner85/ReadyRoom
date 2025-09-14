@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import { getUserSettings, updateUserSettings } from '../utils/userSettingsService';
 
 export interface AppSettings {
   displayPilotsWithSquadronColors: boolean;
@@ -67,11 +68,49 @@ const AppSettingsContext = createContext<AppSettingsContextType | undefined>(und
 export const AppSettingsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [settings, setSettings] = useState<AppSettings>(defaultSettings);
 
-  const updateSetting = <K extends keyof AppSettings>(key: K, value: AppSettings[K]) => {
+  // Load appearance settings from user preferences on initialization
+  useEffect(() => {
+    const loadUserPreferences = async () => {
+      try {
+        const settingsResult = await getUserSettings();
+        if (settingsResult.success && settingsResult.data?.preferences?.appearance) {
+          setSettings(prev => ({
+            ...prev,
+            displayPilotsWithSquadronColors:
+              settingsResult.data?.preferences?.appearance?.displayPilotsWithSquadronColors ?? prev.displayPilotsWithSquadronColors,
+            interfaceThemeUsesSquadronColors:
+              settingsResult.data?.preferences?.appearance?.interfaceThemeUsesSquadronColors ?? prev.interfaceThemeUsesSquadronColors,
+          }));
+        }
+      } catch (error) {
+        console.warn('Failed to load appearance settings from user preferences:', error);
+      }
+    };
+
+    loadUserPreferences();
+  }, []);
+
+  const updateSetting = async <K extends keyof AppSettings>(key: K, value: AppSettings[K]) => {
+    // Update local state immediately
     setSettings(prev => ({
       ...prev,
       [key]: value
     }));
+
+    // Save to user preferences if it's an appearance setting
+    if (key === 'displayPilotsWithSquadronColors' || key === 'interfaceThemeUsesSquadronColors') {
+      try {
+        await updateUserSettings({
+          preferences: {
+            appearance: {
+              [key]: value
+            }
+          }
+        });
+      } catch (error) {
+        console.warn(`Failed to save ${key} to user preferences:`, error);
+      }
+    }
   };
 
   return (

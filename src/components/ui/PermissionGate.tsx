@@ -70,11 +70,11 @@ interface PermissionGateProps {
  * </PermissionGate>
  * 
  * // Show fallback content when permission denied
- * <PermissionGate 
- *   permission="access_admin_tools"
- *   fallback={<div>Admin tools not available</div>}
+ * <PermissionGate
+ *   permission="manage_roster"
+ *   fallback={<div>Roster management not available</div>}
  * >
- *   <AdminPanel />
+ *   <RosterPanel />
  * </PermissionGate>
  */
 export const PermissionGate: React.FC<PermissionGateProps> = ({
@@ -180,23 +180,6 @@ export function withPermissionGate<P extends object>(
 /**
  * Specialized permission gates for common use cases
  */
-
-interface AdminOnlyProps {
-  children: React.ReactNode;
-  fallback?: React.ReactNode;
-  mode?: PermissionGateMode;
-}
-
-export const AdminOnly: React.FC<AdminOnlyProps> = ({ children, fallback, mode = 'hide' }) => (
-  <PermissionGate 
-    permission="access_admin_tools" 
-    mode={mode}
-    fallback={fallback}
-    deniedMessage="Administrator access required"
-  >
-    {children}
-  </PermissionGate>
-);
 
 interface SquadronManagerOnlyProps {
   squadronId?: string;
