@@ -168,29 +168,30 @@ const EventsManagement: React.FC = () => {
       // Guild ID is no longer used for filtering cycles
       const guildId = null;
       setDiscordGuildId(guildId);
-      
+
       // Fetch cycles without guild ID filtering (supports multi-squadron operations)
       const { cycles: fetchedCycles, error } = await fetchCycles();
-      
+
       if (error) {
         throw error;
       }
-      
+
+
       setCycles(fetchedCycles);
-      
+
       // Auto-select the active cycle with the earliest start date
       if (fetchedCycles.length > 0) {
         const activeCycles = fetchedCycles.filter(cycle => cycle.status === 'active');
-        
+
         if (activeCycles.length > 0) {
           // Sort active cycles by start date (ascending) and select the earliest one
-          const sortedActiveCycles = [...activeCycles].sort((a, b) => 
+          const sortedActiveCycles = [...activeCycles].sort((a, b) =>
             new Date(a.startDate).getTime() - new Date(b.startDate).getTime()
           );
-          
+
           const cycleToSelect = sortedActiveCycles[0];
           setSelectedCycle(cycleToSelect);
-          
+
           // Load events for this cycle
           await loadEvents(cycleToSelect.id);
         } else {
@@ -236,7 +237,6 @@ const EventsManagement: React.FC = () => {
           discordMessageId = eventObj.discord_event_id;
         }
         
-        // console.log(`[DEBUG] Processing event ${event.id}: discord_event_id=${JSON.stringify(eventObj.discord_event_id)}, localStorage ID=${eventDiscordMap[event.id]}`);
         
         // Remove the problematic JSONB field from the spread to prevent React rendering issues
         const { discord_event_id: _, ...eventWithoutDiscordEventId } = eventObj;
@@ -251,7 +251,7 @@ const EventsManagement: React.FC = () => {
       
       // Create a properly ordered and filtered list of events
       setEvents(eventsWithDiscordIds);
-      
+
       // Auto-select the latest event if there are events and we have a selected cycle
       if (eventsWithDiscordIds.length > 0 && cycleId) {
         // Find the latest event by datetime (descending order)
@@ -329,11 +329,6 @@ const EventsManagement: React.FC = () => {
       sendToTentative: boolean;
     };
   }, shouldPublish: boolean = false) => {
-    // console.log('[EVENTS-MGMT-DEBUG] === ENTERING handleCreateEvent ===');
-    // console.log('[EVENTS-MGMT-DEBUG] Function started at:', new Date().toISOString());
-    // console.log('[EVENTS-MGMT-DEBUG] handleCreateEvent called with eventData.participants:', eventData.participants);
-    // console.log('[EVENTS-MGMT-DEBUG] handleCreateEvent shouldPublish:', shouldPublish);
-    // console.log('[EVENTS-MGMT-DEBUG] selectedCycle:', selectedCycle);
     
     let createTimeoutId: NodeJS.Timeout | undefined;
     let imageTimeoutId: NodeJS.Timeout | undefined;
@@ -352,7 +347,6 @@ const EventsManagement: React.FC = () => {
         }
       }      
       // Create the event first without image with timeout protection
-      // console.log('[EVENTS-MGMT-DEBUG] Starting createEvent database operation');
       const createEventPromise = createEvent({
         ...eventData,
         status: 'upcoming',
@@ -369,27 +363,13 @@ const EventsManagement: React.FC = () => {
       
       const { event: newEvent, error } = await Promise.race([createEventPromise, createTimeoutPromise]) as any;
       if (createTimeoutId) clearTimeout(createTimeoutId);
-      // console.log('[EVENTS-MGMT-DEBUG] createEvent database operation completed');
-
-      // console.log('[CREATE-EVENT-DEBUG] createEvent result:', { newEvent, error });
       if (error) throw error;
       
       // Upload multiple images if provided
-      console.log('[IMAGE-DEBUG] Full eventData object keys:', Object.keys(eventData));
-      console.log('[IMAGE-DEBUG] eventData.headerImage:', eventData.headerImage);
-      console.log('[IMAGE-DEBUG] eventData.additionalImages:', eventData.additionalImages);
-      console.log('[IMAGE-DEBUG] Checking image upload conditions:', {
-        hasHeaderImage: !!eventData.headerImage,
-        hasAdditionalImages: !!eventData.additionalImages,
-        additionalImagesLength: eventData.additionalImages?.length,
-        hasNewEvent: !!newEvent,
-        newEventId: newEvent?.id
-      });
       
       let eventToPublish = newEvent;
       
       if ((eventData.headerImage || eventData.additionalImages) && newEvent && newEvent.id) {
-        console.log('Starting multiple image upload...');
         const imageUploadPromise = uploadMultipleEventImages(newEvent.id, {
           headerImage: eventData.headerImage,
           additionalImages: eventData.additionalImages
@@ -399,13 +379,12 @@ const EventsManagement: React.FC = () => {
           imageTimeoutId = setTimeout(() => reject(new Error('Image upload timed out')), 20000);
         });
         
-        const { urls: imageUrls, error: uploadError } = await Promise.race([imageUploadPromise, imageTimeoutPromise]) as any;
+        const { error: uploadError } = await Promise.race([imageUploadPromise, imageTimeoutPromise]) as any;
         if (imageTimeoutId) clearTimeout(imageTimeoutId);
         if (uploadError) {
           console.error('Failed to upload images:', uploadError);
           setError('Event created but image upload failed');
         } else {
-          console.log('Image upload successful:', imageUrls);
           
           // If we're publishing, fetch the updated event data with image URLs
           if (shouldPublish) {
@@ -451,12 +430,6 @@ const EventsManagement: React.FC = () => {
                   },
                   attendance: { accepted: [], declined: [], tentative: [] }
                 };
-                console.log('[CREATE-PUBLISH-DEBUG] Fetched updated event with images:', eventToPublish.id);
-                console.log('[CREATE-PUBLISH-DEBUG] Event image URLs:', {
-                  imageUrl: eventToPublish.imageUrl,
-                  headerImageUrl: eventToPublish.headerImageUrl,
-                  images: eventToPublish.images
-                });
               } else {
                 console.warn('[CREATE-PUBLISH-DEBUG] Failed to fetch updated event data:', fetchError);
               }
@@ -466,12 +439,10 @@ const EventsManagement: React.FC = () => {
           }
         }
       } else {
-        console.log('No images to upload or missing event data');
       }
       
       // If shouldPublish is true, publish the event to Discord
       if (shouldPublish && eventToPublish) {
-        console.log('[CREATE-PUBLISH-DEBUG] Publishing new event to Discord:', eventToPublish.id);
         try {
           const { publishEventFromCycle, updateEventMultipleDiscordIds } = await import('../../utils/discordService');
           
@@ -483,12 +454,10 @@ const EventsManagement: React.FC = () => {
           const publishResult = await Promise.race([publishPromise, publishTimeoutPromise]) as any;
           if (publishTimeoutId) clearTimeout(publishTimeoutId);
           
-          console.log('[CREATE-PUBLISH-DEBUG] Publish result:', publishResult);
           
           if (publishResult.success && publishResult.publishedChannels.length > 0) {
             // Update the event with Discord message IDs
             const updateSuccess = await updateEventMultipleDiscordIds(eventToPublish.id, publishResult.publishedChannels);
-            console.log('[CREATE-PUBLISH-DEBUG] Updated event with Discord IDs:', updateSuccess);
             
             // Only schedule reminders for successfully published events
             if (eventData.reminders && updateSuccess) {
@@ -503,7 +472,6 @@ const EventsManagement: React.FC = () => {
                 if (!reminderResult.success) {
                   console.warn('[CREATE-REMINDER-DEBUG] Failed to schedule reminders for published event:', reminderResult.error);
                 } else {
-                  console.log('[CREATE-REMINDER-DEBUG] Successfully scheduled reminders for published event:', eventToPublish.id);
                 }
               } catch (reminderError) {
                 console.error('[CREATE-REMINDER-DEBUG] Error scheduling reminders for published event:', reminderError);
@@ -512,7 +480,6 @@ const EventsManagement: React.FC = () => {
           }
           
           if (publishResult.errors.length > 0) {
-            console.warn('[CREATE-PUBLISH-DEBUG] Some publish attempts failed:', publishResult.errors);
           }
         } catch (publishError) {
           console.error('[CREATE-PUBLISH-DEBUG] Error publishing event:', publishError);
@@ -526,7 +493,6 @@ const EventsManagement: React.FC = () => {
       
       // Also refresh cycles in case the event creation affected cycle data
       if (selectedCycle) {
-        console.log('[DEBUG] Event created successfully, refreshing data for cycle:', selectedCycle.id);
       }
       
       setShowEventDialog(false);
@@ -536,14 +502,12 @@ const EventsManagement: React.FC = () => {
       if (imageTimeoutId) clearTimeout(imageTimeoutId);
       if (publishTimeoutId) clearTimeout(publishTimeoutId);
       
-      console.log('[EVENTS-MGMT-DEBUG] Error in handleCreateEvent:', err.message);
       setError(`Failed to create event: ${err.message}`);
     } finally {
       // Final cleanup of any remaining timeouts
       if (createTimeoutId) clearTimeout(createTimeoutId);
       if (imageTimeoutId) clearTimeout(imageTimeoutId);
       if (publishTimeoutId) clearTimeout(publishTimeoutId);
-      console.log('[EVENTS-MGMT-DEBUG] handleCreateEvent cleanup completed');
     }
   };
 
@@ -579,9 +543,6 @@ const EventsManagement: React.FC = () => {
       sendToTentative: boolean;
     };
   }, shouldPublish: boolean = false) => {
-    console.log('[UPDATE-EVENT-DEBUG] handleUpdateEvent called for event:', editingEvent?.id);
-    console.log('[UPDATE-EVENT-DEBUG] shouldPublish:', shouldPublish);
-    console.log('[UPDATE-EVENT-DEBUG] eventData:', eventData);
     
     if (!editingEvent) return;
     
@@ -594,11 +555,8 @@ const EventsManagement: React.FC = () => {
       if (error) throw error;
       
       // Always update images to handle both additions and removals
-      console.log('[IMAGE-UPDATE-DEBUG] Updating images for event:', editingEvent.id);
-      console.log('[IMAGE-UPDATE-DEBUG] Header image:', !!eventData.headerImage);
-      console.log('[IMAGE-UPDATE-DEBUG] Additional images count:', eventData.additionalImages?.length || 0);
       
-      const { urls: imageUrls, error: uploadError } = await uploadMultipleEventImages(editingEvent.id, {
+      const { error: uploadError } = await uploadMultipleEventImages(editingEvent.id, {
         headerImage: eventData.headerImage,
         additionalImages: eventData.additionalImages
       }, true); // Use replace mode to handle removals
@@ -607,18 +565,14 @@ const EventsManagement: React.FC = () => {
         console.error('Failed to update images:', uploadError);
         setError('Event updated but image update failed');
       } else {
-        console.log('[IMAGE-UPDATE-DEBUG] Successfully updated images:', imageUrls);
       }
       
       // Always update reminders when editing an event, even if reminder settings haven't changed
       // This ensures that time-dependent reminders are rescheduled if the event time changed
-      console.log('[EDIT-FLOW-DEBUG] Starting reminder update section for event:', editingEvent.id);
       try {
         const { updateEventReminders } = await import('../../utils/reminderService');
         
         // Debug log the event structure to understand what's available
-        console.log('[EDIT-REMINDER-DEBUG] editingEvent.eventSettings:', editingEvent.eventSettings);
-        console.log('[EDIT-REMINDER-DEBUG] eventData.reminders:', eventData.reminders);
         
         // Use provided reminder settings or fall back to existing event settings
         let reminderSettings = eventData.reminders || (editingEvent.eventSettings ? {
@@ -634,7 +588,6 @@ const EventsManagement: React.FC = () => {
           } : undefined
         } : undefined);
         
-        console.log('[EDIT-REMINDER-DEBUG] Constructed reminderSettings:', reminderSettings);
         
         // Check if this event should have reminders by checking if any exist in the database
         if (!reminderSettings) {
@@ -646,7 +599,6 @@ const EventsManagement: React.FC = () => {
             .limit(1);
           
           if (existingReminders && existingReminders.length > 0) {
-            console.log('[EDIT-REMINDER-DEBUG] Event has existing reminders, will use default settings for update');
             // Use default reminder settings if event had reminders before
             reminderSettings = {
               firstReminder: {
@@ -668,10 +620,8 @@ const EventsManagement: React.FC = () => {
           if (!reminderResult.success) {
             console.warn('[EDIT-REMINDER-DEBUG] Failed to update reminders:', reminderResult.error);
           } else {
-            console.log('[EDIT-REMINDER-DEBUG] Successfully updated reminders for event:', editingEvent.id);
           }
         } else {
-          console.log('[EDIT-REMINDER-DEBUG] No reminder settings found, skipping reminder update');
         }
       } catch (reminderError) {
         console.error('[EDIT-REMINDER-DEBUG] Error updating reminders:', reminderError);
@@ -680,7 +630,6 @@ const EventsManagement: React.FC = () => {
       // Check if this event has Discord messages by fetching fresh data from database
       // (editingEvent only has the converted string version, not the original JSONB)
       if (shouldPublish && editingEvent.discordEventId) {
-        console.log(`[UPDATE-EVENT] Event has Discord messages, fetching fresh data for multi-channel update`);
         
         // Fetch fresh event data with original JSONB discord_event_id
         const { data: freshEventData, error: fetchError } = await supabase
@@ -692,7 +641,6 @@ const EventsManagement: React.FC = () => {
         if (fetchError || !freshEventData) {
           console.error('[UPDATE-EVENT] Failed to fetch fresh event data:', fetchError);
         } else {
-          console.log(`[UPDATE-EVENT] Event has Discord messages, updating Discord posts`);
           
           // Create updated event object with fresh database data and new user input
           const updatedEvent = {
@@ -719,26 +667,15 @@ const EventsManagement: React.FC = () => {
             attendance: { accepted: [], declined: [], tentative: [] }
           } as Event;
         
-          console.log(`[UPDATE-EVENT] Updated event object:`, {
-            id: updatedEvent.id,
-            title: updatedEvent.title,
-            cycleId: updatedEvent.cycleId,
-            participants: updatedEvent.participants,
-            discord_event_id: updatedEvent.discord_event_id,
-            creator: updatedEvent.creator,
-            allKeys: Object.keys(updatedEvent)
-          });
           
           try {
             const discordResult = await updateMultiChannelEvent(updatedEvent, editingEvent.datetime, eventData.reminders);
-            console.log(`[UPDATE-EVENT] Discord update result:`, discordResult);
             
             if (discordResult.errors.length > 0) {
               console.warn(`Warning: Some Discord updates failed:`, discordResult.errors);
             }
             
             if (discordResult.success) {
-              console.log(`Successfully updated Discord messages in ${discordResult.publishedCount} channels`);
             }
           } catch (discordError) {
             console.error('[UPDATE-EVENT] Error updating Discord messages:', discordError);
@@ -747,7 +684,6 @@ const EventsManagement: React.FC = () => {
         }
       } else if (shouldPublish && !editingEvent.discordEventId) {
         // Event doesn't have Discord messages but user wants to publish
-        console.log('[UPDATE-EVENT] Publishing updated event to Discord for first time');
         try {
           const { publishEventFromCycle, updateEventMultipleDiscordIds } = await import('../../utils/discordService');
           
@@ -759,18 +695,15 @@ const EventsManagement: React.FC = () => {
             endDatetime: eventData.endDatetime?.includes('T') ? eventData.endDatetime : `${eventData.endDatetime}:00.000Z`
           };
           
-          console.log('[UPDATE-EVENT] Publishing updated event with creator:', eventForPublish.creator);
           
           const publishResult = await publishEventFromCycle(eventForPublish);
           
           if (publishResult.success && publishResult.publishedChannels.length > 0) {
             // Update the event with Discord message IDs
             await updateEventMultipleDiscordIds(editingEvent.id, publishResult.publishedChannels);
-            console.log('[UPDATE-EVENT] Successfully published updated event to Discord');
           }
           
           if (publishResult.errors.length > 0) {
-            console.warn('[UPDATE-EVENT] Some publish attempts failed:', publishResult.errors);
           }
         } catch (publishError) {
           console.error('[UPDATE-EVENT] Error publishing updated event:', publishError);
@@ -852,7 +785,6 @@ const EventsManagement: React.FC = () => {
       }
     } catch (err) {
       // Silently fail - this just means no mission exists for this event
-      console.log(`No mission found for event ${eventId}`);
     } finally {
       setMissionLoading(prev => ({ ...prev, [eventId]: false }));
     }
@@ -985,17 +917,12 @@ const EventsManagement: React.FC = () => {
         // Reload cycles
         await loadCycles();      
       } else if (eventToDelete) {
-        console.log(`[DEBUG] Starting deletion for event:`, eventToDelete);
-        console.log(`[DEBUG] Event JSON:`, JSON.stringify(eventToDelete));
-        console.log(`[DEBUG] All event properties:`, Object.keys(eventToDelete));
         
         // First try to delete any associated Discord messages from all channels
         try {
-          console.log(`[DEBUG] Calling deleteMultiChannelEvent for multi-squadron deletion`);
           // Use the new multi-channel deletion function
-          const { success, deletedCount, errors } = await deleteMultiChannelEvent(eventToDelete);
+          const { success, errors } = await deleteMultiChannelEvent(eventToDelete);
           
-          console.log(`[DEBUG] Multi-channel delete result: success=${success}, deletedCount=${deletedCount}, errors=${errors.length}`);
           
           if (errors.length > 0) {
             console.warn(`Warning: Some Discord deletions failed:`, errors);
@@ -1003,7 +930,6 @@ const EventsManagement: React.FC = () => {
           }
           
           if (success) {
-            console.log(`Successfully deleted Discord messages from ${deletedCount} channels for event: ${eventToDelete.id}`);
           } else {
             console.warn(`Failed to delete Discord messages for event: ${eventToDelete.id}`);
           }
@@ -1059,7 +985,7 @@ const EventsManagement: React.FC = () => {
   useEffect(() => {
     // Only filter and show events when not in initial loading state
     if (loading.initial) return;
-    
+
     if (selectedCycle) {
       const filtered = events.filter(event => event.cycleId === selectedCycle.id);
       setFilteredEvents(filtered);

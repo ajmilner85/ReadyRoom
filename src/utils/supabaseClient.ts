@@ -176,10 +176,10 @@ export const fetchCycles = async (discordGuildId?: string) => {
     const { data, error } = await query;
 
     if (error) {
-      console.error('Error fetching cycles:', error);
       return { cycles: [], error };
     }
-    
+
+
     // Transform database cycles to frontend format
     const cycles: Cycle[] = data.map(dbCycle => ({
       id: dbCycle.id,
@@ -312,7 +312,9 @@ export const deleteCycle = async (cycleId: string) => {
 };
 
 // Events API
-export const fetchEvents = async (cycleId?: string) => {  
+export const fetchEvents = async (cycleId?: string) => {
+
+
   let query = supabase.from('events').select(`
     id,
     name,
@@ -337,25 +339,24 @@ export const fetchEvents = async (cycleId?: string) => {
   if (cycleId) {
     query = query.eq('cycle_id', cycleId);
   }
-  
+
+
   // Note: Removed Discord guild ID filtering to support multi-squadron publishing
   // Events can now be published to multiple squadron-specific Discord servers
   // so filtering by a single guild ID would hide events published to other guilds
   const { data, error } = await query.order('start_datetime', { ascending: false });
 
+
   if (error) {
-    console.error('Error fetching events:', error);
     return { events: [], error };
   }
-  
+
   // Transform database events to frontend format without attendance data
   // We'll fetch attendance separately based on discord_event_id
+
   const events: Event[] = data.map(dbEvent => {
     // Debug raw database data
     // if (dbEvent.discord_event_id) {
-    //   console.log(`[FETCH-EVENTS-DEBUG] Event ${dbEvent.id} discord_event_id:`, dbEvent.discord_event_id);
-    //   console.log(`[FETCH-EVENTS-DEBUG] Type:`, typeof dbEvent.discord_event_id);
-    //   console.log(`[FETCH-EVENTS-DEBUG] Is Array:`, Array.isArray(dbEvent.discord_event_id));
     // }
     
     // Return the transformed event with correct field mapping from DB to frontend
@@ -401,6 +402,8 @@ export const fetchEvents = async (cycleId?: string) => {
     };
   });
 
+
+
   return { events, error: null };
 };
 
@@ -435,12 +438,9 @@ export const createEvent = async (event: Omit<Event, 'id' | 'creator' | 'attenda
   let creatorBoardNumber = '';
   let creatorBillet = '';
 
-  // console.log('[CREATE-EVENT-DEBUG] Looking up pilot record for user:', user.id);
-  // console.log('[CREATE-EVENT-DEBUG] User metadata:', user.user_metadata);
   
   // Get the Discord user ID from metadata
   const discordUserId = user.user_metadata?.provider_id || user.user_metadata?.sub;
-  // console.log('[CREATE-EVENT-DEBUG] Discord user ID from metadata:', discordUserId);
 
   try {
     const { data: pilotData, error: pilotError } = await supabase
@@ -449,21 +449,18 @@ export const createEvent = async (event: Omit<Event, 'id' | 'creator' | 'attenda
       .eq('discord_original_id', discordUserId)
       .single();
 
-    // console.log('[CREATE-EVENT-DEBUG] Pilot lookup result:', { pilotData, pilotError });
 
     if (!pilotError && pilotData) {
       creatorPilotId = pilotData.id;
       creatorCallsign = pilotData.callsign || '';
       creatorBoardNumber = pilotData.boardNumber?.toString() || '';
       creatorBillet = ''; // We'll leave this empty for now since roles column doesn't exist
-      // console.log('[CREATE-EVENT-DEBUG] Found pilot record:', { creatorPilotId, creatorCallsign, creatorBoardNumber });
     } else {
       console.warn('[CREATE-EVENT-DEBUG] Could not find pilot record for event creator:', user.id, pilotError);
       // Fallback to user metadata if available
       creatorCallsign = user.user_metadata?.callsign || '';
       creatorBoardNumber = user.user_metadata?.board_number || '';
       creatorBillet = user.user_metadata?.billet || '';
-      // console.log('[CREATE-EVENT-DEBUG] Using fallback metadata:', { creatorCallsign, creatorBoardNumber, creatorBillet });
     }
   } catch (pilotLookupError) {
     console.warn('[CREATE-EVENT-DEBUG] Error looking up creator pilot record:', pilotLookupError);
@@ -487,8 +484,6 @@ export const createEvent = async (event: Omit<Event, 'id' | 'creator' | 'attenda
     sendRemindersToTentative: event.reminderRecipients?.sendToTentative !== undefined ? event.reminderRecipients.sendToTentative : true
   };
 
-  // console.log('[CREATE-EVENT-DEBUG] About to insert event');
-  // console.log('[CREATE-EVENT-DEBUG] Event object keys:', Object.keys(event));
 
   // Map from frontend format to database format
   const { data, error } = await supabase
@@ -518,8 +513,6 @@ export const createEvent = async (event: Omit<Event, 'id' | 'creator' | 'attenda
     return { event: null, error };
   }
 
-  // console.log('[CREATE-EVENT-DEBUG] Database returned event data:', data);
-  // console.log('[CREATE-EVENT-DEBUG] Event created successfully');
 
   // Transform to frontend format
   const newEvent: Event = {
