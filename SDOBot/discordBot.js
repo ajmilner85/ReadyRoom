@@ -286,7 +286,17 @@ async function loadEventResponses() {  try {
       
       // Process attendance data
       if (attendanceData) {
+        // Create a map to track users to prevent duplicates during initial load
+        const userMapLoad = new Map();
+
         for (const record of attendanceData) {
+          // Skip if we've already processed this user
+          if (userMapLoad.has(record.discord_id)) {
+            console.warn(`[LOAD-DUPLICATE-FIX] Skipping duplicate attendance record for user ${record.discord_id} in event ${event.discord_event_id}`);
+            continue;
+          }
+
+          userMapLoad.set(record.discord_id, record);
           const userEntry = { 
             userId: record.discord_id, 
             displayName: record.discord_username || 'Unknown User' 
@@ -522,9 +532,10 @@ function createEventEmbed(title, description, eventTime, responses = {}, creator
       hour12: true
     });
     
-    const formattedDate = format(startTime, "EEEE, MMMM d, yyyy");
-    const formattedStartTime = format(startTime, "h:mm a 'EDT'");
-    const formattedEndTime = format(endTime, "h:mm a 'EDT'");
+    // Format date and times using the event timezone
+    const formattedDate = formatInTimeZone(startTime, eventTimezone, "EEEE, MMMM d, yyyy");
+    const formattedStartTime = formatInTimeZone(startTime, eventTimezone, "h:mm a zzz");
+    const formattedEndTime = formatInTimeZone(endTime, eventTimezone, "h:mm a zzz");
     
     const timeString = `${formattedDate} ${formattedStartTime} - ${formattedEndTime}`;
     
@@ -558,11 +569,8 @@ function createEventEmbed(title, description, eventTime, responses = {}, creator
     { name: `✅ Accepted (${accepted.length})`, value: acceptedText, inline: true },
     { name: `❓ Tentative (${tentative.length})`, value: tentativeText, inline: true },
     { name: `❌ Declined (${declined.length})`, value: declinedText, inline: true }
-  )
-  .setTimestamp();
-  
-  console.log(`[EMBED-TIMESTAMP-DEBUG] Set embed timestamp to: ${new Date().toISOString()}`);
-  
+  );
+
   // Consistent embed width using footer padding
   const MAX_EMBED_WIDTH = 164;
   
@@ -768,9 +776,19 @@ async function editEventMessage(messageId, title, description, eventTime, guildI
                 declined: [],
                 tentative: []
               };
-              
+
+              // Create a map to track users to prevent duplicates
+              const userMapEdit = new Map();
+
               // Populate with existing responses, including pilot record data for qualifications
               for (const record of attendanceData) {
+                // Skip if we've already processed this user
+                if (userMapEdit.has(record.discord_id)) {
+                  console.warn(`[EDIT-DUPLICATE-FIX] Skipping duplicate attendance record for user ${record.discord_id} in event ${messageId}`);
+                  continue;
+                }
+
+                userMapEdit.set(record.discord_id, record);
                 let pilotRecord = null;
                 
                 // Try to fetch pilot data for this user to preserve qualifications
@@ -1486,8 +1504,18 @@ client.on('interactionCreate', async interaction => {
         eventData.declined = [];
         eventData.tentative = [];
         
+        // Create a map to track users to prevent duplicates
+        const userMap = new Map();
+
         // Populate with existing responses, including pilot record data for qualifications
         for (const record of existingAttendance) {
+          // Skip if we've already processed this user
+          if (userMap.has(record.discord_id)) {
+            console.warn(`[DUPLICATE-FIX] Skipping duplicate attendance record for user ${record.discord_id} in event ${eventId}`);
+            continue;
+          }
+
+          userMap.set(record.discord_id, record);
           let pilotRecord = null;
           
           // Try to fetch pilot data for this user to preserve qualifications
@@ -1925,9 +1953,19 @@ class CountdownUpdateManager {
                 declined: [],
                 tentative: []
               };
-              
+
+              // Create a map to track users to prevent duplicates
+              const userMapCountdown = new Map();
+
               // Populate with existing responses, including pilot record data for qualifications
               for (const record of attendanceData) {
+                // Skip if we've already processed this user
+                if (userMapCountdown.has(record.discord_id)) {
+                  console.warn(`[COUNTDOWN-DUPLICATE-FIX] Skipping duplicate attendance record for user ${record.discord_id} in event ${messageId}`);
+                  continue;
+                }
+
+                userMapCountdown.set(record.discord_id, record);
                 let pilotRecord = null;
                 
                 // Try to fetch pilot data for this user to preserve qualifications
