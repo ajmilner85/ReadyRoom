@@ -111,7 +111,7 @@ const PollItem: React.FC<PollItemProps> = ({
             left: 0,
             height: '100%',
             width: `${result?.percentage || 0}%`,
-            backgroundColor: isSelected ? `${primaryColor}20` : `${primaryColor}08`,
+            backgroundColor: isSelected ? `${primaryColor}20` : `${primaryColor}15`,
             transition: 'width 0.3s ease',
             zIndex: 0,
           };
