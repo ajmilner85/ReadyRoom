@@ -52,16 +52,36 @@ const convertRowToMission = (row: MissionRow): Mission => {
 // Get current user's profile ID for foreign key references
 const getCurrentUserProfileId = async (): Promise<string | null> => {
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user?.id) return null;
-  
+  if (!user?.id) {
+    console.error('No authenticated user found');
+    return null;
+  }
+
   // Get the user_profiles.id (not auth_user_id) since that's what the FK constraint references
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('user_profiles')
-    .select('id')
+    .select('id, pilot_id')
     .eq('auth_user_id', user.id)
     .maybeSingle();
-    
-  return data?.id || null;
+
+  if (error) {
+    console.error('Error getting user profile:', error);
+    console.error('Auth user ID:', user.id);
+    return null;
+  }
+
+  if (!data) {
+    console.error('No user profile found for auth user:', user.id);
+    return null;
+  }
+
+  console.log('User profile found:', {
+    profileId: data.id,
+    pilotId: data.pilot_id,
+    authUserId: user.id
+  });
+
+  return data.id || null;
 };
 
 /**
@@ -231,6 +251,9 @@ export const updateMission = async (
 
     if (error) {
       console.error('Error updating mission:', error);
+      console.error('Update data keys:', Object.keys(updateData));
+      console.error('Mission ID:', missionId);
+      console.error('User ID:', userId);
       return { mission: {} as Mission, error: error.message };
     }
 
