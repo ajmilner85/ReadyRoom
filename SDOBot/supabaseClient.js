@@ -15,63 +15,31 @@ if (!supabaseUrl || !supabaseKey) {
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 // Event attendance functions
-async function upsertEventAttendance({ 
-  discordEventId, 
-  discordUserId, 
-  discordUsername, 
-  userResponse 
+async function upsertEventAttendance({
+  discordEventId,
+  discordUserId,
+  discordUsername,
+  userResponse
 }) {
   try {
-    // Try to find an existing entry for this user and event
-    const { data: existingAttendance, error: fetchError } = await supabase
-      .from('discord_event_attendance')
-      .select('*')
-      .eq('discord_id', discordUserId)
-      .eq('discord_event_id', discordEventId)
-      .single();
-    
-    if (fetchError && fetchError.code !== 'PGRST116') {
-      console.error('Error checking for existing attendance:', fetchError);
-      return { error: fetchError };
-    }
+    // Use atomic database function to prevent race condition duplicates
+    // while preserving audit trail for legitimate response changes
+    const { data, error } = await supabase.rpc('atomic_attendance_upsert', {
+      p_discord_id: discordUserId,
+      p_discord_event_id: discordEventId,
+      p_discord_username: discordUsername,
+      p_user_response: userResponse
+    });
 
-    // If entry exists, update it
-    if (existingAttendance) {
-      const { data, error } = await supabase
-        .from('discord_event_attendance')
-        .update({
-          user_response: userResponse,
-          discord_username: discordUsername,
-          updated_at: new Date()
-        })
-        .match({ id: existingAttendance.id })
-        .select();
-      
-      if (error) {
-        console.error('Error updating attendance:', error);
-        return { error };
-      }
-      
-      return { data };
-    }
-    
-    // Otherwise, insert a new entry
-    const { data, error } = await supabase
-      .from('discord_event_attendance')
-      .insert({
-        discord_id: discordUserId,
-        discord_username: discordUsername,
-        discord_event_id: discordEventId,
-        user_response: userResponse
-      })
-      .select();
-    
     if (error) {
-      console.error('Error inserting attendance:', error);
+      console.error('Error in atomic attendance upsert:', error);
       return { error };
     }
-    
-    return { data };
+
+    // The RPC returns an array with one record
+    const record = data && data[0];
+    console.log(`Successfully processed ${userResponse} response for ${discordUsername} (${record?.id})`);
+    return { data: record ? [record] : [] };
   } catch (error) {
     console.error('Unexpected error in upsertEventAttendance:', error);
     return { error };
