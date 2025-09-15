@@ -1311,9 +1311,33 @@ async function publishEventToDiscord(title, description, eventTime, guildId = nu
   }
 }
 
+// Track recently processed interactions to prevent duplicates
+const processedInteractions = new Map();
+const INTERACTION_CACHE_TTL = 30000; // 30 seconds
+
+// Clean up old interaction IDs periodically
+setInterval(() => {
+  const now = Date.now();
+  for (const [id, timestamp] of processedInteractions.entries()) {
+    if (now - timestamp > INTERACTION_CACHE_TTL) {
+      processedInteractions.delete(id);
+    }
+  }
+}, 60000); // Clean up every minute
+
 // Handle button interactions
 client.on('interactionCreate', async interaction => {
   if (!interaction.isButton()) return;
+
+  // Check if we've already processed this interaction
+  const interactionId = interaction.id;
+  if (processedInteractions.has(interactionId)) {
+    console.log(`[DUPLICATE-INTERACTION] Skipping duplicate interaction ${interactionId} from ${interaction.user.username}`);
+    return;
+  }
+
+  // Mark this interaction as being processed
+  processedInteractions.set(interactionId, Date.now());
   
   const { customId, message, user } = interaction;
   const eventId = message.id;

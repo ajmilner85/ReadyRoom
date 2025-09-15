@@ -22,24 +22,25 @@ async function upsertEventAttendance({
   userResponse
 }) {
   try {
-    // Use atomic database function to prevent race condition duplicates
-    // while preserving audit trail for legitimate response changes
-    const { data, error } = await supabase.rpc('atomic_attendance_upsert', {
-      p_discord_id: discordUserId,
-      p_discord_event_id: discordEventId,
-      p_discord_username: discordUsername,
-      p_user_response: userResponse
-    });
+    // Simple insert - let each legitimate user interaction create a new record
+    // This preserves the complete audit trail of user responses
+    const { data, error } = await supabase
+      .from('discord_event_attendance')
+      .insert({
+        discord_id: discordUserId,
+        discord_username: discordUsername,
+        discord_event_id: discordEventId,
+        user_response: userResponse
+      })
+      .select();
 
     if (error) {
-      console.error('Error in atomic attendance upsert:', error);
+      console.error('Error inserting attendance:', error);
       return { error };
     }
 
-    // The RPC returns an array with one record
-    const record = data && data[0];
-    console.log(`Successfully processed ${userResponse} response for ${discordUsername} (${record?.id})`);
-    return { data: record ? [record] : [] };
+    console.log(`Successfully recorded ${userResponse} response for ${discordUsername}`);
+    return { data };
   } catch (error) {
     console.error('Unexpected error in upsertEventAttendance:', error);
     return { error };
