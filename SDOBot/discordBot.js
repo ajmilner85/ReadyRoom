@@ -1533,9 +1533,13 @@ client.on('interactionCreate', async interaction => {
 
         // Populate with existing responses, including pilot record data for qualifications
         for (const record of existingAttendance) {
-          // Skip if we've already processed this user
-          if (userMap.has(record.discord_id)) {
-            console.warn(`[DUPLICATE-FIX] Skipping duplicate attendance record for user ${record.discord_id} in event ${eventId}`);
+          // Skip if we've already processed this user OR if this is the current user (we already have their complete data)
+          if (userMap.has(record.discord_id) || record.discord_id === userId) {
+            if (record.discord_id === userId) {
+              console.log(`[CURRENT-USER-SKIP] Skipping database reload for current user ${displayName} - using fresh pilot data`);
+            } else {
+              console.warn(`[DUPLICATE-FIX] Skipping duplicate attendance record for user ${record.discord_id} in event ${eventId}`);
+            }
             continue;
           }
 
