@@ -18,16 +18,17 @@ export const useMissionPrepDataPersistence = (
   externalPrepFlights?: any[],
   activePilots?: any[],
 ) => {
-  const { 
-    mission, 
-    loading: missionLoading, 
+  const {
+    mission,
+    loading: missionLoading,
     error: missionError,
     saving: missionSaving,
     updateFlights,
     updatePilotAssignments,
     updateSupportRoles,
     updateSelectedSquadrons,
-    updateSettings
+    updateSettings,
+    createNewMission
   } = useMission(undefined, selectedEvent?.id);
 
   // Local state that syncs with mission database
@@ -43,6 +44,7 @@ export const useMissionPrepDataPersistence = (
   const [prepFlights, setPrepFlightsLocal] = useState<any[]>(
     externalPrepFlights || []
   );
+  const [needsMissionCreation, setNeedsMissionCreation] = useState<boolean>(false);
 
   // Debug prepFlights changes
   // useEffect(() => {
@@ -489,27 +491,61 @@ export const useMissionPrepDataPersistence = (
     }
   }, [mission, selectedEvent, debouncedSave, updateSupportRoles]);
 
+  // Effect to handle mission creation when needed
+  useEffect(() => {
+    if (needsMissionCreation && selectedEvent && !mission && !missionLoading) {
+      console.log('📝 Creating mission for flight assignments in event:', selectedEvent.id);
+
+      const missionName = `${selectedEvent.title} Mission`;
+      createNewMission({
+        event_id: selectedEvent.id,
+        name: missionName,
+        description: `Mission planning for ${selectedEvent.title}`,
+        selected_squadrons: selectedEvent.participants || []
+      }).then((newMission) => {
+        setNeedsMissionCreation(false);
+        if (newMission) {
+          console.log('✅ Mission created successfully:', newMission.id);
+          // Flights will be saved automatically in the next effect run when mission updates
+        } else {
+          console.error('❌ Failed to create mission for flight assignments');
+        }
+      }).catch((error) => {
+        console.error('❌ Error creating mission:', error);
+        setNeedsMissionCreation(false);
+      });
+    }
+  }, [needsMissionCreation, selectedEvent, mission, missionLoading, createNewMission]);
+
   const setPrepFlights = useCallback((flights: any[], skipSave: boolean = false) => {
     setPrepFlightsLocal(flights);
-    
+
     // If flights are being cleared, reset the processed flights ref to allow re-importing
     if (flights.length === 0) {
       console.log('🔄 useMissionPrepDataPersistence: Flights cleared, resetting processed flights ref');
       processedFlightsRef.current = null;
     }
-    
+
     // Save to database with shorter delay for flights (immediate user feedback)
-    if (mission && selectedEvent && !skipSave) {
+    if (selectedEvent && !skipSave) {
+      // If no mission exists but we have flights to save, trigger mission creation
+      if (!mission && flights.length > 0) {
+        console.log('📝 Triggering mission creation for flight assignments in event:', selectedEvent.id);
+        // Set a flag to trigger mission creation in a separate effect
+        setNeedsMissionCreation(true);
+        return;
+      }
+
       // Only save if this mission belongs to the currently selected event
-      if (mission.event_id !== selectedEvent.id) {
+      if (!mission || mission.event_id !== selectedEvent.id) {
         console.log('🚫 Persistence: Skipping flight save - mission belongs to different event:', {
-          missionEventId: mission.event_id,
+          missionEventId: mission?.event_id,
           selectedEventId: selectedEvent.id,
-          missionId: mission.id
+          missionId: mission?.id
         });
         return;
       }
-      
+
       const currentMissionId = mission.id;
       const currentEventId = selectedEvent.id;
       
