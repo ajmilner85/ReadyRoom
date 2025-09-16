@@ -461,13 +461,30 @@ export async function updatePilot(id: string, updates: UpdatePilot): Promise<{ d
     if (checkError) {
       return { data: null, error: checkError };
     }
-    
+
     if (existingPilots && existingPilots.length > 0) {
-      return { 
-        data: null, 
-        error: { message: `Board number ${updates.boardNumber} is already in use` } 
+      return {
+        data: null,
+        error: { message: `Board number ${updates.boardNumber} is already in use` }
       };
     }
+  }
+
+  // First check if the pilot exists and is accessible
+  const { data: existingPilot, error: selectError } = await supabase
+    .from('pilots')
+    .select('id')
+    .eq('id', id)
+    .single();
+
+  if (selectError) {
+    console.error('Cannot access pilot for update:', selectError);
+    return { data: null, error: { message: `Cannot access pilot with ID ${id}: ${selectError.message}` } };
+  }
+
+  if (!existingPilot) {
+    console.error('Pilot not found for update:', id);
+    return { data: null, error: { message: `Pilot with ID ${id} not found` } };
   }
 
   const { data, error } = await supabase
@@ -476,6 +493,12 @@ export async function updatePilot(id: string, updates: UpdatePilot): Promise<{ d
     .eq('id', id)
     .select()
     .single();
+
+  if (error) {
+    console.error('Error updating pilot:', error);
+    console.error('Pilot ID:', id);
+    console.error('Updates:', updates);
+  }
 
   return { data, error };
 }
