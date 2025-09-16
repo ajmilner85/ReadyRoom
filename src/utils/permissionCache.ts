@@ -256,14 +256,11 @@ export class PermissionCacheService {
         return;
       }
 
-      // Transform frontend permissions to RLS-compatible format
-      const rlsPermissions = this.transformPermissionsForRLS(cacheEntry.permissions);
-
       const { error } = await supabase
         .from('user_permission_cache' as any)
         .upsert({
           user_id: userProfileId, // Use user_profiles.id instead of auth_user_id
-          permissions: rlsPermissions,
+          permissions: cacheEntry.permissions,
           bases_hash: cacheEntry.basesHash,
           calculated_at: cacheEntry.calculatedAt.toISOString(),
           expires_at: cacheEntry.expiresAt.toISOString()
@@ -313,60 +310,6 @@ export class PermissionCacheService {
       console.warn('Error invalidating user permissions:', error);
     }
   }
-  
-  /**
-   * Transform frontend permission structure to RLS-compatible format
-   */
-  private transformPermissionsForRLS(frontendPermissions: UserPermissions): Record<string, string> {
-    const rlsPermissions: Record<string, string> = {};
-
-    // Map frontend permission keys to RLS permission names and extract the highest scope
-    const permissionMappings = {
-      // Roster Management
-      canManageRoster: 'manage_roster',
-      canEditPilotQualifications: 'edit_pilot_qualifications',
-      canDeletePilots: 'delete_pilots',
-      canManageStandings: 'manage_standings',
-      canViewPublicRoster: 'view_public_roster',
-
-      // Event Management
-      canManageEvents: 'manage_events',
-      canCreateTrainingCycles: 'create_training_cycles',
-      canManageEventAttendance: 'manage_event_attendance',
-      canOverrideEventSettings: 'override_event_settings',
-
-      // Squadron Management
-      canManageSquadronSettings: 'manage_squadron_settings',
-      canViewSquadronSettings: 'view_squadron_settings',
-      canManageSquadronMembers: 'manage_squadron_members',
-
-      // Wing Management
-      canManageWingSettings: 'manage_wing_settings',
-      canViewWingSettings: 'view_wing_settings'
-    };
-
-    // Transform each permission
-    Object.entries(permissionMappings).forEach(([frontendKey, rlsKey]) => {
-      const permissionArray = frontendPermissions[frontendKey as keyof UserPermissions];
-
-      if (Array.isArray(permissionArray) && permissionArray.length > 0) {
-        // Find the highest scope permission
-        const hasGlobal = permissionArray.some(p => p.type === 'global');
-        const hasOwnWing = permissionArray.some(p => p.type === 'own_wing');
-        const hasOwnSquadron = permissionArray.some(p => p.type === 'own_squadron');
-
-        if (hasGlobal) {
-          rlsPermissions[rlsKey] = 'global';
-        } else if (hasOwnWing) {
-          rlsPermissions[rlsKey] = 'own_wing';
-        } else if (hasOwnSquadron) {
-          rlsPermissions[rlsKey] = 'own_squadron';
-        }
-      }
-    });
-
-    return rlsPermissions;
-  }
 
   /**
    * Invalidate all cached permissions (useful when rules change)
@@ -401,7 +344,8 @@ export class PermissionCacheService {
       console.warn('Error invalidating all permissions:', error);
     }
   }
-  
+
+
   /**
    * Clean up expired entries from memory cache
    */

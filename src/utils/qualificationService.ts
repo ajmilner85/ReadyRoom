@@ -229,19 +229,57 @@ export async function assignQualificationToPilot(
  */
 export async function removeQualificationFromPilot(pilotId: string, qualificationId: string): Promise<{ success: boolean; error: any }> {
   try {
-    const { error } = await supabase
+    console.log('🗑️ Removing qualification:', { pilotId, qualificationId });
+
+    // Check user auth and permissions first
+    const { data: user } = await supabase.auth.getUser();
+    console.log('👤 Current user:', user.user?.id);
+
+    // Log permission debugging info (simplified to avoid TypeScript issues)
+    console.log('🔒 Permission check: User has auth, will check RLS policy directly');
+
+    // Try the delete with count to see exactly what happens
+    const { error, count } = await supabase
       .from('pilot_qualifications')
-      .delete()
+      .delete({ count: 'exact' })
       .eq('pilot_id', pilotId)
       .eq('qualification_id', qualificationId);
-    
+
+    console.log('🗑️ Delete result:', { error, count, success: !error && (count || 0) > 0 });
+
+    if (error) {
+      console.error('❌ Delete error details:', error);
+      return { success: false, error };
+    }
+
+    if ((count || 0) === 0) {
+      console.warn('⚠️ No rows deleted - RLS policy likely blocking');
+
+      // Let's check what records actually exist that we can see
+      const { data: visible, error: visError } = await supabase
+        .from('pilot_qualifications')
+        .select('*')
+        .eq('pilot_id', pilotId);
+
+      console.log('👁️ Visible pilot_qualifications:', {
+        count: visible?.length || 0,
+        error: visError,
+        targetExists: visible?.some(q => q.qualification_id === qualificationId)
+      });
+
+      return { success: false, error: { message: 'Permission denied or record not found' } };
+    }
+
+    console.log('✅ Successfully deleted qualification');
+
     // Force clear cache for the pilot
     clearPilotQualificationsCache(pilotId);
     // Clear entire cache for batch consistency
     clearAllQualificationsCache();
-    
-    return { success: !error, error };
+
+    return { success: true, error: null };
   } catch (e) {
+    console.error('💥 Exception during delete:', e);
     return { success: false, error: e };
   }
 }
@@ -253,14 +291,14 @@ export async function removeQualificationFromPilot(pilotId: string, qualificatio
 export function clearPilotQualificationsCache(pilotId: string): void {
   // Delete from cache using exact ID
   delete qualificationsCache[pilotId];
-  
+
   // Also clear any cached data under Discord ID or Supabase ID
   Object.keys(qualificationsCache).forEach(key => {
     if (key.includes(pilotId)) {
       delete qualificationsCache[key];
     }
   });
-  
+
   // Clear any pending requests for this pilot
   delete pendingRequests[pilotId];
 }
@@ -341,11 +379,11 @@ export async function getPilotQualifications(pilotId: string): Promise<{ data: a
           qualification:qualifications(*)
         `)
         .eq('pilot_id', actualPilotId);
-        
+
       if (error) {
         return { data: null, error };
       }
-      
+
       // Cache and return the results
       if (data) {
         qualificationsCache[pilotId] = data; // Cache under requested ID
