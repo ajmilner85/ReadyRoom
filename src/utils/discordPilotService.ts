@@ -19,16 +19,22 @@ async function getDiscordEnvironment(): Promise<'development' | 'production'> {
   return 'development';
 }
 
-// Helper function to get the appropriate API base URL based on Discord environment
+// Helper function to detect if we're running in local development
+function isLocalDevelopment(): boolean {
+  // Check if we're running on localhost or if VITE_API_URL points to localhost
+  return window.location.hostname === 'localhost' ||
+         window.location.hostname === '127.0.0.1' ||
+         import.meta.env.VITE_API_URL?.includes('localhost');
+}
+
+// Helper function to get the appropriate API base URL based on deployment environment
 async function getDiscordApiBaseUrl(): Promise<string> {
-  const environment = await getDiscordEnvironment();
-  
-  // If using production Discord bot, connect to production server
-  // If using development Discord bot, connect to local development server
-  if (environment === 'production') {
-    return 'https://readyroom.fly.dev';
-  } else {
+  // Use local backend if we're in local development, regardless of Discord bot choice
+  if (isLocalDevelopment()) {
     return import.meta.env.VITE_API_URL || 'http://localhost:3001';
+  } else {
+    // Always use production backend for deployed versions (preview/production)
+    return 'https://readyroom.fly.dev';
   }
 }
 

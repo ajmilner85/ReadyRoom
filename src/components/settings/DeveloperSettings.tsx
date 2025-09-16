@@ -40,12 +40,50 @@ const DeveloperSettings: React.FC<DeveloperSettingsProps> = ({ setError }) => {
 
     setSaving(true);
     setSaveStatus('idle');
-    
+
     try {
+      // First update the user setting
       const result = await updateDeveloperSettings({ discordBotToken: tokenType });
-      
+
       if (result.success && result.data) {
         setSettings(result.data);
+
+        // If running locally, also switch the Discord bot token in the backend
+        const isLocalDevelopment = window.location.hostname === 'localhost' ||
+                                   window.location.hostname === '127.0.0.1' ||
+                                   import.meta.env.VITE_API_URL?.includes('localhost');
+
+        if (isLocalDevelopment) {
+          try {
+            const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+            const switchResponse = await fetch(`${baseUrl}/api/discord/switch-bot`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({ tokenType: tokenType }) // Send the selection, let backend get the token
+            });
+
+            if (!switchResponse.ok) {
+              const errorText = await switchResponse.text().catch(() => 'Unknown error');
+              console.error('Failed to switch Discord bot in backend. Status:', switchResponse.status, 'Response:', errorText);
+              try {
+                const errorData = JSON.parse(errorText);
+                console.error('Parsed error:', errorData.error || errorData);
+              } catch (e) {
+                console.error('Raw error response:', errorText);
+              }
+              // Don't fail the entire operation for this, just log the warning
+            } else {
+              const switchData = await switchResponse.json();
+              console.log('Successfully switched Discord bot:', switchData.message);
+            }
+          } catch (switchError) {
+            console.warn('Error switching Discord bot in backend:', switchError);
+            // Don't fail the entire operation for this
+          }
+        }
+
         setSaveStatus('success');
         // Clear success status after 3 seconds
         setTimeout(() => setSaveStatus('idle'), 3000);

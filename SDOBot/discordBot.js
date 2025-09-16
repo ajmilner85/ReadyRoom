@@ -61,7 +61,7 @@ if (process.env.BOT_TOKEN) {
 }
 
 // Initialize Discord client with required intents
-const client = new Client({
+let client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMembers,
@@ -387,7 +387,10 @@ function createEventEmbed(title, description, eventTime, responses = {}, creator
       // IPs: Only pilots with the "Instructor Pilot" qualification
       const ips = entries.filter(entry => {
         const qualifications = entry.pilotRecord?.qualifications || [];
-        
+
+        // Debug logging for qualification checking
+        console.log(`[TRAINING-DEBUG] ${entry.displayName}: qualifications=${JSON.stringify(qualifications)}, hasIP=${qualifications.includes('Instructor Pilot')}, pilotRecord=${!!entry.pilotRecord}`);
+
         // Check for the specific "Instructor Pilot" qualification
         return qualifications.includes('Instructor Pilot');
       });
@@ -478,6 +481,8 @@ function createEventEmbed(title, description, eventTime, responses = {}, creator
 
   const shouldTrackQualifications = eventOptions.trackQualifications || false;
   const isTrainingEvent = eventOptions.eventType === 'Hop' || title.toLowerCase().includes('training');
+
+  console.log(`[EVENT-TYPE-DEBUG] Event "${title}": eventType=${eventOptions.eventType}, isTrainingEvent=${isTrainingEvent}, shouldTrackQualifications=${shouldTrackQualifications}`);
   
   // Format attendance lists
   let acceptedText, tentativeText;
@@ -1325,8 +1330,10 @@ setInterval(() => {
   }
 }, 60000); // Clean up every minute
 
-// Handle button interactions
-client.on('interactionCreate', async interaction => {
+// Function to setup Discord event handlers
+function setupDiscordEventHandlers() {
+  // Handle button interactions
+  client.on('interactionCreate', async interaction => {
   if (!interaction.isButton()) return;
 
   // Check if we've already processed this interaction
@@ -1497,7 +1504,10 @@ client.on('interactionCreate', async interaction => {
         qualifications: pilotData.pilot_qualifications?.map(pq => pq.qualification?.name).filter(Boolean) || [],
         currentStatus: { name: pilotData.status || 'Provisional' } // Simplified status mapping
       };
-      console.log(`[PILOT-DATA] Found pilot record for ${displayName}:`, pilotRecord);
+      console.log(`[PILOT-DATA] Found pilot record for ${displayName}:`, {
+        ...pilotRecord,
+        qualifications: pilotRecord.qualifications
+      });
     } else {
       console.log(`[PILOT-DATA] No pilot record found for Discord ID ${userId}`);
     }
@@ -1605,10 +1615,22 @@ client.on('interactionCreate', async interaction => {
   
   // Then add the new response
   if (customId === 'accept') {
+    console.log(`[BUTTON-DEBUG] Adding new user ${displayName} to accepted with pilot data:`, {
+      userId: userEntry.userId,
+      displayName: userEntry.displayName,
+      hasPilotRecord: !!userEntry.pilotRecord,
+      qualifications: userEntry.pilotRecord?.qualifications || []
+    });
     eventData.accepted.push(userEntry);
   } else if (customId === 'decline') {
     eventData.declined.push(userEntry);
   } else if (customId === 'tentative') {
+    console.log(`[BUTTON-DEBUG] Adding new user ${displayName} to tentative with pilot data:`, {
+      userId: userEntry.userId,
+      displayName: userEntry.displayName,
+      hasPilotRecord: !!userEntry.pilotRecord,
+      qualifications: userEntry.pilotRecord?.qualifications || []
+    });
     eventData.tentative.push(userEntry);
   }
   // Fetch fresh event data from database and extract all embed data using unified logic
@@ -1695,21 +1717,72 @@ client.on('interactionCreate', async interaction => {
   // for storing attendance data via the upsertEventAttendance() function call above
   
   console.log(`${displayName} (${userId}) responded ${customId} to event: ${eventData.title}`);
-});
+  });
+}
+
+// Setup initial event handlers
+setupDiscordEventHandlers();
 
 // Function to initialize the Discord bot connection
 async function initializeDiscordBot() {
   try {
     // This will ensure the bot is logged in and event responses are loaded
     await ensureLoggedIn();
-    
+
     // Start the countdown update manager
     await countdownManager.start();
-    
+
     return true;
   } catch (error) {
     console.error('Error initializing Discord bot:', error);
     throw error;
+  }
+}
+
+// Function to switch Discord bot token (local development only)
+async function switchDiscordBot(newToken) {
+  try {
+    console.log(`[BOT-SWITCH] Switching Discord bot token...`);
+
+    // Stop countdown manager first
+    countdownManager.stop();
+
+    // Disconnect current client
+    if (isLoggedIn) {
+      client.destroy();
+      isLoggedIn = false;
+      console.log(`[BOT-SWITCH] Disconnected from previous bot`);
+    }
+
+    // Clear event responses cache
+    eventResponses.clear();
+
+    // Create a new Discord client instance
+    const { Client, GatewayIntentBits } = require('discord.js');
+    client = new Client({
+      intents: [
+        GatewayIntentBits.Guilds,
+        GatewayIntentBits.GuildMessages,
+        GatewayIntentBits.GuildMessageReactions,
+        GatewayIntentBits.GuildMembers,
+        GatewayIntentBits.MessageContent
+      ]
+    });
+
+    // Re-setup event handlers
+    setupDiscordEventHandlers();
+
+    // Update the BOT_TOKEN environment variable
+    process.env.BOT_TOKEN = newToken;
+
+    // Reinitialize with new token
+    await initializeDiscordBot();
+
+    console.log(`[BOT-SWITCH] Successfully switched to new Discord bot: ${client.user.tag}`);
+    return { success: true, botInfo: { tag: client.user.tag, id: client.user.id } };
+  } catch (error) {
+    console.error('[BOT-SWITCH] Error switching Discord bot:', error);
+    return { success: false, error: error.message };
   }
 }
 
@@ -2320,6 +2393,37 @@ async function deleteThread(threadId, guildId) {
   }
 }
 
+// Function to get channels for a specific guild
+async function getGuildChannels(guildId) {
+  try {
+    await ensureLoggedIn();
+
+    const guild = client.guilds.cache.get(guildId);
+
+    if (!guild) {
+      throw new Error(`Discord server with ID ${guildId} not found or bot doesn't have access`);
+    }
+
+    // Get all text channels
+    const channels = Array.from(guild.channels.cache.values())
+      .filter(channel => channel.type === 0) // 0 = text channel
+      .map(channel => ({
+        id: channel.id,
+        name: channel.name,
+        type: channel.type,
+        position: channel.position,
+        parentId: channel.parentId,
+        parent: channel.parent ? channel.parent.name : null
+      }))
+      .sort((a, b) => a.position - b.position);
+
+    return { success: true, channels };
+  } catch (error) {
+    console.error('[GET-GUILD-CHANNELS] Error:', error);
+    return { success: false, error: error.message };
+  }
+}
+
 module.exports = {
   publishEventToDiscord,
   getEventAttendance,
@@ -2336,6 +2440,9 @@ module.exports = {
   createThreadFromMessage,
   deleteThread,
   postMessageToThread,
+  // Bot switching function
+  switchDiscordBot,
   shouldUseThreadsForEvent,
-  getThreadIdForEvent
+  getThreadIdForEvent,
+  getGuildChannels
 };

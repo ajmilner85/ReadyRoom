@@ -40,11 +40,11 @@ if (result.error) {
 
 // Require the Discord bot with an explicit path
 const discordBotPath = path.resolve(__dirname, '../SDOBot/discordBot');
-const { 
-  publishEventToDiscord, 
-  initializeDiscordBot, 
+const {
+  publishEventToDiscord,
+  initializeDiscordBot,
   deleteEventMessage,
-  editEventMessage, 
+  editEventMessage,
   getAvailableGuilds,
   countdownManager,
   sendReminderMessage,
@@ -53,7 +53,9 @@ const {
   getGuildMember,
   shouldUseThreadsForEvent,
   createThreadFromMessage,
-  deleteThread
+  deleteThread,
+  switchDiscordBot,
+  getGuildChannels
 } = require(discordBotPath);
 
 // Import Supabase client
@@ -109,25 +111,72 @@ app.head('/api/health', (req, res) => {
 app.post('/api/settings/timezone', async (req, res) => {
   try {
     const { timezone } = req.body;
-    
+
     if (!timezone) {
       return res.status(400).json({ error: 'Timezone is required' });
     }
-    
+
     // Update timezone setting for all squadrons (maintaining current global behavior)
     // Use raw SQL to update JSONB field since Supabase client doesn't handle JSONB updates well
     const { error } = await supabase
       .rpc('update_squadron_timezone', { new_timezone: timezone });
-    
+
     if (error) {
       throw error;
     }
-    
+
     console.log(`[SETTINGS] Updated reference timezone to: ${timezone}`);
     res.json({ success: true });
   } catch (error) {
     console.error('[ERROR] Error saving timezone setting:', error);
     res.status(500).json({ error: error.message || 'Failed to save timezone setting' });
+  }
+});
+
+// API endpoint to switch Discord bot token for local development
+app.post('/api/discord/switch-bot', async (req, res) => {
+  try {
+    const { tokenType } = req.body;
+
+    if (!tokenType || !['development', 'production'].includes(tokenType)) {
+      return res.status(400).json({ error: 'Valid tokenType (development or production) is required' });
+    }
+
+    console.log(`[BOT-SWITCH] Switching to ${tokenType} Discord bot token for local development...`);
+
+    // Get the actual bot token from environment variables
+    const botToken = tokenType === 'production'
+      ? process.env.BOT_TOKEN_PROD || process.env.BOT_TOKEN
+      : process.env.BOT_TOKEN_DEV;
+
+    if (!botToken) {
+      const error = `${tokenType} bot token not found in environment variables`;
+      console.error(`[BOT-SWITCH] ${error}`);
+      return res.status(500).json({ error });
+    }
+
+    // Call the bot switching function
+    const result = await switchDiscordBot(botToken);
+
+    if (result.success) {
+      console.log(`[BOT-SWITCH] Successfully switched to ${tokenType} Discord bot`);
+      res.json({
+        success: true,
+        message: `Discord bot switched to ${tokenType} successfully`,
+        tokenType: tokenType,
+        botInfo: result.botInfo
+      });
+    } else {
+      console.error(`[BOT-SWITCH] Failed to switch Discord bot:`, result.error);
+      res.status(500).json({
+        error: result.error || 'Failed to switch Discord bot token'
+      });
+    }
+  } catch (error) {
+    console.error('[BOT-SWITCH] Error switching Discord bot token:', error);
+    res.status(500).json({
+      error: error.message || 'Failed to switch Discord bot token'
+    });
   }
 });
 
@@ -1002,69 +1051,32 @@ app.get('/api/discord/servers', async (req, res) => {
 app.get('/api/discord/servers/:guildId/channels', async (req, res) => {
   try {
     const { guildId } = req.params;
-    
+
     if (!guildId) {
       return res.status(400).json({
         success: false,
         error: 'Guild ID is required'
       });
     }
-    
-    // Check if we have a recent cache for this guild
-    const now = Date.now();
-    if (channelCache.servers[guildId] && 
-        now - channelCache.timestamp < channelCache.ttl) {
-      // Return cached channels if they exist and are not expired
-      return res.json({
+
+    console.log(`[CHANNELS-ENDPOINT] Getting channels for guild ${guildId}...`);
+
+    // Use the shared Discord client through the bot module
+    const result = await getGuildChannels(guildId);
+
+    if (result.success) {
+      console.log(`[CHANNELS-ENDPOINT] Found ${result.channels.length} channels for guild ${guildId}`);
+      res.json({
         success: true,
-        channels: channelCache.servers[guildId],
-        cached: true
+        channels: result.channels
       });
-    }
-    
-    // Wait for client to be ready if not already
-    if (!discordClient.isReady()) {
-      await new Promise((resolve) => {
-        discordClient.once('ready', resolve);
-      });
-    }
-    
-    // Fetch the specified guild
-    const guild = discordClient.guilds.cache.get(guildId);
-    
-    if (!guild) {
-      return res.status(404).json({ 
+    } else {
+      console.error(`[CHANNELS-ENDPOINT] Error getting channels for guild ${guildId}:`, result.error);
+      res.status(404).json({
         success: false,
-        error: `Discord server with ID ${guildId} not found or bot doesn't have access` 
+        error: result.error
       });
     }
-    
-    // Fetch all channels
-    await guild.channels.fetch();
-    
-    // Filter to text channels that can be used for posting events
-    const textChannels = guild.channels.cache
-      .filter(channel => {
-        // Convert any type to string for comparison
-        const typeStr = String(channel.type);
-        // Include all text-like channels (can contain text messages)
-        return ['0', 'GUILD_TEXT', 'TEXT', 'DM', 'GROUP_DM', 'GUILD_NEWS', 
-                'GUILD_NEWS_THREAD', 'GUILD_PUBLIC_THREAD', 'GUILD_PRIVATE_THREAD'].includes(typeStr);
-      })
-      .map(channel => ({
-        id: channel.id,
-        name: channel.name,
-        type: channel.type
-      }));
-    
-    // Update the cache
-    channelCache.servers[guildId] = textChannels;
-    channelCache.timestamp = now;
-    
-    res.json({
-      success: true,
-      channels: textChannels
-    });
   } catch (error) {
     console.error('[ERROR] Error fetching Discord channels:', error);
     res.status(500).json({ 
