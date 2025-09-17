@@ -229,57 +229,19 @@ export async function assignQualificationToPilot(
  */
 export async function removeQualificationFromPilot(pilotId: string, qualificationId: string): Promise<{ success: boolean; error: any }> {
   try {
-    console.log('🗑️ Removing qualification:', { pilotId, qualificationId });
-
-    // Check user auth and permissions first
-    const { data: user } = await supabase.auth.getUser();
-    console.log('👤 Current user:', user.user?.id);
-
-    // Log permission debugging info (simplified to avoid TypeScript issues)
-    console.log('🔒 Permission check: User has auth, will check RLS policy directly');
-
-    // Try the delete with count to see exactly what happens
-    const { error, count } = await supabase
+    const { error } = await supabase
       .from('pilot_qualifications')
-      .delete({ count: 'exact' })
+      .delete()
       .eq('pilot_id', pilotId)
       .eq('qualification_id', qualificationId);
-
-    console.log('🗑️ Delete result:', { error, count, success: !error && (count || 0) > 0 });
-
-    if (error) {
-      console.error('❌ Delete error details:', error);
-      return { success: false, error };
-    }
-
-    if ((count || 0) === 0) {
-      console.warn('⚠️ No rows deleted - RLS policy likely blocking');
-
-      // Let's check what records actually exist that we can see
-      const { data: visible, error: visError } = await supabase
-        .from('pilot_qualifications')
-        .select('*')
-        .eq('pilot_id', pilotId);
-
-      console.log('👁️ Visible pilot_qualifications:', {
-        count: visible?.length || 0,
-        error: visError,
-        targetExists: visible?.some(q => q.qualification_id === qualificationId)
-      });
-
-      return { success: false, error: { message: 'Permission denied or record not found' } };
-    }
-
-    console.log('✅ Successfully deleted qualification');
 
     // Force clear cache for the pilot
     clearPilotQualificationsCache(pilotId);
     // Clear entire cache for batch consistency
     clearAllQualificationsCache();
 
-    return { success: true, error: null };
+    return { success: !error, error };
   } catch (e) {
-    console.error('💥 Exception during delete:', e);
     return { success: false, error: e };
   }
 }
