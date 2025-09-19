@@ -247,7 +247,7 @@ export async function getPilotByDiscordOriginalId(discordId: string): Promise<{ 
  */
 export async function createPilot(pilot: NewPilot): Promise<{ data: Pilot | null; error: any }> {
   // Check if board number already exists for active pilots only (exclude Retired/Removed)
-  const { data: existingPilot } = await supabase
+  const { data: existingPilots } = await supabase
     .from('pilots')
     .select(`
       id,
@@ -258,9 +258,16 @@ export async function createPilot(pilot: NewPilot): Promise<{ data: Pilot | null
       )
     `)
     .eq('boardNumber', pilot.boardNumber)
-    .not('pilot_statuses.statuses.name', 'in', '("Retired","Removed")')
-    .is('pilot_statuses.end_date', null)
-    .single();
+    .is('pilot_statuses.end_date', null);
+
+  // Filter out pilots with Retired or Removed status
+  const activePilots = existingPilots?.filter(p =>
+    !p.pilot_statuses?.some((ps: any) =>
+      ps.statuses?.name === 'Retired' || ps.statuses?.name === 'Removed'
+    )
+  );
+
+  const existingPilot = activePilots && activePilots.length > 0 ? activePilots[0] : null;
 
   if (existingPilot) {
     return { 
@@ -289,7 +296,7 @@ export async function createPilotWithStatusAndStanding(
   
   try {
     // Check if board number already exists for active pilots only (exclude Retired/Removed)
-    const { data: existingPilot } = await supabase
+    const { data: existingPilots } = await supabase
       .from('pilots')
       .select(`
         id,
@@ -300,9 +307,16 @@ export async function createPilotWithStatusAndStanding(
         )
       `)
       .eq('boardNumber', pilotData.boardNumber)
-      .not('pilot_statuses.statuses.name', 'in', '("Retired","Removed")')
-      .is('pilot_statuses.end_date', null)
-      .single();
+      .is('pilot_statuses.end_date', null);
+
+    // Filter out pilots with Retired or Removed status
+    const activePilots = existingPilots?.filter(p =>
+      !p.pilot_statuses?.some((ps: any) =>
+        ps.statuses?.name === 'Retired' || ps.statuses?.name === 'Removed'
+      )
+    );
+
+    const existingPilot = activePilots && activePilots.length > 0 ? activePilots[0] : null;
 
     if (existingPilot) {
       return { 
@@ -455,14 +469,20 @@ export async function updatePilot(id: string, updates: UpdatePilot): Promise<{ d
       `)
       .eq('boardNumber', updates.boardNumber)
       .neq('id', id)
-      .not('pilot_statuses.statuses.name', 'in', '("Retired","Removed")')
       .is('pilot_statuses.end_date', null);
 
     if (checkError) {
       return { data: null, error: checkError };
     }
 
-    if (existingPilots && existingPilots.length > 0) {
+    // Filter out pilots with Retired or Removed status
+    const activePilots = existingPilots?.filter(p =>
+      !p.pilot_statuses?.some((ps: any) =>
+        ps.statuses?.name === 'Retired' || ps.statuses?.name === 'Removed'
+      )
+    );
+
+    if (activePilots && activePilots.length > 0) {
       return {
         data: null,
         error: { message: `Board number ${updates.boardNumber} is already in use` }
@@ -491,16 +511,33 @@ export async function updatePilot(id: string, updates: UpdatePilot): Promise<{ d
     .from('pilots')
     .update(updates)
     .eq('id', id)
-    .select()
-    .single();
+    .select();
 
   if (error) {
     console.error('Error updating pilot:', error);
     console.error('Pilot ID:', id);
     console.error('Updates:', updates);
+    return { data: null, error };
   }
 
-  return { data, error };
+  // Handle case where no rows were updated (values were identical)
+  if (!data || data.length === 0) {
+    // Fetch the existing pilot data since no update was needed
+    const { data: existingData, error: fetchError } = await supabase
+      .from('pilots')
+      .select()
+      .eq('id', id)
+      .single();
+
+    if (fetchError) {
+      console.error('Error fetching pilot after no-op update:', fetchError);
+      return { data: null, error: fetchError };
+    }
+
+    return { data: existingData, error: null };
+  }
+
+  return { data: data[0], error };
 }
 
 /**
