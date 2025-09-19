@@ -20,6 +20,7 @@ import { useMissionPrepState } from '../../hooks/useMissionPrepState';
 import { useMissionPrepDataPersistence } from '../../hooks/useMissionPrepDataPersistence';
 import type { AssignedPilot, AssignedPilotsRecord } from '../../types/MissionPrepTypes';
 import AutoAssignConfigModal, { type AutoAssignConfig } from './mission prep/AutoAssignConfig';
+import { getUserSettings } from '../../utils/userSettingsService';
 import NoFlightsWarningDialog from './dialogs/NoFlightsWarningDialog';
 
 // Define the structure for the polled attendance data
@@ -168,15 +169,23 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
     setIsAutoAssignConfigOpen(true);
   }, []);
 
-  // Load auto-assignment configuration from sessionStorage
-  const getStoredAutoAssignConfig = (): AutoAssignConfig => {
+  // Load auto-assignment configuration from user preferences
+  const getStoredAutoAssignConfig = async (): Promise<AutoAssignConfig> => {
     try {
-      const stored = sessionStorage.getItem('autoAssignConfig');
-      if (stored) {
-        return JSON.parse(stored);
+      const settingsResult = await getUserSettings();
+      if (settingsResult.success && settingsResult.data?.preferences?.missionPrep?.autoAssignConfig) {
+        const config = settingsResult.data.preferences.missionPrep.autoAssignConfig;
+        return {
+          assignmentScope: config.assignmentScope || 'clear',
+          includeTentative: config.includeTentative || false,
+          flightFillingPriority: config.flightFillingPriority || 'breadth',
+          squadronCohesion: config.squadronCohesion || 'enforced',
+          assignUnqualified: config.assignUnqualified || false,
+          nonStandardCallsigns: config.nonStandardCallsigns || 'ignore'
+        };
       }
     } catch (error) {
-      console.warn('Failed to load auto-assign config from sessionStorage:', error);
+      console.warn('Failed to load auto-assign config from user preferences:', error);
     }
     return {
       assignmentScope: 'clear',
@@ -213,7 +222,7 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
     }
 
     // Load configuration and execute assignment directly
-    const config = getStoredAutoAssignConfig();
+    const config = await getStoredAutoAssignConfig();
 
     try {
       // Call the auto-assign function with configuration
