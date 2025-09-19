@@ -273,7 +273,7 @@ const PilotList: React.FC<PilotListProps> = ({
                         textTransform: 'uppercase'
                       }}
                     >
-                      {standing}
+                      {standing} ({standingPilots.length})
                     </span>
                   </div>
 
@@ -339,7 +339,7 @@ const PilotList: React.FC<PilotListProps> = ({
                         textTransform: 'uppercase'
                       }}
                     >
-                      {status}
+                      {status} ({statusPilots.length})
                     </span>
                   </div>
 
@@ -396,7 +396,7 @@ const PilotList: React.FC<PilotListProps> = ({
                   textTransform: 'uppercase'
                 }}
               >
-                Needs Attention
+                Needs Attention ({needsAttentionPilots.length})
               </span>
             </div>
 

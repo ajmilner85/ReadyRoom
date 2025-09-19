@@ -1545,7 +1545,6 @@ const RosterManagement: React.FC = () => {
       const currentRole = updatedPilot.roles?.[0]?.role;
       if (!currentRole || !currentRole.id) {
         // If no role is selected, end any existing role assignments
-        console.log("Save changes: Removing role for pilot", actualPilotId);
         const { error: endRoleError } = await supabase
           .from('pilot_roles')
           .update({ 
@@ -1921,7 +1920,7 @@ const RosterManagement: React.FC = () => {
             marginBottom: '20px', 
             padding: '0 16px' 
           }}>
-            <h2 style={{ fontSize: '24px', fontWeight: 600 }}>Squadron Roster</h2>
+            <h2 style={{ fontSize: '24px', fontWeight: 600 }}>Roster</h2>
             
             <div style={{ display: 'flex', gap: '12px' }}>
               <button

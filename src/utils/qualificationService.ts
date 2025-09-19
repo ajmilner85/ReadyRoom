@@ -183,8 +183,8 @@ export async function getQualificationUsageCount(qualificationId: string): Promi
  * Assign a qualification to a pilot
  */
 export async function assignQualificationToPilot(
-  pilotId: string, 
-  qualificationId: string, 
+  pilotId: string,
+  qualificationId: string,
   expiryDate?: Date | null,
   achieved_date?: Date | null,
   notes?: string | null
@@ -194,19 +194,19 @@ export async function assignQualificationToPilot(
       pilot_id: pilotId,
       qualification_id: qualificationId,
     };
-    
+
     if (expiryDate) {
       insertData.expiry_date = expiryDate.toISOString();
     }
-    
+
     if (achieved_date) {
       insertData.achieved_date = achieved_date.toISOString();
     }
-    
+
     if (notes) {
       insertData.notes = notes;
     }
-    
+
     const { data, error } = await supabase
       .from('pilot_qualifications')
       .insert(insertData)

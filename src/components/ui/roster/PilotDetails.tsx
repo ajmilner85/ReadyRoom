@@ -1252,17 +1252,6 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
             )}
           </Card>
 
-          {!isNewPilot && (
-            <Card className="p-4">
-              <h2 className="text-lg font-semibold mb-4" style={pilotDetailsStyles.sectionTitle}>
-                Attendance and Service Record
-              </h2>
-
-              <div style={pilotDetailsStyles.emptyQualMessage}>
-                Service record information will be available in a future update
-              </div>
-            </Card>
-          )}
         </div>
 
         {isEdited && (
