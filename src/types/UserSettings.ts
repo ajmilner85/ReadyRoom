@@ -18,7 +18,7 @@ export interface UserPreferences {
       assignmentScope?: 'clear' | 'fillGaps';
       includeTentative?: boolean;
       flightFillingPriority?: 'breadth' | 'depth';
-      squadronCohesion?: 'enforced' | 'prioritized' | 'prioritizeQualifications';
+      squadronCohesion?: 'enforced' | 'prioritized' | 'ignore';
       assignUnqualified?: boolean;
       nonStandardCallsigns?: 'ignore' | 'fillLast' | 'fillInSequence' | 'fillFirst';
     };

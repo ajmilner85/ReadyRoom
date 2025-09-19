@@ -5,7 +5,7 @@ export interface AutoAssignConfig {
   assignmentScope: 'clear' | 'fillGaps';
   includeTentative: boolean;
   flightFillingPriority: 'breadth' | 'depth';
-  squadronCohesion: 'enforced' | 'prioritized' | 'prioritizeQualifications';
+  squadronCohesion: 'enforced' | 'prioritized' | 'ignore';
   assignUnqualified: boolean;
   nonStandardCallsigns: 'ignore' | 'fillLast' | 'fillInSequence' | 'fillFirst';
 }
@@ -293,11 +293,11 @@ const AutoAssignConfigModal: React.FC<AutoAssignConfigModalProps> = ({
               <ToggleBadge
                 options={[
                   { value: 'enforced', label: 'Enforced' },
-                  { value: 'prioritized', label: 'Prioritized' },
-                  { value: 'prioritizeQualifications', label: 'Quals Priority' }
+                  { value: 'prioritized', label: 'Relaxed' },
+                  { value: 'ignore', label: 'Ignore' }
                 ]}
                 selected={config.squadronCohesion}
-                onChange={(value) => setConfig({ ...config, squadronCohesion: value as 'enforced' | 'prioritized' | 'prioritizeQualifications' })}
+                onChange={(value) => setConfig({ ...config, squadronCohesion: value as 'enforced' | 'prioritized' | 'ignore' })}
               />
             </OptionRow>
 

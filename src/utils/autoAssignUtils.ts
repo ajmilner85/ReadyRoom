@@ -130,8 +130,8 @@ async function consolidateSingletonFlights(
       
       let moved = false;
       
-      // Priority 1: Same squadron flight with gaps (if squadron cohesion allows)
-      if (config.squadronCohesion !== 'prioritizeQualifications') {
+      // Priority 1: Same squadron flight with gaps (if squadron cohesion enforced or prioritized)
+      if (config.squadronCohesion === 'enforced' || config.squadronCohesion === 'prioritized') {
         const sameSquadronFlights = eligibleGapFlights.filter(gap => {
           const flightSquadron = getSquadronForCallsign(gap.flight.callsign, squadronCallsigns);
           const pilotSquadron = pilotSquadronMap ? (pilotSquadronMap[singleton.pilot.id] || pilotSquadronMap[singleton.pilot.boardNumber]) : null;
@@ -158,7 +158,7 @@ async function consolidateSingletonFlights(
         }
       }
       
-      // Priority 2: Any flight with gaps (if enforced cohesion is not set)
+      // Priority 2: Any flight with gaps (for prioritized or ignore modes)
       if (!moved && config.squadronCohesion !== 'enforced' && eligibleGapFlights.length > 0) {
         const targetFlight = eligibleGapFlights[0]; // Take first available flight with gaps
         const lowestPosition = targetFlight.availablePositions.sort()[0];
@@ -217,6 +217,7 @@ export const autoAssignPilots = async (
     flightsCount: flights?.length || 0,
     pilotsCount: availablePilots?.length || 0,
     pilotsWithRollCall: availablePilots?.filter(p => p.rollCallStatus).map(p => ({ callsign: p.callsign, rollCall: p.rollCallStatus, discord: p.attendanceStatus })),
+    tentativePilots: availablePilots?.filter(p => p.rollCallStatus === 'Tentative' || p.attendanceStatus === 'tentative').map(p => ({ callsign: p.callsign, rollCall: p.rollCallStatus, discord: p.attendanceStatus })),
     config
   });
   
@@ -283,23 +284,50 @@ export const autoAssignPilots = async (
     }
   }
 
-  let availablePilotPool = availablePilots.filter(pilot => 
+  let availablePilotPool = availablePilots.filter(pilot =>
     !assignedPilotIds.has(pilot.id) && !assignedPilotIds.has(pilot.boardNumber)
   );
+
+  console.log('[AUTO-ASSIGN-DEBUG] Available pilot pool after filtering assigned:', {
+    totalCount: availablePilotPool.length,
+    pilotsWithStatus: availablePilotPool.filter(p => p.rollCallStatus || p.attendanceStatus).map(p => ({
+      callsign: p.callsign,
+      rollCall: p.rollCallStatus,
+      discord: p.attendanceStatus
+    }))
+  });
 
 
   // Determine flight processing order based on non-standard callsigns setting
   const flightOrder = determineFlightOrder(flights, squadronCallsigns, config.nonStandardCallsigns);
 
+  console.log('[SQUADRON-DEBUG] Squadron mappings:', JSON.stringify(squadronCallsigns.map(s => ({
+    squadron: s.designation,
+    id: s.squadronId,
+    callsigns: s.callsigns
+  })), null, 2));
+  console.log('[SQUADRON-DEBUG] Flight squadron assignments:', JSON.stringify(flightOrder.map(f => ({
+    flight: f.callsign,
+    squadron: getSquadronForCallsign(f.callsign, squadronCallsigns)?.designation || 'none'
+  })), null, 2));
+
   // Execute assignment strategy
+  console.log(`[STRATEGY-DEBUG] Using ${config.flightFillingPriority} strategy`);
   if (config.flightFillingPriority === 'depth') {
+    console.log('[STRATEGY-DEBUG] Executing depth-first assignment');
     await executeDepthFirstAssignment(flightOrder, availablePilotPool, newAssignments, allPilotQualifications, squadronCallsigns, config, pilotSquadronMap);
   } else {
+    console.log('[STRATEGY-DEBUG] Executing breadth-first assignment');
     await executeBreadthFirstAssignment(flightOrder, availablePilotPool, newAssignments, allPilotQualifications, squadronCallsigns, config, pilotSquadronMap);
   }
 
-  // Pass 2: Singleton Consolidation - Prevent singleton flights by redistributing lone pilots
-  await consolidateSingletonFlights(flightOrder, newAssignments, squadronCallsigns, config, pilotSquadronMap);
+  // Pass 2: Singleton Consolidation - Only run for depth-first (breadth-first intentionally creates balanced flights)
+  if (config.flightFillingPriority === 'depth') {
+    console.log('[CONSOLIDATION-DEBUG] Running singleton consolidation for depth-first strategy');
+    await consolidateSingletonFlights(flightOrder, newAssignments, squadronCallsigns, config, pilotSquadronMap);
+  } else {
+    console.log('[CONSOLIDATION-DEBUG] Skipping singleton consolidation for breadth-first strategy (intentionally balanced)');
+  }
 
   // Find mission commander candidate
   const suggestedMissionCommander = findMissionCommander(flights, newAssignments, allPilotQualifications);
@@ -382,6 +410,7 @@ async function executeDepthFirstAssignment(
 
 /**
  * Execute breadth-first assignment strategy
+ * Breadth-first creates balanced flights: 2-ship before 3-ship, 3-ship before 4-ship
  */
 async function executeBreadthFirstAssignment(
   flightOrder: Flight[],
@@ -393,34 +422,68 @@ async function executeBreadthFirstAssignment(
   pilotSquadronMap?: Record<string, any>
 ): Promise<void> {
 
-  const positionOrder = ['-1', '-2', '-3', '-4'];
-  
-  for (const position of positionOrder) {
-    
+  console.log('[BREADTH-DEBUG] Starting breadth-first assignment - targeting balanced flights');
+
+  // Target flight sizes in order: 2-ship, then 3-ship, then 4-ship
+  const targetSizes = [2, 3, 4];
+
+  for (const targetSize of targetSizes) {
+    console.log(`[BREADTH-DEBUG] Filling flights to ${targetSize}-ship strength`);
+
+    let pilotsAssignedThisRound = 0;
+
+    // For each flight, fill it to target size before moving to next flight
     for (const flight of flightOrder) {
-      // Skip if position already filled (Fill Gaps mode)
-      const isAlreadyAssigned = newAssignments[flight.id]?.some(p => p.dashNumber === position.substring(1));
-      if (isAlreadyAssigned && config.assignmentScope === 'fillGaps') {
-        continue;
+      // Fill this flight to target size
+      while ((newAssignments[flight.id]?.length || 0) < targetSize && availablePilotPool.length > 0) {
+        const nextPosition = (newAssignments[flight.id]?.length || 0) + 1;
+
+        // Skip if position already filled (Fill Gaps mode)
+        const isAlreadyAssigned = newAssignments[flight.id]?.some(p => p.dashNumber === nextPosition.toString());
+        if (isAlreadyAssigned && config.assignmentScope === 'fillGaps') {
+          break;
+        }
+
+        console.log(`[BREADTH-DEBUG] Attempting to fill ${flight.callsign}-${flight.flightNumber || 'X'} position -${nextPosition} (current size: ${newAssignments[flight.id]?.length || 0}, target: ${targetSize})`);
+
+        const bestPilot = await findBestPilotForPosition(
+          flight,
+          `-${nextPosition}`,
+          availablePilotPool,
+          allPilotQualifications,
+          squadronCallsigns,
+          config,
+          pilotSquadronMap
+        );
+
+        if (bestPilot) {
+          assignPilot(bestPilot, flight, nextPosition.toString(), newAssignments);
+          console.log(`[BREADTH-DEBUG] Assigned ${bestPilot.callsign} to ${flight.callsign}-${flight.flightNumber || 'X'} position -${nextPosition}`);
+
+          // Remove pilot from available pool
+          availablePilotPool = availablePilotPool.filter(p => p.id !== bestPilot.id && p.boardNumber !== bestPilot.boardNumber);
+          pilotsAssignedThisRound++;
+        } else {
+          // Can't fill this position, move to next flight
+          break;
+        }
       }
 
-      const bestPilot = await findBestPilotForPosition(
-        flight, 
-        position, 
-        availablePilotPool, 
-        allPilotQualifications, 
-        squadronCallsigns, 
-        config,
-        pilotSquadronMap
-      );
-
-      if (bestPilot) {
-        assignPilot(bestPilot, flight, position.substring(1), newAssignments);
-        // Remove pilot from available pool
-        availablePilotPool = availablePilotPool.filter(p => p.id !== bestPilot.id && p.boardNumber !== bestPilot.boardNumber);
+      // If we have no more pilots, break out of flight loop
+      if (availablePilotPool.length === 0) {
+        break;
       }
     }
+
+    console.log(`[BREADTH-DEBUG] Completed ${targetSize}-ship round. Assigned ${pilotsAssignedThisRound} pilots this round. Remaining pilots: ${availablePilotPool.length}`);
+
+    // If no pilots left, we're done
+    if (availablePilotPool.length === 0) {
+      break;
+    }
   }
+
+  console.log('[BREADTH-DEBUG] Breadth-first assignment complete');
 }
 
 /**
@@ -443,10 +506,12 @@ async function findBestPilotForPosition(
     const gate = gates[gateIndex];
     const candidates = filterPilotsByGate(availablePilots, gate, allPilotQualifications, pilotSquadronMap);
 
+    console.log(`[GATE-DEBUG] ${flight.callsign}${position} Gate ${gateIndex + 1}: ${candidates.length} candidates found (attendance: [${gate.attendance.join(', ')}], squadron: ${gate.squadron?.designation || 'any'}, quals: ${Array.isArray(gate.qualifications) ? gate.qualifications.join(',') : gate.qualifications || 'any'})`);
 
     if (candidates.length > 0) {
       // Tiebreaker: select by billet seniority (lowest order number)
       const bestPilot = selectByBilletSeniority(candidates);
+      console.log(`[GATE-DEBUG] ${flight.callsign}${position} Selected: ${bestPilot.callsign}`);
       return bestPilot;
     }
   }
@@ -466,15 +531,15 @@ function buildGatesForPosition(
   const attendanceOptions = config.includeTentative ? ['accepted', 'tentative'] : ['accepted'];
 
   if (position === '-1') {
-    // Gate 1: Overqualified + Same Squadron + Accepted
+    // Gate 1: Mission Commander + Same Squadron (for all modes)
     gates.push({
       attendance: attendanceOptions,
       squadron: flightSquadron,
       qualifications: ['Mission Commander']
     });
 
-    // Gate 2: Remove squadron requirement if prioritizing qualifications
-    if (config.squadronCohesion === 'prioritizeQualifications') {
+    // Gate 2: Mission Commander + Any Squadron (for prioritized/ignore modes)
+    if (config.squadronCohesion !== 'enforced') {
       gates.push({
         attendance: attendanceOptions,
         squadron: null,
@@ -482,15 +547,15 @@ function buildGatesForPosition(
       });
     }
 
-    // Gate 3: Reinstate squadron, qualified requirement
+    // Gate 3: Flight Lead + Same Squadron (for all modes)
     gates.push({
       attendance: attendanceOptions,
       squadron: flightSquadron,
       qualifications: ['Flight Lead']
     });
 
-    // Gate 4: Remove squadron if prioritizing qualifications
-    if (config.squadronCohesion === 'prioritizeQualifications') {
+    // Gate 4: Flight Lead + Any Squadron (for prioritized/ignore modes)
+    if (config.squadronCohesion !== 'enforced') {
       gates.push({
         attendance: attendanceOptions,
         squadron: null,
@@ -498,7 +563,7 @@ function buildGatesForPosition(
       });
     }
 
-    // Gate 5: Allow unqualified if configured
+    // Gate 5: Unqualified + Same Squadron (if allowing unqualified)
     if (config.assignUnqualified) {
       gates.push({
         attendance: attendanceOptions,
@@ -506,8 +571,8 @@ function buildGatesForPosition(
         qualifications: null
       });
 
-      // Gate 6: Remove squadron for unqualified if prioritizing qualifications
-      if (config.squadronCohesion === 'prioritizeQualifications') {
+      // Gate 6: Unqualified + Any Squadron (for prioritized/ignore modes)
+      if (config.squadronCohesion !== 'enforced') {
         gates.push({
           attendance: attendanceOptions,
           squadron: null,
@@ -523,7 +588,7 @@ function buildGatesForPosition(
       qualifications: ['Section Lead']
     });
 
-    if (config.squadronCohesion === 'prioritizeQualifications') {
+    if (config.squadronCohesion !== 'enforced') {
       gates.push({
         attendance: attendanceOptions,
         squadron: null,
@@ -538,7 +603,7 @@ function buildGatesForPosition(
         qualifications: null
       });
 
-      if (config.squadronCohesion === 'prioritizeQualifications') {
+      if (config.squadronCohesion !== 'enforced') {
         gates.push({
           attendance: attendanceOptions,
           squadron: null,
@@ -554,7 +619,7 @@ function buildGatesForPosition(
       qualifications: 'NOT_OVERQUALIFIED'
     });
 
-    if (config.squadronCohesion === 'prioritizeQualifications') {
+    if (config.squadronCohesion !== 'enforced') {
       gates.push({
         attendance: attendanceOptions,
         squadron: null,
@@ -569,7 +634,7 @@ function buildGatesForPosition(
       qualifications: null
     });
 
-    if (config.squadronCohesion === 'prioritizeQualifications') {
+    if (config.squadronCohesion !== 'enforced') {
       gates.push({
         attendance: attendanceOptions,
         squadron: null,
@@ -624,8 +689,9 @@ function filterPilotsByGate(
       }
     }
     
-    if (!attendanceMatch) {
-      console.log(`[ATTENDANCE-DEBUG] ${pilot.callsign}: NO MATCH - rollCall: ${rollCall}, discord: ${discord}, gateAttendance: ${gate.attendance.join(',')}`);
+    // Only log attendance mismatches for pilots that have some status (avoid spam from pilots with no data)
+    if (!attendanceMatch && (rollCall || discord)) {
+      console.log(`[ATTENDANCE-DEBUG] ${pilot.callsign}: NO MATCH - rollCall: ${rollCall}, discord: ${discord}, gateAttendance: [${gate.attendance.join(', ')}], includeTentative: ${gate.attendance.includes('tentative')}`);
     }
     
     if (!attendanceMatch) return false;
@@ -634,15 +700,24 @@ function filterPilotsByGate(
     if (gate.squadron && pilotSquadronMap) {
       const pilotSquadron = pilotSquadronMap[pilot.id] || pilotSquadronMap[pilot.boardNumber];
       if (!pilotSquadron || pilotSquadron.id !== gate.squadron.squadronId) {
+        console.log(`[SQUADRON-DEBUG] ${pilot.callsign}: FAILED squadron check - pilot squadron: ${pilotSquadron?.designation || 'none'}, required: ${gate.squadron.designation}`);
         return false; // Pilot not from required squadron
       }
     }
 
     // Check qualifications
     if (gate.qualifications === 'NOT_OVERQUALIFIED') {
-      return !hasOverQualifications(pilot, allPilotQualifications);
+      const isOverqualified = hasOverQualifications(pilot, allPilotQualifications);
+      if (isOverqualified) {
+        console.log(`[QUALS-DEBUG] ${pilot.callsign}: FAILED overqualification check - is overqualified for wingman position`);
+      }
+      return !isOverqualified;
     } else if (gate.qualifications && Array.isArray(gate.qualifications)) {
-      return hasRequiredQualifications(pilot, gate.qualifications, allPilotQualifications);
+      const hasQuals = hasRequiredQualifications(pilot, gate.qualifications, allPilotQualifications);
+      if (!hasQuals) {
+        console.log(`[QUALS-DEBUG] ${pilot.callsign}: FAILED qualification check - missing required: ${gate.qualifications.join(', ')}`);
+      }
+      return hasQuals;
     }
 
     return true;
