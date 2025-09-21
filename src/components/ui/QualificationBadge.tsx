@@ -80,6 +80,10 @@ const LEGACY_QUALIFICATION_CONFIGS: Record<QualificationType, { abbr: string; co
   'DTL': {
     abbr: 'DTL',
     color: '#4A4A4A'  // Dark Grey
+  },
+  'JTAC': {
+    abbr: 'JTAC',
+    color: '#8B5A00'  // Dark Gold
   }
 };
 

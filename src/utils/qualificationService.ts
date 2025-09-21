@@ -12,6 +12,7 @@ export interface Qualification {
   is_expirable: boolean;
   validity_period: number | null; // In days
   active: boolean;
+  order?: number; // Sort order for display
   created_at?: string;
   updated_at?: string | null;
 }
@@ -28,8 +29,8 @@ export async function getAllQualifications(): Promise<{ data: Qualification[] | 
     const { data, error } = await supabase
       .from('qualifications')
       .select('*')
-      .order('name', { ascending: true });
-    
+      .order('order', { ascending: true });
+
     return { data, error };
   } catch (e) {
     return { data: null, error: e };
@@ -78,7 +79,7 @@ export async function createQualification(qualification: Omit<Qualification, 'id
     const { data, error } = await supabase
       .from('qualifications')
       .insert(qualification)
-      .select()
+      .select('*')
       .single();
     
     return { data, error };
@@ -106,10 +107,12 @@ export async function updateQualification(id: string, updates: Partial<Omit<Qual
       .update(updatesWithTimestamp)
       .eq('id', id)
       .select('*');
-    
+
     if (error) {
       console.error('Qualification update error:', error);
     }
+
+    console.log('Qualification update raw response:', { data, error, originalId: id, updates: updatesWithTimestamp });
 
     return { data: data ? data[0] : null, error };
   } catch (e) {
@@ -498,7 +501,7 @@ export async function initializeDefaultQualifications(): Promise<void> {
   try {
     // Default qualifications
     const defaultQualifications = [
-      { 
+      {
         name: 'Section Lead',
         code: 'SL',
         requirements: {
@@ -509,9 +512,10 @@ export async function initializeDefaultQualifications(): Promise<void> {
         category: 'Leadership',
         is_expirable: false,
         active: true,
-        color: '#5B4E61' // Medium Purple color
+        color: '#5B4E61', // Medium Purple color
+        order: 1
       },
-      { 
+      {
         name: 'Flight Lead',
         code: 'FL',
         requirements: {
@@ -522,9 +526,10 @@ export async function initializeDefaultQualifications(): Promise<void> {
         category: 'Leadership',
         is_expirable: false,
         active: true,
-        color: '#732103' // Dark Orange color
+        color: '#732103', // Dark Orange color
+        order: 2
       },
-      { 
+      {
         name: 'Mission Commander',
         code: 'MC',
         requirements: {
@@ -535,9 +540,10 @@ export async function initializeDefaultQualifications(): Promise<void> {
         category: 'Leadership',
         is_expirable: false,
         active: true,
-        color: '#3D4451' // Dark Grey color
+        color: '#3D4451', // Dark Grey color
+        order: 3
       },
-      { 
+      {
         name: 'Landing Signals Officer',
         code: 'LSO',
         requirements: {
@@ -549,9 +555,10 @@ export async function initializeDefaultQualifications(): Promise<void> {
         is_expirable: true,
         validity_period: 365, // 1 year in days
         active: true,
-        color: '#0D4A3E' // Dark Green color
+        color: '#0D4A3E', // Dark Green color
+        order: 4
       },
-      { 
+      {
         name: 'Night Vision Devices',
         code: 'NVD',
         requirements: {
@@ -563,7 +570,8 @@ export async function initializeDefaultQualifications(): Promise<void> {
         is_expirable: true,
         validity_period: 180, // 6 months in days
         active: true,
-        color: '#222A35' // Dark Blue color
+        color: '#222A35', // Dark Blue color
+        order: 5
       },
     ];
 
