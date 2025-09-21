@@ -65,7 +65,7 @@ const settingsNavSections: SettingsNavSection[] = [
       {
         id: 'roster',
         icon: <Users size={20} />,
-        label: 'Roster Settings'
+        label: 'Roster'
       },
       {
         id: 'events',

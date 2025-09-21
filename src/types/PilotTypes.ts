@@ -16,7 +16,8 @@ export type QualificationType =
   | 'T/O'
   | 'NATOPS'
   | 'DFL'
-  | 'DTL';
+  | 'DTL'
+  | 'JTAC';
 
 // Legacy status type - maintained for compatibility
 export type PilotStatus = 'Command' | 'Staff' | 'Cadre' | 'Provisional' | 'Inactive' | 'Retired' | 'On Leave' | 'AWOL';
