@@ -35,13 +35,55 @@ const QualificationsManager: React.FC<QualificationsManagerProps> = ({
   const [showQualificationDropdown, setShowQualificationDropdown] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
+  // Function to calculate expiry date based on achieved date + validity period
+  const calculateExpiryDate = (achievedDate: string | null, qualification: Qualification) => {
+    if (!achievedDate || !qualification?.is_expirable || !qualification?.validity_period) {
+      return null;
+    }
+
+    const achieved = new Date(achievedDate);
+    const expiryDate = new Date(achieved);
+    expiryDate.setDate(expiryDate.getDate() + qualification.validity_period);
+    return expiryDate;
+  };
+
   // Function to check if qualification expires within 30 days
-  const isExpiringWithin30Days = (expiryDate: string | null) => {
+  const isExpiringWithin30Days = (expiryDate: Date | null) => {
     if (!expiryDate) return false;
-    const expiry = new Date(expiryDate);
     const thirtyDaysFromNow = new Date();
     thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
-    return expiry <= thirtyDaysFromNow;
+    return expiryDate <= thirtyDaysFromNow;
+  };
+
+  // Function to calculate days until expiry
+  const getDaysUntilExpiry = (expiryDate: Date | null) => {
+    if (!expiryDate) return null;
+    const today = new Date();
+    const timeDiff = expiryDate.getTime() - today.getTime();
+    const daysDiff = Math.ceil(timeDiff / (1000 * 3600 * 24));
+    return daysDiff;
+  };
+
+  // Function to format expiry display
+  const formatExpiryDisplay = (expiryDate: Date | null) => {
+    if (!expiryDate) return '-';
+
+    const daysUntil = getDaysUntilExpiry(expiryDate);
+    const formattedDate = expiryDate.toLocaleDateString('en-US', {
+      month: '2-digit',
+      day: '2-digit',
+      year: 'numeric'
+    });
+
+    if (daysUntil === null) return formattedDate;
+
+    if (daysUntil < 0) {
+      return `${formattedDate} (${Math.abs(daysUntil)} days ago)`;
+    } else if (daysUntil === 0) {
+      return `${formattedDate} (today)`;
+    } else {
+      return `${formattedDate} (${daysUntil} days)`;
+    }
   };
 
   const handleAddClick = () => {
@@ -150,7 +192,7 @@ const QualificationsManager: React.FC<QualificationsManagerProps> = ({
                   fontWeight: 500,
                   color: '#6B7280',
                   textTransform: 'uppercase',
-                  width: '80px',
+                  width: '150px',
                   borderRight: '1px solid #E5E7EB',
                   textAlign: 'center'
                 }}>
@@ -234,18 +276,25 @@ const QualificationsManager: React.FC<QualificationsManagerProps> = ({
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      width: '80px',
+                      width: '150px',
                       borderRight: '1px solid #F3F4F6'
                     }}>
-                      <span style={{
-                        fontSize: '13px',
-                        color: pilotQual.expiry_date && isExpiringWithin30Days(pilotQual.expiry_date) ? '#DC2626' : '#6B7280'
-                      }}>
-                        {pilotQual.expiry_date ?
-                          new Date(pilotQual.expiry_date).toLocaleDateString() :
-                          '-'
-                        }
-                      </span>
+                      {(() => {
+                        const expiryDate = calculateExpiryDate(pilotQual.achieved_date, pilotQual.qualification);
+                        const isExpiringSoon = isExpiringWithin30Days(expiryDate);
+                        const daysUntil = getDaysUntilExpiry(expiryDate);
+                        const isExpired = daysUntil !== null && daysUntil < 0;
+
+                        return (
+                          <span style={{
+                            fontSize: '13px',
+                            color: isExpired ? '#DC2626' : isExpiringSoon ? '#F59E0B' : '#6B7280',
+                            fontWeight: isExpired || isExpiringSoon ? '500' : 'normal'
+                          }}>
+                            {formatExpiryDisplay(expiryDate)}
+                          </span>
+                        );
+                      })()}
                     </div>
 
                     {/* Actions Column */}
