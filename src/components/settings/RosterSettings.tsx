@@ -2502,7 +2502,19 @@ const RosterSettings: React.FC<RosterSettingsProps> = ({ error, setError }) => {
               padding: '4px 0'
             }}>
             <button
-              onClick={() => setIsAddingQualification(true)}
+              onClick={() => {
+                // Reset form fields when opening modal
+                setNewQualificationName('');
+                setNewQualificationCode('');
+                setNewQualificationCategory('');
+                setNewQualificationRequirements('{}');
+                setNewQualificationIsExpirable(false);
+                setNewQualificationValidityPeriod(null);
+                setNewQualificationActive(true);
+                setNewQualificationColor('#646F7E');
+                setErrorMessage('');
+                setIsAddingQualification(true);
+              }}
               disabled={loading}
               style={{
                 width: '119px',
