@@ -79,18 +79,26 @@ const app = express();
 const PORT = process.env.SERVER_PORT || 3001;
 
 // Configure CORS with production origins for Fly.io deployment
+// Use environment variable if available, otherwise fallback to hardcoded list
+const corsOrigins = process.env.CORS_ORIGINS
+  ? process.env.CORS_ORIGINS.split(',').map(origin => origin.trim())
+  : [
+      'https://readyroom.vercel.app',
+      'https://readyroom.ajmilner.com',
+      'https://readyroom.fightingstingrays.com',
+      'https://readyroompreview.ajmilner.com',
+      'https://readyroom-git-development-ajmilner85s-projects.vercel.app',
+      'https://ready-room.vercel.app',
+      'https://ready-room-git-development-ajmilner85.vercel.app',
+      'http://localhost:5173',
+      'http://127.0.0.1:5173',
+      'http://localhost:4173'
+    ];
+
+console.log('[CORS] Allowed origins:', corsOrigins);
+
 app.use(cors({
-  origin: [
-    'https://readyroom.vercel.app',
-    'https://readyroom.ajmilner.com',
-    'https://readyroompreview.ajmilner.com',
-    'https://readyroom-git-development-ajmilner85s-projects.vercel.app',
-    'https://ready-room.vercel.app',
-    'https://ready-room-git-development-ajmilner85.vercel.app',
-    'http://localhost:5173', 
-    'http://127.0.0.1:5173', 
-    'http://localhost:4173'
-  ],
+  origin: corsOrigins,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-ID', 'x-discord-environment', 'X-Discord-Environment'],
   credentials: true
