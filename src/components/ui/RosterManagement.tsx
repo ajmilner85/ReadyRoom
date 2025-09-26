@@ -1224,50 +1224,55 @@ const RosterManagement: React.FC = () => {
   // Function to add a qualification to a pilot
   const handleAddQualification = async () => {
     if (!selectedPilot || !selectedQualification) return;
-    
+
     setUpdatingQualifications(true);
-    
+
     try {
       // Get the actual UUID
       const actualPilotId = await getActualPilotId(selectedPilot.id);
-      
+
       // Convert achieved date string to Date object
       const achievedDate = qualificationAchievedDate ? new Date(qualificationAchievedDate) : null;
-      
-      // Find the qualification object to include in optimistic update
+
+      // Find the qualification object
       const qualToAdd = availableQualifications.find(q => q.id === selectedQualification);
-      
-      // Optimistic update for UI responsiveness
-      if (qualToAdd) {
-        const optimisticQual = {
-          id: `temp-${Date.now()}`,
-          pilot_id: actualPilotId,
-          qualification_id: selectedQualification,
-          qualification: qualToAdd,
-          achieved_date: achievedDate?.toISOString()
-        };
-        
-        // Update pilotQualifications state immediately
-        setPilotQualifications(prev => [...prev, optimisticQual]);
-        
-        // Also update allPilotQualifications for badge rendering
-        setAllPilotQualifications(prev => ({
-          ...prev,
-          [selectedPilot.id]: [...(prev[selectedPilot.id] || []), optimisticQual]
-        }));
+      if (!qualToAdd) {
+        throw new Error('Selected qualification not found');
       }
-      
-      // Assign qualification
-      const { error } = await assignQualificationToPilot(
+
+      // Check if qualification already exists BEFORE attempting to add
+      const existingQual = pilotQualifications.find(pq => pq.qualification_id === selectedQualification);
+      if (existingQual) {
+        throw new Error(`Pilot already has the "${qualToAdd.name}" qualification`);
+      }
+
+      console.log('Adding qualification:', {
+        pilotId: actualPilotId,
+        qualificationId: selectedQualification,
+        qualificationName: qualToAdd.name,
+        achievedDate: achievedDate?.toISOString()
+      });
+
+      // Assign qualification to database FIRST (no optimistic update)
+      const { data, error } = await assignQualificationToPilot(
         actualPilotId,
         selectedQualification,
         null, // No expiry date initially
         achievedDate
       );
-      
+
       if (error) {
-        throw new Error(error.message);
+        console.error('Database error adding qualification:', error);
+
+        // Handle specific duplicate key error
+        if (error.message && error.message.includes('duplicate key value violates unique constraint')) {
+          throw new Error(`This qualification is already assigned to the pilot. Please refresh the page and try again.`);
+        }
+
+        throw new Error(error.message || 'Failed to add qualification to database');
       }
+
+      console.log('Qualification added to database successfully:', data);
       
       // Clear cache to ensure we get fresh qualification data
       clearPilotQualificationsCache(selectedPilot.id);
@@ -1309,41 +1314,47 @@ const RosterManagement: React.FC = () => {
   // Function to remove a qualification from a pilot
   const handleRemoveQualification = async (qualificationId: string) => {
     if (!selectedPilot) return;
-    
+
     setUpdatingQualifications(true);
-    
+
     try {
       // Get the actual UUID
       const actualPilotId = await getActualPilotId(selectedPilot.id);
-      
-      // Optimistic update - remove from UI immediately
-      const updatedQuals = pilotQualifications.filter(
+
+      // Store original qualifications for rollback
+      const originalQuals = [...pilotQualifications];
+
+      // Remove qualification from database FIRST (no optimistic update)
+      const { success, error } = await removeQualificationFromPilot(actualPilotId, qualificationId);
+
+      if (error) {
+        console.error('Database error removing qualification:', error);
+        throw new Error(error.message || 'Database error occurred');
+      }
+
+      if (!success) {
+        throw new Error('Failed to remove qualification from database');
+      }
+
+      // Only update UI after successful database removal
+      const updatedQuals = originalQuals.filter(
         pq => pq.qualification_id !== qualificationId
       );
       setPilotQualifications(updatedQuals);
-      
+
       // Also update allPilotQualifications for badge rendering
       setAllPilotQualifications(prev => ({
         ...prev,
         [selectedPilot.id]: updatedQuals,
         [actualPilotId]: updatedQuals
       }));
-      
-      // Remove qualification
-      const { success, error } = await removeQualificationFromPilot(actualPilotId, qualificationId);
-      
-      if (error) {
-        throw new Error(error.message);
-      }
-      
-      if (!success) {
-        throw new Error('Failed to remove qualification');
-      }
+
+      console.log('Qualification removed successfully');
     } catch (err: any) {
       console.error('Error removing qualification:', err);
       alert(`Error removing qualification: ${err.message}`);
-      
-      // Revert the optimistic update on error
+
+      // Force refresh qualifications from database to ensure UI is in sync
       fetchPilotQualifications(selectedPilot.id);
     } finally {
       setUpdatingQualifications(false);

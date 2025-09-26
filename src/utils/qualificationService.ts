@@ -232,19 +232,37 @@ export async function assignQualificationToPilot(
  */
 export async function removeQualificationFromPilot(pilotId: string, qualificationId: string): Promise<{ success: boolean; error: any }> {
   try {
-    const { error } = await supabase
+    console.log('Attempting to remove qualification:', { pilotId, qualificationId });
+
+    const { data, error, count } = await supabase
       .from('pilot_qualifications')
       .delete()
       .eq('pilot_id', pilotId)
-      .eq('qualification_id', qualificationId);
+      .eq('qualification_id', qualificationId)
+      .select();
+
+    console.log('Delete result:', { data, error, count, deletedRows: data?.length });
+
+    if (error) {
+      console.error('Supabase delete error:', error);
+      return { success: false, error };
+    }
+
+    // Check if any rows were actually deleted
+    if (!data || data.length === 0) {
+      console.warn('No rows were deleted - qualification may not exist');
+      return { success: false, error: { message: 'Qualification not found or already removed' } };
+    }
 
     // Force clear cache for the pilot
     clearPilotQualificationsCache(pilotId);
     // Clear entire cache for batch consistency
     clearAllQualificationsCache();
 
-    return { success: !error, error };
+    console.log('Qualification removed successfully');
+    return { success: true, error: null };
   } catch (e) {
+    console.error('Exception in removeQualificationFromPilot:', e);
     return { success: false, error: e };
   }
 }
