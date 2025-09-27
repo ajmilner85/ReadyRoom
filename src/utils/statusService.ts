@@ -1,4 +1,5 @@
-import { supabase } from './supabaseClient';
+import { supabase, getCurrentUser } from './supabaseClient';
+import { permissionCache } from './permissionCache';
 
 // Define the Status interface
 export interface Status {
@@ -25,13 +26,39 @@ export async function getAllStatuses(): Promise<{ data: Status[] | null; error: 
  * Add a new status
  */
 export async function createStatus(status: Omit<Status, 'id' | 'created_at'>): Promise<{ data: Status | null; error: any }> {
-  const { data, error } = await supabase
-    .from('statuses')
-    .insert(status)
-    .select()
-    .single();
+  try {
+    // Get current user for RLS context
+    const { user, error: userError } = await getCurrentUser();
+    if (userError || !user) {
+      return { data: null, error: userError || new Error('User not authenticated') };
+    }
 
-  return { data, error };
+    console.log('Creating status with user context:', {
+      status,
+      userId: user.id
+    });
+
+    // Ensure user permissions are calculated and cached in the correct format for RLS
+    try {
+      await permissionCache.getUserPermissions(user.id);
+      console.log('User permissions cached for RLS compliance');
+    } catch (permError) {
+      console.warn('Could not cache permissions, proceeding anyway:', permError);
+    }
+
+    const { data, error } = await supabase
+      .from('statuses')
+      .insert(status)
+      .select()
+      .single();
+
+    console.log('Status creation result:', { data, error });
+
+    return { data, error };
+  } catch (e) {
+    console.error('Exception in createStatus:', e);
+    return { data: null, error: e };
+  }
 }
 
 /**

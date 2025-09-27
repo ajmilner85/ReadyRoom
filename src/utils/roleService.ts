@@ -1,5 +1,6 @@
 // filepath: c:\Users\ajmil\OneDrive\Desktop\pri-fly\src\utils\roleService.ts
-import { supabase } from './supabaseClient';
+import { supabase, getCurrentUser } from './supabaseClient';
+import { permissionCache } from './permissionCache';
 
 // Define the Role interface with support for null created_at
 export interface Role {
@@ -77,6 +78,25 @@ export async function getAllRoles(): Promise<{ data: Role[] | null; error: any }
  */
 export async function createRole(role: Omit<Role, 'id' | 'created_at'>): Promise<{ data: Role | null; error: any }> {
   try {
+    // Get current user for RLS context
+    const { user, error: userError } = await getCurrentUser();
+    if (userError || !user) {
+      return { data: null, error: userError || new Error('User not authenticated') };
+    }
+
+    console.log('Creating role with user context:', {
+      role,
+      userId: user.id
+    });
+
+    // Ensure user permissions are calculated and cached in the correct format for RLS
+    try {
+      await permissionCache.getUserPermissions(user.id);
+      console.log('User permissions cached for RLS compliance');
+    } catch (permError) {
+      console.warn('Could not cache permissions, proceeding anyway:', permError);
+    }
+
     // Try different column names to handle potential schema differences
     const roleData = {
       name: role.name,
@@ -84,7 +104,7 @@ export async function createRole(role: Omit<Role, 'id' | 'created_at'>): Promise
       compatible_statuses: role.compatible_statuses,
       order: role.order
     };
-    
+
     const { data, error } = await supabase
       .from('roles')
       .insert(roleData)

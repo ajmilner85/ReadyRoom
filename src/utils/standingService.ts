@@ -1,4 +1,5 @@
-import { supabase } from './supabaseClient';
+import { supabase, getCurrentUser } from './supabaseClient';
+import { permissionCache } from './permissionCache';
 
 // Define the Standing interface
 export interface Standing {
@@ -24,13 +25,39 @@ export async function getAllStandings(): Promise<{ data: Standing[] | null; erro
  * Add a new standing
  */
 export async function createStanding(standing: Omit<Standing, 'id' | 'created_at'>): Promise<{ data: Standing | null; error: any }> {
-  const { data, error } = await supabase
-    .from('standings')
-    .insert(standing)
-    .select()
-    .single();
+  try {
+    // Get current user for RLS context
+    const { user, error: userError } = await getCurrentUser();
+    if (userError || !user) {
+      return { data: null, error: userError || new Error('User not authenticated') };
+    }
 
-  return { data, error };
+    console.log('Creating standing with user context:', {
+      standing,
+      userId: user.id
+    });
+
+    // Ensure user permissions are calculated and cached in the correct format for RLS
+    try {
+      await permissionCache.getUserPermissions(user.id);
+      console.log('User permissions cached for RLS compliance');
+    } catch (permError) {
+      console.warn('Could not cache permissions, proceeding anyway:', permError);
+    }
+
+    const { data, error } = await supabase
+      .from('standings')
+      .insert(standing)
+      .select()
+      .single();
+
+    console.log('Standing creation result:', { data, error });
+
+    return { data, error };
+  } catch (e) {
+    console.error('Exception in createStanding:', e);
+    return { data: null, error: e };
+  }
 }
 
 /**
@@ -64,13 +91,28 @@ export async function deleteStanding(id: string): Promise<{ success: boolean; er
  * Returns the number of pilots currently using this standing ID
  */
 export async function getStandingUsageCount(standingId: string): Promise<{ count: number; error: any }> {
-  const { error, count } = await supabase
-    .from('pilot_standings')
-    .select('id', { count: 'exact' })
-    .eq('standing_id', standingId)
-    .is('end_date', null); // Only count active standings
+  try {
+    // Get current user for RLS context
+    const { user, error: userError } = await getCurrentUser();
+    if (userError || !user) {
+      console.warn('No user context for getStandingUsageCount, proceeding anyway');
+    }
 
-  return { count: count || 0, error };
+    const { error, count } = await supabase
+      .from('pilot_standings')
+      .select('id', { count: 'exact' })
+      .eq('standing_id', standingId)
+      .is('end_date', null); // Only count active standings
+
+    if (error) {
+      console.error('Error getting standing usage count:', error);
+    }
+
+    return { count: count || 0, error };
+  } catch (e) {
+    console.error('Exception in getStandingUsageCount:', e);
+    return { count: 0, error: e };
+  }
 }
 
 /**
