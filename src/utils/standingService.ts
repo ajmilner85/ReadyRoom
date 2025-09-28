@@ -96,6 +96,14 @@ export async function getStandingUsageCount(standingId: string): Promise<{ count
     const { user, error: userError } = await getCurrentUser();
     if (userError || !user) {
       console.warn('No user context for getStandingUsageCount, proceeding anyway');
+    } else {
+      // Ensure user permissions are calculated and cached for RLS compliance
+      try {
+        await permissionCache.getUserPermissions(user.id);
+        console.log('User permissions cached for usage count RLS compliance');
+      } catch (permError) {
+        console.warn('Could not cache permissions for usage count, proceeding anyway:', permError);
+      }
     }
 
     const { error, count } = await supabase
@@ -106,6 +114,9 @@ export async function getStandingUsageCount(standingId: string): Promise<{ count
 
     if (error) {
       console.error('Error getting standing usage count:', error);
+      console.error('Error details:', { error, standingId });
+    } else {
+      console.log('Successfully got usage count for standing:', { standingId, count });
     }
 
     return { count: count || 0, error };

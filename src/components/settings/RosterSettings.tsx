@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { AlertCircle, Edit, Trash, X, Lock, Unlock, GripVertical } from 'lucide-react';
 import QualificationBadge from '../ui/QualificationBadge';
 import { Status, getAllStatuses, createStatus, updateStatus, deleteStatus, getStatusUsageCount, initializeDefaultStatuses } from '../../utils/statusService';
-import { Standing, getAllStandings, createStanding, updateStanding, deleteStanding } from '../../utils/standingService';
+import { Standing, getAllStandings, createStanding, updateStanding, deleteStanding, getStandingUsageCount } from '../../utils/standingService';
 import { Role, getAllRoles, createRole, updateRole, deleteRole, getRoleUsageCount, initializeDefaultRoles } from '../../utils/roleService';
 import { Qualification, getAllQualifications, createQualification, updateQualification, deleteQualification, getQualificationUsageCount, initializeDefaultQualifications } from '../../utils/qualificationService';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
@@ -135,10 +135,16 @@ const RosterSettings: React.FC<RosterSettingsProps> = ({ error, setError }) => {
         if (data) {
           setStandings(data);
           
-          // TODO: Add usage count for standings when pilot_standings relationship is established
+          // Get usage count for each standing
           const usageCounts: Record<string, number> = {};
           for (const standing of data) {
-            usageCounts[standing.id] = 0; // Placeholder until we have usage counting
+            const { count, error: usageError } = await getStandingUsageCount(standing.id);
+            if (!usageError) {
+              usageCounts[standing.id] = count;
+            } else {
+              console.warn(`Error getting usage count for standing ${standing.name}:`, usageError);
+              usageCounts[standing.id] = 0; // Fallback to 0 if there's an error
+            }
           }
           setStandingUsage(usageCounts);
         }
