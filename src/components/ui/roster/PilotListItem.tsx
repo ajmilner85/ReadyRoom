@@ -53,9 +53,10 @@ const PilotListItem: React.FC<PilotListItemProps> = ({
       }
     });
     
-    // Convert map back to array for rendering
-    const uniqueQuals = Array.from(qualMap.values());
-    
+    // Convert map back to array and sort by qualification order
+    const uniqueQuals = Array.from(qualMap.values())
+      .sort((a, b) => a.qualification.order - b.qualification.order);
+
     return uniqueQuals.map((pq: any) => (
       <QualificationBadge 
         key={`${pilot.id}-${pq.qualification.id}`}

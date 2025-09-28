@@ -207,7 +207,9 @@ const QualificationsManager: React.FC<QualificationsManagerProps> = ({
 
               {/* Table Body */}
               {pilotQualifications.length > 0 ? (
-                pilotQualifications.map((pilotQual, index) => (
+                pilotQualifications
+                  .sort((a, b) => a.qualification.order - b.qualification.order)
+                  .map((pilotQual, index) => (
                   <div
                     key={pilotQual.id}
                     style={{

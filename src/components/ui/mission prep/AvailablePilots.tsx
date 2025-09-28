@@ -123,19 +123,21 @@ interface PilotEntryProps {
     const dbQualifications = pilotQualifications || [];
     
     if (dbQualifications && dbQualifications.length > 0) {
-      return dbQualifications.map((pq, index) => {
-        if (pq.qualification) {
-          return (
-            <QualificationBadge 
-              key={`db-${pq.qualification.id}-${index}`}
-              type={pq.qualification.name as QualificationType}
-              code={pq.qualification.code}
-              color={pq.qualification.color}
-            />
-          );
-        }
-        return null;
-      }).filter(badge => badge !== null);
+      return dbQualifications
+        .sort((a, b) => (a.qualification?.order || 999) - (b.qualification?.order || 999))
+        .map((pq, index) => {
+          if (pq.qualification) {
+            return (
+              <QualificationBadge
+                key={`db-${pq.qualification.id}-${index}`}
+                type={pq.qualification.name as QualificationType}
+                code={pq.qualification.code}
+                color={pq.qualification.color}
+              />
+            );
+          }
+          return null;
+        }).filter(badge => badge !== null);
     }
     
     return [];
