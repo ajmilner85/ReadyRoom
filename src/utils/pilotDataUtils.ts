@@ -38,8 +38,8 @@ export function adaptSupabasePilots(pilots: any[]): Pilot[] {
       // Convert to Pilot format directly (without using deprecated function)
       return {
         id: safePilot.id,
-        discordId: safePilot.discord_original_id,
-        discord_original_id: safePilot.discord_original_id,
+        discordId: safePilot.discordId,  // Discord username
+        discord_original_id: safePilot.discord_original_id,  // Discord numeric ID
         callsign: safePilot.callsign,
         boardNumber: safePilot.boardNumber.toString(),
         status: determinePilotStatus(safePilot),
@@ -50,7 +50,7 @@ export function adaptSupabasePilots(pilots: any[]): Pilot[] {
           type: q as QualificationType,
           dateAchieved: new Date().toISOString().split('T')[0]
         })),
-        discordUsername: safePilot.discordId || ''
+        discordUsername: safePilot.discordId || ''  // Discord username for legacy compatibility
       } as Pilot;
     } catch (err) {
       console.error('Error adapting pilot:', err, pilot);
@@ -317,7 +317,7 @@ export function createAssignedPilotFromSupabase(
     // Add other properties needed for AssignedPilot
     qualifications,
     billet: getPilotRoleName(pilot),
-    discordUsername: pilot.discordId || ''
+    discordUsername: pilot.discordId || ''  // Discord username for legacy compatibility
   };
 }
 
