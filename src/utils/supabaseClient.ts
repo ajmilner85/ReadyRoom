@@ -268,12 +268,35 @@ export const updateCycle = async (cycleId: string, updates: Partial<Omit<Cycle, 
   if (updates.restrictedTo !== undefined) dbUpdates.restricted_to = updates.restrictedTo;
   if (updates.participants !== undefined) dbUpdates.participants = updates.participants;
 
+  // Debug: Check user permissions before update
+  console.log('[DEBUG] Attempting to update cycle:', { cycleId, updates: dbUpdates });
+
+  // Test if we can read the cycle first
+  const { data: existingCycle, error: readError } = await supabase
+    .from('cycles')
+    .select('id, name, participants')
+    .eq('id', cycleId)
+    .single();
+
+  console.log('[DEBUG] Can read cycle:', { existingCycle, readError });
+
+  // Check user permissions via SQL function
+  const { data: permTest, error: permError } = await supabase
+    .rpc('user_can_manage_cycle', {
+      user_auth_id: (await supabase.auth.getUser()).data.user?.id,
+      cycle_participants: existingCycle?.participants || null
+    });
+
+  console.log('[DEBUG] Permission test result:', { permTest, permError });
+
   const { data, error } = await supabase
     .from('cycles')
     .update(dbUpdates)
     .eq('id', cycleId)
     .select()
     .single();
+
+  console.log('[DEBUG] Update result:', { data, error, rowsAffected: data ? 1 : 0 });
 
   if (error) {
     console.error('Error updating cycle:', error);

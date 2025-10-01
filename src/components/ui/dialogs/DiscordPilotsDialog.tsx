@@ -89,6 +89,26 @@ export const DiscordPilotsDialog: React.FC<DiscordPilotsDialogProps> = ({
   const [popupPosition, setPopupPosition] = useState<{ top: number; shouldFlipUp: boolean } | null>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
   const tableContainerRef = useRef<HTMLDivElement>(null);
+
+  // Track original values to detect changes
+  const [originalMatches, setOriginalMatches] = useState<DiscordPilotMatch[]>([]);
+
+  // Helper function to check if a match has been modified
+  const hasMatchBeenModified = (currentMatch: DiscordPilotMatch, originalIndex: number): boolean => {
+    if (!originalMatches[originalIndex]) return false;
+
+    const original = originalMatches[originalIndex];
+
+    // Check if any relevant fields have changed
+    return (
+      currentMatch.statusId !== original.statusId ||
+      currentMatch.roleId !== original.roleId ||
+      currentMatch.squadronId !== original.squadronId ||
+      currentMatch.discordMember.boardNumber !== original.discordMember.boardNumber ||
+      currentMatch.discordMember.callsign !== original.discordMember.callsign ||
+      currentMatch.selectedPilotId !== original.selectedPilotId
+    );
+  };
   
   // Close popups and dropdowns when clicking outside or scrolling
   useEffect(() => {
@@ -374,9 +394,11 @@ export const DiscordPilotsDialog: React.FC<DiscordPilotsDialogProps> = ({
         return match;
       }));
       
-      
-      
+
+
       setMatches(enrichedMatches);
+      // Store original matches to detect changes later
+      setOriginalMatches(JSON.parse(JSON.stringify(enrichedMatches)));
       
       // Set default Discord Roles filter to exclude ignore roles
       if (ignoreRoleIds.length > 0) {
@@ -548,9 +570,30 @@ export const DiscordPilotsDialog: React.FC<DiscordPilotsDialogProps> = ({
   const handleSave = async () => {
     setProcessing(true);
     setError(null);
-    
+
     try {
-      const result = await processPilotMatches(matches);
+      // Only process matches that have been modified or are create-new
+      const matchesToProcess = matches.map((match, index) => {
+        // Always process create-new matches
+        if (match.action === 'create-new') {
+          return match;
+        }
+
+        // For update-existing, only process if something has changed
+        if (match.action === 'update-existing') {
+          if (hasMatchBeenModified(match, index)) {
+            return match;
+          } else {
+            // No changes made, skip this match
+            return { ...match, action: 'do-nothing' as const };
+          }
+        }
+
+        // Return as-is for do-nothing
+        return match;
+      });
+
+      const result = await processPilotMatches(matchesToProcess);
       
       // Sync Discord roles if enabled
       if (enableRoleSync) {
@@ -1302,13 +1345,13 @@ export const DiscordPilotsDialog: React.FC<DiscordPilotsDialogProps> = ({
                               
                               {match.action === 'update-existing' && match.selectedPilotId && (
                                 <div style={{ height: '20px' }}>
-                                  <span style={{ 
-                                    display: 'block', 
-                                    fontSize: '12px', 
-                                    color: '#0284C7', 
-                                    marginTop: '4px' 
+                                  <span style={{
+                                    display: 'block',
+                                    fontSize: '12px',
+                                    color: hasMatchBeenModified(match, originalIndex) ? '#0284C7' : '#059669',
+                                    marginTop: '4px'
                                   }}>
-                                    Update Existing Record
+                                    {hasMatchBeenModified(match, originalIndex) ? 'Update Existing Record' : 'Existing User Found'}
                                   </span>
                                 </div>
                               )}

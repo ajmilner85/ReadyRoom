@@ -422,8 +422,7 @@ export async function processPilotMatches(matches: DiscordPilotMatch[]): Promise
       if (match.action === 'update-existing' && match.selectedPilotId) {
         // We're now using the actual pilot UUID as selectedPilotId, so no need to fetch it again
         const pilotId = match.selectedPilotId;
-        
-        
+
         // First get the current pilot data with status and standing information
         const { data: pilotsWithStatus } = await supabase
           .from('pilots')
@@ -450,7 +449,8 @@ export async function processPilotMatches(matches: DiscordPilotMatch[]): Promise
           discord_original_id: match.discordMember.id,
           discordId: match.discordMember.username
         };
-        
+
+
         // Handle status update separately using join table if status has changed
         if (match.statusId && match.statusId !== currentStatusId) {
           // Import and use the join table service to update status
@@ -482,7 +482,7 @@ export async function processPilotMatches(matches: DiscordPilotMatch[]): Promise
           .from('pilots')
           .update(updates)
           .eq('id', pilotId);
-          
+
         if (updateError) {
           throw updateError;
         }
