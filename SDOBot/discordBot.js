@@ -1449,10 +1449,15 @@ function setupDiscordEventHandlers() {
   // Store the attendance in Supabase
   if (userResponse) {
     try {
+      // Format username as board number + callsign if pilot record exists
+      const formattedUsername = pilotRecord
+        ? (pilotRecord.boardNumber ? `${pilotRecord.boardNumber} ${pilotRecord.callsign}` : pilotRecord.callsign)
+        : displayName;
+
       const { data, error } = await upsertEventAttendance({
         discordEventId: eventId,
         discordUserId: userId,
-        discordUsername: displayName,
+        discordUsername: formattedUsername,
         userResponse
       });
       

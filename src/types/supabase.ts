@@ -1032,6 +1032,13 @@ export type Database = {
         Args: { "": string }
         Returns: string[]
       }
+      user_can_manage_cycle: {
+        Args: {
+          user_auth_id: string | undefined
+          cycle_participants: Json | null
+        }
+        Returns: boolean
+      }
     }
     Enums: {
       [_ in never]: never
