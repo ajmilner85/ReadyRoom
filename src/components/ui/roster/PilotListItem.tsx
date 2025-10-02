@@ -9,7 +9,7 @@ interface PilotListItemProps {
   pilot: Pilot;
   isSelected: boolean;
   isHovered: boolean;
-  onSelect: () => void;
+  onSelect: (event?: React.MouseEvent) => void;
   onMouseEnter: () => void;
   onMouseLeave: () => void;
   pilotQualifications: any[];
@@ -69,8 +69,14 @@ const PilotListItem: React.FC<PilotListItemProps> = ({
 
   return (
     <div
-      style={pilotListStyles.pilotRow(isSelected, isHovered)}
-      onClick={isDisabled ? undefined : onSelect}
+      style={{
+        ...pilotListStyles.pilotRow(isSelected, isHovered),
+        userSelect: 'none', // Prevent text selection during multi-select
+        WebkitUserSelect: 'none',
+        MozUserSelect: 'none',
+        msUserSelect: 'none'
+      }}
+      onClick={isDisabled ? undefined : (e) => onSelect(e as React.MouseEvent)}
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
       className={isDisabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}

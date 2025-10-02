@@ -7,13 +7,15 @@ interface StandingSelectorProps {
   selectedStandingId: string;
   updatingStanding: boolean;
   handleStandingChange: (standingId: string) => void;
+  placeholder?: string;
 }
 
 const StandingSelector: React.FC<StandingSelectorProps> = ({
   standings,
   selectedStandingId,
   updatingStanding,
-  handleStandingChange
+  handleStandingChange,
+  placeholder
 }) => {
   return (
     <div style={{ marginBottom: '20px' }}>
@@ -27,7 +29,7 @@ const StandingSelector: React.FC<StandingSelectorProps> = ({
           disabled={updatingStanding}
           style={{...pilotDetailsStyles.selector, width: '450px', appearance: 'none' as const}}
         >
-          {!selectedStandingId && <option value="">-- Select standing --</option>}
+          {!selectedStandingId && <option value="">{placeholder || '-- Select standing --'}</option>}
           {standings.sort((a, b) => a.order - b.order).map(standing => (
             <option key={standing.id} value={standing.id}>
               {standing.name}
