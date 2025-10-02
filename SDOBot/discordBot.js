@@ -769,7 +769,7 @@ async function editEventMessage(messageId, title, description, eventTime, guildI
         if (!existingResponses) {
           // Try to fetch responses from database
           try {
-            const { supabase } = require('../server/supabaseClient');
+            // supabase is already imported at the top of the file
             const { data: attendanceData, error: attendanceError } = await supabase
               .from('discord_event_attendance')
               .select('discord_id, discord_username, user_response')
@@ -1441,53 +1441,16 @@ function setupDiscordEventHandlers() {
 
   // Get event details from database
   const { event, error: eventError } = await getEventByDiscordId(eventId);
-  
+
   if (eventError) {
     console.warn(`Warning: Could not find event for Discord message ${eventId}: ${eventError}`);
   }
-  
-  // Store the attendance in Supabase
-  if (userResponse) {
-    try {
-      // Format username as board number + callsign if pilot record exists
-      const formattedUsername = pilotRecord
-        ? (pilotRecord.boardNumber ? `${pilotRecord.boardNumber} ${pilotRecord.callsign}` : pilotRecord.callsign)
-        : displayName;
 
-      const { data, error } = await upsertEventAttendance({
-        discordEventId: eventId,
-        discordUserId: userId,
-        discordUsername: formattedUsername,
-        userResponse
-      });
-      
-      if (error) {
-        console.error('Error saving attendance to database:', error);
-      } else {
-        console.log(`Successfully saved ${userResponse} response for ${displayName} in database`);
-      }
-    } catch (err) {
-      console.error('Unexpected error saving attendance:', err);
-    }
-  }
-  
-  // Update in-memory event data for Discord UI
-  // Remove user from all response lists by user ID
-  eventData.accepted = eventData.accepted.filter(entry => 
-    typeof entry === 'string' ? entry !== user.username : entry.userId !== userId
-  );
-  eventData.declined = eventData.declined.filter(entry => 
-    typeof entry === 'string' ? entry !== user.username : entry.userId !== userId
-  );
-  eventData.tentative = eventData.tentative.filter(entry => 
-    typeof entry === 'string' ? entry !== user.username : entry.userId !== userId
-  );
-  
   // Fetch pilot data from database to get qualifications, board number, etc.
   let pilotRecord = null;
   try {
-    const { supabase } = require('../server/supabaseClient');
-    
+    // supabase is already imported at the top of the file, no need to require again
+
     // Try to find pilot by Discord ID
     const { data: pilotData, error: pilotError } = await supabase
       .from('pilots')
@@ -1500,7 +1463,7 @@ function setupDiscordEventHandlers() {
       `)
       .eq('discord_original_id', userId)
       .single();
-    
+
     if (!pilotError && pilotData) {
       pilotRecord = {
         id: pilotData.id,
@@ -1519,6 +1482,43 @@ function setupDiscordEventHandlers() {
   } catch (error) {
     console.warn(`[PILOT-DATA] Error fetching pilot data for ${displayName}:`, error.message);
   }
+
+  // Store the attendance in Supabase
+  if (userResponse) {
+    try {
+      // Format username as board number + callsign if pilot record exists
+      const formattedUsername = pilotRecord
+        ? (pilotRecord.boardNumber ? `${pilotRecord.boardNumber} ${pilotRecord.callsign}` : pilotRecord.callsign)
+        : displayName;
+
+      const { data, error } = await upsertEventAttendance({
+        discordEventId: eventId,
+        discordUserId: userId,
+        discordUsername: formattedUsername,
+        userResponse
+      });
+
+      if (error) {
+        console.error('Error saving attendance to database:', error);
+      } else {
+        console.log(`Successfully saved ${userResponse} response for ${displayName} in database`);
+      }
+    } catch (err) {
+      console.error('Unexpected error saving attendance:', err);
+    }
+  }
+
+  // Update in-memory event data for Discord UI
+  // Remove user from all response lists by user ID
+  eventData.accepted = eventData.accepted.filter(entry =>
+    typeof entry === 'string' ? entry !== user.username : entry.userId !== userId
+  );
+  eventData.declined = eventData.declined.filter(entry =>
+    typeof entry === 'string' ? entry !== user.username : entry.userId !== userId
+  );
+  eventData.tentative = eventData.tentative.filter(entry =>
+    typeof entry === 'string' ? entry !== user.username : entry.userId !== userId
+  );
 
   // Add user to appropriate response list with both ID, display name, and pilot data
   const userEntry = { 
@@ -2047,7 +2047,7 @@ class CountdownUpdateManager {
         if (!currentResponses) {
           // Try to fetch responses from database
           try {
-            const { supabase } = require('../server/supabaseClient');
+            // supabase is already imported at the top of the file
             const { data: attendanceData, error: attendanceError } = await supabase
               .from('discord_event_attendance')
               .select('discord_id, discord_username, user_response')

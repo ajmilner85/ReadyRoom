@@ -8,13 +8,15 @@ interface SquadronSelectorProps {
   selectedSquadronId: string;
   updatingSquadron: boolean;
   handleSquadronChange: (squadronId: string) => void;
+  placeholder?: string;
 }
 
 const SquadronSelector: React.FC<SquadronSelectorProps> = ({
   squadrons,
   selectedSquadronId,
   updatingSquadron,
-  handleSquadronChange
+  handleSquadronChange,
+  placeholder
 }) => {
   return (
     <div style={{ marginBottom: '20px' }}>
@@ -28,7 +30,7 @@ const SquadronSelector: React.FC<SquadronSelectorProps> = ({
           disabled={updatingSquadron}
           style={{...pilotDetailsStyles.selector, width: '450px', appearance: 'none' as any}}
         >
-          <option value="">-- Unassigned --</option>
+          <option value="">{placeholder || '-- Unassigned --'}</option>
           {squadrons
             .filter(squadron => !squadron.deactivated_date) // Only show active squadrons
             .sort((a, b) => a.designation.localeCompare(b.designation))

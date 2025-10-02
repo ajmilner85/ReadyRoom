@@ -53,7 +53,9 @@ const RosterManagement: React.FC = () => {
     }
   }, [loading, setPageLoading]);
   const [selectedPilot, setSelectedPilot] = useState<Pilot | null>(null);
+  const [selectedPilots, setSelectedPilots] = useState<Pilot[]>([]); // For multi-select
   const [hoveredPilot, setHoveredPilot] = useState<string | null>(null);
+  const [lastSelectedIndex, setLastSelectedIndex] = useState<number | null>(null); // For shift-select
   const [selectedSquadronIds, setSelectedSquadronIds] = useState<string[]>([]); // empty means show all
   const [selectedStatusIds, setSelectedStatusIds] = useState<string[]>([]);
   const [selectedStandingIds, setSelectedStandingIds] = useState<string[]>([]);
@@ -1361,6 +1363,62 @@ const RosterManagement: React.FC = () => {
     }
   };
 
+  // Function to handle multi-select pilot selection
+  const handlePilotSelection = (pilot: Pilot, visiblePilots: Pilot[], event?: React.MouseEvent) => {
+    if (isAddingNewPilot) return; // Don't allow selection during new pilot creation
+
+    // Prevent text selection during multi-select
+    if (event?.shiftKey || event?.ctrlKey || event?.metaKey) {
+      event.preventDefault();
+    }
+
+    const index = visiblePilots.findIndex(p => p.id === pilot.id);
+    const isShiftKey = event?.shiftKey;
+    const isCtrlKey = event?.ctrlKey || event?.metaKey; // metaKey for Mac Command key
+
+    // Single selection (no modifier keys)
+    if (!isShiftKey && !isCtrlKey) {
+      setSelectedPilots([pilot]);
+      setSelectedPilot(pilot);
+      setLastSelectedIndex(index);
+      return;
+    }
+
+    // Ctrl/Cmd key: Toggle selection
+    if (isCtrlKey) {
+      const isAlreadySelected = selectedPilots.some(p => p.id === pilot.id);
+      if (isAlreadySelected) {
+        const newSelected = selectedPilots.filter(p => p.id !== pilot.id);
+        setSelectedPilots(newSelected);
+        setSelectedPilot(newSelected.length > 0 ? newSelected[newSelected.length - 1] : null);
+      } else {
+        setSelectedPilots([...selectedPilots, pilot]);
+        setSelectedPilot(pilot);
+      }
+      setLastSelectedIndex(index);
+      return;
+    }
+
+    // Shift key: Select range
+    if (isShiftKey && lastSelectedIndex !== null) {
+      const start = Math.min(lastSelectedIndex, index);
+      const end = Math.max(lastSelectedIndex, index);
+
+      // Get pilots in the range from the visible pilots list
+      const rangePilots = visiblePilots.slice(start, end + 1);
+
+      setSelectedPilots(rangePilots);
+      setSelectedPilot(pilot);
+      // Don't update lastSelectedIndex for shift selections
+      return;
+    }
+
+    // Fallback to single selection
+    setSelectedPilots([pilot]);
+    setSelectedPilot(pilot);
+    setLastSelectedIndex(index);
+  };
+
   // Function to handle pilot deletion
   const handleDeletePilot = async (pilotId: string) => {
     try {
@@ -1997,6 +2055,7 @@ const RosterManagement: React.FC = () => {
               roles={roles}
               qualifications={qualifications}
               selectedPilot={selectedPilot}
+              selectedPilots={selectedPilots}
               hoveredPilot={hoveredPilot}
               selectedSquadronIds={selectedSquadronIds}
               selectedStatusIds={selectedStatusIds}
@@ -2006,6 +2065,7 @@ const RosterManagement: React.FC = () => {
               filtersEnabled={filtersEnabled}
               allPilotQualifications={allPilotQualifications}
               setSelectedPilot={isAddingNewPilot ? undefined : setSelectedPilot}
+              onPilotSelection={!isAddingNewPilot ? handlePilotSelection : undefined}
               setHoveredPilot={setHoveredPilot}
               setSelectedSquadronIds={setSelectedSquadronIds}
               setSelectedStatusIds={setSelectedStatusIds}

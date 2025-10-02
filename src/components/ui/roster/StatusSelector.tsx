@@ -7,13 +7,15 @@ interface StatusSelectorProps {
   selectedStatusId: string;
   updatingStatus: boolean;
   handleStatusChange: (statusId: string) => void;
+  placeholder?: string;
 }
 
 const StatusSelector: React.FC<StatusSelectorProps> = ({
   statuses,
   selectedStatusId,
   updatingStatus,
-  handleStatusChange
+  handleStatusChange,
+  placeholder
 }) => {
   return (
     <div style={{ marginBottom: '20px' }}>
@@ -27,12 +29,12 @@ const StatusSelector: React.FC<StatusSelectorProps> = ({
           disabled={updatingStatus}
           style={{...pilotDetailsStyles.selector, width: '450px'}}
         >
+          {!selectedStatusId && <option value="">{placeholder || '-- Select status --'}</option>}
           {statuses.sort((a, b) => a.order - b.order).map(status => (
             <option key={status.id} value={status.id}>
               {status.name}
             </option>
           ))}
-          {!selectedStatusId && <option value="">-- Select status --</option>}
         </select>
         <div style={pilotDetailsStyles.selectorArrow}>
           <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">

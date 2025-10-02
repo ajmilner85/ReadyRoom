@@ -1,4 +1,4 @@
-import React, { useRef, useMemo } from 'react';
+import React, { useRef, useMemo, useCallback } from 'react';
 import { Pilot } from '../../../types/PilotTypes';
 import { Status } from '../../../utils/statusService';
 import { Standing } from '../../../utils/standingService';
@@ -17,6 +17,7 @@ interface PilotListProps {
   roles: Role[];
   qualifications: Qualification[];
   selectedPilot: Pilot | null;
+  selectedPilots?: Pilot[]; // For multi-select
   hoveredPilot: string | null;
   selectedSquadronIds: string[];
   selectedStatusIds: string[];
@@ -26,6 +27,7 @@ interface PilotListProps {
   filtersEnabled: boolean;
   allPilotQualifications: Record<string, any[]>;
   setSelectedPilot?: (pilot: Pilot) => void;
+  onPilotSelection?: (pilot: Pilot, visiblePilots: Pilot[], event?: React.MouseEvent) => void; // For multi-select
   setHoveredPilot: (id: string | null) => void;
   setSelectedSquadronIds: (ids: string[]) => void;
   setSelectedStatusIds: (ids: string[]) => void;
@@ -45,6 +47,7 @@ const PilotList: React.FC<PilotListProps> = ({
   roles,
   qualifications,
   selectedPilot,
+  selectedPilots = [],
   hoveredPilot,
   selectedSquadronIds,
   selectedStatusIds,
@@ -54,6 +57,7 @@ const PilotList: React.FC<PilotListProps> = ({
   filtersEnabled,
   allPilotQualifications,
   setSelectedPilot,
+  onPilotSelection,
   setHoveredPilot,
   setSelectedSquadronIds,
   setSelectedStatusIds,
@@ -143,48 +147,30 @@ const PilotList: React.FC<PilotListProps> = ({
 
   const { activePilots, inactivePilots, needsAttentionPilots } = pilotGroups;
 
-  // Group active pilots by standing
-  const groupedActivePilots = activePilots.reduce((acc, pilot) => {
-    const standingName = pilot.currentStanding 
-      ? pilot.currentStanding.name 
-      : 'Unassigned';
-    if (!acc[standingName]) {
-      acc[standingName] = [];
-    }
-    acc[standingName].push(pilot);
-    return acc;
-  }, {} as Record<string, Pilot[]>);
-
-  // Group inactive pilots by status
-  const groupedInactivePilots = inactivePilots.reduce((acc, pilot) => {
-    const statusName = pilot.currentStatus 
-      ? pilot.currentStatus.name 
-      : 'Unknown';
-    if (!acc[statusName]) {
-      acc[statusName] = [];
-    }
-    acc[statusName].push(pilot);
-    return acc;
-  }, {} as Record<string, Pilot[]>);
-
   // Get standing display order based on the order in the standings table
-  const standingOrder = standings
-    .sort((a, b) => a.order - b.order)
-    .map(standing => standing.name);
+  const standingOrder = useMemo(() =>
+    standings
+      .sort((a, b) => a.order - b.order)
+      .map(standing => standing.name),
+    [standings]
+  );
 
   // Get inactive status display order based on the order in the statuses table (only inactive ones)
-  const inactiveStatusOrder = statuses
-    .filter(status => !status.isActive)
-    .sort((a, b) => a.order - b.order)
-    .map(status => status.name);
+  const inactiveStatusOrder = useMemo(() =>
+    statuses
+      .filter(status => !status.isActive)
+      .sort((a, b) => a.order - b.order)
+      .map(status => status.name),
+    [statuses]
+  );
 
   // Helper function to sort pilots by role order, then alphabetically by callsign
-  const sortPilotsByRoleAndCallsign = (pilots: Pilot[]) => {
+  const sortPilotsByRoleAndCallsign = useCallback((pilots: Pilot[]) => {
     return [...pilots].sort((a, b) => {
       // Get the primary role for each pilot (first role in their roles array)
       const aRole = a.roles?.[0]?.role;
       const bRole = b.roles?.[0]?.role;
-      
+
       // If both have roles, sort by role order
       if (aRole && bRole) {
         const roleComparison = aRole.order - bRole.order;
@@ -192,15 +178,73 @@ const PilotList: React.FC<PilotListProps> = ({
           return roleComparison;
         }
       }
-      
+
       // If only one has a role, prioritize the one with a role (lower role.order means higher priority)
       if (aRole && !bRole) return -1;
       if (!aRole && bRole) return 1;
-      
+
       // If roles are the same (or both have no role), sort alphabetically by callsign
       return a.callsign.localeCompare(b.callsign);
     });
-  };
+  }, []);
+
+  // Build a flat array of all visible pilots in display order for multi-select
+  const visiblePilotsInOrder = useMemo(() => {
+    const ordered: Pilot[] = [];
+
+    // Add active pilots by standing order
+    standingOrder.forEach(standing => {
+      const standingPilots = activePilots.filter(p => p.currentStanding?.name === standing);
+      if (standingPilots.length > 0) {
+        ordered.push(...sortPilotsByRoleAndCallsign(standingPilots));
+      }
+    });
+
+    // Add inactive pilots by status order
+    inactiveStatusOrder.forEach(status => {
+      const statusPilots = inactivePilots.filter(p => p.currentStatus?.name === status);
+      if (statusPilots.length > 0) {
+        ordered.push(...sortPilotsByRoleAndCallsign(statusPilots));
+      }
+    });
+
+    // Add needs attention pilots
+    if (needsAttentionPilots.length > 0) {
+      ordered.push(...sortPilotsByRoleAndCallsign(needsAttentionPilots));
+    }
+
+    return ordered;
+  }, [activePilots, inactivePilots, needsAttentionPilots, standingOrder, inactiveStatusOrder, sortPilotsByRoleAndCallsign]);
+
+  // Group active pilots by standing
+  const groupedActivePilots = useMemo(() =>
+    activePilots.reduce((acc, pilot) => {
+      const standingName = pilot.currentStanding
+        ? pilot.currentStanding.name
+        : 'Unassigned';
+      if (!acc[standingName]) {
+        acc[standingName] = [];
+      }
+      acc[standingName].push(pilot);
+      return acc;
+    }, {} as Record<string, Pilot[]>),
+    [activePilots]
+  );
+
+  // Group inactive pilots by status
+  const groupedInactivePilots = useMemo(() =>
+    inactivePilots.reduce((acc, pilot) => {
+      const statusName = pilot.currentStatus
+        ? pilot.currentStatus.name
+        : 'Unknown';
+      if (!acc[statusName]) {
+        acc[statusName] = [];
+      }
+      acc[statusName].push(pilot);
+      return acc;
+    }, {} as Record<string, Pilot[]>),
+    [inactivePilots]
+  );
 
   return (
     <div ref={rosterListRef} style={pilotListStyles.container}>
@@ -278,19 +322,29 @@ const PilotList: React.FC<PilotListProps> = ({
                   </div>
 
                   {/* Pilot entries */}
-                  {sortedStandingPilots.map(pilot => (
-                    <PilotListItem
-                      key={pilot.id}
-                      pilot={pilot}
-                      isSelected={selectedPilot?.id === pilot.id}
-                      isHovered={hoveredPilot === pilot.id}
-                      onSelect={() => setSelectedPilot && setSelectedPilot(pilot)}
-                      onMouseEnter={() => setHoveredPilot(pilot.id)}
-                      onMouseLeave={() => setHoveredPilot(null)}
-                      pilotQualifications={allPilotQualifications[pilot.id] || []}
-                      isDisabled={isAddingNewPilot}
-                    />
-                  ))}
+                  {sortedStandingPilots.map((pilot) => {
+                    const isSelected = selectedPilots.some(p => p.id === pilot.id);
+
+                    return (
+                      <PilotListItem
+                        key={pilot.id}
+                        pilot={pilot}
+                        isSelected={isSelected}
+                        isHovered={hoveredPilot === pilot.id}
+                        onSelect={(event) => {
+                          if (onPilotSelection) {
+                            onPilotSelection(pilot, visiblePilotsInOrder, event);
+                          } else if (setSelectedPilot) {
+                            setSelectedPilot(pilot);
+                          }
+                        }}
+                        onMouseEnter={() => setHoveredPilot(pilot.id)}
+                        onMouseLeave={() => setHoveredPilot(null)}
+                        pilotQualifications={allPilotQualifications[pilot.id] || []}
+                        isDisabled={isAddingNewPilot}
+                      />
+                    );
+                  })}
                 </div>
               );
             })}
@@ -344,19 +398,29 @@ const PilotList: React.FC<PilotListProps> = ({
                   </div>
 
                   {/* Pilot entries */}
-                  {sortedStatusPilots.map(pilot => (
-                    <PilotListItem
-                      key={pilot.id}
-                      pilot={pilot}
-                      isSelected={selectedPilot?.id === pilot.id}
-                      isHovered={hoveredPilot === pilot.id}
-                      onSelect={() => setSelectedPilot && setSelectedPilot(pilot)}
-                      onMouseEnter={() => setHoveredPilot(pilot.id)}
-                      onMouseLeave={() => setHoveredPilot(null)}
-                      pilotQualifications={allPilotQualifications[pilot.id] || []}
-                      isDisabled={isAddingNewPilot}
-                    />
-                  ))}
+                  {sortedStatusPilots.map((pilot) => {
+                    const isSelected = selectedPilots.some(p => p.id === pilot.id);
+
+                    return (
+                      <PilotListItem
+                        key={pilot.id}
+                        pilot={pilot}
+                        isSelected={isSelected}
+                        isHovered={hoveredPilot === pilot.id}
+                        onSelect={(event) => {
+                          if (onPilotSelection) {
+                            onPilotSelection(pilot, visiblePilotsInOrder, event);
+                          } else if (setSelectedPilot) {
+                            setSelectedPilot(pilot);
+                          }
+                        }}
+                        onMouseEnter={() => setHoveredPilot(pilot.id)}
+                        onMouseLeave={() => setHoveredPilot(null)}
+                        pilotQualifications={allPilotQualifications[pilot.id] || []}
+                        isDisabled={isAddingNewPilot}
+                      />
+                    );
+                  })}
                 </div>
               );
             })}
@@ -401,19 +465,29 @@ const PilotList: React.FC<PilotListProps> = ({
             </div>
 
             {/* Pilot entries - sorted by role order, then callsign */}
-            {sortPilotsByRoleAndCallsign(needsAttentionPilots).map(pilot => (
-              <PilotListItem
-                key={pilot.id}
-                pilot={pilot}
-                isSelected={selectedPilot?.id === pilot.id}
-                isHovered={hoveredPilot === pilot.id}
-                onSelect={() => setSelectedPilot && setSelectedPilot(pilot)}
-                onMouseEnter={() => setHoveredPilot(pilot.id)}
-                onMouseLeave={() => setHoveredPilot(null)}
-                pilotQualifications={allPilotQualifications[pilot.id] || []}
-                isDisabled={isAddingNewPilot}
-              />
-            ))}
+            {sortPilotsByRoleAndCallsign(needsAttentionPilots).map((pilot) => {
+              const isSelected = selectedPilots.some(p => p.id === pilot.id);
+
+              return (
+                <PilotListItem
+                  key={pilot.id}
+                  pilot={pilot}
+                  isSelected={isSelected}
+                  isHovered={hoveredPilot === pilot.id}
+                  onSelect={(event) => {
+                    if (onPilotSelection) {
+                      onPilotSelection(pilot, visiblePilotsInOrder, event);
+                    } else if (setSelectedPilot) {
+                      setSelectedPilot(pilot);
+                    }
+                  }}
+                  onMouseEnter={() => setHoveredPilot(pilot.id)}
+                  onMouseLeave={() => setHoveredPilot(null)}
+                  pilotQualifications={allPilotQualifications[pilot.id] || []}
+                  isDisabled={isAddingNewPilot}
+                />
+              );
+            })}
           </div>
         )}
 
