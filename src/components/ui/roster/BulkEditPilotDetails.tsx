@@ -9,7 +9,8 @@ import { Qualification } from '../../../utils/qualificationService';
 import StatusSelector from './StatusSelector';
 import StandingSelector from './StandingSelector';
 import SquadronSelector from './SquadronSelector';
-import { Trash2, Plus } from 'lucide-react';
+import { Trash2, Plus, X } from 'lucide-react';
+import QualificationBadge from '../QualificationBadge';
 
 interface BulkEditPilotDetailsProps {
   selectedPilots: Pilot[];
@@ -176,6 +177,12 @@ const BulkEditPilotDetails: React.FC<BulkEditPilotDetailsProps> = ({
   onBulkClearDiscord
 }) => {
   const [showAddQualDialog, setShowAddQualDialog] = useState(false);
+
+  // Track pending changes
+  const [pendingStatusId, setPendingStatusId] = useState<string>('');
+  const [pendingStandingId, setPendingStandingId] = useState<string>('');
+  const [pendingSquadronId, setPendingSquadronId] = useState<string>('');
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [selectedQualification, setSelectedQualification] = useState('');
   const [achievedDate, setAchievedDate] = useState(new Date().toISOString().split('T')[0]);
   const [confirmDialog, setConfirmDialog] = useState<{
@@ -263,16 +270,79 @@ const BulkEditPilotDetails: React.FC<BulkEditPilotDetailsProps> = ({
   const hasDiscordLinked = selectedPilots.every(p => p.discordUsername);
 
   const handleAddQualification = async () => {
-    if (!selectedQualification) return;
+    console.log('[BulkEditPilotDetails] handleAddQualification called with:', { selectedQualification, achievedDate });
+
+    if (!selectedQualification) {
+      console.log('[BulkEditPilotDetails] No qualification selected, returning early');
+      return;
+    }
+
+    console.log('[BulkEditPilotDetails] Calling onBulkAddQualification...');
     await onBulkAddQualification(selectedQualification, achievedDate);
+    console.log('[BulkEditPilotDetails] onBulkAddQualification completed, cleaning up dialog');
+
     setShowAddQualDialog(false);
     setSelectedQualification('');
     setAchievedDate(new Date().toISOString().split('T')[0]);
   };
 
+  const handleStatusChange = (statusId: string) => {
+    setPendingStatusId(statusId);
+    setHasUnsavedChanges(true);
+  };
+
+  const handleStandingChange = (standingId: string) => {
+    setPendingStandingId(standingId);
+    setHasUnsavedChanges(true);
+  };
+
+  const handleSquadronChange = (squadronId: string) => {
+    setPendingSquadronId(squadronId);
+    setHasUnsavedChanges(true);
+  };
+
+  const handleSaveChanges = async () => {
+    try {
+      if (pendingStatusId) {
+        await onBulkStatusChange(pendingStatusId);
+      }
+      if (pendingStandingId) {
+        await onBulkStandingChange(pendingStandingId);
+      }
+      if (pendingSquadronId) {
+        await onBulkSquadronChange(pendingSquadronId);
+      }
+
+      // Reset pending changes
+      setPendingStatusId('');
+      setPendingStandingId('');
+      setPendingSquadronId('');
+      setHasUnsavedChanges(false);
+    } catch (error) {
+      console.error('Error saving bulk changes:', error);
+    }
+  };
+
+  const handleCancelChanges = () => {
+    setPendingStatusId('');
+    setPendingStandingId('');
+    setPendingSquadronId('');
+    setHasUnsavedChanges(false);
+  };
+
   return (
-    <div style={pilotDetailsStyles.container}>
-      <div>
+    <div style={{
+      ...pilotDetailsStyles.container,
+      overflow: 'hidden',
+      display: 'flex',
+      flexDirection: 'column',
+      padding: 0
+    }}>
+      <div style={{
+        flex: 1,
+        overflowY: 'auto',
+        padding: '24px'
+      }}>
         <div style={pilotDetailsStyles.header}>
           <h1 style={pilotDetailsStyles.headerTitle}>
             Bulk Editing {selectedPilots.length} Pilots
@@ -290,9 +360,9 @@ const BulkEditPilotDetails: React.FC<BulkEditPilotDetailsProps> = ({
               <div style={{ marginBottom: '24px' }}>
                 <StatusSelector
                   statuses={statuses}
-                  selectedStatusId=""
+                  selectedStatusId={pendingStatusId}
                   updatingStatus={false}
-                  handleStatusChange={onBulkStatusChange}
+                  handleStatusChange={handleStatusChange}
                   placeholder="Change Status..."
                 />
               </div>
@@ -300,9 +370,9 @@ const BulkEditPilotDetails: React.FC<BulkEditPilotDetailsProps> = ({
               <div style={{ marginBottom: '24px' }}>
                 <StandingSelector
                   standings={standings}
-                  selectedStandingId=""
+                  selectedStandingId={pendingStandingId}
                   updatingStanding={false}
-                  handleStandingChange={onBulkStandingChange}
+                  handleStandingChange={handleStandingChange}
                   placeholder="Change Standing..."
                 />
               </div>
@@ -312,9 +382,9 @@ const BulkEditPilotDetails: React.FC<BulkEditPilotDetailsProps> = ({
               <div style={{ marginBottom: '24px' }}>
                 <SquadronSelector
                   squadrons={squadrons}
-                  selectedSquadronId=""
+                  selectedSquadronId={pendingSquadronId}
                   updatingSquadron={false}
-                  handleSquadronChange={onBulkSquadronChange}
+                  handleSquadronChange={handleSquadronChange}
                   placeholder="Change Squadron..."
                 />
               </div>
@@ -381,99 +451,300 @@ const BulkEditPilotDetails: React.FC<BulkEditPilotDetailsProps> = ({
           </div>
 
           {commonQualifications.length > 0 ? (
-            <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '16px' }}>
-              <thead>
-                <tr style={{ borderBottom: '1px solid #E5E7EB' }}>
-                  <th style={{ textAlign: 'left', padding: '8px', fontSize: '12px', fontWeight: 500, color: '#6B7280' }}>
-                    Qualification
-                  </th>
-                  <th style={{ textAlign: 'left', padding: '8px', fontSize: '12px', fontWeight: 500, color: '#6B7280' }}>
-                    Achieved
-                  </th>
-                  <th style={{ textAlign: 'left', padding: '8px', fontSize: '12px', fontWeight: 500, color: '#6B7280' }}>
-                    Expires
-                  </th>
-                  <th style={{ textAlign: 'center', padding: '8px', fontSize: '12px', fontWeight: 500, color: '#6B7280', width: '80px' }}>
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {commonQualifications.map(qual => {
-                  const achievedRange = qual.earliestAchieved === qual.latestAchieved
-                    ? new Date(qual.earliestAchieved).toLocaleDateString()
-                    : `${new Date(qual.earliestAchieved).toLocaleDateString()} - ${new Date(qual.latestAchieved).toLocaleDateString()}`;
+            <div style={{
+              marginTop: '16px',
+              border: '1px solid #E5E7EB',
+              borderRadius: '6px',
+              backgroundColor: '#FFFFFF',
+              width: 'fit-content'
+            }}>
+              {/* Table Header */}
+              <div style={{
+                display: 'flex',
+                backgroundColor: '#F9FAFB',
+                borderBottom: '1px solid #E5E7EB',
+                borderRadius: '6px 6px 0 0'
+              }}>
+                <div style={{
+                  padding: '8px 12px',
+                  width: '50px',
+                  borderRight: '1px solid #E5E7EB'
+                }}>
+                </div>
+                <div style={{
+                  padding: '8px 12px',
+                  fontSize: '12px',
+                  fontWeight: 500,
+                  color: '#6B7280',
+                  textTransform: 'uppercase',
+                  minWidth: '250px',
+                  borderRight: '1px solid #E5E7EB'
+                }}>
+                  Qualification
+                </div>
+                <div style={{
+                  padding: '8px 12px',
+                  fontSize: '12px',
+                  fontWeight: 500,
+                  color: '#6B7280',
+                  textTransform: 'uppercase',
+                  minWidth: '200px',
+                  borderRight: '1px solid #E5E7EB',
+                  textAlign: 'center'
+                }}>
+                  Achieved
+                </div>
+                <div style={{
+                  padding: '8px 12px',
+                  fontSize: '12px',
+                  fontWeight: 500,
+                  color: '#6B7280',
+                  textTransform: 'uppercase',
+                  minWidth: '200px',
+                  borderRight: '1px solid #E5E7EB',
+                  textAlign: 'center'
+                }}>
+                  Expires
+                </div>
+                <div style={{
+                  width: '30px',
+                  padding: '8px 12px'
+                }}>
+                </div>
+              </div>
 
-                  const expiryRange = qual.earliestExpiry && qual.latestExpiry
-                    ? (qual.earliestExpiry === qual.latestExpiry
-                      ? new Date(qual.earliestExpiry).toLocaleDateString()
-                      : `${new Date(qual.earliestExpiry).toLocaleDateString()} - ${new Date(qual.latestExpiry).toLocaleDateString()}`)
-                    : 'N/A';
+              {/* Table Body */}
+              {commonQualifications.map((qual, index) => {
+                const achievedRange = qual.earliestAchieved === qual.latestAchieved
+                  ? new Date(qual.earliestAchieved).toLocaleDateString('en-US', {
+                      month: '2-digit',
+                      day: '2-digit',
+                      year: 'numeric'
+                    })
+                  : `${new Date(qual.earliestAchieved).toLocaleDateString('en-US', {
+                      month: '2-digit',
+                      day: '2-digit',
+                      year: 'numeric'
+                    })} - ${new Date(qual.latestAchieved).toLocaleDateString('en-US', {
+                      month: '2-digit',
+                      day: '2-digit',
+                      year: 'numeric'
+                    })}`;
 
-                  return (
-                    <tr key={qual.id} style={{ borderBottom: '1px solid #F3F4F6' }}>
-                      <td style={{ padding: '12px 8px', fontSize: '14px', color: '#1F2937' }}>
+                const expiryRange = qual.earliestExpiry && qual.latestExpiry
+                  ? (qual.earliestExpiry === qual.latestExpiry
+                    ? new Date(qual.earliestExpiry).toLocaleDateString('en-US', {
+                        month: '2-digit',
+                        day: '2-digit',
+                        year: 'numeric'
+                      })
+                    : `${new Date(qual.earliestExpiry).toLocaleDateString('en-US', {
+                        month: '2-digit',
+                        day: '2-digit',
+                        year: 'numeric'
+                      })} - ${new Date(qual.latestExpiry).toLocaleDateString('en-US', {
+                        month: '2-digit',
+                        day: '2-digit',
+                        year: 'numeric'
+                      })}`)
+                  : '-';
+
+                return (
+                  <div
+                    key={qual.id}
+                    style={{
+                      display: 'flex',
+                      borderBottom: index < commonQualifications.length - 1 ? '1px solid #F3F4F6' : 'none',
+                      backgroundColor: '#FFFFFF',
+                      height: '34px'
+                    }}
+                  >
+                    {/* Badge Column */}
+                    <div style={{
+                      padding: '5px 12px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      width: '50px',
+                      borderRight: '1px solid #F3F4F6'
+                    }}>
+                      <QualificationBadge
+                        type={qual.name as any}
+                        qualifications={availableQualifications}
+                        size="normal"
+                      />
+                    </div>
+
+                    {/* Qualification Name Column */}
+                    <div style={{
+                      padding: '5px 12px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      minWidth: '250px',
+                      borderRight: '1px solid #F3F4F6'
+                    }}>
+                      <span style={{
+                        fontSize: '14px',
+                        fontWeight: 500,
+                        color: '#111827'
+                      }}>
                         {qual.name}
-                      </td>
-                      <td style={{ padding: '12px 8px', fontSize: '14px', color: '#6B7280' }}>
+                      </span>
+                    </div>
+
+                    {/* Achieved Date Column */}
+                    <div style={{
+                      padding: '5px 12px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      minWidth: '200px',
+                      borderRight: '1px solid #F3F4F6'
+                    }}>
+                      <span style={{
+                        fontSize: '13px',
+                        color: '#6B7280'
+                      }}>
                         {achievedRange}
-                      </td>
-                      <td style={{ padding: '12px 8px', fontSize: '14px', color: '#6B7280' }}>
+                      </span>
+                    </div>
+
+                    {/* Expires Column */}
+                    <div style={{
+                      padding: '5px 12px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      minWidth: '200px',
+                      borderRight: '1px solid #F3F4F6'
+                    }}>
+                      <span style={{
+                        fontSize: '13px',
+                        color: '#6B7280'
+                      }}>
                         {expiryRange}
-                      </td>
-                      <td style={{ padding: '12px 8px', textAlign: 'center' }}>
-                        <button
-                          onClick={() => setConfirmDialog({ type: 'remove_qualification', qualificationId: qual.id })}
-                          style={{
-                            padding: '4px 8px',
-                            backgroundColor: '#FEE2E2',
-                            color: '#B91C1C',
-                            border: '1px solid #FCA5A5',
-                            borderRadius: '4px',
-                            cursor: 'pointer',
-                            fontSize: '12px'
-                          }}
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                      </span>
+                    </div>
+
+                    {/* Actions Column */}
+                    <div style={{
+                      width: '30px',
+                      padding: '5px 12px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center'
+                    }}>
+                      <button
+                        onClick={() => setConfirmDialog({ type: 'remove_qualification', qualificationId: qual.id })}
+                        title="Remove qualification from all selected pilots"
+                        style={{
+                          width: '16px',
+                          height: '16px',
+                          padding: '0',
+                          borderRadius: '4px',
+                          background: 'none',
+                          border: 'none',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          cursor: 'pointer',
+                          color: '#9CA3AF'
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.color = '#DC2626';
+                          e.currentTarget.style.backgroundColor = '#FEE2E2';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.color = '#9CA3AF';
+                          e.currentTarget.style.backgroundColor = 'transparent';
+                        }}
+                      >
+                        <X size={12} strokeWidth={2.5} />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           ) : (
             <div style={{ color: '#9CA3AF', fontSize: '14px', textAlign: 'center', padding: '16px' }}>
               No qualifications common to all selected pilots
             </div>
           )}
         </Card>
+      </div>
 
-        {/* Delete Pilots Button */}
-        <div style={{ marginTop: '24px', display: 'flex', justifyContent: 'flex-end' }}>
+      {/* Footer with action buttons */}
+      <div style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        padding: '18px',
+        borderTop: '1px solid #E2E8F0'
+      }}>
+        <button
+          onClick={() => setConfirmDialog({ type: 'delete_pilots' })}
+          style={{
+            ...exportButtonStyle,
+            backgroundColor: '#FEE2E2',
+            color: '#B91C1C',
+            border: '1px solid #FCA5A5',
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.backgroundColor = '#FECACA';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.backgroundColor = '#FEE2E2';
+          }}
+        >
+          <Trash2 size={16} />
+          Delete {selectedPilots.length} Pilot{selectedPilots.length > 1 ? 's' : ''}
+        </button>
+
+        <div style={{ display: 'flex', gap: '12px' }}>
           <button
-            onClick={() => setConfirmDialog({ type: 'delete_pilots' })}
+            onClick={handleCancelChanges}
+            disabled={!hasUnsavedChanges}
             style={{
               ...exportButtonStyle,
-              backgroundColor: '#FEE2E2',
-              color: '#B91C1C',
-              border: '1px solid #FCA5A5',
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = '#FECACA';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = '#FEE2E2';
+              backgroundColor: '#FFFFFF',
+              color: hasUnsavedChanges ? '#6B7280' : '#9CA3AF',
+              border: '1px solid #D1D5DB',
+              cursor: hasUnsavedChanges ? 'pointer' : 'not-allowed',
+              opacity: hasUnsavedChanges ? 1 : 0.6
             }}
           >
-            <Trash2 size={16} />
-            Delete {selectedPilots.length} Pilot{selectedPilots.length > 1 ? 's' : ''}
+            Cancel
+          </button>
+          <button
+            onClick={handleSaveChanges}
+            disabled={!hasUnsavedChanges}
+            style={{
+              ...exportButtonStyle,
+              backgroundColor: hasUnsavedChanges ? '#3B82F6' : '#93C5FD',
+              color: '#FFFFFF',
+              border: 'none',
+              cursor: hasUnsavedChanges ? 'pointer' : 'not-allowed'
+            }}
+            onMouseEnter={(e) => {
+              if (hasUnsavedChanges) {
+                e.currentTarget.style.backgroundColor = '#2563EB';
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (hasUnsavedChanges) {
+                e.currentTarget.style.backgroundColor = '#3B82F6';
+              }
+            }}
+          >
+            Save Changes
           </button>
         </div>
+      </div>
 
-        {/* Add Qualification Dialog */}
-        {showAddQualDialog && (
-          <div
+      {/* Add Qualification Dialog */}
+      {showAddQualDialog && (
+        <div
             style={{
               position: 'fixed',
               top: 0,
@@ -623,7 +894,6 @@ const BulkEditPilotDetails: React.FC<BulkEditPilotDetailsProps> = ({
           }}
           onCancel={() => setConfirmDialog(null)}
         />
-      </div>
     </div>
   );
 };

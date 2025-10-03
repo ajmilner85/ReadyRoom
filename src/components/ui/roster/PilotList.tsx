@@ -46,7 +46,7 @@ const PilotList: React.FC<PilotListProps> = ({
   squadrons,
   roles,
   qualifications,
-  selectedPilot,
+  selectedPilot: _selectedPilot,
   selectedPilots = [],
   hoveredPilot,
   selectedSquadronIds,

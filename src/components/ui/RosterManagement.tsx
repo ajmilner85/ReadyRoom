@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { usePageLoading } from '../../context/PageLoadingContext';
+import { usePermissions } from '../../hooks/usePermissions';
 import StandardPageLoader from './StandardPageLoader';
 import { Pilot } from '../../types/PilotTypes';
 import { 
@@ -31,12 +32,14 @@ import {
 import { rosterStyles } from '../../styles/RosterManagementStyles';
 import PilotList from './roster/PilotList';
 import PilotDetails from './roster/PilotDetails';
+import BulkEditPilotDetails from './roster/BulkEditPilotDetails';
 import { DiscordPilotsDialog } from './dialogs/DiscordPilotsDialog';
 import { v4 as uuidv4 } from 'uuid';
 
 const RosterManagement: React.FC = () => {
   const { setPageLoading } = usePageLoading();
-  
+  const { hasPermission } = usePermissions();
+
   // State for pilots and filtering
   const [pilots, setPilots] = useState<Pilot[]>([]);
   const [statuses, setStatuses] = useState<Status[]>([]);
@@ -347,6 +350,7 @@ const RosterManagement: React.FC = () => {
     setIsAddingNewPilot(true);
     setNewPilot(blankFormData);
     setSelectedPilot(blankPilot);
+    setSelectedPilots([]); // Clear bulk selection when adding new pilot
   };
 
   // Update new pilot field
@@ -1424,18 +1428,18 @@ const RosterManagement: React.FC = () => {
     try {
       // Get the actual UUID if this is a Discord ID
       const actualPilotId = await getActualPilotId(pilotId);
-      
+
       // Delete the pilot from the database
       const { success, error } = await deletePilot(actualPilotId);
-      
+
       if (error) {
         throw new Error(error.message || 'Failed to delete pilot');
       }
-      
+
       if (success) {
         // Update the pilots list by removing the deleted pilot
         setPilots(prevPilots => prevPilots.filter(p => p.id !== pilotId));
-        
+
         // Clear the selected pilot if it was the one deleted
         if (selectedPilot && selectedPilot.id === pilotId) {
           setSelectedPilot(null);
@@ -1452,6 +1456,212 @@ const RosterManagement: React.FC = () => {
     } catch (err: any) {
       console.error('Error deleting pilot:', err);
       alert(`Error deleting pilot: ${err.message}`);
+    }
+  };
+
+  // Bulk edit handlers
+  const handleBulkStatusChange = async (statusId: string) => {
+    if (!statusId || selectedPilots.length === 0) return;
+
+    // Check permission - for scoped permissions, just check if user has any scope
+    const canBulkEdit = hasPermission('canBulkEditRoster');
+    if (!canBulkEdit) {
+      console.error('Permission denied: bulk_edit_roster');
+      return;
+    }
+
+    try {
+      setUpdatingStatus(true);
+
+      // Update status for all selected pilots
+      const updates = selectedPilots.map(pilot =>
+        assignPilotStatus(pilot.id, statusId)
+      );
+
+      await Promise.all(updates);
+
+      // Refresh pilot data
+      await refreshPilots();
+    } catch (error) {
+      console.error('Error updating status:', error);
+    } finally {
+      setUpdatingStatus(false);
+    }
+  };
+
+  const handleBulkStandingChange = async (standingId: string) => {
+    if (!standingId || selectedPilots.length === 0) return;
+
+    // Check permission - for scoped permissions, just check if user has any scope
+    const canBulkEdit = hasPermission('canBulkEditRoster');
+    if (!canBulkEdit) {
+      console.error('Permission denied: bulk_edit_roster');
+      return;
+    }
+
+    try {
+      setUpdatingStanding(true);
+
+      // For each pilot, end current standing and start new one
+      const operations = selectedPilots.map(async (pilot) => {
+        await assignPilotStanding(pilot.id, standingId);
+      });
+
+      await Promise.all(operations);
+      await refreshPilots();
+    } catch (error) {
+      console.error('Error updating standing:', error);
+    } finally {
+      setUpdatingStanding(false);
+    }
+  };
+
+  const handleBulkSquadronChange = async (squadronId: string) => {
+    if (!squadronId || selectedPilots.length === 0) return;
+
+    // Check permission - for scoped permissions, just check if user has any scope
+    const canBulkEdit = hasPermission('canBulkEditRoster');
+    if (!canBulkEdit) {
+      console.error('Permission denied: bulk_edit_roster');
+      return;
+    }
+
+    try {
+      setUpdatingSquadron(true);
+
+      const operations = selectedPilots.map(async (pilot) => {
+        await assignPilotToSquadron(pilot.id, squadronId);
+      });
+
+      await Promise.all(operations);
+      await refreshPilots();
+    } catch (error) {
+      console.error('Error updating squadron:', error);
+    } finally {
+      setUpdatingSquadron(false);
+    }
+  };
+
+  const handleBulkAddQualification = async (qualificationId: string, achievedDate: string) => {
+    console.log('[Bulk Add Qual] Starting with:', { qualificationId, achievedDate, pilotCount: selectedPilots.length });
+
+    if (!qualificationId || selectedPilots.length === 0) {
+      console.log('[Bulk Add Qual] Early return - missing qualification or no pilots selected');
+      return;
+    }
+
+    // Check permission - for scoped permissions, just check if user has any scope
+    const canBulkEdit = hasPermission('canBulkEditRoster');
+    console.log('[Bulk Add Qual] Permission check result:', canBulkEdit);
+
+    if (!canBulkEdit) {
+      console.error('[Bulk Add Qual] Permission denied: bulk_edit_roster');
+      return;
+    }
+
+    try {
+      setUpdatingQualifications(true);
+      console.log('[Bulk Add Qual] Creating operations for pilots:', selectedPilots.map(p => ({ id: p.id, callsign: p.callsign })));
+
+      // Convert achieved date string to Date object
+      const achievedDateObj = achievedDate ? new Date(achievedDate) : null;
+      console.log('[Bulk Add Qual] Achieved date converted:', { input: achievedDate, output: achievedDateObj?.toISOString() });
+
+      const operations = selectedPilots.map(pilot => {
+        console.log(`[Bulk Add Qual] Assigning qual ${qualificationId} to pilot ${pilot.callsign} (${pilot.id})`);
+        return assignQualificationToPilot(pilot.id, qualificationId, null, achievedDateObj);
+      });
+
+      console.log('[Bulk Add Qual] Waiting for all operations to complete...');
+      await Promise.all(operations);
+      console.log('[Bulk Add Qual] All operations completed successfully');
+
+      // Refresh qualifications
+      console.log('[Bulk Add Qual] Refreshing qualifications...');
+      await fetchAllPilotQualifications();
+      console.log('[Bulk Add Qual] Refreshing pilots...');
+      await refreshPilots();
+      console.log('[Bulk Add Qual] Complete!');
+    } catch (error) {
+      console.error('[Bulk Add Qual] Error adding qualification:', error);
+    } finally {
+      setUpdatingQualifications(false);
+    }
+  };
+
+  const handleBulkRemoveQualification = async (qualificationId: string) => {
+    if (!qualificationId || selectedPilots.length === 0) return;
+
+    // Check permission - for scoped permissions, just check if user has any scope
+    const canBulkEdit = hasPermission('canBulkEditRoster');
+    if (!canBulkEdit) {
+      console.error('Permission denied: bulk_edit_roster');
+      return;
+    }
+
+    try {
+      setUpdatingQualifications(true);
+
+      const operations = selectedPilots.map(pilot =>
+        removeQualificationFromPilot(pilot.id, qualificationId)
+      );
+
+      await Promise.all(operations);
+
+      await fetchAllPilotQualifications();
+      await refreshPilots();
+    } catch (error) {
+      console.error('Error removing qualification:', error);
+    } finally {
+      setUpdatingQualifications(false);
+    }
+  };
+
+  const handleBulkClearDiscord = async () => {
+    if (selectedPilots.length === 0) return;
+
+    // Check permission - for scoped permissions, just check if user has any scope
+    const canBulkEdit = hasPermission('canBulkEditRoster');
+    if (!canBulkEdit) {
+      console.error('Permission denied: bulk_edit_roster');
+      return;
+    }
+
+    try {
+      const updates = selectedPilots.map(pilot =>
+        clearDiscordCredentials(pilot.id)
+      );
+
+      await Promise.all(updates);
+      await refreshPilots();
+    } catch (error) {
+      console.error('Error clearing Discord:', error);
+    }
+  };
+
+  const handleBulkDeletePilots = async () => {
+    if (selectedPilots.length === 0) return;
+
+    // Check permission - for scoped permissions, just check if user has any scope
+    const canBulkEdit = hasPermission('canBulkEditRoster');
+    if (!canBulkEdit) {
+      console.error('Permission denied: bulk_edit_roster');
+      return;
+    }
+
+    try {
+      const operations = selectedPilots.map(pilot =>
+        deletePilot(pilot.id)
+      );
+
+      await Promise.all(operations);
+
+      // Clear selection and reload
+      setSelectedPilots([]);
+      setSelectedPilot(null);
+      await refreshPilots();
+    } catch (error) {
+      console.error('Error deleting pilots:', error);
     }
   };
 
@@ -2077,8 +2287,24 @@ const RosterManagement: React.FC = () => {
               isAddingNewPilot={isAddingNewPilot}
             />
 
-            {/* Right column - Pilot Details */}
-            {isAddingNewPilot ? (
+            {/* Right column - Pilot Details or Bulk Edit */}
+            {selectedPilots.length > 1 ? (
+              <BulkEditPilotDetails
+                selectedPilots={selectedPilots}
+                statuses={statuses}
+                standings={standings}
+                squadrons={squadrons}
+                availableQualifications={availableQualifications}
+                allPilotQualifications={allPilotQualifications}
+                onBulkStatusChange={handleBulkStatusChange}
+                onBulkStandingChange={handleBulkStandingChange}
+                onBulkSquadronChange={handleBulkSquadronChange}
+                onBulkAddQualification={handleBulkAddQualification}
+                onBulkRemoveQualification={handleBulkRemoveQualification}
+                onBulkDeletePilots={handleBulkDeletePilots}
+                onBulkClearDiscord={handleBulkClearDiscord}
+              />
+            ) : isAddingNewPilot ? (
               memoizedNewPilotDetails
             ) : (
               memoizedSelectedPilotDetails
