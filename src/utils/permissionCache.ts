@@ -415,6 +415,7 @@ export class PermissionCacheService {
       canEditPilotQualifications: [],
       canDeletePilots: [],
       canManageStandings: [],
+      canBulkEditRoster: [],
       canViewPublicRoster: false,
       
       canManageEvents: [],

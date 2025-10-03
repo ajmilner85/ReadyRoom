@@ -1076,89 +1076,21 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
   };
 
   return (
-    <div ref={pilotDetailsRef} style={pilotDetailsStyles.container}>
-      <div>
+    <div ref={pilotDetailsRef} style={{
+      ...pilotDetailsStyles.container,
+      overflow: 'hidden',
+      display: 'flex',
+      flexDirection: 'column',
+      padding: 0
+    }}>
+      <div style={{
+        flex: 1,
+        overflowY: 'auto',
+        padding: '24px'
+      }}>
         {isNewPilot && (
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px' }}>
+          <div style={{ marginBottom: '16px' }}>
             <h1 style={{ fontSize: '24px', fontWeight: 600 }}>Add New Pilot</h1>
-            <div style={{ display: 'flex', gap: '12px' }}>
-              <button
-                onClick={onSaveNewPilot}
-                disabled={
-                  isSavingNewPilot ||
-                  !selectedPilot.callsign ||
-                  !selectedPilot.boardNumber ||
-                  !selectedPilot.status_id ||
-                  !selectedPilot.standing_id
-                }
-                style={{
-                  ...exportButtonStyle,
-                  cursor:
-                    isSavingNewPilot ||
-                    !selectedPilot.callsign ||
-                    !selectedPilot.boardNumber ||
-                    !selectedPilot.status_id ||
-                    !selectedPilot.standing_id
-                      ? 'not-allowed'
-                      : 'pointer',
-                  opacity:
-                    isSavingNewPilot ||
-                    !selectedPilot.callsign ||
-                    !selectedPilot.boardNumber ||
-                    !selectedPilot.status_id ||
-                    !selectedPilot.standing_id
-                      ? 0.7
-                      : 1,
-                }}
-                onMouseEnter={(e) => {
-                  if (
-                    !isSavingNewPilot &&
-                    selectedPilot.callsign &&
-                    selectedPilot.boardNumber &&
-                    selectedPilot.status_id &&
-                    selectedPilot.standing_id
-                  ) {
-                    e.currentTarget.style.backgroundColor = '#F8FAFC';
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  if (
-                    !isSavingNewPilot &&
-                    selectedPilot.callsign &&
-                    selectedPilot.boardNumber &&
-                    selectedPilot.status_id &&
-                    selectedPilot.standing_id
-                  ) {
-                    e.currentTarget.style.backgroundColor = '#FFFFFF';
-                  }
-                }}
-              >
-                <Save size={16} style={{ marginRight: '4px' }} />
-                {isSavingNewPilot ? 'Saving...' : 'Save'}
-              </button>
-              <button
-                onClick={onCancelAddPilot}
-                disabled={isSavingNewPilot}
-                style={{
-                  ...exportButtonStyle,
-                  cursor: isSavingNewPilot ? 'not-allowed' : 'pointer',
-                  opacity: isSavingNewPilot ? 0.7 : 1,
-                }}
-                onMouseEnter={(e) => {
-                  if (!isSavingNewPilot) {
-                    e.currentTarget.style.backgroundColor = '#F8FAFC';
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  if (!isSavingNewPilot) {
-                    e.currentTarget.style.backgroundColor = '#FFFFFF';
-                  }
-                }}
-              >
-                <X size={16} style={{ marginRight: '4px' }} />
-                Cancel
-              </button>
-            </div>
           </div>
         )}
 
@@ -1224,13 +1156,13 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
           </Card>
         )}
 
-        <div style={{ display: 'grid', gap: '24px', marginTop: '24px' }}>
-          <Card className="p-4">
-            <h2 className="text-lg font-semibold mb-4" style={pilotDetailsStyles.sectionTitle}>
-              Qualifications
-            </h2>
+        {!isNewPilot && (
+          <div style={{ display: 'grid', gap: '24px', marginTop: '24px' }}>
+            <Card className="p-4">
+              <h2 className="text-lg font-semibold mb-4" style={pilotDetailsStyles.sectionTitle}>
+                Qualifications
+              </h2>
 
-            {!isNewPilot && (
               <QualificationsManager
                 pilotQualifications={pilotQualifications}
                 availableQualifications={availableQualifications}
@@ -1244,67 +1176,23 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
                 handleAddQualification={handleAddQualification}
                 handleRemoveQualification={handleRemoveQualification}
               />
-            )}
-            {isNewPilot && (
-              <div style={{ marginTop: '20px', color: '#64748B', fontSize: '14px' }}>
-                Qualifications can be added after creating the pilot.
-              </div>
-            )}
-          </Card>
-
-        </div>
-
-        {isEdited && (
-          <div style={{ marginTop: '24px', display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
-            <button
-              onClick={handleSaveChanges}
-              disabled={isSaving}
-              style={{
-                ...exportButtonStyle,
-                cursor: isSaving ? 'not-allowed' : 'pointer',
-                opacity: isSaving ? 0.7 : 1,
-              }}
-              onMouseEnter={(e) => {
-                if (!isSaving) {
-                  e.currentTarget.style.backgroundColor = '#F8FAFC';
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (!isSaving) {
-                  e.currentTarget.style.backgroundColor = '#FFFFFF';
-                }
-              }}
-            >
-              <Save size={16} style={{ marginRight: '4px' }} />
-              {isSaving ? 'Saving...' : 'Save Changes'}
-            </button>
-            <button
-              onClick={handleCancelChanges}
-              disabled={isSaving}
-              style={{
-                ...exportButtonStyle,
-                cursor: isSaving ? 'not-allowed' : 'pointer',
-                opacity: isSaving ? 0.7 : 1,
-              }}
-              onMouseEnter={(e) => {
-                if (!isSaving) {
-                  e.currentTarget.style.backgroundColor = '#F8FAFC';
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (!isSaving) {
-                  e.currentTarget.style.backgroundColor = '#FFFFFF';
-                }
-              }}
-            >
-              <X size={16} style={{ marginRight: '4px' }} />
-              Cancel
-            </button>
+            </Card>
           </div>
         )}
 
-        {!isNewPilot && handleDeletePilot && (
-          <div style={{ marginTop: '24px', display: 'flex', justifyContent: 'flex-end' }}>
+      </div>
+
+      {/* Footer with action buttons */}
+      <div style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        padding: '18px',
+        borderTop: '1px solid #E2E8F0'
+      }}>
+        {/* Delete button on the left (only for existing pilots) */}
+        <div>
+          {!isNewPilot && handleDeletePilot && (
             <button
               onClick={() => setShowDeleteConfirmation(true)}
               style={{
@@ -1323,24 +1211,156 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
               <Trash2 size={16} style={{ marginRight: '4px' }} />
               Delete Pilot
             </button>
-          </div>
-        )}
+          )}
+        </div>
 
-        {showDeleteConfirmation && (
-          <div
-            style={{
-              position: 'fixed',
-              top: 0,
-              left: 0,
-              width: '100%',
-              height: '100%',
-              backgroundColor: 'rgba(0, 0, 0, 0.5)',
-              display: 'flex',
-              justifyContent: 'center',
-              alignItems: 'center',
-              zIndex: 1000,
-            }}
-          >
+        {/* Save/Cancel buttons on the right */}
+        <div style={{ display: 'flex', gap: '12px' }}>
+          {isNewPilot ? (
+            <>
+              <button
+                onClick={onCancelAddPilot}
+                disabled={isSavingNewPilot}
+                style={{
+                  ...exportButtonStyle,
+                  cursor: isSavingNewPilot ? 'not-allowed' : 'pointer',
+                  opacity: isSavingNewPilot ? 0.7 : 1,
+                }}
+                onMouseEnter={(e) => {
+                  if (!isSavingNewPilot) {
+                    e.currentTarget.style.backgroundColor = '#F8FAFC';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!isSavingNewPilot) {
+                    e.currentTarget.style.backgroundColor = '#FFFFFF';
+                  }
+                }}
+              >
+                <X size={16} style={{ marginRight: '4px' }} />
+                Cancel
+              </button>
+              <button
+                onClick={onSaveNewPilot}
+                disabled={
+                  isSavingNewPilot ||
+                  !selectedPilot.callsign ||
+                  !selectedPilot.boardNumber ||
+                  !selectedPilot.status_id ||
+                  !selectedPilot.standing_id
+                }
+                style={{
+                  ...exportButtonStyle,
+                  cursor:
+                    isSavingNewPilot ||
+                    !selectedPilot.callsign ||
+                    !selectedPilot.boardNumber ||
+                    !selectedPilot.status_id ||
+                    !selectedPilot.standing_id
+                      ? 'not-allowed'
+                      : 'pointer',
+                  opacity:
+                    isSavingNewPilot ||
+                    !selectedPilot.callsign ||
+                    !selectedPilot.boardNumber ||
+                    !selectedPilot.status_id ||
+                    !selectedPilot.standing_id
+                      ? 0.7
+                      : 1,
+                }}
+                onMouseEnter={(e) => {
+                  if (
+                    !isSavingNewPilot &&
+                    selectedPilot.callsign &&
+                    selectedPilot.boardNumber &&
+                    selectedPilot.status_id &&
+                    selectedPilot.standing_id
+                  ) {
+                    e.currentTarget.style.backgroundColor = '#F8FAFC';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (
+                    !isSavingNewPilot &&
+                    selectedPilot.callsign &&
+                    selectedPilot.boardNumber &&
+                    selectedPilot.status_id &&
+                    selectedPilot.standing_id
+                  ) {
+                    e.currentTarget.style.backgroundColor = '#FFFFFF';
+                  }
+                }}
+              >
+                <Save size={16} style={{ marginRight: '4px' }} />
+                {isSavingNewPilot ? 'Saving...' : 'Save'}
+              </button>
+            </>
+          ) : isEdited && (
+            <>
+              <button
+                onClick={handleCancelChanges}
+                disabled={isSaving}
+                style={{
+                  ...exportButtonStyle,
+                  cursor: isSaving ? 'not-allowed' : 'pointer',
+                  opacity: isSaving ? 0.7 : 1,
+                }}
+                onMouseEnter={(e) => {
+                  if (!isSaving) {
+                    e.currentTarget.style.backgroundColor = '#F8FAFC';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!isSaving) {
+                    e.currentTarget.style.backgroundColor = '#FFFFFF';
+                  }
+                }}
+              >
+                <X size={16} style={{ marginRight: '4px' }} />
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveChanges}
+                disabled={isSaving}
+                style={{
+                  ...exportButtonStyle,
+                  cursor: isSaving ? 'not-allowed' : 'pointer',
+                  opacity: isSaving ? 0.7 : 1,
+                }}
+                onMouseEnter={(e) => {
+                  if (!isSaving) {
+                    e.currentTarget.style.backgroundColor = '#F8FAFC';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!isSaving) {
+                    e.currentTarget.style.backgroundColor = '#FFFFFF';
+                  }
+                }}
+              >
+                <Save size={16} style={{ marginRight: '4px' }} />
+                {isSaving ? 'Saving...' : 'Save Changes'}
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+
+      {showDeleteConfirmation && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            width: '100%',
+            height: '100%',
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            zIndex: 1000,
+          }}
+        >
             <div
               style={{
                 backgroundColor: '#FFFFFF',
@@ -1403,10 +1423,10 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
           </div>
         )}
 
-        {/* Repair Qualification Dialog */}
-        {showRepairDialog && repairDialogData && (
-          <div
-            style={{
+      {/* Repair Qualification Dialog */}
+      {showRepairDialog && repairDialogData && (
+        <div
+          style={{
               position: 'fixed',
               top: 0,
               left: 0,
@@ -1645,7 +1665,6 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
             </div>
           </div>
         )}
-      </div>
     </div>
   );
 };

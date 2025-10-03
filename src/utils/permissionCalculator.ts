@@ -349,6 +349,7 @@ export class PermissionCalculator {
       canEditPilotQualifications: [],
       canDeletePilots: [],
       canManageStandings: [],
+      canBulkEditRoster: [],
       canViewPublicRoster: false,
       
       // Events (scoped)
@@ -447,6 +448,11 @@ export class PermissionCalculator {
       case 'manage_standings':
         if (!this.hasScopeContext(permissions.canManageStandings, scopeContext)) {
           permissions.canManageStandings.push(scopeContext);
+        }
+        break;
+      case 'bulk_edit_roster':
+        if (!this.hasScopeContext(permissions.canBulkEditRoster, scopeContext)) {
+          permissions.canBulkEditRoster.push(scopeContext);
         }
         break;
       case 'view_public_roster':

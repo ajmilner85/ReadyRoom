@@ -64,6 +64,7 @@ export interface UserPermissions {
   canEditPilotQualifications: PermissionScopeContext[];
   canDeletePilots: PermissionScopeContext[];
   canManageStandings: PermissionScopeContext[];
+  canBulkEditRoster: PermissionScopeContext[];
   canViewPublicRoster: boolean;
   
   // Events Management (scope-aware)
