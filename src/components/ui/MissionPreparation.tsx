@@ -294,7 +294,8 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
         // Debug the attendance data update
         const dsrmRecord = attendanceRecords.find(record => {
           return activePilots?.find(pilot => {
-            const discordId = pilot.discordId || pilot.discord_original_id;
+            // Use discord_original_id (numeric ID) for matching, as that's what the attendance API returns
+            const discordId = pilot.discord_original_id || pilot.discordId;
             return discordId === record.discord_id && pilot.callsign === 'DSRM';
           });
         });
@@ -377,7 +378,8 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
       const originalFlightPilots = assignedPilots[flightId];
       // Map to potentially create a new array for the flight
       const updatedFlightPilots = originalFlightPilots.map(pilot => {
-        const discordId = pilot.discordId || (pilot as any).discord_original_id || (pilot as any).discord_id;
+        // Use discord_original_id (numeric ID) for matching, as that's what the attendance API returns
+        const discordId = pilot.discord_original_id || (pilot as any).discord_original_id || (pilot as any).discord_id;
         // Find the realtime status for this pilot
         const realtimeRecord = discordId ? realtimeAttendanceData.find(record => record.discord_id === discordId) : undefined;
         

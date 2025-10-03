@@ -1567,9 +1567,45 @@ const RosterManagement: React.FC = () => {
       const achievedDateObj = achievedDate ? new Date(achievedDate) : null;
       console.log('[Bulk Add Qual] Achieved date converted:', { input: achievedDate, output: achievedDateObj?.toISOString() });
 
-      const operations = selectedPilots.map(pilot => {
-        console.log(`[Bulk Add Qual] Assigning qual ${qualificationId} to pilot ${pilot.callsign} (${pilot.id})`);
-        return assignQualificationToPilot(pilot.id, qualificationId, null, achievedDateObj);
+      // For each pilot, check if they already have this qualification
+      const operations = selectedPilots.map(async (pilot) => {
+        console.log(`[Bulk Add Qual] Processing pilot ${pilot.callsign} (${pilot.id})`);
+
+        // Check if pilot already has this qualification
+        const { data: existingQual, error: checkError } = await supabase
+          .from('pilot_qualifications')
+          .select('id')
+          .eq('pilot_id', pilot.id)
+          .eq('qualification_id', qualificationId)
+          .maybeSingle();
+
+        if (checkError) {
+          console.error(`[Bulk Add Qual] Error checking existing qual for ${pilot.callsign}:`, checkError);
+          throw checkError;
+        }
+
+        if (existingQual) {
+          // Update existing qualification's achieved date
+          console.log(`[Bulk Add Qual] Updating existing qual for ${pilot.callsign}`);
+          const updateData: any = {};
+          if (achievedDateObj) {
+            updateData.achieved_date = achievedDateObj.toISOString();
+          }
+
+          const { error: updateError } = await supabase
+            .from('pilot_qualifications')
+            .update(updateData)
+            .eq('id', existingQual.id);
+
+          if (updateError) {
+            console.error(`[Bulk Add Qual] Error updating qual for ${pilot.callsign}:`, updateError);
+            throw updateError;
+          }
+        } else {
+          // Insert new qualification
+          console.log(`[Bulk Add Qual] Adding new qual for ${pilot.callsign}`);
+          return assignQualificationToPilot(pilot.id, qualificationId, null, achievedDateObj);
+        }
       });
 
       console.log('[Bulk Add Qual] Waiting for all operations to complete...');
