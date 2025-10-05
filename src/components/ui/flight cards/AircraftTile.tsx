@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import aircraftIcon from '../../../assets/Aircraft Icon.svg';
 import flightDeckPersonnelIcon from '../../../assets/Flight Deck Personnel Icon.png';
 import { useDraggable } from '@dnd-kit/core';
+import { X, HelpCircle } from 'lucide-react';
 
 interface AircraftTileProps {
   boardNumber: string;
@@ -323,50 +324,32 @@ const AircraftTile: React.FC<AircraftTileProps> = ({
                     // Render Absent/Declined badge if needed
                     if (shouldShowAbsentDeclinedBadge) {
                       return (
-                        <div
-                          key={`tile-badge-absent-${boardNumber}-${rollCallStatus || ''}-${attendanceStatus || ''}`} // Unique key
+                        <X
+                          key={`tile-badge-absent-${boardNumber}-${rollCallStatus || ''}-${attendanceStatus || ''}`}
+                          size={14}
+                          strokeWidth={3}
                           style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            width: '14px',
-                            height: '14px',
-                            borderRadius: '50%',
-                            backgroundColor: '#DC2626', // Red color for absent/declined
-                            color: 'white',
-                            fontSize: '10px', // Slightly larger for 'x'
-                            fontWeight: 'bold',
-                            lineHeight: '14px', // Center 'x' vertically
+                            color: '#DC2626',
                             flexShrink: 0,
-                            position: 'relative', // Needed for positioning the content
-                            top: '-1px',          // Shift content 1px up
-                            left: '1px'           // Shift content 1px right
-                          }}>
-                          x
-                        </div>
+                            marginTop: '2px',
+                          }}
+                        />
                       );
                     }
 
                     // Render Tentative badge if needed (and Absent/Declined isn't shown)
                     if (shouldShowTentativeBadge) {
                       return (
-                        <div
-                          key={`tile-badge-tentative-${boardNumber}-${rollCallStatus || ''}-${attendanceStatus || ''}`} // Unique key
+                        <HelpCircle
+                          key={`tile-badge-tentative-${boardNumber}-${rollCallStatus || ''}-${attendanceStatus || ''}`}
+                          size={14}
+                          strokeWidth={2.5}
                           style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          width: '14px', // Slightly smaller badge for tile
-                          height: '14px',
-                          borderRadius: '50%',
-                          backgroundColor: '#5865F2', // Blurple color
-                          color: 'white',
-                          fontSize: '9px', // Smaller font
-                          fontWeight: 'bold',
-                          flexShrink: 0 // Prevent shrinking
-                        }}>
-                          ?
-                        </div>
+                            color: '#5865F2',
+                            flexShrink: 0,
+                            marginTop: '2px',
+                          }}
+                        />
                       );
                     }
 

@@ -393,17 +393,19 @@ export const useMissionPrepDataPersistence = (
       });
     });
     
+    const pilotsCount = Object.values(pilots).reduce((total, flight) => total + flight.length, 0);
+
     console.log('📝 Persistence: setAssignedPilots called:', {
-      pilotsCount: Object.values(pilots).reduce((total, flight) => total + flight.length, 0),
+      pilotsCount,
       skipSave,
       hasMission: !!mission,
       missionId: mission?.id
     });
-    
+
     setAssignedPilotsLocal(pilots);
-    
-    // Only save to database if this is a user-initiated change
-    if (mission && !skipSave) {
+
+    // Only save to database if this is a user-initiated change AND there are pilots to save
+    if (mission && !skipSave && pilotsCount > 0) {
       // Only save if this mission belongs to the currently selected event
       if (selectedEvent && mission.event_id !== selectedEvent.id) {
         console.log('🚫 Persistence: Skipping pilot assignment save - mission belongs to different event:', {
