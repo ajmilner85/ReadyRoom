@@ -469,7 +469,7 @@ export const createEvent = async (event: Omit<Event, 'id' | 'creator' | 'attenda
     const { data: pilotData, error: pilotError } = await supabase
       .from('pilots')
       .select('id, callsign, boardNumber')
-      .eq('discord_original_id', discordUserId)
+      .eq('discord_id', discordUserId)
       .single();
 
 

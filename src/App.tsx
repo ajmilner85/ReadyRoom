@@ -34,6 +34,7 @@ const EventsManagement = React.lazy(() => import('./components/ui/EventsManageme
 const MissionPreparation = React.lazy(() => import('./components/ui/MissionPreparation'));
 const Settings = React.lazy(() => import('./components/settings/Settings'));
 const Home = React.lazy(() => import('./components/ui/Home'));
+const ClearCache = React.lazy(() => import('./pages/ClearCache'));
 
 const App: React.FC = () => {
   const { user } = useAuth();
@@ -314,6 +315,13 @@ const App: React.FC = () => {
           <NavigationBar activeButton={activeButton} />
           <AppContent>
             <Routes>
+            {/* Emergency cache clear route - no permission required */}
+            <Route path="/clear-cache" element={
+              <Suspense fallback={<StandardPageLoader message="Loading..." />}>
+                <ClearCache />
+              </Suspense>
+            } />
+
             <Route path="/" element={
               <PermissionGuardedRoute requiredPermission="access_home">
                 <Suspense fallback={<StandardPageLoader message="Loading home..." />}>

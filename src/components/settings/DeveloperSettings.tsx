@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Code, Server, CheckCircle, AlertCircle } from 'lucide-react';
+import { Code, Server, CheckCircle, AlertCircle, Trash2 } from 'lucide-react';
 import { getUserSettings, updateDeveloperSettings } from '../../utils/userSettingsService';
 import { UserSettings } from '../../types/UserSettings';
+import { permissionCache } from '../../utils/permissionCache';
 
 interface DeveloperSettingsProps {
   error?: string | null;
@@ -13,6 +14,8 @@ const DeveloperSettings: React.FC<DeveloperSettingsProps> = ({ setError }) => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'success' | 'error'>('idle');
+  const [clearingCache, setClearingCache] = useState(false);
+  const [cacheStatus, setCacheStatus] = useState<'idle' | 'success' | 'error'>('idle');
 
   // Load user settings on component mount
   useEffect(() => {
@@ -96,6 +99,27 @@ const DeveloperSettings: React.FC<DeveloperSettingsProps> = ({ setError }) => {
       setError?.(err.message || 'Error updating bot token setting');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleClearPermissionCache = async () => {
+    setClearingCache(true);
+    setCacheStatus('idle');
+
+    try {
+      await permissionCache.invalidateAllPermissions();
+      setCacheStatus('success');
+      // Clear success status after 3 seconds, then reload
+      setTimeout(() => {
+        setCacheStatus('idle');
+        window.location.reload();
+      }, 2000);
+    } catch (err: any) {
+      setCacheStatus('error');
+      setError?.(err.message || 'Error clearing permission cache');
+      setTimeout(() => setCacheStatus('idle'), 3000);
+    } finally {
+      setClearingCache(false);
     }
   };
 
@@ -303,14 +327,81 @@ const DeveloperSettings: React.FC<DeveloperSettingsProps> = ({ setError }) => {
           )}
         </div>
 
-        {/* Future Development Settings Section */}
+        {/* Permission Cache Section */}
         <div style={sectionStyle}>
-          <h3 style={{ fontSize: '18px', fontWeight: 600, color: '#0F172A', margin: '0 0 16px 0' }}>
-            Future Development Tools
-          </h3>
-          <p style={{ fontSize: '14px', color: '#64748B', margin: '0', fontFamily: 'Inter' }}>
-            Additional development tools and settings will be added here as needed.
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
+            <Trash2 size={20} style={{ color: '#EF4444' }} />
+            <h3 style={{ fontSize: '18px', fontWeight: 600, color: '#0F172A', margin: 0 }}>
+              Permission Cache
+            </h3>
+          </div>
+
+          <p style={{ fontSize: '14px', color: '#64748B', margin: '0 0 24px 0', fontFamily: 'Inter' }}>
+            Clear cached permissions for all users. Use this after making changes to permission rules or if you're experiencing permission issues.
           </p>
+
+          <button
+            onClick={handleClearPermissionCache}
+            disabled={clearingCache}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              padding: '10px 16px',
+              backgroundColor: clearingCache ? '#E5E7EB' : '#EF4444',
+              color: '#FFFFFF',
+              border: 'none',
+              borderRadius: '6px',
+              fontSize: '14px',
+              fontWeight: 500,
+              cursor: clearingCache ? 'not-allowed' : 'pointer',
+              transition: 'all 0.2s ease',
+              opacity: clearingCache ? 0.6 : 1
+            }}
+            onMouseEnter={(e) => {
+              if (!clearingCache) {
+                e.currentTarget.style.backgroundColor = '#DC2626';
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (!clearingCache) {
+                e.currentTarget.style.backgroundColor = '#EF4444';
+              }
+            }}
+          >
+            <Trash2 size={16} />
+            {clearingCache ? 'Clearing Cache...' : 'Clear Permission Cache'}
+          </button>
+
+          {/* Cache Status */}
+          {cacheStatus !== 'idle' && (
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              marginTop: '16px',
+              padding: '12px 16px',
+              borderRadius: '6px',
+              backgroundColor: cacheStatus === 'success' ? '#F0FDF4' : '#FEF2F2',
+              border: `1px solid ${cacheStatus === 'success' ? '#BBF7D0' : '#FECACA'}`
+            }}>
+              {cacheStatus === 'success' ? (
+                <CheckCircle size={16} style={{ color: '#10B981' }} />
+              ) : (
+                <AlertCircle size={16} style={{ color: '#EF4444' }} />
+              )}
+              <span style={{
+                fontSize: '14px',
+                color: cacheStatus === 'success' ? '#065F46' : '#991B1B',
+                fontWeight: 500
+              }}>
+                {cacheStatus === 'success'
+                  ? 'Permission cache cleared successfully. Reloading...'
+                  : 'Failed to clear permission cache'
+                }
+              </span>
+            </div>
+          )}
         </div>
       </div>
     </div>

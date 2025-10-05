@@ -305,19 +305,19 @@ export const DiscordPilotsDialog: React.FC<DiscordPilotsDialogProps> = ({
           status: 'Provisional' as PilotStatus,
           billet: '',
           qualifications: [],
-          discordUsername: p.discord_original_id || ''
+          discordUsername: p.discord_id || ''
         }));
-        
+
         setAllPilots(initialPilots);
       }
-      
+
       // Load remaining pilots immediately after dialog is shown (non-blocking)
       setTimeout(async () => {
         try {
           const { data: allPilotsData } = await supabase
             .from('pilots')
             .select('*');
-          
+
           if (allPilotsData) {
             // Convert all Supabase pilots to legacy format
             const allPilots = allPilotsData.map(p => ({
@@ -327,7 +327,7 @@ export const DiscordPilotsDialog: React.FC<DiscordPilotsDialogProps> = ({
               status: 'Provisional' as PilotStatus,
               billet: '',
               qualifications: [],
-              discordUsername: p.discord_original_id || ''
+              discordUsername: p.discord_id || ''
             }));
             
             setAllPilots(allPilots);

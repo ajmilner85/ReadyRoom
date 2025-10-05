@@ -807,7 +807,7 @@ async function editEventMessage(messageId, title, description, eventTime, guildI
                         qualification:qualifications(name)
                       )
                     `)
-                    .eq('discord_original_id', record.discord_id)
+                    .eq('discord_id', record.discord_id)
                     .single();
                   
                   if (!pilotError && pilotData) {
@@ -2085,7 +2085,7 @@ class CountdownUpdateManager {
                         qualification:qualifications(name)
                       )
                     `)
-                    .eq('discord_original_id', record.discord_id)
+                    .eq('discord_id', record.discord_id)
                     .single();
                   
                   if (!pilotError && pilotData) {

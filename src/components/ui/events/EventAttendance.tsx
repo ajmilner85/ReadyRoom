@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import type { Event, Cycle } from '../../../types/EventTypes';
 import QualificationBadge from '../QualificationBadge';
-import { getPilotByDiscordOriginalId } from '../../../utils/pilotService';
+import { getPilotByDiscordId } from '../../../utils/pilotService';
 import type { Pilot } from '../../../types/PilotTypes';
 import { fetchCycles } from '../../../utils/supabaseClient';
 import { getBatchPilotQualifications, getAllQualifications } from '../../../utils/qualificationService';
@@ -102,7 +102,7 @@ const EventAttendance: React.FC<EventAttendanceProps> = ({ event }) => {
       const attendeeWithPilotRecords = await Promise.all(
         formattedAttendance.map(async (attendee) => {
           if (attendee.discord_id) {
-            const { data: pilotData } = await getPilotByDiscordOriginalId(attendee.discord_id);
+            const { data: pilotData } = await getPilotByDiscordId(attendee.discord_id);
             
             // Extract role information
             let enhancedPilot: EnhancedPilot | null = pilotData as unknown as EnhancedPilot;

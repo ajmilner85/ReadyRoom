@@ -56,8 +56,8 @@ export interface PilotRoleAssignment {
 // Pilot interface with standardized identifiers
 export interface Pilot {
   id: string;                 // Primary identifier - Supabase UUID
-  discordId?: string;         // Discord user ID (previously stored in id)
-  discord_original_id?: string; // Numeric Discord ID for API calls
+  discord_username?: string;  // Discord username (e.g., "hoover_bb") - for display only
+  discord_id?: string;        // Numeric Discord ID (e.g., "413851905555431442") - primary identifier for Discord API
   callsign: string;
   boardNumber: string;        // Not a unique identifier, just a display property
   status: PilotStatus;
@@ -113,8 +113,8 @@ export interface SupabasePilot {
   id: string;
   callsign: string;
   boardNumber: number;
-  discordId?: string;
-  discord_original_id?: string;
+  discord_username?: string;
+  discord_id?: string;
   qualifications: string[];
   roles: PilotRole;
   created_at?: string;
@@ -135,8 +135,8 @@ export function convertPilotToSupabase(pilot: Pilot): Omit<SupabasePilot, 'creat
     id: pilot.id,
     callsign: pilot.callsign,
     boardNumber: parseInt(pilot.boardNumber),
-    discordId: pilot.discordUsername,
-    discord_original_id: pilot.discordId, // Use the standardized discordId property
+    discord_username: pilot.discordUsername,
+    discord_id: pilot.discord_id,
     qualifications: pilot.qualifications.map(q => q.type),
     roles: {
       squadron: pilot.billet,

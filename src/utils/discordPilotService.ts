@@ -446,8 +446,8 @@ export async function processPilotMatches(matches: DiscordPilotMatch[]): Promise
         
         // Prepare updates object for basic pilot information
         const updates: any = {
-          discord_original_id: match.discordMember.id,
-          discordId: match.discordMember.username
+          discord_id: match.discordMember.id,
+          discord_username: match.discordMember.username
         };
 
 
@@ -511,8 +511,8 @@ export async function processPilotMatches(matches: DiscordPilotMatch[]): Promise
         const newPilot: any = {
           callsign: match.discordMember.callsign,
           boardNumber: parseInt(match.discordMember.boardNumber),
-          discord_original_id: match.discordMember.id,  // Discord numeric ID
-          discordId: match.discordMember.username      // Discord Username
+          discord_id: match.discordMember.id,  // Discord numeric ID
+          discord_username: match.discordMember.username      // Discord Username
         };
         
         // Add status - use selected status or default to Provisional

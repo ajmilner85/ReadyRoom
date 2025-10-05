@@ -212,7 +212,7 @@ export async function getPilotsBySquadron(squadronId: string): Promise<{
           id,
           callsign,
           boardNumber,
-          discordId,
+          discord_username,
           created_at,
           updated_at
         )
