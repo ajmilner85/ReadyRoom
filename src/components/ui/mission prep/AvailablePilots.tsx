@@ -2,7 +2,7 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Card } from '../card';
 import QualificationBadge from '../QualificationBadge';
-import { Filter, ClipboardCheck, Settings } from 'lucide-react';
+import { Filter, ClipboardCheck, Settings, X, HelpCircle } from 'lucide-react';
 import { useDraggable } from '@dnd-kit/core';
 import type { Pilot, QualificationType } from '../../../types/PilotTypes';
 import type { Event } from '../../../types/EventTypes';
@@ -261,39 +261,45 @@ interface PilotEntryProps {
           textOverflow: 'ellipsis'
         }}>
           {pilot.callsign}
-        </span>        {/* Show tentative badge - prioritizing roll call response over Discord response */}
+        </span>        {/* Show tentative and declined badges - prioritizing roll call response over Discord response */}
         {(() => {
-          // Calculate whether to show the badge and log the reasoning
+          // Calculate whether to show badges
           const isTentativeRollCall = pilot.rollCallStatus === 'Tentative';
           const isTentativeDiscord = pilot.attendanceStatus === 'tentative';
-          const isRollCallOverriding = pilot.rollCallStatus === 'Present' || pilot.rollCallStatus === 'Absent';
-          
-          const shouldShowBadge = isTentativeRollCall || (isTentativeDiscord && !isRollCallOverriding);
-          
-          // Debug logging for badge status - simplified 
-          if ((pilot.rollCallStatus || pilot.attendanceStatus) && (pilot.callsign === 'MIRAGE' || pilot.callsign === 'VIKING')) {
-            // console.log(`[BADGE-DEBUG] AvailablePilots ${pilot.callsign}: RollCall=${pilot.rollCallStatus || 'none'}, Discord=${pilot.attendanceStatus || 'none'}, ShowBadge=${shouldShowBadge}`);
-          }
-          
-          return shouldShowBadge && (
-            <div 
-              key={`badge-${pilot.id || pilot.boardNumber}-${pilot.rollCallStatus || ''}-${pilot.attendanceStatus || ''}`} // Moved key here
-              style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              width: '16px',
-              height: '16px',
-              borderRadius: '50%',
-              backgroundColor: '#5865F2', // Blurple color
-              color: 'white',
-              fontSize: '10px',
-              fontWeight: 'bold',
-              flexShrink: 0,
-              // Removed key from style object
-            }}>
-              ?
-            </div>
+          const isDeclinedDiscord = pilot.attendanceStatus === 'declined';
+          const isAbsentRollCall = pilot.rollCallStatus === 'Absent';
+          const isRollCallOverriding = pilot.rollCallStatus === 'Present' || pilot.rollCallStatus === 'Absent' || pilot.rollCallStatus === 'Tentative';
+
+          const shouldShowAbsentDeclinedBadge = isAbsentRollCall || (isDeclinedDiscord && !isRollCallOverriding);
+          const shouldShowTentativeBadge = isTentativeRollCall || (isTentativeDiscord && !isRollCallOverriding);
+
+          return (
+            <>
+              {shouldShowAbsentDeclinedBadge && (
+                <X
+                  key={`declined-badge-${pilot.id || pilot.boardNumber}`}
+                  size={14}
+                  strokeWidth={3}
+                  style={{
+                    color: '#DC2626',
+                    flexShrink: 0,
+                    marginTop: '2px',
+                  }}
+                />
+              )}
+              {shouldShowTentativeBadge && (
+                <HelpCircle
+                  key={`tentative-badge-${pilot.id || pilot.boardNumber}`}
+                  size={14}
+                  strokeWidth={2.5}
+                  style={{
+                    color: '#5865F2',
+                    flexShrink: 0,
+                    marginTop: '2px',
+                  }}
+                />
+              )}
+            </>
           );
         })()}
       </div>
@@ -425,9 +431,9 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
       return;
     }
 
-    // Use the utility function to update the roll call response    
+    // Use the utility function to update the roll call response
     await updateRollCallResponse(
-      selectedEvent.discordEventId, 
+      selectedEvent.discordEventId,
       discordId,
       pilot.callsign,
       responseValue
@@ -516,9 +522,11 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
       // Then add Discord attendance status (lower priority)
       if (discordId) {
         const attendanceRecord = realtimeAttendanceData.find(record => record.discord_id === discordId);
+
         if (attendanceRecord) {
           if (attendanceRecord.response === 'tentative') pilotCopy.attendanceStatus = 'tentative';
           else if (attendanceRecord.response === 'accepted') pilotCopy.attendanceStatus = 'accepted';
+          else if (attendanceRecord.response === 'declined') pilotCopy.attendanceStatus = 'declined';
         }
       }
 
@@ -578,8 +586,10 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
     let groupingOrder: string[] = [];
     
     if (isRollCallMode || showOnlyAttending) {
-      // In roll call mode OR when availability filter is enabled, group by Discord attendance response
-      const attendanceGroups = ['accepted', 'tentative', 'declined', 'No Response'];
+      // In roll call mode, show all attendance groups. In filter mode, show only attending/tentative.
+      const attendanceGroups = isRollCallMode
+        ? ['accepted', 'tentative', 'declined', 'No Response']
+        : ['accepted', 'tentative'];
       groupingOrder = attendanceGroups;
       
       // Initialize all groups
@@ -589,24 +599,17 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
       
       // Sort pilots based on their Discord attendance status (not roll call status)
       filteredPilots.forEach(pilot => {
-        // Use discord_id (numeric ID) for matching attendance data
-        const discordId = (pilot as any).discord_id;
-        
-        // Find the attendance record for this pilot
-        const attendanceRecord = realtimeAttendanceData.find(record => record.discord_id === discordId);
-        
-        if (attendanceRecord) {
-          if (attendanceRecord.response === 'accepted') {
-            resultGroups['accepted'].push(pilot);
-          } else if (attendanceRecord.response === 'tentative') {
-            resultGroups['tentative'].push(pilot);
-          } else if (attendanceRecord.response === 'declined') {
-            resultGroups['declined'].push(pilot);
-          } else {
-            resultGroups['No Response'].push(pilot);
-          }
+        // Use the attendanceStatus that was already determined in pilotsWithAttendanceStatus
+        const attendanceStatus = (pilot as any).attendanceStatus;
+
+        if (attendanceStatus === 'accepted') {
+          resultGroups['accepted'].push(pilot);
+        } else if (attendanceStatus === 'tentative') {
+          resultGroups['tentative'].push(pilot);
+        } else if (attendanceStatus === 'declined') {
+          resultGroups['declined'].push(pilot);
         } else {
-          // No attendance record for this pilot
+          // No Discord attendance status for this pilot
           resultGroups['No Response'].push(pilot);
         }
       });
@@ -925,22 +928,24 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
           }}
         >          {groupedPilots.order.map((groupName: string) => {
             const pilotsInGroup = groupedPilots.groups[groupName] || [];
-            if (pilotsInGroup.length === 0) return null;
+            // When filtering by attendance, always show all divisions even if empty
+            const shouldShowEmptyGroups = isRollCallMode || showOnlyAttending;
+            if (pilotsInGroup.length === 0 && !shouldShowEmptyGroups) return null;
 
             return (
-              <div key={groupName} className="qualification-group" style={{ 
+              <div key={groupName} className="qualification-group" style={{
                 width: '100%',
                 overflowX: 'hidden',
                 position: 'relative'
               }}>
-                <div 
+                <div
                   style={{
                     position: 'relative',
                     textAlign: 'center',
                     margin: '20px 0'
                   }}
                 >
-                  <div 
+                  <div
                     style={{
                       position: 'absolute',
                       left: 0,
@@ -949,7 +954,7 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
                       height: '1px',
                       backgroundColor: '#E2E8F0'
                     }}
-                  />                  <span 
+                  />                  <span
                     style={{
                       position: 'relative',
                       backgroundColor: '#FFFFFF',
@@ -961,12 +966,12 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
                       textTransform: 'uppercase'
                     }}
                   >
-                    {/* Display friendly names for attendance statuses in roll call mode or when filtering by attendance */}
-                    {(isRollCallMode || showOnlyAttending) 
-                      ? (groupName === 'accepted' ? 'Attending' :
-                         groupName === 'tentative' ? 'Tentative' :
-                         groupName === 'declined' ? 'Declined' :
-                         'No Response')
+                    {/* Display friendly names for attendance statuses with counts in roll call mode or when filtering by attendance */}
+                    {(isRollCallMode || showOnlyAttending)
+                      ? (groupName === 'accepted' ? `Attending (${pilotsInGroup.length})` :
+                         groupName === 'tentative' ? `Tentative (${pilotsInGroup.length})` :
+                         groupName === 'declined' ? `Declined (${pilotsInGroup.length})` :
+                         `No Response (${pilotsInGroup.length})`)
                       : groupName}
                   </span>
                 </div>                <div style={{ 

@@ -69,65 +69,68 @@ export const updateRollCallResponse = async (
   }
 
   try {
-    // Check if there's an existing attendance record
-    const { data: existingRecord, error: fetchError } = await supabase
+    // Check if there's an existing roll call record for this user/event
+    const { data: existingRecords, error: fetchError } = await supabase
       .from('discord_event_attendance')
       .select('*')
       .eq('discord_event_id', discordEventId)
       .eq('discord_id', discordId)
-      .maybeSingle();
-    
-    if (fetchError && fetchError.code !== 'PGRST116') {
-      console.error('Error checking for existing attendance record:', fetchError);
+      .not('roll_call_response', 'is', null);
+
+    if (fetchError) {
+      console.error('Error checking for existing roll call record:', fetchError);
       return;
     }
-    
-    if (existingRecord) {
-      // Update existing record - ONLY modify roll_call_response
+
+    const existingRollCallRecord = existingRecords && existingRecords.length > 0 ? existingRecords[0] : null;
+
+    if (response === null) {
+      // Unselecting - DELETE the roll call record if it exists
+      if (existingRollCallRecord) {
+        const { error: deleteError } = await supabase
+          .from('discord_event_attendance')
+          .delete()
+          .eq('id', existingRollCallRecord.id);
+
+        if (deleteError) {
+          console.error('Error deleting roll call record:', deleteError);
+        } else {
+          console.log(`Deleted roll call record for ${pilotName}`);
+        }
+      } else {
+        console.log(`No roll call record to delete for ${pilotName}`);
+      }
+    } else if (existingRollCallRecord) {
+      // Update existing roll call record
       const { error: updateError } = await supabase
         .from('discord_event_attendance')
         .update({
           roll_call_response: response,
           updated_at: new Date().toISOString()
         })
-        .eq('id', existingRecord.id);
-      
+        .eq('id', existingRollCallRecord.id);
+
       if (updateError) {
-        console.error('Error updating roll call response:', updateError);
+        console.error('Error updating roll call record:', updateError);
       } else {
-        console.log(`Updated roll call response for ${pilotName} to ${response || 'null'}`);
+        console.log(`Updated roll call record for ${pilotName} to ${response}`);
       }
     } else {
-      // Create new record
-      // Look for existing attendance record with any response
-      const { data: anyAttendanceRecord, error: anyRecordError } = await supabase
-        .from('discord_event_attendance')
-        .select('*')
-        .eq('discord_id', discordId)
-        .eq('discord_event_id', discordEventId)
-        .maybeSingle();
-        
-      // If there's no error looking up attendance and there's an existing record, we should use that record's user_response
-      let userResponse = 'no_response'; // Default
-      if (!anyRecordError && anyAttendanceRecord) {
-        userResponse = anyAttendanceRecord.user_response;
-      }
-      
-      // Insert new record with proper user_response value - preserving any existing Discord response
+      // Insert new roll call record
       const { error: insertError } = await supabase
         .from('discord_event_attendance')
         .insert({
           discord_event_id: discordEventId,
           discord_id: discordId,
           discord_username: pilotName,
-          user_response: userResponse, // Use existing response value if found, or neutral if not
+          user_response: 'roll_call', // Mark as roll_call entry (not a Discord response)
           roll_call_response: response
         });
-      
+
       if (insertError) {
-        console.error('Error inserting roll call response:', insertError);
+        console.error('Error inserting roll call record:', insertError);
       } else {
-        console.log(`Created roll call response for ${pilotName}: ${response || 'null'}`);
+        console.log(`Inserted roll call record for ${pilotName}: ${response}`);
       }
     }
   } catch (error) {

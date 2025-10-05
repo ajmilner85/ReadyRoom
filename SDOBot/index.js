@@ -829,15 +829,17 @@ app.get('/api/events/:eventId/attendance', async (req, res) => {
     
     // Query Supabase for attendance records from discord_event_attendance table
     // Use 'in' operator to match any of the message IDs
+    // Exclude roll_call entries (they're not Discord responses)
     const { data, error } = await supabase
       .from('discord_event_attendance')
       .select('*')
-      .in('discord_event_id', messageIds);
-    
+      .in('discord_event_id', messageIds)
+      .neq('user_response', 'roll_call');
+
     if (error) {
       throw error;
     }
-    
+
     // Format the response to match the expected structure
     const attendance = {
       accepted: [],
@@ -859,22 +861,48 @@ app.get('/api/events/:eventId/attendance', async (req, res) => {
       }
     });
     
-    // Process each unique user response
-    userResponses.forEach(record => {
-      // Prepare the attendee object
-      const attendee = {
-        boardNumber: record.board_number || (record.discord_id ? record.discord_id.substring(0, 3) : 'N/A'),
-        callsign: record.discord_username || 'Unknown User',
-        discord_id: record.discord_id,
-        billet: record.billet
-      };
-      
-      // Add to the appropriate list based on user_response
-      if (record.user_response === 'accepted') {
+    // Process each unique user response and fetch pilot records
+    const processedResponses = await Promise.all(
+      Array.from(userResponses.values()).map(async (record) => {
+        // Fetch pilot record from database
+        let pilotRecord = null;
+        try {
+          const { data: pilotData, error: pilotError } = await supabase
+            .from('pilots')
+            .select('id, callsign, boardNumber, discord_id')
+            .eq('discord_id', record.discord_id)
+            .single();
+
+          if (!pilotError && pilotData) {
+            pilotRecord = {
+              id: pilotData.id,
+              callsign: pilotData.callsign,
+              boardNumber: pilotData.boardNumber?.toString() || ''
+            };
+          }
+        } catch (error) {
+          console.warn(`Error fetching pilot data for ${record.discord_id}:`, error.message);
+        }
+
+        // Prepare the attendee object using pilot record if available
+        const attendee = {
+          boardNumber: pilotRecord?.boardNumber || '',
+          callsign: pilotRecord?.callsign || record.discord_username || 'Unknown User',
+          discord_id: record.discord_id,
+          billet: record.billet
+        };
+
+        return { attendee, response: record.user_response };
+      })
+    );
+
+    // Sort responses into appropriate lists
+    processedResponses.forEach(({ attendee, response }) => {
+      if (response === 'accepted') {
         attendance.accepted.push(attendee);
-      } else if (record.user_response === 'declined') {
+      } else if (response === 'declined') {
         attendance.declined.push(attendee);
-      } else if (record.user_response === 'tentative') {
+      } else if (response === 'tentative') {
         attendance.tentative.push(attendee);
       }
     });

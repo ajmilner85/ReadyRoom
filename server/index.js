@@ -868,15 +868,17 @@ app.get('/api/events/:eventId/attendance', async (req, res) => {
     
     // Query Supabase for attendance records from discord_event_attendance table
     // Use 'in' operator to match any of the message IDs
+    // Exclude roll_call entries (they're not Discord responses)
     const { data, error } = await supabase
       .from('discord_event_attendance')
       .select('*')
-      .in('discord_event_id', messageIds);
-    
+      .in('discord_event_id', messageIds)
+      .neq('user_response', 'roll_call');
+
     if (error) {
       throw error;
     }
-    
+
     // Format the response to match the expected structure
     const attendance = {
       accepted: [],

@@ -290,18 +290,55 @@ async function loadEventResponses() {  try {
         const userMapLoad = new Map();
 
         for (const record of attendanceData) {
-          // Skip if we've already processed this user
-          if (userMapLoad.has(record.discord_id)) {
-            console.warn(`[LOAD-DUPLICATE-FIX] Skipping duplicate attendance record for user ${record.discord_id} in event ${event.discord_event_id}`);
+          // Keep the most recent response for each user (based on updated_at timestamp)
+          const existing = userMapLoad.get(record.discord_id);
+          if (existing && new Date(record.updated_at) <= new Date(existing.updated_at)) {
+            console.warn(`[LOAD-DUPLICATE-FIX] Skipping older attendance record for user ${record.discord_id} in event ${event.discord_event_id}`);
             continue;
           }
 
+          if (existing) {
+            console.log(`[LOAD-UPDATE] Updating to more recent response for user ${record.discord_id}: ${existing.user_response} → ${record.user_response}`);
+          }
+
           userMapLoad.set(record.discord_id, record);
-          const userEntry = { 
-            userId: record.discord_id, 
-            displayName: record.discord_username || 'Unknown User' 
+
+          // Fetch pilot record for this user to get board number and callsign
+          let pilotRecord = null;
+          try {
+            const { data: pilotData, error: pilotError } = await supabase
+              .from('pilots')
+              .select(`
+                *,
+                pilot_qualifications(
+                  qualification_id,
+                  qualification:qualifications(name)
+                )
+              `)
+              .eq('discord_id', record.discord_id)
+              .single();
+
+            if (!pilotError && pilotData) {
+              pilotRecord = {
+                id: pilotData.id,
+                callsign: pilotData.callsign,
+                boardNumber: pilotData.boardNumber?.toString() || '',
+                qualifications: pilotData.pilot_qualifications?.map(pq => pq.qualification?.name).filter(Boolean) || [],
+                currentStatus: { name: pilotData.status || 'Provisional' }
+              };
+            }
+          } catch (error) {
+            console.warn(`[LOAD-PILOT-DATA] Error fetching pilot data for ${record.discord_id}:`, error.message);
+          }
+
+          const userEntry = {
+            userId: record.discord_id,
+            displayName: record.discord_username || 'Unknown User',
+            boardNumber: pilotRecord?.boardNumber || '',
+            callsign: pilotRecord?.callsign || record.discord_username || 'Unknown User',
+            pilotRecord // Include the pilot record for qualification processing
           };
-          
+
           if (record.user_response === 'accepted') {
             eventData.accepted.push(userEntry);
           } else if (record.user_response === 'declined') {
@@ -787,10 +824,15 @@ async function editEventMessage(messageId, title, description, eventTime, guildI
 
               // Populate with existing responses, including pilot record data for qualifications
               for (const record of attendanceData) {
-                // Skip if we've already processed this user
-                if (userMapEdit.has(record.discord_id)) {
-                  console.warn(`[EDIT-DUPLICATE-FIX] Skipping duplicate attendance record for user ${record.discord_id} in event ${messageId}`);
+                // Keep the most recent response for each user (based on updated_at timestamp)
+                const existing = userMapEdit.get(record.discord_id);
+                if (existing && new Date(record.updated_at) <= new Date(existing.updated_at)) {
+                  console.warn(`[EDIT-DUPLICATE-FIX] Skipping older attendance record for user ${record.discord_id} in event ${messageId}`);
                   continue;
+                }
+
+                if (existing) {
+                  console.log(`[EDIT-UPDATE] Updating to more recent response for user ${record.discord_id}: ${existing.user_response} → ${record.user_response}`);
                 }
 
                 userMapEdit.set(record.discord_id, record);
@@ -1332,24 +1374,61 @@ setInterval(() => {
 
 // Function to setup Discord event handlers
 function setupDiscordEventHandlers() {
+  // Remove all existing interactionCreate listeners to prevent duplicates
+  client.removeAllListeners('interactionCreate');
+
   // Handle button interactions
   client.on('interactionCreate', async interaction => {
   if (!interaction.isButton()) return;
 
-  // Check if we've already processed this interaction
   const interactionId = interaction.id;
-  if (processedInteractions.has(interactionId)) {
-    console.log(`[DUPLICATE-INTERACTION] Skipping duplicate interaction ${interactionId} from ${interaction.user.username}`);
-    return;
+
+  // Distributed deduplication using Supabase
+  // Try to claim this interaction across all bot instances
+  try {
+    const { data, error } = await supabase
+      .from('processed_interactions')
+      .insert({
+        interaction_id: interactionId,
+        processed_at: new Date().toISOString(),
+        expires_at: new Date(Date.now() + 30000).toISOString() // 30 second TTL
+      })
+      .select();
+
+    if (error) {
+      // Unique constraint violation means another machine already claimed it
+      if (error.code === '23505') {
+        console.log(`[DISTRIBUTED-DEDUPE] Interaction ${interactionId} already processed by another instance`);
+        return;
+      }
+      console.error(`[DISTRIBUTED-DEDUPE] Error checking interaction ${interactionId}:`, error);
+      // Continue processing on error to avoid blocking legitimate interactions
+    }
+  } catch (err) {
+    console.error(`[DISTRIBUTED-DEDUPE] Unexpected error:`, err);
+    // Continue processing on error
   }
 
-  // Mark this interaction as being processed
+  // Also keep local cache for fast local deduplication
+  if (processedInteractions.has(interactionId)) {
+    console.log(`[LOCAL-DEDUPE] Skipping duplicate interaction ${interactionId} from ${interaction.user.username}`);
+    return;
+  }
   processedInteractions.set(interactionId, Date.now());
   
   const { customId, message, user } = interaction;
   const eventId = message.id;
   const displayName = interaction.member.displayName;
   const userId = user.id;
+
+  // IMMEDIATELY acknowledge the interaction to prevent timeout (must respond within 3 seconds)
+  try {
+    await interaction.deferUpdate();
+  } catch (error) {
+    console.error(`[INTERACTION] Failed to defer interaction:`, error);
+    return; // Can't proceed if we can't acknowledge the interaction
+  }
+
     // Always get fresh event data from database to ensure correct timing
   let eventData = eventResponses.get(eventId);
   let freshEventTime = null;
@@ -1461,7 +1540,7 @@ function setupDiscordEventHandlers() {
           qualification:qualifications(name)
         )
       `)
-      .eq('discord_original_id', userId)
+      .eq('discord_id', userId)
       .single();
 
     if (!pilotError && pilotData) {
@@ -1548,14 +1627,21 @@ function setupDiscordEventHandlers() {
 
         // Populate with existing responses, including pilot record data for qualifications
         for (const record of existingAttendance) {
-          // Skip if we've already processed this user OR if this is the current user (we already have their complete data)
-          if (userMap.has(record.discord_id) || record.discord_id === userId) {
-            if (record.discord_id === userId) {
-              console.log(`[CURRENT-USER-SKIP] Skipping database reload for current user ${displayName} - using fresh pilot data`);
-            } else {
-              console.warn(`[DUPLICATE-FIX] Skipping duplicate attendance record for user ${record.discord_id} in event ${eventId}`);
-            }
+          // Skip current user - we already have their fresh data from the interaction
+          if (record.discord_id === userId) {
+            console.log(`[CURRENT-USER-SKIP] Skipping database reload for current user ${displayName} - using fresh pilot data`);
             continue;
+          }
+
+          // Keep the most recent response for each user (based on updated_at timestamp)
+          const existing = userMap.get(record.discord_id);
+          if (existing && new Date(record.updated_at) <= new Date(existing.updated_at)) {
+            console.warn(`[DUPLICATE-FIX] Skipping older attendance record for user ${record.discord_id} in event ${eventId}`);
+            continue;
+          }
+
+          if (existing) {
+            console.log(`[INTERACTION-UPDATE] Updating to more recent response for user ${record.discord_id}: ${existing.user_response} → ${record.user_response}`);
           }
 
           userMap.set(record.discord_id, record);
@@ -1572,7 +1658,7 @@ function setupDiscordEventHandlers() {
                   qualification:qualifications(name)
                 )
               `)
-              .eq('discord_original_id', record.discord_id)
+              .eq('discord_id', record.discord_id)
               .single();
             
             if (!pilotError && pilotData) {
@@ -1690,9 +1776,9 @@ function setupDiscordEventHandlers() {
   const additionalEmbeds = createAdditionalImageEmbeds(embedData.imageData, 'https://readyroom.app');
   const allEmbeds = [updatedEmbed, ...additionalEmbeds];
   
-  // Update interaction with comprehensive error handling
+  // Update the message with comprehensive error handling
   try {
-    await interaction.update({
+    await interaction.editReply({
       embeds: allEmbeds,
       components: [createAttendanceButtons()]
     });
