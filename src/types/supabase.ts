@@ -800,9 +800,9 @@ export type Database = {
           boardNumber: number
           callsign: string
           created_at: string
-          discord_original_id: string | null
+          discord_id: string | null
           discord_roles: Json | null
-          discordId: string | null
+          discord_username: string | null
           id: string
           updated_at: string | null
         }
@@ -810,9 +810,9 @@ export type Database = {
           boardNumber: number
           callsign: string
           created_at?: string
-          discord_original_id?: string | null
+          discord_id?: string | null
           discord_roles?: Json | null
-          discordId?: string | null
+          discord_username?: string | null
           id?: string
           updated_at?: string | null
         }
@@ -820,9 +820,9 @@ export type Database = {
           boardNumber?: number
           callsign?: string
           created_at?: string
-          discord_original_id?: string | null
+          discord_id?: string | null
           discord_roles?: Json | null
-          discordId?: string | null
+          discord_username?: string | null
           id?: string
           updated_at?: string | null
         }

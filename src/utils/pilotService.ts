@@ -229,13 +229,13 @@ export async function getPilotById(id: string): Promise<{ data: Pilot | null; er
 }
 
 /**
- * Fetch a single pilot by their original Discord ID
+ * Fetch a single pilot by their Discord ID
  */
-export async function getPilotByDiscordOriginalId(discordId: string): Promise<{ data: Pilot | null; error: any }> {
+export async function getPilotByDiscordId(discordId: string): Promise<{ data: Pilot | null; error: any }> {
   const { data, error } = await supabase
     .from('pilots')
     .select('*')
-    .eq('discord_original_id', discordId)
+    .eq('discord_id', discordId)
     .single();
 
   return { data, error };
@@ -652,16 +652,16 @@ export async function updatePilotRoles(
  * @param statusId The ID of the status to assign
  */
 export async function updatePilotStatus(
-  id: string, 
+  id: string,
   statusId: string
 ): Promise<{ data: Pilot | null; error: any }> {
-  // First try to find the pilot by discord_original_id (for Discord IDs)
+  // First try to find the pilot by discord_id (for Discord IDs)
   const { data: pilotByDiscordId } = await supabase
     .from('pilots')
     .select('id')
-    .eq('discord_original_id', id)
+    .eq('discord_id', id)
     .single();
-  
+
   // If found by Discord ID, use the actual UUID from the database
   const actualId = pilotByDiscordId ? pilotByDiscordId.id : id;
   
@@ -884,13 +884,13 @@ export async function updatePilotRole(
   effectiveDate: string = new Date().toISOString().split('T')[0]
 ): Promise<{ success: boolean; error: any }> {
   try {
-    // First try to find the pilot by discord_original_id (for Discord IDs)
+    // First try to find the pilot by discord_id (for Discord IDs)
     const { data: pilotByDiscordId } = await supabase
       .from('pilots')
       .select('id')
-      .eq('discord_original_id', id)
+      .eq('discord_id', id)
       .single();
-    
+
     // If found by Discord ID, use the actual UUID from the database
     const actualPilotId = pilotByDiscordId ? pilotByDiscordId.id : id;
 
@@ -1069,16 +1069,16 @@ export async function updatePilotRoleAllowDuplicates(
   effectiveDate: string = new Date().toISOString().split('T')[0]
 ): Promise<{ success: boolean; error: any }> {
   try {
-    // First try to find the pilot by discord_original_id (for Discord IDs)
+    // First try to find the pilot by discord_id (for Discord IDs)
     const { data: pilotByDiscordId } = await supabase
       .from('pilots')
       .select('id')
-      .eq('discord_original_id', id)
+      .eq('discord_id', id)
       .single();
-    
+
     // If found by Discord ID, use the actual UUID from the database
     const actualPilotId = pilotByDiscordId ? pilotByDiscordId.id : id;
-    
+
     // End any existing active roles for this pilot (single role per pilot)
     // But do NOT end roles for other pilots (this is the key difference)
     const { error: endPilotRolesError } = await supabase
@@ -1210,16 +1210,16 @@ export async function updatePilotRoleAssignments(
   effectiveDate: string = new Date().toISOString().split('T')[0]
 ): Promise<{ success: boolean; error: any }> {
   try {
-    // First try to find the pilot by discord_original_id (for Discord IDs)
+    // First try to find the pilot by discord_id (for Discord IDs)
     const { data: pilotByDiscordId } = await supabase
       .from('pilots')
       .select('id')
-      .eq('discord_original_id', pilotId)
+      .eq('discord_id', pilotId)
       .single();
-    
+
     // If found by Discord ID, use the actual UUID from the database
     const actualPilotId = pilotByDiscordId ? pilotByDiscordId.id : pilotId;
-    
+
     // End all existing active role assignments for this pilot
     const { error: endExistingError } = await supabase
       .from('pilot_roles')
@@ -1300,23 +1300,22 @@ export async function addPilotRoleAssignment(
  */
 export async function clearDiscordCredentials(id: string): Promise<{ success: boolean; error: any }> {
   try {
-    // First try to find the pilot by discord_original_id (for Discord IDs)
+    // First try to find the pilot by discord_id (for Discord IDs)
     const { data: pilotByDiscordId } = await supabase
       .from('pilots')
       .select('id')
-      .eq('discord_original_id', id)
+      .eq('discord_id', id)
       .single();
-    
+
     // If found by Discord ID, use the actual UUID from the database
     const actualId = pilotByDiscordId ? pilotByDiscordId.id : id;
-    
+
     // Now update using the correct UUID, clearing Discord-related fields
     const { error } = await supabase
       .from('pilots')
-      .update({ 
-        discordId: null, 
-        discord_original_id: null
-        // Removed discordUsername as it doesn't exist in the database schema
+      .update({
+        discord_username: null,
+        discord_id: null
       })
       .eq('id', actualId);
 

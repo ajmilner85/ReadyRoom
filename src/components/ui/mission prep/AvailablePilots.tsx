@@ -418,7 +418,8 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
       return;
     }
     
-    const discordId = pilot.discordId || (pilot as any).discord_original_id || (pilot as any).discord_id;
+    // Use discord_id (numeric ID) for Discord API calls
+    const discordId = (pilot as any).discord_id;
     if (!discordId) {
       console.log(`Pilot ${pilot.callsign} has no Discord ID`);
       return;
@@ -504,7 +505,8 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
         rollCallStatus: undefined as ('Present' | 'Absent' | 'Tentative' | undefined)
       };
       const pilotId = pilotCopy.id || pilotCopy.boardNumber;
-      const discordId = pilotCopy.discordId || (pilotCopy as any).discord_original_id || (pilotCopy as any).discord_id;
+      // Use discord_id (numeric ID) for matching attendance data
+      const discordId = (pilotCopy as any).discord_id;
       
       // Add roll call status first (higher priority)
       if (pilotId && rollCallResponses[pilotId]) {
@@ -534,9 +536,10 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
         const attendingDiscordIds = realtimeAttendanceData
           .filter(record => record.response === 'accepted' || record.response === 'tentative')
           .map(record => record.discord_id);
-          
+
         filtered = filtered.filter(pilot => {
-          const discordId = pilot.discordId || (pilot as any).discord_original_id || (pilot as any).discord_id;
+          // Use discord_id (numeric ID) to match against attendance data
+          const discordId = (pilot as any).discord_id;
           return discordId && attendingDiscordIds.includes(discordId);
         });
       } else {
@@ -586,7 +589,8 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
       
       // Sort pilots based on their Discord attendance status (not roll call status)
       filteredPilots.forEach(pilot => {
-        const discordId = pilot.discordId || (pilot as any).discord_original_id || (pilot as any).discord_id;
+        // Use discord_id (numeric ID) for matching attendance data
+        const discordId = (pilot as any).discord_id;
         
         // Find the attendance record for this pilot
         const attendanceRecord = realtimeAttendanceData.find(record => record.discord_id === discordId);
@@ -741,7 +745,8 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
           // For each pilot, check if they have a roll call response
           pilots.forEach(pilot => {
             const pilotId = pilot.id || pilot.boardNumber;
-            const discordId = pilot.discordId || (pilot as any).discord_original_id || (pilot as any).discord_id;
+            // Use discord_id (numeric ID) for matching roll call data
+            const discordId = (pilot as any).discord_id;
             
             if (discordId && discordIdToRollCallMap[discordId]) {
               pilotRollCallResponses[pilotId] = discordIdToRollCallMap[discordId];
@@ -1061,7 +1066,8 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
                         
                         pilots.forEach(pilot => {
                           const pilotId = pilot.id || pilot.boardNumber;
-                          const discordId = pilot.discordId || (pilot as any).discord_original_id || (pilot as any).discord_id;
+                          // Use discord_id (numeric ID) for matching roll call data
+                          const discordId = (pilot as any).discord_id;
                           
                           if (discordId && freshRollCallData[discordId]) {
                             freshPilotResponses[pilotId] = freshRollCallData[discordId];
@@ -1081,7 +1087,8 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
                     const pilotsForAutoAssign = pilots
                       .map(pilot => {
                         const pilotId = pilot.id || pilot.boardNumber;
-                        const discordId = pilot.discordId || (pilot as any).discord_original_id || (pilot as any).discord_id;
+                        // Use discord_id (numeric ID) for matching attendance data
+                        const discordId = (pilot as any).discord_id;
                         
                         // Apply fresh roll call status
                         let rollCallStatus = freshRollCallResponses[pilotId];

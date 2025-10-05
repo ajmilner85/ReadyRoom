@@ -1,5 +1,5 @@
 import { supabase } from './supabaseClient';
-import { getPilotByDiscordOriginalId } from './pilotService';
+import { getPilotByDiscordId } from './pilotService';
 
 // Define the Qualification interface
 export interface Qualification {
@@ -312,7 +312,7 @@ async function getActualPilotId(pilotId: string): Promise<string> {
   
   // Try to get the UUID from the Discord ID
   try {
-    const { data, error } = await getPilotByDiscordOriginalId(pilotId);
+    const { data, error } = await getPilotByDiscordId(pilotId);
     
     if (error) {
       return pilotId; // Return original if conversion fails

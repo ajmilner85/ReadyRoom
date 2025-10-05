@@ -176,7 +176,7 @@ async function findMatchingPilot(discordData: DiscordUserData | null): Promise<{
     const { data: pilotByDiscord, error: discordError } = await supabase
       .from('pilots')
       .select('*')
-      .or(`discord_original_id.eq.${discordData.id},discordId.eq.${discordData.username}`)
+      .or(`discord_id.eq.${discordData.id},discord_username.eq.${discordData.username}`)
       .single();
 
     if (!discordError && pilotByDiscord) {
@@ -216,8 +216,8 @@ async function updatePilotDiscordInfo(pilotId: string, discordData: DiscordUserD
     const { error } = await supabase
       .from('pilots')
       .update({
-        discord_original_id: discordData.id,
-        discordId: discordData.username,
+        discord_id: discordData.id,
+        discord_username: discordData.username,
         updated_at: new Date().toISOString()
       })
       .eq('id', pilotId);

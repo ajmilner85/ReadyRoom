@@ -48,7 +48,7 @@ export const RollCallProvider: React.FC<RollCallProviderProps> = ({ children, se
         // For each pilot, check if they have a roll call response
         pilots.forEach(pilot => {
           const pilotId = pilot.id || pilot.boardNumber;
-          const discordId = pilot.discordId || pilot.discord_original_id || pilot.discord_id;
+          const discordId = pilot.discord_id;
           
           if (discordId && discordIdMap[discordId]) {
             pilotRollCallResponses[pilotId] = discordIdMap[discordId];

@@ -3,9 +3,9 @@ import { usePageLoading } from '../../context/PageLoadingContext';
 import { usePermissions } from '../../hooks/usePermissions';
 import StandardPageLoader from './StandardPageLoader';
 import { Pilot } from '../../types/PilotTypes';
-import { 
-  getAllPilots, 
-  getPilotByDiscordOriginalId, 
+import {
+  getAllPilots,
+  getPilotByDiscordId,
   createPilotWithStatusAndStanding,
   deletePilot, // Added import for deletePilot
   updatePilot,
@@ -285,10 +285,10 @@ const RosterManagement: React.FC = () => {
           // Create the pilot object with all necessary properties
           const legacyPilot: Pilot = {
             id: pilot.id, // Use the actual pilot UUID as ID
-            discord_original_id: (pilot as any).discord_original_id, // Preserve numeric Discord ID
+            discord_id: (pilot as any).discord_id, // Preserve numeric Discord ID
             callsign: pilot.callsign,
             boardNumber: pilot.boardNumber.toString(), // Convert to string for legacy compatibility
-            discordId: pilot.discordId || undefined, // Handle null case
+            discord_username: pilot.discord_username || undefined, // Handle null case
             currentStatus: pilot.currentStatus || undefined,
             currentStanding: pilot.currentStanding || undefined,
             qualifications: ((pilot as any).qualifications || []).map((q: any, index: number) => ({
@@ -299,7 +299,7 @@ const RosterManagement: React.FC = () => {
             // Set status based on currentStatus if available
             status: pilot.currentStatus?.name || 'Provisional' as any,
             billet: '', // Default empty billet
-            discordUsername: pilot.discordId || '', // Use discordId for display
+            discordUsername: pilot.discord_username || '', // Use discord_username for display
             roles: pilot.roles as any, // KEEP THE ROLES - cast to avoid type conflicts
             // Add squadron assignment information
             currentSquadron: (pilot as any).currentSquadron || undefined,
@@ -427,7 +427,7 @@ const RosterManagement: React.FC = () => {
       const pilotData = {
         boardNumber: parseInt(newPilot.boardNumber),
         callsign: newPilot.callsign,
-        discordId: newPilot.discordUsername || undefined, // Changed null to undefined
+        discord_username: newPilot.discordUsername || undefined, // Changed null to undefined
         // Don't include status_id directly - it will be assigned via the join table
       };
       
@@ -630,7 +630,7 @@ const RosterManagement: React.FC = () => {
           pilots!inner (
             id,
             callsign,
-            discord_original_id
+            discord_id
           )
         `)
         .eq('squadron_id', newSquadronId)
@@ -809,7 +809,7 @@ const RosterManagement: React.FC = () => {
       let actualPilotId = pilotId;
       if (isDiscordId) {
         // If it's a Discord ID, first get the corresponding UUID from the database
-        const { data: pilotData, error: pilotError } = await getPilotByDiscordOriginalId(pilotId);
+        const { data: pilotData, error: pilotError } = await getPilotByDiscordId(pilotId);
         
         if (pilotError) {
           throw new Error(pilotError.message);
@@ -872,7 +872,7 @@ const RosterManagement: React.FC = () => {
       const { data, error } = await supabase
         .from('pilots')
         .select('id')
-        .eq('discord_original_id', pilotId);
+        .eq('discord_id', pilotId);
       
       if (error) {
         console.error('Error getting actual pilot ID:', error);
@@ -1776,7 +1776,7 @@ const RosterManagement: React.FC = () => {
       const updatePayload: any = {
         callsign: updatedPilot.callsign,
         boardNumber: parseInt(updatedPilot.boardNumber),
-        discordId: updatedPilot.discordUsername || undefined
+        discord_username: updatedPilot.discordUsername || undefined
         // Note: role is handled separately
         // Note: status and standing are now handled via join tables, not direct updates
       };

@@ -323,7 +323,7 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
     }
     
     // Check if we have the numeric Discord ID needed for API lookups
-    if (!selectedPilot.discord_original_id) {
+    if (!selectedPilot.discord_id) {
       setDiscordMember(null);
       setDiscordRoles([]);
       setRoleMappings([]);
@@ -338,15 +338,15 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
       const squadronData = selectedPilot.currentSquadron as any;
       const discordIntegration = squadronData?.discord_integration as { selectedGuildId?: string } | null;
       const guildId = discordIntegration?.selectedGuildId || '';
-      
+
       if (!guildId) {
         setDiscordRoleError('No Discord server configured for this squadron');
         return;
       }
 
-      // Use discord_original_id for API lookup since Discord API expects numeric ID  
-      const discordIdForLookup = selectedPilot.discord_original_id;
-      
+      // Use discord_id for API lookup since Discord API expects numeric ID
+      const discordIdForLookup = selectedPilot.discord_id;
+
       if (!discordIdForLookup) {
         setDiscordRoleError('No numeric Discord ID found for this pilot. The pilot may need to be re-synced with Discord.');
         return;
@@ -521,7 +521,7 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
       setEditedPilot({
         ...editedPilot,
         discordUsername: '',
-        discordId: undefined
+        discord_id: undefined
       });
       console.log('Discord credentials cleared locally'); // Debug log
       

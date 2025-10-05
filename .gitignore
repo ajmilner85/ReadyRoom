@@ -33,6 +33,7 @@ lerna-debug.log*
 
 # Database files
 *.sql
+supabase/migrations
 
 # Development tools and configuration
 .playwright-mcp/
