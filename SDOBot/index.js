@@ -1305,8 +1305,12 @@ app.post('/api/discord/post-image', async (req, res) => {
         // Get the guild and channel
         const guild = discordClient.guilds.cache.get(guildId);
         if (!guild) {
-          return res.status(404).json({ 
-            error: `Discord server with ID ${guildId} not found or bot doesn't have access` 
+          // Log available guilds for debugging
+          const availableGuilds = discordClient.guilds.cache.map(g => ({ id: g.id, name: g.name }));
+          console.error(`[POST-IMAGE] Guild ${guildId} not found. Available guilds:`, availableGuilds);
+          return res.status(404).json({
+            error: `Discord server with ID ${guildId} not found or bot doesn't have access`,
+            availableGuilds: availableGuilds
           });
         }
 

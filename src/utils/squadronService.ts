@@ -15,6 +15,21 @@ export interface Squadron {
     secondary?: string;
     accent?: string;
   } | null;
+  discord_integration?: {
+    selectedGuildId?: string;
+    discordChannels?: Array<{
+      id: string;
+      name: string;
+      type: 'events' | 'briefing';
+    }>;
+    roleMappings?: Array<{
+      id: string;
+      discordRoleId: string;
+      discordRoleName: string;
+      appPermission: 'admin' | 'flight_lead' | 'member' | 'guest';
+      priority: number;
+    }>;
+  } | null;
   updated_at?: string | null;
 }
 
