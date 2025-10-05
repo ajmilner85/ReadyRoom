@@ -37,9 +37,22 @@ interface LocalSquadron {
   name: string;
   designation: string;
   callsigns: any;
-  discord_integration?: any;
+  discord_integration?: {
+    selectedGuildId?: string;
+    discordChannels?: Array<{
+      id: string;
+      name: string;
+      type: 'events' | 'briefing';
+    }>;
+    roleMappings?: Array<{
+      id: string;
+      discordRoleId: string;
+      discordRoleName: string;
+      appPermission: 'admin' | 'flight_lead' | 'member' | 'guest';
+      priority: number;
+    }>;
+  };
   insignia_url?: string | null;
-  color_palette: any;
 }
 
 interface SquadronFlightGroup {
@@ -557,7 +570,7 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
         // Sort and fix flight numbers within each group
         Object.values(groupedByCallsign).forEach(flightGroup => {
           flightGroup.sort((a, b) => parseInt(a.flightNumber) - parseInt(b.flightNumber));
-          
+
           let expectedNumber = 1;
           flightGroup.forEach(flight => {
             if (parseInt(flight.flightNumber) !== expectedNumber) {
@@ -566,7 +579,15 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
             expectedNumber++;
           });
         });
-        
+
+        // Reassign MIDS channels globally for all flights
+        let midsCounter = 1;
+        updatedFlights.forEach(flight => {
+          flight.midsA = midsCounter.toString();
+          flight.midsB = (midsCounter + 2).toString();
+          midsCounter += 3;
+        });
+
         return updatedFlights.sort((a, b) => {
           if (a.callsign === b.callsign) {
             return parseInt(a.flightNumber) - parseInt(b.flightNumber);
@@ -636,18 +657,20 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
         continue;
       }
 
-      const squadronFlights = flights.filter(flight => 
-        squadron.callsigns!.some((callsign: string) => 
+      const squadronFlights = flights.filter(flight =>
+        squadron.callsigns!.some((callsign: string) =>
           flight.callsign.toUpperCase() === callsign.toUpperCase()
         )
       );
 
-      if (squadronFlights.length > 0) {
+      // Only include squadron if it has flights with assigned pilots
+      const hasAssignedPilots = squadronFlights.some(flight =>
+        flight.pilots && flight.pilots.length > 0
+      );
+
+      if (squadronFlights.length > 0 && hasAssignedPilots) {
         squadronGroups.push({
-          squadron: {
-            ...squadron,
-            discord_integration: null
-          } as LocalSquadron,
+          squadron: squadron as LocalSquadron,
           flights: squadronFlights
         });
       }
@@ -812,28 +835,77 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
       // RIGHT SIDE: Event name and date/time
       ctx.textAlign = 'right';
       const rightX = width - padding - 10;
-      
-      // Event name (bold, same size as squadron name)
+
+      // Event name (bold, same size as squadron name) with wrapping if needed
       const eventName = selectedEvent?.title || 'Event';
       ctx.font = 'bold 16px Arial, sans-serif';
       ctx.fillStyle = '#FFFFFF';
-      ctx.fillText(eventName, rightX, insigniaY + 25);
-      
+
+      // Calculate available space for event name (rightX - end of squadron designation)
+      const squadronTextEndX = designationX + ctx.measureText(designationText).width + 20; // Add 20px margin
+      const availableWidth = rightX - squadronTextEndX;
+      const eventNameWidth = ctx.measureText(eventName).width;
+
+      let eventNameIsWrapped = false;
+
+      if (eventNameWidth > availableWidth) {
+        // Text is too long, wrap it to two lines
+        eventNameIsWrapped = true;
+        const words = eventName.split(' ');
+        let line1 = '';
+        let line2 = '';
+        let currentLine = '';
+
+        for (let i = 0; i < words.length; i++) {
+          const testLine = currentLine + (currentLine ? ' ' : '') + words[i];
+          const testWidth = ctx.measureText(testLine).width;
+
+          if (testWidth <= availableWidth || currentLine === '') {
+            currentLine = testLine;
+          } else {
+            // Move to second line
+            if (!line1) {
+              line1 = currentLine;
+              currentLine = words[i];
+            } else {
+              line2 = currentLine;
+              break;
+            }
+          }
+        }
+
+        // Assign remaining words
+        if (!line1) {
+          line1 = currentLine;
+        } else if (!line2) {
+          line2 = currentLine;
+        }
+
+        // Draw wrapped lines
+        ctx.fillText(line1, rightX, insigniaY + 17);
+        ctx.fillText(line2, rightX, insigniaY + 35);
+      } else {
+        // Text fits on one line
+        ctx.fillText(eventName, rightX, insigniaY + 25);
+      }
+
       // Event date and time (regular weight, same size as squadron name)
+      // Push down if event name was wrapped
       if (selectedEvent?.datetime) {
         const eventDate = new Date(selectedEvent.datetime);
         const formattedDateTime = eventDate.toLocaleString('en-US', {
           weekday: 'short',
-          month: 'short', 
+          month: 'short',
           day: 'numeric',
           hour: 'numeric',
           minute: '2-digit',
           hour12: true
         });
-        
+
         ctx.font = '16px Arial, sans-serif';
         ctx.fillStyle = '#CCCCCC';
-        ctx.fillText(formattedDateTime, rightX, insigniaY + 45);
+        const dateY = eventNameIsWrapped ? insigniaY + 53 : insigniaY + 45;
+        ctx.fillText(formattedDateTime, rightX, dateY);
       }
 
       // Render separate tables for each flight
@@ -947,7 +1019,7 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
   }, [getUpdatedFlightPilots]);
 
   // Save flight post record to database
-  const saveFlightPostRecord = useCallback(async (eventId: number, squadronId: number, guildId: string, channelId: string, messageId: string, isUpdate: boolean = false) => {
+  const saveFlightPostRecord = useCallback(async (eventId: string, squadronId: string, guildId: string, channelId: string, messageId: string, isUpdate: boolean = false) => {
     try {
       const response = await fetch(`${import.meta.env.VITE_API_URL}/api/discord/save-flight-post`, {
         method: 'POST',
@@ -1010,14 +1082,16 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
       console.log('Successfully updated Discord message:', result);
       
       // Save/update the flight post record
-      await saveFlightPostRecord(
-        Number(selectedEvent?.id) || 0,
-        Number(squadronGroup.squadron.id),
-        existingPost.guildId,
-        existingPost.channelId,
-        existingPost.messageId,
-        true
-      );
+      if (selectedEvent?.id) {
+        await saveFlightPostRecord(
+          selectedEvent.id,
+          squadronGroup.squadron.id,
+          existingPost.guildId,
+          existingPost.channelId,
+          existingPost.messageId,
+          true
+        );
+      }
       
       return true;
     } catch (error) {
@@ -1048,14 +1122,16 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
       formData.append('guildId', String(discordIntegration.selectedGuildId));
       formData.append('channelId', String(briefingChannel.id));
       // Get event date for Discord message
-      const eventDate = selectedEvent?.datetime ? 
-        new Date(selectedEvent.datetime).toLocaleDateString('en-US', { 
-          year: 'numeric', 
-          month: 'short', 
-          day: 'numeric' 
+      const eventDate = selectedEvent?.datetime ?
+        new Date(selectedEvent.datetime).toLocaleDateString('en-US', {
+          year: 'numeric',
+          month: 'short',
+          day: 'numeric'
         }) : 'TBD';
-        
+
       formData.append('message', `**${eventDate} Flight Assignments**`);
+
+      console.log(`Publishing to Discord - Squadron: ${squadronGroup.squadron.name}, Guild: ${discordIntegration.selectedGuildId}, Channel: ${briefingChannel.id} (${briefingChannel.name})`);
 
       // Send to the backend API for Discord posting
       const response = await fetch(`${import.meta.env.VITE_API_URL}/api/discord/post-image`, {
@@ -1065,18 +1141,18 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
 
       if (!response.ok) {
         const errorData = await response.json();
-        console.error('Failed to post to Discord:', errorData);
+        console.error(`Failed to post to Discord for ${squadronGroup.squadron.name}:`, errorData);
         return false;
       }
 
       const result = await response.json();
       console.log('Successfully posted flight assignments to Discord:', result);
-      
-      // Save the flight post record to the database
-      if (selectedEvent?.id && result.messageId) {
+
+      // Save the flight post record to the database (IDs are UUIDs, not numbers)
+      if (selectedEvent?.id && result.messageId && discordIntegration.selectedGuildId) {
         await saveFlightPostRecord(
-          Number(selectedEvent.id),
-          Number(squadronGroup.squadron.id),
+          selectedEvent.id,
+          squadronGroup.squadron.id,
           discordIntegration.selectedGuildId,
           briefingChannel.id,
           result.messageId,
@@ -1089,7 +1165,7 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
       console.error('Error posting to Discord:', error);
       return false;
     }
-  }, []);
+  }, [selectedEvent, saveFlightPostRecord]);
 
   // Handle dialog responses
   const handleUpdateExisting = useCallback(async () => {
@@ -1194,15 +1270,18 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
 
       // Check for existing posts
       const { hasExisting, posts } = await checkExistingPosts();
-      
+      console.log('Existing posts check:', { hasExisting, postsCount: posts.length, posts });
+
       if (hasExisting && posts.length > 0) {
         // Show dialog for user to choose action
+        console.log('Found existing posts, showing dialog');
         setExistingPosts(posts);
         setShowPostOptionsDialog(true);
         return;
       }
 
       // No existing posts, proceed with normal publish
+      console.log('No existing posts found, creating new posts');
       await performPublishAction('create');
     } catch (error) {
       console.error('Error in handlePublishToDiscord:', error);

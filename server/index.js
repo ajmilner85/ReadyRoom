@@ -185,11 +185,51 @@ app.post('/api/discord/switch-bot', async (req, res) => {
   try {
     console.log('Initializing Discord bot and client connection...');
     await initializeDiscordBot();
-    
+
+    // Check database for bot token preference
+    let botToken = process.env.BOT_TOKEN; // Default fallback
+    try {
+      // Get all user profiles and find one with a bot token preference
+      const { data: userProfiles, error } = await supabase
+        .from('user_profiles')
+        .select('settings');
+
+      if (!error && userProfiles && userProfiles.length > 0) {
+        // Find the first profile that has a bot token preference set
+        const profileWithPreference = userProfiles.find(p => p.settings?.developer?.discordBotToken);
+
+        if (profileWithPreference) {
+          const tokenType = profileWithPreference.settings.developer.discordBotToken;
+          console.log(`[STARTUP] Found bot token preference: ${tokenType}`);
+
+          if (tokenType === 'production') {
+            botToken = process.env.BOT_TOKEN_PROD || process.env.BOT_TOKEN;
+            console.log('[STARTUP] Using production Discord bot token from user settings');
+          } else if (tokenType === 'development') {
+            botToken = process.env.BOT_TOKEN_DEV || process.env.BOT_TOKEN;
+            console.log('[STARTUP] Using development Discord bot token from user settings');
+          }
+        } else {
+          console.log('[STARTUP] No bot token preference found in any user profile, using default BOT_TOKEN');
+        }
+      } else {
+        console.log('[STARTUP] No user profiles found, using default BOT_TOKEN');
+      }
+    } catch (dbError) {
+      console.warn('[STARTUP] Could not read bot token preference from database, using default:', dbError.message);
+    }
+
     // Login the persistent client
-    await discordClient.login(process.env.BOT_TOKEN);
+    await discordClient.login(botToken);
+
+    // Wait for ready event and log available guilds
+    discordClient.once('ready', () => {
+      const guilds = discordClient.guilds.cache.map(g => ({ id: g.id, name: g.name, memberCount: g.memberCount }));
+      console.log('[STARTUP] Discord client ready. Available guilds:', guilds);
+    });
+
     console.log('Discord client connection established successfully');
-    
+
     // Log that the bot has been restarted (useful for debugging)
     console.log(`[STARTUP] Discord bot initialized at ${new Date().toISOString()}`);
     console.log('[STARTUP] Note: Previously cached event data will be reloaded from database');
@@ -1281,8 +1321,12 @@ app.post('/api/discord/post-image', async (req, res) => {
         // Get the guild and channel
         const guild = discordClient.guilds.cache.get(guildId);
         if (!guild) {
-          return res.status(404).json({ 
-            error: `Discord server with ID ${guildId} not found or bot doesn't have access` 
+          // Log available guilds for debugging
+          const availableGuilds = discordClient.guilds.cache.map(g => ({ id: g.id, name: g.name }));
+          console.error(`[POST-IMAGE] Guild ${guildId} not found. Available guilds:`, availableGuilds);
+          return res.status(404).json({
+            error: `Discord server with ID ${guildId} not found or bot doesn't have access`,
+            availableGuilds: availableGuilds
           });
         }
 

@@ -49,6 +49,7 @@ export async function getOptimizedSquadronMapping(pilots: Pilot[]): Promise<{
           insignia_url,
           carrier_id,
           callsigns,
+          discord_integration,
           updated_at
         )
       `)
@@ -74,6 +75,7 @@ export async function getOptimizedSquadronMapping(pilots: Pilot[]): Promise<{
         insignia_url,
         carrier_id,
         callsigns,
+        discord_integration,
         updated_at
       `);
 
@@ -102,8 +104,7 @@ export async function getOptimizedSquadronMapping(pilots: Pilot[]): Promise<{
       }
     }
 
-    const squadrons = squadronData || [];
-    
+    const squadrons = (squadronData || []) as Squadron[];
 
     // Cache the result
     squadronMappingCache = {

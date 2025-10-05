@@ -7,7 +7,7 @@ import { adaptSupabasePilots } from '../utils/pilotDataUtils';
 import { loadSelectedEvent, saveSelectedEvent, STORAGE_KEYS } from '../utils/localStorageUtils';
 import type { Event } from '../types/EventTypes';
 import type { Pilot } from '../types/PilotTypes';
-import type { Squadron } from '../utils/squadronService';
+import type { Squadron } from '../types/OrganizationTypes';
 
 /**
  * Custom hook to manage mission preparation data (events, pilots, qualifications)
@@ -159,7 +159,6 @@ export const useMissionPrepData = () => {
           name: squadron.name,
           designation: squadron.designation,
           insignia_url: squadron.insignia_url,
-          color_palette: squadron.color_palette,
           callsigns: Array.isArray(squadron.callsigns) ? squadron.callsigns : []
         }));
 
