@@ -67,6 +67,7 @@ export interface Squadron {
   updated_at: string | null;
   discord_integration?: {
     selectedGuildId?: string;
+    emoji?: string;
     discordChannels?: Array<{
       id: string;
       name: string;

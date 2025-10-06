@@ -17,6 +17,7 @@ interface EventDialogProps {
     headerImage?: File | null;
     additionalImages?: (File | null)[];
     trackQualifications?: boolean;
+    groupBySquadron?: boolean;
     timezone?: string;
     reminders?: {
       firstReminder?: {
@@ -50,6 +51,7 @@ interface EventDialogProps {
     eventSettings?: {
       timezone?: string;
       groupResponsesByQualification?: boolean;
+      groupBySquadron?: boolean;
       firstReminderEnabled?: boolean;
       firstReminderTime?: {
         value: number;
@@ -99,13 +101,19 @@ export const EventDialog: React.FC<EventDialogProps> = ({
   );
   
   const [trackQualifications, setTrackQualifications] = useState(
-    initialData?.eventSettings?.groupResponsesByQualification !== undefined 
+    initialData?.eventSettings?.groupResponsesByQualification !== undefined
       ? initialData.eventSettings.groupResponsesByQualification
-      : (initialData?.trackQualifications !== undefined 
-        ? initialData.trackQualifications 
+      : (initialData?.trackQualifications !== undefined
+        ? initialData.trackQualifications
         : settings.eventDefaults.groupResponsesByQualification)
   );
-  
+
+  const [groupBySquadron, setGroupBySquadron] = useState(
+    initialData?.eventSettings?.groupBySquadron !== undefined
+      ? initialData.eventSettings.groupBySquadron
+      : false
+  );
+
   // Reminder settings state - prioritize event settings over app defaults
   const [firstReminderEnabled, setFirstReminderEnabled] = useState(
     initialData?.eventSettings?.firstReminderEnabled !== undefined 
@@ -569,6 +577,7 @@ export const EventDialog: React.FC<EventDialogProps> = ({
         headerImage: headerImageForSubmit instanceof File ? headerImageForSubmit : undefined,
         additionalImages: additionalImagesForSubmit.filter((img): img is File => img instanceof File),
         trackQualifications,
+        groupBySquadron,
         timezone,
         reminders: {
           firstReminder: {
@@ -1316,6 +1325,52 @@ export const EventDialog: React.FC<EventDialogProps> = ({
                         position: 'absolute',
                         top: '2px',
                         left: trackQualifications ? '22px' : '2px',
+                        transition: 'left 0.2s ease',
+                        boxShadow: '0 2px 4px rgba(0, 0, 0, 0.2)'
+                      }}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ marginBottom: '16px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div>
+                    <label style={{
+                      fontSize: '14px',
+                      fontWeight: 500,
+                      color: '#64748B',
+                      marginBottom: '4px',
+                      display: 'block'
+                    }}>
+                      Group by squadron in Discord
+                    </label>
+                    <p style={{ fontSize: '12px', color: '#64748B', margin: '0', fontFamily: 'Inter' }}>
+                      When enabled, Discord event attendance will be divided by squadron.
+                    </p>
+                  </div>
+                  <div
+                    onClick={() => setGroupBySquadron(!groupBySquadron)}
+                    style={{
+                      width: '44px',
+                      height: '24px',
+                      backgroundColor: groupBySquadron ? '#3B82F6' : '#E5E7EB',
+                      borderRadius: '12px',
+                      position: 'relative',
+                      cursor: 'pointer',
+                      transition: 'background-color 0.2s ease',
+                      marginLeft: '16px'
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: '20px',
+                        height: '20px',
+                        backgroundColor: 'white',
+                        borderRadius: '50%',
+                        position: 'absolute',
+                        top: '2px',
+                        left: groupBySquadron ? '22px' : '2px',
                         transition: 'left 0.2s ease',
                         boxShadow: '0 2px 4px rgba(0, 0, 0, 0.2)'
                       }}

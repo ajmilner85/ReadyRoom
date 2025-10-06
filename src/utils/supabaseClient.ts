@@ -493,6 +493,7 @@ export const createEvent = async (event: Omit<Event, 'id' | 'creator' | 'attenda
   const eventSettings = {
     timezone: event.timezone || 'America/New_York',
     groupResponsesByQualification: event.trackQualifications || false,
+    groupBySquadron: (event as any).groupBySquadron || false,
     firstReminderEnabled: event.reminders?.firstReminder?.enabled || false,
     firstReminderTime: {
       value: event.reminders?.firstReminder?.value || 15,
@@ -599,7 +600,7 @@ export const updateEvent = async (eventId: string, updates: Partial<Omit<Event, 
   if (updates.participants !== undefined) dbUpdates.participants = updates.participants;
   // track_qualifications field not in current database schema
   // Handle event settings updates
-  if (updates.timezone !== undefined || updates.reminders !== undefined || updates.reminderRecipients !== undefined || updates.eventSettings !== undefined) {
+  if (updates.timezone !== undefined || updates.trackQualifications !== undefined || (updates as any).groupBySquadron !== undefined || updates.reminders !== undefined || updates.reminderRecipients !== undefined || updates.eventSettings !== undefined) {
     // First, get existing event settings to merge with updates
     const { data: existingEvent } = await supabase
       .from('events')
@@ -611,9 +612,13 @@ export const updateEvent = async (eventId: string, updates: Partial<Omit<Event, 
     const eventSettings: any = existingEvent?.event_settings || {};
     
     // Apply updates
+    console.log('[UPDATE-EVENT] updates.groupBySquadron:', (updates as any).groupBySquadron);
     if (updates.timezone !== undefined) eventSettings.timezone = updates.timezone;
     if (updates.trackQualifications !== undefined) eventSettings.groupResponsesByQualification = updates.trackQualifications;
+    if ((updates as any).groupBySquadron !== undefined) eventSettings.groupBySquadron = (updates as any).groupBySquadron;
     if (updates.eventSettings?.groupResponsesByQualification !== undefined) eventSettings.groupResponsesByQualification = updates.eventSettings.groupResponsesByQualification;
+    if (updates.eventSettings?.groupBySquadron !== undefined) eventSettings.groupBySquadron = updates.eventSettings.groupBySquadron;
+    console.log('[UPDATE-EVENT] Final eventSettings:', eventSettings);
     if (updates.reminders?.firstReminder !== undefined) {
       eventSettings.firstReminderEnabled = updates.reminders.firstReminder.enabled;
       eventSettings.firstReminderTime = {
@@ -633,23 +638,89 @@ export const updateEvent = async (eventId: string, updates: Partial<Omit<Event, 
       eventSettings.sendRemindersToTentative = updates.reminderRecipients.sendToTentative;
     }
     
-    // Save merged event settings to database
+    // Save merged event settings to database using a Postgres function to bypass RLS issues
+    // Store event_settings separately to update via function
+    const eventSettingsToUpdate = eventSettings;
     dbUpdates.event_settings = eventSettings;
   }
   // Preserve discord_event_id during updates
   if ((updates as any).discord_event_id !== undefined) dbUpdates.discord_event_id = (updates as any).discord_event_id;
   // No restricted_to in the DB schema
 
-  const { data, error } = await supabase
+  // Check if we have any updates to apply
+  console.log('[UPDATE-EVENT] dbUpdates before check:', dbUpdates);
+  if (Object.keys(dbUpdates).length === 0) {
+    console.warn('[UPDATE-EVENT] No database fields to update, skipping update query');
+    // Fetch the existing event to return
+    const { data, error } = await supabase
+      .from('events')
+      .select()
+      .eq('id', eventId)
+      .single();
+
+    if (error) {
+      console.error('Error fetching event:', error);
+      return { event: null, error };
+    }
+
+    // Continue with the rest of the function using the fetched data
+    const attendance = {
+      accepted: data.accepted || [],
+      declined: data.declined || [],
+      tentative: data.tentative || []
+    };
+
+    return {
+      event: {
+        id: data.id,
+        title: data.name,
+        description: data.description,
+        datetime: data.start_datetime,
+        endDatetime: data.end_datetime,
+        status: data.status,
+        createdAt: data.created_at,
+        updatedAt: data.updated_at,
+        eventType: data.event_type,
+        cycleId: data.cycle_id,
+        discordEventId: data.discord_event_id,
+        participants: data.participants,
+        imageUrl: data.image_url,
+        attendance,
+        trackQualifications: data.track_qualifications,
+        eventSettings: data.event_settings
+      },
+      error: null
+    };
+  }
+
+  // About to update event
+  console.log('[UPDATE-EVENT] About to update database with:', dbUpdates);
+  console.log('[UPDATE-EVENT] event_settings value:', JSON.stringify(dbUpdates.event_settings, null, 2));
+
+  // Perform the update
+  const { error: updateError } = await supabase
     .from('events')
     .update(dbUpdates)
-    .eq('id', eventId)
+    .eq('id', eventId);
+
+  if (updateError) {
+    console.error('[UPDATE-EVENT] Database update failed:', updateError);
+    return { event: null, error: updateError };
+  }
+  console.log('[UPDATE-EVENT] Database update completed successfully');
+
+  // Then fetch the updated event
+  const { data, error: fetchError } = await supabase
+    .from('events')
     .select()
+    .eq('id', eventId)
     .single();
 
-  if (error) {
-    console.error('Error updating event:', error);
-    return { event: null, error };
+  console.log('[UPDATE-EVENT] Fetched event_settings after update:', JSON.stringify(data?.event_settings, null, 2));
+
+  if (fetchError || !data) {
+    console.error('Error fetching updated event:', fetchError);
+    return { event: null, error: fetchError || new Error('No data returned after update') };
   }
 
   // Initialize with empty attendance

@@ -53,11 +53,10 @@ const EventAttendance: React.FC<EventAttendanceProps> = ({ event }) => {
       try {
         const { data } = await getAllQualifications();
         if (data) {
-          console.log('🎯 EventAttendance: Loaded', data.length, 'qualification configs for caching');
           setQualificationConfigs(data);
         }
       } catch (error) {
-        console.error('🎯 EventAttendance: Failed to load qualification configs:', error);
+        console.error('Failed to load qualification configs:', error);
       }
     };
     
@@ -364,7 +363,6 @@ const EventAttendance: React.FC<EventAttendanceProps> = ({ event }) => {
               {(() => {
                 const hasQuals = pilot.pilotRecord?.qualifications && pilot.pilotRecord.qualifications.length > 0;
                 const hasConfigs = qualificationConfigs.length > 0;
-                console.log(`🎯 EventAttendance: Pilot ${pilot.callsign} - hasQuals: ${hasQuals} (${pilot.pilotRecord?.qualifications?.length || 0}), hasConfigs: ${hasConfigs} (${qualificationConfigs.length})`);
 
                 // Only render badges if we have both pilot qualifications AND cached configs
                 return hasQuals && hasConfigs && pilot.pilotRecord?.qualifications
@@ -374,7 +372,6 @@ const EventAttendance: React.FC<EventAttendanceProps> = ({ event }) => {
                     return (qualA?.order || 999) - (qualB?.order || 999);
                   })
                   ?.map((qual: any, qualIndex: number) => {
-                  console.log(`🎯 EventAttendance: Rendering QualificationBadge for ${pilot.callsign} - ${qual.type} with cached configs`);
                   return (
                     <QualificationBadge
                       key={`${qual.type}-${qualIndex}`}
@@ -520,8 +517,7 @@ const EventAttendance: React.FC<EventAttendanceProps> = ({ event }) => {
                 {(() => {
                   const hasQuals = pilot.pilotRecord?.qualifications && pilot.pilotRecord.qualifications.length > 0;
                   const hasConfigs = qualificationConfigs.length > 0;
-                  console.log(`🎯 EventAttendance: Pilot ${pilot.callsign} - hasQuals: ${hasQuals} (${pilot.pilotRecord?.qualifications?.length || 0}), hasConfigs: ${hasConfigs} (${qualificationConfigs.length})`);
-                  
+
                   // Only render badges if we have both pilot qualifications AND cached configs
                   return hasQuals && hasConfigs && pilot.pilotRecord?.qualifications
                     ?.sort((a: any, b: any) => {
@@ -530,7 +526,6 @@ const EventAttendance: React.FC<EventAttendanceProps> = ({ event }) => {
                       return (qualA?.order || 999) - (qualB?.order || 999);
                     })
                     ?.map((qual: any, index: number) => {
-                    console.log(`🎯 EventAttendance: Rendering QualificationBadge for ${pilot.callsign} - ${qual.type} with cached configs`);
                     return (
                       <QualificationBadge
                         key={`${qual.type}-${index}`}
@@ -665,8 +660,7 @@ const EventAttendance: React.FC<EventAttendanceProps> = ({ event }) => {
                 {(() => {
                   const hasQuals = pilot.pilotRecord?.qualifications && pilot.pilotRecord.qualifications.length > 0;
                   const hasConfigs = qualificationConfigs.length > 0;
-                  console.log(`🎯 EventAttendance: Pilot ${pilot.callsign} - hasQuals: ${hasQuals} (${pilot.pilotRecord?.qualifications?.length || 0}), hasConfigs: ${hasConfigs} (${qualificationConfigs.length})`);
-                  
+
                   // Only render badges if we have both pilot qualifications AND cached configs
                   return hasQuals && hasConfigs && pilot.pilotRecord?.qualifications
                     ?.sort((a: any, b: any) => {
@@ -675,7 +669,6 @@ const EventAttendance: React.FC<EventAttendanceProps> = ({ event }) => {
                       return (qualA?.order || 999) - (qualB?.order || 999);
                     })
                     ?.map((qual: any, index: number) => {
-                    console.log(`🎯 EventAttendance: Rendering QualificationBadge for ${pilot.callsign} - ${qual.type} with cached configs`);
                     return (
                       <QualificationBadge
                         key={`${qual.type}-${index}`}
@@ -810,8 +803,7 @@ const EventAttendance: React.FC<EventAttendanceProps> = ({ event }) => {
                 {(() => {
                   const hasQuals = pilot.pilotRecord?.qualifications && pilot.pilotRecord.qualifications.length > 0;
                   const hasConfigs = qualificationConfigs.length > 0;
-                  console.log(`🎯 EventAttendance: Pilot ${pilot.callsign} - hasQuals: ${hasQuals} (${pilot.pilotRecord?.qualifications?.length || 0}), hasConfigs: ${hasConfigs} (${qualificationConfigs.length})`);
-                  
+
                   // Only render badges if we have both pilot qualifications AND cached configs
                   return hasQuals && hasConfigs && pilot.pilotRecord?.qualifications
                     ?.sort((a: any, b: any) => {
@@ -820,7 +812,6 @@ const EventAttendance: React.FC<EventAttendanceProps> = ({ event }) => {
                       return (qualA?.order || 999) - (qualB?.order || 999);
                     })
                     ?.map((qual: any, index: number) => {
-                    console.log(`🎯 EventAttendance: Rendering QualificationBadge for ${pilot.callsign} - ${qual.type} with cached configs`);
                     return (
                       <QualificationBadge
                         key={`${qual.type}-${index}`}
