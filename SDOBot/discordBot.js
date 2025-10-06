@@ -192,6 +192,7 @@ function extractEmbedDataFromDatabaseEvent(dbEvent, overrideTimezone = null) {
   // Extract event options
   const eventOptions = {
     trackQualifications: dbEvent.event_settings?.groupResponsesByQualification || dbEvent.track_qualifications || false,
+    groupBySquadron: dbEvent.event_settings?.groupBySquadron || false,
     eventType: dbEvent.event_type || null,
     timezone: timezone
   };
@@ -319,12 +320,35 @@ async function loadEventResponses() {  try {
               .single();
 
             if (!pilotError && pilotData) {
+              // Get current squadron assignment
+              let squadronData = null;
+              try {
+                const { data: assignment } = await supabase
+                  .from('pilot_assignments')
+                  .select(`
+                    squadron:squadrons(
+                      id,
+                      designation,
+                      name,
+                      discord_integration
+                    )
+                  `)
+                  .eq('pilot_id', pilotData.id)
+                  .is('end_date', null)
+                  .single();
+
+                squadronData = assignment?.squadron;
+              } catch (err) {
+                console.warn(`[SQUADRON-FETCH] Could not fetch squadron for pilot ${pilotData.id}`);
+              }
+
               pilotRecord = {
                 id: pilotData.id,
                 callsign: pilotData.callsign,
                 boardNumber: pilotData.boardNumber?.toString() || '',
                 qualifications: pilotData.pilot_qualifications?.map(pq => pq.qualification?.name).filter(Boolean) || [],
-                currentStatus: { name: pilotData.status || 'Provisional' }
+                currentStatus: { name: pilotData.status || 'Provisional' },
+                squadron: squadronData
               };
             }
           } catch (error) {
@@ -397,9 +421,9 @@ function createEventEmbed(title, description, eventTime, responses = {}, creator
   const createBlockQuote = (entries) => {
     if (entries.length === 0) return '-';
     const formattedEntries = entries.map(formatPilotEntry);
-    // Discord has a 1024 character limit per field value, use single-line quotes
-    const content = formattedEntries.map(entry => `> ${entry}`).join('\n');
-    return content.length > 1020 ? formattedEntries.slice(0, 20).map(entry => `> ${entry}`).join('\n') + `\n> ... and ${formattedEntries.length - 20} more` : content;
+    // Discord has a 1024 character limit per field value, use block quote syntax
+    const content = `>>> ${formattedEntries.join('\n')}`;
+    return content.length > 1020 ? `>>> ${formattedEntries.slice(0, 20).join('\n')}\n... and ${formattedEntries.length - 20} more` : content;
   };
   
   // Helper function to group by qualifications
@@ -440,22 +464,19 @@ function createEventEmbed(title, description, eventTime, responses = {}, creator
       
       let result = '';
       if (ips.length > 0) {
-        const ipPilots = ips.map(formatPilotEntry);
-        const ipContent = ipPilots.map(entry => `> ${entry}`).join('\n');
-        result += `*IP (${ips.length})*\n${ipContent}`;
+        const ipPilots = ips.map(formatPilotEntry).join('\n');
+        result += `*IP (${ips.length})*\n>>> ${ipPilots}`;
       }
       if (trainees.length > 0) {
         if (result) result += '\n\n';
-        const traineePilots = trainees.map(formatPilotEntry);
-        const traineeContent = traineePilots.map(entry => `> ${entry}`).join('\n');
-        result += `*Trainee (${trainees.length})*\n${traineeContent}`;
+        const traineePilots = trainees.map(formatPilotEntry).join('\n');
+        result += `*Trainee (${trainees.length})*\n>>> ${traineePilots}`;
       }
-      
+
       // If no one is classified (edge case), show everyone as IP
       if (result === '') {
-        const allPilots = entries.map(formatPilotEntry);
-        const allContent = allPilots.map(entry => `> ${entry}`).join('\n');
-        result = `*IP (${entries.length})*\n${allContent}`;
+        const allPilots = entries.map(formatPilotEntry).join('\n');
+        result = `*IP (${entries.length})*\n>>> ${allPilots}`;
       }
       
       // Check character limit
@@ -463,76 +484,202 @@ function createEventEmbed(title, description, eventTime, responses = {}, creator
     }
     
     // Standard qualification grouping
-    const qualificationOrder = ['Mission Commander', 'Flight Lead', 'Section Lead', 'LSO', 'JTAC'];
-    const groups = {};
-    const unassigned = [];
-    
+    // Primary qualifications are shown first with unique entries (no duplication)
+    const primaryQualifications = ['Flight Lead', 'Section Lead'];
+    // Auxiliary qualifications are shown after with duplication allowed
+    const auxiliaryQualifications = ['Mission Commander', 'LSO', 'JTAC'];
+
+    const primaryGroups = {};
+    const auxiliaryGroups = {};
+    const wingmen = [];
+
     entries.forEach(entry => {
-      let assigned = false;
+      let assignedToPrimary = false;
       const qualifications = entry.pilotRecord?.qualifications || [];
-      
-      // Check for primary qualifications (no duplication)
-      for (const qual of ['Mission Commander', 'Flight Lead', 'Section Lead']) {
+
+      // Check for primary qualifications (no duplication - assign to highest only)
+      for (const qual of primaryQualifications) {
         if (qualifications.includes(qual)) {
-          if (!groups[qual]) groups[qual] = [];
-          groups[qual].push(entry);
-          assigned = true;
-          break; // Only assign to the highest qualification
+          if (!primaryGroups[qual]) primaryGroups[qual] = [];
+          primaryGroups[qual].push(entry);
+          assignedToPrimary = true;
+          break; // Only assign to the highest primary qualification
         }
       }
-      
+
+      // If no primary qualification, pilot is a Wingman
+      if (!assignedToPrimary) {
+        wingmen.push(entry);
+      }
+
       // Check for auxiliary qualifications (allow duplication)
-      for (const qual of ['LSO', 'JTAC']) {
+      for (const qual of auxiliaryQualifications) {
         if (qualifications.includes(qual)) {
-          if (!groups[qual]) groups[qual] = [];
-          groups[qual].push(entry);
-          assigned = true;
+          if (!auxiliaryGroups[qual]) auxiliaryGroups[qual] = [];
+          auxiliaryGroups[qual].push(entry);
         }
       }
-      
-      if (!assigned) {
-        unassigned.push(entry);
-      }
     });
-    
+
     let result = '';
-    qualificationOrder.forEach(qual => {
-      if (groups[qual] && groups[qual].length > 0) {
+
+    // Show primary qualifications first
+    primaryQualifications.forEach(qual => {
+      if (primaryGroups[qual] && primaryGroups[qual].length > 0) {
         if (result) result += '\n\n';
-        const pilots = groups[qual].map(formatPilotEntry);
-        const qualContent = pilots.map(entry => `> ${entry}`).join('\n');
-        result += `*${qual} (${groups[qual].length})*\n${qualContent}`;
+        const pilots = primaryGroups[qual].map(formatPilotEntry).join('\n');
+        result += `*${qual} (${primaryGroups[qual].length})*\n>>> ${pilots}`;
       }
     });
-    
-    if (unassigned.length > 0) {
+
+    // Show Wingmen
+    if (wingmen.length > 0) {
       if (result) result += '\n\n';
-      const pilots = unassigned.map(formatPilotEntry);
-      const unassignedContent = pilots.map(entry => `> ${entry}`).join('\n');
-      result += `*Other (${unassigned.length})*\n${unassignedContent}`;
+      const pilots = wingmen.map(formatPilotEntry).join('\n');
+      result += `*Wingman (${wingmen.length})*\n>>> ${pilots}`;
     }
+
+    // Show auxiliary qualifications at the bottom
+    auxiliaryQualifications.forEach(qual => {
+      if (auxiliaryGroups[qual] && auxiliaryGroups[qual].length > 0) {
+        if (result) result += '\n\n';
+        const pilots = auxiliaryGroups[qual].map(formatPilotEntry).join('\n');
+        result += `*${qual} (${auxiliaryGroups[qual].length})*\n>>> ${pilots}`;
+      }
+    });
     
     // Check character limit
     return (result.length > 1020) ? result.substring(0, 1020) + '...' : (result || '-');
   };
 
+  // Helper function to group pilots by qualification (used within squadron grouping)
+  const groupPilotsByQualification = (pilots) => {
+    const primaryQualifications = ['Flight Lead', 'Section Lead'];
+    const auxiliaryQualifications = ['Mission Commander', 'LSO', 'JTAC'];
+
+    const primaryGroups = {};
+    const auxiliaryGroups = {};
+    const wingmen = [];
+
+    pilots.forEach(entry => {
+      let assignedToPrimary = false;
+      const qualifications = entry.pilotRecord?.qualifications || [];
+
+      // Check for primary qualifications (no duplication - assign to highest only)
+      for (const qual of primaryQualifications) {
+        if (qualifications.includes(qual)) {
+          if (!primaryGroups[qual]) primaryGroups[qual] = [];
+          primaryGroups[qual].push(entry);
+          assignedToPrimary = true;
+          break; // Only assign to the highest primary qualification
+        }
+      }
+
+      // If no primary qualification, pilot is a Wingman
+      if (!assignedToPrimary) {
+        wingmen.push(entry);
+      }
+
+      // Check for auxiliary qualifications (allow duplication)
+      for (const qual of auxiliaryQualifications) {
+        if (qualifications.includes(qual)) {
+          if (!auxiliaryGroups[qual]) auxiliaryGroups[qual] = [];
+          auxiliaryGroups[qual].push(entry);
+        }
+      }
+    });
+
+    let result = '';
+
+    // Show primary qualifications first
+    primaryQualifications.forEach(qual => {
+      if (primaryGroups[qual] && primaryGroups[qual].length > 0) {
+        if (result) result += '\n';
+        const pilots = primaryGroups[qual].map(formatPilotEntry).join('\n');
+        result += `*${qual} (${primaryGroups[qual].length})*\n>>> ${pilots}`;
+      }
+    });
+
+    // Show Wingmen
+    if (wingmen.length > 0) {
+      if (result) result += '\n';
+      const pilots = wingmen.map(formatPilotEntry).join('\n');
+      result += `*Wingman (${wingmen.length})*\n>>> ${pilots}`;
+    }
+
+    // Show auxiliary qualifications at the bottom
+    auxiliaryQualifications.forEach(qual => {
+      if (auxiliaryGroups[qual] && auxiliaryGroups[qual].length > 0) {
+        if (result) result += '\n';
+        const pilots = auxiliaryGroups[qual].map(formatPilotEntry).join('\n');
+        result += `*${qual} (${auxiliaryGroups[qual].length})*\n>>> ${pilots}`;
+      }
+    });
+
+    return result || '-';
+  };
+
+  // Helper function to organize responses by squadron
+  const organizeBySquadron = (accepted, tentative, declined) => {
+    const squadronMap = {};
+    const allEntries = [...accepted, ...tentative, ...declined];
+
+    // Collect all squadrons
+    allEntries.forEach(entry => {
+      const squadron = entry.pilotRecord?.squadron;
+      if (squadron && squadron.id) {
+        if (!squadronMap[squadron.id]) {
+          squadronMap[squadron.id] = {
+            squadron,
+            accepted: [],
+            tentative: [],
+            declined: []
+          };
+        }
+      }
+    });
+
+    // Add "No Squadron" group if needed
+    const hasNoSquadron = allEntries.some(entry => !entry.pilotRecord?.squadron?.id);
+    if (hasNoSquadron) {
+      squadronMap['no-squadron'] = {
+        squadron: null,
+        accepted: [],
+        tentative: [],
+        declined: []
+      };
+    }
+
+    // Distribute pilots into their squadron groups
+    accepted.forEach(entry => {
+      const squadronId = entry.pilotRecord?.squadron?.id || 'no-squadron';
+      if (squadronMap[squadronId]) {
+        squadronMap[squadronId].accepted.push(entry);
+      }
+    });
+
+    tentative.forEach(entry => {
+      const squadronId = entry.pilotRecord?.squadron?.id || 'no-squadron';
+      if (squadronMap[squadronId]) {
+        squadronMap[squadronId].tentative.push(entry);
+      }
+    });
+
+    declined.forEach(entry => {
+      const squadronId = entry.pilotRecord?.squadron?.id || 'no-squadron';
+      if (squadronMap[squadronId]) {
+        squadronMap[squadronId].declined.push(entry);
+      }
+    });
+
+    return Object.values(squadronMap);
+  };
+
   const shouldTrackQualifications = eventOptions.trackQualifications || false;
+  const shouldGroupBySquadron = eventOptions.groupBySquadron || false;
   const isTrainingEvent = eventOptions.eventType === 'Hop' || title.toLowerCase().includes('training');
 
-  console.log(`[EVENT-TYPE-DEBUG] Event "${title}": eventType=${eventOptions.eventType}, isTrainingEvent=${isTrainingEvent}, shouldTrackQualifications=${shouldTrackQualifications}`);
-  
-  // Format attendance lists
-  let acceptedText, tentativeText;
-  
-  if (shouldTrackQualifications || isTrainingEvent) {
-    acceptedText = groupByQualifications(accepted, isTrainingEvent);
-    tentativeText = groupByQualifications(tentative, isTrainingEvent);
-  } else {
-    acceptedText = createBlockQuote(accepted);
-    tentativeText = createBlockQuote(tentative);
-  }
-  
-  const declinedText = createBlockQuote(declined);
+  console.log(`[EVENT-TYPE-DEBUG] Event "${title}": eventType=${eventOptions.eventType}, isTrainingEvent=${isTrainingEvent}, shouldTrackQualifications=${shouldTrackQualifications}, shouldGroupBySquadron=${shouldGroupBySquadron}`);
   
   // Create the initial embed with title and URL for image grouping
   const embed = new EmbedBuilder()
@@ -547,9 +694,6 @@ function createEventEmbed(title, description, eventTime, responses = {}, creator
 
   // Add event time if provided
   if (eventTime) {
-    // Add a blank field to create space between description and event time
-    embed.addFields({ name: '\u200B', value: '\u200B', inline: false });
-    
     const startTime = eventTime.start;
     const endTime = eventTime.end;
     
@@ -603,15 +747,86 @@ function createEventEmbed(title, description, eventTime, responses = {}, creator
       { name: '📆 Event Time', value: timeString, inline: false },
       { name: 'Countdown', value: countdownString, inline: true },
       { name: 'Add to Calendar', value: `[Google Calendar](${googleCalendarLink})`, inline: true },
-      { name: '\u200B', value: '\u200B', inline: false }
+      { name: '\u200B', value: '\u200B', inline: true }
     );
   }
-  
-  embed.addFields(
-    { name: `✅ Accepted (${accepted.length})`, value: acceptedText, inline: true },
-    { name: `❓ Tentative (${tentative.length})`, value: tentativeText, inline: true },
-    { name: `❌ Declined (${declined.length})`, value: declinedText, inline: true }
-  );
+
+  // Build attendance fields based on grouping option
+  if (shouldGroupBySquadron) {
+    const squadronGroups = organizeBySquadron(accepted, tentative, declined);
+
+    // Add column headers with reduced spacing
+    embed.addFields(
+      { name: `✅ Accepted (${accepted.length})`, value: '\u200B', inline: true },
+      { name: `❓ Tentative (${tentative.length})`, value: '\u200B', inline: true },
+      { name: `❌ Declined (${declined.length})`, value: '\u200B', inline: true }
+    );
+
+    // Add each squadron as a row
+    squadronGroups.forEach(group => {
+      const { squadron } = group;
+
+      // Format squadron header with emoji
+      let squadronHeader;
+      if (squadron) {
+        const emojiData = squadron.discord_integration?.emoji;
+        let emojiString = '';
+
+        console.log(`[EMOJI-DEBUG] Squadron ${squadron.designation} emoji data:`, JSON.stringify(emojiData));
+
+        if (emojiData) {
+          if (typeof emojiData === 'string') {
+            // If emoji is stored as ":name:id" format, wrap it with angle brackets
+            if (emojiData.startsWith(':') && emojiData.includes(':')) {
+              emojiString = `<${emojiData}> `;
+            } else {
+              // Otherwise use it directly (e.g., standard unicode emoji)
+              emojiString = `${emojiData} `;
+            }
+          }
+          // Discord custom emoji format from object: <:name:id> or <a:name:id> for animated
+          else if (emojiData.id && emojiData.name) {
+            const animated = emojiData.animated ? 'a' : '';
+            emojiString = `<${animated}:${emojiData.name}:${emojiData.id}> `;
+          }
+        }
+
+        squadronHeader = `${emojiString}**${squadron.designation} - ${squadron.name}**`;
+      } else {
+        squadronHeader = '**No Squadron**';
+      }
+
+      // Add three columns with squadron header in first column value
+      const acceptedText = groupPilotsByQualification(group.accepted);
+      const tentativeText = groupPilotsByQualification(group.tentative);
+      const declinedText = groupPilotsByQualification(group.declined);
+
+      embed.addFields(
+        { name: '\u200B', value: `${squadronHeader}\n${acceptedText}`, inline: true },
+        { name: '\u200B', value: `\u200B\n${tentativeText}`, inline: true },
+        { name: '\u200B', value: `\u200B\n${declinedText}`, inline: true }
+      );
+    });
+  } else {
+    // Original layout without squadron grouping
+    let acceptedText, tentativeText;
+
+    if (shouldTrackQualifications || isTrainingEvent) {
+      acceptedText = groupByQualifications(accepted, isTrainingEvent);
+      tentativeText = groupByQualifications(tentative, isTrainingEvent);
+    } else {
+      acceptedText = createBlockQuote(accepted);
+      tentativeText = createBlockQuote(tentative);
+    }
+
+    const declinedText = createBlockQuote(declined);
+
+    embed.addFields(
+      { name: `✅ Accepted (${accepted.length})`, value: acceptedText, inline: true },
+      { name: `❓ Tentative (${tentative.length})`, value: tentativeText, inline: true },
+      { name: `❌ Declined (${declined.length})`, value: declinedText, inline: true }
+    );
+  }
 
   // Consistent embed width using footer padding
   const MAX_EMBED_WIDTH = 164;
@@ -1544,16 +1759,51 @@ function setupDiscordEventHandlers() {
       .single();
 
     if (!pilotError && pilotData) {
+      // Get current squadron assignment
+      let squadronData = null;
+      try {
+        const { data: assignment, error: assignmentError } = await supabase
+          .from('pilot_assignments')
+          .select('squadron_id')
+          .eq('pilot_id', pilotData.id)
+          .is('end_date', null)
+          .single();
+
+        if (assignmentError) {
+          console.warn(`[SQUADRON-FETCH] Error fetching assignment for pilot ${pilotData.id}:`, assignmentError.message, assignmentError.code);
+        } else if (assignment?.squadron_id) {
+          // Now fetch the squadron details
+          const { data: squadron, error: squadronError } = await supabase
+            .from('org_squadrons')
+            .select('id, designation, name, discord_integration')
+            .eq('id', assignment.squadron_id)
+            .single();
+
+          if (squadronError) {
+            console.warn(`[SQUADRON-FETCH] Error fetching squadron ${assignment.squadron_id}:`, squadronError.message);
+          } else {
+            squadronData = squadron;
+            console.log(`[SQUADRON-FETCH] Found squadron for pilot ${pilotData.id}:`, squadronData.designation, squadronData.name);
+          }
+        } else {
+          console.warn(`[SQUADRON-FETCH] No squadron assignment found for pilot ${pilotData.id}`);
+        }
+      } catch (err) {
+        console.warn(`[SQUADRON-FETCH] Exception fetching squadron for pilot ${pilotData.id}:`, err.message);
+      }
+
       pilotRecord = {
         id: pilotData.id,
         callsign: pilotData.callsign,
         boardNumber: pilotData.boardNumber?.toString() || '',
         qualifications: pilotData.pilot_qualifications?.map(pq => pq.qualification?.name).filter(Boolean) || [],
-        currentStatus: { name: pilotData.status || 'Provisional' } // Simplified status mapping
+        currentStatus: { name: pilotData.status || 'Provisional' }, // Simplified status mapping
+        squadron: squadronData
       };
       console.log(`[PILOT-DATA] Found pilot record for ${displayName}:`, {
         ...pilotRecord,
-        qualifications: pilotRecord.qualifications
+        qualifications: pilotRecord.qualifications,
+        squadron: squadronData ? `${squadronData.designation} - ${squadronData.name}` : 'None'
       });
     } else {
       console.log(`[PILOT-DATA] No pilot record found for Discord ID ${userId}`);
@@ -1625,15 +1875,8 @@ function setupDiscordEventHandlers() {
         // Create a map to track users to prevent duplicates
         const userMap = new Map();
 
-        // Populate with existing responses, including pilot record data for qualifications
+        // First pass: Build userMap with only the most recent response for each user
         for (const record of existingAttendance) {
-          // Skip current user - we already have their fresh data from the interaction
-          if (record.discord_id === userId) {
-            console.log(`[CURRENT-USER-SKIP] Skipping database reload for current user ${displayName} - using fresh pilot data`);
-            continue;
-          }
-
-          // Keep the most recent response for each user (based on updated_at timestamp)
           const existing = userMap.get(record.discord_id);
           if (existing && new Date(record.updated_at) <= new Date(existing.updated_at)) {
             console.warn(`[DUPLICATE-FIX] Skipping older attendance record for user ${record.discord_id} in event ${eventId}`);
@@ -1645,8 +1888,12 @@ function setupDiscordEventHandlers() {
           }
 
           userMap.set(record.discord_id, record);
+        }
+
+        // Second pass: Fetch pilot data and populate response arrays from deduplicated userMap
+        for (const [discordId, record] of userMap) {
           let pilotRecord = null;
-          
+
           // Try to fetch pilot data for this user to preserve qualifications
           try {
             const { data: pilotData, error: pilotError } = await supabase
@@ -1658,30 +1905,57 @@ function setupDiscordEventHandlers() {
                   qualification:qualifications(name)
                 )
               `)
-              .eq('discord_id', record.discord_id)
+              .eq('discord_id', discordId)
               .single();
-            
+
             if (!pilotError && pilotData) {
+              // Get current squadron assignment
+              let squadronData = null;
+              try {
+                const { data: assignment, error: assignmentError } = await supabase
+                  .from('pilot_assignments')
+                  .select('squadron_id')
+                  .eq('pilot_id', pilotData.id)
+                  .is('end_date', null)
+                  .single();
+
+                if (!assignmentError && assignment?.squadron_id) {
+                  // Now fetch the squadron details
+                  const { data: squadron, error: squadronError } = await supabase
+                    .from('org_squadrons')
+                    .select('id, designation, name, discord_integration')
+                    .eq('id', assignment.squadron_id)
+                    .single();
+
+                  if (!squadronError) {
+                    squadronData = squadron;
+                  }
+                }
+              } catch (err) {
+                console.warn(`[SQUADRON-FETCH] Could not fetch squadron for pilot ${pilotData.id}`);
+              }
+
               pilotRecord = {
                 id: pilotData.id,
                 callsign: pilotData.callsign,
                 boardNumber: pilotData.boardNumber?.toString() || '',
                 qualifications: pilotData.pilot_qualifications?.map(pq => pq.qualification?.name).filter(Boolean) || [],
-                currentStatus: { name: pilotData.status || 'Provisional' }
+                currentStatus: { name: pilotData.status || 'Provisional' },
+                squadron: squadronData
               };
             }
           } catch (error) {
-            console.warn(`[PILOT-DATA] Error fetching pilot data for existing response ${record.discord_id}:`, error.message);
+            console.warn(`[PILOT-DATA] Error fetching pilot data for ${discordId}:`, error.message);
           }
-          
+
           const existingUserEntry = {
-            userId: record.discord_id,
+            userId: discordId,
             displayName: record.discord_username || 'Unknown User',
             boardNumber: pilotRecord?.boardNumber || '',
             callsign: pilotRecord?.callsign || record.discord_username || 'Unknown User',
             pilotRecord // Include the pilot record for qualification processing
           };
-          
+
           if (record.user_response === 'accepted') {
             eventData.accepted.push(existingUserEntry);
           } else if (record.user_response === 'declined') {
@@ -2173,14 +2447,41 @@ class CountdownUpdateManager {
                     `)
                     .eq('discord_id', record.discord_id)
                     .single();
-                  
+
                   if (!pilotError && pilotData) {
+                    // Get current squadron assignment
+                    let squadronData = null;
+                    try {
+                      const { data: assignment, error: assignmentError } = await supabase
+                        .from('pilot_assignments')
+                        .select('squadron_id')
+                        .eq('pilot_id', pilotData.id)
+                        .is('end_date', null)
+                        .single();
+
+                      if (!assignmentError && assignment?.squadron_id) {
+                        // Now fetch the squadron details
+                        const { data: squadron, error: squadronError } = await supabase
+                          .from('org_squadrons')
+                          .select('id, designation, name, discord_integration')
+                          .eq('id', assignment.squadron_id)
+                          .single();
+
+                        if (!squadronError) {
+                          squadronData = squadron;
+                        }
+                      }
+                    } catch (err) {
+                      console.warn(`[SQUADRON-FETCH] Could not fetch squadron for pilot ${pilotData.id}`);
+                    }
+
                     pilotRecord = {
                       id: pilotData.id,
                       callsign: pilotData.callsign,
                       boardNumber: pilotData.boardNumber?.toString() || '',
                       qualifications: pilotData.pilot_qualifications?.map(pq => pq.qualification?.name).filter(Boolean) || [],
-                      currentStatus: { name: pilotData.status || 'Provisional' }
+                      currentStatus: { name: pilotData.status || 'Provisional' },
+                      squadron: squadronData
                     };
                   }
                 } catch (error) {

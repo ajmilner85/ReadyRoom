@@ -186,8 +186,7 @@ app.post('/api/discord/switch-bot', async (req, res) => {
     console.log('Initializing Discord bot and client connection...');
     await initializeDiscordBot();
 
-    // Check database for bot token preference
-    let botToken = process.env.BOT_TOKEN; // Default fallback
+    // Check database for bot token preference and switch if needed
     try {
       // Get all user profiles and find one with a bot token preference
       const { data: userProfiles, error } = await supabase
@@ -202,12 +201,15 @@ app.post('/api/discord/switch-bot', async (req, res) => {
           const tokenType = profileWithPreference.settings.developer.discordBotToken;
           console.log(`[STARTUP] Found bot token preference: ${tokenType}`);
 
-          if (tokenType === 'production') {
-            botToken = process.env.BOT_TOKEN_PROD || process.env.BOT_TOKEN;
-            console.log('[STARTUP] Using production Discord bot token from user settings');
-          } else if (tokenType === 'development') {
-            botToken = process.env.BOT_TOKEN_DEV || process.env.BOT_TOKEN;
-            console.log('[STARTUP] Using development Discord bot token from user settings');
+          const botToken = tokenType === 'production'
+            ? process.env.BOT_TOKEN_PROD || process.env.BOT_TOKEN
+            : process.env.BOT_TOKEN_DEV;
+
+          if (botToken && botToken !== process.env.BOT_TOKEN) {
+            console.log(`[STARTUP] Switching to ${tokenType} Discord bot from user settings...`);
+            await switchDiscordBot(botToken);
+          } else {
+            console.log(`[STARTUP] Using default bot token (${tokenType} token not found or same as default)`);
           }
         } else {
           console.log('[STARTUP] No bot token preference found in any user profile, using default BOT_TOKEN');
@@ -218,9 +220,6 @@ app.post('/api/discord/switch-bot', async (req, res) => {
     } catch (dbError) {
       console.warn('[STARTUP] Could not read bot token preference from database, using default:', dbError.message);
     }
-
-    // Login the persistent client
-    await discordClient.login(botToken);
 
     // Wait for ready event and log available guilds
     discordClient.once('ready', () => {
@@ -1598,11 +1597,27 @@ app.post('/api/discord/save-flight-post', async (req, res) => {
   }
 });
 
-// Server-side reminder processing functions
+// Helper function to convert UUID to integer for advisory lock
+// Uses first 16 hex characters (64 bits) of UUID as lock key
+function uuidToLockKey(uuid) {
+  // Remove dashes and take first 16 hex chars (64 bits)
+  const hex = uuid.replace(/-/g, '').substring(0, 16);
+  // Convert to BigInt then to Number (PostgreSQL bigint is 64-bit signed integer)
+  // We need to ensure it fits in signed 64-bit range (-2^63 to 2^63-1)
+  const value = BigInt('0x' + hex);
+  // Convert to signed by checking if high bit is set
+  const maxInt64 = BigInt('0x7FFFFFFFFFFFFFFF');
+  if (value > maxInt64) {
+    return Number(value - BigInt('0x10000000000000000'));
+  }
+  return Number(value);
+}
+
+// Server-side reminder processing functions with distributed locking
 async function processReminders() {
   try {
     console.log('[REMINDER-PROCESSOR] Checking for pending reminders...');
-    
+
     // Get all pending reminders
     const now = new Date().toISOString();
     const { data: pendingReminders, error: fetchError } = await supabase
@@ -1622,27 +1637,70 @@ async function processReminders() {
       return { processed: 0, errors: [] };
     }
 
-    console.log(`[REMINDER-PROCESSOR] Processing ${pendingReminders.length} pending reminders`);
+    console.log(`[REMINDER-PROCESSOR] Found ${pendingReminders.length} pending reminders`);
 
     let processed = 0;
+    let skipped = 0;
     const errors = [];
 
-    // Process each reminder
+    // Process each reminder with distributed locking
     for (const reminder of pendingReminders) {
+      const lockKey = uuidToLockKey(reminder.id);
+      let lockAcquired = false;
+
       try {
+        // Try to acquire advisory lock for this reminder
+        const { data: lockResult, error: lockError } = await supabase
+          .rpc('try_acquire_reminder_lock', { lock_key: lockKey });
+
+        if (lockError) {
+          console.error(`[REMINDER-LOCK] Error acquiring lock for reminder ${reminder.id}:`, lockError);
+          errors.push({ reminderId: reminder.id, error: lockError });
+          continue;
+        }
+
+        if (!lockResult) {
+          // Lock is held by another bot instance
+          console.log(`[REMINDER-LOCK] Reminder ${reminder.id} is being processed by another instance, skipping`);
+          skipped++;
+          continue;
+        }
+
+        lockAcquired = true;
+        console.log(`[REMINDER-LOCK] Acquired lock for reminder ${reminder.id}`);
+
+        // Process the reminder
         await processIndividualReminder(reminder);
         processed++;
-        console.log(`Successfully processed reminder ${reminder.id} for event ${reminder.event_id}`);
+        console.log(`[REMINDER-PROCESSOR] Successfully processed reminder ${reminder.id} for event ${reminder.event_id}`);
+
       } catch (error) {
-        console.error(`Error processing reminder ${reminder.id}:`, error);
+        console.error(`[REMINDER-PROCESSOR] Error processing reminder ${reminder.id}:`, error);
         errors.push({ reminderId: reminder.id, error });
+      } finally {
+        // Always release the lock if we acquired it
+        if (lockAcquired) {
+          try {
+            const { error: unlockError } = await supabase
+              .rpc('release_reminder_lock', { lock_key: lockKey });
+
+            if (unlockError) {
+              console.warn(`[REMINDER-LOCK] Error releasing lock for reminder ${reminder.id}:`, unlockError);
+            } else {
+              console.log(`[REMINDER-LOCK] Released lock for reminder ${reminder.id}`);
+            }
+          } catch (unlockError) {
+            console.warn(`[REMINDER-LOCK] Failed to release lock for reminder ${reminder.id}:`, unlockError);
+          }
+        }
       }
     }
 
-    return { processed, errors };
+    console.log(`[REMINDER-PROCESSOR] Completed: ${processed} processed, ${skipped} skipped (locked by other instances), ${errors.length} errors`);
+    return { processed, skipped, errors };
   } catch (error) {
-    console.error('Error in processReminders:', error);
-    return { processed: 0, errors: [{ reminderId: 'general', error }] };
+    console.error('[REMINDER-PROCESSOR] Error in processReminders:', error);
+    return { processed: 0, skipped: 0, errors: [{ reminderId: 'general', error }] };
   }
 }
 
@@ -1717,10 +1775,16 @@ async function processIndividualReminder(reminder) {
   const fullMessage = discordMentions ? `${discordMentions}\n${message}` : message;
   
   // Send the reminder message to Discord channels
-  await sendReminderToDiscordChannels(eventData, fullMessage);
-  
-  // Mark reminder as sent
-  await markReminderAsSent(reminder.id);
+  const sendResult = await sendReminderToDiscordChannels(eventData, fullMessage);
+
+  // Only mark reminder as sent if at least one message was successfully delivered
+  if (sendResult.success && sendResult.sent > 0) {
+    await markReminderAsSent(reminder.id);
+    console.log(`[REMINDER] Marked reminder ${reminder.id} as sent after delivering to ${sendResult.sent} channel(s)`);
+  } else {
+    console.error(`[REMINDER] Failed to send reminder ${reminder.id} to any channels, will retry on next check`);
+    throw new Error(`Reminder delivery failed: ${sendResult.error || 'No channels successfully notified'}`);
+  }
 }
 
 function calculateTimeUntilEvent(eventStartTime) {
@@ -1798,9 +1862,26 @@ ${formattedTime}`;
 }
 
 async function sendReminderToDiscordChannels(event, message) {
+  let successCount = 0;
+  let errorCount = 0;
+  const errors = [];
+
   if (Array.isArray(event.discord_event_id)) {
     // Multi-channel event
-    for (const publication of event.discord_event_id) {
+
+    // Deduplicate publications by guild+channel combination
+    // Some events may have duplicate entries for the same Discord message (multi-squadron events in shared channel)
+    const uniquePublications = new Map();
+    event.discord_event_id.forEach(pub => {
+      const key = `${pub.guildId}:${pub.channelId}:${pub.messageId}`;
+      if (!uniquePublications.has(key)) {
+        uniquePublications.set(key, pub);
+      }
+    });
+
+    console.log(`[REMINDER] Processing ${uniquePublications.size} unique publications (${event.discord_event_id.length} total)`);
+
+    for (const publication of uniquePublications.values()) {
       try {
         // Thread creation logic: Create thread on first reminder if threading is enabled
         let createdThreadId = null;
@@ -1902,16 +1983,91 @@ async function sendReminderToDiscordChannels(event, message) {
         
         const threadStatus = createdThreadId ? ' (in newly created thread)' : (publication.threadId ? ' (in existing thread)' : '');
         console.log(`[REMINDER] Sent reminder to guild ${publication.guildId}, channel ${targetChannelId}${threadStatus}`);
-        
+
+        // Track success if reminder was actually sent
+        if (reminderResult && reminderResult.success) {
+          successCount++;
+        } else {
+          errorCount++;
+          errors.push({ guild: publication.guildId, channel: targetChannelId, error: 'Send returned failure' });
+        }
+
       } catch (error) {
         console.error(`[REMINDER] Failed to send reminder to guild ${publication.guildId}, channel ${publication.channelId}:`, error);
+        errorCount++;
+        errors.push({ guild: publication.guildId, channel: publication.channelId, error: error.message });
       }
     }
   } else if (event.discord_event_id) {
-    // Single channel event - need to get guild/channel from the message ID
-    // For now, we'll log this case and implement if needed
-    console.log(`[REMINDER] Single-channel event reminder not yet implemented for message ID: ${event.discord_event_id}`);
+    // Legacy single-channel event format
+    console.log(`[REMINDER] Processing legacy single-channel event with message ID: ${event.discord_event_id}`);
+
+    // For legacy events, we need to find the guild and channel IDs
+    // Try to get them from the event's participants or discord integration data
+    try {
+      // Query the events table to get full event data including participants
+      const { data: fullEventData, error: eventFetchError } = await supabase
+        .from('events')
+        .select('participants')
+        .eq('id', event.id)
+        .single();
+
+      if (eventFetchError) {
+        console.error(`[REMINDER] Failed to fetch full event data for legacy event ${event.id}:`, eventFetchError);
+        return;
+      }
+
+      // Get the first participating squadron to find Discord integration settings
+      const participatingSquadrons = Array.isArray(fullEventData?.participants) ? fullEventData.participants : [];
+
+      if (participatingSquadrons.length === 0) {
+        console.warn(`[REMINDER] No participating squadrons found for legacy event ${event.id}, cannot send reminder`);
+        return;
+      }
+
+      // Get Discord integration settings for the first squadron
+      const { data: integrationData, error: integrationError } = await supabase
+        .from('discord_integration')
+        .select('guild_id, channel_id')
+        .eq('squadron_id', participatingSquadrons[0])
+        .single();
+
+      if (integrationError || !integrationData) {
+        console.warn(`[REMINDER] No Discord integration found for squadron ${participatingSquadrons[0]}, cannot send reminder`);
+        return;
+      }
+
+      const guildId = integrationData.guild_id;
+      const channelId = integrationData.channel_id;
+
+      console.log(`[REMINDER] Found Discord integration for legacy event - Guild: ${guildId}, Channel: ${channelId}`);
+
+      // Send the reminder using the normal channel messaging (no threading for legacy events)
+      const reminderResult = await sendReminderMessage(guildId, channelId, message);
+
+      if (reminderResult.success) {
+        console.log(`[REMINDER] Successfully sent legacy event reminder to channel ${channelId} in guild ${guildId}`);
+        successCount++;
+      } else {
+        console.error(`[REMINDER] Failed to send legacy event reminder:`, reminderResult.error);
+        errorCount++;
+        errors.push({ guild: guildId, channel: channelId, error: reminderResult.error });
+      }
+
+    } catch (error) {
+      console.error(`[REMINDER] Error processing legacy event reminder:`, error);
+      errorCount++;
+      errors.push({ legacy: true, error: error.message });
+    }
   }
+
+  // Return summary of sending results
+  return {
+    success: successCount > 0,
+    sent: successCount,
+    failed: errorCount,
+    errors: errors.length > 0 ? errors : undefined
+  };
 }
 
 async function markReminderAsSent(reminderId) {

@@ -99,10 +99,12 @@ interface SquadronDiscordSettingsProps {
   discordChannels?: DiscordChannel[];
   roleMappings?: RoleMapping[];
   selectedGuildId?: string;
+  emoji?: string;
   threadingSettings?: ThreadingSettings;
   onChannelsChange?: (channels: DiscordChannel[]) => void;
   onRoleMappingsChange?: (mappings: RoleMapping[]) => void;
   onGuildChange?: (guildId: string) => void;
+  onEmojiChange?: (emoji: string) => void;
   onThreadingSettingsChange?: (settings: ThreadingSettings) => void;
 }
 
@@ -110,10 +112,12 @@ const SquadronDiscordSettings: React.FC<SquadronDiscordSettingsProps> = ({
   discordChannels = [],
   roleMappings = [],
   selectedGuildId,
+  emoji = '',
   threadingSettings = { useThreads: false, autoArchiveDuration: 1440 },
   onChannelsChange,
   onRoleMappingsChange,
   onGuildChange,
+  onEmojiChange,
   onThreadingSettingsChange
 }) => {
   const [showChannelForm, setShowChannelForm] = useState(false);
@@ -524,6 +528,41 @@ const SquadronDiscordSettings: React.FC<SquadronDiscordSettingsProps> = ({
             Select the Discord server associated with this squadron
           </p>
         )}
+      </div>
+
+      {/* Squadron Emoji */}
+      <div style={{ marginBottom: '24px' }}>
+        <label style={{
+          display: 'block',
+          marginBottom: '8px',
+          fontSize: '14px',
+          fontWeight: 500,
+          color: '#64748B'
+        }}>
+          Squadron Emoji
+        </label>
+        <input
+          type="text"
+          value={emoji}
+          onChange={(e) => onEmojiChange?.(e.target.value)}
+          placeholder="e.g., 🦅 or :eagle:"
+          maxLength={50}
+          style={{
+            width: '100%',
+            padding: '8px 12px',
+            border: '1px solid #CBD5E1',
+            borderRadius: '4px',
+            fontSize: '14px'
+          }}
+        />
+        <p style={{
+          fontSize: '12px',
+          color: '#6B7280',
+          marginTop: '4px',
+          fontStyle: 'italic'
+        }}>
+          This emoji will appear next to your squadron name in event posts
+        </p>
       </div>
 
       {/* Discord Channels Section */}

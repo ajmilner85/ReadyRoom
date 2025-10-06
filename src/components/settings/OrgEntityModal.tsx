@@ -105,6 +105,7 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
       discordChannels: any[];
       roleMappings: any[];
       selectedGuildId: string;
+      emoji: string;
       threadingSettings: {
         useThreads: boolean;
         autoArchiveDuration: number;
@@ -171,6 +172,7 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
             discordChannels: discordIntegration.discordChannels || [],
             roleMappings: discordIntegration.roleMappings || [],
             selectedGuildId: discordIntegration.selectedGuildId || '',
+            emoji: discordIntegration.emoji || '',
             // Try to get threading settings from both locations (settings takes precedence)
             threadingSettings: entitySettings.threadingSettings || discordIntegration.threadingSettings || {
               useThreads: false,
@@ -225,6 +227,7 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
       discordChannels: [],
       roleMappings: [],
       selectedGuildId: '',
+      emoji: '',
       threadingSettings: {
         useThreads: false,
         autoArchiveDuration: 1440
@@ -236,6 +239,7 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
     discordChannels: any[];
     roleMappings: any[];
     selectedGuildId: string;
+    emoji: string;
     threadingSettings: {
       useThreads: boolean;
       autoArchiveDuration: number;
@@ -1268,18 +1272,20 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
 
           {/* Discord Tab Content */}
           {entityType === 'squadron' && activeTab === 'discord' && (
-            <SquadronDiscordSettings 
+            <SquadronDiscordSettings
               discordChannels={getCurrentDiscordSettings().discordChannels}
               roleMappings={getCurrentDiscordSettings().roleMappings}
               selectedGuildId={getCurrentDiscordSettings().selectedGuildId}
+              emoji={getCurrentDiscordSettings().emoji}
               threadingSettings={getCurrentDiscordSettings().threadingSettings}
               onChannelsChange={(channels) => updateDiscordSettings({ discordChannels: channels })}
               onRoleMappingsChange={(mappings) => updateDiscordSettings({ roleMappings: mappings })}
-              onGuildChange={(guildId) => updateDiscordSettings({ 
+              onGuildChange={(guildId) => updateDiscordSettings({
                 selectedGuildId: guildId,
                 discordChannels: [], // Clear channels when server changes
                 roleMappings: [] // Clear role mappings when server changes
               })}
+              onEmojiChange={(emoji) => updateDiscordSettings({ emoji })}
               onThreadingSettingsChange={(threadingSettings) => updateDiscordSettings({ threadingSettings })}
             />
           )}
