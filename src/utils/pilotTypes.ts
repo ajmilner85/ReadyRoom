@@ -7,7 +7,8 @@ type RoleRow = Database['public']['Tables']['roles']['Row'];
 
 // Extended role assignment type for joins
 export interface PilotRoleAssignment extends PilotRoleRow {
-  role: RoleRow | null;
+  role?: RoleRow | null;  // Optional for backward compatibility
+  roles?: RoleRow | null; // SQL join alias (roles:role_id)
 }
 
 // Extended Pilot type with runtime properties

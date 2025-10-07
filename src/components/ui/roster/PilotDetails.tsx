@@ -488,7 +488,9 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
         pilot_id: editedPilot.id,
         squadron_id: squadron.id,
         start_date: new Date().toISOString().split('T')[0],
-        created_at: new Date().toISOString()
+        end_date: null,
+        created_at: new Date().toISOString(),
+        updated_at: null
       } : undefined
     });
 

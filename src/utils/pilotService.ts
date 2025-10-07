@@ -234,11 +234,124 @@ export async function getPilotById(id: string): Promise<{ data: Pilot | null; er
 export async function getPilotByDiscordId(discordId: string): Promise<{ data: Pilot | null; error: any }> {
   const { data, error } = await supabase
     .from('pilots')
-    .select('*')
+    .select(`
+      *,
+      pilot_roles!left (
+        id,
+        pilot_id,
+        role_id,
+        effective_date,
+        end_date,
+        is_acting,
+        created_at,
+        updated_at,
+        roles:role_id (
+          id,
+          name,
+          isExclusive,
+          compatible_statuses,
+          order
+        )
+      ),
+      pilot_statuses!left (
+        id,
+        pilot_id,
+        status_id,
+        start_date,
+        end_date,
+        created_at,
+        updated_at,
+        statuses:status_id (
+          id,
+          name,
+          isActive,
+          order
+        )
+      ),
+      pilot_standings!left (
+        id,
+        pilot_id,
+        standing_id,
+        start_date,
+        end_date,
+        created_at,
+        updated_at,
+        standings:standing_id (
+          id,
+          name,
+          order
+        )
+      ),
+      pilot_assignments!left (
+        id,
+        pilot_id,
+        squadron_id,
+        start_date,
+        end_date,
+        created_at,
+        updated_at,
+        org_squadrons (
+          id,
+          name,
+          designation,
+          wing_id,
+          tail_code,
+          established_date,
+          deactivated_date,
+          insignia_url,
+          carrier_id,
+          callsigns,
+          color_palette,
+          discord_integration,
+          updated_at
+        )
+      )
+    `)
     .eq('discord_id', discordId)
     .single();
 
-  return { data, error };
+  if (error || !data) {
+    return { data: null, error };
+  }
+
+  // Process the joined data to extract active assignments (same as getAllPilots)
+  const activeRoleAssignments = (data.pilot_roles || []).filter(
+    (ra: any) => ra.end_date === null
+  );
+  activeRoleAssignments.sort((a: any, b: any) => 
+    new Date(b.effective_date).getTime() - new Date(a.effective_date).getTime()
+  );
+  const currentRoleAssignment = activeRoleAssignments[0];
+
+  const activeStatusAssignments = (data.pilot_statuses || []).filter(
+    (sa: any) => sa.end_date === null
+  );
+  const pilotStatusAssignment = activeStatusAssignments[0];
+
+  const activeStandingAssignments = (data.pilot_standings || []).filter(
+    (sta: any) => sta.end_date === null
+  );
+  const pilotStandingAssignment = activeStandingAssignments[0];
+
+  const activeSquadronAssignments = (data.pilot_assignments || []).filter(
+    (sqa: any) => sqa.end_date === null
+  );
+  const currentSquadronAssignment = activeSquadronAssignments[0];
+
+  // Build the pilot object with proper structure
+  const pilot: Pilot = {
+    ...data,
+    roles: currentRoleAssignment ? [currentRoleAssignment as any] : [],
+    currentStatus: pilotStatusAssignment?.statuses || undefined,
+    currentStanding: pilotStandingAssignment?.standings || undefined,
+    currentSquadron: currentSquadronAssignment?.org_squadrons || undefined,
+    squadronAssignment: currentSquadronAssignment ? {
+      ...currentSquadronAssignment,
+      end_date: currentSquadronAssignment.end_date ?? undefined
+    } as any : undefined
+  };
+
+  return { data: pilot, error: null };
 }
 
 /**
