@@ -288,9 +288,9 @@ function createEventEmbed(title, description, eventTime, responses = {}, creator
         const wmText = formatQualGroup(grouped.wingman);
 
         embed.addFields(
-          { name: `${squadronHeader}\n<:Hornet:541484781515440128><:Hornet:541484781515440128><:Hornet:541484781515440128><:Hornet:541484781515440128> Flight Lead (${grouped.flightLead.length})`, value: flText, inline: true },
-          { name: `\u200B\n<:Hornet:541484781515440128><:Hornet:541484781515440128> Section Lead (${grouped.sectionLead.length})`, value: slText, inline: true },
-          { name: `\u200B\n<:Hornet:541484781515440128> Wingman (${grouped.wingman.length})`, value: wmText, inline: true }
+          { name: `${squadronHeader}\nFlight Lead (${grouped.flightLead.length})`, value: flText, inline: true },
+          { name: `\u200B\nSection Lead (${grouped.sectionLead.length})`, value: slText, inline: true },
+          { name: `\u200B\nWingman (${grouped.wingman.length})`, value: wmText, inline: true }
         );
       } else {
         // Show all pilots without qualification grouping
@@ -315,7 +315,7 @@ function createEventEmbed(title, description, eventTime, responses = {}, creator
               // Add header to first field of first column, empty space to others
               let fieldName = field.name;
               if (colIndex === 0 && fieldIndex === 0) {
-                fieldName = `<:awacs:1229253561528090664> **Available Mission Support**\n${field.name}`;
+                fieldName = `<:awacs:1229253561528090664> **Mission Support**\n${field.name}`;
               } else if (fieldIndex === 0 && colIndex > 0) {
                 fieldName = `\u200B\n${field.name}`;
               }
@@ -323,7 +323,7 @@ function createEventEmbed(title, description, eventTime, responses = {}, creator
             });
           } else {
             // Empty column with matching spacing
-            return [{ name: colIndex === 0 ? `<:awacs:1229253561528090664> **Available Mission Support**\n\u200B` : `\u200B\n\u200B`, value: '>>> -', inline: true }];
+            return [{ name: colIndex === 0 ? `<:awacs:1229253561528090664> **Mission Support**\n\u200B` : `\u200B\n\u200B`, value: '>>> -', inline: true }];
           }
         });
         
@@ -361,9 +361,9 @@ function createEventEmbed(title, description, eventTime, responses = {}, creator
       const wmText = formatQualGroup(grouped.wingman);
 
       embed.addFields(
-        { name: '<:Hornet:541484781515440128><:Hornet:541484781515440128><:Hornet:541484781515440128><:Hornet:541484781515440128> Flight Lead (' + grouped.flightLead.length + ')', value: flText, inline: true },
-        { name: '<:Hornet:541484781515440128><:Hornet:541484781515440128> Section Lead (' + grouped.sectionLead.length + ')', value: slText, inline: true },
-        { name: '<:Hornet:541484781515440128> Wingman (' + grouped.wingman.length + ')', value: wmText, inline: true }
+        { name: 'Flight Lead (' + grouped.flightLead.length + ')', value: flText, inline: true },
+        { name: 'Section Lead (' + grouped.sectionLead.length + ')', value: slText, inline: true },
+        { name: 'Wingman (' + grouped.wingman.length + ')', value: wmText, inline: true }
       );
 
       // Add Mission Support section (ONLY accepted pilots)
@@ -387,7 +387,7 @@ function createEventEmbed(title, description, eventTime, responses = {}, creator
         
         // Add header in first field
         if (missionSupportFields.length > 0) {
-          missionSupportFields[0].name = `<:awacs:1229253561528090664> **Available Mission Support**\n${missionSupportFields[0].name}`;
+          missionSupportFields[0].name = `<:awacs:1229253561528090664> **Mission Support**\n${missionSupportFields[0].name}`;
         }
         
         embed.addFields(...missionSupportFields);
