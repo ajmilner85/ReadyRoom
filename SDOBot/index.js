@@ -422,7 +422,7 @@ app.post('/api/events/publish', async (req, res) => {
       try {
         const { data: eventData, error: eventError } = await supabase
           .from('events')
-          .select('track_qualifications, event_type, creator_call_sign, creator_board_number, creator_billet, participants')
+          .select('track_qualifications, event_type, event_settings, creator_call_sign, creator_board_number, creator_billet, participants')
           .eq('id', eventId)
           .single();
         
@@ -431,9 +431,13 @@ app.post('/api/events/publish', async (req, res) => {
           participatingSquadrons = Array.isArray(eventData.participants) ? eventData.participants : [];
           console.log(`[THREADING] Event ${eventId} has ${participatingSquadrons.length} participating squadrons:`, participatingSquadrons);
           
+          // Extract event settings (groupBySquadron, timezone, etc.)
+          const eventSettings = eventData.event_settings || {};
+          
           eventOptions = {
-            trackQualifications: eventData.track_qualifications || false,
+            trackQualifications: eventData.track_qualifications || eventSettings.groupResponsesByQualification || false,
             eventType: eventData.event_type || null,
+            groupBySquadron: eventSettings.groupBySquadron || false,
             participatingSquadrons: participatingSquadrons // Pass to Discord bot
           };
           
@@ -623,14 +627,18 @@ app.put('/api/events/:messageId/edit', async (req, res) => {
     try {
       const { data: eventData, error: eventError } = await supabase
         .from('events')
-        .select('track_qualifications, event_type')
+        .select('track_qualifications, event_type, event_settings')
         .or(`discord_event_id.eq.${messageId},discord_event_id.cs.[{"messageId":"${messageId}"}]`)
         .single();
       
       if (!eventError && eventData) {
+        // Extract event settings (groupBySquadron, timezone, etc.)
+        const eventSettings = eventData.event_settings || {};
+        
         eventOptions = {
-          trackQualifications: eventData.track_qualifications || false,
-          eventType: eventData.event_type || null
+          trackQualifications: eventData.track_qualifications || eventSettings.groupResponsesByQualification || false,
+          eventType: eventData.event_type || null,
+          groupBySquadron: eventSettings.groupBySquadron || false
         };
       }
     } catch (error) {
