@@ -270,22 +270,47 @@ const EventAttendance: React.FC<EventAttendanceProps> = ({ event }) => {
             return;
           }
           
-          // Priority order for grouping (highest to lowest) - excluding IP for non-training events
-          const qualPriority = [
-            'Mission Commander', 'Flight Lead', 'Section Lead', 'Wingman'
-          ];
+          // Find the highest priority qualification using the qualification order from database
+          let highestQual = 'Wingman'; // Default
+          let lowestOrder = 999;
           
-          // Find the highest priority qualification this pilot has (excluding Instructor Pilot)
-          let highestQual = 'Wingman'; // Default to Wingman if no other qualifications found
-          for (const qual of qualPriority) {
-            if (a.pilotRecord.qualifications.some((q: any) => q.type === qual)) {
-              highestQual = qual;
-              break;
+          a.pilotRecord.qualifications.forEach((q: any) => {
+            const qualConfig = qualificationConfigs.find(config => config.name === q.type);
+            const qualOrder = qualConfig?.order ?? 999;
+            
+            if (qualOrder < lowestOrder) {
+              lowestOrder = qualOrder;
+              highestQual = q.type;
             }
-          }
+          });
           
           if (!groupedByQual[highestQual]) groupedByQual[highestQual] = [];
           groupedByQual[highestQual].push(a);
+        });
+
+        // Sort pilots within each qualification group by standing, then role
+        Object.keys(groupedByQual).forEach(qualKey => {
+          groupedByQual[qualKey].sort((a, b) => {
+            // First sort by standing order (lower order = higher priority)
+            const standingA = a.pilotRecord?.currentStanding?.order ?? 999;
+            const standingB = b.pilotRecord?.currentStanding?.order ?? 999;
+            
+            if (standingA !== standingB) {
+              return standingA - standingB;
+            }
+            
+            // Then sort by role order (billet)
+            // Note: roles[0] is the assignment object, roles[0].roles is the nested role data from SQL join
+            const roleA = (a.pilotRecord?.roles?.[0] as any)?.roles?.order ?? 999;
+            const roleB = (b.pilotRecord?.roles?.[0] as any)?.roles?.order ?? 999;
+            
+            if (roleA !== roleB) {
+              return roleA - roleB;
+            }
+            
+            // Finally sort by board number as tie-breaker
+            return Number(a.pilotRecord?.boardNumber || 0) - Number(b.pilotRecord?.boardNumber || 0);
+          });
         });
 
         return { 
@@ -464,7 +489,14 @@ const EventAttendance: React.FC<EventAttendanceProps> = ({ event }) => {
           
           // If qualification groups exist, render them
           if (statusData.qualificationGroups) {
-            return Object.entries(statusData.qualificationGroups).map(([groupName, pilots], index) =>
+            // Sort qualification groups by their order in the qualifications table
+            const sortedGroups = Object.entries(statusData.qualificationGroups).sort(([nameA], [nameB]) => {
+              const qualA = qualificationConfigs.find(q => q.name === nameA);
+              const qualB = qualificationConfigs.find(q => q.name === nameB);
+              return (qualA?.order ?? 999) - (qualB?.order ?? 999);
+            });
+            
+            return sortedGroups.map(([groupName, pilots], index) =>
               renderQualificationGroup(pilots, groupName, index)
             );
           }
@@ -607,7 +639,14 @@ const EventAttendance: React.FC<EventAttendanceProps> = ({ event }) => {
           
           // If qualification groups exist, render them
           if (statusData.qualificationGroups) {
-            return Object.entries(statusData.qualificationGroups).map(([groupName, pilots], index) =>
+            // Sort qualification groups by their order in the qualifications table
+            const sortedGroups = Object.entries(statusData.qualificationGroups).sort(([nameA], [nameB]) => {
+              const qualA = qualificationConfigs.find(q => q.name === nameA);
+              const qualB = qualificationConfigs.find(q => q.name === nameB);
+              return (qualA?.order ?? 999) - (qualB?.order ?? 999);
+            });
+            
+            return sortedGroups.map(([groupName, pilots], index) =>
               renderQualificationGroup(pilots, groupName, index)
             );
           }
@@ -750,7 +789,14 @@ const EventAttendance: React.FC<EventAttendanceProps> = ({ event }) => {
           
           // If qualification groups exist, render them
           if (statusData.qualificationGroups) {
-            return Object.entries(statusData.qualificationGroups).map(([groupName, pilots], index) =>
+            // Sort qualification groups by their order in the qualifications table
+            const sortedGroups = Object.entries(statusData.qualificationGroups).sort(([nameA], [nameB]) => {
+              const qualA = qualificationConfigs.find(q => q.name === nameA);
+              const qualB = qualificationConfigs.find(q => q.name === nameB);
+              return (qualA?.order ?? 999) - (qualB?.order ?? 999);
+            });
+            
+            return sortedGroups.map(([groupName, pilots], index) =>
               renderQualificationGroup(pilots, groupName, index)
             );
           }

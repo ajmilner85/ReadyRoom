@@ -190,8 +190,7 @@ function createEventEmbed(title, description, eventTime, responses = {}, creator
   // Create embed
   const embed = new EmbedBuilder()
     .setColor(0x0099FF)
-    .setTitle(title)
-    .setURL('https://readyroom.app');
+    .setTitle(title);
   
   if (description && description.trim().length > 0) {
     embed.setDescription(description);
@@ -331,6 +330,9 @@ function createEventEmbed(title, description, eventTime, responses = {}, creator
       }
     }
 
+    // Add spacer before Tentative section
+    embed.addFields({ name: '\u200B', value: '\u200B', inline: false });
+
     // Add Tentative section at the end
     if (tentative.length > 0) {
       const tentativeText = createBlockQuote(tentative);
@@ -399,6 +401,9 @@ function createEventEmbed(title, description, eventTime, responses = {}, creator
         { name: 'All Pilots', value: acceptedText, inline: false }
       );
     }
+
+    // Add spacer before Tentative section
+    embed.addFields({ name: '\u200B', value: '\u200B', inline: false });
 
     // Add Tentative section at the end
     if (tentative.length > 0) {

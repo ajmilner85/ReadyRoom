@@ -51,6 +51,13 @@ export interface PilotRoleAssignment {
     compatible_statuses: string[];
     order: number;
   };
+  roles?: {  // Alias from SQL join (roles:role_id)
+    id: string;
+    name: string;
+    isExclusive: boolean;
+    compatible_statuses: string[];
+    order: number;
+  } | null;
 }
 
 // Pilot interface with standardized identifiers
@@ -100,11 +107,26 @@ export interface Pilot {
   squadronAssignment?: {
     id: string;
     pilot_id: string;
-    squadron_id: string;
+    squadron_id: string | null;
     start_date: string;
-    end_date?: string;
+    end_date: string | null;
     created_at: string;
-    updated_at?: string;
+    updated_at: string | null;
+    org_squadrons?: {
+      id: string;
+      name: string;
+      designation: string;
+      wing_id: string | null;
+      tail_code: string | null;
+      established_date: string | null;
+      deactivated_date: string | null;
+      insignia_url: string | null;
+      carrier_id: string | null;
+      callsigns: any;
+      color_palette: any;
+      discord_integration: any;
+      updated_at: string | null;
+    } | null;
   };
 }
 
