@@ -12,7 +12,7 @@ const { formatInTimeZone } = require('date-fns-tz');
  */
 function createEventEmbed(title, description, eventTime, responses = {}, creator = null, images = null, eventOptions = {}) {
   // VERSION SENTINEL
-  console.log(`[CODE-VERSION-SENTINEL] createEventEmbed v2.0 - Mission Support Separation`);
+  console.log(`[CODE-VERSION-SENTINEL] createEventEmbed v3.0 - Restructured Layout with Tentative/Declined at End`);
   console.log(`[CODE-VERSION-SENTINEL] Event: ${title}, trackQuals: ${eventOptions.trackQualifications}, groupSquad: ${eventOptions.groupBySquadron}`);
   
   const accepted = responses.accepted || [];
@@ -40,46 +40,25 @@ function createEventEmbed(title, description, eventTime, responses = {}, creator
     return content.length > 1020 ? formattedEntries.slice(0, 20).map(entry => `> ${entry}`).join('\n') + `\n> ... and ${formattedEntries.length - 20} more` : content;
   };
   
-  // Helper function for training events
+  // MODIFIED: groupByQualifications - now returns structured data for accepted only
   const groupByQualifications = (entries, isTraining = false) => {
-    if (entries.length === 0) return '-';
+    if (entries.length === 0) return { flightLead: [], sectionLead: [], wingman: [] };
     
     if (isTraining) {
       const ips = entries.filter(entry => {
         const qualifications = entry.pilotRecord?.qualifications || [];
-        console.log(`[TRAINING-DEBUG] ${entry.displayName}: qualifications=${JSON.stringify(qualifications)}, hasIP=${qualifications.includes('Instructor Pilot')}, pilotRecord=${!!entry.pilotRecord}`);
         return qualifications.includes('Instructor Pilot');
       });
       
       const ipIds = new Set(ips.map(ip => ip.userId || ip.discordId));
       const trainees = entries.filter(entry => !ipIds.has(entry.userId || entry.discordId));
       
-      let result = '';
-      if (ips.length > 0) {
-        const ipPilots = ips.map(formatPilotEntry);
-        const ipContent = ipPilots.map(entry => `> ${entry}`).join('\n');
-        result += `*IP (${ips.length})*\n${ipContent}`;
-      }
-      if (trainees.length > 0) {
-        if (result) result += '\n\n';
-        const traineePilots = trainees.map(formatPilotEntry);
-        const traineeContent = traineePilots.map(entry => `> ${entry}`).join('\n');
-        result += `*Trainee (${trainees.length})*\n${traineeContent}`;
-      }
-      
-      if (result === '') {
-        const allPilots = entries.map(formatPilotEntry);
-        const allContent = allPilots.map(entry => `> ${entry}`).join('\n');
-        result = `*IP (${entries.length})*\n${allContent}`;
-      }
-      
-      return (result.length > 1020) ? result.substring(0, 1020) + '...' : (result || '-');
+      return { ips, trainees };
     }
     
-    // Standard grouping - PRIMARY qualifications only (NO auxiliary)
+    // Standard grouping - PRIMARY qualifications only
     const primaryQualifications = ['Flight Lead', 'Section Lead'];
-    const primaryGroups = {};
-    const wingmen = [];
+    const primaryGroups = { 'Flight Lead': [], 'Section Lead': [], 'Wingman': [] };
 
     entries.forEach(entry => {
       let assignedToPrimary = false;
@@ -87,7 +66,6 @@ function createEventEmbed(title, description, eventTime, responses = {}, creator
 
       for (const qual of primaryQualifications) {
         if (qualifications.includes(qual)) {
-          if (!primaryGroups[qual]) primaryGroups[qual] = [];
           primaryGroups[qual].push(entry);
           assignedToPrimary = true;
           break;
@@ -95,81 +73,30 @@ function createEventEmbed(title, description, eventTime, responses = {}, creator
       }
 
       if (!assignedToPrimary) {
-        wingmen.push(entry);
-      }
-      // REMOVED: auxiliary qualification collection
-    });
-
-    let result = '';
-
-    primaryQualifications.forEach(qual => {
-      if (primaryGroups[qual] && primaryGroups[qual].length > 0) {
-        if (result) result += '\n';
-        const pilots = primaryGroups[qual].map(formatPilotEntry);
-        const pilotLines = pilots.map(entry => `> ${entry}`).join('\n');
-        result += `*${qual} (${primaryGroups[qual].length})*\n${pilotLines}`;
+        primaryGroups['Wingman'].push(entry);
       }
     });
 
-    if (wingmen.length > 0) {
-      if (result) result += '\n';
-      const pilots = wingmen.map(formatPilotEntry);
-      const wingmenLines = pilots.map(entry => `> ${entry}`).join('\n');
-      result += `*Wingman (${wingmen.length})*\n${wingmenLines}`;
-    }
-    // REMOVED: auxiliary qualification display
-
-    return (result.length > 1020) ? result.substring(0, 1020) + '...' : (result || '-');
+    return {
+      flightLead: primaryGroups['Flight Lead'],
+      sectionLead: primaryGroups['Section Lead'],
+      wingman: primaryGroups['Wingman']
+    };
   };
 
-  // MODIFIED: Helper for squadron grouping - PRIMARY qualifications only
-  const groupPilotsByQualification = (pilots) => {
-    const primaryQualifications = ['Flight Lead', 'Section Lead'];
-    const wingmen = [];
-    const primaryGroups = {};
-
-    pilots.forEach(entry => {
-      let assignedToPrimary = false;
-      const qualifications = entry.pilotRecord?.qualifications || [];
-
-      for (const qual of primaryQualifications) {
-        if (qualifications.includes(qual)) {
-          if (!primaryGroups[qual]) primaryGroups[qual] = [];
-          primaryGroups[qual].push(entry);
-          assignedToPrimary = true;
-          break;
-        }
-      }
-
-      if (!assignedToPrimary) wingmen.push(entry);
-      // REMOVED: auxiliary qualification collection
-    });
-
-    let result = '';
-
-    primaryQualifications.forEach(qual => {
-      if (primaryGroups[qual] && primaryGroups[qual].length > 0) {
-        if (result) result += '\n';
-        const pilotLines = primaryGroups[qual].map(formatPilotEntry).map(entry => `> ${entry}`).join('\n');
-        result += `*${qual} (${primaryGroups[qual].length})*\n${pilotLines}`;
-      }
-    });
-
-    if (wingmen.length > 0) {
-      if (result) result += '\n';
-      const pilotLines = wingmen.map(formatPilotEntry).map(entry => `> ${entry}`).join('\n');
-      result += `*Wingman (${wingmen.length})*\n${pilotLines}`;
-    }
-    // REMOVED: auxiliary qualification display
-
-    return result || '-';
+  // NEW: Format qualification group as text with block quote (Apollo style)
+  const formatQualGroup = (pilots) => {
+    if (pilots.length === 0) return '>>> -';
+    
+    // Format as: >>> Pilot1\nPilot2\nPilot3 (Apollo uses >>> at start for entire block)
+    const pilotLines = pilots.map(formatPilotEntry).join('\n');
+    return `>>> ${pilotLines}`;
   };
 
-  // NEW: Mission Support Section Generator
+  // MODIFIED: Mission Support Section Generator - ONLY accepted pilots with >>> block quote
   const generateMissionSupportSection = (entries) => {
     console.log(`[MISSION-SUPPORT-SENTINEL] generateMissionSupportSection called with ${entries.length} entries`);
     
-    // Use exact qualification names from database
     const auxiliaryQualifications = ['Mission Commander', 'JTAC', 'Landing Signals Officer'];
     const supportMap = new Map();
 
@@ -177,7 +104,6 @@ function createEventEmbed(title, description, eventTime, responses = {}, creator
 
     entries.forEach(entry => {
       const qualifications = entry.pilotRecord?.qualifications || [];
-      console.log(`[MISSION-SUPPORT-SENTINEL] Checking ${entry.displayName}: qualifications=${JSON.stringify(qualifications)}`);
       
       auxiliaryQualifications.forEach(qual => {
         if (qualifications.includes(qual)) {
@@ -189,18 +115,13 @@ function createEventEmbed(title, description, eventTime, responses = {}, creator
 
     const hasSupportPilots = Array.from(supportMap.values()).some(arr => arr.length > 0);
     
-    console.log(`[MISSION-SUPPORT-SENTINEL] hasSupportPilots=${hasSupportPilots}`);
-    
     if (!hasSupportPilots) {
-      console.log(`[MISSION-SUPPORT-SENTINEL] No support pilots found, returning empty string`);
       return '';
     }
 
-    // NEW: Build as 3-column layout with roles wrapping across columns
-    const columns = [[], [], []]; // Left, Center, Right
+    const columns = [[], [], []];
     let currentColumn = 0;
 
-    // Display names for roles (shortened for display)
     const displayNames = {
       'Mission Commander': 'Mission Commander',
       'JTAC': 'JTAC',
@@ -211,18 +132,15 @@ function createEventEmbed(title, description, eventTime, responses = {}, creator
       const qualPilots = supportMap.get(qual) || [];
       if (qualPilots.length > 0) {
         const displayName = displayNames[qual] || qual;
-        console.log(`[MISSION-SUPPORT-SENTINEL] Adding ${qualPilots.length} pilots to ${qual} in column ${currentColumn}`);
-        const pilotLines = qualPilots.map(formatPilotEntry).map(entry => `> ${entry}`).join('\n');
-        const qualSection = `*${displayName} (${qualPilots.length})*\n${pilotLines}`;
-        columns[currentColumn].push(qualSection);
-        
-        // Move to next column, wrap around after 3
+        // Use >>> block quote format like qualification groups
+        const pilotLines = qualPilots.map(formatPilotEntry).join('\n');
+        const qualSection = `>>> ${pilotLines}`;
+        const qualName = `${displayName} (${qualPilots.length})`;
+        columns[currentColumn].push({ name: qualName, value: qualSection });
         currentColumn = (currentColumn + 1) % 3;
       }
     });
 
-    console.log(`[MISSION-SUPPORT-SENTINEL] Built columns with content:`, columns.map((col, i) => `Column ${i}: ${col.length} sections`));
-    
     return { columns, hasSupportPilots: true };
   };
 
@@ -308,32 +226,27 @@ function createEventEmbed(title, description, eventTime, responses = {}, creator
       { name: '📆 Event Time', value: timeString, inline: false },
       { name: 'Countdown', value: countdownString, inline: true },
       { name: 'Add to Calendar', value: `[Google Calendar](${googleCalendarLink})`, inline: true },
-      { name: '\u200B', value: '\u200B', inline: true }
-      // REMOVED: spacing row after countdown - this was creating double space
+      { name: '\u200B', value: '\u200B', inline: true },
+      { name: '\u200B', value: '\u200B', inline: false } // Add spacing row after countdown/calendar
     );
   }
 
-  // Build attendance fields based on grouping option
+  // NEW STRUCTURE: Build attendance fields
   if (shouldGroupBySquadron) {
-    console.log(`[MISSION-SUPPORT-SENTINEL] Building embed with squadron grouping, shouldTrackQualifications=${shouldTrackQualifications}`);
+    console.log(`[EMBED-STRUCTURE] Building with squadron grouping`);
     
     const squadronGroups = organizeBySquadron(accepted, tentative, declined);
 
-    // Add column headers directly after event time (no extra spacing)
-    embed.addFields(
-      { name: `✅ Accepted (${accepted.length})`, value: '\u200B', inline: true },
-      { name: `❓ Tentative (${tentative.length})`, value: '\u200B', inline: true },
-      { name: `❌ Declined (${declined.length})`, value: '\u200B', inline: true }
-    );
+    // REMOVED: Attending header
 
-    // Add each squadron as a row
+    // Add each squadron's ACCEPTED pilots only
     squadronGroups.forEach(group => {
       const { squadron } = group;
       
-      // Calculate attending count - accepted only
+      if (group.accepted.length === 0) return; // Skip squadrons with no accepted pilots
+      
       const acceptedCount = group.accepted.length;
       
-      // Format squadron header with emoji and designation only
       let squadronHeader;
       if (squadron) {
         let discordIntegration = squadron.discord_integration;
@@ -366,52 +279,142 @@ function createEventEmbed(title, description, eventTime, responses = {}, creator
         squadronHeader = `**No Squadron** *(${acceptedCount})*`;
       }
 
-      const acceptedText = groupPilotsByQualification(group.accepted);
-      const tentativeText = groupPilotsByQualification(group.tentative);
-      const declinedText = groupPilotsByQualification(group.declined);
-
-      embed.addFields(
-        { name: '\u200B', value: `${squadronHeader}\n${acceptedText}`, inline: true },
-        { name: '\u200B', value: `\u200B\n${tentativeText}`, inline: true },
-        { name: '\u200B', value: `\u200B\n${declinedText}`, inline: true }
-      );
-    });
-
-    // Add mission support directly after squadrons
-    if (shouldTrackQualifications) {
-      console.log(`[MISSION-SUPPORT-SENTINEL] Qualification tracking enabled, generating mission support section`);
-      const missionSupportResult = generateMissionSupportSection([...accepted, ...tentative]);
-      
-      if (missionSupportResult && missionSupportResult.hasSupportPilots) {
-        console.log(`[MISSION-SUPPORT-SENTINEL] Adding mission support section to embed`);
+      if (shouldTrackQualifications) {
+        // Show Flight Lead | Section Lead | Wingman columns with Hornet emojis in field names
+        const grouped = groupByQualifications(group.accepted, isTrainingEvent);
         
-        const { columns } = missionSupportResult;
+        const flText = formatQualGroup(grouped.flightLead);
+        const slText = formatQualGroup(grouped.sectionLead);
+        const wmText = formatQualGroup(grouped.wingman);
+
         embed.addFields(
-          { name: '<:awacs:1229253561528090664> **Available Mission Support**', value: columns[0].length > 0 ? columns[0].join('\n\n') : '-', inline: true },
-          { name: '\u200B', value: columns[1].length > 0 ? columns[1].join('\n\n') : '-', inline: true },
-          { name: '\u200B', value: columns[2].length > 0 ? columns[2].join('\n\n') : '-', inline: true }
+          { name: `${squadronHeader}\n<:Hornet:541484781515440128><:Hornet:541484781515440128><:Hornet:541484781515440128><:Hornet:541484781515440128> Flight Lead (${grouped.flightLead.length})`, value: flText, inline: true },
+          { name: `\u200B\n<:Hornet:541484781515440128><:Hornet:541484781515440128> Section Lead (${grouped.sectionLead.length})`, value: slText, inline: true },
+          { name: `\u200B\n<:Hornet:541484781515440128> Wingman (${grouped.wingman.length})`, value: wmText, inline: true }
+        );
+      } else {
+        // Show all pilots without qualification grouping
+        const allPilots = createBlockQuote(group.accepted);
+        embed.addFields(
+          { name: squadronHeader, value: allPilots, inline: false }
         );
       }
+    });
+
+    // Add Mission Support section (ONLY accepted pilots)
+    if (shouldTrackQualifications) {
+      const missionSupportResult = generateMissionSupportSection(accepted);
+      
+      if (missionSupportResult && missionSupportResult.hasSupportPilots) {
+        const { columns } = missionSupportResult;
+        
+        // Build fields with proper alignment
+        const fields = columns.flatMap((column, colIndex) => {
+          if (column.length > 0) {
+            return column.map((field, fieldIndex) => {
+              // Add header to first field of first column, empty space to others
+              let fieldName = field.name;
+              if (colIndex === 0 && fieldIndex === 0) {
+                fieldName = `<:awacs:1229253561528090664> **Available Mission Support**\n${field.name}`;
+              } else if (fieldIndex === 0 && colIndex > 0) {
+                fieldName = `\u200B\n${field.name}`;
+              }
+              return { name: fieldName, value: field.value, inline: true };
+            });
+          } else {
+            // Empty column with matching spacing
+            return [{ name: colIndex === 0 ? `<:awacs:1229253561528090664> **Available Mission Support**\n\u200B` : `\u200B\n\u200B`, value: '>>> -', inline: true }];
+          }
+        });
+        
+        embed.addFields(...fields);
+      }
+    }
+
+    // Add Tentative section at the end
+    if (tentative.length > 0) {
+      const tentativeText = createBlockQuote(tentative);
+      embed.addFields(
+        { name: `❓ Tentative (${tentative.length})`, value: tentativeText, inline: false }
+      );
+    }
+
+    // Add Declined section at the end
+    if (declined.length > 0) {
+      const declinedText = createBlockQuote(declined);
+      embed.addFields(
+        { name: `❌ Declined (${declined.length})`, value: declinedText, inline: false }
+      );
     }
   } else {
-    // Original layout without squadron grouping
-    let acceptedText, tentativeText;
+    // No squadron grouping
+    console.log(`[EMBED-STRUCTURE] Building without squadron grouping`);
 
-    if (shouldTrackQualifications || isTrainingEvent) {
-      acceptedText = groupByQualifications(accepted, isTrainingEvent);
-      tentativeText = groupByQualifications(tentative, isTrainingEvent);
+    // REMOVED: Attending header
+
+    if (shouldTrackQualifications) {
+      // Show Flight Lead | Section Lead | Wingman columns
+      const grouped = groupByQualifications(accepted, isTrainingEvent);
+      
+      const flText = formatQualGroup(grouped.flightLead);
+      const slText = formatQualGroup(grouped.sectionLead);
+      const wmText = formatQualGroup(grouped.wingman);
+
+      embed.addFields(
+        { name: '<:Hornet:541484781515440128><:Hornet:541484781515440128><:Hornet:541484781515440128><:Hornet:541484781515440128> Flight Lead (' + grouped.flightLead.length + ')', value: flText, inline: true },
+        { name: '<:Hornet:541484781515440128><:Hornet:541484781515440128> Section Lead (' + grouped.sectionLead.length + ')', value: slText, inline: true },
+        { name: '<:Hornet:541484781515440128> Wingman (' + grouped.wingman.length + ')', value: wmText, inline: true }
+      );
+
+      // Add Mission Support section (ONLY accepted pilots)
+      const missionSupportResult = generateMissionSupportSection(accepted);
+      
+      if (missionSupportResult && missionSupportResult.hasSupportPilots) {
+        const { columns } = missionSupportResult;
+        
+        // Build field array dynamically
+        const missionSupportFields = [];
+        columns.forEach((column, index) => {
+          if (column.length > 0) {
+            column.forEach(field => {
+              missionSupportFields.push({ name: field.name, value: field.value, inline: true });
+            });
+          } else {
+            // Empty column
+            missionSupportFields.push({ name: '\u200B', value: '>>> -', inline: true });
+          }
+        });
+        
+        // Add header in first field
+        if (missionSupportFields.length > 0) {
+          missionSupportFields[0].name = `<:awacs:1229253561528090664> **Available Mission Support**\n${missionSupportFields[0].name}`;
+        }
+        
+        embed.addFields(...missionSupportFields);
+      }
     } else {
-      acceptedText = createBlockQuote(accepted);
-      tentativeText = createBlockQuote(tentative);
+      // Show all accepted pilots without grouping
+      const acceptedText = accepted.length > 0 ? createBlockQuote(accepted) : '-';
+      embed.addFields(
+        { name: 'All Pilots', value: acceptedText, inline: false }
+      );
     }
 
-    const declinedText = createBlockQuote(declined);
+    // Add Tentative section at the end
+    if (tentative.length > 0) {
+      const tentativeText = createBlockQuote(tentative);
+      embed.addFields(
+        { name: `❓ Tentative (${tentative.length})`, value: tentativeText, inline: false }
+      );
+    }
 
-    embed.addFields(
-      { name: `✅ Accepted (${accepted.length})`, value: acceptedText, inline: true },
-      { name: `❓ Tentative (${tentative.length})`, value: tentativeText, inline: true },
-      { name: `❌ Declined (${declined.length})`, value: declinedText, inline: true }
-    );
+    // Add Declined section at the end
+    if (declined.length > 0) {
+      const declinedText = createBlockQuote(declined);
+      embed.addFields(
+        { name: `❌ Declined (${declined.length})`, value: declinedText, inline: false }
+      );
+    }
   }
 
   // Footer
@@ -486,7 +489,6 @@ function createGoogleCalendarLink(title, description, startTime, endTime) {
   
   return `https://www.google.com/calendar/render?action=TEMPLATE&text=${encodedTitle}&details=${encodedDescription}&dates=${startTimeFormatted}/${endTimeFormatted}`;
 }
-
 
 module.exports = {
   createEventEmbed,

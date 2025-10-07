@@ -42,28 +42,23 @@ async function publishEventToDiscord(title, description, eventTime, guildId, cha
     console.log(`[BOT-PUBLISH] Found channel ${eventsChannel.name} (${eventsChannel.id}) in guild ${eventsChannel.guild.name} (${eventsChannel.guild.id})`);
     
     const imageData = images || (imageUrl ? { imageUrl } : null);
-    const eventEmbed = createEventEmbed(title, description, eventTime, {}, creator, imageData, eventOptions);
+    
+    // NEW: Create embed with empty responses (consistent with edit/response paths)
+    const emptyResponses = { accepted: [], declined: [], tentative: [] };
+    const eventEmbed = createEventEmbed(title, description, eventTime, emptyResponses, creator, imageData, eventOptions);
     const buttons = createAttendanceButtons();
     
     const additionalEmbeds = createAdditionalImageEmbeds(imageData, 'https://readyroom.app');
     const allEmbeds = [eventEmbed, ...additionalEmbeds];
     
-    if (imageData) {
-      console.log(`[BOT-PUBLISH] Adding images to embed:`, {
-        headerImage: imageData.headerImage || imageData.imageUrl || 'none',
-        additionalImages: imageData.additionalImages?.length || 0
-      });
-      console.log(`[BOT-PUBLISH] Total embeds being sent: ${allEmbeds.length} (1 main + ${additionalEmbeds.length} additional)`);
-    }
-    
-    console.log(`[BOT-PUBLISH] About to send message to channel ${eventsChannel.name} (${eventsChannel.id}) in guild ${eventsChannel.guild.name} (${eventsChannel.guild.id})`);
+    console.log(`[BOT-PUBLISH] About to send message to channel ${eventsChannel.name}`);
     
     const eventMessage = await eventsChannel.send({
       embeds: allEmbeds,
       components: [buttons]
     });
     
-    console.log(`[BOT-PUBLISH-SUCCESS] Message ${eventMessage.id} successfully sent to ${eventsChannel.guild.name} (#${eventsChannel.name})`);
+    console.log(`[BOT-PUBLISH-SUCCESS] Message ${eventMessage.id} successfully sent`);
     
     const publishResult = {
       success: true,
@@ -74,11 +69,9 @@ async function publishEventToDiscord(title, description, eventTime, guildId, cha
       threadCreated: false
     };
     
-    console.log(`[BOT-PUBLISH] Final result being returned to server:`, JSON.stringify(publishResult));
-    
     return publishResult;
   } catch (error) {
-    console.error(`[BOT-PUBLISH] Error publishing event to Discord guild ${guildId}, channel ${channelId}:`, error);
+    console.error(`[BOT-PUBLISH] Error publishing event:`, error);
     
     if (error.code === 50013) {
       throw new Error(`Bot lacks permissions to send messages in channel ${channelId}`);
@@ -191,6 +184,13 @@ async function sendReminderMessage(guildId, channelId, message, getClient) {
   }
 }
 
+module.exports = {
+  createAttendanceButtons,
+  publishEventToDiscord,
+  editEventMessage,
+  deleteEventMessage,
+  sendReminderMessage
+};
 module.exports = {
   createAttendanceButtons,
   publishEventToDiscord,

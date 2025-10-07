@@ -586,6 +586,7 @@ export const updateEvent = async (eventId: string, updates: Partial<Omit<Event, 
     sendToAccepted: boolean;
     sendToTentative: boolean;
   };
+  eventSettings?: EventSettings;
 }) => {
   // Map from frontend format to database format
   const dbUpdates: any = {};
@@ -638,11 +639,10 @@ export const updateEvent = async (eventId: string, updates: Partial<Omit<Event, 
       eventSettings.sendRemindersToTentative = updates.reminderRecipients.sendToTentative;
     }
     
-    // Save merged event settings to database using a Postgres function to bypass RLS issues
-    // Store event_settings separately to update via function
-    const eventSettingsToUpdate = eventSettings;
+    // Update database fields
     dbUpdates.event_settings = eventSettings;
   }
+
   // Preserve discord_event_id during updates
   if ((updates as any).discord_event_id !== undefined) dbUpdates.discord_event_id = (updates as any).discord_event_id;
   // No restricted_to in the DB schema
@@ -664,32 +664,17 @@ export const updateEvent = async (eventId: string, updates: Partial<Omit<Event, 
     }
 
     // Continue with the rest of the function using the fetched data
-    const attendance = {
-      accepted: data.accepted || [],
-      declined: data.declined || [],
-      tentative: data.tentative || []
-    };
-
     return {
-      event: {
-        id: data.id,
-        title: data.name,
-        description: data.description,
-        datetime: data.start_datetime,
-        endDatetime: data.end_datetime,
-        status: data.status,
-        createdAt: data.created_at,
-        updatedAt: data.updated_at,
-        eventType: data.event_type,
-        cycleId: data.cycle_id,
-        discordEventId: data.discord_event_id,
-        participants: data.participants,
-        imageUrl: data.image_url,
-        attendance,
-        trackQualifications: data.track_qualifications,
-        eventSettings: data.event_settings
-      },
-      error: null
+      id: data.id,
+      name: data.name,
+      description: data.description,
+      start_datetime: data.start_datetime,
+      end_datetime: data.end_datetime,
+      event_type: data.event_type,
+      event_settings: data.event_settings,
+      discord_event_id: data.discord_event_id,
+      // ...other event fields...
+      // Attendance data should be fetched separately using getEventAttendance
     };
   }
 
@@ -945,4 +930,22 @@ export const fetchCarriers = async () => {
     return data || [];
   });
 };
+
+// EventSettings interface for type safety
+interface EventSettings {
+  timezone?: string;
+  groupResponsesByQualification?: boolean;
+  groupBySquadron?: boolean;
+  firstReminderEnabled?: boolean;
+  firstReminderTime?: {
+    value: number;
+    unit: 'minutes' | 'hours' | 'days';
+  };
+  secondReminderEnabled?: boolean;
+  secondReminderTime?: {
+    value: number;
+    unit: 'minutes' | 'hours' | 'days';
+  };
+  sendReminderToThread?: boolean;
+}
 
