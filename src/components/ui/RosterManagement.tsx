@@ -36,6 +36,7 @@ import PilotDetails from './roster/PilotDetails';
 import BulkEditPilotDetails from './roster/BulkEditPilotDetails';
 import { DiscordPilotsDialog } from './dialogs/DiscordPilotsDialog';
 import { v4 as uuidv4 } from 'uuid';
+import type { QualificationFilterMode } from './roster/FilterDrawer';
 
 const RosterManagement: React.FC = () => {
   const { setPageLoading } = usePageLoading();
@@ -64,7 +65,7 @@ const RosterManagement: React.FC = () => {
   const [selectedStatusIds, setSelectedStatusIds] = useState<string[]>([]);
   const [selectedStandingIds, setSelectedStandingIds] = useState<string[]>([]);
   const [selectedRoleIds, setSelectedRoleIds] = useState<string[]>([]);
-  const [selectedQualificationIds, setSelectedQualificationIds] = useState<string[]>([]);
+  const [qualificationFilters, setQualificationFilters] = useState<Record<string, QualificationFilterMode>>({});
   const [filtersEnabled, setFiltersEnabled] = useState<boolean>(true);
   const [updatingStatus, setUpdatingStatus] = useState(false);
   const [updatingStanding, setUpdatingStanding] = useState(false);
@@ -2301,7 +2302,7 @@ const RosterManagement: React.FC = () => {
               selectedStatusIds={selectedStatusIds}
               selectedStandingIds={selectedStandingIds}
               selectedRoleIds={selectedRoleIds}
-              selectedQualificationIds={selectedQualificationIds}
+              qualificationFilters={qualificationFilters}
               filtersEnabled={filtersEnabled}
               allPilotQualifications={allPilotQualifications}
               setSelectedPilot={isAddingNewPilot ? undefined : setSelectedPilot}
@@ -2311,7 +2312,7 @@ const RosterManagement: React.FC = () => {
               setSelectedStatusIds={setSelectedStatusIds}
               setSelectedStandingIds={setSelectedStandingIds}
               setSelectedRoleIds={setSelectedRoleIds}
-              setSelectedQualificationIds={setSelectedQualificationIds}
+              setQualificationFilters={setQualificationFilters}
               setFiltersEnabled={setFiltersEnabled}
               onAddPilot={handleAddPilot}
               isAddingNewPilot={isAddingNewPilot}
