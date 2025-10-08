@@ -6,6 +6,7 @@ import { Status } from '../../../utils/statusService';
 import { Standing } from '../../../utils/standingService';
 import { Role } from '../../../utils/roleService';
 import { Qualification, getAllQualifications, getPilotQualifications, clearPilotQualificationsCache } from '../../../utils/qualificationService';
+import { dateInputToLocalDate } from '../../../utils/dateUtils';
 import StatusSelector from './StatusSelector';
 import StandingSelector from './StandingSelector';
 import RoleSelector from './RoleSelector';
@@ -267,7 +268,7 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
         .insert({
           pilot_id: selectedPilot.id,
           qualification_id: repairDialogData.selectedQualificationId,
-          achieved_date: new Date(repairDialogData.earnedDate).toISOString(),
+          achieved_date: dateInputToLocalDate(repairDialogData.earnedDate).toISOString(),
           created_at: new Date().toISOString()
         });
 

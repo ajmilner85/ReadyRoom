@@ -135,7 +135,7 @@ function createEventEmbed(title, description, eventTime, responses = {}, creator
         // Use >>> block quote format like qualification groups
         const pilotLines = qualPilots.map(formatPilotEntry).join('\n');
         const qualSection = `>>> ${pilotLines}`;
-        const qualName = `${displayName} (${qualPilots.length})`;
+        const qualName = `*${displayName} (${qualPilots.length})*`;
         columns[currentColumn].push({ name: qualName, value: qualSection });
         currentColumn = (currentColumn + 1) % 3;
       }
@@ -287,9 +287,9 @@ function createEventEmbed(title, description, eventTime, responses = {}, creator
         const wmText = formatQualGroup(grouped.wingman);
 
         embed.addFields(
-          { name: `${squadronHeader}\nFlight Lead (${grouped.flightLead.length})`, value: flText, inline: true },
-          { name: `\u200B\nSection Lead (${grouped.sectionLead.length})`, value: slText, inline: true },
-          { name: `\u200B\nWingman (${grouped.wingman.length})`, value: wmText, inline: true }
+          { name: `${squadronHeader}\n*Flight Lead (${grouped.flightLead.length})*`, value: flText, inline: true },
+          { name: `\u200B\n*Section Lead (${grouped.sectionLead.length})*`, value: slText, inline: true },
+          { name: `\u200B\n*Wingman (${grouped.wingman.length})*`, value: wmText, inline: true }
         );
       } else {
         // Show all pilots without qualification grouping
@@ -337,7 +337,7 @@ function createEventEmbed(title, description, eventTime, responses = {}, creator
     if (tentative.length > 0) {
       const tentativeText = createBlockQuote(tentative);
       embed.addFields(
-        { name: `❓ Tentative (${tentative.length})`, value: tentativeText, inline: false }
+        { name: `❓ **Tentative** (${tentative.length})`, value: tentativeText, inline: false }
       );
     }
 
@@ -345,7 +345,7 @@ function createEventEmbed(title, description, eventTime, responses = {}, creator
     if (declined.length > 0) {
       const declinedText = createBlockQuote(declined);
       embed.addFields(
-        { name: `❌ Declined (${declined.length})`, value: declinedText, inline: false }
+        { name: `❌ **Declined** (${declined.length})`, value: declinedText, inline: false }
       );
     }
   } else {
@@ -363,9 +363,9 @@ function createEventEmbed(title, description, eventTime, responses = {}, creator
       const wmText = formatQualGroup(grouped.wingman);
 
       embed.addFields(
-        { name: 'Flight Lead (' + grouped.flightLead.length + ')', value: flText, inline: true },
-        { name: 'Section Lead (' + grouped.sectionLead.length + ')', value: slText, inline: true },
-        { name: 'Wingman (' + grouped.wingman.length + ')', value: wmText, inline: true }
+        { name: '*Flight Lead (' + grouped.flightLead.length + ')*', value: flText, inline: true },
+        { name: '*Section Lead (' + grouped.sectionLead.length + ')*', value: slText, inline: true },
+        { name: '*Wingman (' + grouped.wingman.length + ')*', value: wmText, inline: true }
       );
 
       // Add Mission Support section (ONLY accepted pilots)
@@ -409,7 +409,7 @@ function createEventEmbed(title, description, eventTime, responses = {}, creator
     if (tentative.length > 0) {
       const tentativeText = createBlockQuote(tentative);
       embed.addFields(
-        { name: `❓ Tentative (${tentative.length})`, value: tentativeText, inline: false }
+        { name: `❓ **Tentative** (${tentative.length})`, value: tentativeText, inline: false }
       );
     }
 
@@ -417,7 +417,7 @@ function createEventEmbed(title, description, eventTime, responses = {}, creator
     if (declined.length > 0) {
       const declinedText = createBlockQuote(declined);
       embed.addFields(
-        { name: `❌ Declined (${declined.length})`, value: declinedText, inline: false }
+        { name: `❌ **Declined** (${declined.length})`, value: declinedText, inline: false }
       );
     }
   }
