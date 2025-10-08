@@ -22,6 +22,7 @@ export const FuelStateDialog: React.FC<FuelStateDialogProps> = ({
 }) => {
   const [boardNumber, setBoardNumber] = useState('');
   const [fuelState, setFuelState] = useState('');
+  const [focusedInput, setFocusedInput] = useState<string | null>(null);
   const boardNumberRef = useRef<HTMLInputElement>(null);
   const fuelStateRef = useRef<HTMLInputElement>(null);
 
@@ -69,7 +70,16 @@ export const FuelStateDialog: React.FC<FuelStateDialogProps> = ({
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Backspace') {
+    if (e.key === 'Tab') {
+      // Handle TAB navigation to cycle within dialog
+      if (e.currentTarget === fuelStateRef.current && !e.shiftKey) {
+        e.preventDefault();
+        boardNumberRef.current?.focus();
+      } else if (e.currentTarget === boardNumberRef.current && e.shiftKey) {
+        e.preventDefault();
+        fuelStateRef.current?.focus();
+      }
+    } else if (e.key === 'Backspace') {
       if (e.currentTarget === fuelStateRef.current && !fuelState) {
         setBoardNumber('');
         boardNumberRef.current?.focus();
@@ -86,6 +96,24 @@ export const FuelStateDialog: React.FC<FuelStateDialogProps> = ({
   };
 
   const fuelStateColor = fuelState ? getFuelColor(parseFloat(fuelState)) : '#64748B';
+
+  const getInputStyle = (inputName: string) => ({
+    width: '69px',
+    height: '44px',
+    fontFamily: 'Inter',
+    fontStyle: 'normal',
+    fontWeight: 700,
+    fontSize: '36px',
+    lineHeight: '44px',
+    textAlign: 'center' as const,
+    color: inputName === 'fuelState' ? fuelStateColor : '#000000',
+    border: focusedInput === inputName ? '2px solid #2563EB' : '2px solid transparent',
+    outline: 'none',
+    backgroundColor: '#F8FAFC',
+    borderRadius: '4px',
+    boxSizing: 'border-box' as const,
+    caretColor: 'transparent'
+  });
 
   return (
     <>
@@ -142,23 +170,10 @@ export const FuelStateDialog: React.FC<FuelStateDialogProps> = ({
             value={boardNumber}
             onChange={handleBoardNumberChange}
             onKeyDown={handleKeyDown}
+            onFocus={() => setFocusedInput('boardNumber')}
+            onBlur={() => setFocusedInput(null)}
             placeholder="---"
-            style={{
-              width: '69px',
-              height: '44px',
-              fontFamily: 'Inter',
-              fontStyle: 'normal',
-              fontWeight: 700,
-              fontSize: '36px',
-              lineHeight: '44px',
-              textAlign: 'center',
-              color: '#000000',
-              border: 'none',
-              outline: 'none',
-              backgroundColor: '#F8FAFC',
-              borderRadius: '4px',
-              caretColor: 'transparent'
-            }}
+            style={getInputStyle('boardNumber')}
           />
           <input
             ref={fuelStateRef}
@@ -166,23 +181,10 @@ export const FuelStateDialog: React.FC<FuelStateDialogProps> = ({
             value={fuelState}
             onChange={handleFuelStateChange}
             onKeyDown={handleKeyDown}
+            onFocus={() => setFocusedInput('fuelState')}
+            onBlur={() => setFocusedInput(null)}
             placeholder="-.-"
-            style={{
-              width: '69px',
-              height: '44px',
-              fontFamily: 'Inter',
-              fontStyle: 'normal',
-              fontWeight: 700,
-              fontSize: '36px',
-              lineHeight: '44px',
-              textAlign: 'center',
-              color: fuelStateColor,
-              border: 'none',
-              outline: 'none',
-              backgroundColor: '#F8FAFC',
-              borderRadius: '4px',
-              caretColor: 'transparent'
-            }}
+            style={getInputStyle('fuelState')}
           />
         </div>
       </div>

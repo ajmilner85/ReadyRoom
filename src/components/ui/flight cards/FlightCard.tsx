@@ -104,14 +104,14 @@ const FlightCard: React.FC<FlightCardProps> = ({
           justifyContent: 'center',
         }}>
           <div 
-            style={{ fontSize: '36px', fontWeight: 700, lineHeight: '44px', color: '#1E1E1E' }}
+            style={{ fontFamily: 'USN Stencil', fontSize: '36px', fontWeight: 400, lineHeight: '44px', color: '#575A58' }}
             title={`${leadMember.pilotCallsign}`}
             data-board-number={leadMember.boardNumber}
           >
             {leadMember.boardNumber}
           </div>
           <div style={{ fontSize: '12px', fontWeight: 300, lineHeight: '15px', color: '#000000' }}>
-            {callsign} {flightNumber}-{leadMember.dashNumber}
+            <span style={{ fontWeight: 700, color: '#2563EB' }}>{callsign} {flightNumber}</span>-{leadMember.dashNumber}
           </div>
           <div style={{ 
             color: leadMember.fuel < BINGO_FUEL ? '#FF3B30' : '#FF3B30',
@@ -144,10 +144,10 @@ const FlightCard: React.FC<FlightCardProps> = ({
                    height: '24px',
                  }}>
               <span style={{ fontSize: '12px', fontWeight: 300, width: '28px', color: '#000000' }}>
-                {flightNumber}-{member.dashNumber}
+                -{member.dashNumber}
               </span>
               <span 
-                style={{ fontSize: '20px', fontWeight: 700, marginLeft: '29px', color: '#1E1E1E' }}
+                style={{ fontFamily: 'USN Stencil', fontSize: '20px', fontWeight: 400, marginLeft: '29px', color: '#575A58' }}
                 title={`${member.pilotCallsign}`}
                 data-board-number={member.boardNumber}
               >

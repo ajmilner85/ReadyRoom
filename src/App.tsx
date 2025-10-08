@@ -139,6 +139,24 @@ const App: React.FC = () => {
 
     if (active.data.current?.type === 'FlightCard' && over.id) {
       const flight = active.data.current.flight;
+      
+      // Handle drop on inactive/storage area
+      if (over.id === 'inactive') {
+        setFlights(prevFlights => {
+          return prevFlights.map(f => {
+            if (f.id === flight.id) {
+              return {
+                ...f,
+                currentSection: '',
+                currentDivision: 0
+              };
+            }
+            return f;
+          });
+        });
+        return;
+      }
+      
       const [section, ...divisionParts] = over.id.toString().split('-');
       const divisionId = divisionParts.join('-');
       
@@ -372,6 +390,7 @@ const App: React.FC = () => {
                 <DndContext 
                   onDragStart={handleDragStart}
                   onDragEnd={handleDragEnd}
+                  autoScroll={{ enabled: false }}
                 >
                   <div 
                     onMouseMove={(e) => {
@@ -402,7 +421,10 @@ const App: React.FC = () => {
                       flights={flights}
                       onUpdateMemberFuel={handleUpdateMemberFuel}
                     />
-                    <DragOverlay>
+                    <DragOverlay
+                      dropAnimation={null}
+                      style={{ zIndex: 10000 }}
+                    >
                       {activeFlight && (
                         activeFlight.formation === 'single' ? (
                           <SingleFlightCard 

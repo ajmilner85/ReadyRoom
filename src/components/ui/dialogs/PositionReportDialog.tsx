@@ -17,6 +17,7 @@ export const PositionReportDialog: React.FC<PositionReportDialogProps> = ({
   const [altitude, setAltitude] = useState('');
   const [lowState, setLowState] = useState('');
   const [error, setError] = useState('');
+  const [focusedInput, setFocusedInput] = useState<string | null>(null);
   
   const boardNumberRef = useRef<HTMLInputElement>(null);
   const bearingRef = useRef<HTMLInputElement>(null);
@@ -161,7 +162,19 @@ export const PositionReportDialog: React.FC<PositionReportDialogProps> = ({
       }
     } else if (e.key === 'Escape') {
       onClose();
-    } else if ((e.key === 'Tab' || e.key === '/') && e.currentTarget === altitudeRef.current) {
+    } else if (e.key === 'Tab') {
+      // Handle TAB navigation to cycle within dialog
+      if (e.currentTarget === altitudeRef.current) {
+        e.preventDefault();
+        lowStateRef.current?.focus();
+      } else if (e.currentTarget === lowStateRef.current && !e.shiftKey) {
+        e.preventDefault();
+        boardNumberRef.current?.focus();
+      } else if (e.currentTarget === boardNumberRef.current && e.shiftKey) {
+        e.preventDefault();
+        lowStateRef.current?.focus();
+      }
+    } else if (e.key === '/' && e.currentTarget === altitudeRef.current) {
       e.preventDefault();
       lowStateRef.current?.focus();
     } else if (e.key === 'Backspace') {
@@ -222,6 +235,23 @@ export const PositionReportDialog: React.FC<PositionReportDialogProps> = ({
     }
   };
 
+  const getInputStyle = (inputName: string) => ({
+    width: '69px',
+    height: '44px',
+    fontFamily: 'Inter',
+    fontStyle: 'normal',
+    fontWeight: 700,
+    fontSize: '20px',
+    textAlign: 'center' as const,
+    color: inputName === 'lowState' ? getFuelColor(parseFloat(lowState) || 0) : '#000000',
+    border: focusedInput === inputName ? '2px solid #2563EB' : '2px solid transparent',
+    outline: 'none',
+    backgroundColor: '#F8FAFC',
+    borderRadius: '4px',
+    boxSizing: 'border-box' as const,
+    caretColor: 'transparent'
+  });
+
   return (
     <>
       <div 
@@ -277,22 +307,10 @@ export const PositionReportDialog: React.FC<PositionReportDialogProps> = ({
             value={boardNumber}
             onChange={handleBoardNumberChange}
             onKeyDown={handleKeyDown}
+            onFocus={() => setFocusedInput('boardNumber')}
+            onBlur={() => setFocusedInput(null)}
             placeholder="###"
-            style={{
-              width: '69px',
-              height: '44px',
-              fontFamily: 'Inter',
-              fontStyle: 'normal',
-              fontWeight: 700,
-              fontSize: '20px',
-              textAlign: 'center',
-              color: '#000000',
-              border: 'none',
-              outline: 'none',
-              backgroundColor: '#F8FAFC',
-              borderRadius: '4px',
-              caretColor: 'transparent'
-            }}
+            style={getInputStyle('boardNumber')}
           />
           <input
             ref={bearingRef}
@@ -300,22 +318,10 @@ export const PositionReportDialog: React.FC<PositionReportDialogProps> = ({
             value={bearing}
             onChange={handleBearingChange}
             onKeyDown={handleKeyDown}
+            onFocus={() => setFocusedInput('bearing')}
+            onBlur={() => setFocusedInput(null)}
             placeholder="BRG"
-            style={{
-              width: '69px',
-              height: '44px',
-              fontFamily: 'Inter',
-              fontStyle: 'normal',
-              fontWeight: 700,
-              fontSize: '20px',
-              textAlign: 'center',
-              color: '#000000',
-              border: 'none',
-              outline: 'none',
-              backgroundColor: '#F8FAFC',
-              borderRadius: '4px',
-              caretColor: 'transparent'
-            }}
+            style={getInputStyle('bearing')}
           />
           <input
             ref={distanceRef}
@@ -323,22 +329,10 @@ export const PositionReportDialog: React.FC<PositionReportDialogProps> = ({
             value={distance}
             onChange={handleDistanceChange}
             onKeyDown={handleKeyDown}
+            onFocus={() => setFocusedInput('distance')}
+            onBlur={() => setFocusedInput(null)}
             placeholder="DST"
-            style={{
-              width: '69px',
-              height: '44px',
-              fontFamily: 'Inter',
-              fontStyle: 'normal',
-              fontWeight: 700,
-              fontSize: '20px',
-              textAlign: 'center',
-              color: '#000000',
-              border: 'none',
-              outline: 'none',
-              backgroundColor: '#F8FAFC',
-              borderRadius: '4px',
-              caretColor: 'transparent'
-            }}
+            style={getInputStyle('distance')}
           />
           <input
             ref={altitudeRef}
@@ -346,22 +340,10 @@ export const PositionReportDialog: React.FC<PositionReportDialogProps> = ({
             value={altitude}
             onChange={handleAltitudeChange}
             onKeyDown={handleKeyDown}
+            onFocus={() => setFocusedInput('altitude')}
+            onBlur={() => setFocusedInput(null)}
             placeholder="ALT"
-            style={{
-              width: '69px',
-              height: '44px',
-              fontFamily: 'Inter',
-              fontStyle: 'normal',
-              fontWeight: 700,
-              fontSize: '20px',
-              textAlign: 'center',
-              color: '#000000',
-              border: 'none',
-              outline: 'none',
-              backgroundColor: '#F8FAFC',
-              borderRadius: '4px',
-              caretColor: 'transparent'
-            }}
+            style={getInputStyle('altitude')}
           />
           <input
             ref={lowStateRef}
@@ -369,22 +351,10 @@ export const PositionReportDialog: React.FC<PositionReportDialogProps> = ({
             value={lowState}
             onChange={handleLowStateChange}
             onKeyDown={handleKeyDown}
+            onFocus={() => setFocusedInput('lowState')}
+            onBlur={() => setFocusedInput(null)}
             placeholder="LOW"
-            style={{
-              width: '69px',
-              height: '44px',
-              fontFamily: 'Inter',
-              fontStyle: 'normal',
-              fontWeight: 700,
-              fontSize: '20px',
-              textAlign: 'center',
-              color: getFuelColor(parseFloat(lowState) || 0),
-              border: 'none',
-              outline: 'none',
-              backgroundColor: '#F8FAFC',
-              borderRadius: '4px',
-              caretColor: 'transparent'
-            }}
+            style={getInputStyle('lowState')}
           />
         </div>
         {error && (
