@@ -15,7 +15,7 @@ interface QualificationsManagerProps {
   setSelectedQualification: (id: string) => void;
   setQualificationAchievedDate: (date: string) => void;
   handleAddQualification: () => void;
-  handleRemoveQualification: (id: string) => void;
+  handleRemoveQualification: (recordId: string) => void; // Changed from qualificationId to recordId
 }
 
 const QualificationsManager: React.FC<QualificationsManagerProps> = ({
@@ -41,7 +41,12 @@ const QualificationsManager: React.FC<QualificationsManagerProps> = ({
       return null;
     }
 
+    // achievedDate comes from database as ISO timestamp string, convert to Date
     const achieved = new Date(achievedDate);
+    if (isNaN(achieved.getTime())) {
+      return null; // Invalid date
+    }
+    
     const expiryDate = new Date(achieved);
     expiryDate.setDate(expiryDate.getDate() + qualification.validity_period);
     return expiryDate;
@@ -208,7 +213,16 @@ const QualificationsManager: React.FC<QualificationsManagerProps> = ({
               {/* Table Body */}
               {pilotQualifications.length > 0 ? (
                 pilotQualifications
-                  .sort((a, b) => a.qualification.order - b.qualification.order)
+                  .sort((a, b) => {
+                    // First sort by qualification order
+                    const orderDiff = a.qualification.order - b.qualification.order;
+                    if (orderDiff !== 0) return orderDiff;
+                    
+                    // Then sort by achieved date (most recent first) for duplicate qualifications
+                    const dateA = new Date(a.achieved_date || 0).getTime();
+                    const dateB = new Date(b.achieved_date || 0).getTime();
+                    return dateB - dateA;
+                  })
                   .map((pilotQual, index) => (
                   <div
                     key={pilotQual.id}
@@ -241,7 +255,8 @@ const QualificationsManager: React.FC<QualificationsManagerProps> = ({
                       display: 'flex',
                       alignItems: 'center',
                       width: '300px',
-                      borderRight: '1px solid #F3F4F6'
+                      borderRight: '1px solid #F3F4F6',
+                      gap: '8px'
                     }}>
                       <span style={{
                         fontSize: '14px',
@@ -250,6 +265,22 @@ const QualificationsManager: React.FC<QualificationsManagerProps> = ({
                       }}>
                         {pilotQual.qualification.name}
                       </span>
+                      {/* Show indicator if there are multiple instances of this qualification */}
+                      {pilotQualifications.filter(pq => pq.qualification_id === pilotQual.qualification_id).length > 1 && (
+                        <span style={{
+                          fontSize: '11px',
+                          color: '#6B7280',
+                          backgroundColor: '#F3F4F6',
+                          padding: '2px 6px',
+                          borderRadius: '4px',
+                          fontWeight: 400
+                        }}>
+                          {pilotQualifications
+                            .filter(pq => pq.qualification_id === pilotQual.qualification_id)
+                            .sort((a, b) => new Date(b.achieved_date || 0).getTime() - new Date(a.achieved_date || 0).getTime())
+                            .findIndex(pq => pq.id === pilotQual.id) === 0 ? 'Current' : 'Previous'}
+                        </span>
+                      )}
                     </div>
 
                     {/* Achieved Date Column */}
@@ -308,7 +339,7 @@ const QualificationsManager: React.FC<QualificationsManagerProps> = ({
                       justifyContent: 'center'
                     }}>
                       <button
-                        onClick={() => handleRemoveQualification(pilotQual.qualification_id)}
+                        onClick={() => handleRemoveQualification(pilotQual.id)}
                         disabled={updatingQualifications}
                         title="Remove qualification"
                         style={{
@@ -507,7 +538,6 @@ const QualificationsManager: React.FC<QualificationsManagerProps> = ({
                     overflowY: 'auto'
                   }}>
                     {availableQualifications
-                      .filter(qual => !pilotQualifications.some(pq => pq.qualification_id === qual.id))
                       .map(qual => (
                         <button
                           key={qual.id}
