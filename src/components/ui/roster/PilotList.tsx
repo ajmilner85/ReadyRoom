@@ -6,7 +6,7 @@ import { Squadron } from '../../../utils/squadronService';
 import { Role } from '../../../utils/roleService';
 import { Qualification } from '../../../utils/qualificationService';
 import { pilotListStyles, rosterStyles } from '../../../styles/RosterManagementStyles';
-import FilterDrawer from './FilterDrawer';
+import FilterDrawer, { QualificationFilterMode } from './FilterDrawer';
 import PilotListItem from './PilotListItem';
 
 interface PilotListProps {
@@ -23,7 +23,7 @@ interface PilotListProps {
   selectedStatusIds: string[];
   selectedStandingIds: string[];
   selectedRoleIds: string[];
-  selectedQualificationIds: string[];
+  qualificationFilters: Record<string, QualificationFilterMode>;
   filtersEnabled: boolean;
   allPilotQualifications: Record<string, any[]>;
   setSelectedPilot?: (pilot: Pilot) => void;
@@ -33,7 +33,7 @@ interface PilotListProps {
   setSelectedStatusIds: (ids: string[]) => void;
   setSelectedStandingIds: (ids: string[]) => void;
   setSelectedRoleIds: (ids: string[]) => void;
-  setSelectedQualificationIds: (ids: string[]) => void;
+  setQualificationFilters: (filters: Record<string, QualificationFilterMode>) => void;
   setFiltersEnabled: (enabled: boolean) => void;
   onAddPilot: () => void;
   isAddingNewPilot?: boolean;
@@ -53,7 +53,7 @@ const PilotList: React.FC<PilotListProps> = ({
   selectedStatusIds,
   selectedStandingIds,
   selectedRoleIds,
-  selectedQualificationIds,
+  qualificationFilters,
   filtersEnabled,
   allPilotQualifications,
   setSelectedPilot,
@@ -63,7 +63,7 @@ const PilotList: React.FC<PilotListProps> = ({
   setSelectedStatusIds,
   setSelectedStandingIds,
   setSelectedRoleIds,
-  setSelectedQualificationIds,
+  setQualificationFilters,
   setFiltersEnabled,
   onAddPilot,
   isAddingNewPilot = false
@@ -108,15 +108,25 @@ const PilotList: React.FC<PilotListProps> = ({
     }
     
     // Qualification filter
-    if (selectedQualificationIds.length > 0) {
+    if (Object.keys(qualificationFilters).length > 0) {
       const pilotQualIds = allPilotQualifications[pilot.id]?.map(pq => pq.qualification?.id).filter(Boolean) || [];
-      if (!pilotQualIds.some(qualId => selectedQualificationIds.includes(qualId))) {
-        return false;
+      
+      // Check each qualification filter
+      for (const [qualId, mode] of Object.entries(qualificationFilters)) {
+        const pilotHasQual = pilotQualIds.includes(qualId);
+        
+        if (mode === 'include' && !pilotHasQual) {
+          // Must have this qualification but doesn't
+          return false;
+        } else if (mode === 'exclude' && pilotHasQual) {
+          // Must NOT have this qualification but does
+          return false;
+        }
       }
     }
     
     return true;
-  }) : pilots, [filtersEnabled, pilots, selectedSquadronIds, selectedStatusIds, selectedStandingIds, selectedRoleIds, selectedQualificationIds]);
+  }) : pilots, [filtersEnabled, pilots, selectedSquadronIds, selectedStatusIds, selectedStandingIds, selectedRoleIds, qualificationFilters, allPilotQualifications]);
 
   // Separate pilots into active, inactive, and needs attention groups - memoized for performance
   const pilotGroups = useMemo(() => {
@@ -261,13 +271,13 @@ const PilotList: React.FC<PilotListProps> = ({
         selectedStatusIds={selectedStatusIds}
         selectedStandingIds={selectedStandingIds}
         selectedRoleIds={selectedRoleIds}
-        selectedQualificationIds={selectedQualificationIds}
+        qualificationFilters={qualificationFilters}
         filtersEnabled={filtersEnabled}
         setSelectedSquadronIds={setSelectedSquadronIds}
         setSelectedStatusIds={setSelectedStatusIds}
         setSelectedStandingIds={setSelectedStandingIds}
         setSelectedRoleIds={setSelectedRoleIds}
-        setSelectedQualificationIds={setSelectedQualificationIds}
+        setQualificationFilters={setQualificationFilters}
         setFiltersEnabled={setFiltersEnabled}
       />
       

@@ -6,6 +6,8 @@ import { Role } from '../../../utils/roleService';
 import { Qualification } from '../../../utils/qualificationService';
 import { Pilot } from '../../../types/PilotTypes';
 
+export type QualificationFilterMode = 'include' | 'exclude';
+
 interface FilterDrawerProps {
   squadrons: Squadron[];
   statuses: Status[];
@@ -18,13 +20,13 @@ interface FilterDrawerProps {
   selectedStatusIds: string[];
   selectedStandingIds: string[];
   selectedRoleIds: string[];
-  selectedQualificationIds: string[];
+  qualificationFilters: Record<string, QualificationFilterMode>;
   filtersEnabled: boolean;
   setSelectedSquadronIds: (ids: string[]) => void;
   setSelectedStatusIds: (ids: string[]) => void;
   setSelectedStandingIds: (ids: string[]) => void;
   setSelectedRoleIds: (ids: string[]) => void;
-  setSelectedQualificationIds: (ids: string[]) => void;
+  setQualificationFilters: (filters: Record<string, QualificationFilterMode>) => void;
   setFiltersEnabled: (enabled: boolean) => void;
 }
 
@@ -40,13 +42,13 @@ const FilterDrawer: React.FC<FilterDrawerProps> = ({
   selectedStatusIds,
   selectedStandingIds,
   selectedRoleIds,
-  selectedQualificationIds,
+  qualificationFilters,
   filtersEnabled,
   setSelectedSquadronIds,
   setSelectedStatusIds,
   setSelectedStandingIds,
   setSelectedRoleIds,
-  setSelectedQualificationIds,
+  setQualificationFilters,
   setFiltersEnabled
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
@@ -56,7 +58,7 @@ const FilterDrawer: React.FC<FilterDrawerProps> = ({
   const getActiveStatuses = () => statuses.filter(s => selectedStatusIds.includes(s.id));
   const getActiveStandings = () => standings.filter(s => selectedStandingIds.includes(s.id));
   const getActiveRoles = () => roles.filter(r => selectedRoleIds.includes(r.id));
-  const getActiveQualifications = () => qualifications.filter(q => selectedQualificationIds.includes(q.id));
+  const getActiveQualifications = () => qualifications.filter(q => qualificationFilters[q.id] !== undefined);
 
   // Helper functions for calculating pilot counts
   const getSquadronPilotCount = (squadronId: string) => {
@@ -103,7 +105,9 @@ const FilterDrawer: React.FC<FilterDrawerProps> = ({
   };
 
   const removeQualification = (id: string) => {
-    setSelectedQualificationIds(selectedQualificationIds.filter(i => i !== id));
+    const newFilters = { ...qualificationFilters };
+    delete newFilters[id];
+    setQualificationFilters(newFilters);
   };
 
   const clearAllFilters = () => {
@@ -111,7 +115,7 @@ const FilterDrawer: React.FC<FilterDrawerProps> = ({
     setSelectedStatusIds([]);
     setSelectedStandingIds([]);
     setSelectedRoleIds([]);
-    setSelectedQualificationIds([]);
+    setQualificationFilters({});
   };
 
   const toggleSquadron = (id: string) => {
@@ -123,18 +127,28 @@ const FilterDrawer: React.FC<FilterDrawerProps> = ({
   };
 
   const toggleQualification = (id: string) => {
-    if (selectedQualificationIds.includes(id)) {
-      setSelectedQualificationIds(selectedQualificationIds.filter(i => i !== id));
+    const currentMode = qualificationFilters[id];
+    const newFilters = { ...qualificationFilters };
+    
+    if (!currentMode) {
+      // Not filtered -> include (must have)
+      newFilters[id] = 'include';
+    } else if (currentMode === 'include') {
+      // Include -> exclude (must not have)
+      newFilters[id] = 'exclude';
     } else {
-      setSelectedQualificationIds([...selectedQualificationIds, id]);
+      // Exclude -> not filtered (remove)
+      delete newFilters[id];
     }
+    
+    setQualificationFilters(newFilters);
   };
 
   const hasActiveFilters = selectedSquadronIds.length > 0 || 
     selectedStatusIds.length > 0 || 
     selectedStandingIds.length > 0 || 
     selectedRoleIds.length > 0 || 
-    selectedQualificationIds.length > 0;
+    Object.keys(qualificationFilters).length > 0;
 
   // Create combined squadron list with "Unassigned" option at the bottom
   const squadronsWithUnassigned = [
@@ -271,14 +285,18 @@ const FilterDrawer: React.FC<FilterDrawerProps> = ({
                 color={role.isExclusive ? '#F59E0B' : '#6B7280'}
               />
             ))}
-            {getActiveQualifications().map(qual => (
-              <FilterBadge
-                key={`qual-${qual.id}`}
-                label={qual.code}
-                onRemove={() => removeQualification(qual.id)}
-                color={qual.color || '#6B7280'}
-              />
-            ))}
+            {getActiveQualifications().map(qual => {
+              const mode = qualificationFilters[qual.id];
+              return (
+                <QualificationFilterBadge
+                  key={`qual-${qual.id}`}
+                  label={qual.code}
+                  mode={mode}
+                  onRemove={() => removeQualification(qual.id)}
+                  color={qual.color || '#6B7280'}
+                />
+              );
+            })}
           </div>
         )}
       </div>
@@ -416,39 +434,18 @@ const FilterDrawer: React.FC<FilterDrawerProps> = ({
             {/* Right Column */}
             <div>
               {/* Qualification Filter */}
-              <FilterSection 
+              <QualificationFilterSection 
                 title="Qualification"
-                items={qualifications}
-                selectedIds={selectedQualificationIds}
+                qualifications={qualifications}
+                qualificationFilters={qualificationFilters}
                 onToggle={toggleQualification}
-                onSelectAll={() => setSelectedQualificationIds(qualifications.map(q => q.id))}
-                onClearAll={() => setSelectedQualificationIds([])}
-                renderItem={(qual, isSelected) => (
-                  <>
-                    <Checkbox isSelected={isSelected} />
-                    <div style={{
-                      minWidth: '20px',
-                      height: '14px',
-                      backgroundColor: qual.color || '#6B7280',
-                      borderRadius: '2px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      flexShrink: 0,
-                      padding: '0 2px'
-                    }}>
-                      <span style={{ fontSize: '8px', color: '#FFFFFF', fontFamily: 'Inter', fontWeight: 500 }}>
-                        {qual.code}
-                      </span>
-                    </div>
-                    <span style={{ fontSize: '12px', fontFamily: 'Inter', flex: 1 }}>
-                      {qual.name}
-                    </span>
-                    <span style={{ fontSize: '10px', color: '#94A3B8', fontFamily: 'Inter', marginLeft: 'auto' }}>
-                      ({getQualificationPilotCount(qual.id)})
-                    </span>
-                  </>
-                )}
+                onSelectAll={() => {
+                  const newFilters: Record<string, QualificationFilterMode> = {};
+                  qualifications.forEach(q => newFilters[q.id] = 'include');
+                  setQualificationFilters(newFilters);
+                }}
+                onClearAll={() => setQualificationFilters({})}
+                getQualificationPilotCount={getQualificationPilotCount}
               />
             </div>
           </div>
@@ -512,6 +509,58 @@ const FilterBadge: React.FC<{
     </button>
   </div>
 );
+
+// Qualification filter badge with mode indicator
+const QualificationFilterBadge: React.FC<{
+  label: string;
+  mode: QualificationFilterMode;
+  onRemove: () => void;
+  color: string;
+}> = ({ label, mode, onRemove, color }) => {
+  const backgroundColor = mode === 'include' ? color + '20' : '#FEF2F2';
+  const borderColor = mode === 'include' ? color + '40' : '#FECACA';
+  const textColor = mode === 'include' ? color : '#DC2626';
+  
+  return (
+    <div style={{
+      display: 'flex',
+      alignItems: 'center',
+      backgroundColor,
+      border: '1px solid ' + borderColor,
+      borderRadius: '12px',
+      padding: '2px 6px',
+      gap: '4px',
+      fontSize: '11px',
+      fontFamily: 'Inter'
+    }}>
+      <span style={{ fontSize: '8px', color: textColor, fontWeight: 'bold' }}>
+        {mode === 'include' ? '✓' : '✕'}
+      </span>
+      <span style={{ color: textColor, fontWeight: 500 }}>{label}</span>
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          onRemove();
+        }}
+        style={{
+          background: 'none',
+          border: 'none',
+          color: textColor,
+          cursor: 'pointer',
+          fontSize: '10px',
+          padding: '0',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          width: '12px',
+          height: '12px'
+        }}
+      >
+        ×
+      </button>
+    </div>
+  );
+};
 
 // Multi-select dropdown component
 const MultiSelectDropdown: React.FC<{
@@ -669,6 +718,55 @@ const Checkbox: React.FC<{ isSelected: boolean }> = ({ isSelected }) => (
   </div>
 );
 
+// Three-way toggle component for qualifications
+const ThreeWayToggle: React.FC<{ mode: QualificationFilterMode | undefined }> = ({ mode }) => {
+  if (!mode) {
+    // No filter - show empty checkbox
+    return (
+      <div style={{
+        width: '14px',
+        height: '14px',
+        border: '1px solid #CBD5E1',
+        borderRadius: '3px',
+        backgroundColor: '#FFFFFF',
+        flexShrink: 0
+      }} />
+    );
+  }
+  
+  if (mode === 'include') {
+    // Include mode - show blue checkmark (transparent border to maintain spacing)
+    return (
+      <div style={{
+        width: '14px',
+        height: '14px',
+        border: '1px solid transparent',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        flexShrink: 0
+      }}>
+        <span style={{ color: '#3B82F6', fontSize: '14px', fontWeight: 'bold', lineHeight: 1 }}>✓</span>
+      </div>
+    );
+  }
+  
+  // Exclude mode - show red X (transparent border to maintain spacing)
+  return (
+    <div style={{
+      width: '14px',
+      height: '14px',
+      border: '1px solid transparent',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      flexShrink: 0
+    }}>
+      <span style={{ color: '#EF4444', fontSize: '12px', fontWeight: 'bold', lineHeight: 1 }}>✕</span>
+    </div>
+  );
+};
+
 // Filter section component (for Squadron and Qualification)
 const FilterSection: React.FC<{
   title: string;
@@ -746,6 +844,115 @@ const FilterSection: React.FC<{
           {renderItem(item, selectedIds.includes(item.id))}
         </div>
       ))}
+    </div>
+  </div>
+);
+
+// Qualification filter section with three-way toggle
+const QualificationFilterSection: React.FC<{
+  title: string;
+  qualifications: Qualification[];
+  qualificationFilters: Record<string, QualificationFilterMode>;
+  onToggle: (id: string) => void;
+  onSelectAll: () => void;
+  onClearAll: () => void;
+  getQualificationPilotCount: (id: string) => number;
+}> = ({ title, qualifications, qualificationFilters, onToggle, onSelectAll, onClearAll, getQualificationPilotCount }) => (
+  <div>
+    <div style={{
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: '8px'
+    }}>
+      <h4 style={{
+        fontSize: '12px',
+        fontWeight: 500,
+        fontFamily: 'Inter',
+        color: '#374151',
+        margin: 0
+      }}>
+        {title}
+      </h4>
+      <div style={{ display: 'flex', gap: '6px' }}>
+        <button onClick={onSelectAll} style={{
+          padding: '2px 6px', backgroundColor: '#EFF6FF', border: '1px solid #DBEAFE',
+          borderRadius: '3px', fontSize: '10px', cursor: 'pointer', fontFamily: 'Inter', color: '#1E40AF'
+        }}>
+          All
+        </button>
+        <button onClick={onClearAll} style={{
+          padding: '2px 6px', backgroundColor: '#FEF2F2', border: '1px solid #FECACA',
+          borderRadius: '3px', fontSize: '10px', cursor: 'pointer', fontFamily: 'Inter', color: '#DC2626'
+        }}>
+          None
+        </button>
+      </div>
+    </div>
+    <div style={{
+      maxHeight: '200px',
+      overflowY: 'auto',
+      border: '1px solid #E5E7EB',
+      borderRadius: '4px',
+      padding: '4px'
+    }}>
+      {qualifications.map(qual => {
+        const mode = qualificationFilters[qual.id];
+        const isActive = mode !== undefined;
+        
+        return (
+          <div
+            key={qual.id}
+            onClick={() => onToggle(qual.id)}
+            style={{
+              padding: '6px 8px',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              backgroundColor: isActive 
+                ? (mode === 'include' ? '#EFF6FF' : '#FEF2F2')
+                : 'transparent',
+              borderRadius: '3px',
+              transition: 'background-color 0.2s',
+              marginBottom: '2px'
+            }}
+            onMouseEnter={e => {
+              if (!isActive) {
+                e.currentTarget.style.backgroundColor = '#F8FAFC';
+              }
+            }}
+            onMouseLeave={e => {
+              if (!isActive) {
+                e.currentTarget.style.backgroundColor = 'transparent';
+              }
+            }}
+          >
+            <ThreeWayToggle mode={mode} />
+            <div style={{
+              minWidth: '20px',
+              height: '14px',
+              backgroundColor: qual.color || '#6B7280',
+              borderRadius: '2px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0,
+              padding: '0 2px'
+            }}>
+              <span style={{ fontSize: '8px', color: '#FFFFFF', fontFamily: 'Inter', fontWeight: 500 }}>
+                {qual.code}
+              </span>
+            </div>
+            <span style={{ fontSize: '12px', fontFamily: 'Inter', flex: 1 }}>
+              {qual.name}
+            </span>
+            <span style={{ fontSize: '10px', color: '#94A3B8', fontFamily: 'Inter', marginLeft: 'auto' }}>
+              ({getQualificationPilotCount(qual.id)})
+            </span>
+          </div>
+        );
+      })}
     </div>
   </div>
 );
