@@ -1,4 +1,5 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
+import { useDroppable } from '@dnd-kit/core';
 import DroppableZone from './DroppableZone';
 import DivisionEditor from '../ui/DivisionEditor';
 import { AddDivisionButton } from '../ui/buttons/AddDivisionButton';
@@ -10,6 +11,7 @@ import { useSections } from './SectionContext';
 import type { Flight } from '../../types/FlightData';
 import FlightCard from '../ui/flight cards/FlightCard';
 import SingleFlightCard from '../ui/flight cards/SingleFlightCard';
+import { ChevronUp, ChevronDown } from 'lucide-react';
 
 interface GridLayoutProps {
   flights?: Flight[];
@@ -19,6 +21,10 @@ interface GridLayoutProps {
 const GridLayout: React.FC<GridLayoutProps> = ({ flights = [], onUpdateMemberFuel }) => {
   const { sections } = useSections();
   const sectionRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const { isOver: isDrawerOver, setNodeRef: setDrawerRef } = useDroppable({
+    id: 'inactive',
+  });
 
   const getFlightsForDivision = (sectionTitle: string, divisionId: string): Flight[] => {
     const divisionNum = divisionId.split('-')[1];
@@ -148,24 +154,29 @@ const GridLayout: React.FC<GridLayoutProps> = ({ flights = [], onUpdateMemberFue
     <div style={{ 
       backgroundColor: '#F0F4F8', 
       minHeight: '100vh',
+      height: '100vh', // Force exact viewport height
       display: 'flex',
       flexDirection: 'column',
       alignItems: 'center',
-      paddingTop: '20px',
-      paddingBottom: '20px',
-      boxSizing: 'border-box'
+      padding: '0', // Remove all padding
+      boxSizing: 'border-box',
+      width: '100%',
+      overflowX: 'hidden', // Prevent horizontal scroll
+      overflowY: 'hidden' // Prevent vertical scroll on main container
     }}>
       <div style={{
         display: 'flex',
         gap: '20px',
-        padding: '15px',  // Add padding to prevent drop shadows being cut off
-        height: 'fit-content',
-        overflowX: 'auto',
-        overflowY: 'auto',
+        padding: '20px 15px 15px 15px', // 20px top, 15px on other sides
+        height: '100vh',
+        overflowX: 'hidden',
+        overflowY: 'hidden',
         position: 'relative',
         zIndex: 1,
         justifyContent: 'center',
         width: '100%',
+        maxWidth: '100%',
+        boxSizing: 'border-box'
       }}>
         {sections.map((section, index) => (
           <div
@@ -215,21 +226,94 @@ const GridLayout: React.FC<GridLayoutProps> = ({ flights = [], onUpdateMemberFue
         ))}
       </div>
 
-      {/* Unassigned flights area */}
+      {/* Drawer for inactive flights */}
       <div style={{
-        marginTop: '20px',
-        backgroundColor: '#F8FAFC',
-        borderTop: '1px solid #E2E8F0',
-        display: 'flex',
-        flexWrap: 'wrap',
-        gap: '10px',
-        position: 'relative',
-        justifyContent: 'center',
-        width: '100%',
-        boxSizing: 'border-box',
-        padding: '20px 15px' // Add horizontal padding to prevent drop shadows being cut off
+        position: 'fixed',
+        bottom: 0,
+        left: '50%',
+        transform: isDrawerOpen 
+          ? 'translateX(-50%) translateY(0)' 
+          : 'translateX(-50%) translateY(calc(100% - 38px))',
+        width: '1828px', // 4 cards (442px each) + 3 gaps (10px) + padding (30px)
+        maxWidth: 'calc(100vw - 120px)', // Don't exceed viewport minus nav bar margin
+        zIndex: 1000,
+        transition: 'transform 0.3s ease-in-out',
+        backgroundColor: '#FFFFFF',
+        boxShadow: '0px -4px 12px rgba(0, 0, 0, 0.15)',
+        borderTopLeftRadius: '12px',
+        borderTopRightRadius: '12px',
+        pointerEvents: 'auto'
       }}>
-        {unassignedFlights.map(renderFlightCard)}
+        {/* Drawer Handle */}
+        <button
+          onClick={() => setIsDrawerOpen(!isDrawerOpen)}
+          style={{
+            width: '100%',
+            height: '38px', // Reduced from 48px
+            backgroundColor: '#F8FAFC',
+            border: 'none',
+            borderTopLeftRadius: '12px',
+            borderTopRightRadius: '12px',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '8px',
+            fontFamily: 'Inter',
+            fontSize: '14px',
+            fontWeight: 500,
+            color: '#64748B',
+            transition: 'background-color 0.2s ease',
+            pointerEvents: 'auto',
+            position: 'relative',
+            zIndex: 1
+          }}
+          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#E2E8F0'}
+          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#F8FAFC'}
+        >
+          {isDrawerOpen ? (
+            <>
+              <ChevronDown size={20} />
+              Hide Inactive Flights ({unassignedFlights.length})
+            </>
+          ) : (
+            <>
+              <ChevronUp size={20} />
+              Show Inactive Flights ({unassignedFlights.length})
+            </>
+          )}
+        </button>
+
+        {/* Drawer Content */}
+        <div 
+          ref={setDrawerRef}
+          style={{
+            maxHeight: '60vh',
+            overflowY: 'auto',
+            backgroundColor: isDrawerOver ? '#E0E7FF' : '#F8FAFC',
+            borderTop: '1px solid #E2E8F0',
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: '10px',
+            justifyContent: 'center',
+            padding: '20px 15px',
+            boxSizing: 'border-box',
+            transition: 'background-color 0.2s ease'
+          }}>
+          {unassignedFlights.length > 0 ? (
+            unassignedFlights.map(renderFlightCard)
+          ) : (
+            <div style={{
+              padding: '40px',
+              textAlign: 'center',
+              color: '#94A3B8',
+              fontFamily: 'Inter',
+              fontSize: '14px'
+            }}>
+              No inactive flights
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

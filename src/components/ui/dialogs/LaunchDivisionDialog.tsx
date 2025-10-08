@@ -83,7 +83,8 @@ export const LaunchDivisionDialog: React.FC<LaunchDivisionDialogProps> = ({
             padding: '8px',
             border: '1px solid #CBD5E1',
             borderRadius: '4px',
-            fontSize: '14px'
+            fontSize: '14px',
+            boxSizing: 'border-box'
           }}
           autoFocus
         />

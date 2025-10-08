@@ -84,15 +84,15 @@ const SingleFlightCard: React.FC<SingleFlightCardProps> = ({
             height: '24px',
             left: '15.65px',
             top: '6px',
-            fontFamily: 'Inter',
+            fontFamily: 'USN Stencil',
             fontStyle: 'normal',
-            fontWeight: 700,
+            fontWeight: 400,
             fontSize: '20px',
             lineHeight: '24px',
             display: 'flex',
             alignItems: 'center',
             textAlign: 'center',
-            color: '#000000'
+            color: '#575A58'
           }}
           title={aircraft.pilotCallsign}
           data-board-number={aircraft.boardNumber}
@@ -126,7 +126,7 @@ const SingleFlightCard: React.FC<SingleFlightCardProps> = ({
           justifyContent: 'center',
           color: '#000000'
         }}>
-          {`${callsign} ${flightNumber}-${aircraft.dashNumber}`}
+          <span style={{ fontWeight: 700, color: '#2563EB' }}>{callsign} {flightNumber}</span>-{aircraft.dashNumber}
         </div>
       </div>
 

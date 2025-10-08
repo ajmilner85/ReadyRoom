@@ -5,7 +5,8 @@ const MISSION_TYPES = [
   'SEAD', 'DEAD', 'BARCAP', 'DCA', 'FIGHTER SWEEP', 'STRIKE', 'INTERDICTION',
   'RECONNAISSANCE', 'CAS', 'SCAR', 'OCA', 'FAC(A)', 'HVAAE', 'TASMO', 'CSAR',
   'SSC', 'SSSC', 'MIW', 'EW', 'QRA', 'SHOW OF FORCE', 'MARITIME ESCORT',
-  'AIR INTERDICTION'
+  'AIR INTERDICTION', 'TRAINING', 'FAMILIARIZATION', 'NAVIGATION', 'FERRY',
+  'QUALIFICATION', 'RANGE', 'EVALUATION'
 ].sort();
 
 interface EnRouteDivisionDialogProps {
@@ -121,7 +122,8 @@ export const EnRouteDivisionDialog: React.FC<EnRouteDivisionDialogProps> = ({
             padding: '8px',
             border: '1px solid #CBD5E1',
             borderRadius: '4px',
-            fontSize: '14px'
+            fontSize: '14px',
+            boxSizing: 'border-box'
           }}
           autoFocus
         />
@@ -148,7 +150,8 @@ export const EnRouteDivisionDialog: React.FC<EnRouteDivisionDialogProps> = ({
             border: '1px solid #CBD5E1',
             borderRadius: '4px',
             fontSize: '14px',
-            backgroundColor: 'white'
+            backgroundColor: 'white',
+            boxSizing: 'border-box'
           }}
         >
           {MISSION_TYPES.map(type => (

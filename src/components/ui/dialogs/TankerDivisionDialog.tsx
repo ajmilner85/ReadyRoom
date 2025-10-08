@@ -112,7 +112,8 @@ export const TankerDivisionDialog: React.FC<TankerDivisionDialogProps> = ({
               padding: '8px',
               border: '1px solid #CBD5E1',
               borderRadius: '4px',
-              fontSize: '14px'
+              fontSize: '14px',
+              boxSizing: 'border-box'
             }}
             autoFocus
           />
@@ -139,7 +140,8 @@ export const TankerDivisionDialog: React.FC<TankerDivisionDialogProps> = ({
               padding: '8px',
               border: '1px solid #CBD5E1',
               borderRadius: '4px',
-              fontSize: '14px'
+              fontSize: '14px',
+              boxSizing: 'border-box'
             }}
           />
         </div>
