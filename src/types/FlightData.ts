@@ -26,6 +26,12 @@ export interface Flight {
   currentDivision: number;
   formation: FlightFormation;
   parentFlightId?: string;
+  squadronId?: string; // Squadron that owns this callsign
+  squadronColorPalette?: {
+    primary?: string;
+    accent?: string;
+  };
+  aircraftType?: string; // Aircraft type (e.g., 'FA-18C_hornet', 'F-16C_50')
   metadata?: {
     extractedIndex?: number;
     originalName?: string;

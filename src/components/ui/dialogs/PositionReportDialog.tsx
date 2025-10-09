@@ -236,7 +236,7 @@ export const PositionReportDialog: React.FC<PositionReportDialogProps> = ({
   };
 
   const getInputStyle = (inputName: string) => ({
-    width: '69px',
+    width: '75px',
     height: '44px',
     fontFamily: 'Inter',
     fontStyle: 'normal',
@@ -271,7 +271,7 @@ export const PositionReportDialog: React.FC<PositionReportDialogProps> = ({
         top: '50%',
         left: '50%',
         transform: 'translate(-50%, -50%)',
-        width: '439px',
+        width: '463px',
         backgroundColor: '#FFFFFF',
         boxShadow: '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)',
         borderRadius: '8px',

@@ -31,6 +31,12 @@ interface CommunicationsProps {
       fuel: number;
     }>;
   }>;
+  squadrons?: Array<{
+    id: string;
+    name: string;
+    callsigns?: string[];
+    color_palette?: any;
+  }>;
 }
 
 const Communications: React.FC<CommunicationsProps> = ({ 
@@ -38,7 +44,8 @@ const Communications: React.FC<CommunicationsProps> = ({
   assignedPilots = {},
   onTransferToMission,
   flights = [],
-  extractedFlights = []
+  extractedFlights = [],
+  squadrons = []
 }) => {  // Initialize state with data from localStorage if available
   const [commsData, setCommsData] = useState<CommsPlanEntry[]>(() => {
     return loadFromLocalStorage<CommsPlanEntry[]>(STORAGE_KEYS.COMMS_PLAN, generateInitialCommsData());
@@ -173,6 +180,12 @@ const Communications: React.FC<CommunicationsProps> = ({
     const transferFlights: Flight[] = flights.map(flight => {
       const assigned = assignedPilots?.[flight.id] || [];
       
+      // Find which squadron owns this callsign
+      const owningSquadron = squadrons.find(sq => 
+        sq.callsigns && Array.isArray(sq.callsigns) && 
+        sq.callsigns.some((cs: string) => cs.toUpperCase() === flight.callsign.toUpperCase())
+      );
+      
       // Find matching extracted flight directly from extractedFlights by callsign and flight number
       const matchingExtractedFlight = extractedFlights.find(ef => {
         const { callsign, flightNumber } = parseGroupName(ef.name);
@@ -221,7 +234,19 @@ const Communications: React.FC<CommunicationsProps> = ({
       // Calculate the low state as the minimum fuel among all members
       const lowState = Math.min(...members.map((m: FlightMember) => m.fuel));
       
-      return {
+      // Determine aircraft type from squadron's airframe (preferred) or DCS mission data (fallback)
+      let aircraftType: string | undefined;
+      
+      // First priority: Use squadron's airframe if available
+      if (owningSquadron && (owningSquadron as any).airframe) {
+        aircraftType = (owningSquadron as any).airframe.designation;
+      } 
+      // Fallback: Extract from DCS mission file
+      else if (matchingExtractedFlight && matchingExtractedFlight.units && matchingExtractedFlight.units.length > 0) {
+        aircraftType = matchingExtractedFlight.units[0].type;
+      }
+      
+      const flightData = {
         id: `transferred-${flight.id}-${Date.now()}`,
         flightNumber: flight.flightNumber,
         callsign: flight.callsign,
@@ -229,8 +254,16 @@ const Communications: React.FC<CommunicationsProps> = ({
         lowState, // Use calculated low state instead of hardcoded value
         currentSection: "", // Empty string for unassigned flights
         currentDivision: 0,
-        formation: members.length > 1 ? "group" : "single"
+        formation: members.length > 1 ? "group" : "single",
+        squadronId: owningSquadron?.id,
+        squadronColorPalette: owningSquadron?.color_palette ? {
+          primary: owningSquadron.color_palette.primary,
+          accent: owningSquadron.color_palette.accent
+        } : undefined,
+        aircraftType
       };
+      
+      return flightData;
     }).filter(Boolean) as Flight[];
       onTransferToMission(transferFlights);
     setShowConfirmDialog(false);

@@ -361,7 +361,8 @@ export async function createSquadron(squadron: NewSquadron): Promise<{ data: Squ
       name: squadron.name,           // NOT NULL
       designation: squadron.designation,  // NOT NULL  
       wing_id: squadron.wing_id,     // NOT NULL
-      carrier_id: null               // Explicitly set to null to avoid FK constraint
+      carrier_id: null,              // Explicitly set to null to avoid FK constraint
+      airframe_id: squadron.airframe_id ?? null  // Include airframe_id
     };
     
     console.log('Attempting insert with minimal data:', minimalSquadron);
@@ -413,7 +414,7 @@ export async function createSquadron(squadron: NewSquadron): Promise<{ data: Squ
       if (fetchError) {
         console.error('Failed to fetch full squadron data:', fetchError);
         // Return the basic data if relation fetch fails
-        return { data: data as Squadron, error: null };
+        return { data: data as unknown as Squadron, error: null };
       }
       
       // Try updating with complex fields

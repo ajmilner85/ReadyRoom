@@ -68,6 +68,7 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
     wing_id: string;
     carrier_id: string;
     callsigns: string;
+    airframe_id: string;
     color_palette: any;
     timezone: string;
   }>({
@@ -82,6 +83,7 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
     wing_id: '',
     carrier_id: '',
     callsigns: '',
+    airframe_id: '',
     color_palette: {
       neutral_light: '#F8FAFC',
       neutral_dark: '#1E293B',
@@ -98,6 +100,7 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
   const [callsignsList, setCallsignsList] = useState<string[]>([]);
   const [newCallsign, setNewCallsign] = useState('');
   const [showDeactivateConfirm, setShowDeactivateConfirm] = useState(false);
+  const [aircraftTypes, setAircraftTypes] = useState<Array<{ id: string; designation: string; name: string }>>([]);
   
   // Discord settings state - separate for each entity
   const [discordSettings, setDiscordSettings] = useState<{
@@ -129,6 +132,7 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
           wing_id: ('wing_id' in entity ? entity.wing_id : '') || '',
           carrier_id: ('carrier_id' in entity ? entity.carrier_id : '') || '',
           callsigns: ('callsigns' in entity ? JSON.stringify(entity.callsigns || {}) : '') || '{}',
+          airframe_id: ('airframe_id' in entity ? (entity as any).airframe_id : '') || '',
           color_palette: ('color_palette' in entity && entity.color_palette) ? {
             neutral_light: (entity.color_palette as any)?.neutral_light || '#F8FAFC',
             neutral_dark: (entity.color_palette as any)?.neutral_dark || '#1E293B',
@@ -194,6 +198,7 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
           wing_id: '',
           carrier_id: '',
           callsigns: '{}',
+          airframe_id: '',
           color_palette: {
             neutral_light: '#F8FAFC',
             neutral_dark: '#1E293B',
@@ -207,6 +212,29 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
       setErrors({});
     }
   }, [isOpen, mode, entity, entityType]);
+
+  // Fetch aircraft types for squadron airframe dropdown
+  useEffect(() => {
+    const fetchAircraftTypes = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('ref_aircraft_types' as any)
+          .select('id, designation, name')
+          .order('designation');
+        
+        if (!error && data) {
+          setAircraftTypes(data as unknown as Array<{ id: string; designation: string; name: string }>);
+        }
+      } catch (error) {
+        // Table might not exist yet, silently fail
+        console.log('Aircraft types table not available yet');
+      }
+    };
+
+    if (isOpen && entityType === 'squadron') {
+      fetchAircraftTypes();
+    }
+  }, [isOpen, entityType]);
 
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -448,6 +476,7 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
           tail_code: formData.tail_code || null,
           carrier_id: formData.carrier_id || null,
           callsigns: formData.callsigns ? JSON.parse(formData.callsigns) : null,
+          airframe_id: formData.airframe_id || null,
           color_palette: formData.color_palette || null,
           discord_integration: getCurrentDiscordSettings(),
           settings: { 
@@ -1141,6 +1170,42 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
             )}
           </div>
 
+
+          {/* Squadron Airframe */}
+          {entityType === 'squadron' && (
+            <div style={{ marginBottom: '16px' }}>
+              <label style={{
+                display: 'block',
+                marginBottom: '8px',
+                fontSize: '14px',
+                fontWeight: 500,
+                color: '#64748B'
+              }}>
+                Airframe
+              </label>
+              <select
+                value={formData.airframe_id}
+                onChange={(e) => handleInputChange('airframe_id', e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '8px',
+                  border: '1px solid #CBD5E1',
+                  borderRadius: '4px',
+                  fontSize: '14px',
+                  boxSizing: 'border-box',
+                  height: '35px',
+                  backgroundColor: 'white'
+                }}
+              >
+                <option value="">Select an airframe...</option>
+                {aircraftTypes.map(type => (
+                  <option key={type.id} value={type.id}>
+                    {type.designation} - {type.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           {/* Squadron Callsigns */}
           {entityType === 'squadron' && (

@@ -118,15 +118,15 @@ const SingleFlightCard: React.FC<SingleFlightCardProps> = ({
           left: '0px',
           fontFamily: 'Inter',
           fontStyle: 'normal',
-          fontWeight: 300,
+          fontWeight: 700,
           fontSize: '12px',
           lineHeight: '15px',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          color: '#000000'
+          color: '#575A58'
         }}>
-          <span style={{ fontWeight: 700, color: '#2563EB' }}>{callsign} {flightNumber}</span>-{aircraft.dashNumber}
+          {callsign} {flightNumber}-{aircraft.dashNumber}
         </div>
       </div>
 

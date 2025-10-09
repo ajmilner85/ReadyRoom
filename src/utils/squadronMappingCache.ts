@@ -62,7 +62,8 @@ export async function getOptimizedSquadronMapping(pilots: Pilot[]): Promise<{
     }
 
     // Single query to get all squadrons
-    const { data: squadronData, error: squadronError } = await supabase
+    // Note: airframe join may fail if migration hasn't been run yet
+    let squadronQuery = supabase
       .from('org_squadrons')
       .select(`
         id,
@@ -78,6 +79,33 @@ export async function getOptimizedSquadronMapping(pilots: Pilot[]): Promise<{
         discord_integration,
         updated_at
       `);
+    
+    // Try to add airframe data if the column exists
+    try {
+      squadronQuery = supabase
+        .from('org_squadrons')
+        .select(`
+          id,
+          name,
+          designation,
+          wing_id,
+          tail_code,
+          established_date,
+          deactivated_date,
+          insignia_url,
+          carrier_id,
+          callsigns,
+          airframe_id,
+          discord_integration,
+          updated_at,
+          airframe:ref_aircraft_types(id, designation, name)
+        `);
+    } catch (e) {
+      // Airframe column doesn't exist yet, use basic query
+      console.log('Airframe data not available yet');
+    }
+    
+    const { data: squadronData, error: squadronError } = await squadronQuery;
 
     if (squadronError) {
       console.error('❌ Error fetching squadrons:', squadronError);
@@ -104,7 +132,7 @@ export async function getOptimizedSquadronMapping(pilots: Pilot[]): Promise<{
       }
     }
 
-    const squadrons = (squadronData || []) as Squadron[];
+    const squadrons = (squadronData || []) as unknown as Squadron[];
 
     // Cache the result
     squadronMappingCache = {
