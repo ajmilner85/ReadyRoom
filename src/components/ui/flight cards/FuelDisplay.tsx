@@ -28,8 +28,8 @@ const FuelDisplay: React.FC<FuelDisplayProps> = ({
     const [editValue, setEditValue] = useState(fuel?.toFixed(1) || '');
     const inputRef = useRef<HTMLInputElement>(null);
 
-    const mainSize = size === 'large' ? '36px' : '12px';
-    const decimalSize = size === 'large' ? '32px' : '10px';
+    const mainSize = size === 'large' ? '36px' : '14px';
+    const decimalSize = size === 'large' ? '32px' : '12px';
     const fuelColor = getFuelColor(fuel);
 
     const handleDoubleClick = (e: React.MouseEvent) => {

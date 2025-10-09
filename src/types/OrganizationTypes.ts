@@ -64,6 +64,7 @@ export interface Squadron {
   carrier_id: string | null;
   tail_code: string | null;
   callsigns: any | null; // JSONB field
+  airframe_id: string | null;
   updated_at: string | null;
   discord_integration?: {
     selectedGuildId?: string;
@@ -83,6 +84,11 @@ export interface Squadron {
   };
   // Populated via join
   wing?: Wing;
+  airframe?: {
+    id: string;
+    designation: string;
+    name: string;
+  };
 }
 
 // Helper types for creating new entities

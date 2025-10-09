@@ -1,5 +1,5 @@
 import React, { useState, Suspense, useEffect, useCallback } from 'react';
-import { Routes, Route, useLocation } from 'react-router-dom';
+import { Routes, Route, useLocation, useNavigate } from 'react-router-dom';
 import { DndContext, DragEndEvent, DragOverlay, DragStartEvent } from '@dnd-kit/core';
 import GridLayout from './components/layout/GridLayout';
 import { SectionProvider } from './components/layout/SectionContext';
@@ -39,6 +39,7 @@ const ClearCache = React.lazy(() => import('./pages/ClearCache'));
 const App: React.FC = () => {
   const { user } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
   
   // Mission Execution state
   const [flights, setFlights] = useState<Flight[]>([]);
@@ -238,7 +239,9 @@ const App: React.FC = () => {
   // Function to handle transfer of flights from Mission Preparation
   const handleTransferToMission = useCallback((transferredFlights: Flight[]) => {
     setFlights(transferredFlights);
-  }, []);
+    // Navigate to mission coordination page after transfer
+    navigate('/mission-coordination');
+  }, [navigate]);
 
   // Handlers for Mission Preparation state updates
   const handleAssignedPilotsChange = useCallback((pilots: Record<string, AssignedPilot[]>) => {

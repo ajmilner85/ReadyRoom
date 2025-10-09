@@ -68,6 +68,7 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
     loadError,
     allPilotQualifications,
     pilotSquadronMap,
+    squadrons,
     refreshParticipatingSquadrons
   } = useMissionPrepData();
 
@@ -539,6 +540,7 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
                   onTransferToMission={onTransferToMission}
                   flights={prepFlights}
                   extractedFlights={extractedFlights}
+                  squadrons={squadrons}
                 />
               </div>
             </>
