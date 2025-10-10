@@ -285,7 +285,7 @@ const GridLayout: React.FC<GridLayoutProps> = ({ flights = [], onUpdateMemberFue
         </button>
 
         {/* Drawer Content */}
-        <div 
+        <div
           ref={setDrawerRef}
           style={{
             maxHeight: '60vh',
@@ -301,7 +301,16 @@ const GridLayout: React.FC<GridLayoutProps> = ({ flights = [], onUpdateMemberFue
             transition: 'background-color 0.2s ease'
           }}>
           {unassignedFlights.length > 0 ? (
-            unassignedFlights.map(renderFlightCard)
+            [...unassignedFlights].sort((a, b) => {
+              // Primary sort: by callsign alphabetically
+              if (a.callsign !== b.callsign) {
+                return a.callsign.localeCompare(b.callsign);
+              }
+              // Secondary sort: by flightNumber numerically
+              const aNum = parseInt(a.flightNumber) || 0;
+              const bNum = parseInt(b.flightNumber) || 0;
+              return aNum - bNum;
+            }).map(renderFlightCard)
           ) : (
             <div style={{
               padding: '40px',

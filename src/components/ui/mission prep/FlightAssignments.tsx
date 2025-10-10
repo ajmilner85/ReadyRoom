@@ -1348,7 +1348,14 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
         </div>
         <div className="flex-1" style={{ overflowY: 'auto' }}>
           <div className="space-y-4">
-            {flights.map((flight) => (
+            {[...flights].sort((a, b) => {
+              // Primary sort: by callsign alphabetically
+              if (a.callsign !== b.callsign) {
+                return a.callsign.localeCompare(b.callsign);
+              }
+              // Secondary sort: by flight number numerically
+              return parseInt(a.flightNumber) - parseInt(b.flightNumber);
+            }).map((flight) => (
               <FlightAssignmentCard
                 key={flight.id}
                 id={flight.id}
