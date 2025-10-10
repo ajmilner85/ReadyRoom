@@ -28,6 +28,7 @@ export const useMissionPrepDataPersistence = (
     updateSupportRoles,
     updateSelectedSquadrons,
     updateSettings,
+    updateMissionData,
     createNewMission
   } = useMission(undefined, selectedEvent?.id);
 
@@ -701,10 +702,17 @@ export const useMissionPrepDataPersistence = (
       }
       return Promise.resolve(false);
     },
-    
+
     updateMissionSettings: (settings: any) => {
       if (mission) {
         return updateSettings(settings);
+      }
+      return Promise.resolve(false);
+    },
+
+    updateMissionData: (updates: any) => {
+      if (mission) {
+        return updateMissionData(updates);
       }
       return Promise.resolve(false);
     },

@@ -590,6 +590,125 @@ function getEventAttendanceWrapped(discordMessageId) {
   return getEventAttendance(discordMessageId, eventResponses);
 }
 
+/**
+ * Post a new message with an image attachment to a Discord channel
+ * @param {string} guildId - The guild ID where to post
+ * @param {string} channelId - The channel ID where to post
+ * @param {string} messageContent - The content/text for the message
+ * @param {Buffer} imageBuffer - The image data as a buffer
+ * @param {string} imageName - The filename for the image
+ * @returns {Promise<{success: boolean, messageId?: string, error?: string, availableGuilds?: any[]}>}
+ */
+async function postDiscordMessageImage(guildId, channelId, messageContent, imageBuffer, imageName) {
+  try {
+    console.log('[DISCORD-BOT] Posting new message with image:', { guildId, channelId, imageName });
+
+    // Check if client is ready
+    if (!client.isReady()) {
+      console.error('[DISCORD-BOT] Discord client is not ready');
+      return { success: false, error: 'Discord client is not ready' };
+    }
+
+    // Get the guild
+    const guild = client.guilds.cache.get(guildId);
+    if (!guild) {
+      console.error('[DISCORD-BOT] Guild not found:', guildId);
+      const availableGuilds = client.guilds.cache.map(g => ({ id: g.id, name: g.name }));
+      return {
+        success: false,
+        error: `Guild with ID ${guildId} not found`,
+        availableGuilds
+      };
+    }
+
+    // Get the channel
+    const channel = guild.channels.cache.get(channelId);
+    if (!channel) {
+      console.error('[DISCORD-BOT] Channel not found:', channelId);
+      return { success: false, error: `Channel with ID ${channelId} not found` };
+    }
+
+    // Create attachment from buffer
+    const { AttachmentBuilder } = require('discord.js');
+    const attachment = new AttachmentBuilder(imageBuffer, { name: imageName });
+
+    // Send the message with image
+    const sentMessage = await channel.send({
+      content: messageContent || '',
+      files: [attachment]
+    });
+
+    console.log('[DISCORD-BOT] Successfully posted message:', sentMessage.id);
+    return { success: true, messageId: sentMessage.id };
+
+  } catch (error) {
+    console.error('[DISCORD-BOT] Error posting message image:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Update an existing Discord message with a new image attachment
+ * @param {string} messageId - The ID of the message to update
+ * @param {string} guildId - The guild ID where the message is located
+ * @param {string} channelId - The channel ID where the message is located
+ * @param {string} messageContent - The new content/text for the message
+ * @param {Buffer} imageBuffer - The image data as a buffer
+ * @param {string} imageName - The filename for the image
+ * @returns {Promise<{success: boolean, error?: string}>}
+ */
+async function updateDiscordMessageImage(messageId, guildId, channelId, messageContent, imageBuffer, imageName) {
+  try {
+    console.log('[DISCORD-BOT] Updating message with new image:', { messageId, guildId, channelId, imageName });
+
+    // Check if client is ready
+    if (!client.isReady()) {
+      console.error('[DISCORD-BOT] Discord client is not ready');
+      return { success: false, error: 'Discord client is not ready' };
+    }
+
+    // Get the guild
+    const guild = client.guilds.cache.get(guildId);
+    if (!guild) {
+      console.error('[DISCORD-BOT] Guild not found:', guildId);
+      return { success: false, error: `Guild with ID ${guildId} not found` };
+    }
+
+    // Get the channel
+    const channel = guild.channels.cache.get(channelId);
+    if (!channel) {
+      console.error('[DISCORD-BOT] Channel not found:', channelId);
+      return { success: false, error: `Channel with ID ${channelId} not found` };
+    }
+
+    // Fetch the existing message
+    let existingMessage;
+    try {
+      existingMessage = await channel.messages.fetch(messageId);
+    } catch (fetchError) {
+      console.error('[DISCORD-BOT] Failed to fetch message:', fetchError);
+      return { success: false, error: `Message with ID ${messageId} not found` };
+    }
+
+    // Create attachment from buffer
+    const { AttachmentBuilder } = require('discord.js');
+    const attachment = new AttachmentBuilder(imageBuffer, { name: imageName });
+
+    // Edit the message with new content and image
+    await existingMessage.edit({
+      content: messageContent,
+      files: [attachment]
+    });
+
+    console.log('[DISCORD-BOT] Successfully updated message:', messageId);
+    return { success: true };
+
+  } catch (error) {
+    console.error('[DISCORD-BOT] Error updating message image:', error);
+    return { success: false, error: error.message };
+  }
+}
+
 // Login to Discord
 client.login(process.env.BOT_TOKEN);
 
@@ -611,5 +730,7 @@ module.exports = {
   switchDiscordBot,
   shouldUseThreadsForEvent: shouldUseThreadsForEventWrapped,
   getThreadIdForEvent: getThreadIdForEventWrapped,
-  getGuildChannels
+  getGuildChannels,
+  postDiscordMessageImage,
+  updateDiscordMessageImage
 };

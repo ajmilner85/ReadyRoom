@@ -61,11 +61,12 @@ export interface Mission {
   updated_by?: string;
   created_at: string;
   updated_at: string;
-  
+  step_time?: string; // UTC timestamp for step time
+
   // Planning configuration
   selected_squadrons: string[];
   flight_import_filter: FlightImportFilter;
-  
+
   // Mission data
   miz_file_data: {
     processed_at?: string;
@@ -76,7 +77,7 @@ export interface Mission {
   pilot_assignments: Record<string, PilotAssignment[]>; // Keyed by flight_id
   support_role_assignments: SupportRoleAssignment[];
   mission_settings: MissionSettings;
-  
+
   // Optional linked event data (populated when joining with events table)
   event?: Event;
 }
@@ -96,6 +97,7 @@ export interface UpdateMissionRequest extends Partial<CreateMissionRequest> {
   pilot_assignments?: Record<string, PilotAssignment[]>;
   support_role_assignments?: SupportRoleAssignment[];
   mission_settings?: MissionSettings;
+  step_time?: string; // UTC timestamp for step time
 }
 
 // Mission state for frontend components (maps to current localStorage structure)
