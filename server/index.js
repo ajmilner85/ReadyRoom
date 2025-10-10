@@ -1545,23 +1545,24 @@ app.post('/api/discord/save-flight-post', async (req, res) => {
     let flightPosts = eventData?.discord_flight_assignments_posts || [];
     
     if (isUpdate) {
-      // For updates, just update the timestamp of the existing post
+      // For updates, increment the revision number and update timestamp
       const postIndex = flightPosts.findIndex(
         post => post.squadronId === squadronId && post.messageId === messageId
       );
-      
+
       if (postIndex !== -1) {
         flightPosts[postIndex].updatedAt = new Date().toISOString();
+        flightPosts[postIndex].revision = (flightPosts[postIndex].revision || 1) + 1;
       }
     } else {
       // For new posts, mark any existing posts for this squadron as not latest
-      flightPosts = flightPosts.map(post => 
-        post.squadronId === squadronId 
+      flightPosts = flightPosts.map(post =>
+        post.squadronId === squadronId
           ? { ...post, isLatest: false }
           : post
       );
-      
-      // Add the new post
+
+      // Add the new post with initial revision of 1
       const newPost = {
         squadronId,
         guildId,
@@ -1569,9 +1570,10 @@ app.post('/api/discord/save-flight-post', async (req, res) => {
         messageId,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
-        isLatest: true
+        isLatest: true,
+        revision: 1
       };
-      
+
       flightPosts.push(newPost);
     }
 

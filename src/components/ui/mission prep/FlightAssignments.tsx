@@ -680,7 +680,7 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
   }, [flights, squadrons]);
 
   // Generate flight assignment table image for a squadron using Canvas
-  const generateFlightAssignmentImage = useCallback(async (squadronGroup: SquadronFlightGroup): Promise<Blob | null> => {
+  const generateFlightAssignmentImage = useCallback(async (squadronGroup: SquadronFlightGroup, revision?: number): Promise<Blob | null> => {
     try {
       // Canvas dimensions  
       const padding = 20;
@@ -1007,6 +1007,14 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
         currentY += tableRowsHeight;
       });
 
+      // Add revision number in bottom right corner if provided
+      if (revision) {
+        ctx.fillStyle = '#FFFFFF';
+        ctx.font = 'bold 14px Arial, sans-serif';
+        ctx.textAlign = 'right';
+        ctx.fillText(`v${revision}`, width - padding - 10, totalHeight - padding);
+      }
+
       // Convert canvas to blob
       return new Promise((resolve) => {
         canvas.toBlob(resolve, 'image/png', 0.95);
@@ -1055,16 +1063,18 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
       formData.append('image', imageBlob, `${squadronGroup.squadron.designation}_flight_assignments.png`);
       formData.append('guildId', String(existingPost.guildId));
       formData.append('channelId', String(existingPost.channelId));
-      
+
       // Get event date for Discord message
-      const eventDate = selectedEvent?.datetime ? 
-        new Date(selectedEvent.datetime).toLocaleDateString('en-US', { 
-          year: 'numeric', 
-          month: 'short', 
-          day: 'numeric' 
+      const eventDate = selectedEvent?.datetime ?
+        new Date(selectedEvent.datetime).toLocaleDateString('en-US', {
+          year: 'numeric',
+          month: 'short',
+          day: 'numeric'
         }) : 'TBD';
-        
-      formData.append('message', `**${eventDate} Flight Assignments**`);
+
+      // Get the current revision (will be incremented by the backend)
+      const nextRevision = (existingPost.revision || 1) + 1;
+      formData.append('message', `**${eventDate} Flight Assignments (v${nextRevision})**`);
 
       // Send to the backend API for Discord message update
       const response = await fetch(`${import.meta.env.VITE_API_URL}/api/discord/update-image/${existingPost.messageId}`, {
@@ -1129,7 +1139,7 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
           day: 'numeric'
         }) : 'TBD';
 
-      formData.append('message', `**${eventDate} Flight Assignments**`);
+      formData.append('message', `**${eventDate} Flight Assignments (v1)**`);
 
       console.log(`Publishing to Discord - Squadron: ${squadronGroup.squadron.name}, Guild: ${discordIntegration.selectedGuildId}, Channel: ${briefingChannel.id} (${briefingChannel.name})`);
 
@@ -1195,7 +1205,18 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
 
       const publishPromises = squadronGroups.map(async (squadronGroup) => {
         try {
-          const imageBlob = await generateFlightAssignmentImage(squadronGroup);
+          let revision = 1; // Default for new posts
+          let existingPost = null;
+
+          if (action === 'update') {
+            // Find existing post for this squadron
+            existingPost = existingPosts.find(post => post.squadronId === squadronGroup.squadron.id);
+            if (existingPost) {
+              revision = (existingPost.revision || 1) + 1;
+            }
+          }
+
+          const imageBlob = await generateFlightAssignmentImage(squadronGroup, revision);
           if (!imageBlob) {
             console.error('Failed to generate image for squadron:', squadronGroup.squadron.name);
             return { squadron: squadronGroup.squadron.name, success: false, error: 'Failed to generate image' };
@@ -1203,17 +1224,10 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
 
           let success: boolean;
 
-          if (action === 'update') {
-            // Find existing post for this squadron (note: squadronId instead of squadron_id)
-            const existingPost = existingPosts.find(post => post.squadronId === squadronGroup.squadron.id);
-            if (existingPost) {
-              success = await updateExistingDiscordMessage(squadronGroup, imageBlob, existingPost);
-            } else {
-              // No existing post found, create new one
-              success = await publishToDiscordChannel(squadronGroup, imageBlob);
-            }
+          if (action === 'update' && existingPost) {
+            success = await updateExistingDiscordMessage(squadronGroup, imageBlob, existingPost);
           } else {
-            // Create new post
+            // Create new post (either action is 'create' or no existing post found)
             success = await publishToDiscordChannel(squadronGroup, imageBlob);
           }
 
