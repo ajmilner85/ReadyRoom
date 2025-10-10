@@ -8,6 +8,7 @@ import { saveToLocalStorage, loadFromLocalStorage, STORAGE_KEYS } from '../../..
 import JSZip from 'jszip';
 import { load } from 'fengari-web';
 import AircraftGroups from './AircraftGroups';
+import { useAppSettings } from '../../../context/AppSettingsContext';
 
 interface MissionCommanderInfo {
   boardNumber: string;
@@ -34,18 +35,20 @@ interface MissionDetailsProps {
     flightNumber: string;
   }[];
   onExtractedFlights?: (flights: any[]) => void;
+  onStepTimeChange?: (stepTime: string) => void;
 }
 
 interface MissionDetailsData {
   taskUnit: string;
   mother: string;
   missionDateTime: string;
+  stepTime: string;
   missionCommander: string;
   bullseyeLatLon: string;
   weather: string;
 }
 
-const MissionDetails: React.FC<MissionDetailsProps> = ({ 
+const MissionDetails: React.FC<MissionDetailsProps> = ({
   width,
   events,
   selectedEvent,
@@ -53,18 +56,91 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
   missionCommander,
   setMissionCommander,
   getMissionCommanderCandidates,
-  onExtractedFlights
+  onExtractedFlights,
+  onStepTimeChange
 }) => {
+  const { settings } = useAppSettings();
+
+  // Helper function to convert UTC datetime to timezone-local datetime string for input
+  const utcToTimezoneLocal = (utcDateString: string, timezone: string): string => {
+    if (!utcDateString) return '';
+    try {
+      const utcDate = new Date(utcDateString);
+      const formatter = new Intl.DateTimeFormat('en', {
+        timeZone: timezone,
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false
+      });
+
+      const parts = formatter.formatToParts(utcDate);
+      const year = parts.find(p => p.type === 'year')?.value;
+      const month = parts.find(p => p.type === 'month')?.value;
+      const day = parts.find(p => p.type === 'day')?.value;
+      const hour = parts.find(p => p.type === 'hour')?.value;
+      const minute = parts.find(p => p.type === 'minute')?.value;
+
+      return `${year}-${month}-${day}T${hour}:${minute}`;
+    } catch (error) {
+      console.warn('Error converting UTC to timezone local:', error);
+      return new Date(utcDateString).toISOString().slice(0, 16);
+    }
+  };
+
+  // Helper function to convert timezone-local datetime string to UTC for storage
+  const timezoneLocalToUtc = (localDateString: string, timezone: string): string => {
+    if (!localDateString) return '';
+    try {
+      const [datePart, timePart] = localDateString.split('T');
+      const [year, month, day] = datePart.split('-').map(Number);
+      const [hour, minute] = timePart.split(':').map(Number);
+
+      let guess = new Date(Date.UTC(year, month - 1, day, hour, minute));
+
+      const formatter = new Intl.DateTimeFormat('sv-SE', {
+        timeZone: timezone,
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false
+      });
+
+      const parts = formatter.formatToParts(guess);
+      const resultYear = parseInt(parts.find(p => p.type === 'year')?.value || '0');
+      const resultMonth = parseInt(parts.find(p => p.type === 'month')?.value || '0');
+      const resultDay = parseInt(parts.find(p => p.type === 'day')?.value || '0');
+      const resultHour = parseInt(parts.find(p => p.type === 'hour')?.value || '0');
+      const resultMinute = parseInt(parts.find(p => p.type === 'minute')?.value || '0');
+
+      const targetTime = new Date(year, month - 1, day, hour, minute);
+      const resultTime = new Date(resultYear, resultMonth - 1, resultDay, resultHour, resultMinute);
+      const diff = targetTime.getTime() - resultTime.getTime();
+
+      const correctedUtc = new Date(guess.getTime() + diff);
+
+      return correctedUtc.toISOString();
+    } catch (error) {
+      console.warn('Error converting timezone local to UTC:', error);
+      return new Date(localDateString).toISOString();
+    }
+  };
+
   // Sort events by date (newest first)
   const sortedEvents = [...events].sort((a, b) => {
     const dateA = new Date(a.datetime).getTime();
     const dateB = new Date(b.datetime).getTime();
-    
+
     // Handle invalid dates by putting them at the end
     if (isNaN(dateA) && isNaN(dateB)) return 0;
     if (isNaN(dateA)) return 1;
     if (isNaN(dateB)) return -1;
-    
+
     return dateB - dateA;
   });
 
@@ -74,6 +150,7 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
       taskUnit: 'VFA-161',
       mother: 'CVN-73 George Washington "Warfighter"',
       missionDateTime: '',
+      stepTime: '',
       missionCommander: '',
       bullseyeLatLon: '',
       weather: ''
@@ -124,8 +201,21 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
   };
 
   const saveChanges = () => {
+    console.log('💾 MissionDetails: Saving changes:', {
+      stepTime: editedDetails.stepTime,
+      previousStepTime: missionDetails.stepTime,
+      hasCallback: !!onStepTimeChange,
+      willCallCallback: !!(onStepTimeChange && editedDetails.stepTime !== missionDetails.stepTime)
+    });
+
     setMissionDetails(editedDetails);
     setIsEditing(false);
+
+    // Save step time to mission database if it changed and callback is provided
+    if (onStepTimeChange && editedDetails.stepTime !== missionDetails.stepTime) {
+      console.log('🕐 MissionDetails: Calling onStepTimeChange with:', editedDetails.stepTime);
+      onStepTimeChange(editedDetails.stepTime);
+    }
     // No need to explicitly save to localStorage here as the useEffect will handle it
   };
 
@@ -137,13 +227,29 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
   };
 
   const renderDetailRow = (
-    label: string, 
-    field: keyof MissionDetailsData, 
+    label: string,
+    field: keyof MissionDetailsData,
     type: 'text' | 'datetime-local' | 'textarea' | 'select' = 'text',
     options?: { label: string; value: string; data?: any }[]
   ) => {
-    const value = isEditing ? editedDetails[field] : missionDetails[field];
-    
+    const rawValue = isEditing ? editedDetails[field] : missionDetails[field];
+    const timezone = settings.eventDefaults.referenceTimezone || 'America/New_York';
+
+    // For datetime-local fields, convert between UTC (storage) and local timezone (display)
+    const displayValue = type === 'datetime-local' && rawValue
+      ? utcToTimezoneLocal(rawValue as string, timezone)
+      : rawValue;
+
+    const handleDateTimeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      if (type === 'datetime-local') {
+        // Convert from local timezone to UTC for storage
+        const utcValue = timezoneLocalToUtc(e.target.value, timezone);
+        handleDetailChange(field, utcValue);
+      } else {
+        handleDetailChange(field, e.target.value);
+      }
+    };
+
     return (
       <div style={{ marginBottom: '16px' }}>
         <label style={{
@@ -158,7 +264,7 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
         {isEditing ? (
           type === 'textarea' ? (
             <textarea
-              value={value as string}
+              value={displayValue as string}
               onChange={(e) => handleDetailChange(field, e.target.value)}
               style={{
                 width: '100%',
@@ -174,7 +280,7 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
             />
           ) : type === 'select' && options ? (
             <select
-              value={value as string}
+              value={displayValue as string}
               onChange={(e) => handleDetailChange(field, e.target.value)}
               style={{
                 width: '100%',
@@ -193,10 +299,10 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
               ))}
             </select>
           ) : (
-            <input 
+            <input
               type={type}
-              value={value as string}
-              onChange={(e) => handleDetailChange(field, e.target.value)}
+              value={displayValue as string}
+              onChange={handleDateTimeChange}
               style={{
                 width: '100%',
                 padding: '8px 12px',
@@ -209,21 +315,21 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
             />
           )
         ) : (
-          <div 
-            style={{ 
+          <div
+            style={{
               width: '100%',
               padding: '8px 12px',
               borderRadius: '4px',
               fontSize: '14px',
               backgroundColor: '#F8FAFC',
-              color: value ? '#0F172A' : '#94A3B8',
+              color: displayValue ? '#0F172A' : '#94A3B8',
               minHeight: type === 'textarea' ? '120px' : 'auto',
               display: 'flex',
               alignItems: 'center',
               boxSizing: 'border-box'
             }}
           >
-            {value || '—'}
+            {displayValue || '—'}
           </div>
         )}
       </div>
@@ -717,6 +823,7 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
           {renderDetailRow('Task Unit', 'taskUnit')}
           {renderDetailRow('Mother', 'mother')}
           {renderDetailRow('Mission Date/Time', 'missionDateTime', 'datetime-local')}
+          {renderDetailRow('Step Time', 'stepTime', 'datetime-local')}
           {renderMissionCommanderDropdown()}
           {renderDetailRow('Bullseye Lat/Lon', 'bullseyeLatLon')}
           {renderDetailRow('Weather', 'weather', 'textarea')}

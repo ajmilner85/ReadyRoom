@@ -88,10 +88,12 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
     extractedFlights,
     prepFlights,
     setPrepFlights,
+    mission,
     missionLoading,
     missionError,
     missionSaving,
-    handleExtractedFlights: persistenceHandleExtractedFlights
+    handleExtractedFlights: persistenceHandleExtractedFlights,
+    updateMissionData
   } = useMissionPrepDataPersistence(
     selectedEvent,
     externalAssignedPilots,
@@ -164,6 +166,27 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
     setAssignedPilots({});
     setMissionCommander(null);
   }, [setAssignedPilots, setMissionCommander]);
+
+  // Handle step time changes and save to database
+  const handleStepTimeChange = useCallback(async (stepTime: string) => {
+    console.log('🕐 MissionPreparation: Saving step time to database:', {
+      stepTime,
+      missionId: mission?.id,
+      hasMission: !!mission,
+      hasUpdateFunction: !!updateMissionData
+    });
+    if (mission) {
+      try {
+        const result = await updateMissionData({ step_time: stepTime });
+        console.log('✅ MissionPreparation: Step time saved successfully:', result);
+        console.log('📊 MissionPreparation: Updated mission object:', mission);
+      } catch (error) {
+        console.error('❌ MissionPreparation: Failed to save step time:', error);
+      }
+    } else {
+      console.warn('⚠️ MissionPreparation: Cannot save step time - no mission available');
+    }
+  }, [mission, updateMissionData]);
 
   // Function to handle showing auto-assignment settings
   const handleAutoAssignSettings = useCallback(() => {
@@ -489,15 +512,16 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
             </div>
           ) : (
             <>
-              <MissionDetails 
-                width={CARD_WIDTH} 
-                events={events} 
+              <MissionDetails
+                width={CARD_WIDTH}
+                events={events}
                 selectedEvent={selectedEvent}
                 onEventSelect={setSelectedEvent}
                 missionCommander={missionCommander}
                 getMissionCommanderCandidates={getMissionCommanderCandidatesWrapper}
                 setMissionCommander={setMissionCommander}
                 onExtractedFlights={persistenceHandleExtractedFlights}
+                onStepTimeChange={handleStepTimeChange}
               />
               <AvailablePilots
                 width={CARD_WIDTH}
@@ -512,13 +536,14 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
                 realtimeAttendanceData={realtimeAttendanceData}
               />
               <FlightAssignments
-                width={CARD_WIDTH} 
+                width={CARD_WIDTH}
                 assignedPilots={assignedPilots}
                 missionCommander={missionCommander}
                 extractedFlights={extractedFlights}
                 onFlightsChange={handleFlightsChange}
                 initialFlights={prepFlights}
                 onClearAssignments={handleClearAssignments}
+                mission={mission}
               />              <div style={{
                 display: 'flex',
                 flexDirection: 'column',

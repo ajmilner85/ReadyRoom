@@ -4,8 +4,10 @@ import FlightAssignmentCard from '../flight cards/FlightAssignmentCard';
 import AddFlightDialog from '../dialogs/AddFlightDialog';
 import FlightPostOptionsDialog from '../dialogs/FlightPostOptionsDialog';
 import type { AssignedPilot } from '../../../types/MissionPrepTypes';
+import type { Mission } from '../../../types/MissionTypes';
 import { Trash2 } from 'lucide-react';
 import { useMissionPrepData } from '../../../hooks/useMissionPrepData';
+import { useAppSettings } from '../../../context/AppSettingsContext';
 
 // Discord SVG icon component  
 const DiscordIcon = ({ className = "", size = 16 }: { className?: string; size?: number }) => (
@@ -88,16 +90,18 @@ interface FlightAssignmentsProps {
   onFlightsChange?: (flights: Flight[], skipSave?: boolean) => void;
   initialFlights?: Flight[];
   onClearAssignments?: () => void;
+  mission?: Mission | null;
 }
 
-const FlightAssignments: React.FC<FlightAssignmentsProps> = ({ 
-  width, 
+const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
+  width,
   assignedPilots = {},
   missionCommander,
   extractedFlights = [],
   onFlightsChange,
   initialFlights = [],
-  onClearAssignments
+  onClearAssignments,
+  mission
 }) => {
   // Debug logging for assignedPilots data
   // React.useEffect(() => {
@@ -135,10 +139,65 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
   const [initialEditCallsign, setInitialEditCallsign] = useState("");
   const [creationOrderCounter, setCreationOrderCounter] = useState(0);
   const [showRemoveAllDialog, setShowRemoveAllDialog] = useState(false);
-  
+
   // Get selected event, participating squadrons, and all squadrons for Discord message and flight dialog
   const { selectedEvent, participatingSquadrons, squadrons } = useMissionPrepData();
-  
+  const { settings } = useAppSettings();
+
+  // Debug: Log mission changes
+  useEffect(() => {
+    console.log('🎯 FlightAssignments: Mission prop changed:', {
+      hasMission: !!mission,
+      missionId: mission?.id,
+      stepTime: mission?.step_time,
+      missionKeys: mission ? Object.keys(mission) : []
+    });
+  }, [mission]);
+
+  // Helper function to format step time for Discord post title
+  const formatStepTime = useCallback((): string | null => {
+    console.log('formatStepTime called:', {
+      hasMission: !!mission,
+      missionId: mission?.id,
+      stepTime: mission?.step_time,
+      referenceTimezone: settings.eventDefaults.referenceTimezone
+    });
+
+    if (!mission?.step_time) return null;
+
+    const timezone = settings.eventDefaults.referenceTimezone || 'America/New_York';
+    const stepTimeDate = new Date(mission.step_time);
+
+    // Format in reference timezone
+    const localFormatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: timezone,
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false
+    });
+
+    // Get timezone abbreviation
+    const tzFormatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: timezone,
+      timeZoneName: 'short'
+    });
+    const tzParts = tzFormatter.formatToParts(stepTimeDate);
+    const tzAbbr = tzParts.find(p => p.type === 'timeZoneName')?.value || timezone;
+
+    // Format in Zulu (UTC)
+    const zuluFormatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'UTC',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false
+    });
+
+    const localTime = localFormatter.format(stepTimeDate);
+    const zuluTime = zuluFormatter.format(stepTimeDate);
+
+    return `[STEP @${localTime} ${tzAbbr}/${zuluTime}Z]`;
+  }, [mission?.step_time, settings.eventDefaults.referenceTimezone]);
+
 
 
   // Check for existing flight assignment posts
@@ -1074,7 +1133,20 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
 
       // Get the current revision (will be incremented by the backend)
       const nextRevision = (existingPost.revision || 1) + 1;
-      formData.append('message', `**${eventDate} Flight Assignments (v${nextRevision})**`);
+      const stepTimeString = formatStepTime();
+      const messageText = stepTimeString
+        ? `**${eventDate} Flight Assignments (v${nextRevision}) ${stepTimeString}**`
+        : `**${eventDate} Flight Assignments (v${nextRevision})**`;
+      formData.append('message', messageText);
+
+      console.log(`Updating Discord message for ${squadronGroup.squadron.name}:`, {
+        messageId: existingPost.messageId,
+        guildId: existingPost.guildId,
+        channelId: existingPost.channelId,
+        messageText,
+        stepTimeString,
+        apiUrl: `${import.meta.env.VITE_API_URL}/api/discord/update-image/${existingPost.messageId}`
+      });
 
       // Send to the backend API for Discord message update
       const response = await fetch(`${import.meta.env.VITE_API_URL}/api/discord/update-image/${existingPost.messageId}`, {
@@ -1108,7 +1180,7 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
       console.error('Error updating Discord message:', error);
       return false;
     }
-  }, [selectedEvent, saveFlightPostRecord]);
+  }, [selectedEvent, saveFlightPostRecord, formatStepTime]);
 
   // Publish flight assignments to Discord
   const publishToDiscordChannel = useCallback(async (squadronGroup: SquadronFlightGroup, imageBlob: Blob): Promise<boolean> => {
@@ -1139,7 +1211,11 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
           day: 'numeric'
         }) : 'TBD';
 
-      formData.append('message', `**${eventDate} Flight Assignments (v1)**`);
+      const stepTimeString = formatStepTime();
+      const messageText = stepTimeString
+        ? `**${eventDate} Flight Assignments (v1) ${stepTimeString}**`
+        : `**${eventDate} Flight Assignments (v1)**`;
+      formData.append('message', messageText);
 
       console.log(`Publishing to Discord - Squadron: ${squadronGroup.squadron.name}, Guild: ${discordIntegration.selectedGuildId}, Channel: ${briefingChannel.id} (${briefingChannel.name})`);
 
@@ -1175,7 +1251,7 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
       console.error('Error posting to Discord:', error);
       return false;
     }
-  }, [selectedEvent, saveFlightPostRecord]);
+  }, [selectedEvent, saveFlightPostRecord, formatStepTime]);
 
   // Handle dialog responses
   const handleUpdateExisting = useCallback(async () => {
@@ -1197,7 +1273,15 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
   const performPublishAction = useCallback(async (action: 'create' | 'update') => {
     try {
       const squadronGroups = await groupFlightsBySquadron();
-      
+
+      console.log('Squadron groups for publishing:', squadronGroups.map(sg => ({
+        name: sg.squadron.name,
+        id: sg.squadron.id,
+        hasDiscordIntegration: !!sg.squadron.discord_integration,
+        hasBriefingChannel: !!sg.squadron.discord_integration?.discordChannels?.find((ch: any) => ch.type === 'briefing'),
+        flightCount: sg.flights.length
+      })));
+
       if (squadronGroups.length === 0) {
         alert('No squadrons found with matching callsigns. Please ensure squadrons have their callsigns configured in Organization > Squadron Settings.');
         return;
@@ -1211,9 +1295,30 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
           if (action === 'update') {
             // Find existing post for this squadron
             existingPost = existingPosts.find(post => post.squadronId === squadronGroup.squadron.id);
+            console.log(`Looking for existing post for ${squadronGroup.squadron.name} (${squadronGroup.squadron.id}):`, {
+              found: !!existingPost,
+              existingPost,
+              allExistingPosts: existingPosts.map(p => ({ squadronId: p.squadronId, revision: p.revision }))
+            });
             if (existingPost) {
               revision = (existingPost.revision || 1) + 1;
             }
+          }
+
+          // Check if squadron has Discord integration configured before proceeding
+          // This is especially important when updating, as we might have flights for squadrons
+          // that don't have Discord configured in the local environment
+          const hasDiscordIntegration = squadronGroup.squadron.discord_integration;
+          const hasBriefingChannel = hasDiscordIntegration?.discordChannels?.find((ch: any) => ch.type === 'briefing');
+
+          if (!hasDiscordIntegration || !hasBriefingChannel) {
+            console.warn(`Skipping ${action} for squadron ${squadronGroup.squadron.name} - Discord integration not configured`);
+            return {
+              squadron: squadronGroup.squadron.name,
+              success: false,
+              error: 'Discord integration not configured',
+              skipped: true
+            };
           }
 
           const imageBlob = await generateFlightAssignmentImage(squadronGroup, revision);
@@ -1246,24 +1351,35 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
       });
 
       const results = await Promise.all(publishPromises);
-      
+
       const successCount = results.filter(r => r.success).length;
-      const failedResults = results.filter(r => !r.success);
-      
+      const skippedResults = results.filter((r: any) => r.skipped);
+      const failedResults = results.filter((r: any) => !r.success && !r.skipped);
+
       if (successCount > 0) {
-        const successMessage = action === 'update' 
+        const successMessage = action === 'update'
           ? `Successfully updated flight assignments for ${successCount} squadron${successCount > 1 ? 's' : ''}.`
           : `Successfully published flight assignments to ${successCount} squadron${successCount > 1 ? 's' : ''}.`;
-        
+
+        if (skippedResults.length > 0) {
+          const skippedMessage = skippedResults.map((r: any) => r.squadron).join(', ');
+          console.log(`${successMessage}\n\nSkipped ${skippedResults.length} squadron${skippedResults.length > 1 ? 's' : ''} (no Discord config): ${skippedMessage}`);
+        }
+
         if (failedResults.length > 0) {
-          const failedMessage = failedResults.map(r => `${r.squadron}: ${r.error}`).join('\n');
+          const failedMessage = failedResults.map((r: any) => `${r.squadron}: ${r.error}`).join('\n');
           console.error(`${successMessage}\n\nFailed to ${action}:\n${failedMessage}`);
-        } else {
+        } else if (skippedResults.length === 0) {
           console.log(successMessage);
         }
       } else {
-        const failedMessage = failedResults.map(r => `${r.squadron}: ${r.error}`).join('\n');
-        console.error(`Failed to ${action} flight assignments:\n${failedMessage}`);
+        if (skippedResults.length > 0 && failedResults.length === 0) {
+          const skippedMessage = skippedResults.map((r: any) => r.squadron).join(', ');
+          console.log(`Skipped all ${skippedResults.length} squadron${skippedResults.length > 1 ? 's' : ''} (no Discord config): ${skippedMessage}`);
+        } else {
+          const failedMessage = failedResults.map((r: any) => `${r.squadron}: ${r.error}`).join('\n');
+          console.error(`Failed to ${action} flight assignments:\n${failedMessage}`);
+        }
       }
 
       // Clear existing posts after action is complete
