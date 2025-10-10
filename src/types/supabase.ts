@@ -306,6 +306,7 @@ export type Database = {
           pilot_assignments: Json
           selected_squadrons: Json
           status: string
+          step_time: string | null
           support_role_assignments: Json
           updated_at: string
           updated_by: string | null
@@ -324,6 +325,7 @@ export type Database = {
           pilot_assignments?: Json
           selected_squadrons?: Json
           status?: string
+          step_time?: string | null
           support_role_assignments?: Json
           updated_at?: string
           updated_by?: string | null
@@ -342,6 +344,7 @@ export type Database = {
           pilot_assignments?: Json
           selected_squadrons?: Json
           status?: string
+          step_time?: string | null
           support_role_assignments?: Json
           updated_at?: string
           updated_by?: string | null

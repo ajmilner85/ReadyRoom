@@ -26,14 +26,15 @@ const convertRowToMission = (row: MissionRow): Mission => {
     updated_by: row.updated_by || undefined,
     created_at: row.created_at,
     updated_at: row.updated_at,
-    selected_squadrons: Array.isArray(row.selected_squadrons) 
+    step_time: row.step_time || undefined,
+    selected_squadrons: Array.isArray(row.selected_squadrons)
       ? row.selected_squadrons as string[]
       : [],
     flight_import_filter: row.flight_import_filter as FlightImportFilter,
-    miz_file_data: typeof row.miz_file_data === 'object' && row.miz_file_data 
-      ? row.miz_file_data as any 
+    miz_file_data: typeof row.miz_file_data === 'object' && row.miz_file_data
+      ? row.miz_file_data as any
       : {},
-    flights: Array.isArray(row.flights) 
+    flights: Array.isArray(row.flights)
       ? row.flights as any[]
       : [],
     pilot_assignments: typeof row.pilot_assignments === 'object' && row.pilot_assignments
