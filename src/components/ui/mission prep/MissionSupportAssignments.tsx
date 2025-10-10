@@ -459,12 +459,9 @@ const MissionSupportAssignments: React.FC<MissionSupportAssignmentsProps> = ({
   }, [assignedPilots, carriersLoading, carrierMap, allCarriers]); // Added allCarriers
 
   return (
-    <div style={{ 
-      width, 
+    <div style={{
+      width,
       position: 'relative',
-      padding: '10px',
-      margin: '-10px',
-      paddingBottom: '0',
       flex: '1 1 auto', // Allow element to grow and shrink
       display: 'flex',
       flexDirection: 'column',

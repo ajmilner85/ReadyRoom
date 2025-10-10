@@ -1353,7 +1353,8 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
         <div style={{
           display: 'flex',
           justifyContent: 'space-around',
-          padding: '0'
+          padding: '18px 0 0 0',
+          borderTop: '1px solid #E2E8F0'
         }}>
           <button
             onClick={handleRemoveAll}

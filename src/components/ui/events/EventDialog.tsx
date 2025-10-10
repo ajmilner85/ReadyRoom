@@ -24,16 +24,24 @@ interface EventDialogProps {
         enabled: boolean;
         value: number;
         unit: 'minutes' | 'hours' | 'days';
+        recipients?: {
+          accepted: boolean;
+          tentative: boolean;
+          declined: boolean;
+          noResponse: boolean;
+        };
       };
       secondReminder?: {
         enabled: boolean;
         value: number;
         unit: 'minutes' | 'hours' | 'days';
+        recipients?: {
+          accepted: boolean;
+          tentative: boolean;
+          declined: boolean;
+          noResponse: boolean;
+        };
       };
-    };
-    reminderRecipients?: {
-      sendToAccepted: boolean;
-      sendToTentative: boolean;
     };
   }, shouldPublish?: boolean) => Promise<void>;
   onCancel: () => void;
@@ -57,11 +65,24 @@ interface EventDialogProps {
         value: number;
         unit: 'minutes' | 'hours' | 'days';
       };
+      firstReminderRecipients?: {
+        accepted: boolean;
+        tentative: boolean;
+        declined: boolean;
+        noResponse: boolean;
+      };
       secondReminderEnabled?: boolean;
       secondReminderTime?: {
         value: number;
         unit: 'minutes' | 'hours' | 'days';
       };
+      secondReminderRecipients?: {
+        accepted: boolean;
+        tentative: boolean;
+        declined: boolean;
+        noResponse: boolean;
+      };
+      // Legacy fields (deprecated)
       sendRemindersToAccepted?: boolean;
       sendRemindersToTentative?: boolean;
     };
@@ -142,16 +163,40 @@ export const EventDialog: React.FC<EventDialogProps> = ({
     initialData?.eventSettings?.secondReminderTime?.unit || settings.eventDefaults.secondReminderTime.unit
   );
   
-  // Reminder recipients state - prioritize event settings over app defaults
-  const [sendToAccepted, setSendToAccepted] = useState(
-    initialData?.eventSettings?.sendRemindersToAccepted !== undefined 
-      ? initialData.eventSettings.sendRemindersToAccepted 
-      : settings.eventDefaults.sendRemindersToAccepted
+  // First reminder recipients state
+  const [firstReminderAccepted, setFirstReminderAccepted] = useState(
+    initialData?.eventSettings?.firstReminderRecipients?.accepted !== undefined
+      ? initialData.eventSettings.firstReminderRecipients.accepted
+      : (initialData?.eventSettings?.sendRemindersToAccepted ?? settings.eventDefaults.sendRemindersToAccepted)
   );
-  const [sendToTentative, setSendToTentative] = useState(
-    initialData?.eventSettings?.sendRemindersToTentative !== undefined 
-      ? initialData.eventSettings.sendRemindersToTentative 
-      : settings.eventDefaults.sendRemindersToTentative
+  const [firstReminderTentative, setFirstReminderTentative] = useState(
+    initialData?.eventSettings?.firstReminderRecipients?.tentative !== undefined
+      ? initialData.eventSettings.firstReminderRecipients.tentative
+      : (initialData?.eventSettings?.sendRemindersToTentative ?? settings.eventDefaults.sendRemindersToTentative)
+  );
+  const [firstReminderDeclined, setFirstReminderDeclined] = useState(
+    initialData?.eventSettings?.firstReminderRecipients?.declined ?? false
+  );
+  const [firstReminderNoResponse, setFirstReminderNoResponse] = useState(
+    initialData?.eventSettings?.firstReminderRecipients?.noResponse ?? false
+  );
+
+  // Second reminder recipients state
+  const [secondReminderAccepted, setSecondReminderAccepted] = useState(
+    initialData?.eventSettings?.secondReminderRecipients?.accepted !== undefined
+      ? initialData.eventSettings.secondReminderRecipients.accepted
+      : (initialData?.eventSettings?.sendRemindersToAccepted ?? settings.eventDefaults.sendRemindersToAccepted)
+  );
+  const [secondReminderTentative, setSecondReminderTentative] = useState(
+    initialData?.eventSettings?.secondReminderRecipients?.tentative !== undefined
+      ? initialData.eventSettings.secondReminderRecipients.tentative
+      : (initialData?.eventSettings?.sendRemindersToTentative ?? settings.eventDefaults.sendRemindersToTentative)
+  );
+  const [secondReminderDeclined, setSecondReminderDeclined] = useState(
+    initialData?.eventSettings?.secondReminderRecipients?.declined ?? false
+  );
+  const [secondReminderNoResponse, setSecondReminderNoResponse] = useState(
+    initialData?.eventSettings?.secondReminderRecipients?.noResponse ?? false
   );
   
   // Image state
@@ -583,17 +628,25 @@ export const EventDialog: React.FC<EventDialogProps> = ({
           firstReminder: {
             enabled: firstReminderEnabled,
             value: firstReminderValue,
-            unit: firstReminderUnit
+            unit: firstReminderUnit,
+            recipients: {
+              accepted: firstReminderAccepted,
+              tentative: firstReminderTentative,
+              declined: firstReminderDeclined,
+              noResponse: firstReminderNoResponse
+            }
           },
           secondReminder: {
             enabled: secondReminderEnabled,
             value: secondReminderValue,
-            unit: secondReminderUnit
+            unit: secondReminderUnit,
+            recipients: {
+              accepted: secondReminderAccepted,
+              tentative: secondReminderTentative,
+              declined: secondReminderDeclined,
+              noResponse: secondReminderNoResponse
+            }
           }
-        },
-        reminderRecipients: {
-          sendToAccepted,
-          sendToTentative
         }
       }, shouldPublish);
     } catch (error) {
@@ -1387,7 +1440,7 @@ export const EventDialog: React.FC<EventDialogProps> = ({
                 <div style={{ marginBottom: '12px' }}>
                   <span style={{ fontSize: '14px', fontWeight: 500, color: '#374151' }}>First Reminder</span>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
                   <input
                     type="number"
                     min="1"
@@ -1446,13 +1499,61 @@ export const EventDialog: React.FC<EventDialogProps> = ({
                     />
                   </div>
                 </div>
+                {firstReminderEnabled && (
+                  <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid #E5E7EB' }}>
+                    <p style={{ fontSize: '12px', color: '#64748B', marginBottom: '8px', fontWeight: 500 }}>
+                      Send to users with status:
+                    </p>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
+                      <label style={{ display: 'flex', alignItems: 'center', fontSize: '14px' }}>
+                        <input
+                          type="checkbox"
+                          checked={firstReminderAccepted}
+                          onChange={(e) => setFirstReminderAccepted(e.target.checked)}
+                          style={{ marginRight: '6px' }}
+                        />
+                        <span style={{ color: '#4B5563' }}>Accepted</span>
+                      </label>
+                      <label style={{ display: 'flex', alignItems: 'center', fontSize: '14px' }}>
+                        <input
+                          type="checkbox"
+                          checked={firstReminderTentative}
+                          onChange={(e) => setFirstReminderTentative(e.target.checked)}
+                          style={{ marginRight: '6px' }}
+                        />
+                        <span style={{ color: '#4B5563' }}>Tentative</span>
+                      </label>
+                      <label style={{ display: 'flex', alignItems: 'center', fontSize: '14px' }}>
+                        <input
+                          type="checkbox"
+                          checked={firstReminderDeclined}
+                          onChange={(e) => setFirstReminderDeclined(e.target.checked)}
+                          style={{ marginRight: '6px' }}
+                        />
+                        <span style={{ color: '#4B5563' }}>Declined</span>
+                      </label>
+                      <label style={{ display: 'flex', alignItems: 'center', fontSize: '14px' }}>
+                        <input
+                          type="checkbox"
+                          checked={firstReminderNoResponse}
+                          onChange={(e) => setFirstReminderNoResponse(e.target.checked)}
+                          style={{ marginRight: '6px' }}
+                        />
+                        <span style={{ color: '#4B5563' }}>No Response</span>
+                      </label>
+                    </div>
+                    <p style={{ fontSize: '11px', color: '#9CA3AF', marginTop: '8px', fontStyle: 'italic' }}>
+                      Only active users will be notified
+                    </p>
+                  </div>
+                )}
               </div>
               
               <div style={{ marginBottom: '24px', padding: '16px', border: '1px solid #E5E7EB', borderRadius: '6px', backgroundColor: '#F8FAFC' }}>
                 <div style={{ marginBottom: '12px' }}>
                   <span style={{ fontSize: '14px', fontWeight: 500, color: '#374151' }}>Second Reminder</span>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
                   <input
                     type="number"
                     min="1"
@@ -1511,40 +1612,54 @@ export const EventDialog: React.FC<EventDialogProps> = ({
                     />
                   </div>
                 </div>
-              </div>
-
-              <div style={{ 
-                padding: '16px', 
-                backgroundColor: '#F8FAFC', 
-                borderRadius: '6px',
-                border: '1px solid #E5E7EB'
-              }}>
-                <h4 style={{ fontSize: '14px', fontWeight: 600, color: '#374151', marginBottom: '8px' }}>
-                  Reminder Recipients
-                </h4>
-                <p style={{ fontSize: '12px', color: '#64748B', marginBottom: '12px' }}>
-                  Reminders will be sent to users who have responded with the selected statuses.
-                </p>
-                <div style={{ display: 'flex', gap: '16px' }}>
-                  <label style={{ display: 'flex', alignItems: 'center', fontSize: '14px' }}>
-                    <input
-                      type="checkbox"
-                      checked={sendToAccepted}
-                      onChange={(e) => setSendToAccepted(e.target.checked)}
-                      style={{ marginRight: '8px' }}
-                    />
-                    <span style={{ color: '#4B5563' }}>Accepted</span>
-                  </label>
-                  <label style={{ display: 'flex', alignItems: 'center', fontSize: '14px' }}>
-                    <input
-                      type="checkbox"
-                      checked={sendToTentative}
-                      onChange={(e) => setSendToTentative(e.target.checked)}
-                      style={{ marginRight: '8px' }}
-                    />
-                    <span style={{ color: '#4B5563' }}>Tentative</span>
-                  </label>
-                </div>
+                {secondReminderEnabled && (
+                  <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid #E5E7EB' }}>
+                    <p style={{ fontSize: '12px', color: '#64748B', marginBottom: '8px', fontWeight: 500 }}>
+                      Send to users with status:
+                    </p>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
+                      <label style={{ display: 'flex', alignItems: 'center', fontSize: '14px' }}>
+                        <input
+                          type="checkbox"
+                          checked={secondReminderAccepted}
+                          onChange={(e) => setSecondReminderAccepted(e.target.checked)}
+                          style={{ marginRight: '6px' }}
+                        />
+                        <span style={{ color: '#4B5563' }}>Accepted</span>
+                      </label>
+                      <label style={{ display: 'flex', alignItems: 'center', fontSize: '14px' }}>
+                        <input
+                          type="checkbox"
+                          checked={secondReminderTentative}
+                          onChange={(e) => setSecondReminderTentative(e.target.checked)}
+                          style={{ marginRight: '6px' }}
+                        />
+                        <span style={{ color: '#4B5563' }}>Tentative</span>
+                      </label>
+                      <label style={{ display: 'flex', alignItems: 'center', fontSize: '14px' }}>
+                        <input
+                          type="checkbox"
+                          checked={secondReminderDeclined}
+                          onChange={(e) => setSecondReminderDeclined(e.target.checked)}
+                          style={{ marginRight: '6px' }}
+                        />
+                        <span style={{ color: '#4B5563' }}>Declined</span>
+                      </label>
+                      <label style={{ display: 'flex', alignItems: 'center', fontSize: '14px' }}>
+                        <input
+                          type="checkbox"
+                          checked={secondReminderNoResponse}
+                          onChange={(e) => setSecondReminderNoResponse(e.target.checked)}
+                          style={{ marginRight: '6px' }}
+                        />
+                        <span style={{ color: '#4B5563' }}>No Response</span>
+                      </label>
+                    </div>
+                    <p style={{ fontSize: '11px', color: '#9CA3AF', marginTop: '8px', fontStyle: 'italic' }}>
+                      Only active users will be notified
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
           )}

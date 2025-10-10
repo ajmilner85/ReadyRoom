@@ -6,7 +6,7 @@ export const rosterStyles = {
     display: 'flex',
     flexDirection: 'column' as const,
     alignItems: 'center',
-    padding: '20px 0',
+    padding: '20px 20px 20px 20px',
     boxSizing: 'border-box' as const,
     overflowY: 'hidden' as const
   },
@@ -24,7 +24,7 @@ export const rosterStyles = {
     display: 'flex',
     gap: '20px',
     flex: 1,
-    height: 'calc(100vh - 130px)',
+    height: 'calc(100vh - 40px)',
     overflow: 'visible'
   },
   loading: {
@@ -68,7 +68,7 @@ export const pilotListStyles = {
     flexDirection: 'column' as const,
     position: 'relative' as const,
     overflow: 'hidden',
-    height: 'calc(100vh - 130px)',
+    height: 'calc(100vh - 40px)',
     boxSizing: 'border-box' as const
   },
   content: {
@@ -155,7 +155,7 @@ export const pilotDetailsStyles = {
     flexDirection: 'column' as const,
     position: 'relative' as const,
     overflowY: 'auto' as const,
-    height: 'calc(100vh - 130px)',
+    height: 'calc(100vh - 40px)',
     boxSizing: 'border-box' as const
   },
   emptyState: {

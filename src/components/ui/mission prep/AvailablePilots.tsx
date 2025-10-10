@@ -798,13 +798,14 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
   }, [rollCallResponses]);
 
   return (
-    <div className="pilots-container" style={{ 
+    <div className="pilots-container" style={{
       width,
       maxWidth: width,
       overflow: 'visible',
       position: 'relative',
       padding: '10px',
       margin: '-10px',
+      paddingBottom: '20px',
       height: '100%'
     }}>
       <Card 
@@ -1008,19 +1009,12 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
         </div>
 
         <div style={{
-          marginTop: 'auto',
-          width: '100%',
+          display: 'flex',
+          justifyContent: 'space-around',
+          padding: '18px 0 0 0',
+          borderTop: '1px solid #E2E8F0',
+          marginTop: 'auto'
         }}>
-          <div style={{
-            borderTop: '1px solid #E2E8F0',
-            marginTop: '16px',
-            marginBottom: '16px',
-            width: '100%'
-          }}></div>          <div style={{
-            display: 'flex',
-            justifyContent: 'space-around',
-            padding: '0' // Removed padding completely as requested
-          }}>
             {/* Roll Call Button */}            <button
               onClick={() => {
                 if (!isRollCallMode && selectedQualifications.length > 0) {
@@ -1215,7 +1209,6 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
               </svg>              Unassign All
             </button>
           </div>
-        </div>
       </Card>
     </div>
   );

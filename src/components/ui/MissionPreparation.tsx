@@ -439,15 +439,15 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
       onDragEnd={handleDragEnd}
       modifiers={[restrictToWindowEdges]} 
     >
-      <div style={{ 
-          backgroundColor: '#F0F4F8', 
+      <div style={{
+          backgroundColor: '#F0F4F8',
           height: '100vh',
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
-          padding: '20px 20px 20px 20px',
+          padding: '20px',
           boxSizing: 'border-box',
-          overflow: 'visible'
+          overflow: 'hidden'
         }}>
         {/* Mission Status Indicator */}
         {(missionLoading || missionSaving || missionError) && (
@@ -463,8 +463,8 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
             color: missionError ? '#B91C1C' : missionSaving ? '#92400E' : '#1E40AF',
             border: `1px solid ${missionError ? '#FCA5A5' : missionSaving ? '#FCD34D' : '#93C5FD'}`
           }}>
-            {missionError ? `Mission Error: ${missionError}` : 
-             missionSaving ? 'Saving mission...' : 
+            {missionError ? `Mission Error: ${missionError}` :
+             missionSaving ? 'Saving mission...' :
              missionLoading ? 'Loading mission...' : ''}
           </div>
         )}
@@ -472,17 +472,14 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
         <div style={{
             display: 'flex',
             gap: '20px',
-            height: 'calc(100vh - 20px)', 
+            height: 'calc(100vh - 40px)',
             position: 'relative',
             zIndex: 1,
             maxWidth: '2240px',
             width: 'min(100%, 2240px)',
             boxSizing: 'border-box',
             justifyContent: 'center',
-            overflowX: 'auto',
-            overflowY: 'visible',
-            padding: '15px',
-            margin: '-15px',
+            overflow: 'visible'
           }}>
           {isLoading ? (
             <StandardPageLoader message="Loading pilots data..." />
@@ -522,12 +519,12 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
                 onFlightsChange={handleFlightsChange}
                 initialFlights={prepFlights}
                 onClearAssignments={handleClearAssignments}
-              />              <div style={{ 
-                display: 'flex', 
-                flexDirection: 'column', 
-                gap: '20px', 
+              />              <div style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '20px',
                 width: CARD_WIDTH,
-                height: '100%' // Ensure the container takes full height
+                height: '100%'
               }}>
                 <MissionSupportAssignments
                   width={CARD_WIDTH}
