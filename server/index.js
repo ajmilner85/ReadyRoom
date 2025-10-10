@@ -48,6 +48,7 @@ const {
   getAvailableGuilds,
   countdownManager,
   sendReminderMessage,
+  updateDiscordMessageImage,
   postMessageToThread,
   getGuildRoles,
   getGuildMember,
@@ -62,14 +63,6 @@ const {
 const { supabase, getEventByDiscordId } = require('./supabaseClient');
 
 // Note: We'll implement reminder processing directly here to avoid ES6/CommonJS module issues
-
-// Import Discord.js for guild member operations
-const { Client, GatewayIntentBits } = require('discord.js');
-
-// Add Discord client for caching at the top level
-const discordClient = new Client({
-  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.GuildMembers]
-});
 
 // Cache for Discord server channels to avoid redundant fetches
 const channelCache = {
@@ -1425,7 +1418,7 @@ app.put('/api/discord/update-image/:messageId', async (req, res) => {
   try {
     const multer = require('multer');
     const upload = multer();
-    
+
     // Use multer to handle the file upload
     upload.single('image')(req, res, async (err) => {
       if (err) {
@@ -1437,80 +1430,60 @@ app.put('/api/discord/update-image/:messageId', async (req, res) => {
       const { guildId, channelId, message } = req.body;
       const imageFile = req.file;
 
+      console.log(`[UPDATE-IMAGE] Received request:`, {
+        messageId,
+        guildId,
+        channelId,
+        hasMessage: !!message,
+        messageText: message,
+        hasImageFile: !!imageFile,
+        imageFileSize: imageFile?.size
+      });
+
       if (!messageId || !guildId || !channelId || !imageFile) {
-        return res.status(400).json({ 
-          error: 'Missing required fields: messageId, guildId, channelId, and image file' 
+        console.error('[UPDATE-IMAGE] Missing required fields:', {
+          hasMessageId: !!messageId,
+          hasGuildId: !!guildId,
+          hasChannelId: !!channelId,
+          hasImageFile: !!imageFile
+        });
+        return res.status(400).json({
+          error: 'Missing required fields: messageId, guildId, channelId, and image file'
         });
       }
 
-      console.log(`[UPDATE-IMAGE] Updating Discord message ${messageId} - Guild: ${guildId}, Channel: ${channelId}`);
+      console.log(`[UPDATE-IMAGE] Delegating to Discord bot module...`);
 
-      try {
-        // Wait for Discord client to be ready
-        if (!discordClient.isReady()) {
-          await new Promise((resolve) => {
-            discordClient.once('ready', resolve);
-          });
-        }
+      // Delegate to the Discord bot module for all Discord operations
+      const result = await updateDiscordMessageImage(
+        messageId,
+        guildId,
+        channelId,
+        message || '',
+        imageFile.buffer,
+        imageFile.originalname || 'flight_assignments.png'
+      );
 
-        // Get the guild and channel
-        const guild = discordClient.guilds.cache.get(guildId);
-        if (!guild) {
-          return res.status(404).json({ 
-            error: `Discord server with ID ${guildId} not found or bot doesn't have access` 
-          });
-        }
-
-        const channel = guild.channels.cache.get(channelId);
-        if (!channel) {
-          return res.status(404).json({ 
-            error: `Channel with ID ${channelId} not found in server` 
-          });
-        }
-
-        // Get the existing message
-        let existingMessage;
-        try {
-          existingMessage = await channel.messages.fetch(messageId);
-        } catch (fetchError) {
-          return res.status(404).json({ 
-            error: `Message with ID ${messageId} not found in channel` 
-          });
-        }
-
-        // Create attachment from the uploaded file
-        const { AttachmentBuilder } = require('discord.js');
-        const attachment = new AttachmentBuilder(imageFile.buffer, { 
-          name: imageFile.originalname || 'flight_assignments.png' 
-        });
-
-        // Edit the message with the new image
-        const updatedMessage = await existingMessage.edit({
-          content: message || existingMessage.content || '',
-          files: [attachment]
-        });
-
+      if (result.success) {
         console.log(`[UPDATE-IMAGE] Successfully updated Discord message ${messageId}`);
-
         res.json({
           success: true,
-          messageId: updatedMessage.id,
+          messageId: messageId,
           guildId: guildId,
           channelId: channelId
         });
-
-      } catch (discordError) {
-        console.error('[UPDATE-IMAGE] Discord API error:', discordError);
-        res.status(500).json({ 
-          error: `Discord API error: ${discordError.message}` 
+      } else {
+        console.error('[UPDATE-IMAGE] Failed to update Discord message:', result.error);
+        res.status(500).json({
+          error: result.error || 'Failed to update Discord message'
         });
       }
     });
 
   } catch (error) {
     console.error('[UPDATE-IMAGE] Unexpected error:', error);
-    res.status(500).json({ 
-      error: `Server error: ${error.message}` 
+    res.status(500).json({
+      error: `Server error: ${error.message}`
     });
   }
 });
