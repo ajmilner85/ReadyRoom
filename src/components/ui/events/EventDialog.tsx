@@ -167,36 +167,36 @@ export const EventDialog: React.FC<EventDialogProps> = ({
   const [firstReminderAccepted, setFirstReminderAccepted] = useState(
     initialData?.eventSettings?.firstReminderRecipients?.accepted !== undefined
       ? initialData.eventSettings.firstReminderRecipients.accepted
-      : (initialData?.eventSettings?.sendRemindersToAccepted ?? settings.eventDefaults.sendRemindersToAccepted)
+      : (initialData?.eventSettings?.sendRemindersToAccepted ?? settings.eventDefaults.firstReminderRecipients?.accepted ?? settings.eventDefaults.sendRemindersToAccepted)
   );
   const [firstReminderTentative, setFirstReminderTentative] = useState(
     initialData?.eventSettings?.firstReminderRecipients?.tentative !== undefined
       ? initialData.eventSettings.firstReminderRecipients.tentative
-      : (initialData?.eventSettings?.sendRemindersToTentative ?? settings.eventDefaults.sendRemindersToTentative)
+      : (initialData?.eventSettings?.sendRemindersToTentative ?? settings.eventDefaults.firstReminderRecipients?.tentative ?? settings.eventDefaults.sendRemindersToTentative)
   );
   const [firstReminderDeclined, setFirstReminderDeclined] = useState(
-    initialData?.eventSettings?.firstReminderRecipients?.declined ?? false
+    initialData?.eventSettings?.firstReminderRecipients?.declined ?? settings.eventDefaults.firstReminderRecipients?.declined ?? false
   );
   const [firstReminderNoResponse, setFirstReminderNoResponse] = useState(
-    initialData?.eventSettings?.firstReminderRecipients?.noResponse ?? false
+    initialData?.eventSettings?.firstReminderRecipients?.noResponse ?? settings.eventDefaults.firstReminderRecipients?.noResponse ?? false
   );
 
   // Second reminder recipients state
   const [secondReminderAccepted, setSecondReminderAccepted] = useState(
     initialData?.eventSettings?.secondReminderRecipients?.accepted !== undefined
       ? initialData.eventSettings.secondReminderRecipients.accepted
-      : (initialData?.eventSettings?.sendRemindersToAccepted ?? settings.eventDefaults.sendRemindersToAccepted)
+      : (initialData?.eventSettings?.sendRemindersToAccepted ?? settings.eventDefaults.secondReminderRecipients?.accepted ?? settings.eventDefaults.sendRemindersToAccepted)
   );
   const [secondReminderTentative, setSecondReminderTentative] = useState(
     initialData?.eventSettings?.secondReminderRecipients?.tentative !== undefined
       ? initialData.eventSettings.secondReminderRecipients.tentative
-      : (initialData?.eventSettings?.sendRemindersToTentative ?? settings.eventDefaults.sendRemindersToTentative)
+      : (initialData?.eventSettings?.sendRemindersToTentative ?? settings.eventDefaults.secondReminderRecipients?.tentative ?? settings.eventDefaults.sendRemindersToTentative)
   );
   const [secondReminderDeclined, setSecondReminderDeclined] = useState(
-    initialData?.eventSettings?.secondReminderRecipients?.declined ?? false
+    initialData?.eventSettings?.secondReminderRecipients?.declined ?? settings.eventDefaults.secondReminderRecipients?.declined ?? false
   );
   const [secondReminderNoResponse, setSecondReminderNoResponse] = useState(
-    initialData?.eventSettings?.secondReminderRecipients?.noResponse ?? false
+    initialData?.eventSettings?.secondReminderRecipients?.noResponse ?? settings.eventDefaults.secondReminderRecipients?.noResponse ?? false
   );
   
   // Image state

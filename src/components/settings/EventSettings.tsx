@@ -311,79 +311,181 @@ const EventSettings: React.FC<EventSettingsProps> = ({ error, setError }) => {
           <h3 style={{ fontSize: '18px', fontWeight: 600, color: '#0F172A', margin: '0 0 16px 0' }}>
             Reminders
           </h3>
-          
+
           {/* First Reminder */}
-          <div style={{ marginBottom: '24px' }}>
-            <div style={{ marginBottom: '12px' }}>
+          <div style={{
+            padding: '20px',
+            backgroundColor: '#F8FAFC',
+            borderRadius: '6px',
+            border: '1px solid #E5E7EB',
+            marginBottom: '20px'
+          }}>
+            <h4 style={{ fontSize: '16px', fontWeight: 600, color: '#1E293B', margin: '0 0 16px 0' }}>
+              First Reminder
+            </h4>
+
+            <div style={{ marginBottom: '16px' }}>
               <label style={fieldLabelStyle}>Default first reminder time</label>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                {renderReminderTimeSelector(appSettings.eventDefaults.firstReminderTime, (field, value) => 
-                  handleReminderTimeChange('firstReminderTime', field, value)
-                )}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  {renderReminderTimeSelector(appSettings.eventDefaults.firstReminderTime, (field, value) =>
+                    handleReminderTimeChange('firstReminderTime', field, value)
+                  )}
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ fontSize: '14px', color: '#64748B', fontFamily: 'Inter' }}>Enabled by default</span>
+                  {renderToggle(appSettings.eventDefaults.firstReminderEnabled, (enabled) =>
+                    handleSettingChange('firstReminderEnabled', enabled)
+                  )}
+                </div>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ fontSize: '14px', color: '#64748B', fontFamily: 'Inter' }}>Enabled by default</span>
-                {renderToggle(appSettings.eventDefaults.firstReminderEnabled, (enabled) => 
-                  handleSettingChange('firstReminderEnabled', enabled)
-                )}
+            </div>
+
+            <div>
+              <label style={{ ...fieldLabelStyle, marginBottom: '8px', display: 'block' }}>
+                Send to users with status:
+              </label>
+              <p style={{ fontSize: '12px', color: '#64748B', margin: '0 0 8px 0', fontFamily: 'Inter', fontStyle: 'italic' }}>
+                Only active users will be notified
+              </p>
+              <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
+                <label style={{ display: 'flex', alignItems: 'center', fontSize: '14px' }}>
+                  <input
+                    type="checkbox"
+                    checked={appSettings.eventDefaults.firstReminderRecipients?.accepted ?? true}
+                    onChange={(e) => handleSettingChange('firstReminderRecipients', {
+                      ...appSettings.eventDefaults.firstReminderRecipients,
+                      accepted: e.target.checked
+                    })}
+                    style={{ marginRight: '8px' }}
+                  />
+                  <span style={{ color: '#4B5563' }}>Accepted</span>
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', fontSize: '14px' }}>
+                  <input
+                    type="checkbox"
+                    checked={appSettings.eventDefaults.firstReminderRecipients?.tentative ?? true}
+                    onChange={(e) => handleSettingChange('firstReminderRecipients', {
+                      ...appSettings.eventDefaults.firstReminderRecipients,
+                      tentative: e.target.checked
+                    })}
+                    style={{ marginRight: '8px' }}
+                  />
+                  <span style={{ color: '#4B5563' }}>Tentative</span>
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', fontSize: '14px' }}>
+                  <input
+                    type="checkbox"
+                    checked={appSettings.eventDefaults.firstReminderRecipients?.declined ?? false}
+                    onChange={(e) => handleSettingChange('firstReminderRecipients', {
+                      ...appSettings.eventDefaults.firstReminderRecipients,
+                      declined: e.target.checked
+                    })}
+                    style={{ marginRight: '8px' }}
+                  />
+                  <span style={{ color: '#4B5563' }}>Declined</span>
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', fontSize: '14px' }}>
+                  <input
+                    type="checkbox"
+                    checked={appSettings.eventDefaults.firstReminderRecipients?.noResponse ?? false}
+                    onChange={(e) => handleSettingChange('firstReminderRecipients', {
+                      ...appSettings.eventDefaults.firstReminderRecipients,
+                      noResponse: e.target.checked
+                    })}
+                    style={{ marginRight: '8px' }}
+                  />
+                  <span style={{ color: '#4B5563' }}>No Response</span>
+                </label>
               </div>
             </div>
           </div>
 
           {/* Second Reminder */}
-          <div style={{ marginBottom: '24px' }}>
-            <div style={{ marginBottom: '12px' }}>
-              <label style={fieldLabelStyle}>Default second reminder time</label>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                {renderReminderTimeSelector(appSettings.eventDefaults.secondReminderTime, (field, value) => 
-                  handleReminderTimeChange('secondReminderTime', field, value)
-                )}
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ fontSize: '14px', color: '#64748B', fontFamily: 'Inter' }}>Enabled by default</span>
-                {renderToggle(appSettings.eventDefaults.secondReminderEnabled, (enabled) => 
-                  handleSettingChange('secondReminderEnabled', enabled)
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Reminder Recipients */}
-          <div style={{ 
-            padding: '16px', 
-            backgroundColor: '#F8FAFC', 
+          <div style={{
+            padding: '20px',
+            backgroundColor: '#F8FAFC',
             borderRadius: '6px',
             border: '1px solid #E5E7EB'
           }}>
-            <h4 style={{ fontSize: '16px', fontWeight: 600, color: '#374151', marginBottom: '8px' }}>
-              Reminder Recipients
+            <h4 style={{ fontSize: '16px', fontWeight: 600, color: '#1E293B', margin: '0 0 16px 0' }}>
+              Second Reminder
             </h4>
-            <p style={{ fontSize: '14px', color: '#64748B', marginBottom: '12px' }}>
-              Reminders will be sent to users who have responded with the selected statuses.
-            </p>
-            <div style={{ display: 'flex', gap: '16px' }}>
-              <label style={{ display: 'flex', alignItems: 'center', fontSize: '14px' }}>
-                <input
-                  type="checkbox"
-                  checked={appSettings.eventDefaults.sendRemindersToAccepted}
-                  onChange={(e) => handleSettingChange('sendRemindersToAccepted', e.target.checked)}
-                  style={{ marginRight: '8px' }}
-                />
-                <span style={{ color: '#4B5563' }}>Accepted</span>
+
+            <div style={{ marginBottom: '16px' }}>
+              <label style={fieldLabelStyle}>Default second reminder time</label>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  {renderReminderTimeSelector(appSettings.eventDefaults.secondReminderTime, (field, value) =>
+                    handleReminderTimeChange('secondReminderTime', field, value)
+                  )}
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ fontSize: '14px', color: '#64748B', fontFamily: 'Inter' }}>Enabled by default</span>
+                  {renderToggle(appSettings.eventDefaults.secondReminderEnabled, (enabled) =>
+                    handleSettingChange('secondReminderEnabled', enabled)
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <label style={{ ...fieldLabelStyle, marginBottom: '8px', display: 'block' }}>
+                Send to users with status:
               </label>
-              <label style={{ display: 'flex', alignItems: 'center', fontSize: '14px' }}>
-                <input
-                  type="checkbox"
-                  checked={appSettings.eventDefaults.sendRemindersToTentative}
-                  onChange={(e) => handleSettingChange('sendRemindersToTentative', e.target.checked)}
-                  style={{ marginRight: '8px' }}
-                />
-                <span style={{ color: '#4B5563' }}>Tentative</span>
-              </label>
+              <p style={{ fontSize: '12px', color: '#64748B', margin: '0 0 8px 0', fontFamily: 'Inter', fontStyle: 'italic' }}>
+                Only active users will be notified
+              </p>
+              <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
+                <label style={{ display: 'flex', alignItems: 'center', fontSize: '14px' }}>
+                  <input
+                    type="checkbox"
+                    checked={appSettings.eventDefaults.secondReminderRecipients?.accepted ?? true}
+                    onChange={(e) => handleSettingChange('secondReminderRecipients', {
+                      ...appSettings.eventDefaults.secondReminderRecipients,
+                      accepted: e.target.checked
+                    })}
+                    style={{ marginRight: '8px' }}
+                  />
+                  <span style={{ color: '#4B5563' }}>Accepted</span>
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', fontSize: '14px' }}>
+                  <input
+                    type="checkbox"
+                    checked={appSettings.eventDefaults.secondReminderRecipients?.tentative ?? true}
+                    onChange={(e) => handleSettingChange('secondReminderRecipients', {
+                      ...appSettings.eventDefaults.secondReminderRecipients,
+                      tentative: e.target.checked
+                    })}
+                    style={{ marginRight: '8px' }}
+                  />
+                  <span style={{ color: '#4B5563' }}>Tentative</span>
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', fontSize: '14px' }}>
+                  <input
+                    type="checkbox"
+                    checked={appSettings.eventDefaults.secondReminderRecipients?.declined ?? false}
+                    onChange={(e) => handleSettingChange('secondReminderRecipients', {
+                      ...appSettings.eventDefaults.secondReminderRecipients,
+                      declined: e.target.checked
+                    })}
+                    style={{ marginRight: '8px' }}
+                  />
+                  <span style={{ color: '#4B5563' }}>Declined</span>
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', fontSize: '14px' }}>
+                  <input
+                    type="checkbox"
+                    checked={appSettings.eventDefaults.secondReminderRecipients?.noResponse ?? false}
+                    onChange={(e) => handleSettingChange('secondReminderRecipients', {
+                      ...appSettings.eventDefaults.secondReminderRecipients,
+                      noResponse: e.target.checked
+                    })}
+                    style={{ marginRight: '8px' }}
+                  />
+                  <span style={{ color: '#4B5563' }}>No Response</span>
+                </label>
+              </div>
             </div>
           </div>
         </div>
