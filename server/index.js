@@ -1932,11 +1932,16 @@ async function sendReminderToDiscordChannels(event, message) {
   if (Array.isArray(event.discord_event_id)) {
     // Multi-channel event
 
-    // Deduplicate publications by guild+channel combination
-    // Some events may have duplicate entries for the same Discord message (multi-squadron events in shared channel)
+    // Deduplicate publications by guild+channel+thread combination
+    // For multi-squadron events in shared channels, we need to avoid duplicate reminders
+    // If a thread exists, deduplicate by threadId (since multiple squadrons share the same thread)
+    // If no thread, deduplicate by channelId (since reminders go to the channel)
     const uniquePublications = new Map();
     event.discord_event_id.forEach(pub => {
-      const key = `${pub.guildId}:${pub.channelId}:${pub.messageId}`;
+      // Use threadId for deduplication if it exists, otherwise use channelId
+      // This ensures multi-squadron events in shared channels only get one reminder
+      const targetLocation = pub.threadId || pub.channelId;
+      const key = `${pub.guildId}:${targetLocation}`;
       if (!uniquePublications.has(key)) {
         uniquePublications.set(key, pub);
       }
@@ -1981,19 +1986,20 @@ async function sendReminderToDiscordChannels(event, message) {
               
               // Update the database to store the thread ID for future reminders
               try {
-                // Find the publication entry and update it with thread ID
-                const updatedPublications = event.discord_event_id.map(pub => 
-                  pub.messageId === publication.messageId 
+                // Update ALL publications that share the same guild+channel with the thread ID
+                // This ensures multi-squadron events in shared channels all get the thread ID
+                const updatedPublications = event.discord_event_id.map(pub =>
+                  (pub.guildId === publication.guildId && pub.channelId === publication.channelId)
                     ? { ...pub, threadId: threadResult.threadId }
                     : pub
                 );
-                
+
                 await supabase
                   .from('events')
                   .update({ discord_event_id: updatedPublications })
                   .eq('id', event.id);
-                  
-                console.log(`[REMINDER-THREAD] Updated event ${event.id} with thread ID ${threadResult.threadId}`);
+
+                console.log(`[REMINDER-THREAD] Updated event ${event.id} with thread ID ${threadResult.threadId} for all publications in guild ${publication.guildId}, channel ${publication.channelId}`);
               } catch (updateError) {
                 console.warn(`[REMINDER-THREAD] Failed to update event with thread ID:`, updateError.message);
               }

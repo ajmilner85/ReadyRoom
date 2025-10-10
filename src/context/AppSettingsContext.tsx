@@ -13,7 +13,7 @@ export interface AppSettings {
     defaultDurationHours: number;
     defaultDurationMinutes: number;
     referenceTimezone: string; // IANA timezone identifier
-    
+
     // Reminders
     firstReminderTime: {
       value: number;
@@ -25,9 +25,25 @@ export interface AppSettings {
       unit: 'minutes' | 'hours' | 'days';
     };
     secondReminderEnabled: boolean;
+
+    // Granular reminder recipients
+    firstReminderRecipients: {
+      accepted: boolean;
+      tentative: boolean;
+      declined: boolean;
+      noResponse: boolean;
+    };
+    secondReminderRecipients: {
+      accepted: boolean;
+      tentative: boolean;
+      declined: boolean;
+      noResponse: boolean;
+    };
+
+    // Legacy reminder recipient settings (kept for backwards compatibility)
     sendRemindersToAccepted: boolean;
     sendRemindersToTentative: boolean;
-    
+
     // Response Grouping
     groupResponsesByQualification: boolean;
   };
@@ -49,15 +65,31 @@ const defaultSettings: AppSettings = {
     defaultDurationHours: 2,
     defaultDurationMinutes: 0,
     referenceTimezone: 'America/New_York',
-    
+
     // Reminder defaults
     firstReminderTime: { value: 15, unit: 'minutes' },
     firstReminderEnabled: true,
     secondReminderTime: { value: 3, unit: 'days' },
     secondReminderEnabled: true,
+
+    // Granular reminder recipients defaults
+    firstReminderRecipients: {
+      accepted: true,
+      tentative: true,
+      declined: false,
+      noResponse: false
+    },
+    secondReminderRecipients: {
+      accepted: true,
+      tentative: true,
+      declined: false,
+      noResponse: false
+    },
+
+    // Legacy reminder recipient settings (for backwards compatibility)
     sendRemindersToAccepted: true,
     sendRemindersToTentative: true,
-    
+
     // Response grouping default
     groupResponsesByQualification: false
   }
