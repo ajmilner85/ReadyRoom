@@ -764,9 +764,9 @@ app.put('/api/events/:messageId/edit', async (req, res) => {
             if (reminders?.firstReminder?.enabled) {
               const reminderMs = convertToMs(reminders.firstReminder.value, reminders.firstReminder.unit);
               const reminderTime = new Date(newStartTime.getTime() - reminderMs);
-              
+
               if (reminderTime > now) {
-                const { error: scheduleError } = await supabase
+                const { error: scheduleError} = await supabase
                   .from('event_reminders')
                   .insert({
                     event_id: eventId,
@@ -774,7 +774,7 @@ app.put('/api/events/:messageId/edit', async (req, res) => {
                     scheduled_time: reminderTime.toISOString(),
                     sent: false
                   });
-                
+
                 if (scheduleError) {
                   console.error('[ERROR] Failed to schedule first reminder:', scheduleError);
                 }
@@ -785,7 +785,7 @@ app.put('/api/events/:messageId/edit', async (req, res) => {
             if (reminders?.secondReminder?.enabled) {
               const reminderMs = convertToMs(reminders.secondReminder.value, reminders.secondReminder.unit);
               const reminderTime = new Date(newStartTime.getTime() - reminderMs);
-              
+
               if (reminderTime > now) {
                 const { error: scheduleError } = await supabase
                   .from('event_reminders')
@@ -795,7 +795,7 @@ app.put('/api/events/:messageId/edit', async (req, res) => {
                     scheduled_time: reminderTime.toISOString(),
                     sent: false
                   });
-                
+
                 if (scheduleError) {
                   console.error('[ERROR] Failed to schedule second reminder:', scheduleError);
                 }
@@ -805,7 +805,7 @@ app.put('/api/events/:messageId/edit', async (req, res) => {
             // If no reminder settings provided, fallback to 15-minute default
             if (!reminders?.firstReminder?.enabled && !reminders?.secondReminder?.enabled) {
               const reminderTime = new Date(newStartTime.getTime() - (15 * 60 * 1000));
-              
+
               if (reminderTime > now) {
                 const { error: scheduleError } = await supabase
                   .from('event_reminders')
@@ -813,9 +813,13 @@ app.put('/api/events/:messageId/edit', async (req, res) => {
                     event_id: eventId,
                     reminder_type: 'first',
                     scheduled_time: reminderTime.toISOString(),
-                    sent: false
+                    sent: false,
+                    notify_accepted: true,
+                    notify_tentative: true,
+                    notify_declined: false,
+                    notify_no_response: false
                   });
-                
+
                 if (scheduleError) {
                   console.error('[ERROR] Failed to schedule default reminder:', scheduleError);
                 }
@@ -1732,19 +1736,76 @@ async function processIndividualReminder(reminder) {
     return;
   }
 
-  // Get attendance data
-  const { data: attendanceData, error: attendanceError } = await supabase
-    .from('discord_event_attendance')
-    .select('discord_id, discord_username, user_response')
-    .in('discord_event_id', discordEventIds)
-    .in('user_response', ['accepted', 'tentative']);
+  // Build response types array based on reminder recipient settings from event_settings
+  const eventSettings = eventData.event_settings || {};
+  const recipientsKey = reminder.reminder_type === 'first' ? 'firstReminderRecipients' : 'secondReminderRecipients';
+  const recipients = eventSettings[recipientsKey] || {
+    accepted: true,
+    tentative: true,
+    declined: false,
+    noResponse: false
+  };
 
-  if (attendanceError) {
-    throw new Error(`Could not fetch attendance data: ${attendanceError.message}`);
+  const responseTypes = [];
+  if (recipients.accepted) responseTypes.push('accepted');
+  if (recipients.tentative) responseTypes.push('tentative');
+  if (recipients.declined) responseTypes.push('declined');
+
+  // Get attendance data for users who have responded
+  let attendanceData = [];
+  if (responseTypes.length > 0) {
+    const { data, error: attendanceError } = await supabase
+      .from('discord_event_attendance')
+      .select('discord_id, discord_username, user_response')
+      .in('discord_event_id', discordEventIds)
+      .in('user_response', responseTypes);
+
+    if (attendanceError) {
+      throw new Error(`Could not fetch attendance data: ${attendanceError.message}`);
+    }
+
+    attendanceData = data || [];
   }
 
+  // Handle no_response case (users who haven't responded yet)
+  if (recipients.noResponse) {
+    // Get all users who have responded
+    const { data: allResponses, error: responseError } = await supabase
+      .from('discord_event_attendance')
+      .select('discord_id')
+      .in('discord_event_id', discordEventIds);
+
+    if (responseError) {
+      console.warn(`[REMINDER] Could not fetch all responses for no-response filtering: ${responseError.message}`);
+    } else {
+      const respondedUserIds = new Set((allResponses || []).map(r => r.discord_id));
+
+      // Get all active pilots from participating squadrons
+      const { data: pilots, error: pilotsError } = await supabase
+        .from('pilots')
+        .select('discord_id, callsign')
+        .eq('status', 'Active'); // Only active pilots
+
+      if (pilotsError) {
+        console.warn(`[REMINDER] Could not fetch pilots for no-response filtering: ${pilotsError.message}`);
+      } else {
+        // Add users who haven't responded to the attendance data
+        (pilots || []).forEach(pilot => {
+          if (pilot.discord_id && !respondedUserIds.has(pilot.discord_id)) {
+            attendanceData.push({
+              discord_id: pilot.discord_id,
+              discord_username: pilot.callsign,
+              user_response: 'no_response'
+            });
+          }
+        });
+      }
+    }
+  }
+
+  // If no users to notify, mark reminder as sent and return
   if (!attendanceData || attendanceData.length === 0) {
-    console.log(`No attendance found for reminder ${reminder.id}, marking as sent`);
+    console.log(`No users to notify for reminder ${reminder.id}, marking as sent`);
     await markReminderAsSent(reminder.id);
     return;
   }
@@ -2091,24 +2152,114 @@ async function markReminderAsSent(reminderId) {
   }
 }
 
+// Process concluded events and remove response buttons
+async function processConcludedEvents() {
+  try {
+    console.log('[CONCLUDED-EVENTS] Checking for concluded events...');
+
+    const now = new Date().toISOString();
+
+    // Find events that have concluded but haven't had buttons removed yet
+    const { data: concludedEvents, error: fetchError } = await supabase
+      .from('events')
+      .select('id, name, end_datetime, discord_event_id, buttons_removed')
+      .lte('end_datetime', now)
+      .neq('buttons_removed', true)
+      .not('discord_event_id', 'is', null);
+
+    if (fetchError) {
+      console.error('[CONCLUDED-EVENTS] Error fetching concluded events:', fetchError);
+      return { processed: 0, errors: [fetchError] };
+    }
+
+    if (!concludedEvents || concludedEvents.length === 0) {
+      console.log('[CONCLUDED-EVENTS] No concluded events found');
+      return { processed: 0, errors: [] };
+    }
+
+    console.log(`[CONCLUDED-EVENTS] Found ${concludedEvents.length} concluded events with buttons to remove`);
+
+    let processed = 0;
+    const errors = [];
+
+    for (const event of concludedEvents) {
+      try {
+        const discordEventIds = Array.isArray(event.discord_event_id) ? event.discord_event_id : [];
+
+        for (const publication of discordEventIds) {
+          try {
+            const channel = await discordClient.channels.fetch(publication.channelId);
+            if (!channel) {
+              console.warn(`[CONCLUDED-EVENTS] Could not fetch channel ${publication.channelId}`);
+              continue;
+            }
+
+            const message = await channel.messages.fetch(publication.messageId);
+            if (!message) {
+              console.warn(`[CONCLUDED-EVENTS] Could not fetch message ${publication.messageId}`);
+              continue;
+            }
+
+            // Remove all button components from the message
+            await message.edit({
+              components: []
+            });
+
+            console.log(`[CONCLUDED-EVENTS] Removed buttons from message ${publication.messageId} for event "${event.name}"`);
+          } catch (msgError) {
+            console.error(`[CONCLUDED-EVENTS] Error removing buttons from message ${publication.messageId}:`, msgError);
+            errors.push({ eventId: event.id, messageId: publication.messageId, error: msgError });
+          }
+        }
+
+        // Mark event as having buttons removed
+        await supabase
+          .from('events')
+          .update({ buttons_removed: true })
+          .eq('id', event.id);
+
+        processed++;
+        console.log(`[CONCLUDED-EVENTS] Processed concluded event "${event.name}" (${event.id})`);
+      } catch (error) {
+        console.error(`[CONCLUDED-EVENTS] Error processing event ${event.id}:`, error);
+        errors.push({ eventId: event.id, error });
+      }
+    }
+
+    console.log(`[CONCLUDED-EVENTS] Completed: ${processed} processed, ${errors.length} errors`);
+    return { processed, errors };
+  } catch (error) {
+    console.error('[CONCLUDED-EVENTS] Error in processConcludedEvents:', error);
+    return { processed: 0, errors: [{ error }] };
+  }
+}
+
 // Start reminder processor
 let reminderIntervalId = null;
 
 function startReminderProcessor() {
   console.log('Starting server-side reminder processor...');
-  
+
   // Process reminders immediately
   processReminders().catch(error => {
     console.error('Error in initial reminder processing:', error);
   });
-  
+
+  // Process concluded events immediately
+  processConcludedEvents().catch(error => {
+    console.error('Error in initial concluded events processing:', error);
+  });
+
   // Then process every 1 minute
   reminderIntervalId = setInterval(() => {
     processReminders().catch(error => {
       console.error('Error in scheduled reminder processing:', error);
     });
+    processConcludedEvents().catch(error => {
+      console.error('Error in scheduled concluded events processing:', error);
+    });
   }, 60000); // 1 minute = 60000ms
-  
+
   console.log('Reminder processor started (checking every 1 minute)');
 }
 

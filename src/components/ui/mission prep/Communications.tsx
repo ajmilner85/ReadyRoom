@@ -401,13 +401,13 @@ const Communications: React.FC<CommunicationsProps> = ({
       </tbody>
     </table>
   );  return (
-    <div style={{ 
-      display: 'flex', 
-      flexDirection: 'column', 
+    <div style={{
+      display: 'flex',
+      flexDirection: 'column',
       gap: '20px',
       width
     }}>
-      <Card style={styles.cardBase}>
+      <Card style={{...styles.cardBase, flex: '1 1 auto'}}>
         <div style={{
           width: '100%',
           textAlign: 'center',
@@ -478,14 +478,14 @@ const Communications: React.FC<CommunicationsProps> = ({
         </div>
       </Card>
 
-      <Card style={styles.cardBase}>
+      <Card style={{...styles.cardBase, flex: '0 0 auto'}}>
         <div style={styles.sectionHeader}>
           <span style={styles.headerLabel}>Export</span>
         </div>
         <div style={{
           display: 'flex',
           justifyContent: 'space-around',
-          padding: '16px'
+          padding: '18px 0 0 0'
         }}>
           <button 
             style={{

@@ -499,11 +499,24 @@ export const createEvent = async (event: Omit<Event, 'id' | 'creator' | 'attenda
       value: event.reminders?.firstReminder?.value || 15,
       unit: event.reminders?.firstReminder?.unit || 'minutes'
     },
+    firstReminderRecipients: (event.reminders?.firstReminder as any)?.recipients || {
+      accepted: true,
+      tentative: true,
+      declined: false,
+      noResponse: false
+    },
     secondReminderEnabled: event.reminders?.secondReminder?.enabled || false,
     secondReminderTime: {
       value: event.reminders?.secondReminder?.value || 3,
       unit: event.reminders?.secondReminder?.unit || 'days'
     },
+    secondReminderRecipients: (event.reminders?.secondReminder as any)?.recipients || {
+      accepted: true,
+      tentative: true,
+      declined: false,
+      noResponse: false
+    },
+    // Keep old fields for backward compatibility during transition
     sendRemindersToAccepted: event.reminderRecipients?.sendToAccepted !== undefined ? event.reminderRecipients.sendToAccepted : true,
     sendRemindersToTentative: event.reminderRecipients?.sendToTentative !== undefined ? event.reminderRecipients.sendToTentative : true
   };
@@ -626,6 +639,12 @@ export const updateEvent = async (eventId: string, updates: Partial<Omit<Event, 
         value: updates.reminders.firstReminder.value,
         unit: updates.reminders.firstReminder.unit
       };
+      eventSettings.firstReminderRecipients = (updates.reminders.firstReminder as any).recipients || {
+        accepted: true,
+        tentative: true,
+        declined: false,
+        noResponse: false
+      };
     }
     if (updates.reminders?.secondReminder !== undefined) {
       eventSettings.secondReminderEnabled = updates.reminders.secondReminder.enabled;
@@ -633,8 +652,15 @@ export const updateEvent = async (eventId: string, updates: Partial<Omit<Event, 
         value: updates.reminders.secondReminder.value,
         unit: updates.reminders.secondReminder.unit
       };
+      eventSettings.secondReminderRecipients = (updates.reminders.secondReminder as any).recipients || {
+        accepted: true,
+        tentative: true,
+        declined: false,
+        noResponse: false
+      };
     }
     if (updates.reminderRecipients !== undefined) {
+      // Keep old fields for backward compatibility during transition
       eventSettings.sendRemindersToAccepted = updates.reminderRecipients.sendToAccepted;
       eventSettings.sendRemindersToTentative = updates.reminderRecipients.sendToTentative;
     }

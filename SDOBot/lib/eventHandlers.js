@@ -155,6 +155,17 @@ function setupDiscordEventHandlers(supabase, upsertEventAttendance, getEventByDi
       console.warn(`Warning: Could not find event for Discord message ${eventId}: ${eventError}`);
     }
 
+    // Check if event has concluded - prevent response changes after event ends
+    if (event && event.end_datetime) {
+      const eventEndTime = new Date(event.end_datetime);
+      const now = new Date();
+
+      if (eventEndTime < now) {
+        console.log(`[EVENT-CONCLUDED] User ${displayName} tried to change response for concluded event ${eventId}`);
+        return; // Block the response change silently
+      }
+    }
+
     // Fetch pilot data from database
     let pilotRecord = null;
     try {

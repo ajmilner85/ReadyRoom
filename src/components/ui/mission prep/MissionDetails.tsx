@@ -533,9 +533,9 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
   };
 
   return (
-    <div style={{ 
-      display: 'flex', 
-      flexDirection: 'column', 
+    <div style={{
+      display: 'flex',
+      flexDirection: 'column',
       gap: '20px',
       width,
       height: '100%'
