@@ -1,7 +1,7 @@
 import React, { useState, memo } from 'react';
 import { useDroppable } from '@dnd-kit/core';
 import AircraftTile from './AircraftTile';
-import { Edit2, Trash2 } from 'lucide-react';
+import { Edit2, Trash2, Clock } from 'lucide-react';
 
 // Add mission commander interface
 interface MissionCommanderInfo {
@@ -26,8 +26,10 @@ interface FlightAssignmentCardProps {
   }>;
   midsA?: string;
   midsB?: string;
+  stepTime?: number; // Step time offset in minutes
   onDeleteFlight?: (id: string) => void;
   onEditFlight?: (id: string, callsign: string) => void;
+  onStepTimeChange?: (id: string, stepTime: number) => void;
   missionCommander?: MissionCommanderInfo | null;
 }
 
@@ -38,11 +40,56 @@ const FlightAssignmentCard: React.FC<FlightAssignmentCardProps> = ({
   pilots,
   midsA = '',
   midsB = '',
+  stepTime = 0,
   onDeleteFlight,
   onEditFlight,
+  onStepTimeChange,
   missionCommander
 }) => {
   const [isHovered, setIsHovered] = useState(false);
+  const [isEditingStepTime, setIsEditingStepTime] = useState(false);
+  const [editedStepTime, setEditedStepTime] = useState(stepTime.toString());
+
+  // Format step time for display
+  const formatStepTime = (minutes: number): string => {
+    if (minutes === 0) return '+0';
+    if (minutes < 0) return `-${Math.abs(minutes)}`;
+    return `+${minutes}`;
+  };
+
+  // Handle step time double-click
+  const handleStepTimeDoubleClick = () => {
+    setIsEditingStepTime(true);
+    setEditedStepTime(Math.abs(stepTime).toString());
+  };
+
+  // Handle step time input change
+  const handleStepTimeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    // Only allow numbers
+    if (value === '' || /^\d+$/.test(value)) {
+      setEditedStepTime(value);
+    }
+  };
+
+  // Handle step time blur (save)
+  const handleStepTimeBlur = () => {
+    const newValue = editedStepTime === '' ? 0 : parseInt(editedStepTime);
+    if (newValue >= -999 && newValue <= 999 && onStepTimeChange) {
+      onStepTimeChange(id, newValue);
+    }
+    setIsEditingStepTime(false);
+  };
+
+  // Handle step time key press
+  const handleStepTimeKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      handleStepTimeBlur();
+    } else if (e.key === 'Escape') {
+      setIsEditingStepTime(false);
+      setEditedStepTime(stepTime.toString());
+    }
+  };
 
   const getPilotByDashNumber = (dashNumber: string) => {
     return pilots.find(p => p.dashNumber === dashNumber) || {
@@ -71,16 +118,13 @@ const FlightAssignmentCard: React.FC<FlightAssignmentCardProps> = ({
   const midsANum = parseInt(midsA) || 0;
   const secondSectionMidsA = midsANum > 0 ? (midsANum + 1).toString() : '';
 
-  // Check if the flight is empty (no assigned pilots)
-  const isFlightEmpty = pilots.every(p => !p.boardNumber && !p.callsign);
-
   return (
     <div
       style={{
         position: 'relative',
         boxSizing: 'border-box',
         width: 'calc(100% - 20px)', // Account for shadow space
-        padding: '10px 10px 5px 10px', // Removed bottom padding
+        padding: '10px 12px 2px 8px', // top: 10px (12-2), right: 12px, bottom: 2px (4-2), left: 8px
         margin: '10px', // Add margin for drop shadow
         backgroundColor: '#FFFFFF',
         borderRadius: '8px',
@@ -89,25 +133,88 @@ const FlightAssignmentCard: React.FC<FlightAssignmentCardProps> = ({
         boxShadow: '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)',
         transition: 'all 0.2s ease-in-out',
         display: 'flex',
-        flexDirection: 'column',
+        flexDirection: 'row', // Changed to row for horizontal layout
+        alignItems: 'stretch',
         marginBottom: '10px' // Add consistent spacing between cards
       }}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
-      {/* Hover controls (edit and delete) for empty flights */}
-      {isHovered && isFlightEmpty && (
+      {/* Step time indicator - bottom left corner of card */}
+      <div
+        style={{
+          position: 'absolute',
+          bottom: '3px',
+          left: '4px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '4px',
+          fontSize: '12px',
+          fontWeight: 500,
+          color: '#64748B',
+          padding: '2px 4px',
+          zIndex: 10
+        }}
+      >
+        <Clock size={13} style={{ flexShrink: 0, marginTop: '1px', marginLeft: '-1px' }} />
+        <div
+          onDoubleClick={handleStepTimeDoubleClick}
+          style={{
+            cursor: 'pointer',
+            width: '32px',
+            height: '16px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'flex-start',
+            flexShrink: 0,
+            marginLeft: '-3px'
+          }}
+          title="Double-click to edit step time"
+        >
+          {isEditingStepTime ? (
+            <input
+              type="text"
+              value={editedStepTime}
+              onChange={handleStepTimeChange}
+              onBlur={handleStepTimeBlur}
+              onKeyDown={handleStepTimeKeyPress}
+              onFocus={(e) => e.target.select()}
+              autoFocus
+              style={{
+                width: '100%',
+                height: '100%',
+                padding: '0',
+                margin: '0',
+                border: '1px solid #CBD5E1',
+                borderRadius: '2px',
+                fontSize: '12px',
+                fontWeight: 500,
+                textAlign: 'left',
+                paddingLeft: '2px',
+                backgroundColor: 'white',
+                outline: 'none',
+                boxSizing: 'border-box'
+              }}
+            />
+          ) : (
+            <span style={{ fontSize: '12px', fontWeight: 500 }}>{formatStepTime(stepTime)}</span>
+          )}
+        </div>
+      </div>
+
+      {/* Edit and Delete buttons - top right corner of card */}
+      {isHovered && (
         <div
           style={{
             position: 'absolute',
-            top: '5px',
-            right: '5px',
+            top: '4px',
+            right: '4px',
             display: 'flex',
             gap: '5px',
-            zIndex: 5
+            zIndex: 10
           }}
         >
-          {/* Edit button - using Lucide-React component to match other sections */}
+          {/* Edit button */}
           <button
             onClick={() => onEditFlight?.(id, callsign)}
             style={{
@@ -138,7 +245,7 @@ const FlightAssignmentCard: React.FC<FlightAssignmentCardProps> = ({
             <Edit2 size={14} color="#64748B" />
           </button>
 
-          {/* Delete button - using Lucide-React component to match other sections */}
+          {/* Delete button */}
           <button
             onClick={() => onDeleteFlight?.(id)}
             style={{
@@ -171,15 +278,51 @@ const FlightAssignmentCard: React.FC<FlightAssignmentCardProps> = ({
         </div>
       )}
 
-      {/* Aircraft Tiles Container */}
+      {/* Left section - Vertical callsign */}
+      <div
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          marginRight: '8px',
+          minWidth: '30px'
+        }}
+      >
+        {/* Vertical callsign */}
+        <div
+          style={{
+            writingMode: 'vertical-rl',
+            transform: 'rotate(180deg)',
+            fontSize: '18px',
+            fontWeight: 600,
+            color: '#1E1E1E',
+            letterSpacing: '0.02em',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}
+        >
+          {callsign} {flightNumber}
+        </div>
+      </div>
+
+      {/* Main content area - tiles */}
       <div style={{
+        flex: 1,
         display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'flex-start',
-        position: 'relative',
-        height: '137px', // Fixed height for tile container
-        marginBottom: '0' // Removed margin
+        flexDirection: 'column',
+        position: 'relative'
       }}>
+        {/* Aircraft Tiles Container */}
+        <div style={{
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'flex-start',
+          position: 'relative',
+          paddingRight: '12px', // 12px from right edge
+          paddingBottom: '12px' // 12px from bottom edge
+        }}>
         {/* Wrap each tile with DroppableAircraftTile when empty */}
         {/* 1-2 position - first section */}
         <DroppableAircraftTile
@@ -234,25 +377,6 @@ const FlightAssignmentCard: React.FC<FlightAssignmentCardProps> = ({
           isMissionCommander={isMissionCommander(pilot4.boardNumber)}
           verticalOffset={20} // Apply the 20px offset for 1-4 position
         />
-      </div>
-
-      {/* Flight name at the bottom of the card with precise spacing */}
-      <div style={{
-        display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'center',
-        width: '100%',
-        height: '22px', // Just enough for the text
-        marginBottom: '0' // Removed bottom margin
-      }}>
-        <div style={{
-          fontSize: '18px',
-          fontWeight: 600,
-          color: '#1E1E1E',
-          textAlign: 'center',
-          lineHeight: '22px' // Add line height to control text block height
-        }}>
-          {callsign} {flightNumber}
         </div>
       </div>
     </div>

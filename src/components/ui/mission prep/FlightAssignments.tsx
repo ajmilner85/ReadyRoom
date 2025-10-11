@@ -29,6 +29,7 @@ interface Flight {
   }>;
   midsA?: string;
   midsB?: string;
+  stepTime?: number; // Step time offset in minutes
   creationOrder: number; // Track the creation order
 }
 
@@ -90,6 +91,7 @@ interface FlightAssignmentsProps {
   onFlightsChange?: (flights: Flight[], skipSave?: boolean) => void;
   initialFlights?: Flight[];
   onClearAssignments?: () => void;
+  onClearFlightAssignments?: (flightId: string) => void;
   mission?: Mission | null;
 }
 
@@ -101,6 +103,7 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
   onFlightsChange,
   initialFlights = [],
   onClearAssignments,
+  onClearFlightAssignments,
   mission
 }) => {
   // Debug logging for assignedPilots data
@@ -239,6 +242,7 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
         { boardNumber: "", callsign: "", dashNumber: "3" },
         { boardNumber: "", callsign: "", dashNumber: "4" }
       ],
+      stepTime: flight.stepTime || 0,
       creationOrder: flight.creationOrder || 0
     };
   };
@@ -669,17 +673,106 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
     setInitialEditCallsign("");
   };
 
+  // State for delete confirmation dialog
+  const [showDeleteConfirmDialog, setShowDeleteConfirmDialog] = useState(false);
+  const [deletingFlightId, setDeletingFlightId] = useState<string | null>(null);
+  const [deletingFlightHasPilots, setDeletingFlightHasPilots] = useState(false);
+
   // Handle deleting a flight
   const handleDeleteFlight = useCallback((id: string) => {
+    const flight = flights.find(f => f.id === id);
+    if (!flight) return;
+
+    // Check if flight has any assigned pilots (check assignedPilots prop, not flight.pilots)
+    const assignedToFlight = assignedPilots?.[id] || [];
+    const hasPilots = assignedToFlight.length > 0 && assignedToFlight.some(p => p.boardNumber && p.callsign);
+
+    if (hasPilots) {
+      // Show confirmation dialog for flights with pilots
+      setDeletingFlightId(id);
+      setDeletingFlightHasPilots(true);
+      setShowDeleteConfirmDialog(true);
+    } else {
+      // Delete immediately if no pilots assigned
+      confirmDeleteFlight(id);
+    }
+  }, [flights, assignedPilots]);
+
+  // Confirm delete flight
+  const confirmDeleteFlight = useCallback((flightId?: string) => {
+    const id = flightId || deletingFlightId;
+    if (!id) return;
+
     isUserInitiatedChange.current = true;
+
+    // Clear pilot assignments for this specific flight
+    if (onClearFlightAssignments) {
+      onClearFlightAssignments(id);
+    }
+
+    // Remove the flight
     setFlights(prevFlights => prevFlights.filter(flight => flight.id !== id));
+    setShowDeleteConfirmDialog(false);
+    setDeletingFlightId(null);
+    setDeletingFlightHasPilots(false);
+  }, [deletingFlightId, onClearFlightAssignments]);
+
+  // Cancel delete
+  const cancelDeleteFlight = useCallback(() => {
+    setShowDeleteConfirmDialog(false);
+    setDeletingFlightId(null);
+    setDeletingFlightHasPilots(false);
   }, []);
 
+  // State for edit flight dialog
+  const [showEditFlightDialog, setShowEditFlightDialog] = useState(false);
+  const [editingFlightId, setEditingFlightId] = useState<string | null>(null);
+  const [editingCallsign, setEditingCallsign] = useState('');
+  const [editingStepTime, setEditingStepTime] = useState(0);
+
   // Handle editing a flight
-  const handleEditFlight = useCallback((id: string, callsign: string) => {
-    setEditFlightId(id);
-    setInitialEditCallsign(callsign);
-    setShowAddFlightDialog(true);
+  const handleEditFlight = useCallback((id: string) => {
+    const flight = flights.find(f => f.id === id);
+    if (flight) {
+      setEditingFlightId(id);
+      setEditingCallsign(flight.callsign);
+      setEditingStepTime(flight.stepTime || 0);
+      setShowEditFlightDialog(true);
+    }
+  }, [flights]);
+
+  // Handle saving edited flight
+  const handleSaveEditedFlight = useCallback(() => {
+    if (!editingFlightId) return;
+
+    isUserInitiatedChange.current = true;
+    setFlights(prevFlights =>
+      prevFlights.map(flight =>
+        flight.id === editingFlightId
+          ? { ...flight, callsign: editingCallsign, stepTime: editingStepTime }
+          : flight
+      )
+    );
+    setShowEditFlightDialog(false);
+    setEditingFlightId(null);
+  }, [editingFlightId, editingCallsign, editingStepTime]);
+
+  // Handle canceling edit
+  const handleCancelEdit = useCallback(() => {
+    setShowEditFlightDialog(false);
+    setEditingFlightId(null);
+  }, []);
+
+  // Handle step time changes for individual flights
+  const handleStepTimeChange = useCallback((flightId: string, stepTime: number) => {
+    isUserInitiatedChange.current = true;
+    setFlights(prevFlights =>
+      prevFlights.map(flight =>
+        flight.id === flightId
+          ? { ...flight, stepTime }
+          : flight
+      )
+    );
   }, []);
 
   // Handle removing all flights
@@ -741,9 +834,9 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
   // Generate flight assignment table image for a squadron using Canvas
   const generateFlightAssignmentImage = useCallback(async (squadronGroup: SquadronFlightGroup, revision?: number): Promise<Blob | null> => {
     try {
-      // Canvas dimensions  
+      // Canvas dimensions
       const padding = 20;
-      const columnWidths = [25, 140, 130, 90, 90]; // MC indicator (very small), Slot, Pilot (much narrower), MIDS A, MIDS B
+      const columnWidths = [25, 140, 130, 90, 90, 60]; // MC indicator, Slot, Pilot, MIDS A, MIDS B, STEP
       const tablePadding = 15; // Left padding inside table
       const rightPadding = 15; // Right padding after last column
       const tableWidth = columnWidths.reduce((sum, width) => sum + width, 0) + tablePadding + rightPadding;
@@ -751,45 +844,55 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
       const titleHeight = 80; // Increased for squadron name
       const headerHeight = 40;
       const rowHeight = 35;
-      
+
       // Prepare flight data - each flight gets its own table
       const flightTables: { flightName: string; data: string[][]; }[] = [];
-      const headers = ['', 'Slot', 'Pilot', 'MIDS A', 'MIDS B']; // Empty header for MC indicator column
-      
+      const headers = ['', 'Slot', 'Pilot', 'MIDS A', 'MIDS B', 'STEP']; // Empty header for MC indicator column
+
+      // Helper function to format step time
+      const formatStepTimeForImage = (minutes?: number): string => {
+        if (minutes === undefined || minutes === null) return '+0';
+        if (minutes === 0) return '+0';
+        if (minutes < 0) return `-${Math.abs(minutes)}`;
+        return `+${minutes}`;
+      };
+
       // Helper function to check if a pilot is the mission commander
       const isMissionCommander = (pilot: any, flight: Flight) => {
         if (!missionCommander) return false;
         const boardNumber = pilot.boardNumber || (pilot as any).board_number || (pilot as any).onboard_num || (pilot as any).pilotBoardNumber || '000';
-        return missionCommander.boardNumber === boardNumber && 
+        return missionCommander.boardNumber === boardNumber &&
                missionCommander.flightId === flight.id;
       };
 
       if (squadronGroup.flights.length === 0) {
         flightTables.push({
           flightName: 'No Flights',
-          data: [['', 'No flight assignments found', '', '', '']]
+          data: [['', 'No flight assignments found', '', '', '', '']]
         });
       } else {
         squadronGroup.flights.forEach((flight) => {
           const updatedPilots = getUpdatedFlightPilots(flight);
           const flightData: string[][] = [];
-          
+          const stepTimeStr = formatStepTimeForImage(flight.stepTime);
+
           // Calculate MIDS channels for second section (dash 3 & 4)
           const midsANum = parseInt(flight.midsA || '0');
           const secondSectionMidsA = midsANum > 0 ? (midsANum + 1).toString() : '—';
-          
+
           if (updatedPilots.length === 0) {
             // Show empty slots if no pilots assigned
             for (let i = 1; i <= 4; i++) {
               // Determine MIDS A channel based on section
               const sectionMidsA = (i === 1 || i === 2) ? (flight.midsA || '—') : secondSectionMidsA;
-              
+
               flightData.push([
                 '', // No mission commander indicator for empty slots
                 `${flight.callsign} ${flight.flightNumber}-${i}`,
                 '—',
                 sectionMidsA,
-                flight.midsB || '—'
+                flight.midsB || '—',
+                stepTimeStr
               ]);
             }
           } else {
@@ -798,20 +901,21 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
               const boardNumber = pilot.boardNumber || (pilot as any).board_number || (pilot as any).onboard_num || (pilot as any).pilotBoardNumber || '000';
               const callsign = pilot.callsign || (pilot as any).pilot_callsign || (pilot as any).pilotCallsign || '—';
               const pilotDisplay = callsign !== '—' ? `${boardNumber} ${callsign}` : '—';
-              
+
               // Determine MIDS A channel based on section
               const dashNum = parseInt(pilot.dashNumber);
               const sectionMidsA = (dashNum === 1 || dashNum === 2) ? (flight.midsA || '—') : secondSectionMidsA;
-              
+
               // Check if this pilot is the mission commander
               const mcIndicator = isMissionCommander(pilot, flight) ? '★' : '';
-              
+
               flightData.push([
                 mcIndicator, // Mission commander indicator (star or empty)
                 `${flight.callsign} ${flight.flightNumber}-${pilot.dashNumber}`,
                 pilotDisplay,
                 sectionMidsA,
-                flight.midsB || '—'
+                flight.midsB || '—',
+                stepTimeStr
               ]);
             });
           }
@@ -950,6 +1054,7 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
 
       // Event date and time (regular weight, same size as squadron name)
       // Push down if event name was wrapped
+      let lastTextY = eventNameIsWrapped ? insigniaY + 53 : insigniaY + 45;
       if (selectedEvent?.datetime) {
         const eventDate = new Date(selectedEvent.datetime);
         const formattedDateTime = eventDate.toLocaleString('en-US', {
@@ -963,8 +1068,45 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
 
         ctx.font = '16px Arial, sans-serif';
         ctx.fillStyle = '#CCCCCC';
-        const dateY = eventNameIsWrapped ? insigniaY + 53 : insigniaY + 45;
-        ctx.fillText(formattedDateTime, rightX, dateY);
+        ctx.fillText(formattedDateTime, rightX, lastTextY);
+      }
+
+      // Mission step time (if available) - bold, below event time
+      if (mission?.step_time) {
+        const stepTimeDate = new Date(mission.step_time);
+        const timezone = settings.eventDefaults.referenceTimezone || 'America/New_York';
+
+        // Format in reference timezone
+        const localFormatter = new Intl.DateTimeFormat('en-US', {
+          timeZone: timezone,
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: false
+        });
+
+        // Get timezone abbreviation
+        const tzFormatter = new Intl.DateTimeFormat('en-US', {
+          timeZone: timezone,
+          timeZoneName: 'short'
+        });
+        const tzParts = tzFormatter.formatToParts(stepTimeDate);
+        const tzAbbr = tzParts.find(p => p.type === 'timeZoneName')?.value || timezone;
+
+        // Format in Zulu (UTC)
+        const zuluFormatter = new Intl.DateTimeFormat('en-US', {
+          timeZone: 'UTC',
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: false
+        });
+
+        const localTime = localFormatter.format(stepTimeDate);
+        const zuluTime = zuluFormatter.format(stepTimeDate);
+        const stepTimeText = `STEP @${localTime} ${tzAbbr}/${zuluTime}Z`;
+
+        ctx.font = 'bold 16px Arial, sans-serif';
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillText(stepTimeText, rightX, lastTextY + 18);
       }
 
       // Render separate tables for each flight
@@ -998,7 +1140,7 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
           
           let headerX = padding + tablePadding;
           headers.forEach((header, index) => {
-            if (index >= 3) { // MIDS A and MIDS B columns (adjusted for new column)
+            if (index >= 3) { // MIDS A, MIDS B, and STEP columns (center-aligned)
               ctx.textAlign = 'center';
               ctx.fillText(header, headerX + columnWidths[index] / 2, currentY + 25);
             } else if (index === 0) { // Mission commander indicator column
@@ -1050,7 +1192,7 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
             if (cellIndex === 0) { // Mission commander indicator column
               ctx.textAlign = 'center';
               ctx.fillText(cell, cellX + columnWidths[cellIndex] / 2, rowY + 22);
-            } else if (cellIndex >= 3) { // MIDS columns (adjusted for new column)
+            } else if (cellIndex >= 3) { // MIDS A, MIDS B, and STEP columns (center-aligned)
               ctx.textAlign = 'center';
               ctx.fillText(cell, cellX + columnWidths[cellIndex] / 2, rowY + 22);
             } else {
@@ -1480,8 +1622,10 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
                 pilots={getUpdatedFlightPilots(flight)}
                 midsA={flight.midsA}
                 midsB={flight.midsB}
+                stepTime={flight.stepTime || 0}
                 onDeleteFlight={handleDeleteFlight}
                 onEditFlight={handleEditFlight}
+                onStepTimeChange={handleStepTimeChange}
                 missionCommander={missionCommander}
               />
             ))}
@@ -1694,6 +1838,235 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
                 }}
               >
                 Remove All
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Edit Flight Dialog */}
+      {showEditFlightDialog && (
+        <>
+          {/* Semi-transparent overlay */}
+          <div style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            zIndex: 1000
+          }} onClick={handleCancelEdit} />
+
+          {/* Dialog */}
+          <div style={{
+            position: 'fixed',
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+            backgroundColor: '#FFFFFF',
+            borderRadius: '8px',
+            padding: '24px',
+            boxShadow: '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)',
+            zIndex: 1001,
+            minWidth: '400px'
+          }}>
+            <div style={{
+              fontFamily: 'Inter',
+              fontSize: '18px',
+              fontWeight: 500,
+              color: '#1F2937',
+              marginBottom: '24px',
+              textAlign: 'center'
+            }}>
+              Edit Flight
+            </div>
+
+            {/* Callsign Input */}
+            <div style={{ marginBottom: '16px' }}>
+              <label style={{
+                display: 'block',
+                fontFamily: 'Inter',
+                fontSize: '14px',
+                fontWeight: 500,
+                color: '#64748B',
+                marginBottom: '8px'
+              }}>
+                Callsign
+              </label>
+              <input
+                type="text"
+                value={editingCallsign}
+                onChange={(e) => setEditingCallsign(e.target.value.toUpperCase())}
+                style={{
+                  width: '100%',
+                  padding: '8px 12px',
+                  border: '1px solid #CBD5E1',
+                  borderRadius: '4px',
+                  fontSize: '14px',
+                  fontFamily: 'Inter',
+                  boxSizing: 'border-box'
+                }}
+              />
+            </div>
+
+            {/* Step Time Input */}
+            <div style={{ marginBottom: '24px' }}>
+              <label style={{
+                display: 'block',
+                fontFamily: 'Inter',
+                fontSize: '14px',
+                fontWeight: 500,
+                color: '#64748B',
+                marginBottom: '8px'
+              }}>
+                Step Time Offset (minutes)
+              </label>
+              <input
+                type="number"
+                value={editingStepTime}
+                onChange={(e) => setEditingStepTime(parseInt(e.target.value) || 0)}
+                min="-999"
+                max="999"
+                style={{
+                  width: '100%',
+                  padding: '8px 12px',
+                  border: '1px solid #CBD5E1',
+                  borderRadius: '4px',
+                  fontSize: '14px',
+                  fontFamily: 'Inter',
+                  boxSizing: 'border-box'
+                }}
+              />
+            </div>
+
+            {/* Buttons */}
+            <div style={{
+              display: 'flex',
+              gap: '12px',
+              justifyContent: 'flex-end'
+            }}>
+              <button
+                onClick={handleCancelEdit}
+                style={{
+                  padding: '8px 16px',
+                  backgroundColor: '#FFFFFF',
+                  color: '#64748B',
+                  border: '1px solid #CBD5E1',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  fontFamily: 'Inter',
+                  fontSize: '14px',
+                  fontWeight: 400
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveEditedFlight}
+                style={{
+                  padding: '8px 16px',
+                  backgroundColor: '#3B82F6',
+                  color: '#FFFFFF',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  fontFamily: 'Inter',
+                  fontSize: '14px',
+                  fontWeight: 500
+                }}
+              >
+                Save
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Delete Flight Confirmation Dialog */}
+      {showDeleteConfirmDialog && (
+        <>
+          {/* Semi-transparent overlay */}
+          <div style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            zIndex: 1000
+          }} onClick={cancelDeleteFlight} />
+
+          {/* Dialog */}
+          <div style={{
+            position: 'fixed',
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+            backgroundColor: '#FFFFFF',
+            borderRadius: '8px',
+            padding: '24px',
+            boxShadow: '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)',
+            zIndex: 1001,
+            minWidth: '400px'
+          }}>
+            <div style={{
+              fontFamily: 'Inter',
+              fontSize: '18px',
+              fontWeight: 500,
+              color: '#1F2937',
+              marginBottom: '16px',
+              textAlign: 'center'
+            }}>
+              Delete Flight?
+            </div>
+            <div style={{
+              fontFamily: 'Inter',
+              fontSize: '14px',
+              color: '#64748B',
+              marginBottom: '24px',
+              textAlign: 'center'
+            }}>
+              {deletingFlightHasPilots
+                ? 'This flight has pilots assigned. They will be unassigned if you delete this flight.'
+                : 'Are you sure you want to delete this flight?'}
+            </div>
+            <div style={{
+              display: 'flex',
+              gap: '12px',
+              justifyContent: 'center'
+            }}>
+              <button
+                onClick={cancelDeleteFlight}
+                style={{
+                  padding: '8px 16px',
+                  backgroundColor: '#FFFFFF',
+                  color: '#64748B',
+                  border: '1px solid #CBD5E1',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  fontFamily: 'Inter',
+                  fontSize: '14px',
+                  fontWeight: 400
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => confirmDeleteFlight()}
+                style={{
+                  padding: '8px 16px',
+                  backgroundColor: '#EF4444',
+                  color: '#FFFFFF',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  fontFamily: 'Inter',
+                  fontSize: '14px',
+                  fontWeight: 500
+                }}
+              >
+                Delete
               </button>
             </div>
           </div>

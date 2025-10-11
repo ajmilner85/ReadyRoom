@@ -167,6 +167,19 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
     setMissionCommander(null);
   }, [setAssignedPilots, setMissionCommander]);
 
+  // Clear pilot assignments for a specific flight
+  const handleClearFlightAssignments = useCallback((flightId: string) => {
+    // Also clear mission commander if they were in this flight
+    if (missionCommander && missionCommander.flightId === flightId) {
+      setMissionCommander(null);
+    }
+
+    // Clear the flight's assignments
+    const updatedPilots = { ...assignedPilots };
+    delete updatedPilots[flightId];
+    setAssignedPilots(updatedPilots, false);
+  }, [assignedPilots, setAssignedPilots, missionCommander, setMissionCommander]);
+
   // Handle step time changes and save to database
   const handleStepTimeChange = useCallback(async (stepTime: string) => {
     console.log('🕐 MissionPreparation: Saving step time to database:', {
@@ -543,6 +556,7 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
                 onFlightsChange={handleFlightsChange}
                 initialFlights={prepFlights}
                 onClearAssignments={handleClearAssignments}
+                onClearFlightAssignments={handleClearFlightAssignments}
                 mission={mission}
               />              <div style={{
                 display: 'flex',
