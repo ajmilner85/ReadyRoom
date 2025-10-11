@@ -308,8 +308,8 @@ const EventsManagement: React.FC = () => {
     };
     restrictedTo?: string[];
     participants?: string[];
-    headerImage?: File | null;
-    additionalImages?: (File | null)[];
+    headerImage?: File | string | null;
+    additionalImages?: (File | string | null)[];
     trackQualifications?: boolean;
     timezone?: string;
     reminders?: {
@@ -522,8 +522,8 @@ const EventsManagement: React.FC = () => {
     };
     restrictedTo?: string[];
     participants?: string[];
-    headerImage?: File | null;
-    additionalImages?: (File | null)[];
+    headerImage?: File | string | null;
+    additionalImages?: (File | string | null)[];
     trackQualifications?: boolean;
     timezone?: string;
     reminders?: {
