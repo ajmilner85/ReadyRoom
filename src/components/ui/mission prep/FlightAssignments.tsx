@@ -8,6 +8,8 @@ import type { Mission } from '../../../types/MissionTypes';
 import { Trash2 } from 'lucide-react';
 import { useMissionPrepData } from '../../../hooks/useMissionPrepData';
 import { useAppSettings } from '../../../context/AppSettingsContext';
+import aircraftIconSvg from '../../../assets/Aircraft Icon.svg';
+import clockIconSvg from '../../../assets/Clock.svg';
 
 // Discord SVG icon component  
 const DiscordIcon = ({ className = "", size = 16 }: { className?: string; size?: number }) => (
@@ -836,18 +838,27 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
     try {
       // Canvas dimensions
       const padding = 20;
-      const columnWidths = [25, 140, 130, 90, 90, 60]; // MC indicator, Slot, Pilot, MIDS A, MIDS B, STEP
-      const tablePadding = 15; // Left padding inside table
+      const flightHeaderColumnWidth = 120; // Width of the left column with flight info
+      const columnWidths = [25, 140, 130, 90, 90]; // MC indicator, Slot, Pilot, MIDS A, MIDS B
+      const tablePadding = 15; // Left padding inside data table
       const rightPadding = 15; // Right padding after last column
-      const tableWidth = columnWidths.reduce((sum, width) => sum + width, 0) + tablePadding + rightPadding;
+      const dataTableWidth = columnWidths.reduce((sum, width) => sum + width, 0) + tablePadding + rightPadding;
+      const tableWidth = flightHeaderColumnWidth + dataTableWidth; // Total width = flight info column + data columns
       const width = tableWidth + padding * 2; // Canvas width = table width + left/right padding
-      const titleHeight = 80; // Increased for squadron name
-      const headerHeight = 40;
+      const titleHeight = 100; // Increased for squadron name and extra spacing after STEP time
+      const headerHeight = 40; // Height for column headers
       const rowHeight = 35;
 
-      // Prepare flight data - each flight gets its own table
-      const flightTables: { flightName: string; data: string[][]; }[] = [];
-      const headers = ['', 'Slot', 'Pilot', 'MIDS A', 'MIDS B', 'STEP']; // Empty header for MC indicator column
+      // Prepare flight data - each flight gets its own table with metadata
+      const flightTables: {
+        flightName: string;
+        data: string[][];
+        strength: number;
+        callsign: string;
+        tasking: string;
+        stepOffset: string;
+      }[] = [];
+      const headers = ['', 'Slot', 'Pilot', 'MIDS A', 'MIDS B']; // Empty header for MC indicator column
 
       // Helper function to format step time
       const formatStepTimeForImage = (minutes?: number): string => {
@@ -868,13 +879,20 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
       if (squadronGroup.flights.length === 0) {
         flightTables.push({
           flightName: 'No Flights',
-          data: [['', 'No flight assignments found', '', '', '', '']]
+          data: [['', 'No flight assignments found', '', '', '']],
+          strength: 0,
+          callsign: '',
+          tasking: '',
+          stepOffset: ''
         });
       } else {
         squadronGroup.flights.forEach((flight) => {
           const updatedPilots = getUpdatedFlightPilots(flight);
           const flightData: string[][] = [];
           const stepTimeStr = formatStepTimeForImage(flight.stepTime);
+
+          // Calculate flight strength (number of assigned pilots)
+          const strength = updatedPilots.filter(p => p.boardNumber && p.callsign).length;
 
           // Calculate MIDS channels for second section (dash 3 & 4)
           const midsANum = parseInt(flight.midsA || '0');
@@ -891,8 +909,7 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
                 `${flight.callsign} ${flight.flightNumber}-${i}`,
                 '—',
                 sectionMidsA,
-                flight.midsB || '—',
-                stepTimeStr
+                flight.midsB || '—'
               ]);
             }
           } else {
@@ -914,24 +931,45 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
                 `${flight.callsign} ${flight.flightNumber}-${pilot.dashNumber}`,
                 pilotDisplay,
                 sectionMidsA,
-                flight.midsB || '—',
-                stepTimeStr
+                flight.midsB || '—'
               ]);
             });
           }
-          
+
           flightTables.push({
             flightName: `${flight.callsign} ${flight.flightNumber}`,
-            data: flightData
+            data: flightData,
+            strength,
+            callsign: `${flight.callsign} ${flight.flightNumber}`,
+            tasking: '', // Will be implemented later
+            stepOffset: stepTimeStr
           });
         });
       }
 
-      // Calculate total height: title + header (once) + all flight tables + spacing between tables
-      const tableSpacing = 20; // Space between flight tables
+      // Calculate total height: title + (column header once + all rows) + spacing between tables + bottom padding for revision
+      const tableSpacing = 15; // Space between flight tables (3x original 5px)
       const totalRows = flightTables.reduce((sum, table) => sum + table.data.length, 0);
-      const totalHeight = padding * 2 + titleHeight + headerHeight + (totalRows * rowHeight) + (flightTables.length - 1) * tableSpacing + 20;
-      
+      const bottomPadding = 30; // Extra space at bottom for revision number
+      const totalHeight = padding * 2 + titleHeight + headerHeight + (totalRows * rowHeight) + ((flightTables.length - 1) * tableSpacing) + bottomPadding;
+
+      // Load aircraft and clock icons BEFORE creating canvas
+      const aircraftIcon = new Image();
+      aircraftIcon.src = aircraftIconSvg;
+      const clockIcon = new Image();
+      clockIcon.src = clockIconSvg;
+
+      await Promise.all([
+        new Promise((resolve, reject) => {
+          aircraftIcon.onload = resolve;
+          aircraftIcon.onerror = reject;
+        }),
+        new Promise((resolve, reject) => {
+          clockIcon.onload = resolve;
+          clockIcon.onerror = reject;
+        })
+      ]);
+
       // Create canvas
       const canvas = document.createElement('canvas');
       canvas.width = width;
@@ -1005,7 +1043,7 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
       ctx.fillStyle = '#FFFFFF';
 
       // Calculate available space for event name (rightX - end of squadron designation)
-      const squadronTextEndX = designationX + ctx.measureText(designationText).width + 20; // Add 20px margin
+      const squadronTextEndX = designationX + ctx.measureText(designationText).width + 40; // Add 40px margin between left and right header elements
       const availableWidth = rightX - squadronTextEndX;
       const eventNameWidth = ctx.measureText(eventName).width;
 
@@ -1072,16 +1110,17 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
       }
 
       // Mission step time (if available) - bold, below event time
+      // Format: STEP ⏰ 21:20 PM EDT / 01:20Z
       if (mission?.step_time) {
         const stepTimeDate = new Date(mission.step_time);
         const timezone = settings.eventDefaults.referenceTimezone || 'America/New_York';
 
-        // Format in reference timezone
+        // Format in reference timezone (12-hour format with colons)
         const localFormatter = new Intl.DateTimeFormat('en-US', {
           timeZone: timezone,
           hour: '2-digit',
           minute: '2-digit',
-          hour12: false
+          hour12: true
         });
 
         // Get timezone abbreviation
@@ -1092,7 +1131,7 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
         const tzParts = tzFormatter.formatToParts(stepTimeDate);
         const tzAbbr = tzParts.find(p => p.type === 'timeZoneName')?.value || timezone;
 
-        // Format in Zulu (UTC)
+        // Format in Zulu (UTC, 24-hour format without colons)
         const zuluFormatter = new Intl.DateTimeFormat('en-US', {
           timeZone: 'UTC',
           hour: '2-digit',
@@ -1101,46 +1140,120 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
         });
 
         const localTime = localFormatter.format(stepTimeDate);
-        const zuluTime = zuluFormatter.format(stepTimeDate);
-        const stepTimeText = `STEP @${localTime} ${tzAbbr}/${zuluTime}Z`;
+        const zuluTimeRaw = zuluFormatter.format(stepTimeDate);
+        const zuluTime = zuluTimeRaw.replace(':', ''); // Remove colon for military format
 
+        // Draw STEP time line: STEP ⏰ 21:20 PM EDT / 01:20Z
         ctx.font = 'bold 16px Arial, sans-serif';
         ctx.fillStyle = '#FFFFFF';
-        ctx.fillText(stepTimeText, rightX, lastTextY + 18);
+        ctx.textAlign = 'right';
+        const stepTextY = lastTextY + 20;
+
+        // Build the complete string and measure it
+        const stepTimeText = `${localTime} ${tzAbbr} / ${zuluTime}Z`;
+        const clockIconSize = 16;
+
+        // Measure components
+        const timeWidth = ctx.measureText(stepTimeText).width;
+        const stepWidth = ctx.measureText('STEP').width;
+        const totalWidth = stepWidth + 4 + clockIconSize + 4 + timeWidth;
+
+        // Calculate starting X position (working right to left)
+        const startX = rightX - totalWidth;
+
+        // Draw "STEP"
+        ctx.textAlign = 'left';
+        ctx.fillText('STEP', startX, stepTextY);
+
+        // Draw clock icon after "STEP"
+        const clockX = startX + stepWidth + 4;
+        const clockY = stepTextY - clockIconSize + 3;
+        ctx.drawImage(clockIcon, clockX, clockY, clockIconSize, clockIconSize);
+
+        // Draw time text after clock
+        const timeX = clockX + clockIconSize + 4;
+        ctx.fillText(stepTimeText, timeX, stepTextY);
       }
 
       // Render separate tables for each flight
       let currentY = padding + titleHeight;
-      
-      flightTables.forEach((flightTable, tableIndex) => {
-        const isFirstTable = tableIndex === 0;
-        
-        // Add spacing between tables (but not before first table)
-        if (!isFirstTable) {
+      let isFirstFlight = true;
+
+      for (const flightTable of flightTables) {
+        // Add spacing between tables (skip for first flight)
+        if (!isFirstFlight) {
           currentY += tableSpacing;
         }
-        
-        // Calculate the current table's row section height
+
+        // Calculate the current table's total height
+        // Only include header height for the first flight
         const tableRowsHeight = flightTable.data.length * rowHeight;
-        
-        // Draw table background for the rows only (header drawn separately if first table)
-        ctx.fillStyle = '#4A5568';
-        const backgroundY = currentY + (isFirstTable ? headerHeight : 0);
-        const backgroundHeight = tableRowsHeight;
-        ctx.fillRect(padding, backgroundY, tableWidth, backgroundHeight);
-        
-        // Draw header only on first table
-        if (isFirstTable) {
+        const totalTableHeight = (isFirstFlight ? headerHeight : 0) + tableRowsHeight;
+
+        // Draw flight header COLUMN (left side) - spans the entire height of header + rows
+        ctx.fillStyle = '#2D3748';
+        ctx.fillRect(padding, currentY, flightHeaderColumnWidth, totalTableHeight);
+
+        // Calculate vertical positioning for the content group - with DATA ROWS ONLY (not header)
+        const dataRowsStartY = currentY + (isFirstFlight ? headerHeight : 0);
+        const iconSize = 65;
+        const spacingBetween = 8;
+        const verticalPadding = 8; // Equal padding above and below content
+        const startY = dataRowsStartY + verticalPadding;
+
+        // Draw aircraft icon centered
+        const iconX = padding + (flightHeaderColumnWidth - iconSize) / 2;
+        const iconY = startY;
+        ctx.drawImage(aircraftIcon, iconX, iconY, iconSize, iconSize);
+
+        // Draw "xN" (strength indicator) OVERLAYED on icon (centered vertically and horizontally)
+        const strengthText = `x${flightTable.strength}`;
+        ctx.font = '14px Arial, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillStyle = '#FFFFFF';
+        const strengthY = iconY + (iconSize / 2) + 5; // Center vertically on icon
+        ctx.fillText(strengthText, padding + flightHeaderColumnWidth / 2, strengthY);
+
+        // Draw callsign below icon
+        const callsignY = iconY + iconSize + spacingBetween + 10;
+        ctx.font = 'bold 18px Arial, sans-serif';
+        ctx.fillText(flightTable.callsign, padding + flightHeaderColumnWidth / 2, callsignY);
+
+        // Draw tasking below callsign (placeholder text or empty space)
+        const taskingY = callsignY + spacingBetween + 12;
+        if (flightTable.tasking) {
+          ctx.font = '14px Arial, sans-serif';
+          ctx.fillText(flightTable.tasking, padding + flightHeaderColumnWidth / 2, taskingY);
+        }
+
+        // Draw step offset with clock icon below tasking
+        const stepOffsetY = taskingY + spacingBetween + 12;
+        ctx.font = '14px Arial, sans-serif';
+
+        // Draw clock icon (from SVG)
+        const clockSize = 14;
+        const clockX = padding + flightHeaderColumnWidth / 2 - 22;
+        const clockY = stepOffsetY - clockSize + 2;
+        ctx.drawImage(clockIcon, clockX, clockY, clockSize, clockSize);
+
+        // Draw step offset text next to clock (with 4px space)
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillText(flightTable.stepOffset, padding + flightHeaderColumnWidth / 2 + 2, stepOffsetY);
+
+        // Draw column header row (to the right of flight header column) - ONLY FOR FIRST FLIGHT
+        const dataTableX = padding + flightHeaderColumnWidth;
+        if (isFirstFlight) {
+          // Use same background color as flight header column (#2D3748)
           ctx.fillStyle = '#2D3748';
-          ctx.fillRect(padding, currentY, tableWidth, headerHeight);
-          
+          ctx.fillRect(dataTableX, currentY, dataTableWidth, headerHeight);
+
           ctx.fillStyle = '#FFFFFF';
           ctx.font = 'bold 16px Arial, sans-serif';
           ctx.textAlign = 'left';
-          
-          let headerX = padding + tablePadding;
+
+          let headerX = dataTableX + tablePadding;
           headers.forEach((header, index) => {
-            if (index >= 3) { // MIDS A, MIDS B, and STEP columns (center-aligned)
+            if (index >= 3) { // MIDS A and MIDS B columns (center-aligned)
               ctx.textAlign = 'center';
               ctx.fillText(header, headerX + columnWidths[index] / 2, currentY + 25);
             } else if (index === 0) { // Mission commander indicator column
@@ -1152,27 +1265,28 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
             }
             headerX += columnWidths[index];
           });
-          
+
           currentY += headerHeight;
         }
-        
-        // Draw table rows
+
+        // Draw table rows (to the right of flight header column)
         ctx.font = '14px Arial, sans-serif';
-        
+
         flightTable.data.forEach((row, rowIndex) => {
+          // Only add headerHeight offset for first flight (since header was drawn)
           const rowY = currentY + (rowIndex * rowHeight);
-          
-          // Alternate row colors
+
+          // Alternate row colors (only for data table area)
           ctx.fillStyle = rowIndex % 2 === 0 ? '#4A5568' : '#374151';
-          ctx.fillRect(padding, rowY, tableWidth, rowHeight);
-          
+          ctx.fillRect(dataTableX, rowY, dataTableWidth, rowHeight);
+
           // Check if this row contains mission commander (has star in first column)
           const isMCRow = row[0] === '★';
-          
+
           // Row text
           ctx.fillStyle = '#FFFFFF';
-          let cellX = padding + tablePadding;
-          
+          let cellX = dataTableX + tablePadding;
+
           row.forEach((cell, cellIndex) => {
             // Set font weight based on mission commander status and column
             if (isMCRow && (cellIndex === 1 || cellIndex === 2)) { // Slot and Pilot columns
@@ -1180,33 +1294,34 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
             } else {
               ctx.font = '14px Arial, sans-serif';
             }
-            
+
             // Special handling for empty pilot cells
-            if (cellIndex === 2 && cell === '—') { // Pilot column (adjusted index)
+            if (cellIndex === 2 && cell === '—') { // Pilot column
               ctx.fillStyle = '#9CA3AF';
             } else {
               ctx.fillStyle = '#FFFFFF';
             }
-            
+
             // Text alignment
             if (cellIndex === 0) { // Mission commander indicator column
               ctx.textAlign = 'center';
               ctx.fillText(cell, cellX + columnWidths[cellIndex] / 2, rowY + 22);
-            } else if (cellIndex >= 3) { // MIDS A, MIDS B, and STEP columns (center-aligned)
+            } else if (cellIndex >= 3) { // MIDS A and MIDS B columns (center-aligned)
               ctx.textAlign = 'center';
               ctx.fillText(cell, cellX + columnWidths[cellIndex] / 2, rowY + 22);
             } else {
               ctx.textAlign = 'left';
               ctx.fillText(cell, cellX, rowY + 22);
             }
-            
+
             cellX += columnWidths[cellIndex];
           });
         });
-        
-        // Move to next table position
+
+        // Move to next table position (add only the data rows height since currentY already accounts for header)
         currentY += tableRowsHeight;
-      });
+        isFirstFlight = false; // Ensure subsequent flights don't render headers
+      }
 
       // Add revision number in bottom right corner if provided
       if (revision) {
@@ -1226,6 +1341,53 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
       return null;
     }
   }, [getUpdatedFlightPilots]);
+
+  // Expose preview function to window for console testing
+  useEffect(() => {
+    const previewFlightAssignments = async () => {
+      console.log('📸 Generating flight assignment image preview...');
+
+      try {
+        const squadronGroups = await groupFlightsBySquadron();
+
+        if (squadronGroups.length === 0) {
+          console.error('No squadron groups found with flights.');
+          return;
+        }
+
+        // Generate image for first squadron group
+        const squadronGroup = squadronGroups[0];
+        console.log(`Generating preview for ${squadronGroup.squadron.name}...`);
+
+        const imageBlob = await generateFlightAssignmentImage(squadronGroup, 1);
+
+        if (!imageBlob) {
+          console.error('Failed to generate image blob.');
+          return;
+        }
+
+        // Open image in new tab
+        const url = URL.createObjectURL(imageBlob);
+        const newTab = window.open(url, '_blank');
+
+        if (newTab) {
+          console.log('✅ Preview opened in new tab!');
+          // Clean up URL after tab is loaded
+          setTimeout(() => URL.revokeObjectURL(url), 1000);
+        } else {
+          console.error('Failed to open new tab. Check your popup blocker settings.');
+        }
+      } catch (error) {
+        console.error('Error generating preview:', error);
+      }
+    };
+
+    (window as any).previewFlightAssignments = previewFlightAssignments;
+
+    return () => {
+      delete (window as any).previewFlightAssignments;
+    };
+  }, [groupFlightsBySquadron, generateFlightAssignmentImage]);
 
   // Save flight post record to database
   const saveFlightPostRecord = useCallback(async (eventId: string, squadronId: string, guildId: string, channelId: string, messageId: string, isUpdate: boolean = false) => {

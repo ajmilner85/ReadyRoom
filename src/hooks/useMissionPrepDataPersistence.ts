@@ -258,6 +258,7 @@ export const useMissionPrepDataPersistence = (
           ],
           midsA: flightData.midsA || '',
           midsB: flightData.midsB || '',
+          stepTime: flightData.stepTime || 0,
           creationOrder: flightData.creationOrder || index,
           // Preserve any additional metadata
           metadata: flightData.metadata
