@@ -14,8 +14,8 @@ interface EventDialogProps {
     };
     restrictedTo?: string[];
     participants?: string[];
-    headerImage?: File | null;
-    additionalImages?: (File | null)[];
+    headerImage?: File | string | null;
+    additionalImages?: (File | string | null)[];
     trackQualifications?: boolean;
     groupBySquadron?: boolean;
     timezone?: string;
@@ -619,8 +619,8 @@ export const EventDialog: React.FC<EventDialogProps> = ({
         },
         restrictedTo: restrictedTo.length > 0 ? restrictedTo : undefined,
         participants: participants.length > 0 ? participants : undefined,
-        headerImage: headerImageForSubmit instanceof File ? headerImageForSubmit : undefined,
-        additionalImages: additionalImagesForSubmit.filter((img): img is File => img instanceof File),
+        headerImage: headerImageForSubmit as File | string | null,
+        additionalImages: additionalImagesForSubmit as (File | string)[],
         trackQualifications,
         groupBySquadron,
         timezone,
