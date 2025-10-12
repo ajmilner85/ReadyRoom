@@ -169,6 +169,10 @@ const App: React.FC = () => {
               divisionNumber = -1;
             } else if (divisionId === 'charlie') {
               divisionNumber = -2;
+            } else if (divisionId === 'platform') {
+              divisionNumber = -3;
+            } else if (divisionId === 'bolter') {
+              divisionNumber = -4;
             } else if (divisionId === 'inbound') {
               divisionNumber = 99;
             } else {
@@ -317,6 +321,83 @@ const App: React.FC = () => {
           setInitialBoardNumber(newInitialBoardNumber || '');
         }
         return;
+      }
+
+      // Handle position shortcuts for single flight cards
+      if (isHoveringBoardNumber && hoveredBoardNumber) {
+        const flight = flights.find(f =>
+          f.members.some(m => m.boardNumber === hoveredBoardNumber)
+        );
+
+        if (flight && flight.formation === 'single') {
+          // 'e' - Established (no position change, just sets state)
+          if (e.key.toLowerCase() === 'e') {
+            const updatedFlight = updateFlightPosition(
+              flight,
+              hoveredBoardNumber,
+              'Established',
+              '',
+              '',
+              flight.lowState
+            );
+            setFlights(prev => prev.map(f => f.id === flight.id ? updatedFlight : f));
+            return;
+          }
+
+          // 'c' - Commenced (move to Charlie/Commence division)
+          if (e.key.toLowerCase() === 'c') {
+            const updatedFlight = {
+              ...updateFlightPosition(
+                flight,
+                hoveredBoardNumber,
+                'Commenced',
+                '',
+                '',
+                flight.lowState
+              ),
+              currentSection: 'Recovery',
+              currentDivision: -2 // Charlie/Commence
+            };
+            setFlights(prev => prev.map(f => f.id === flight.id ? updatedFlight : f));
+            return;
+          }
+
+          // 'p' - Platform (move to Platform division)
+          if (e.key.toLowerCase() === 'p') {
+            const updatedFlight = {
+              ...updateFlightPosition(
+                flight,
+                hoveredBoardNumber,
+                'Platform',
+                '',
+                '',
+                flight.lowState
+              ),
+              currentSection: 'Recovery',
+              currentDivision: -3 // Platform
+            };
+            setFlights(prev => prev.map(f => f.id === flight.id ? updatedFlight : f));
+            return;
+          }
+
+          // 'b' - Bolter (move to Bolter division)
+          if (e.key.toLowerCase() === 'b') {
+            const updatedFlight = {
+              ...updateFlightPosition(
+                flight,
+                hoveredBoardNumber,
+                'Bolter',
+                '',
+                '',
+                flight.lowState
+              ),
+              currentSection: 'Recovery',
+              currentDivision: -4 // Bolter
+            };
+            setFlights(prev => prev.map(f => f.id === flight.id ? updatedFlight : f));
+            return;
+          }
+        }
       }
 
       // Handle split/divide when a flight is being hovered

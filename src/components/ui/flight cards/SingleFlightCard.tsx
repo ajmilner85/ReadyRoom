@@ -3,7 +3,6 @@ import { useDraggable } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
 import type { Flight } from '../../../types/FlightData';
 import FuelDisplay from './FuelDisplay';
-import { formatAltitude } from '../../../utils/positionUtils';
 
 interface SingleFlightCardProps extends Flight {
   isDragging?: boolean;
@@ -40,6 +39,10 @@ const SingleFlightCard: React.FC<SingleFlightCardProps> = ({
 
   const formatPosition = (pos?: { bearing: string; distance: string; altitude: string }) => {
     if (!pos) return '';
+    // For special recovery positions (single word bearing with no distance), just show the bearing
+    if (pos.bearing && !pos.distance) {
+      return pos.bearing;
+    }
     return `${pos.bearing}/${pos.distance}`;
   };
 
@@ -148,21 +151,18 @@ const SingleFlightCard: React.FC<SingleFlightCardProps> = ({
           fontFamily: 'Inter',
           fontStyle: 'normal',
           fontWeight: 500,
-          fontSize: '20px',
+          fontSize: '14px',
           lineHeight: '24px',
           display: 'flex',
-          flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
-          color: '#1E1E1E'
+          color: '#64748B',
+          textTransform: 'uppercase'
         }}>
           {displayPosition ? (
-            <>
-              <div>{formatPosition(displayPosition)}</div>
-              <div style={{ fontSize: '14px' }}>{formatAltitude(displayPosition.altitude)}</div>
-            </>
+            <div>{formatPosition(displayPosition)}</div>
           ) : (
-            <div style={{ fontSize: '14px', color: '#64748B' }}>NO POS</div>
+            <div>NO POS</div>
           )}
         </div>
       </div>
