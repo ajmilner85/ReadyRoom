@@ -252,17 +252,18 @@ const Communications: React.FC<CommunicationsProps> = ({
         callsign: flight.callsign,
         members,
         lowState, // Use calculated low state instead of hardcoded value
-        currentSection: "", // Empty string for unassigned flights
-        currentDivision: 0,
+        currentSection: "", // Empty string for unassigned flights - will be set to Launch in App.tsx
+        currentDivision: 0, // Will be updated based on stepTime in App.tsx
         formation: members.length > 1 ? "group" : "single",
         squadronId: owningSquadron?.id,
         squadronColorPalette: owningSquadron?.color_palette ? {
           primary: owningSquadron.color_palette.primary,
           accent: owningSquadron.color_palette.accent
         } : undefined,
-        aircraftType
+        aircraftType,
+        stepTime: flight.stepTime ?? 0 // Transfer step time from flight assignments
       };
-      
+
       return flightData;
     }).filter(Boolean) as Flight[];
       onTransferToMission(transferFlights);

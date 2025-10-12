@@ -19,12 +19,35 @@ interface GridLayoutProps {
 }
 
 const GridLayout: React.FC<GridLayoutProps> = ({ flights = [], onUpdateMemberFuel }) => {
-  const { sections } = useSections();
+  const { sections, createLaunchDivisionsFromStepTimes } = useSections();
   const sectionRefs = useRef<(HTMLDivElement | null)[]>([]);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const { isOver: isDrawerOver, setNodeRef: setDrawerRef } = useDroppable({
     id: 'inactive',
   });
+
+  // Memoize unique step times to prevent unnecessary re-renders
+  const uniqueStepTimes = React.useMemo(() => {
+    if (flights.length === 0) return [];
+    const stepTimes = flights
+      .map(flight => (flight as any).stepTime ?? 0)
+      .filter((stepTime, index, self) => self.indexOf(stepTime) === index);
+    return stepTimes.sort((a, b) => a - b);
+  }, [flights]);
+
+  // Convert to string for stable comparison
+  const stepTimesKey = uniqueStepTimes.join(',');
+
+  // Track the last step times we used to create divisions
+  const lastStepTimesRef = React.useRef<string>('');
+
+  // Create launch divisions based on flight step times when they actually change
+  React.useEffect(() => {
+    if (uniqueStepTimes.length > 0 && stepTimesKey !== lastStepTimesRef.current) {
+      createLaunchDivisionsFromStepTimes(uniqueStepTimes);
+      lastStepTimesRef.current = stepTimesKey;
+    }
+  }, [stepTimesKey, uniqueStepTimes, createLaunchDivisionsFromStepTimes]);
 
   const getFlightsForDivision = (sectionTitle: string, divisionId: string): Flight[] => {
     const divisionNum = divisionId.split('-')[1];
@@ -80,7 +103,7 @@ const GridLayout: React.FC<GridLayoutProps> = ({ flights = [], onUpdateMemberFue
                   onUpdateMemberFuel={onUpdateMemberFuel}
                   renderFlightCard={renderFlightCard}
                 />
-                <DivisionEditor 
+                <DivisionEditor
                   sectionTitle={section.title}
                   division={division}
                   sectionRef={sectionRefs.current[sectionIndex] ? { current: sectionRefs.current[sectionIndex] } : undefined}
@@ -95,7 +118,6 @@ const GridLayout: React.FC<GridLayoutProps> = ({ flights = [], onUpdateMemberFue
 
           {/* Recovery tankers at the bottom */}
           <div style={{ display: 'flex', flexDirection: 'column-reverse' }}>
-            <TankerDivisionButton sectionTitle={section.title} position="bottom" />
             {[...recoveryTankers].reverse().map((division) => (
               <div key={division.id} style={{ position: 'relative' }}>
                 <DroppableZone
@@ -105,7 +127,7 @@ const GridLayout: React.FC<GridLayoutProps> = ({ flights = [], onUpdateMemberFue
                   onUpdateMemberFuel={onUpdateMemberFuel}
                   renderFlightCard={renderFlightCard}
                 />
-                <DivisionEditor 
+                <DivisionEditor
                   sectionTitle={section.title}
                   division={division}
                   sectionRef={sectionRefs.current[sectionIndex] ? { current: sectionRefs.current[sectionIndex] } : undefined}
@@ -120,15 +142,6 @@ const GridLayout: React.FC<GridLayoutProps> = ({ flights = [], onUpdateMemberFue
 
     return (
       <div style={{ display: 'flex', flexDirection: 'column-reverse' }}>
-        {section.title === "Recovery" ? (
-          <RecoveryToggleSwitch />
-        ) : section.type === 'launch' ? (
-          <LaunchDivisionButton sectionTitle={section.title} position="bottom" />
-        ) : section.title === "En Route/Tasking" ? (
-          <EnRouteDivisionButton sectionTitle={section.title} position="bottom" />
-        ) : (
-          <AddDivisionButton sectionTitle={section.title} position="bottom" />
-        )}
         {[...section.divisions].reverse().map((division) => (
           <div key={division.id} style={{ position: 'relative' }}>
             <DroppableZone
@@ -138,7 +151,7 @@ const GridLayout: React.FC<GridLayoutProps> = ({ flights = [], onUpdateMemberFue
               onUpdateMemberFuel={onUpdateMemberFuel}
               renderFlightCard={renderFlightCard}
             />
-            <DivisionEditor 
+            <DivisionEditor
               sectionTitle={section.title}
               division={division}
               sectionRef={sectionRefs.current[sectionIndex] ? { current: sectionRefs.current[sectionIndex] } : undefined}
@@ -151,28 +164,27 @@ const GridLayout: React.FC<GridLayoutProps> = ({ flights = [], onUpdateMemberFue
   };
 
   return (
-    <div style={{ 
-      backgroundColor: '#F0F4F8', 
+    <div style={{
+      backgroundColor: '#F0F4F8',
       minHeight: '100vh',
-      height: '100vh', // Force exact viewport height
+      height: '100%',
       display: 'flex',
       flexDirection: 'column',
       alignItems: 'center',
-      padding: '0', // Remove all padding
+      padding: '0',
       boxSizing: 'border-box',
       width: '100%',
-      overflowX: 'hidden', // Prevent horizontal scroll
-      overflowY: 'hidden' // Prevent vertical scroll on main container
+      overflowX: 'hidden',
+      overflowY: 'hidden'
     }}>
       <div style={{
         display: 'flex',
         gap: '20px',
-        padding: '20px 15px 15px 15px', // 20px top, 15px on other sides
+        padding: '20px 15px 15px 15px',
         height: '100vh',
         overflowX: 'hidden',
         overflowY: 'hidden',
         position: 'relative',
-        zIndex: 1,
         justifyContent: 'center',
         width: '100%',
         maxWidth: '100%',
@@ -183,8 +195,8 @@ const GridLayout: React.FC<GridLayoutProps> = ({ flights = [], onUpdateMemberFue
             key={section.title}
             ref={(el: HTMLDivElement | null) => { sectionRefs.current[index] = el }}
             style={{
-              flex: '1 0 550px', 
-              minWidth: '550px', 
+              flex: '1 0 550px',
+              minWidth: '550px',
               maxWidth: '550px',
               display: 'flex',
               flexDirection: 'column',
@@ -192,10 +204,31 @@ const GridLayout: React.FC<GridLayoutProps> = ({ flights = [], onUpdateMemberFue
               backgroundColor: 'white',
               borderRadius: '8px',
               boxShadow: '0px 4px 6px -1px rgba(0, 0, 0, 0.1)',
-              padding: '15px', // Increased padding to prevent drop shadows being cut off
-              margin: '0 0 20px 0' // Add bottom margin for spacing between sections
+              padding: '24px',
+              margin: '0 0 20px 0'
             }}
           >
+            {/* Header with section label */}
+            <div style={{
+              width: '100%',
+              textAlign: 'center',
+              marginBottom: '16px',
+              position: 'relative'
+            }}>
+              <span style={{
+                fontFamily: 'Inter',
+                fontStyle: 'normal',
+                fontWeight: 300,
+                fontSize: '20px',
+                lineHeight: '24px',
+                color: '#64748B',
+                textTransform: 'uppercase'
+              }}>
+                {section.title}
+              </span>
+            </div>
+
+            {/* Divisions content area */}
             <div style={{
               flex: 1,
               display: 'flex',
@@ -203,24 +236,32 @@ const GridLayout: React.FC<GridLayoutProps> = ({ flights = [], onUpdateMemberFue
               justifyContent: 'flex-end',
               position: 'relative',
               minHeight: 0,
-              paddingBottom: '8px'
+              overflowY: 'auto',
+              paddingBottom: '20px'
             }}>
               {renderSectionDivisions(section, index)}
             </div>
 
+            {/* Footer with add button */}
             <div style={{
-              fontFamily: 'Inter, sans-serif',
-              fontStyle: 'normal',
-              fontWeight: 300,
-              fontSize: '20px',
-              lineHeight: '24px',
-              color: '#64748B',
-              textAlign: 'center',
-              padding: '8px',
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
               borderTop: '1px solid #E2E8F0',
-              position: 'relative',
+              paddingTop: '18px',
+              minHeight: '48px'
             }}>
-              {section.title.toUpperCase()}
+              {section.type === 'launch' ? (
+                <LaunchDivisionButton sectionTitle={section.title} position="bottom" />
+              ) : section.title === "En Route/Tasking" ? (
+                <EnRouteDivisionButton sectionTitle={section.title} position="bottom" />
+              ) : section.type === 'tanker' ? (
+                <TankerDivisionButton sectionTitle={section.title} position="bottom" />
+              ) : section.title === "Recovery" ? (
+                <RecoveryToggleSwitch />
+              ) : (
+                <AddDivisionButton sectionTitle={section.title} position="bottom" />
+              )}
             </div>
           </div>
         ))}

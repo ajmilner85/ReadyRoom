@@ -144,16 +144,17 @@ const FlightCard: React.FC<FlightCardProps> = ({
           gap: '4px',
         }}>
           {allMembers.map((member) => (
-            <div key={member.boardNumber} 
+            <div key={member.boardNumber}
+                 data-board-number={member.boardNumber}
                  style={{
                    display: 'flex',
                    alignItems: 'baseline',
                    height: '19px',
                  }}>
-              <span style={{ 
-                fontSize: '10px', 
-                fontWeight: 400, 
-                color: '#94A3B8', 
+              <span style={{
+                fontSize: '10px',
+                fontWeight: 400,
+                color: '#94A3B8',
                 lineHeight: '16px',
                 width: '10px',
                 textAlign: 'left',
@@ -161,11 +162,11 @@ const FlightCard: React.FC<FlightCardProps> = ({
               }}>
                 {member.dashNumber}
               </span>
-              <span style={{ 
-                fontFamily: 'USN Stencil', 
-                fontSize: '16px', 
-                fontWeight: 400, 
-                color: '#575A58', 
+              <span style={{
+                fontFamily: 'USN Stencil',
+                fontSize: '16px',
+                fontWeight: 400,
+                color: '#575A58',
                 width: '26px',
                 lineHeight: '16px',
                 textAlign: 'left',
