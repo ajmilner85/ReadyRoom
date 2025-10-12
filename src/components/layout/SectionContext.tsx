@@ -35,14 +35,15 @@ interface SectionContextType {
   addDivision: (sectionTitle: string, labelOrData: string | number | EnRouteDivisionData | TankerDivisionData, position: 'top' | 'bottom') => void;
   removeDivision: (sectionTitle: string, divisionId: string) => void;
   updateDivisionLabel: (
-    sectionTitle: string, 
-    divisionId: string, 
-    newLabel: string, 
+    sectionTitle: string,
+    divisionId: string,
+    newLabel: string,
     additionalData?: { stepTime?: number } | EnRouteDivisionData | TankerDivisionData
   ) => void;
   reorderDivisions: (sectionTitle: string, startIndex: number, endIndex: number) => void;
   updateSectionProperty: (sectionTitle: string, property: string, value: any) => void;
   adjustRecoveryTime: (altitude: number, minutesToAdd: number) => void;
+  createLaunchDivisionsFromStepTimes: (stepTimes: number[]) => void;
 }
 
 const defaultSections: Section[] = [
@@ -50,11 +51,6 @@ const defaultSections: Section[] = [
     title: "Launch",
     type: 'launch',
     divisions: [
-      { id: 'launch-5', label: "STEP +25min", stepTime: 25 },
-      { id: 'launch-4', label: "STEP +20min", stepTime: 20 },
-      { id: 'launch-3', label: "STEP +15min", stepTime: 15 },
-      { id: 'launch-2', label: "STEP +10min", stepTime: 10 },
-      { id: 'launch-1', label: "STEP +5min", stepTime: 5 },
       { id: 'launch-0', label: "STEP +0min", stepTime: 0 }
     ]
   },
@@ -293,16 +289,16 @@ export const SectionProvider: React.FC<{ children: React.ReactNode }> = ({ child
               return section;
             }
           }
-          
+
           const updatedDivisions = [...section.divisions];
-          
+
           // Update the adjusting division
           const updatedAdjustingDiv = {
             ...adjustingDiv.div,
             approachTime: newTime,
             label: adjustingDiv.div.label.replace(/:\d{2}$/, `:${newTime.toString().padStart(2, '0')}`)
           };
-          
+
           updatedDivisions[section.divisions.findIndex(d => d.id === adjustingDiv.div.id)] = updatedAdjustingDiv;
 
           let shouldPropagate = false;
@@ -336,6 +332,31 @@ export const SectionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     });
   };
 
+  const createLaunchDivisionsFromStepTimes = React.useCallback((stepTimes: number[]) => {
+    setSections(prevSections => {
+      return prevSections.map(section => {
+        if (section.title === 'Launch') {
+          // Get unique step times and ensure Step +0 is always included
+          const uniqueStepTimes = Array.from(new Set([0, ...stepTimes])).sort((a, b) => a - b);
+
+          // Create divisions for each unique step time
+          // Use stepTime as the division ID suffix so it matches currentDivision values
+          const newDivisions: Division[] = uniqueStepTimes.map((stepTime) => ({
+            id: `launch-${stepTime}`,
+            label: `STEP +${stepTime}min`,
+            stepTime
+          }));
+
+          // Sort divisions by step time in descending order (highest first)
+          newDivisions.sort((a, b) => (b.stepTime ?? 0) - (a.stepTime ?? 0));
+
+          return { ...section, divisions: newDivisions };
+        }
+        return section;
+      });
+    });
+  }, []);
+
   return (
     <SectionContext.Provider value={{
       sections,
@@ -344,7 +365,8 @@ export const SectionProvider: React.FC<{ children: React.ReactNode }> = ({ child
       updateDivisionLabel,
       reorderDivisions,
       updateSectionProperty,
-      adjustRecoveryTime
+      adjustRecoveryTime,
+      createLaunchDivisionsFromStepTimes
     }}>
       {children}
     </SectionContext.Provider>

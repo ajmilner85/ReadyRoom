@@ -238,7 +238,33 @@ const App: React.FC = () => {
 
   // Function to handle transfer of flights from Mission Preparation
   const handleTransferToMission = useCallback((transferredFlights: Flight[]) => {
-    setFlights(transferredFlights);
+    // Extract unique step times from transferred flights
+    const stepTimes = transferredFlights
+      .map(flight => (flight as any).stepTime ?? 0) // Get stepTime or default to 0
+      .filter((stepTime, index, self) => self.indexOf(stepTime) === index); // Get unique values
+
+    // Import useSections hook to access createLaunchDivisionsFromStepTimes
+    // This will be handled by wrapping in SectionProvider context
+
+    // Map the step times to division numbers for proper assignment
+    const stepTimeToDivisionMap = new Map<number, number>();
+    stepTimes.sort((a, b) => a - b); // Sort step times ascending
+    stepTimes.forEach((stepTime) => {
+      // Division numbers match step times for Launch section
+      stepTimeToDivisionMap.set(stepTime, stepTime);
+    });
+
+    // Update flights to place them in the correct Launch division based on step time
+    const flightsWithDivisions = transferredFlights.map(flight => {
+      const stepTime = (flight as any).stepTime ?? 0;
+      return {
+        ...flight,
+        currentSection: 'Launch',
+        currentDivision: stepTimeToDivisionMap.get(stepTime) ?? 0
+      };
+    });
+
+    setFlights(flightsWithDivisions);
     // Navigate to mission coordination page after transfer
     navigate('/mission-coordination');
   }, [navigate]);
@@ -390,37 +416,64 @@ const App: React.FC = () => {
             } />
             <Route path="/mission-coordination" element={
               <PermissionGuardedRoute requiredPermission="access_flights">
-                <DndContext 
+                <DndContext
                   onDragStart={handleDragStart}
                   onDragEnd={handleDragEnd}
                   autoScroll={{ enabled: false }}
                 >
-                  <div 
+                  <div
                     onMouseMove={(e) => {
                       const target = e.target as HTMLElement;
-                      const boardNumber = target.getAttribute('data-board-number');
-                      if (boardNumber) {
-                        setHoveredBoardNumber(boardNumber);
-                        setIsHoveringBoardNumber(true);
-                      } else {
-                        setIsHoveringBoardNumber(false);
-                      }
 
+                      // Find flight ID by traversing up the DOM tree
                       let currentElement: HTMLElement | null = target;
                       while (currentElement && !currentElement.getAttribute('data-flight-id')) {
                         currentElement = currentElement.parentElement;
                       }
-                      
                       const flightId = currentElement?.getAttribute('data-flight-id') || null;
                       setHoveredFlightId(flightId);
+
+                      // Find board number by checking current element and parents
+                      let boardNumberElement: HTMLElement | null = target;
+                      let foundBoardNumber: string | null = null;
+
+                      // Search up the tree for data-board-number, but stop at flight card boundary
+                      while (boardNumberElement && !boardNumberElement.getAttribute('data-flight-id')) {
+                        const bn = boardNumberElement.getAttribute('data-board-number');
+                        if (bn) {
+                          foundBoardNumber = bn;
+                          break;
+                        }
+                        boardNumberElement = boardNumberElement.parentElement;
+                      }
+
+                      // If we didn't find a board number and we're hovering over a flight card,
+                      // check if it's a single flight card and use its board number
+                      if (!foundBoardNumber && flightId) {
+                        const flight = flights.find(f => f.id === flightId);
+                        if (flight && flight.formation === 'single' && flight.members.length === 1) {
+                          foundBoardNumber = flight.members[0].boardNumber;
+                        }
+                      }
+
+                      if (foundBoardNumber) {
+                        setHoveredBoardNumber(foundBoardNumber);
+                        setIsHoveringBoardNumber(true);
+                      } else {
+                        setIsHoveringBoardNumber(false);
+                      }
                     }}
                     onMouseLeave={() => {
                       setIsHoveringBoardNumber(false);
                       setHoveredFlightId(null);
                     }}
-                    className="bg-slate-50"
+                    style={{
+                      backgroundColor: '#F0F4F8',
+                      height: '100%',
+                      width: '100%'
+                    }}
                   >
-                    <GridLayout 
+                    <GridLayout
                       flights={flights}
                       onUpdateMemberFuel={handleUpdateMemberFuel}
                     />

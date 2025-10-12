@@ -72,43 +72,33 @@ export const RecoveryToggleSwitch: React.FC = () => {
   ];
 
   return (
-    <div 
+    <button
+      onClick={handleToggle}
       style={{
-        display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'center',
-        padding: '18px',
-        position: 'relative',
-        zIndex: 5
+        minWidth: '80px',
+        height: '30px',
+        padding: '0 16px',
+        background: modes[currentMode].color,
+        borderRadius: '8px',
+        border: 'none',
+        cursor: 'pointer',
+        color: 'white',
+        fontFamily: 'Inter',
+        fontStyle: 'normal',
+        fontWeight: 400,
+        fontSize: '14px',
+        transition: 'all 0.2s ease'
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.background = modes[currentMode].hover;
+        e.currentTarget.style.transform = 'translateY(-1px)';
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.background = modes[currentMode].color;
+        e.currentTarget.style.transform = 'translateY(0)';
       }}
     >
-      <button
-        onClick={handleToggle}
-        style={{
-          width: '200px',
-          height: '30px',
-          background: modes[currentMode].color,
-          borderRadius: '8px',
-          border: 'none',
-          cursor: 'pointer',
-          color: 'white',
-          fontFamily: 'Inter',
-          fontStyle: 'normal',
-          fontWeight: 400,
-          fontSize: '14px',
-          transition: 'all 0.2s ease'
-        }}
-        onMouseEnter={(e) => {
-          e.currentTarget.style.background = modes[currentMode].hover;
-          e.currentTarget.style.transform = 'translateY(-1px)';
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.background = modes[currentMode].color;
-          e.currentTarget.style.transform = 'translateY(0)';
-        }}
-      >
-        {modes[currentMode].label}
-      </button>
-    </div>
+      {modes[currentMode].label}
+    </button>
   );
 };

@@ -32,6 +32,7 @@ export interface Flight {
     accent?: string;
   };
   aircraftType?: string; // Aircraft type (e.g., 'FA-18C_hornet', 'F-16C_50')
+  stepTime?: number; // Step time offset in minutes
   metadata?: {
     extractedIndex?: number;
     originalName?: string;
