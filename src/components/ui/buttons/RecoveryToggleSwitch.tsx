@@ -15,14 +15,15 @@ const generateCaseIDivisions = (): RecoveryDivision[] => [
   { id: 'recovery-3', label: 'ANGELS 3' },
   { id: 'recovery-2', label: 'ANGELS 2' },
   { id: 'recovery-spin', label: 'SPIN' },
-  { id: 'recovery-charlie', label: 'CHARLIE' }
+  { id: 'recovery-charlie', label: 'CHARLIE' },
+  { id: 'recovery-bolter', label: 'BOLTER' }
 ];
 
 const generateCaseIIIIIDivisions = (): RecoveryDivision[] => {
   const divisions: RecoveryDivision[] = [
     { id: 'recovery-inbound', label: 'INBOUND' }
   ];
-  
+
   // Add divisions from Angels 17 down to Angels 6
   for (let altitude = 17; altitude >= 6; altitude--) {
     const dme = altitude + 15; // DME = ANGELS + 15
@@ -33,10 +34,12 @@ const generateCaseIIIIIDivisions = (): RecoveryDivision[] => {
       approachTime
     });
   }
-  
+
   divisions.push({ id: 'recovery-spin', label: 'SPIN' });
-  divisions.push({ id: 'recovery-charlie', label: 'CHARLIE' });
-  
+  divisions.push({ id: 'recovery-charlie', label: 'COMMENCE' });
+  divisions.push({ id: 'recovery-platform', label: 'PLATFORM' });
+  divisions.push({ id: 'recovery-bolter', label: 'BOLTER' });
+
   return divisions;
 };
 

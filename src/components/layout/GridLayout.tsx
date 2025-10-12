@@ -51,20 +51,24 @@ const GridLayout: React.FC<GridLayoutProps> = ({ flights = [], onUpdateMemberFue
 
   const getFlightsForDivision = (sectionTitle: string, divisionId: string): Flight[] => {
     const divisionNum = divisionId.split('-')[1];
-    
+
     let expectedDivisionNumber: number;
     if (divisionNum === 'spin') {
       expectedDivisionNumber = -1;
     } else if (divisionNum === 'charlie') {
       expectedDivisionNumber = -2;
+    } else if (divisionNum === 'platform') {
+      expectedDivisionNumber = -3;
+    } else if (divisionNum === 'bolter') {
+      expectedDivisionNumber = -4;
     } else if (divisionNum === 'inbound') {
       expectedDivisionNumber = 99;
     } else {
       expectedDivisionNumber = parseInt(divisionNum);
     }
-    
-    return flights.filter(flight => 
-      flight.currentSection === sectionTitle && 
+
+    return flights.filter(flight =>
+      flight.currentSection === sectionTitle &&
       flight.currentDivision === expectedDivisionNumber
     );
   };

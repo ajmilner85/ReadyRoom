@@ -108,11 +108,11 @@ const DroppableZone: React.FC<DroppableZoneProps> = ({
   };
 
   const getContentHeight = () => {
-    const baseHeight = !isRecoveryZone ? 117 : (isCaseIIorIII ? 59 : 117);
+    const baseHeight = !isRecoveryZone ? 117 : (isCaseIIorIII ? 50 : 117);
     const adjustedBase = showTimeAdjuster ? baseHeight + 20 : baseHeight;
-    const cardSpacing = 8;
+    const cardSpacing = isCaseIIorIII ? 4 : 8; // Reduced spacing for CASE II/III
     const numCards = sortedFlights.length;
-    
+
     if (numCards === 0) return adjustedBase;
 
     let totalCardHeight = 0;
@@ -121,7 +121,10 @@ const DroppableZone: React.FC<DroppableZoneProps> = ({
     });
 
     totalCardHeight += (numCards - 1) * cardSpacing;
-    totalCardHeight += 16;
+    // Add padding for top and bottom
+    const topPadding = isCaseIIorIII ? 0 : 10;
+    const bottomPadding = isCaseIIorIII ? 8 : 10;
+    totalCardHeight += topPadding + bottomPadding;
 
     return Math.max(adjustedBase, totalCardHeight);
   };
@@ -219,17 +222,17 @@ const DroppableZone: React.FC<DroppableZoneProps> = ({
           marginLeft: 'auto',
           width: '442px',
           marginRight: '4px',
-          paddingTop: '10px', // Add padding at top to prevent overlap with label
-          paddingBottom: '10px', // Add padding at bottom for consistency
+          paddingTop: isCaseIIorIII ? '0px' : '10px', // Reduced padding for CASE II/III
+          paddingBottom: isCaseIIorIII ? '4px' : '10px', // Reduced padding for tighter layout
           paddingLeft: '10px', // Add padding on sides to prevent drop shadow cutoff
           paddingRight: '10px'
         }}>
           {sortedFlights.map((flight, index) => (
-            <div 
+            <div
               key={flight.id}
               style={{
                 position: 'relative',
-                marginBottom: index === sortedFlights.length - 1 ? 0 : '10px', // Ensure consistent 10px spacing between cards
+                marginBottom: index === sortedFlights.length - 1 ? 0 : (isCaseIIorIII ? '4px' : '10px'), // Reduced spacing for CASE II/III
                 display: 'block'
               }}
             >
