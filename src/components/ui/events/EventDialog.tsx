@@ -317,30 +317,50 @@ export const EventDialog: React.FC<EventDialogProps> = ({
   // Initialize datetime with default values based on settings
   useEffect(() => {
     if (!initialData?.datetime) {
-      // Get the next occurrence of the default day of week at the default time in the selected timezone
-      const now = new Date();
+      // The datetime-local input + timezone dropdown work together:
+      // The input shows a time that is INTERPRETED as being in the selected timezone
+      // So we just need to show "8:30 PM" and let the timezone dropdown indicate it's Eastern
+      
       const targetDay = settings.eventDefaults.defaultStartDayOfWeek;
       const targetTime = settings.eventDefaults.defaultStartTime;
+      const [hours, minutes] = targetTime.split(':').map(Number);
+      
+      // Get current date/time in the reference timezone
+      const formatter = new Intl.DateTimeFormat('en-US', {
+        timeZone: timezone,
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        weekday: 'long'
+      });
+      
+      const now = new Date();
+      const parts = formatter.formatToParts(now);
+      const currentYear = parseInt(parts.find(p => p.type === 'year')?.value || '0');
+      const currentMonth = parseInt(parts.find(p => p.type === 'month')?.value || '0');
+      const currentDay = parseInt(parts.find(p => p.type === 'day')?.value || '0');
+      const currentWeekday = parts.find(p => p.type === 'weekday')?.value || '';
       
       const daysOfWeek = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
       const targetDayIndex = daysOfWeek.indexOf(targetDay);
-      const currentDayIndex = now.getDay();
+      const currentDayIndex = daysOfWeek.indexOf(currentWeekday);
       
       let daysToAdd = targetDayIndex - currentDayIndex;
       if (daysToAdd <= 0) {
         daysToAdd += 7; // Next week
       }
       
-      const targetDate = new Date(now);
-      targetDate.setDate(now.getDate() + daysToAdd);
+      // Calculate the target date
+      const tempDate = new Date(currentYear, currentMonth - 1, currentDay + daysToAdd);
+      const finalYear = tempDate.getFullYear();
+      const finalMonth = String(tempDate.getMonth() + 1).padStart(2, '0');
+      const finalDay = String(tempDate.getDate()).padStart(2, '0');
+      const hourStr = String(hours).padStart(2, '0');
+      const minuteStr = String(minutes).padStart(2, '0');
       
-      // Set the time
-      const [hours, minutes] = targetTime.split(':').map(Number);
-      targetDate.setHours(hours, minutes, 0, 0);
-      
-      // Convert to timezone-local for display
-      const timezoneLocalString = utcToTimezoneLocal(targetDate.toISOString(), timezone);
-      setDatetime(timezoneLocalString);
+      // Set the time directly - it will be interpreted as being in the selected timezone
+      const datetimeValue = `${finalYear}-${finalMonth}-${finalDay}T${hourStr}:${minuteStr}`;
+      setDatetime(datetimeValue);
     } else {
       // Convert UTC datetime from database to timezone-local for editing
       const timezoneLocalString = utcToTimezoneLocal(initialData.datetime, timezone);
