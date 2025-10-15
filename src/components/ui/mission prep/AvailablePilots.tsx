@@ -8,6 +8,7 @@ import type { Pilot, QualificationType } from '../../../types/PilotTypes';
 import type { Event } from '../../../types/EventTypes';
 import type { AssignedPilot } from '../../../types/MissionPrepTypes';
 import { updateRollCallResponse, syncRollCallResponses } from '../../../utils/rollCallUtils';
+import { useAppSettings } from '../../../context/AppSettingsContext';
 
 // Define the structure for the polled attendance data (matching MissionPreparation)
 interface RealtimeAttendanceRecord {
@@ -43,7 +44,7 @@ const RECOGNIZED_QUALIFICATIONS: QualificationType[] = [
 ];
 
 interface PilotEntryProps {
-  pilot: Pilot & { 
+  pilot: Pilot & {
     attendanceStatus?: 'accepted' | 'tentative' | 'declined';
     rollCallStatus?: 'Present' | 'Absent' | 'Tentative';
   };
@@ -52,14 +53,28 @@ interface PilotEntryProps {
   pilotQualifications?: any[];
   isRollCallMode?: boolean;
   onRollCallResponse?: (pilotId: string, response: 'Present' | 'Absent' | 'Tentative') => void;
-}  const PilotEntry: React.FC<PilotEntryProps> = ({ 
-  pilot, 
-  isAssigned = false, 
-  currentFlightId, 
+  displayWithSquadronColors?: boolean;
+}  const PilotEntry: React.FC<PilotEntryProps> = ({
+  pilot,
+  isAssigned = false,
+  currentFlightId,
   pilotQualifications,
   isRollCallMode = false,
-  onRollCallResponse
-}) => {  
+  onRollCallResponse,
+  displayWithSquadronColors = false
+}) => {
+  // Get squadron primary color for callsign styling
+  const getSquadronPrimaryColor = () => {
+    // When setting is disabled, use black for all pilots
+    if (!displayWithSquadronColors) {
+      return '#000000';
+    }
+    // Use squadron primary color from color_palette.primary if available, otherwise dark gray
+    const squadronData = pilot.currentSquadron as any;
+    const colorPalette = squadronData?.color_palette as { primary?: string } | null;
+    return colorPalette?.primary || '#374151';
+  };
+
   // Make sure we explicitly include attendanceStatus in drag data
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: `pilot-${pilot.id || pilot.boardNumber}`,
@@ -258,7 +273,8 @@ interface PilotEntryProps {
           fontWeight: 700,
           whiteSpace: 'nowrap',
           overflow: 'hidden',
-          textOverflow: 'ellipsis'
+          textOverflow: 'ellipsis',
+          color: getSquadronPrimaryColor()
         }}>
           {pilot.callsign}
         </span>        {/* Show tentative and declined badges - prioritizing roll call response over Discord response */}
@@ -303,14 +319,7 @@ interface PilotEntryProps {
           );
         })()}
       </div>
-      <span style={{
-        fontSize: '16px',
-        fontWeight: 300,
-        color: '#646F7E'
-      }}>
-        {pilot.billet}
-      </span>
-      
+
       {isRollCallMode ? renderRollCallButtons() : (
         <div style={{
           display: 'flex',
@@ -337,6 +346,7 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
   pilotQualifications = {},
   realtimeAttendanceData
 }) => {
+  const { settings } = useAppSettings();
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [showOnlyAttending, setShowOnlyAttending] = useState(false);
   const [selectedQualifications, setSelectedQualifications] = useState<QualificationType[]>([]);
@@ -499,6 +509,7 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
   };
 
   // Add attendance status to pilots based on realtime data
+  // Note: pilots prop is already filtered to active pilots by useMissionPrepData hook
   const pilotsWithAttendanceStatus = useMemo(() => {
     if (!selectedEvent || !realtimeAttendanceData || realtimeAttendanceData.length === 0) {
       // If no event or no realtime data, return pilots without status updates
@@ -989,16 +1000,17 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
                       rollCallStatus: rollCallResponses[pilotIdKey],
                       attendanceStatus: pilot.attendanceStatus
                     };
-                    
+
                     return (
-                      <PilotEntry 
+                      <PilotEntry
                         key={pilotIdKey}
-                        pilot={pilotWithRollCall} 
+                        pilot={pilotWithRollCall}
                         isAssigned={assignment.isAssigned}
                         currentFlightId={assignment.flightId}
                         pilotQualifications={specificPilotQuals}
                         isRollCallMode={isRollCallMode}
                         onRollCallResponse={handleRollCallResponse}
+                        displayWithSquadronColors={settings.displayPilotsWithSquadronColors}
                       />
                     );
                   })}

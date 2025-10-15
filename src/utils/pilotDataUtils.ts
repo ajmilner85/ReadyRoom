@@ -36,13 +36,14 @@ export function adaptSupabasePilots(pilots: any[]): Pilot[] {
       } as SupabasePilot;
       
       // Convert to Pilot format directly (without using deprecated function)
+      // Preserve currentSquadron, currentStatus, and other enriched data from getAllPilots
       return {
         id: safePilot.id,
         discord_username: safePilot.discord_username,  // Discord username
         discord_id: safePilot.discord_id,  // Discord numeric ID
         callsign: safePilot.callsign,
         boardNumber: safePilot.boardNumber.toString(),
-        status: determinePilotStatus(safePilot),
+        status: pilot.status || determinePilotStatus(safePilot), // Use status from getAllPilots if available
         status_id: safePilot.status_id,
         billet: getPilotRoleName(safePilot),
         qualifications: (safePilot.qualifications || []).map((q, index) => ({
@@ -50,7 +51,14 @@ export function adaptSupabasePilots(pilots: any[]): Pilot[] {
           type: q as QualificationType,
           dateAchieved: new Date().toISOString().split('T')[0]
         })),
-        discordUsername: safePilot.discord_username || ''  // Discord username for legacy compatibility
+        discordUsername: safePilot.discord_username || '',  // Discord username for legacy compatibility
+        // Preserve enriched data from getAllPilots
+        currentStatus: pilot.currentStatus,
+        currentStanding: pilot.currentStanding,
+        currentSquadron: pilot.currentSquadron,
+        squadronAssignment: pilot.squadronAssignment,
+        roles: pilot.roles,
+        standing_id: pilot.standing_id
       } as Pilot;
     } catch (err) {
       console.error('Error adapting pilot:', err, pilot);
