@@ -1292,7 +1292,7 @@ app.post('/api/discord/post-image', async (req, res) => {
         return res.status(400).json({ error: 'File upload error' });
       }
 
-      const { guildId, channelId, message } = req.body;
+      const { guildId, channelId, message, roleMentions } = req.body;
       const imageFile = req.file;
 
       if (!guildId || !channelId || !imageFile) {
@@ -1300,8 +1300,18 @@ app.post('/api/discord/post-image', async (req, res) => {
           error: 'Missing required fields: guildId, channelId, and image file' 
         });
       }
+      
+      // Parse role mentions if provided
+      let roles = [];
+      if (roleMentions) {
+        try {
+          roles = JSON.parse(roleMentions);
+        } catch (e) {
+          console.error('[POST-IMAGE] Failed to parse roleMentions:', e);
+        }
+      }
 
-      console.log(`[POST-IMAGE] Posting image to Discord - Guild: ${guildId}, Channel: ${channelId}, Message: ${message || 'No message'}`);
+      console.log(`[POST-IMAGE] Posting image to Discord - Guild: ${guildId}, Channel: ${channelId}, Message: ${message || 'No message'}, Role mentions: ${roles.length}`);
 
       try {
         // Wait for Discord client to be ready
@@ -1335,10 +1345,18 @@ app.post('/api/discord/post-image', async (req, res) => {
         const attachment = new AttachmentBuilder(imageFile.buffer, { 
           name: imageFile.originalname || 'flight_assignments.png' 
         });
+        
+        // Build message content with role mentions if provided
+        let messageContent = message || '';
+        if (roles && roles.length > 0) {
+          const roleMentionsString = roles.map(role => `<@&${role.id}>`).join(' ');
+          messageContent = roleMentionsString + (message ? `\n${message}` : '');
+          console.log(`[POST-IMAGE] Adding role mentions to message: ${roleMentionsString}`);
+        }
 
         // Send the message with the image
         const discordMessage = await channel.send({
-          content: message || '',
+          content: messageContent,
           files: [attachment]
         });
 
