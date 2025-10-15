@@ -67,13 +67,49 @@ const EventSettings: React.FC<EventSettingsProps> = ({ error, setError }) => {
     field: 'value' | 'unit',
     value: number | TimeUnit
   ) => {
-    updateSetting('eventDefaults', {
+    const newSettings = {
       ...appSettings.eventDefaults,
       [reminderType]: {
         ...appSettings.eventDefaults[reminderType],
         [field]: value
       }
-    });
+    };
+
+    // Validate chronological order if both reminders are enabled
+    if (appSettings.eventDefaults.firstReminderEnabled && appSettings.eventDefaults.secondReminderEnabled) {
+      const firstMs = reminderTimeToMs(
+        reminderType === 'firstReminderTime' && field === 'value' ? (value as number) : newSettings.firstReminderTime.value,
+        reminderType === 'firstReminderTime' && field === 'unit' ? (value as TimeUnit) : newSettings.firstReminderTime.unit
+      );
+      const secondMs = reminderTimeToMs(
+        reminderType === 'secondReminderTime' && field === 'value' ? (value as number) : newSettings.secondReminderTime.value,
+        reminderType === 'secondReminderTime' && field === 'unit' ? (value as TimeUnit) : newSettings.secondReminderTime.unit
+      );
+      
+      // First reminder should be FURTHER from event (larger value) than second reminder
+      if (firstMs <= secondMs) {
+        if (setError) {
+          setError('First reminder must be scheduled before (further from event) the second reminder');
+          setTimeout(() => setError && setError(null), 5000);
+        }
+        return; // Don't save invalid settings
+      }
+    }
+
+    updateSetting('eventDefaults', newSettings);
+  };
+
+  const reminderTimeToMs = (value: number, unit: TimeUnit): number => {
+    switch (unit) {
+      case 'minutes':
+        return value * 60 * 1000;
+      case 'hours':
+        return value * 60 * 60 * 1000;
+      case 'days':
+        return value * 24 * 60 * 60 * 1000;
+      default:
+        return 0;
+    }
   };
 
   const renderToggle = (enabled: boolean, onChange: (enabled: boolean) => void) => (
@@ -488,6 +524,21 @@ const EventSettings: React.FC<EventSettingsProps> = ({ error, setError }) => {
               </div>
             </div>
           </div>
+
+          {/* Error message for reminder validation */}
+          {error && (
+            <div style={{
+              color: '#EF4444',
+              fontSize: '14px',
+              marginTop: '16px',
+              padding: '12px',
+              backgroundColor: '#FEF2F2',
+              border: '1px solid #FECACA',
+              borderRadius: '6px'
+            }}>
+              {error}
+            </div>
+          )}
         </div>
 
         {/* Response Grouping Section */}
@@ -495,7 +546,8 @@ const EventSettings: React.FC<EventSettingsProps> = ({ error, setError }) => {
           <h3 style={{ fontSize: '18px', fontWeight: 600, color: '#0F172A', margin: '0 0 16px 0' }}>
             Response Grouping
           </h3>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
             <div>
               <label style={fieldLabelStyle}>Event responses grouped by qualification by default</label>
               <p style={{ fontSize: '12px', color: '#64748B', margin: '4px 0 0 0', fontFamily: 'Inter' }}>
@@ -506,21 +558,19 @@ const EventSettings: React.FC<EventSettingsProps> = ({ error, setError }) => {
               handleSettingChange('groupResponsesByQualification', enabled)
             )}
           </div>
-        </div>
 
-        {error && (
-          <div style={{
-            color: '#EF4444',
-            fontSize: '14px',
-            marginTop: '20px',
-            padding: '12px',
-            backgroundColor: '#FEF2F2',
-            border: '1px solid #FECACA',
-            borderRadius: '6px'
-          }}>
-            {error}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div>
+              <label style={fieldLabelStyle}>Event responses grouped by squadron by default</label>
+              <p style={{ fontSize: '12px', color: '#64748B', margin: '4px 0 0 0', fontFamily: 'Inter' }}>
+                When enabled, Discord event responses will be organized by squadron.
+              </p>
+            </div>
+            {renderToggle(appSettings.eventDefaults.groupBySquadron, (enabled) => 
+              handleSettingChange('groupBySquadron', enabled)
+            )}
           </div>
-        )}
+        </div>
       </div>
     </div>
   );
