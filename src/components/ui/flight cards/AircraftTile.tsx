@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import aircraftIcon from '../../../assets/Aircraft Icon.svg';
 import flightDeckPersonnelIcon from '../../../assets/Flight Deck Personnel Icon.png';
 import { useDraggable } from '@dnd-kit/core';
-import { X, HelpCircle } from 'lucide-react';
+import { X, HelpCircle, MessageCircleOff } from 'lucide-react';
 
 interface AircraftTileProps {
   boardNumber: string;
@@ -22,6 +22,7 @@ interface AircraftTileProps {
   rollCallStatus?: 'Present' | 'Absent' | 'Tentative'; // Roll call attendance status
   iconType?: 'aircraft' | 'personnel'; // Add prop to specify icon type
   pilot?: any; // Add full pilot object for drag operations
+  pilotSquadronColor?: string; // Pilot's squadron primary color
 }
 
 const AircraftTile: React.FC<AircraftTileProps> = ({
@@ -41,11 +42,12 @@ const AircraftTile: React.FC<AircraftTileProps> = ({
   attendanceStatus,
   rollCallStatus,
   iconType = 'aircraft',
-  pilot
+  pilot,
+  pilotSquadronColor
 }) => {
   // Track local drag state
   const [localDragging, setLocalDragging] = useState(false);
-  
+
   // Component styling constants
   const PURPLE = '#5B4E61';
   const LIGHT_PURPLE = '#82728C'; // For the 1-3 accent
@@ -56,6 +58,17 @@ const AircraftTile: React.FC<AircraftTileProps> = ({
   const FADED_PURPLE = 'rgba(91, 78, 97, 0.5)'; // Faded version of PURPLE
   const FADED_LIGHT_PURPLE = 'rgba(130, 114, 140, 0.5)'; // Faded version of LIGHT_PURPLE
   const MISSION_COMMANDER_COLOR = '#F24607'; // Orange color for mission commander
+
+  // Check if this is a cross-squadron assignment
+  // The flight callsign should be in the pilot's squadron's callsign list
+  const pilotSquadron = pilot?.currentSquadron || pilot?.squadronAssignment?.org_squadrons;
+  const squadronCallsigns = pilotSquadron?.callsigns;
+  const flightCallsignUpper = flightCallsign.toUpperCase();
+
+  const isCrossSquadronAssignment = !isEmpty &&
+    squadronCallsigns &&
+    Array.isArray(squadronCallsigns) &&
+    !squadronCallsigns.some((cs: string) => cs.toUpperCase() === flightCallsignUpper);
 
   // Determine tile height based on position
   const tileHeight = (isFlightLead || isWingPair) ? 102 : 92;
@@ -174,7 +187,7 @@ const AircraftTile: React.FC<AircraftTileProps> = ({
       </div>
 
       {/* Main tile background with shadow wrapper */}
-      <div 
+      <div
         ref={setNodeRef}
         className="aircraft-tile-wrapper"
         {...(!isEmpty ? { ...attributes, ...listeners } : {})}
@@ -197,7 +210,9 @@ const AircraftTile: React.FC<AircraftTileProps> = ({
             borderRadius: '8px',
             overflow: 'hidden', // Changed to hidden to show drop shadow below accent strip
             padding: '10px', // Reduced padding
-            boxSizing: 'border-box'
+            boxSizing: 'border-box',
+            // Add border for cross-squadron assignments - using box-shadow inside the tile
+            boxShadow: isCrossSquadronAssignment ? `inset 0 0 0 2px ${pilotSquadronColor}` : 'none'
           }}
         >
           {/* Bottom accent strip (for flight lead 1-1 and wing pair 1-3) */}
@@ -210,10 +225,12 @@ const AircraftTile: React.FC<AircraftTileProps> = ({
                 width: '100%',
                 height: '10px',
                 background: accentColor,
-                zIndex: 1,
+                zIndex: 0,
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'center'
+                justifyContent: 'center',
+                borderBottomLeftRadius: '8px',
+                borderBottomRightRadius: '8px'
               }}
             >
               {/* Flight lead or section lead indicator dots */}
@@ -294,7 +311,7 @@ const AircraftTile: React.FC<AircraftTileProps> = ({
                 fontSize: '14px',
                 lineHeight: '17px',
                 textAlign: 'center',
-                color: isEmpty ? TEXT_GRAY : PURE_BLACK,
+                color: isEmpty ? TEXT_GRAY : (isCrossSquadronAssignment && pilotSquadronColor ? pilotSquadronColor : PURE_BLACK),
                 marginTop: '-1px', // Adjusted from 1px to -1px to move up 2px more
                 display: 'flex',
                 justifyContent: 'center',
@@ -302,19 +319,22 @@ const AircraftTile: React.FC<AircraftTileProps> = ({
                 gap: '4px'
               }}
             >              {isEmpty ? '' : (
-                <>                  {/* Show status badge - prioritizing Absent/Declined over Tentative */}
+                <>                  {/* Show status badge - prioritizing Absent/Declined over Tentative over No Response */}
                   {(() => {
                     // Calculate badge conditions
                     const isDeclinedDiscord = attendanceStatus === 'declined';
                     const isAbsentRollCall = rollCallStatus === 'Absent';
                     const isTentativeDiscord = attendanceStatus === 'tentative';
                     const isTentativeRollCall = rollCallStatus === 'Tentative';
-                    
+
                     // Roll call status overrides Discord status if it's Present, Absent, or Tentative
                     const isRollCallOverriding = rollCallStatus === 'Present' || rollCallStatus === 'Absent' || rollCallStatus === 'Tentative';
 
                     const shouldShowAbsentDeclinedBadge = !isEmpty && (isAbsentRollCall || (isDeclinedDiscord && !isRollCallOverriding));
                     const shouldShowTentativeBadge = !isEmpty && (isTentativeRollCall || (isTentativeDiscord && !isRollCallOverriding));
+
+                    // Show "no response" badge if no Discord attendance and no roll call response
+                    const hasNoResponse = !isEmpty && !attendanceStatus && !rollCallStatus;
 
                     // Debug log
                     if (!isEmpty && (rollCallStatus || attendanceStatus) && (callsign === 'MIRAGE' || callsign === 'VIKING')) {
@@ -346,6 +366,22 @@ const AircraftTile: React.FC<AircraftTileProps> = ({
                           strokeWidth={2.5}
                           style={{
                             color: '#5865F2',
+                            flexShrink: 0,
+                            marginTop: '2px',
+                          }}
+                        />
+                      );
+                    }
+
+                    // Render No Response badge if needed (and other badges aren't shown)
+                    if (hasNoResponse) {
+                      return (
+                        <MessageCircleOff
+                          key={`tile-badge-no-response-${boardNumber}`}
+                          size={14}
+                          strokeWidth={2}
+                          style={{
+                            color: '#9CA3AF',
                             flexShrink: 0,
                             marginTop: '2px',
                           }}
