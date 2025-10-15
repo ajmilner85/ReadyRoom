@@ -1668,19 +1668,107 @@ async function processIndividualReminder(reminder) {
     return;
   }
 
-  // Get attendance data
-  const { data: attendanceData, error: attendanceError } = await supabase
-    .from('discord_event_attendance')
-    .select('discord_id, discord_username, user_response')
-    .in('discord_event_id', discordEventIds)
-    .in('user_response', ['accepted', 'tentative']);
+  // Build response types array based on reminder settings
+  const responseTypes = [];
+  if (reminder.notify_accepted !== false) responseTypes.push('accepted');
+  if (reminder.notify_tentative !== false) responseTypes.push('tentative');
+  if (reminder.notify_declined === true) responseTypes.push('declined');
+  
+  console.log(`[REMINDER-${reminder.id}] Notifying response types:`, responseTypes);
+  console.log(`[REMINDER-${reminder.id}] Include no-response: ${reminder.notify_no_response === true}`);
 
-  if (attendanceError) {
-    throw new Error(`Could not fetch attendance data: ${attendanceError.message}`);
+  let attendanceData = [];
+
+  // Query for users with specific responses (if any response types selected)
+  if (responseTypes.length > 0) {
+    const { data: respondedUsers, error: attendanceError } = await supabase
+      .from('discord_event_attendance')
+      .select('discord_id, discord_username, user_response')
+      .in('discord_event_id', discordEventIds)
+      .in('user_response', responseTypes);
+
+    if (attendanceError) {
+      throw new Error(`Could not fetch attendance data: ${attendanceError.message}`);
+    }
+
+    attendanceData = respondedUsers || [];
+  }
+
+  // Handle "no response" users if selected
+  if (reminder.notify_no_response === true) {
+    // Get all users who responded (any response type)
+    const { data: allResponders } = await supabase
+      .from('discord_event_attendance')
+      .select('discord_id')
+      .in('discord_event_id', discordEventIds);
+    
+    const responderIds = new Set((allResponders || []).map(r => r.discord_id));
+    
+    // Get participating squadrons from event
+    const participatingSquadronIds = eventData.participants || [];
+    
+    if (participatingSquadronIds.length > 0) {
+      // Get pilots from participating squadrons with active status
+      const { data: eligiblePilots } = await supabase
+        .from('pilots')
+        .select(`
+          discord_id,
+          discord_username,
+          pilot_statuses!inner(
+            status_id,
+            end_date,
+            statuses!inner(isActive)
+          ),
+          pilot_assignments!inner(squadron_id)
+        `)
+        .in('pilot_assignments.squadron_id', participatingSquadronIds)
+        .eq('pilot_statuses.statuses.isActive', true)
+        .is('pilot_statuses.end_date', null)
+        .not('discord_id', 'is', null);
+      
+      // Filter for users who haven't responded
+      const noResponseUsers = (eligiblePilots || [])
+        .filter(pilot => !responderIds.has(pilot.discord_id))
+        .map(pilot => ({
+          discord_id: pilot.discord_id,
+          discord_username: pilot.discord_username,
+          user_response: 'no_response'
+        }));
+      
+      console.log(`[REMINDER-${reminder.id}] Found ${noResponseUsers.length} no-response users`);
+      attendanceData = [...attendanceData, ...noResponseUsers];
+    }
+  }
+
+  // Filter attendance data to only include ACTIVE pilots
+  if (attendanceData.length > 0) {
+    const discordIds = attendanceData.map(a => a.discord_id);
+    
+    const { data: activePilots } = await supabase
+      .from('pilots')
+      .select(`
+        discord_id,
+        pilot_statuses!inner(
+          status_id,
+          end_date,
+          statuses!inner(isActive)
+        )
+      `)
+      .in('discord_id', discordIds)
+      .eq('pilot_statuses.statuses.isActive', true)
+      .is('pilot_statuses.end_date', null);
+    
+    const activePilotIds = new Set((activePilots || []).map(p => p.discord_id));
+    
+    // Filter attendanceData to only active pilots
+    const originalCount = attendanceData.length;
+    attendanceData = attendanceData.filter(user => activePilotIds.has(user.discord_id));
+    
+    console.log(`[REMINDER-${reminder.id}] Filtered to ${attendanceData.length} active pilots (from ${originalCount} total)`);
   }
 
   if (!attendanceData || attendanceData.length === 0) {
-    console.log(`No attendance found for reminder ${reminder.id}, marking as sent`);
+    console.log(`No eligible recipients for reminder ${reminder.id}, marking as sent`);
     await markReminderAsSent(reminder.id);
     return;
   }

@@ -7,11 +7,23 @@ type ReminderSettings = {
     enabled: boolean;
     value: number;
     unit: 'minutes' | 'hours' | 'days';
+    recipients?: {
+      accepted: boolean;
+      tentative: boolean;
+      declined: boolean;
+      noResponse: boolean;
+    };
   };
   secondReminder?: {
     enabled: boolean;
     value: number;
     unit: 'minutes' | 'hours' | 'days';
+    recipients?: {
+      accepted: boolean;
+      tentative: boolean;
+      declined: boolean;
+      noResponse: boolean;
+    };
   };
 };
 
@@ -79,8 +91,12 @@ export async function scheduleEventReminders(
           event_id: eventId,
           reminder_type: 'first' as const,
           scheduled_time: reminderTime.toISOString(),
-          sent: false
-        });
+          sent: false,
+          notify_accepted: reminderSettings.firstReminder.recipients?.accepted ?? true,
+          notify_tentative: reminderSettings.firstReminder.recipients?.tentative ?? true,
+          notify_declined: reminderSettings.firstReminder.recipients?.declined ?? false,
+          notify_no_response: reminderSettings.firstReminder.recipients?.noResponse ?? false
+        } as any);
         // console.log('[SCHEDULE-REMINDERS-DEBUG] Added first reminder to schedule');
       }
     }
@@ -102,8 +118,12 @@ export async function scheduleEventReminders(
           event_id: eventId,
           reminder_type: 'second' as const,
           scheduled_time: reminderTime.toISOString(),
-          sent: false
-        });
+          sent: false,
+          notify_accepted: reminderSettings.secondReminder.recipients?.accepted ?? true,
+          notify_tentative: reminderSettings.secondReminder.recipients?.tentative ?? true,
+          notify_declined: reminderSettings.secondReminder.recipients?.declined ?? false,
+          notify_no_response: reminderSettings.secondReminder.recipients?.noResponse ?? false
+        } as any);
         // console.log('[SCHEDULE-REMINDERS-DEBUG] Added second reminder to schedule');
       }
     }
