@@ -147,19 +147,24 @@ export async function createOrUpdateUserProfile(user: User): Promise<{ profile: 
  */
 function extractDiscordData(user: User): DiscordUserData | null {
   // Check if user has Discord identity (either as primary or linked)
-  const hasDiscord = user.app_metadata?.providers?.includes('discord') || 
+  const hasDiscord = user.app_metadata?.providers?.includes('discord') ||
                     user.identities?.some(i => i.provider === 'discord');
-  
+
   if (hasDiscord && user.user_metadata) {
+    // Extract username without discriminator
+    // Discord's new username system (post-2023) doesn't use discriminators for most users
+    const rawUsername = user.user_metadata.name || user.user_metadata.user_name;
+    const username = rawUsername ? rawUsername.split('#')[0] : rawUsername; // Remove #0 suffix if present
+
     return {
       id: user.user_metadata.provider_id || user.user_metadata.sub,
-      username: user.user_metadata.name || user.user_metadata.user_name,
+      username: username,
       discriminator: user.user_metadata.discriminator || '0000',
       avatar: user.user_metadata.avatar_url,
       guilds: user.user_metadata.guilds || []
     };
   }
-  
+
   return null;
 }
 
@@ -172,11 +177,11 @@ async function findMatchingPilot(discordData: DiscordUserData | null): Promise<{
   }
 
   try {
-    // First try to match by Discord ID
+    // First try to match by Discord ID (the stable unique identifier)
     const { data: pilotByDiscord, error: discordError } = await supabase
       .from('pilots')
       .select('*')
-      .or(`discord_id.eq.${discordData.id},discord_username.eq.${discordData.username}`)
+      .eq('discord_id', discordData.id)
       .single();
 
     if (!discordError && pilotByDiscord) {
