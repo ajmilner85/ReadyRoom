@@ -168,6 +168,10 @@ export type Database = {
           created_at: string | null
           event_id: string
           id: string
+          notify_accepted: boolean | null
+          notify_declined: boolean | null
+          notify_no_response: boolean | null
+          notify_tentative: boolean | null
           reminder_type: string
           scheduled_time: string
           sent: boolean | null
@@ -177,6 +181,10 @@ export type Database = {
           created_at?: string | null
           event_id: string
           id?: string
+          notify_accepted?: boolean | null
+          notify_declined?: boolean | null
+          notify_no_response?: boolean | null
+          notify_tentative?: boolean | null
           reminder_type: string
           scheduled_time: string
           sent?: boolean | null
@@ -186,6 +194,10 @@ export type Database = {
           created_at?: string | null
           event_id?: string
           id?: string
+          notify_accepted?: boolean | null
+          notify_declined?: boolean | null
+          notify_no_response?: boolean | null
+          notify_tentative?: boolean | null
           reminder_type?: string
           scheduled_time?: string
           sent?: boolean | null
