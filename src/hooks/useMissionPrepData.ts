@@ -208,22 +208,22 @@ export const useMissionPrepData = () => {
     try {
       // Fetch data directly and adapt to legacy format
       const { data, error } = await getAllPilots();
-      
+
       if (error) {
         throw new Error(error.message);
       }
-      
+
       if (data && data.length > 0) {
-        // Adapt the data to the expected Pilot format
+        // Adapt the data to the expected Pilot format while preserving squadron data
         const adaptedPilots = adaptSupabasePilots(data);
-        
+
         // Set pilots state to the adapted Pilot format
         setPilots(adaptedPilots);
-        
+
         // After fetching pilots, also fetch their qualifications and squadron data
         await fetchAllPilotQualifications(adaptedPilots);
         await fetchSquadronData(adaptedPilots);
-        
+
         setLoadError(null);
       } else {
         // No pilots in database
@@ -238,13 +238,13 @@ export const useMissionPrepData = () => {
     }
   };
 
-  // Filter out inactive and retired pilots
+  // Filter to only active status pilots
   const activePilots = useMemo(() => {
     if (!pilots || pilots.length === 0) return [];
-    
-    // Add a type parameter to the filter for better type safety
-    return pilots.filter((pilot: Pilot) => 
-      pilot.status !== 'Inactive' && pilot.status !== 'Retired'
+
+    // Filter based on currentStatus.isActive property
+    return pilots.filter((pilot: Pilot) =>
+      pilot.currentStatus?.isActive === true
     );
   }, [pilots]);
 
