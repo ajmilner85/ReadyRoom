@@ -62,16 +62,24 @@ class CountdownUpdateManager {
     const endTime = new Date(eventData.end_datetime || eventData.end_time);
 
     const nowUtc = new Date();
-    
+
     if (nowUtc > endTime) {
       const nowInTimezone = formatInTimeZone(nowUtc, referenceTimezone, "yyyy-MM-dd HH:mm:ss zzz");
       const endTimeInTimezone = formatInTimeZone(endTime, referenceTimezone, "yyyy-MM-dd HH:mm:ss zzz");
-      console.log(`[COUNTDOWN] Event ${messageId} has finished (now: ${nowInTimezone} > end: ${endTimeInTimezone}), not scheduling updates`);
+      console.log(`[COUNTDOWN] Event ${messageId} has finished (now: ${nowInTimezone} > end: ${endTimeInTimezone}), performing final update then stopping`);
+
+      // Perform one final update to show "Event Finished"
+      try {
+        await this.updateEventCountdown(eventData, messageId, guildId, channelId, referenceTimezone);
+      } catch (error) {
+        console.error(`[COUNTDOWN] Error in final update for finished event ${messageId}:`, error);
+      }
+
       return;
     }
 
     const updateInterval = await this.calculateUpdateInterval(startTime, referenceTimezone);
-    
+
     if (!updateInterval) {
       console.log(`[COUNTDOWN] Event ${messageId} has started, stopping countdown updates`);
       return;

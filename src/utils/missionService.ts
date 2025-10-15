@@ -233,9 +233,11 @@ export const updateMission = async (
 ): Promise<MissionResponse> => {
   return await sb(async (supabase) => {
     const userId = await getCurrentUserProfileId();
-    
+
     const updateData: MissionUpdate = {
       ...missionData,
+      // Convert empty string to null for timestamp fields
+      step_time: missionData.step_time === '' ? null : missionData.step_time,
       flights: missionData.flights ? missionData.flights as any : undefined,
       pilot_assignments: missionData.pilot_assignments ? missionData.pilot_assignments as any : undefined,
       support_role_assignments: missionData.support_role_assignments ? missionData.support_role_assignments as any : undefined,
