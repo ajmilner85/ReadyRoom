@@ -49,6 +49,7 @@ export interface AppSettings {
 
     // Response Grouping
     groupResponsesByQualification: boolean;
+    groupBySquadron: boolean;
   };
 }
 
@@ -97,7 +98,8 @@ const defaultSettings: AppSettings = {
     sendRemindersToTentative: true,
 
     // Response grouping default
-    groupResponsesByQualification: false
+    groupResponsesByQualification: false,
+    groupBySquadron: false
   }
 };
 
@@ -106,22 +108,28 @@ const AppSettingsContext = createContext<AppSettingsContextType | undefined>(und
 export const AppSettingsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [settings, setSettings] = useState<AppSettings>(defaultSettings);
 
-  // Load appearance settings from user preferences on initialization
+  // Load settings from user preferences on initialization
   useEffect(() => {
     const loadUserPreferences = async () => {
       try {
         const settingsResult = await getUserSettings();
-        if (settingsResult.success && settingsResult.data?.preferences?.appearance) {
+        if (settingsResult.success && settingsResult.data?.preferences) {
+          const prefs = settingsResult.data.preferences;
+          
           setSettings(prev => ({
             ...prev,
             displayPilotsWithSquadronColors:
-              settingsResult.data?.preferences?.appearance?.displayPilotsWithSquadronColors ?? prev.displayPilotsWithSquadronColors,
+              prefs.appearance?.displayPilotsWithSquadronColors ?? prev.displayPilotsWithSquadronColors,
             interfaceThemeUsesSquadronColors:
-              settingsResult.data?.preferences?.appearance?.interfaceThemeUsesSquadronColors ?? prev.interfaceThemeUsesSquadronColors,
+              prefs.appearance?.interfaceThemeUsesSquadronColors ?? prev.interfaceThemeUsesSquadronColors,
+            eventDefaults: {
+              ...prev.eventDefaults,
+              ...(prefs.eventDefaults || {})
+            }
           }));
         }
       } catch (error) {
-        console.warn('Failed to load appearance settings from user preferences:', error);
+        console.warn('Failed to load settings from user preferences:', error);
       }
     };
 
@@ -135,7 +143,7 @@ export const AppSettingsProvider: React.FC<{ children: React.ReactNode }> = ({ c
       [key]: value
     }));
 
-    // Save to user preferences if it's an appearance setting
+    // Save to user preferences based on setting type
     if (key === 'displayPilotsWithSquadronColors' || key === 'interfaceThemeUsesSquadronColors') {
       try {
         await updateUserSettings({
@@ -147,6 +155,16 @@ export const AppSettingsProvider: React.FC<{ children: React.ReactNode }> = ({ c
         });
       } catch (error) {
         console.warn(`Failed to save ${key} to user preferences:`, error);
+      }
+    } else if (key === 'eventDefaults') {
+      try {
+        await updateUserSettings({
+          preferences: {
+            eventDefaults: value as any
+          }
+        });
+      } catch (error) {
+        console.warn('Failed to save eventDefaults to user preferences:', error);
       }
     }
   };

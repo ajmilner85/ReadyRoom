@@ -76,6 +76,30 @@ export const getUserSettings = async (userId?: string): Promise<UserSettingsResp
         appearance: {
           ...defaultUserSettings.preferences?.appearance,
           ...settings.preferences?.appearance
+        },
+        eventDefaults: {
+          ...defaultUserSettings.preferences?.eventDefaults,
+          ...settings.preferences?.eventDefaults,
+          firstReminderTime: {
+            value: settings.preferences?.eventDefaults?.firstReminderTime?.value ?? defaultUserSettings.preferences?.eventDefaults?.firstReminderTime?.value ?? 15,
+            unit: settings.preferences?.eventDefaults?.firstReminderTime?.unit ?? defaultUserSettings.preferences?.eventDefaults?.firstReminderTime?.unit ?? 'minutes'
+          },
+          secondReminderTime: {
+            value: settings.preferences?.eventDefaults?.secondReminderTime?.value ?? defaultUserSettings.preferences?.eventDefaults?.secondReminderTime?.value ?? 3,
+            unit: settings.preferences?.eventDefaults?.secondReminderTime?.unit ?? defaultUserSettings.preferences?.eventDefaults?.secondReminderTime?.unit ?? 'days'
+          },
+          firstReminderRecipients: {
+            accepted: settings.preferences?.eventDefaults?.firstReminderRecipients?.accepted ?? defaultUserSettings.preferences?.eventDefaults?.firstReminderRecipients?.accepted ?? true,
+            tentative: settings.preferences?.eventDefaults?.firstReminderRecipients?.tentative ?? defaultUserSettings.preferences?.eventDefaults?.firstReminderRecipients?.tentative ?? true,
+            declined: settings.preferences?.eventDefaults?.firstReminderRecipients?.declined ?? defaultUserSettings.preferences?.eventDefaults?.firstReminderRecipients?.declined ?? false,
+            noResponse: settings.preferences?.eventDefaults?.firstReminderRecipients?.noResponse ?? defaultUserSettings.preferences?.eventDefaults?.firstReminderRecipients?.noResponse ?? false
+          },
+          secondReminderRecipients: {
+            accepted: settings.preferences?.eventDefaults?.secondReminderRecipients?.accepted ?? defaultUserSettings.preferences?.eventDefaults?.secondReminderRecipients?.accepted ?? true,
+            tentative: settings.preferences?.eventDefaults?.secondReminderRecipients?.tentative ?? defaultUserSettings.preferences?.eventDefaults?.secondReminderRecipients?.tentative ?? true,
+            declined: settings.preferences?.eventDefaults?.secondReminderRecipients?.declined ?? defaultUserSettings.preferences?.eventDefaults?.secondReminderRecipients?.declined ?? false,
+            noResponse: settings.preferences?.eventDefaults?.secondReminderRecipients?.noResponse ?? defaultUserSettings.preferences?.eventDefaults?.secondReminderRecipients?.noResponse ?? false
+          }
         }
       }
     };
@@ -143,6 +167,10 @@ export const updateUserSettings = async (settings: Partial<UserSettings>, userId
         appearance: {
           ...currentSettingsResult.data.preferences?.appearance,
           ...settings.preferences?.appearance
+        },
+        eventDefaults: {
+          ...currentSettingsResult.data.preferences?.eventDefaults,
+          ...settings.preferences?.eventDefaults
         }
       }
     };

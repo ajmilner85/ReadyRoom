@@ -149,7 +149,7 @@ export const EventDialog: React.FC<EventDialogProps> = ({
   const [groupBySquadron, setGroupBySquadron] = useState(
     initialData?.eventSettings?.groupBySquadron !== undefined
       ? initialData.eventSettings.groupBySquadron
-      : false
+      : settings.eventDefaults.groupBySquadron
   );
 
   // Reminder settings state - prioritize event settings over app defaults
@@ -607,34 +607,28 @@ export const EventDialog: React.FC<EventDialogProps> = ({
   const isFirstStep = currentStepIndex === 0;
   const isLastStep = currentStepIndex === steps.length - 1;
 
-  const validateCurrentStep = (): boolean => {
-    setError('');
-    
-    switch (currentStep) {
+  const validateStep = (step: WorkflowStep): { isValid: boolean; errorMessage?: string } => {
+    switch (step) {
       case 'details':
         if (!title.trim()) {
-          setError('Please enter an event title');
-          return false;
+          return { isValid: false, errorMessage: 'Please enter an event title' };
         }
         if (!datetime) {
-          setError('Please select a start date and time');
-          return false;
+          return { isValid: false, errorMessage: 'Please select a start date and time' };
         }
         if (durationHours === 0 && durationMinutes === 0) {
-          setError('Please specify an event duration');
-          return false;
+          return { isValid: false, errorMessage: 'Please specify an event duration' };
         }
         const start = new Date(datetime);
         const end = new Date(endDatetime);
         if (end <= start) {
-          setError('End time must be after start time');
-          return false;
+          return { isValid: false, errorMessage: 'End time must be after start time' };
         }
-        return true;
+        return { isValid: true };
         
       case 'participants':
         // No specific validation required for participants step
-        return true;
+        return { isValid: true };
         
       case 'reminders':
         // Validate that reminders are chronologically ordered
@@ -643,16 +637,33 @@ export const EventDialog: React.FC<EventDialogProps> = ({
           const firstReminderMs = reminderTimeToMilliseconds(firstReminderValue, firstReminderUnit);
           const secondReminderMs = reminderTimeToMilliseconds(secondReminderValue, secondReminderUnit);
           
-          if (secondReminderMs >= firstReminderMs) {
-            setError('Second reminder must be scheduled before the first reminder (closer to event start)');
-            return false;
+          console.log('[REMINDER-VALIDATION] First reminder:', firstReminderValue, firstReminderUnit, '=', firstReminderMs, 'ms');
+          console.log('[REMINDER-VALIDATION] Second reminder:', secondReminderValue, secondReminderUnit, '=', secondReminderMs, 'ms');
+          console.log('[REMINDER-VALIDATION] Checking if first (', firstReminderMs, ') <= second (', secondReminderMs, ')');
+          
+          // First reminder should be FURTHER from event (larger value) than second reminder
+          // Example: First = 3 days (259200000ms), Second = 15 minutes (900000ms) is CORRECT
+          // Example: First = 15 minutes (900000ms), Second = 3 days (259200000ms) is WRONG
+          if (firstReminderMs <= secondReminderMs) {
+            console.log('[REMINDER-VALIDATION] VALIDATION FAILED - First reminder must be further from event than second reminder');
+            return { isValid: false, errorMessage: 'First reminder must be scheduled before (further from event) the second reminder' };
           }
+          console.log('[REMINDER-VALIDATION] Validation passed');
         }
-        return true;
+        return { isValid: true };
         
       default:
-        return true;
+        return { isValid: true };
     }
+  };
+
+  const validateCurrentStep = (): boolean => {
+    setError('');
+    const validation = validateStep(currentStep);
+    if (!validation.isValid && validation.errorMessage) {
+      setError(validation.errorMessage);
+    }
+    return validation.isValid;
   };
 
   const handleNextStep = () => {
@@ -705,11 +716,27 @@ export const EventDialog: React.FC<EventDialogProps> = ({
   const handleSubmit = async (shouldPublish: boolean = false) => {
     if (isSubmitting) return; // Prevent multiple submissions
     
-    // Validate all steps
-    if (!validateCurrentStep()) {
-      return;
+    console.log('[SUBMIT-DEBUG] Starting validation...');
+    console.log('[SUBMIT-DEBUG] First reminder enabled:', firstReminderEnabled, 'value:', firstReminderValue, 'unit:', firstReminderUnit);
+    console.log('[SUBMIT-DEBUG] Second reminder enabled:', secondReminderEnabled, 'value:', secondReminderValue, 'unit:', secondReminderUnit);
+    
+    // Validate ALL steps before submission
+    const stepsToValidate: WorkflowStep[] = ['details', 'participants', 'reminders'];
+    for (const step of stepsToValidate) {
+      console.log('[SUBMIT-DEBUG] Validating step:', step);
+      const validation = validateStep(step);
+      console.log('[SUBMIT-DEBUG] Step', step, 'validation result:', validation);
+      if (!validation.isValid) {
+        // Navigate to the step that failed validation and show error
+        setCurrentStep(step);
+        if (validation.errorMessage) {
+          setError(validation.errorMessage);
+        }
+        return;
+      }
     }
     
+    console.log('[SUBMIT-DEBUG] All validations passed, proceeding with save...');
     setIsSubmitting(true);
     setError('');
 
