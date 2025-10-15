@@ -16,6 +16,7 @@ import QualificationsManager from './QualificationsManager';
 import QualificationBadge from '../QualificationBadge';
 import { Save, X, Trash2, Wrench } from 'lucide-react';
 import { fetchDiscordGuildMember, fetchDiscordGuildRoles } from '../../../utils/discordService';
+import { fetchDiscordGuildMembers, DiscordMember } from '../../../utils/discordPilotService';
 import { supabase } from '../../../utils/supabaseClient';
 
 interface DiscordRole {
@@ -83,7 +84,6 @@ interface PilotDetailsProps {
   handleRemoveQualification: (id: string) => void;
   handleDeletePilot?: (pilotId: string) => void;
   handleSavePilotChanges?: (pilot: Pilot) => Promise<{ success: boolean; error?: string }>;
-  handleClearDiscord?: (pilotId: string) => Promise<{ success: boolean; error?: string }>;
   onQualificationAdded?: (pilotId: string, qualificationData: any[]) => void;
   isNewPilot?: boolean;
   onPilotFieldChange?: (field: string, value: string) => void;
@@ -115,7 +115,6 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
   handleRemoveQualification,
   handleDeletePilot,
   handleSavePilotChanges,
-  handleClearDiscord,
   onQualificationAdded,
   isNewPilot = false,
   onPilotFieldChange,
@@ -130,7 +129,6 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
   const [isSaving, setIsSaving] = useState(false);
   const [isEdited, setIsEdited] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
-  const [isClearingDiscord, setIsClearingDiscord] = useState(false);
   const [discordMember, setDiscordMember] = useState<DiscordGuildMember | null>(null);
   const [discordRoles, setDiscordRoles] = useState<DiscordRole[]>([]);
   const [isLoadingDiscordRoles, setIsLoadingDiscordRoles] = useState(false);
@@ -147,6 +145,10 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
   const [showQualificationDropdown, setShowQualificationDropdown] = useState(false);
   const [cachedQualifications, setCachedQualifications] = useState<any[]>([]);
   const [localPilotQualifications, setLocalPilotQualifications] = useState<any[]>(pilotQualifications);
+  const [allDiscordMembers, setAllDiscordMembers] = useState<DiscordMember[]>([]);
+  const [availableDiscordMembers, setAvailableDiscordMembers] = useState<DiscordMember[]>([]);
+  const [isLoadingDiscordMembers, setIsLoadingDiscordMembers] = useState(false);
+  const [selectedDiscordId, setSelectedDiscordId] = useState<string>('');
 
   // Sync local qualifications with prop changes
   useEffect(() => {
@@ -157,8 +159,10 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
     if (selectedPilot) {
       setEditedPilot({ ...selectedPilot });
       setIsEdited(false);
+      setSelectedDiscordId(selectedPilot.discord_id || '');
       loadDiscordRoles();
-      
+      loadDiscordMembers();
+
       // Load qualifications data for caching
       if (cachedQualifications.length === 0) {
         loadQualificationsCache();
@@ -167,6 +171,7 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
       setEditedPilot(null);
       setDiscordMember(null);
       setDiscordRoles([]);
+      setSelectedDiscordId('');
     }
     setEditError(null);
   }, [selectedPilot]);
@@ -215,13 +220,51 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
 
       // Extract role mappings from discord_integration
       const discordIntegration = data?.discord_integration;
-      const roleMappingsData = (discordIntegration && typeof discordIntegration === 'object' && discordIntegration !== null && !Array.isArray(discordIntegration)) 
+      const roleMappingsData = (discordIntegration && typeof discordIntegration === 'object' && discordIntegration !== null && !Array.isArray(discordIntegration))
         ? (discordIntegration as any).roleMappings || []
         : [];
       setRoleMappings(roleMappingsData);
     } catch (error) {
       console.error('Error loading role mappings:', error);
       setRoleMappings([]);
+    }
+  };
+
+  const loadDiscordMembers = async () => {
+    setIsLoadingDiscordMembers(true);
+    try {
+      // Fetch all Discord members
+      const members = await fetchDiscordGuildMembers();
+      setAllDiscordMembers(members);
+
+      // Fetch all pilots with Discord IDs to filter out already-linked accounts
+      const { data: pilotsData, error } = await supabase
+        .from('pilots')
+        .select('discord_id')
+        .not('discord_id', 'is', null);
+
+      if (error) {
+        console.error('Error fetching pilots with Discord IDs:', error);
+        setAvailableDiscordMembers(members);
+        return;
+      }
+
+      // Create a set of already-linked Discord IDs (excluding current pilot if editing)
+      const linkedDiscordIds = new Set(
+        pilotsData
+          .map(p => p.discord_id)
+          .filter(id => id && id !== selectedPilot?.discord_id) // Exclude current pilot's Discord ID
+      );
+
+      // Filter out already-linked members
+      const available = members.filter(member => !linkedDiscordIds.has(member.id));
+      setAvailableDiscordMembers(available);
+    } catch (error) {
+      console.error('Error loading Discord members:', error);
+      setAllDiscordMembers([]);
+      setAvailableDiscordMembers([]);
+    } finally {
+      setIsLoadingDiscordMembers(false);
     }
   };
 
@@ -419,6 +462,9 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
   const handleCancelChanges = () => {
     if (selectedPilot) {
       setEditedPilot({ ...selectedPilot });
+      
+      // Reset Discord account selection to match the original pilot data
+      setSelectedDiscordId(selectedPilot.discord_id || '');
     }
 
     setIsEdited(false);
@@ -498,42 +544,35 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
     setIsEdited(true);
   };
 
-  const handleClearDiscordCredentials = async () => {
-    console.log('Clear Discord button clicked'); // Debug log
-    if (!editedPilot || !handleClearDiscord) {
-      console.log('Cannot clear Discord credentials:', { 
-        hasEditedPilot: !!editedPilot, 
-        hasHandlerFunction: !!handleClearDiscord 
-      }); // Debug log for why it's not working
-      return;
-    }
+  const handleDiscordSelectionChange = (discordId: string) => {
+    if (!editedPilot) return;
 
-    setIsClearingDiscord(true);
-    setEditError(null);
+    // Find the selected Discord member
+    const selectedMember = allDiscordMembers.find(m => m.id === discordId);
 
-    try {
-      console.log('Calling handleClearDiscord with pilot ID:', editedPilot.id); // Debug log
-      const result = await handleClearDiscord(editedPilot.id);
-      console.log('Clear Discord result:', result); // Debug log
+    // Update edited pilot with new Discord info
+    setEditedPilot({
+      ...editedPilot,
+      discord_id: discordId || undefined,
+      discordUsername: selectedMember?.username || ''
+    });
 
-      if (!result.success) {
-        throw new Error(result.error || 'Failed to clear Discord credentials');
-      }
+    setSelectedDiscordId(discordId);
+    setIsEdited(true);
+  };
 
-      // Update locally to reflect changes immediately
-      setEditedPilot({
-        ...editedPilot,
-        discordUsername: '',
-        discord_id: undefined
-      });
-      console.log('Discord credentials cleared locally'); // Debug log
-      
-    } catch (err: any) {
-      console.error('Error clearing Discord credentials:', err); // Log the full error
-      setEditError(err.message || 'An error occurred while clearing Discord credentials');
-    } finally {
-      setIsClearingDiscord(false);
-    }
+  const handleClearDiscordSelection = () => {
+    if (!editedPilot) return;
+
+    // Clear Discord selection locally (doesn't save immediately)
+    setEditedPilot({
+      ...editedPilot,
+      discord_id: undefined,
+      discordUsername: ''
+    });
+
+    setSelectedDiscordId('');
+    setIsEdited(true);
   };
 
   const inputFieldStyle = {
@@ -694,60 +733,100 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
     const pilot = editedPilot || selectedPilot;
     if (!pilot) return null;
 
+    // Find the selected Discord member for display name
+    const selectedMember = allDiscordMembers.find(m => m.id === selectedDiscordId);
+
+    // Prepare dropdown options (available members + current selection if it exists)
+    const dropdownMembers = [...availableDiscordMembers];
+    if (selectedDiscordId && selectedMember && !dropdownMembers.find(m => m.id === selectedDiscordId)) {
+      dropdownMembers.unshift(selectedMember);
+    }
+
+    const dropdownStyle = {
+      ...inputFieldStyle,
+      width: '221px', // Half the width minus gap
+      backgroundColor: isLoadingDiscordMembers ? '#f1f5f9' : '#ffffff'
+    };
+
     return (
       <>
         <div style={{ ...pilotDetailsStyles.fieldContainer, ...sectionSpacingStyle }}>
           <label style={pilotDetailsStyles.fieldLabel}>Discord Username</label>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <input
-              type="text"
-              value={pilot.discordUsername || ''}
-              style={{
-                ...inputFieldStyle,
-                backgroundColor: '#f1f5f9',
-                cursor: 'not-allowed'
-              }}
-              placeholder="No Discord account linked"
-              disabled
-            />
+          <div style={{ display: 'flex', alignItems: 'flex-end', gap: '8px', flexWrap: 'wrap' }}>
+            {/* Discord Username Dropdown */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              <select
+                value={selectedDiscordId}
+                onChange={(e) => handleDiscordSelectionChange(e.target.value)}
+                disabled={isLoadingDiscordMembers}
+                style={dropdownStyle}
+              >
+                <option value="">No Discord account linked</option>
+                {dropdownMembers.map(member => (
+                  <option key={member.id} value={member.id}>
+                    {member.username}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Discord Display Name Dropdown (synchronized) */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              <label style={{ ...pilotDetailsStyles.fieldLabel, marginBottom: '0' }}>Discord Display Name</label>
+              <select
+                value={selectedDiscordId}
+                onChange={(e) => handleDiscordSelectionChange(e.target.value)}
+                disabled={isLoadingDiscordMembers}
+                style={dropdownStyle}
+              >
+                <option value="">No Discord account linked</option>
+                {dropdownMembers.map(member => (
+                  <option key={member.id} value={member.id}>
+                    {member.displayName}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Clear Button */}
             <button
-              onClick={handleClearDiscordCredentials}
-              disabled={!pilot.discordUsername || isClearingDiscord}
+              onClick={handleClearDiscordSelection}
+              disabled={!selectedDiscordId || isLoadingDiscordMembers}
               style={{
                 ...exportButtonStyle,
-                cursor: !pilot.discordUsername || isClearingDiscord ? 'not-allowed' : 'pointer',
-                opacity: !pilot.discordUsername || isClearingDiscord ? 0.7 : 1,
+                cursor: !selectedDiscordId || isLoadingDiscordMembers ? 'not-allowed' : 'pointer',
+                opacity: !selectedDiscordId || isLoadingDiscordMembers ? 0.7 : 1,
                 minWidth: '80px',
                 backgroundColor: '#FEE2E2',
                 color: '#B91C1C',
                 border: '1px solid #FCA5A5',
               }}
               onMouseEnter={(e) => {
-                if (pilot.discordUsername && !isClearingDiscord) {
+                if (selectedDiscordId && !isLoadingDiscordMembers) {
                   e.currentTarget.style.backgroundColor = '#FECACA';
                 }
               }}
               onMouseLeave={(e) => {
-                if (pilot.discordUsername && !isClearingDiscord) {
+                if (selectedDiscordId && !isLoadingDiscordMembers) {
                   e.currentTarget.style.backgroundColor = '#FEE2E2';
                 }
               }}
             >
-              {isClearingDiscord ? 'Clearing...' : 'Clear'}
+              Clear
             </button>
           </div>
         </div>
 
         <div style={{ ...pilotDetailsStyles.fieldContainer, ...sectionSpacingStyle }}>
           <label style={pilotDetailsStyles.fieldLabel}>Discord Server Roles</label>
-          <div style={{ 
+          <div style={{
             display: 'inline-block'
           }}>
-            <div style={{ 
-              minHeight: '40px', 
-              padding: '8px', 
-              backgroundColor: '#f8f9fa', 
-              borderRadius: '4px', 
+            <div style={{
+              minHeight: '40px',
+              padding: '8px',
+              backgroundColor: '#f8f9fa',
+              borderRadius: '4px',
               border: '1px solid #e2e8f0',
               display: 'inline-flex',
               alignItems: 'flex-start'

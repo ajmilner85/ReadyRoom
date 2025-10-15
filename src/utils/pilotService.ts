@@ -1413,26 +1413,75 @@ export async function addPilotRoleAssignment(
  */
 export async function clearDiscordCredentials(id: string): Promise<{ success: boolean; error: any }> {
   try {
-    // First try to find the pilot by discord_id (for Discord IDs)
-    const { data: pilotByDiscordId } = await supabase
+    console.log('clearDiscordCredentials called with pilot id:', id);
+
+    // First verify we can read the pilot
+    const { data: readTest, error: readError } = await supabase
       .from('pilots')
-      .select('id')
-      .eq('discord_id', id)
+      .select('id, discord_username, discord_id')
+      .eq('id', id)
       .single();
 
-    // If found by Discord ID, use the actual UUID from the database
-    const actualId = pilotByDiscordId ? pilotByDiscordId.id : id;
+    console.log('Read test:', { readTest, readError });
 
-    // Now update using the correct UUID, clearing Discord-related fields
-    const { error } = await supabase
+    if (readError || !readTest) {
+      console.error('Cannot read pilot:', readError);
+      return { success: false, error: readError || new Error('Pilot not found') };
+    }
+
+    // The id parameter is the pilot's UUID (pilots.id)
+    // Clear Discord-related fields directly
+    const { data, error, count } = await supabase
       .from('pilots')
       .update({
         discord_username: null,
-        discord_id: null
+        discord_id: null,
+        updated_at: new Date().toISOString()
       })
-      .eq('id', actualId);
+      .eq('id', id)
+      .select();
 
-    return { success: !error, error };
+    console.log('Update result:', { data, error, count, rowsAffected: data?.length });
+
+    if (error) {
+      console.error('Database error during update:', error);
+      return { success: false, error };
+    }
+
+    if (!data || data.length === 0) {
+      console.error('No rows were updated. This suggests RLS policy is blocking the update');
+      const userState = await supabase.auth.getUser();
+      console.error('User auth state:', userState);
+
+      // Debug: Check user_profiles
+      const { data: userProfile } = await supabase
+        .from('user_profiles')
+        .select('*')
+        .eq('auth_user_id', userState.data.user?.id || '')
+        .single();
+      console.error('User profile:', userProfile);
+
+      // Debug: Check permission cache
+      // Note: user_permission_cache may not be in TypeScript types
+      // const { data: permCache } = await supabase
+      //   .from('user_permission_cache')
+      //   .select('*')
+      //   .eq('user_id', userProfile?.id || '');
+      // console.error('Permission cache:', permCache);
+      // console.error('Permission cache detailed:', JSON.stringify(permCache, null, 2));
+
+      // Check if manage_roster permission exists
+      // if (permCache && permCache.length > 0) {
+      //   console.error('Permissions object:', permCache[0].permissions);
+      //   console.error('manage_roster permission:', permCache[0].permissions?.manage_roster);
+      //   console.error('Expires at:', permCache[0].expires_at, 'Is expired?', new Date(permCache[0].expires_at) <= new Date());
+      // }
+
+      return { success: false, error: new Error('Update blocked - check RLS policies') };
+    }
+
+    console.log('Successfully cleared Discord credentials for pilot:', id);
+    return { success: true, error: null };
   } catch (err) {
     console.error('Error clearing Discord credentials:', err);
     return { success: false, error: err };

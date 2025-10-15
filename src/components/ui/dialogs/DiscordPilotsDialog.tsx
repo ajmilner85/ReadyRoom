@@ -89,6 +89,7 @@ export const DiscordPilotsDialog: React.FC<DiscordPilotsDialogProps> = ({
   const [popupPosition, setPopupPosition] = useState<{ top: number; shouldFlipUp: boolean } | null>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
   const tableContainerRef = useRef<HTMLDivElement>(null);
+  const [allDiscordMembers, setAllDiscordMembers] = useState<any[]>([]);
 
   // Track original values to detect changes
   const [originalMatches, setOriginalMatches] = useState<DiscordPilotMatch[]>([]);
@@ -193,6 +194,7 @@ export const DiscordPilotsDialog: React.FC<DiscordPilotsDialogProps> = ({
       
       // Fetch Discord guild members
       const discordMembers = await fetchDiscordGuildMembers();
+      setAllDiscordMembers(discordMembers); // Store all Discord members for dropdowns
       
       // Fetch squadron role mappings to filter out ignored users
       const { data: squadronRoleData } = await supabase
@@ -534,6 +536,31 @@ export const DiscordPilotsDialog: React.FC<DiscordPilotsDialogProps> = ({
     setMatches(prevMatches => {
       const updatedMatches = [...prevMatches];
       updatedMatches[index].squadronId = squadronId;
+      return updatedMatches;
+    });
+  };
+
+  // Handle Discord member selection change
+  const handleDiscordMemberChange = (index: number, newDiscordMemberId: string) => {
+    const newDiscordMember = allDiscordMembers.find(m => m.id === newDiscordMemberId);
+    if (!newDiscordMember) return;
+
+    setMatches(prevMatches => {
+      const updatedMatches = [...prevMatches];
+      updatedMatches[index] = {
+        ...updatedMatches[index],
+        discordMember: {
+          ...newDiscordMember,
+          boardNumber: updatedMatches[index].discordMember.boardNumber, // Preserve edited values
+          callsign: updatedMatches[index].discordMember.callsign
+        }
+      };
+      
+      // If action was "do-nothing", automatically change it to "update-existing" if there's a selected pilot
+      if (updatedMatches[index].action === 'do-nothing' && updatedMatches[index].selectedPilotId) {
+        updatedMatches[index].action = 'update-existing';
+      }
+      
       return updatedMatches;
     });
   };
@@ -1446,15 +1473,75 @@ export const DiscordPilotsDialog: React.FC<DiscordPilotsDialogProps> = ({
                           {/* 4. Discord Username Column */}
                           <td style={{ padding: '12px 16px', fontSize: '14px' }}>
                             <div>
-                              <div style={{ padding: '6px 0' }}>{match.discordMember.username}</div>
+                              <select
+                                disabled={isDisabled}
+                                value={match.discordMember.id}
+                                onChange={(e) => handleDiscordMemberChange(originalIndex, e.target.value)}
+                                style={{
+                                  width: '100%',
+                                  padding: '6px',
+                                  border: '1px solid #D1D5DB',
+                                  borderRadius: '4px',
+                                  fontSize: '14px'
+                                }}
+                              >
+                                {allDiscordMembers
+                                  .filter(member => {
+                                    // Show current member always
+                                    if (member.id === match.discordMember.id) return true;
+                                    // Filter out members already linked to other pilots
+                                    const isLinked = allPilots.some(pilot => 
+                                      pilot.discordUsername === member.id && pilot.id !== match.selectedPilotId
+                                    );
+                                    return !isLinked;
+                                  })
+                                  .map(member => (
+                                    <option key={member.id} value={member.id}>
+                                      {member.username.replace('#0', '')}
+                                    </option>
+                                  ))
+                                }
+                              </select>
                               <div style={{ height: '20px' }}></div>
                             </div>
                           </td>
 
                           {/* 5. Discord Display Name Column */}
-                          <td style={{ padding: '12px 16px', fontSize: '14px', maxWidth: '150px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          <td style={{ padding: '12px 16px', fontSize: '14px', maxWidth: '150px' }}>
                             <div>
-                              <div style={{ padding: '6px 0' }}>{match.discordMember.displayName}</div>
+                              <select
+                                disabled={isDisabled}
+                                value={match.discordMember.id}
+                                onChange={(e) => handleDiscordMemberChange(originalIndex, e.target.value)}
+                                style={{
+                                  width: '100%',
+                                  padding: '6px',
+                                  border: '1px solid #D1D5DB',
+                                  borderRadius: '4px',
+                                  fontSize: '14px',
+                                  maxWidth: '150px',
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis',
+                                  whiteSpace: 'nowrap'
+                                }}
+                              >
+                                {allDiscordMembers
+                                  .filter(member => {
+                                    // Show current member always
+                                    if (member.id === match.discordMember.id) return true;
+                                    // Filter out members already linked to other pilots
+                                    const isLinked = allPilots.some(pilot => 
+                                      pilot.discordUsername === member.id && pilot.id !== match.selectedPilotId
+                                    );
+                                    return !isLinked;
+                                  })
+                                  .map(member => (
+                                    <option key={member.id} value={member.id}>
+                                      {member.displayName}
+                                    </option>
+                                  ))
+                                }
+                              </select>
                               <div style={{ height: '20px' }}></div>
                             </div>
                           </td>

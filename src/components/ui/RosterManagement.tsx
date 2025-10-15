@@ -225,19 +225,20 @@ const RosterManagement: React.FC = () => {
 
       if (success) {
         // Update the pilot in local state to reflect changes immediately
-        setPilots(prevPilots => 
-          prevPilots.map(pilot => 
-            pilot.id === pilotId 
-              ? { ...pilot, discordUsername: '' } 
+        setPilots(prevPilots =>
+          prevPilots.map(pilot =>
+            pilot.id === pilotId
+              ? { ...pilot, discordUsername: '', discord_id: undefined }
               : pilot
           )
         );
-          
+
         // If this was the selected pilot, update that too
         if (selectedPilot && selectedPilot.id === pilotId) {
           setSelectedPilot({
             ...selectedPilot,
-            discordUsername: ''
+            discordUsername: '',
+            discord_id: undefined
           });
         }
 
@@ -1807,7 +1808,8 @@ const RosterManagement: React.FC = () => {
       const updatePayload: any = {
         callsign: updatedPilot.callsign,
         boardNumber: parseInt(updatedPilot.boardNumber),
-        discord_username: updatedPilot.discordUsername || undefined
+        discord_username: updatedPilot.discordUsername || null,
+        discord_id: updatedPilot.discord_id || null
         // Note: role is handled separately
         // Note: status and standing are now handled via join tables, not direct updates
       };
@@ -2064,7 +2066,6 @@ const RosterManagement: React.FC = () => {
       handleRemoveQualification={handleRemoveQualification}
       handleDeletePilot={handleDeletePilot}
       handleSavePilotChanges={handleSavePilotChanges}
-      handleClearDiscord={handleClearDiscord}
       isNewPilot={true}
       onPilotFieldChange={handleNewPilotChange}
       onSaveNewPilot={handleSaveNewPilot}
@@ -2105,11 +2106,10 @@ const RosterManagement: React.FC = () => {
       handleRemoveQualification={handleRemoveQualification}
       handleDeletePilot={handleDeletePilot}
       handleSavePilotChanges={handleSavePilotChanges}
-      handleClearDiscord={handleClearDiscord}
       isNewPilot={false}
       onQualificationAdded={handleQualificationAddedViaRepair}
     />
-  ), [selectedPilot, statuses, standings, roles, pilotRoles, squadrons, availableQualifications, pilotQualifications, loadingRoles, updatingRoles, updatingStatus, updatingStanding, updatingSquadron, loadingQualifications, disabledRoles, selectedQualification, qualificationAchievedDate, isAddingQualification, updatingQualifications, handleStatusChange, handleStandingChange, handleRoleChange, handleSquadronChange, handleAddQualification, handleRemoveQualification, handleDeletePilot, handleSavePilotChanges, handleClearDiscord, handleQualificationAddedViaRepair]);
+  ), [selectedPilot, statuses, standings, roles, pilotRoles, squadrons, availableQualifications, pilotQualifications, loadingRoles, updatingRoles, updatingStatus, updatingStanding, updatingSquadron, loadingQualifications, disabledRoles, selectedQualification, qualificationAchievedDate, isAddingQualification, updatingQualifications, handleStatusChange, handleStandingChange, handleRoleChange, handleSquadronChange, handleAddQualification, handleRemoveQualification, handleDeletePilot, handleSavePilotChanges, handleQualificationAddedViaRepair]);
 
   return (
     <div style={rosterStyles.container}>
