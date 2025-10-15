@@ -23,6 +23,8 @@ interface FlightAssignmentCardProps {
     dashNumber: string;
     attendanceStatus?: 'accepted' | 'tentative' | 'declined';
     rollCallStatus?: 'Present' | 'Absent' | 'Tentative';
+    currentSquadron?: any;
+    squadronAssignment?: any;
   }>;
   midsA?: string;
   midsB?: string;
@@ -336,7 +338,7 @@ const FlightAssignmentCard: React.FC<FlightAssignmentCardProps> = ({
           isMissionCommander={isMissionCommander(pilot2.boardNumber)}
           verticalOffset={10} // Apply the 10px offset for 1-2 position
         />
-        
+
         {/* 1-1 position - first section */}
         <DroppableAircraftTile
           pilot={pilot1}
@@ -350,7 +352,7 @@ const FlightAssignmentCard: React.FC<FlightAssignmentCardProps> = ({
           isMissionCommander={isMissionCommander(pilot1.boardNumber)}
           verticalOffset={0} // No offset for 1-1 (flight lead)
         />
-        
+
         {/* 1-3 position - second section */}
         <DroppableAircraftTile
           pilot={pilot3}
@@ -364,7 +366,7 @@ const FlightAssignmentCard: React.FC<FlightAssignmentCardProps> = ({
           isMissionCommander={isMissionCommander(pilot3.boardNumber)}
           verticalOffset={10} // Apply the 10px offset for 1-3 position
         />
-        
+
         {/* 1-4 position - second section */}
         <DroppableAircraftTile
           pilot={pilot4}
@@ -385,13 +387,15 @@ const FlightAssignmentCard: React.FC<FlightAssignmentCardProps> = ({
 
 // New component to handle droppable empty tiles
 interface DroppableAircraftTileProps {
-  pilot: { 
+  pilot: {
     id: string;
-    boardNumber: string; 
-    callsign: string; 
-    dashNumber: string; 
+    boardNumber: string;
+    callsign: string;
+    dashNumber: string;
     attendanceStatus?: 'accepted' | 'tentative' | 'declined';
-    rollCallStatus?: 'Present' | 'Absent' | 'Tentative'; 
+    rollCallStatus?: 'Present' | 'Absent' | 'Tentative';
+    currentSquadron?: any;
+    squadronAssignment?: any;
   };
   flightId: string;
   dashNumber: string;
@@ -422,7 +426,11 @@ const DroppableAircraftTile: React.FC<DroppableAircraftTileProps> = ({
   const isEmpty = !pilot.boardNumber && !pilot.callsign;
   // Use the complete flight ID to ensure unique drop targets
   const dropId = `flight-${flightId}-position-${dashNumber}`;
-  
+
+  // Get pilot's squadron color
+  const pilotSquadronColor = pilot?.currentSquadron?.color_palette?.primary ||
+                             pilot?.squadronAssignment?.org_squadrons?.color_palette?.primary;
+
   // Force component to update when attendance status changes
   const [key, setKey] = useState(Date.now());
   // This effect ensures the component re-renders when attendance status or roll call status changes
@@ -479,6 +487,7 @@ const DroppableAircraftTile: React.FC<DroppableAircraftTileProps> = ({
         isMissionCommander={isMissionCommander}
         verticalOffset={verticalOffset} // Pass the verticalOffset to AircraftTile
         pilot={pilot} // Pass the full pilot object for drag operations
+        pilotSquadronColor={pilotSquadronColor}
       />
       {isOver && (
         <div style={{

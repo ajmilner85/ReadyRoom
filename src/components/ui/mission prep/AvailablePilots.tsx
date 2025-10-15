@@ -2,7 +2,7 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Card } from '../card';
 import QualificationBadge from '../QualificationBadge';
-import { Filter, ClipboardCheck, Settings, X, HelpCircle } from 'lucide-react';
+import { Filter, ClipboardCheck, Settings, X, HelpCircle, MessageCircleOff } from 'lucide-react';
 import { useDraggable } from '@dnd-kit/core';
 import type { Pilot, QualificationType } from '../../../types/PilotTypes';
 import type { Event } from '../../../types/EventTypes';
@@ -277,7 +277,7 @@ interface PilotEntryProps {
           color: getSquadronPrimaryColor()
         }}>
           {pilot.callsign}
-        </span>        {/* Show tentative and declined badges - prioritizing roll call response over Discord response */}
+        </span>        {/* Show tentative, declined, and no response badges - prioritizing roll call response over Discord response */}
         {(() => {
           // Calculate whether to show badges
           const isTentativeRollCall = pilot.rollCallStatus === 'Tentative';
@@ -288,6 +288,9 @@ interface PilotEntryProps {
 
           const shouldShowAbsentDeclinedBadge = isAbsentRollCall || (isDeclinedDiscord && !isRollCallOverriding);
           const shouldShowTentativeBadge = isTentativeRollCall || (isTentativeDiscord && !isRollCallOverriding);
+
+          // Show "no response" badge if no Discord attendance and no roll call response
+          const hasNoResponse = !pilot.attendanceStatus && !pilot.rollCallStatus;
 
           return (
             <>
@@ -310,6 +313,18 @@ interface PilotEntryProps {
                   strokeWidth={2.5}
                   style={{
                     color: '#5865F2',
+                    flexShrink: 0,
+                    marginTop: '2px',
+                  }}
+                />
+              )}
+              {hasNoResponse && (
+                <MessageCircleOff
+                  key={`no-response-badge-${pilot.id || pilot.boardNumber}`}
+                  size={14}
+                  strokeWidth={2}
+                  style={{
+                    color: '#9CA3AF',
                     flexShrink: 0,
                     marginTop: '2px',
                   }}
