@@ -406,8 +406,8 @@ export const useMissionPrepDataPersistence = (
 
     setAssignedPilotsLocal(pilots);
 
-    // Only save to database if this is a user-initiated change AND there are pilots to save
-    if (mission && !skipSave && pilotsCount > 0) {
+    // Save to database if this is a user-initiated change (including when clearing all pilots)
+    if (mission && !skipSave) {
       // Only save if this mission belongs to the currently selected event
       if (selectedEvent && mission.event_id !== selectedEvent.id) {
         console.log('🚫 Persistence: Skipping pilot assignment save - mission belongs to different event:', {
