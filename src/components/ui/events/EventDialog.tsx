@@ -119,6 +119,9 @@ export const EventDialog: React.FC<EventDialogProps> = ({
 }) => {  
   const { settings } = useAppSettings();
   
+  // Ref to track if we've loaded default notification roles (prevents re-loading when user removes roles)
+  const hasLoadedDefaultsRef = React.useRef(false);
+  
   // Workflow state
   const [currentStep, setCurrentStep] = useState<WorkflowStep>('details');
   const [completedSteps, setCompletedSteps] = useState<Set<WorkflowStep>>(new Set());
@@ -567,9 +570,14 @@ export const EventDialog: React.FC<EventDialogProps> = ({
   }, [squadrons]);
 
   // Load default notification roles from squadron settings when creating a new event
+  // Only run once on mount, not when roles change
   useEffect(() => {
-    // Only load defaults if this is a new event (no initialData) and we haven't already set roles
-    if (initialData || selectedNotificationRoles.length > 0) {
+    // Only load defaults if this is a new event (no initialData) and we haven't loaded defaults yet
+    if (initialData) {
+      return;
+    }
+    
+    if (hasLoadedDefaultsRef.current) {
       return;
     }
 
@@ -584,6 +592,7 @@ export const EventDialog: React.FC<EventDialogProps> = ({
           const discordIntegration = squadronData.discord_integration;
           if (discordIntegration?.defaultNotificationRoles && Array.isArray(discordIntegration.defaultNotificationRoles) && discordIntegration.defaultNotificationRoles.length > 0) {
             setSelectedNotificationRoles(discordIntegration.defaultNotificationRoles);
+            hasLoadedDefaultsRef.current = true;
             return;
           }
         }
@@ -595,11 +604,12 @@ export const EventDialog: React.FC<EventDialogProps> = ({
         const discordIntegration = squadronData.discord_integration;
         if (discordIntegration?.defaultNotificationRoles && Array.isArray(discordIntegration.defaultNotificationRoles) && discordIntegration.defaultNotificationRoles.length > 0) {
           setSelectedNotificationRoles(discordIntegration.defaultNotificationRoles);
+          hasLoadedDefaultsRef.current = true;
           break;
         }
       }
     }
-  }, [initialData, squadrons, restrictedTo, selectedNotificationRoles.length]);
+  }, [initialData, squadrons, restrictedTo]);
 
   const handleDatetimeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setDatetime(e.target.value);
@@ -1672,7 +1682,7 @@ export const EventDialog: React.FC<EventDialogProps> = ({
                   </button>
                 </div>
 
-                {selectedNotificationRoles.length > 0 && (
+                {selectedNotificationRoles.length > 0 ? (
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
                     {selectedNotificationRoles.map((role) => (
                       <div
@@ -1724,7 +1734,7 @@ export const EventDialog: React.FC<EventDialogProps> = ({
                       </div>
                     ))}
                   </div>
-                )}
+                ) : null}
               </div>
 
               <div style={{ marginBottom: '24px', padding: '16px', border: '1px solid #E5E7EB', borderRadius: '6px', backgroundColor: '#F8FAFC' }}>
