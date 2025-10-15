@@ -113,6 +113,7 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
         useThreads: boolean;
         autoArchiveDuration: number;
       };
+      defaultNotificationRoles: Array<{ id: string; name: string }>;
     }
   }>({});
 
@@ -181,7 +182,8 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
             threadingSettings: entitySettings.threadingSettings || discordIntegration.threadingSettings || {
               useThreads: false,
               autoArchiveDuration: 1440
-            }
+            },
+            defaultNotificationRoles: discordIntegration.defaultNotificationRoles || []
           }
         }));
       } else {
@@ -259,7 +261,8 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
       threadingSettings: {
         useThreads: false,
         autoArchiveDuration: 1440
-      }
+      },
+      defaultNotificationRoles: []
     };
   };
 
@@ -272,6 +275,7 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
       useThreads: boolean;
       autoArchiveDuration: number;
     };
+    defaultNotificationRoles: Array<{ id: string; name: string }>;
   }>) => {
     const entityKey = getEntityKey();
     setDiscordSettings(prev => ({
@@ -469,6 +473,7 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
         } as NewWing;
         break;
       case 'squadron':
+        const discordSettings = getCurrentDiscordSettings();
         saveData = {
           ...baseData,
           wing_id: formData.wing_id,
@@ -478,10 +483,10 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
           callsigns: formData.callsigns ? JSON.parse(formData.callsigns) : null,
           airframe_id: formData.airframe_id || null,
           color_palette: formData.color_palette || null,
-          discord_integration: getCurrentDiscordSettings(),
+          discord_integration: discordSettings,
           settings: { 
             timezone: formData.timezone,
-            threadingSettings: getCurrentDiscordSettings().threadingSettings 
+            threadingSettings: discordSettings.threadingSettings 
           }
         } as NewSquadron;
         break;
@@ -622,7 +627,7 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
 
         <div style={{ 
           padding: '24px',
-          maxHeight: 'calc(90vh - 120px)',
+          maxHeight: entityType === 'squadron' ? 'calc(90vh - 250px)' : 'calc(90vh - 180px)',
           overflowY: 'auto'
         }}>
           {/* General Tab Content */}
@@ -1343,6 +1348,7 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
               selectedGuildId={getCurrentDiscordSettings().selectedGuildId}
               emoji={getCurrentDiscordSettings().emoji}
               threadingSettings={getCurrentDiscordSettings().threadingSettings}
+              defaultNotificationRoles={getCurrentDiscordSettings().defaultNotificationRoles}
               onChannelsChange={(channels) => updateDiscordSettings({ discordChannels: channels })}
               onRoleMappingsChange={(mappings) => updateDiscordSettings({ roleMappings: mappings })}
               onGuildChange={(guildId) => updateDiscordSettings({
@@ -1352,6 +1358,7 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
               })}
               onEmojiChange={(emoji) => updateDiscordSettings({ emoji })}
               onThreadingSettingsChange={(threadingSettings) => updateDiscordSettings({ threadingSettings })}
+              onDefaultNotificationRolesChange={(roles) => updateDiscordSettings({ defaultNotificationRoles: roles })}
             />
           )}
         </div>

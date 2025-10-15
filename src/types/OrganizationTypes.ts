@@ -81,6 +81,14 @@ export interface Squadron {
       appPermission: 'admin' | 'flight_lead' | 'member' | 'guest';
       priority: number;
     }>;
+    threadingSettings?: {
+      useThreads: boolean;
+      autoArchiveDuration: number;
+    };
+    defaultNotificationRoles?: Array<{
+      id: string;
+      name: string;
+    }>;
   };
   // Populated via join
   wing?: Wing;

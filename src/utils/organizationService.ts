@@ -469,25 +469,7 @@ export async function updateSquadron(id: string, updates: UpdateSquadron): Promi
       .from('org_squadrons')
       .update({ ...updates, updated_at: new Date().toISOString() })
       .eq('id', id)
-      .select(`
-        *,
-        wing:wing_id (
-          id,
-          name,
-          designation,
-          established_date,
-          deactivated_date,
-          insignia_url,
-          group:group_id (
-            id,
-            name,
-            command:command_id (
-              id,
-              name
-            )
-          )
-        )
-      `)
+      .select('*')
       .single();
 
     return { data: data as unknown as Squadron | null, error };

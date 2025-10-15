@@ -516,6 +516,7 @@ export const createEvent = async (event: Omit<Event, 'id' | 'creator' | 'attenda
       declined: false,
       noResponse: false
     },
+    initialNotificationRoles: (event.reminders as any)?.initialNotificationRoles || [],
     // Keep old fields for backward compatibility during transition
     sendRemindersToAccepted: event.reminderRecipients?.sendToAccepted !== undefined ? event.reminderRecipients.sendToAccepted : true,
     sendRemindersToTentative: event.reminderRecipients?.sendToTentative !== undefined ? event.reminderRecipients.sendToTentative : true
@@ -658,6 +659,9 @@ export const updateEvent = async (eventId: string, updates: Partial<Omit<Event, 
         declined: false,
         noResponse: false
       };
+    }
+    if ((updates.reminders as any)?.initialNotificationRoles !== undefined) {
+      eventSettings.initialNotificationRoles = (updates.reminders as any).initialNotificationRoles || [];
     }
     if (updates.reminderRecipients !== undefined) {
       // Keep old fields for backward compatibility during transition

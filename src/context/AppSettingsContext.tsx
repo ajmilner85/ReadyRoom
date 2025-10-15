@@ -39,6 +39,9 @@ export interface AppSettings {
       declined: boolean;
       noResponse: boolean;
     };
+    
+    // Initial notification roles
+    initialNotificationRoles: Array<{ id: string; name: string }>;
 
     // Legacy reminder recipient settings (kept for backwards compatibility)
     sendRemindersToAccepted: boolean;
@@ -85,6 +88,9 @@ const defaultSettings: AppSettings = {
       declined: false,
       noResponse: false
     },
+    
+    // Initial notification roles default
+    initialNotificationRoles: [],
 
     // Legacy reminder recipient settings (for backwards compatibility)
     sendRemindersToAccepted: true,

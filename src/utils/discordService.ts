@@ -267,6 +267,7 @@ export async function publishEventFromCycle(event: Event): Promise<MultiChannelP
       channelId: string;
       squadronIds: string[];
       squadronNames: string[];
+      notificationRoles: Array<{ id: string; name: string }>;
     }>();
     
     // First pass: collect unique guild+channel combinations
@@ -304,6 +305,9 @@ export async function publishEventFromCycle(event: Event): Promise<MultiChannelP
         continue;
       }
       
+      // Get squadron's default notification roles
+      const squadronNotificationRoles = discordIntegration?.defaultNotificationRoles || [];
+      
       // Create unique key for guild+channel combination
       const channelKey = `${selectedGuildId}:${eventsChannel.id}`;
       
@@ -312,13 +316,16 @@ export async function publishEventFromCycle(event: Event): Promise<MultiChannelP
         const existing = uniqueChannels.get(channelKey)!;
         existing.squadronIds.push(squadronId);
         existing.squadronNames.push(squadronData.name);
+        // Add squadron's notification roles (will deduplicate later)
+        existing.notificationRoles.push(...squadronNotificationRoles);
       } else {
         // Create new channel entry
         uniqueChannels.set(channelKey, {
           guildId: selectedGuildId,
           channelId: eventsChannel.id,
           squadronIds: [squadronId],
-          squadronNames: [squadronData.name]
+          squadronNames: [squadronData.name],
+          notificationRoles: [...squadronNotificationRoles]
         });
       }
     }
@@ -330,11 +337,23 @@ export async function publishEventFromCycle(event: Event): Promise<MultiChannelP
       try {
         // console.log(`[MULTI-DISCORD-DEBUG] Publishing to unique channel ${channelKey} for squadrons: ${channelInfo.squadronNames.join(', ')}`);
         
-        // Publish to this unique channel
+        // Deduplicate notification roles by role ID
+        const uniqueRoles = new Map<string, { id: string; name: string }>();
+        for (const role of channelInfo.notificationRoles) {
+          if (!uniqueRoles.has(role.id)) {
+            uniqueRoles.set(role.id, role);
+          }
+        }
+        const deduplicatedRoles = Array.from(uniqueRoles.values());
+        
+        console.log(`[ROLE-DEDUP] Publishing to channel ${channelInfo.channelId} with ${deduplicatedRoles.length} unique roles (from ${channelInfo.notificationRoles.length} total across squadrons)`);
+        
+        // Publish to this unique channel with deduplicated roles
         const publishResult = await publishToSpecificChannel(
           event,
           channelInfo.guildId,
-          channelInfo.channelId
+          channelInfo.channelId,
+          deduplicatedRoles
         );
         
         // console.log(`[MULTI-DISCORD-DEBUG] Publish result for channel ${channelKey}:`, publishResult);
@@ -396,7 +415,12 @@ export async function publishEventFromCycle(event: Event): Promise<MultiChannelP
  * @param channelId The Discord channel ID  
  * @returns Response containing success status and Discord message ID
  */
-async function publishToSpecificChannel(event: Event, guildId: string, channelId: string): Promise<PublishEventResponse> {
+async function publishToSpecificChannel(
+  event: Event, 
+  guildId: string, 
+  channelId: string,
+  notificationRoles?: Array<{ id: string; name: string }>
+): Promise<PublishEventResponse> {
   try {
     const startTime = event.datetime;
     let endTime = event.endDatetime;
@@ -427,7 +451,9 @@ async function publishToSpecificChannel(event: Event, guildId: string, channelId
         // Legacy fallback
         imageUrl: event.imageUrl || (event as any).image_url
       },
-      creator: event.creator
+      creator: event.creator,
+      // Include deduplicated notification roles
+      notificationRoles: notificationRoles || []
     };
     
     const headers = await getDiscordHeaders();

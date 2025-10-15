@@ -101,11 +101,13 @@ interface SquadronDiscordSettingsProps {
   selectedGuildId?: string;
   emoji?: string;
   threadingSettings?: ThreadingSettings;
+  defaultNotificationRoles?: Array<{ id: string; name: string }>;
   onChannelsChange?: (channels: DiscordChannel[]) => void;
   onRoleMappingsChange?: (mappings: RoleMapping[]) => void;
   onGuildChange?: (guildId: string) => void;
   onEmojiChange?: (emoji: string) => void;
   onThreadingSettingsChange?: (settings: ThreadingSettings) => void;
+  onDefaultNotificationRolesChange?: (roles: Array<{ id: string; name: string }>) => void;
 }
 
 const SquadronDiscordSettings: React.FC<SquadronDiscordSettingsProps> = ({
@@ -114,11 +116,13 @@ const SquadronDiscordSettings: React.FC<SquadronDiscordSettingsProps> = ({
   selectedGuildId,
   emoji = '',
   threadingSettings = { useThreads: false, autoArchiveDuration: 1440 },
+  defaultNotificationRoles = [],
   onChannelsChange,
   onRoleMappingsChange,
   onGuildChange,
   onEmojiChange,
-  onThreadingSettingsChange
+  onThreadingSettingsChange,
+  onDefaultNotificationRolesChange
 }) => {
   const [showChannelForm, setShowChannelForm] = useState(false);
   const [showRoleForm, setShowRoleForm] = useState(false);
@@ -144,6 +148,7 @@ const SquadronDiscordSettings: React.FC<SquadronDiscordSettingsProps> = ({
   const [loadingChannels, setLoadingChannels] = useState(false);
   const [loadingRoles, setLoadingRoles] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [selectedNotificationRoleId, setSelectedNotificationRoleId] = useState('');
 
   // Load Discord servers on component mount
   useEffect(() => {
@@ -432,6 +437,28 @@ const SquadronDiscordSettings: React.FC<SquadronDiscordSettingsProps> = ({
     }
   };
 
+  const handleAddNotificationRole = () => {
+    if (!selectedNotificationRoleId || !onDefaultNotificationRolesChange) return;
+    
+    const role = availableDiscordRoles.find(r => r.id === selectedNotificationRoleId);
+    if (!role) return;
+    
+    // Check if role is already added
+    if (defaultNotificationRoles.some(r => r.id === role.id)) {
+      setError('This role has already been added');
+      setTimeout(() => setError(null), 3000);
+      return;
+    }
+    
+    onDefaultNotificationRolesChange([...defaultNotificationRoles, { id: role.id, name: role.name }]);
+    setSelectedNotificationRoleId('');
+  };
+
+  const handleRemoveNotificationRole = (roleId: string) => {
+    if (!onDefaultNotificationRolesChange) return;
+    onDefaultNotificationRolesChange(defaultNotificationRoles.filter(r => r.id !== roleId));
+  };
+
   const handleRemoveChannel = (channelId: string) => {
     const updatedChannels = discordChannels.filter(c => c.id !== channelId);
     onChannelsChange?.(updatedChannels);
@@ -548,7 +575,7 @@ const SquadronDiscordSettings: React.FC<SquadronDiscordSettingsProps> = ({
           placeholder="e.g., 🦅 or :eagle:"
           maxLength={50}
           style={{
-            width: '100%',
+            maxWidth: '300px',
             padding: '8px 12px',
             border: '1px solid #CBD5E1',
             borderRadius: '4px',
@@ -780,6 +807,115 @@ const SquadronDiscordSettings: React.FC<SquadronDiscordSettingsProps> = ({
             </div>
           )}
         </div>
+      </div>
+
+      {/* Default Initial Event Notification Recipients Section */}
+      <div style={{ marginBottom: '20px' }}>
+        <label style={{
+          fontSize: '14px',
+          fontWeight: 500,
+          color: '#64748B',
+          marginBottom: '12px',
+          display: 'block'
+        }}>
+          Default Initial Event Notification Recipients
+        </label>
+        <div style={{ marginBottom: '12px', display: 'flex', gap: '8px', alignItems: 'center' }}>
+          <select
+            value={selectedNotificationRoleId}
+            onChange={(e) => setSelectedNotificationRoleId(e.target.value)}
+            disabled={loadingRoles || !availableDiscordRoles || availableDiscordRoles.length === 0}
+            style={{
+              flex: 1,
+              padding: '8px 12px',
+              border: '1px solid #CBD5E1',
+              borderRadius: '6px',
+              fontSize: '14px',
+              backgroundColor: '#FFFFFF',
+              color: '#0F172A',
+              cursor: loadingRoles ? 'not-allowed' : 'pointer'
+            }}
+          >
+            <option value="">
+              {loadingRoles ? 'Loading roles...' : availableDiscordRoles && availableDiscordRoles.length > 0 ? 'Select a role to notify' : 'No roles available'}
+            </option>
+            {availableDiscordRoles && availableDiscordRoles.map(role => (
+              <option key={role.id} value={role.id}>
+                {role.name}
+              </option>
+            ))}
+          </select>
+          <button
+            onClick={handleAddNotificationRole}
+            disabled={!selectedNotificationRoleId || loadingRoles}
+            style={{
+              padding: '8px 16px',
+              backgroundColor: selectedNotificationRoleId && !loadingRoles ? '#3B82F6' : '#CBD5E1',
+              color: '#FFFFFF',
+              border: 'none',
+              borderRadius: '6px',
+              fontSize: '14px',
+              fontWeight: 500,
+              cursor: selectedNotificationRoleId && !loadingRoles ? 'pointer' : 'not-allowed',
+              whiteSpace: 'nowrap'
+            }}
+          >
+            Add
+          </button>
+        </div>
+        {defaultNotificationRoles && defaultNotificationRoles.length > 0 && (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+            {defaultNotificationRoles.map(role => (
+              <div
+                key={role.id}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '4px 8px 4px 10px',
+                  borderRadius: '8px',
+                  fontSize: '12px',
+                  fontWeight: '500',
+                  height: '26px',
+                  boxSizing: 'border-box',
+                  whiteSpace: 'nowrap',
+                  backgroundColor: '#DBEAFE',
+                  color: '#1D4ED8',
+                  border: '1px solid #3B82F6'
+                }}
+              >
+                <span>@{role.name}</span>
+                <button
+                  type="button"
+                  onClick={() => handleRemoveNotificationRole(role.id)}
+                  style={{
+                    padding: '0',
+                    width: '14px',
+                    height: '14px',
+                    backgroundColor: 'transparent',
+                    border: 'none',
+                    cursor: 'pointer',
+                    color: '#1D4ED8',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    borderRadius: '50%',
+                    transition: 'background-color 0.2s'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = 'rgba(29, 78, 216, 0.1)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = 'transparent';
+                  }}
+                  title="Remove role"
+                >
+                  <X size={12} strokeWidth={2.5} />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Threading Settings Section */}
