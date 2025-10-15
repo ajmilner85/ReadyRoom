@@ -438,7 +438,8 @@ app.post('/api/events/publish', async (req, res) => {
             trackQualifications: eventData.track_qualifications || eventSettings.groupResponsesByQualification || false,
             eventType: eventData.event_type || null,
             groupBySquadron: eventSettings.groupBySquadron || false,
-            participatingSquadrons: participatingSquadrons // Pass to Discord bot
+            participatingSquadrons: participatingSquadrons, // Pass to Discord bot
+            initialNotificationRoles: eventSettings.initialNotificationRoles || [] // For @mentions on initial publication
           };
           
           // Use creator info from database if available
