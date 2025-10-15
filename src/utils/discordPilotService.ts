@@ -278,18 +278,19 @@ export async function matchDiscordMembersWithPilots(discordMembers: DiscordMembe
   const pilots = adaptSupabasePilots(existingPilots);
   
   const matches = await Promise.all(discordMembers.map(async member => {
-    
-    // Try to find an exact match by Discord Username first (this is the primary matching criteria now)
-    const exactMatchByUsername = pilots.find(p => p.discordUsername === member.username);
-    if (exactMatchByUsername) {
+
+    // Try to find an exact match by Discord ID first (this is the stable unique identifier)
+    const exactMatchByDiscordId = pilots.find(p => p.discord_id === member.id);
+    if (exactMatchByDiscordId) {
+      // Found exact match by Discord ID - this is the most reliable match
     }
-    
-    // Only proceed with fallback matching if Discord Username is empty/null for this member
-    // This prevents false matches for users with usernames like "mrs.zapp" or "zapp0651"
+
+    // Only proceed with fallback matching if no Discord ID match found
+    // This prevents false matches for users with similar usernames
     let potentialMatches: Pilot[] = [];
     let bestMatch: Pilot | null = null;
-    
-    if (!exactMatchByUsername && !member.username && member.boardNumber) {
+
+    if (!exactMatchByDiscordId && member.boardNumber) {
       // Try to find matches by board number
       const boardMatches = pilots.filter(p => p.boardNumber === member.boardNumber);
       
@@ -323,11 +324,13 @@ export async function matchDiscordMembersWithPilots(discordMembers: DiscordMembe
           }
         }
       }
-    } else if (!exactMatchByUsername && member.username) {
+    } else if (!exactMatchByDiscordId && member.username) {
+      // No Discord ID match and no board number, but we have username
+      // This is a less reliable fallback match scenario
     }
-    
-    // Determine the matched pilot (exact match by Discord Username takes precedence)
-    const matchedPilot = exactMatchByUsername || bestMatch;
+
+    // Determine the matched pilot (exact match by Discord ID takes precedence)
+    const matchedPilot = exactMatchByDiscordId || bestMatch;
     
     // Set appropriate action and selectedPilotId based on matching results
     let action: 'do-nothing' | 'create-new' | 'update-existing' = 'do-nothing';
