@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { X, Clock, Image as ImageIcon, ChevronLeft, ChevronRight, Check } from 'lucide-react';
+import { X, Clock, Image as ImageIcon, ChevronLeft, ChevronRight, Check, Plus } from 'lucide-react';
 import { useAppSettings } from '../../../context/AppSettingsContext';
+import { fetchDiscordGuildRoles } from '../../../utils/discordService';
 
 interface EventDialogProps {
   onSave: (eventData: {
@@ -42,6 +43,7 @@ interface EventDialogProps {
           noResponse: boolean;
         };
       };
+      initialNotificationRoles?: Array<{ id: string; name: string }>;
     };
   }, shouldPublish?: boolean) => Promise<void>;
   onCancel: () => void;
@@ -82,6 +84,7 @@ interface EventDialogProps {
         declined: boolean;
         noResponse: boolean;
       };
+      initialNotificationRoles?: Array<{ id: string; name: string }>;
       // Legacy fields (deprecated)
       sendRemindersToAccepted?: boolean;
       sendRemindersToTentative?: boolean;
@@ -92,6 +95,20 @@ interface EventDialogProps {
 }
 
 type WorkflowStep = 'details' | 'participants' | 'reminders';
+
+// Helper function to convert reminder time to milliseconds
+const reminderTimeToMilliseconds = (value: number, unit: 'minutes' | 'hours' | 'days'): number => {
+  switch (unit) {
+    case 'minutes':
+      return value * 60 * 1000;
+    case 'hours':
+      return value * 60 * 60 * 1000;
+    case 'days':
+      return value * 24 * 60 * 60 * 1000;
+    default:
+      return 0;
+  }
+};
 
 export const EventDialog: React.FC<EventDialogProps> = ({
   onSave,
@@ -198,6 +215,14 @@ export const EventDialog: React.FC<EventDialogProps> = ({
   const [secondReminderNoResponse, setSecondReminderNoResponse] = useState(
     initialData?.eventSettings?.secondReminderRecipients?.noResponse ?? settings.eventDefaults.secondReminderRecipients?.noResponse ?? false
   );
+  
+  // Discord role notifications state
+  const [availableDiscordRoles, setAvailableDiscordRoles] = useState<Array<{ id: string; name: string; mentionable: boolean }>>([]);
+  const [selectedNotificationRoles, setSelectedNotificationRoles] = useState<Array<{ id: string; name: string }>>(
+    initialData?.eventSettings?.initialNotificationRoles || settings.eventDefaults.initialNotificationRoles || []
+  );
+  const [loadingRoles, setLoadingRoles] = useState(false);
+  const [selectedRoleId, setSelectedRoleId] = useState('');
   
   // Image state
   const [images, setImages] = useState<(File | null)[]>([null, null, null, null]);
@@ -479,6 +504,83 @@ export const EventDialog: React.FC<EventDialogProps> = ({
     }
   }, [datetime, durationHours, durationMinutes]);
 
+  // Fetch Discord roles when squadrons are available
+  useEffect(() => {
+    const fetchRoles = async () => {
+      // Get the guild ID from the first squadron with Discord integration
+      let guildId: string | null = null;
+      
+      if (squadrons && squadrons.length > 0) {
+        for (const squadron of squadrons) {
+          const squadronData = squadron as any;
+          const discordIntegration = squadronData.discord_integration;
+          if (discordIntegration && discordIntegration.selectedGuildId) {
+            guildId = discordIntegration.selectedGuildId;
+            break;
+          }
+        }
+      }
+      
+      if (!guildId) {
+        setAvailableDiscordRoles([]);
+        return;
+      }
+      
+      setLoadingRoles(true);
+      try {
+        const result = await fetchDiscordGuildRoles(guildId);
+        if (!result.error && result.roles) {
+          // Filter to only mentionable roles
+          const mentionableRoles = result.roles
+            .filter(role => role.mentionable && role.name !== '@everyone')
+            .map(role => ({ id: role.id, name: role.name, mentionable: role.mentionable }));
+          setAvailableDiscordRoles(mentionableRoles);
+        }
+      } catch (error) {
+        console.error('Error fetching Discord roles:', error);
+      } finally {
+        setLoadingRoles(false);
+      }
+    };
+    
+    fetchRoles();
+  }, [squadrons]);
+
+  // Load default notification roles from squadron settings when creating a new event
+  useEffect(() => {
+    // Only load defaults if this is a new event (no initialData) and we haven't already set roles
+    if (initialData || selectedNotificationRoles.length > 0) {
+      return;
+    }
+
+    // Find the squadron's default notification roles
+    if (squadrons && squadrons.length > 0) {
+      // If restricted to a specific squadron, use that squadron's defaults
+      const restrictedSquadronNames = restrictedTo.filter(name => name !== 'All Pilots');
+      if (restrictedSquadronNames.length > 0) {
+        const squadron = squadrons.find(s => restrictedSquadronNames.includes(s.name));
+        if (squadron) {
+          const squadronData = squadron as any;
+          const discordIntegration = squadronData.discord_integration;
+          if (discordIntegration?.defaultNotificationRoles && Array.isArray(discordIntegration.defaultNotificationRoles) && discordIntegration.defaultNotificationRoles.length > 0) {
+            setSelectedNotificationRoles(discordIntegration.defaultNotificationRoles);
+            return;
+          }
+        }
+      }
+      
+      // If "All Pilots" or no specific squadron, use the first squadron with defaults
+      for (const squadron of squadrons) {
+        const squadronData = squadron as any;
+        const discordIntegration = squadronData.discord_integration;
+        if (discordIntegration?.defaultNotificationRoles && Array.isArray(discordIntegration.defaultNotificationRoles) && discordIntegration.defaultNotificationRoles.length > 0) {
+          setSelectedNotificationRoles(discordIntegration.defaultNotificationRoles);
+          break;
+        }
+      }
+    }
+  }, [initialData, squadrons, restrictedTo, selectedNotificationRoles.length]);
+
   const handleDatetimeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setDatetime(e.target.value);
   };
@@ -535,7 +637,17 @@ export const EventDialog: React.FC<EventDialogProps> = ({
         return true;
         
       case 'reminders':
-        // No specific validation required for reminders step
+        // Validate that reminders are chronologically ordered
+        if (firstReminderEnabled && secondReminderEnabled) {
+          // Convert both reminders to milliseconds for comparison
+          const firstReminderMs = reminderTimeToMilliseconds(firstReminderValue, firstReminderUnit);
+          const secondReminderMs = reminderTimeToMilliseconds(secondReminderValue, secondReminderUnit);
+          
+          if (secondReminderMs >= firstReminderMs) {
+            setError('Second reminder must be scheduled before the first reminder (closer to event start)');
+            return false;
+          }
+        }
         return true;
         
       default:
@@ -567,6 +679,27 @@ export const EventDialog: React.FC<EventDialogProps> = ({
     if (stepIndex <= currentStepIndex || completedSteps.has(stepKey)) {
       setCurrentStep(stepKey);
     }
+  };
+
+  const handleAddNotificationRole = () => {
+    if (!selectedRoleId) return;
+    
+    const role = availableDiscordRoles.find(r => r.id === selectedRoleId);
+    if (!role) return;
+    
+    // Check if role is already added
+    if (selectedNotificationRoles.some(r => r.id === role.id)) {
+      setError('This role has already been added');
+      setTimeout(() => setError(''), 3000);
+      return;
+    }
+    
+    setSelectedNotificationRoles([...selectedNotificationRoles, { id: role.id, name: role.name }]);
+    setSelectedRoleId('');
+  };
+
+  const handleRemoveNotificationRole = (roleId: string) => {
+    setSelectedNotificationRoles(selectedNotificationRoles.filter(r => r.id !== roleId));
   };
 
   const handleSubmit = async (shouldPublish: boolean = false) => {
@@ -646,7 +779,8 @@ export const EventDialog: React.FC<EventDialogProps> = ({
               declined: secondReminderDeclined,
               noResponse: secondReminderNoResponse
             }
-          }
+          },
+          initialNotificationRoles: selectedNotificationRoles
         }
       }, shouldPublish);
     } catch (error) {
@@ -1436,6 +1570,116 @@ export const EventDialog: React.FC<EventDialogProps> = ({
 
           {currentStep === 'reminders' && (
             <div>
+              {/* Initial Notification Roles */}
+              <div style={{ marginBottom: '24px', padding: '16px', border: '1px solid #E5E7EB', borderRadius: '6px', backgroundColor: '#F8FAFC' }}>
+                <div style={{ marginBottom: '12px' }}>
+                  <span style={{ fontSize: '14px', fontWeight: 500, color: '#374151' }}>Initial Notification</span>
+                  <p style={{ fontSize: '12px', color: '#64748B', marginTop: '4px', fontStyle: 'italic' }}>
+                    Mention Discord roles when the event is first published
+                  </p>
+                </div>
+
+                <div style={{ display: 'flex', gap: '8px', marginBottom: selectedNotificationRoles.length > 0 ? '12px' : '0' }}>
+                  <select
+                    value={selectedRoleId}
+                    onChange={(e) => setSelectedRoleId(e.target.value)}
+                    disabled={loadingRoles || availableDiscordRoles.length === 0}
+                    style={{
+                      flex: 1,
+                      padding: '8px',
+                      border: '1px solid #CBD5E1',
+                      borderRadius: '4px',
+                      fontSize: '14px',
+                      backgroundColor: loadingRoles ? '#F9FAFB' : 'white',
+                      cursor: loadingRoles ? 'not-allowed' : 'pointer'
+                    }}
+                  >
+                    <option value="">
+                      {loadingRoles ? 'Loading roles...' : availableDiscordRoles.length === 0 ? 'No mentionable roles available' : 'Select a Discord role'}
+                    </option>
+                    {availableDiscordRoles.map((role) => (
+                      <option key={role.id} value={role.id}>
+                        {role.name}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={handleAddNotificationRole}
+                    disabled={!selectedRoleId || loadingRoles}
+                    style={{
+                      padding: '8px 16px',
+                      backgroundColor: !selectedRoleId || loadingRoles ? '#9CA3AF' : '#3B82F6',
+                      color: '#FFFFFF',
+                      border: 'none',
+                      borderRadius: '4px',
+                      cursor: !selectedRoleId || loadingRoles ? 'not-allowed' : 'pointer',
+                      fontSize: '14px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px'
+                    }}
+                  >
+                    <Plus size={16} />
+                    Add
+                  </button>
+                </div>
+
+                {selectedNotificationRoles.length > 0 && (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                    {selectedNotificationRoles.map((role) => (
+                      <div
+                        key={role.id}
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          padding: '4px 8px 4px 10px',
+                          borderRadius: '8px',
+                          fontSize: '12px',
+                          fontWeight: '500',
+                          height: '26px',
+                          boxSizing: 'border-box',
+                          whiteSpace: 'nowrap',
+                          backgroundColor: '#DBEAFE',
+                          color: '#1D4ED8',
+                          border: '1px solid #3B82F6'
+                        }}
+                      >
+                        <span>@{role.name}</span>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveNotificationRole(role.id)}
+                          style={{
+                            padding: '0',
+                            width: '14px',
+                            height: '14px',
+                            backgroundColor: 'transparent',
+                            border: 'none',
+                            cursor: 'pointer',
+                            color: '#1D4ED8',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            borderRadius: '50%',
+                            transition: 'background-color 0.2s'
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.backgroundColor = 'rgba(29, 78, 216, 0.1)';
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.backgroundColor = 'transparent';
+                          }}
+                          title="Remove role"
+                        >
+                          <X size={12} strokeWidth={2.5} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
               <div style={{ marginBottom: '24px', padding: '16px', border: '1px solid #E5E7EB', borderRadius: '6px', backgroundColor: '#F8FAFC' }}>
                 <div style={{ marginBottom: '12px' }}>
                   <span style={{ fontSize: '14px', fontWeight: 500, color: '#374151' }}>First Reminder</span>

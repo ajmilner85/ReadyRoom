@@ -231,7 +231,16 @@ function createEventEmbed(title, description, eventTime, responses = {}, creator
   }
 
   // NEW STRUCTURE: Build attendance fields
-  if (shouldGroupBySquadron) {
+  
+  // Check if there are no responses at all
+  const hasNoResponses = accepted.length === 0 && tentative.length === 0 && declined.length === 0;
+  
+  if (hasNoResponses) {
+    // Add placeholder text when no responses have been recorded yet
+    embed.addFields(
+      { name: '\u200B', value: '*No Responses Recorded Yet*', inline: false }
+    );
+  } else if (shouldGroupBySquadron) {
     console.log(`[EMBED-STRUCTURE] Building with squadron grouping`);
     
     const squadronGroups = organizeBySquadron(accepted, tentative, declined);

@@ -428,7 +428,7 @@ app.delete('/api/events/:discordMessageId', async (req, res) => {
 // Add detailed logging to the publish endpoint
 app.post('/api/events/publish', async (req, res) => {
   try {
-    const { title, description, startTime, endTime, eventId, guildId, channelId, imageUrl, images, creator } = req.body;
+    const { title, description, startTime, endTime, eventId, guildId, channelId, imageUrl, images, creator, notificationRoles } = req.body;
     
     // console.log('[DEBUG] Received event publish request:', { 
     //   timestamp: new Date().toISOString(),
@@ -488,7 +488,7 @@ app.post('/api/events/publish', async (req, res) => {
       try {
         const { data: eventData, error: eventError } = await supabase
           .from('events')
-          .select('track_qualifications, event_type, creator_call_sign, creator_board_number, creator_billet, participants')
+          .select('track_qualifications, event_type, creator_call_sign, creator_board_number, creator_billet, participants, event_settings')
           .eq('id', eventId)
           .single();
         
@@ -500,7 +500,9 @@ app.post('/api/events/publish', async (req, res) => {
           eventOptions = {
             trackQualifications: eventData.track_qualifications || false,
             eventType: eventData.event_type || null,
-            participatingSquadrons: participatingSquadrons // Pass to Discord bot
+            participatingSquadrons: participatingSquadrons, // Pass to Discord bot
+            // Use notificationRoles from request body (already deduplicated by frontend)
+            initialNotificationRoles: notificationRoles || []
           };
           
           // Use creator info from database if available

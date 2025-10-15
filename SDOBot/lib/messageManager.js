@@ -51,9 +51,18 @@ async function publishEventToDiscord(title, description, eventTime, guildId, cha
     const additionalEmbeds = createAdditionalImageEmbeds(imageData, 'https://readyroom.app');
     const allEmbeds = [eventEmbed, ...additionalEmbeds];
     
+    // Build role mentions string if initialNotificationRoles are provided
+    let messageContent = null;
+    if (eventOptions.initialNotificationRoles && eventOptions.initialNotificationRoles.length > 0) {
+      const roleMentions = eventOptions.initialNotificationRoles.map(role => `<@&${role.id}>`).join(' ');
+      messageContent = roleMentions;
+      console.log(`[BOT-PUBLISH] Including role mentions: ${messageContent}`);
+    }
+    
     console.log(`[BOT-PUBLISH] About to send message to channel ${eventsChannel.name}`);
     
     const eventMessage = await eventsChannel.send({
+      content: messageContent,
       embeds: allEmbeds,
       components: [buttons]
     });
