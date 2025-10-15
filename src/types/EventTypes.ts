@@ -57,6 +57,7 @@ export interface Event {
       };
       sendRemindersToAccepted?: boolean;
       sendRemindersToTentative?: boolean;
+      initialNotificationRoles?: Array<{ id: string; name: string }>;
     };
     creator: {
       boardNumber: string;

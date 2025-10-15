@@ -1520,6 +1520,11 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
         ? `**${eventDate} Flight Assignments (v1) ${stepTimeString}**`
         : `**${eventDate} Flight Assignments (v1)**`;
       formData.append('message', messageText);
+      
+      // Add role mentions if configured for the event
+      if (selectedEvent?.eventSettings?.initialNotificationRoles && selectedEvent.eventSettings.initialNotificationRoles.length > 0) {
+        formData.append('roleMentions', JSON.stringify(selectedEvent.eventSettings.initialNotificationRoles));
+      }
 
       console.log(`Publishing to Discord - Squadron: ${squadronGroup.squadron.name}, Guild: ${discordIntegration.selectedGuildId}, Channel: ${briefingChannel.id} (${briefingChannel.name})`);
 
