@@ -756,13 +756,18 @@ app.put('/api/events/:messageId/edit', async (req, res) => {
               const reminderTime = new Date(newStartTime.getTime() - reminderMs);
 
               if (reminderTime > now) {
+                const recipients = reminders.firstReminder.recipients || {};
                 const { error: scheduleError} = await supabase
                   .from('event_reminders')
                   .insert({
                     event_id: eventId,
                     reminder_type: 'first',
                     scheduled_time: reminderTime.toISOString(),
-                    sent: false
+                    sent: false,
+                    notify_accepted: recipients.accepted || false,
+                    notify_tentative: recipients.tentative || false,
+                    notify_declined: recipients.declined || false,
+                    notify_no_response: recipients.noResponse || false
                   });
 
                 if (scheduleError) {
@@ -777,41 +782,22 @@ app.put('/api/events/:messageId/edit', async (req, res) => {
               const reminderTime = new Date(newStartTime.getTime() - reminderMs);
 
               if (reminderTime > now) {
+                const recipients = reminders.secondReminder.recipients || {};
                 const { error: scheduleError } = await supabase
                   .from('event_reminders')
                   .insert({
                     event_id: eventId,
                     reminder_type: 'second',
                     scheduled_time: reminderTime.toISOString(),
-                    sent: false
+                    sent: false,
+                    notify_accepted: recipients.accepted || false,
+                    notify_tentative: recipients.tentative || false,
+                    notify_declined: recipients.declined || false,
+                    notify_no_response: recipients.noResponse || false
                   });
 
                 if (scheduleError) {
                   console.error('[ERROR] Failed to schedule second reminder:', scheduleError);
-                }
-              }
-            }
-            
-            // If no reminder settings provided, fallback to 15-minute default
-            if (!reminders?.firstReminder?.enabled && !reminders?.secondReminder?.enabled) {
-              const reminderTime = new Date(newStartTime.getTime() - (15 * 60 * 1000));
-
-              if (reminderTime > now) {
-                const { error: scheduleError } = await supabase
-                  .from('event_reminders')
-                  .insert({
-                    event_id: eventId,
-                    reminder_type: 'first',
-                    scheduled_time: reminderTime.toISOString(),
-                    sent: false,
-                    notify_accepted: true,
-                    notify_tentative: true,
-                    notify_declined: false,
-                    notify_no_response: false
-                  });
-
-                if (scheduleError) {
-                  console.error('[ERROR] Failed to schedule default reminder:', scheduleError);
                 }
               }
             }
@@ -1680,14 +1666,13 @@ async function processIndividualReminder(reminder) {
     return;
   }
 
-  // Build response types array based on reminder recipient settings from event_settings
-  const eventSettings = eventData.event_settings || {};
-  const recipientsKey = reminder.reminder_type === 'first' ? 'firstReminderRecipients' : 'secondReminderRecipients';
-  const recipients = eventSettings[recipientsKey] || {
-    accepted: true,
-    tentative: true,
-    declined: false,
-    noResponse: false
+  // Build response types array based on reminder recipient settings from the reminder record
+  // Use the notify_* fields from the event_reminders table
+  const recipients = {
+    accepted: reminder.notify_accepted ?? false,
+    tentative: reminder.notify_tentative ?? false,
+    declined: reminder.notify_declined ?? false,
+    noResponse: reminder.notify_no_response ?? false
   };
 
   const responseTypes = [];
@@ -1889,7 +1874,14 @@ async function sendReminderToDiscordChannels(event, message) {
       }
     });
 
-    console.log(`[REMINDER] Processing ${uniquePublications.size} unique publications (${event.discord_event_id.length} total)`);
+    console.log(`[REMINDER-DEDUP] Event ${event.id}: ${event.discord_event_id.length} total publications, ${uniquePublications.size} unique locations`);
+    console.log(`[REMINDER-DEDUP] Publications:`, event.discord_event_id.map(p => ({
+      squadron: p.squadronId,
+      guild: p.guildId,
+      channel: p.channelId,
+      thread: p.threadId,
+      message: p.messageId
+    })));
 
     for (const publication of uniquePublications.values()) {
       try {
@@ -1957,15 +1949,18 @@ async function sendReminderToDiscordChannels(event, message) {
         }
         
         // Send the reminder message
+        console.log(`[REMINDER-SEND] Event ${event.id}: targetChannelId=${targetChannelId}, publication.channelId=${publication.channelId}, isThread=${targetChannelId !== publication.channelId}`);
         let reminderResult;
         if (targetChannelId !== publication.channelId) {
           // We're sending to a thread, use postMessageToThread directly
+          console.log(`[REMINDER-SEND] Posting to THREAD ${targetChannelId} in guild ${publication.guildId}`);
           reminderResult = await postMessageToThread(targetChannelId, publication.guildId, message);
-          console.log(`[REMINDER] Sent reminder to thread ${targetChannelId} in guild ${publication.guildId}`);
+          console.log(`[REMINDER-SEND] Thread post result:`, reminderResult);
         } else {
           // No thread, use normal channel messaging
+          console.log(`[REMINDER-SEND] Posting to CHANNEL ${targetChannelId} in guild ${publication.guildId}`);
           reminderResult = await sendReminderMessage(publication.guildId, targetChannelId, message);
-          console.log(`[REMINDER] Sent reminder to channel ${targetChannelId} in guild ${publication.guildId}`);
+          console.log(`[REMINDER-SEND] Channel post result:`, reminderResult);
           
           // If threading is disabled and we posted to channel, track the message ID for deletion
           if (reminderResult.success && reminderResult.messageId) {

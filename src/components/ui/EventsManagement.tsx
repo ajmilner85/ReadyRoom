@@ -211,7 +211,7 @@ const EventsManagement: React.FC = () => {
     }
   };  
     // Load events from database
-  const loadEvents = async (cycleId?: string) => {
+  const loadEvents = async (cycleId?: string): Promise<Event[]> => {
     setLoading(prev => ({ ...prev, events: true }));
     try {
       // Fetch events for the cycle without Discord guild ID filtering (supports multi-squadron publishing)
@@ -240,12 +240,13 @@ const EventsManagement: React.FC = () => {
         
         // Remove the problematic JSONB field from the spread to prevent React rendering issues
         const { discord_event_id: _, ...eventWithoutDiscordEventId } = eventObj;
-        
+
         return {
           ...eventWithoutDiscordEventId,
           // Store the ID in both potential field names for maximum compatibility (as strings only)
           discordMessageId: typeof discordMessageId === 'string' ? discordMessageId : undefined,
           discord_event_id: typeof discordMessageId === 'string' ? discordMessageId : undefined
+          // Note: eventSettings is already mapped by fetchEvents (supabaseClient.ts), no need to map again
         };
       });
       
@@ -283,14 +284,17 @@ const EventsManagement: React.FC = () => {
           setFilteredEvents([]);
         }
       }
+
+      return eventsWithDiscordIds;
     } catch (err: any) {
       setError(`Failed to load events: ${err.message}`);
       setFilteredEvents([]); // Clear filtered events on error
+      return [];
     } finally {
       // Turn off events loading and also the initial loading state
-      setLoading(prev => ({ 
-        ...prev, 
-        events: false, 
+      setLoading(prev => ({
+        ...prev,
+        events: false,
         initial: false // Mark initial loading as complete when events are loaded
       }));
     }
@@ -317,16 +321,25 @@ const EventsManagement: React.FC = () => {
         enabled: boolean;
         value: number;
         unit: 'minutes' | 'hours' | 'days';
+        recipients?: {
+          accepted: boolean;
+          tentative: boolean;
+          declined: boolean;
+          noResponse: boolean;
+        };
       };
       secondReminder?: {
         enabled: boolean;
         value: number;
         unit: 'minutes' | 'hours' | 'days';
+        recipients?: {
+          accepted: boolean;
+          tentative: boolean;
+          declined: boolean;
+          noResponse: boolean;
+        };
       };
-    };
-    reminderRecipients?: {
-      sendToAccepted: boolean;
-      sendToTentative: boolean;
+      initialNotificationRoles?: Array<{ id: string; name: string }>;
     };
   }, shouldPublish: boolean = false) => {
     
@@ -531,25 +544,56 @@ const EventsManagement: React.FC = () => {
         enabled: boolean;
         value: number;
         unit: 'minutes' | 'hours' | 'days';
+        recipients?: {
+          accepted: boolean;
+          tentative: boolean;
+          declined: boolean;
+          noResponse: boolean;
+        };
       };
       secondReminder?: {
         enabled: boolean;
         value: number;
         unit: 'minutes' | 'hours' | 'days';
+        recipients?: {
+          accepted: boolean;
+          tentative: boolean;
+          declined: boolean;
+          noResponse: boolean;
+        };
       };
-    };
-    reminderRecipients?: {
-      sendToAccepted: boolean;
-      sendToTentative: boolean;
+      initialNotificationRoles?: Array<{ id: string; name: string }>;
     };
   }, shouldPublish: boolean = false) => {
     
     if (!editingEvent) return;
-    
+
     try {
+      // Build event_settings object to save reminder settings
+      const eventSettingsToSave = {
+        ...(editingEvent.eventSettings || {}),
+        timezone: eventData.timezone,
+        groupBySquadron: eventData.groupBySquadron,
+        groupResponsesByQualification: eventData.trackQualifications,
+        firstReminderEnabled: eventData.reminders?.firstReminder?.enabled,
+        firstReminderTime: eventData.reminders?.firstReminder ? {
+          value: eventData.reminders.firstReminder.value,
+          unit: eventData.reminders.firstReminder.unit
+        } : undefined,
+        firstReminderRecipients: eventData.reminders?.firstReminder?.recipients,
+        secondReminderEnabled: eventData.reminders?.secondReminder?.enabled,
+        secondReminderTime: eventData.reminders?.secondReminder ? {
+          value: eventData.reminders.secondReminder.value,
+          unit: eventData.reminders.secondReminder.unit
+        } : undefined,
+        secondReminderRecipients: eventData.reminders?.secondReminder?.recipients,
+        initialNotificationRoles: eventData.reminders?.initialNotificationRoles
+      };
+
       // First update the database (don't update discord_event_id to preserve JSONB structure)
       const { error } = await updateEvent(editingEvent.id, {
-        ...eventData
+        ...eventData,
+        event_settings: eventSettingsToSave
         // Don't override discord_event_id - let it stay as JSONB in database
       });
       if (error) throw error;
@@ -579,12 +623,14 @@ const EventsManagement: React.FC = () => {
           firstReminder: editingEvent.eventSettings.firstReminderEnabled ? {
             enabled: editingEvent.eventSettings.firstReminderEnabled,
             value: editingEvent.eventSettings.firstReminderTime?.value || 1,
-            unit: editingEvent.eventSettings.firstReminderTime?.unit || 'hours'
+            unit: editingEvent.eventSettings.firstReminderTime?.unit || 'hours',
+            recipients: editingEvent.eventSettings.firstReminderRecipients
           } : undefined,
           secondReminder: editingEvent.eventSettings.secondReminderEnabled ? {
             enabled: editingEvent.eventSettings.secondReminderEnabled,
             value: editingEvent.eventSettings.secondReminderTime?.value || 1,
-            unit: editingEvent.eventSettings.secondReminderTime?.unit || 'hours'
+            unit: editingEvent.eventSettings.secondReminderTime?.unit || 'hours',
+            recipients: editingEvent.eventSettings.secondReminderRecipients
           } : undefined
         } : undefined);
         
@@ -712,7 +758,12 @@ const EventsManagement: React.FC = () => {
       }
       
       // Reload events to get the latest data
-      await loadEvents(selectedCycle?.id);
+      const reloadedEvents = await loadEvents(selectedCycle?.id);
+      // Update selected event with fresh data
+      if (editingEvent && reloadedEvents) {
+        const updatedEvent = reloadedEvents.find(e => e.id === editingEvent.id);
+        if (updatedEvent) setSelectedEvent(updatedEvent);
+      }
       setEditingEvent(null);
       setShowEventDialog(false);
     } catch (err: any) {
@@ -960,6 +1011,9 @@ const EventsManagement: React.FC = () => {
   };
 
   const handleEditEventClick = (event: Event) => {
+    console.log('[EDIT-EVENT-CLICK] Event being edited:', event);
+    console.log('[EDIT-EVENT-CLICK] Event settings:', event.eventSettings);
+    console.log('[EDIT-EVENT-CLICK] First reminder settings:', event.eventSettings?.firstReminderTime, event.eventSettings?.firstReminderRecipients);
     setEditingEvent(event);
     setShowEventDialog(true);
   };
