@@ -316,6 +316,7 @@ const EventsManagement: React.FC = () => {
     additionalImages?: (File | string | null)[];
     trackQualifications?: boolean;
     timezone?: string;
+    groupBySquadron?: boolean;
     reminders?: {
       firstReminder?: {
         enabled: boolean;
@@ -539,6 +540,7 @@ const EventsManagement: React.FC = () => {
     additionalImages?: (File | string | null)[];
     trackQualifications?: boolean;
     timezone?: string;
+    groupBySquadron?: boolean;
     reminders?: {
       firstReminder?: {
         enabled: boolean;
