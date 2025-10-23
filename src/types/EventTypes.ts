@@ -1,3 +1,5 @@
+import type { EventSettings } from '../utils/supabaseClient';
+
 export type CycleType = 'Training' | 'Cruise-WorkUp' | 'Cruise-Mission' | 'Other';
 export type EventType = 'Hop' | 'Evolution' | 'Episode' | 'Re-attack' | 'Free Fly' | 'Foothold' | 'Pretense' | 'Other';
 
@@ -42,23 +44,7 @@ export interface Event {
     participants?: string[]; // Override cycle's participating squadrons
     trackQualifications?: boolean; // Whether to group responses by qualification
     // Event-specific settings (stored in event_settings JSONB column)
-    eventSettings?: {
-      timezone?: string;
-      groupResponsesByQualification?: boolean;
-      firstReminderEnabled?: boolean;
-      firstReminderTime?: {
-        value: number;
-        unit: 'minutes' | 'hours' | 'days';
-      };
-      secondReminderEnabled?: boolean;
-      secondReminderTime?: {
-        value: number;
-        unit: 'minutes' | 'hours' | 'days';
-      };
-      sendRemindersToAccepted?: boolean;
-      sendRemindersToTentative?: boolean;
-      initialNotificationRoles?: Array<{ id: string; name: string }>;
-    };
+    eventSettings?: EventSettings;
     creator: {
       boardNumber: string;
       callsign: string;

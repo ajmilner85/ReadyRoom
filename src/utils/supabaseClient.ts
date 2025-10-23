@@ -581,9 +581,10 @@ export const createEvent = async (event: Omit<Event, 'id' | 'creator' | 'attenda
   return { event: newEvent, error: null };
 };
 
-export const updateEvent = async (eventId: string, updates: Partial<Omit<Event, 'id' | 'creator' | 'attendance'>> & { 
+export const updateEvent = async (eventId: string, updates: Partial<Omit<Event, 'id' | 'creator' | 'attendance'>> & {
   timezone?: string;
   participants?: string[];
+  groupBySquadron?: boolean;
   reminders?: {
     firstReminder?: {
       enabled: boolean;
@@ -601,6 +602,7 @@ export const updateEvent = async (eventId: string, updates: Partial<Omit<Event, 
     sendToTentative: boolean;
   };
   eventSettings?: EventSettings;
+  event_settings?: EventSettings;
 }) => {
   // Map from frontend format to database format
   const dbUpdates: any = {};
@@ -615,16 +617,21 @@ export const updateEvent = async (eventId: string, updates: Partial<Omit<Event, 
   if (updates.participants !== undefined) dbUpdates.participants = updates.participants;
   // track_qualifications field not in current database schema
   // Handle event settings updates
-  if (updates.timezone !== undefined || updates.trackQualifications !== undefined || (updates as any).groupBySquadron !== undefined || updates.reminders !== undefined || updates.reminderRecipients !== undefined || updates.eventSettings !== undefined) {
-    // First, get existing event settings to merge with updates
-    const { data: existingEvent } = await supabase
-      .from('events')
-      .select('event_settings')
-      .eq('id', eventId)
-      .single();
-    
-    // Start with existing settings or empty object
-    const eventSettings: any = existingEvent?.event_settings || {};
+  if (updates.timezone !== undefined || updates.trackQualifications !== undefined || (updates as any).groupBySquadron !== undefined || updates.reminders !== undefined || updates.reminderRecipients !== undefined || updates.eventSettings !== undefined || (updates as any).event_settings !== undefined) {
+    // If event_settings is passed directly, use it (from EventsManagement.tsx)
+    if ((updates as any).event_settings !== undefined) {
+      dbUpdates.event_settings = (updates as any).event_settings;
+    } else {
+      // Otherwise, build event_settings from individual fields
+      // First, get existing event settings to merge with updates
+      const { data: existingEvent } = await supabase
+        .from('events')
+        .select('event_settings')
+        .eq('id', eventId)
+        .single();
+
+      // Start with existing settings or empty object
+      const eventSettings: any = existingEvent?.event_settings || {};
     
     // Apply updates
     console.log('[UPDATE-EVENT] updates.groupBySquadron:', (updates as any).groupBySquadron);
@@ -663,14 +670,15 @@ export const updateEvent = async (eventId: string, updates: Partial<Omit<Event, 
     if ((updates.reminders as any)?.initialNotificationRoles !== undefined) {
       eventSettings.initialNotificationRoles = (updates.reminders as any).initialNotificationRoles || [];
     }
-    if (updates.reminderRecipients !== undefined) {
-      // Keep old fields for backward compatibility during transition
-      eventSettings.sendRemindersToAccepted = updates.reminderRecipients.sendToAccepted;
-      eventSettings.sendRemindersToTentative = updates.reminderRecipients.sendToTentative;
+      if (updates.reminderRecipients !== undefined) {
+        // Keep old fields for backward compatibility during transition
+        eventSettings.sendRemindersToAccepted = updates.reminderRecipients.sendToAccepted;
+        eventSettings.sendRemindersToTentative = updates.reminderRecipients.sendToTentative;
+      }
+
+      // Update database fields
+      dbUpdates.event_settings = eventSettings;
     }
-    
-    // Update database fields
-    dbUpdates.event_settings = eventSettings;
   }
 
   // Preserve discord_event_id during updates
@@ -962,7 +970,7 @@ export const fetchCarriers = async () => {
 };
 
 // EventSettings interface for type safety
-interface EventSettings {
+export interface EventSettings {
   timezone?: string;
   groupResponsesByQualification?: boolean;
   groupBySquadron?: boolean;
@@ -971,11 +979,24 @@ interface EventSettings {
     value: number;
     unit: 'minutes' | 'hours' | 'days';
   };
+  firstReminderRecipients?: {
+    accepted: boolean;
+    tentative: boolean;
+    declined: boolean;
+    noResponse: boolean;
+  };
   secondReminderEnabled?: boolean;
   secondReminderTime?: {
     value: number;
     unit: 'minutes' | 'hours' | 'days';
   };
+  secondReminderRecipients?: {
+    accepted: boolean;
+    tentative: boolean;
+    declined: boolean;
+    noResponse: boolean;
+  };
   sendReminderToThread?: boolean;
+  initialNotificationRoles?: Array<{ id: string; name: string }>;
 }
 
