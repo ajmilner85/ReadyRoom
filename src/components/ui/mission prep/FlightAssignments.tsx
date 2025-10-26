@@ -1095,7 +1095,9 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
       let lastTextY = eventNameIsWrapped ? insigniaY + 53 : insigniaY + 45;
       if (selectedEvent?.datetime) {
         const eventDate = new Date(selectedEvent.datetime);
+        const timezone = settings.eventDefaults.referenceTimezone || 'America/New_York';
         const formattedDateTime = eventDate.toLocaleString('en-US', {
+          timeZone: timezone,
           weekday: 'short',
           month: 'short',
           day: 'numeric',
@@ -1428,8 +1430,10 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
       formData.append('channelId', String(existingPost.channelId));
 
       // Get event date for Discord message
+      const timezone = settings.eventDefaults.referenceTimezone || 'America/New_York';
       const eventDate = selectedEvent?.datetime ?
         new Date(selectedEvent.datetime).toLocaleDateString('en-US', {
+          timeZone: timezone,
           year: 'numeric',
           month: 'short',
           day: 'numeric'
@@ -1508,8 +1512,10 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
       formData.append('guildId', String(discordIntegration.selectedGuildId));
       formData.append('channelId', String(briefingChannel.id));
       // Get event date for Discord message
+      const timezone = settings.eventDefaults.referenceTimezone || 'America/New_York';
       const eventDate = selectedEvent?.datetime ?
         new Date(selectedEvent.datetime).toLocaleDateString('en-US', {
+          timeZone: timezone,
           year: 'numeric',
           month: 'short',
           day: 'numeric'
