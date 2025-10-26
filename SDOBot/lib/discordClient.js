@@ -53,12 +53,25 @@ async function ensureLoggedIn() {
  */
 async function findEventsChannel(guildId, channelId) {
   await ensureLoggedIn();
-  
+
   if (!guildId) {
     throw new Error('Discord server ID (guildId) is required');
   }
-  
-  const guild = client.guilds.cache.get(guildId);
+
+  let guild = client.guilds.cache.get(guildId);
+
+  // If not in cache, try to fetch it
+  if (!guild) {
+    console.log(`[FIND-CHANNEL] Guild ${guildId} not in cache, attempting to fetch...`);
+    try {
+      guild = await client.guilds.fetch(guildId);
+      console.log(`[FIND-CHANNEL] Successfully fetched guild: ${guild.name}`);
+    } catch (fetchError) {
+      console.error(`[FIND-CHANNEL] Failed to fetch guild:`, fetchError);
+      throw new Error(`Guild with ID ${guildId} not found. The bot might not be added to this server.`);
+    }
+  }
+
   if (!guild) {
     throw new Error(`Guild with ID ${guildId} not found. The bot might not be added to this server.`);
   }

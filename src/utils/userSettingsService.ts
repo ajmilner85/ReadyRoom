@@ -195,6 +195,70 @@ export const updateUserSettings = async (settings: Partial<UserSettings>, userId
 
 // Update only developer settings
 export const updateDeveloperSettings = async (developerSettings: Partial<UserSettings['developer']>): Promise<UserSettingsResponse> => {
+  // If updating bot token preference, apply globally to all users
+  if (developerSettings?.discordBotToken !== undefined) {
+    try {
+      // Get all user profiles
+      const { data: allProfiles, error: fetchError } = await supabase
+        .from('user_profiles')
+        .select('id, settings');
+
+      if (fetchError) {
+        console.error('[UPDATE-DEV-SETTINGS] Error fetching user profiles:', fetchError);
+        return { success: false, error: fetchError.message };
+      }
+
+      if (allProfiles && allProfiles.length > 0) {
+        console.log(`[UPDATE-DEV-SETTINGS] Updating bot token preference globally for ${allProfiles.length} users`);
+
+        // Update each profile's bot token setting
+        const newBotToken = developerSettings?.discordBotToken!; // Already checked !== undefined above
+        const updates = allProfiles.map(async (profile) => {
+          const currentSettings = profile.settings as UserSettings || defaultUserSettings;
+          const updatedSettings: UserSettings = {
+            ...currentSettings,
+            developer: {
+              ...(currentSettings.developer || {}),
+              discordBotToken: newBotToken
+            }
+          };
+
+          const { error: updateError } = await supabase
+            .from('user_profiles')
+            .update({ settings: updatedSettings as any })
+            .eq('id', profile.id);
+
+          if (updateError) {
+            console.error(`[UPDATE-DEV-SETTINGS] Error updating profile ${profile.id}:`, updateError);
+          }
+
+          return updateError;
+        });
+
+        // Wait for all updates to complete
+        const results = await Promise.all(updates);
+        const failures = results.filter(err => err !== null);
+
+        if (failures.length > 0) {
+          console.error(`[UPDATE-DEV-SETTINGS] ${failures.length} profile updates failed`);
+          return { success: false, error: `Failed to update ${failures.length} user profiles` };
+        }
+
+        console.log('[UPDATE-DEV-SETTINGS] Successfully updated bot token preference for all users');
+
+        // Clear all user settings caches since we updated everyone
+        Object.keys(userSettingsCache).forEach(key => delete userSettingsCache[key]);
+
+        // Return the current user's updated settings
+        return updateUserSettings({ developer: developerSettings });
+      }
+    } catch (err: any) {
+      console.error('[UPDATE-DEV-SETTINGS] Unexpected error:', err);
+      return { success: false, error: err.message };
+    }
+  }
+
+  // For other developer settings, just update current user
   return updateUserSettings({ developer: developerSettings });
 };
 

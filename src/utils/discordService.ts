@@ -51,6 +51,12 @@ async function getDiscordEnvironment(): Promise<'development' | 'production'> {
 
 // Helper function to get the appropriate API base URL based on Discord environment
 async function getDiscordApiBaseUrl(): Promise<string> {
+  // Always use VITE_API_URL if set (allows local dev with production bot)
+  // Otherwise fall back to environment-based routing
+  if (import.meta.env.VITE_API_URL) {
+    return import.meta.env.VITE_API_URL;
+  }
+
   const environment = await getDiscordEnvironment();
 
   // If using production Discord bot, connect to production server
@@ -58,7 +64,7 @@ async function getDiscordApiBaseUrl(): Promise<string> {
   if (environment === 'production') {
     return 'https://readyroom.fly.dev';
   } else {
-    return import.meta.env.VITE_API_URL || 'http://localhost:3001';
+    return 'http://localhost:3001';
   }
 }
 

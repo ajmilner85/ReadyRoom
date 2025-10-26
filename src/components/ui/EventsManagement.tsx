@@ -317,6 +317,7 @@ const EventsManagement: React.FC = () => {
     trackQualifications?: boolean;
     timezone?: string;
     groupBySquadron?: boolean;
+    showNoResponse?: boolean;
     reminders?: {
       firstReminder?: {
         enabled: boolean;
@@ -541,6 +542,7 @@ const EventsManagement: React.FC = () => {
     trackQualifications?: boolean;
     timezone?: string;
     groupBySquadron?: boolean;
+    showNoResponse?: boolean;
     reminders?: {
       firstReminder?: {
         enabled: boolean;
@@ -576,6 +578,7 @@ const EventsManagement: React.FC = () => {
         ...(editingEvent.eventSettings || {}),
         timezone: eventData.timezone,
         groupBySquadron: eventData.groupBySquadron,
+        showNoResponse: eventData.showNoResponse,
         groupResponsesByQualification: eventData.trackQualifications,
         firstReminderEnabled: eventData.reminders?.firstReminder?.enabled,
         firstReminderTime: eventData.reminders?.firstReminder ? {
@@ -992,9 +995,15 @@ const EventsManagement: React.FC = () => {
         }
         
         // Delete event from database
+        console.log(`[DELETE-EVENT] Attempting to delete event ${eventToDelete.id} from database`);
         const { error } = await deleteEvent(eventToDelete.id);
-        if (error) throw error;
-        
+        console.log(`[DELETE-EVENT] Delete result - error:`, error);
+        if (error) {
+          console.error(`[DELETE-EVENT] Failed to delete event:`, error);
+          throw error;
+        }
+        console.log(`[DELETE-EVENT] Event deleted successfully from database`);
+
         // If we're deleting the selected event, clear the selection
         if (selectedEvent?.id === eventToDelete.id) {
           setSelectedEvent(null);

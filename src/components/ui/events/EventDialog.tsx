@@ -19,6 +19,7 @@ interface EventDialogProps {
     additionalImages?: (File | string | null)[];
     trackQualifications?: boolean;
     groupBySquadron?: boolean;
+    showNoResponse?: boolean;
     timezone?: string;
     reminders?: {
       firstReminder?: {
@@ -62,6 +63,7 @@ interface EventDialogProps {
       timezone?: string;
       groupResponsesByQualification?: boolean;
       groupBySquadron?: boolean;
+      showNoResponse?: boolean;
       firstReminderEnabled?: boolean;
       firstReminderTime?: {
         value: number;
@@ -153,6 +155,12 @@ export const EventDialog: React.FC<EventDialogProps> = ({
     initialData?.eventSettings?.groupBySquadron !== undefined
       ? initialData.eventSettings.groupBySquadron
       : settings.eventDefaults.groupBySquadron
+  );
+
+  const [showNoResponse, setShowNoResponse] = useState(
+    initialData?.eventSettings?.showNoResponse !== undefined
+      ? initialData.eventSettings.showNoResponse
+      : settings.eventDefaults.showNoResponse
   );
 
   // Reminder settings state - prioritize event settings over app defaults
@@ -813,6 +821,7 @@ export const EventDialog: React.FC<EventDialogProps> = ({
         additionalImages: additionalImagesForSubmit as (File | string)[],
         trackQualifications,
         groupBySquadron,
+        showNoResponse,
         timezone,
         reminders: {
           firstReminder: {
@@ -1615,6 +1624,52 @@ export const EventDialog: React.FC<EventDialogProps> = ({
                         position: 'absolute',
                         top: '2px',
                         left: groupBySquadron ? '22px' : '2px',
+                        transition: 'left 0.2s ease',
+                        boxShadow: '0 2px 4px rgba(0, 0, 0, 0.2)'
+                      }}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ marginBottom: '16px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div>
+                    <label style={{
+                      fontSize: '14px',
+                      fontWeight: 500,
+                      color: '#64748B',
+                      marginBottom: '4px',
+                      display: 'block'
+                    }}>
+                      Show "No Response" users in Discord
+                    </label>
+                    <p style={{ fontSize: '12px', color: '#64748B', margin: '0', fontFamily: 'Inter' }}>
+                      When enabled, active users who haven't responded will be displayed in the event post.
+                    </p>
+                  </div>
+                  <div
+                    onClick={() => setShowNoResponse(!showNoResponse)}
+                    style={{
+                      width: '44px',
+                      height: '24px',
+                      backgroundColor: showNoResponse ? '#3B82F6' : '#E5E7EB',
+                      borderRadius: '12px',
+                      position: 'relative',
+                      cursor: 'pointer',
+                      transition: 'background-color 0.2s ease',
+                      marginLeft: '16px'
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: '20px',
+                        height: '20px',
+                        backgroundColor: 'white',
+                        borderRadius: '50%',
+                        position: 'absolute',
+                        top: '2px',
+                        left: showNoResponse ? '22px' : '2px',
                         transition: 'left 0.2s ease',
                         boxShadow: '0 2px 4px rgba(0, 0, 0, 0.2)'
                       }}

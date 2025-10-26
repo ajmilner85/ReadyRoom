@@ -152,6 +152,7 @@ function extractEmbedDataFromDatabaseEvent(dbEvent, overrideTimezone = null) {
   const eventOptions = {
     trackQualifications: dbEvent.event_settings?.groupResponsesByQualification || dbEvent.track_qualifications || false,
     groupBySquadron: dbEvent.event_settings?.groupBySquadron || false,
+    showNoResponse: dbEvent.event_settings?.showNoResponse || false,
     eventType: dbEvent.event_type || null,
     timezone: timezone
   };
@@ -344,8 +345,8 @@ async function editEventMessageWrapped(messageId, title, description, eventTime,
         });
       
       if (attendanceData) {
-        existingResponses = { accepted: [], declined: [], tentative: [] };
-        
+        existingResponses = { accepted: [], declined: [], tentative: [], noResponse: [] };
+
         // Populate existingResponses with pilot data
         for (const record of attendanceData) {
           let pilotRecord = null;
@@ -416,10 +417,32 @@ async function editEventMessageWrapped(messageId, title, description, eventTime,
             existingResponses.tentative.push(userEntry);
           }
         }
+
+        // Fetch "no response" users if the option is enabled
+        if (eventOptions.showNoResponse) {
+          try {
+            const { data: noResponseData } = await supabase
+              .rpc('get_event_no_response_users', {
+                discord_message_id: messageId
+              });
+
+            if (noResponseData) {
+              existingResponses.noResponse = noResponseData.map(record => ({
+                userId: record.discord_id,
+                displayName: record.discord_username || 'Unknown User',
+                boardNumber: record.board_number || '',
+                callsign: record.callsign || record.discord_username || 'Unknown User',
+                pilotRecord: null
+              }));
+            }
+          } catch (noResponseError) {
+            console.warn(`Error fetching no-response users:`, noResponseError);
+          }
+        }
       }
     } catch (dbError) {
       console.warn(`Error fetching responses:`, dbError);
-      existingResponses = { accepted: [], declined: [], tentative: [] };
+      existingResponses = { accepted: [], declined: [], tentative: [], noResponse: [] };
     }
   }
   
@@ -458,12 +481,12 @@ async function deleteEventMessageWrapped(messageId, guildId, channelId) {
   return result;
 }
 
-async function publishEventToDiscordWrapped(title, description, eventTime, guildId, channelId, imageUrl = null, creator = null, images = null, eventOptions = {}) {
-  const result = await publishEventToDiscord(title, description, eventTime, guildId, channelId, imageUrl, creator, images, eventOptions);
-  
+async function publishEventToDiscordWrapped(title, description, eventTime, guildId, channelId, imageUrl = null, creator = null, images = null, eventOptions = {}, eventId = null) {
+  const result = await publishEventToDiscord(title, description, eventTime, guildId, channelId, imageUrl, creator, images, eventOptions, eventId, supabase);
+
   if (result.success) {
     const imageData = images || (imageUrl ? { imageUrl } : null);
-    
+
     const eventData = {
       title,
       description,
@@ -475,12 +498,13 @@ async function publishEventToDiscordWrapped(title, description, eventTime, guild
       creator: creator,
       accepted: [],
       declined: [],
-      tentative: []
+      tentative: [],
+      noResponse: []
     };
-    
+
     eventResponses.set(result.messageId, eventData);
   }
-  
+
   return result;
 }
 
