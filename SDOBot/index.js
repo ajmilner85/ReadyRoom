@@ -438,6 +438,7 @@ app.post('/api/events/publish', async (req, res) => {
             trackQualifications: eventData.track_qualifications || eventSettings.groupResponsesByQualification || false,
             eventType: eventData.event_type || null,
             groupBySquadron: eventSettings.groupBySquadron || false,
+            showNoResponse: eventSettings.showNoResponse || false,
             participatingSquadrons: participatingSquadrons, // Pass to Discord bot
             initialNotificationRoles: eventSettings.initialNotificationRoles || [] // For @mentions on initial publication
           };
@@ -462,7 +463,7 @@ app.post('/api/events/publish', async (req, res) => {
     // Call the Discord bot to publish the event, passing both the guild ID, channel ID, and image URL if available
     console.log(`[MULTI-PUBLISH] About to call publishEventToDiscord for guild ${guildId}, channel ${channelId} with options:`, eventOptions);
     // console.log(`[CREATOR-DEBUG] Passing creator to Discord bot:`, creatorFromDb);
-    const result = await publishEventToDiscord(title, description || '', eventTime, guildId, channelId, imageUrl, creatorFromDb, images, eventOptions);
+    const result = await publishEventToDiscord(title, description || '', eventTime, guildId, channelId, imageUrl, creatorFromDb, images, eventOptions, eventId, supabase);
     console.log(`[MULTI-PUBLISH] Discord publish result for guild ${guildId}:`, result);
       // If eventId was provided, update the event in Supabase with the Discord message ID, guild ID and image URL
     // Don't try to store the channelId in the events table as it doesn't have that column
@@ -639,15 +640,65 @@ app.put('/api/events/:messageId/edit', async (req, res) => {
         eventOptions = {
           trackQualifications: eventData.track_qualifications || eventSettings.groupResponsesByQualification || false,
           eventType: eventData.event_type || null,
-          groupBySquadron: eventSettings.groupBySquadron || false
+          groupBySquadron: eventSettings.groupBySquadron || false,
+          showNoResponse: eventSettings.showNoResponse || false
         };
       }
     } catch (error) {
       console.warn('[WARNING] Could not fetch event options for edit:', error.message);
     }
-    
+
+    // Fetch existing responses including no-response users
+    let existingResponses = { accepted: [], declined: [], tentative: [], noResponse: [] };
+    try {
+      const { data: attendanceData } = await supabase
+        .from('discord_event_attendance')
+        .select('discord_id, discord_username, user_response')
+        .eq('discord_event_id', messageId);
+
+      if (attendanceData) {
+        for (const record of attendanceData) {
+          const userEntry = {
+            userId: record.discord_id,
+            displayName: record.discord_username || 'Unknown User',
+            boardNumber: '',
+            callsign: record.discord_username || 'Unknown User',
+            pilotRecord: null
+          };
+
+          if (record.user_response === 'accepted') {
+            existingResponses.accepted.push(userEntry);
+          } else if (record.user_response === 'declined') {
+            existingResponses.declined.push(userEntry);
+          } else if (record.user_response === 'tentative') {
+            existingResponses.tentative.push(userEntry);
+          }
+        }
+      }
+
+      // Fetch no-response users if enabled
+      if (eventOptions.showNoResponse) {
+        const { data: noResponseData } = await supabase
+          .rpc('get_event_no_response_users', {
+            discord_message_id: messageId
+          });
+
+        if (noResponseData && noResponseData.length > 0) {
+          existingResponses.noResponse = noResponseData.map(record => ({
+            userId: record.discord_id,
+            displayName: record.discord_username || 'Unknown User',
+            boardNumber: record.board_number || '',
+            callsign: record.callsign || record.discord_username || 'Unknown User',
+            pilotRecord: null
+          }));
+        }
+      }
+    } catch (error) {
+      console.warn('[WARNING] Could not fetch existing responses for edit:', error.message);
+    }
+
     // Call the Discord bot to edit the message
-    const result = await editEventMessage(messageId, title, description || '', eventTime, guildId, channelId, imageUrl, creator, images, eventOptions);
+    const result = await editEventMessage(messageId, title, description || '', eventTime, guildId, channelId, existingResponses, imageUrl, creator, images, eventOptions);
     // console.log(`[DEBUG] Discord edit result:`, result);
     
     if (result.success) {

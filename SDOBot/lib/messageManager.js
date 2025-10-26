@@ -32,20 +32,54 @@ function createAttendanceButtons() {
 /**
  * Publish an event to Discord
  */
-async function publishEventToDiscord(title, description, eventTime, guildId, channelId, imageUrl = null, creator = null, images = null, eventOptions = {}) {
+async function publishEventToDiscord(title, description, eventTime, guildId, channelId, imageUrl = null, creator = null, images = null, eventOptions = {}, eventId = null, supabase = null) {
   try {
     console.log(`[BOT-PUBLISH-START] Publishing event "${title}" to guild ${guildId}, channel ${channelId}`);
-    
+
     await ensureLoggedIn();
-    
+
     const eventsChannel = await findEventsChannel(guildId, channelId);
     console.log(`[BOT-PUBLISH] Found channel ${eventsChannel.name} (${eventsChannel.id}) in guild ${eventsChannel.guild.name} (${eventsChannel.guild.id})`);
-    
+
     const imageData = images || (imageUrl ? { imageUrl } : null);
-    
-    // NEW: Create embed with empty responses (consistent with edit/response paths)
-    const emptyResponses = { accepted: [], declined: [], tentative: [] };
-    const eventEmbed = createEventEmbed(title, description, eventTime, emptyResponses, creator, imageData, eventOptions);
+
+    // Build initial responses - fetch no-response users if enabled
+    const initialResponses = { accepted: [], declined: [], tentative: [], noResponse: [] };
+
+    if (eventOptions.showNoResponse && eventId && supabase) {
+      try {
+        console.log(`[BOT-PUBLISH] Fetching no-response users for event ${eventId}`);
+        const { data: noResponseData, error: noResponseError } = await supabase
+          .rpc('get_event_no_response_users_by_uuid', {
+            event_uuid: eventId
+          });
+
+        console.log(`[BOT-PUBLISH-DEBUG] noResponseData type: ${typeof noResponseData}, isArray: ${Array.isArray(noResponseData)}, length: ${noResponseData?.length}, error: ${noResponseError?.message}`);
+
+        if (noResponseError) {
+          console.error(`[BOT-PUBLISH] Error fetching no-response users:`, noResponseError);
+        }
+
+        if (noResponseData && noResponseData.length > 0) {
+          console.log(`[BOT-PUBLISH] Found ${noResponseData.length} no-response users`);
+
+          for (const record of noResponseData) {
+            // Add basic user entry (full pilot data will be fetched on first response/update)
+            initialResponses.noResponse.push({
+              userId: record.discord_id,
+              displayName: record.discord_username || 'Unknown User',
+              boardNumber: record.board_number || '',
+              callsign: record.callsign || record.discord_username || 'Unknown User',
+              pilotRecord: null
+            });
+          }
+        }
+      } catch (error) {
+        console.error(`[BOT-PUBLISH] Error fetching no-response users:`, error);
+      }
+    }
+
+    const eventEmbed = createEventEmbed(title, description, eventTime, initialResponses, creator, imageData, eventOptions);
     const buttons = createAttendanceButtons();
     
     const additionalEmbeds = createAdditionalImageEmbeds(imageData, 'https://readyroom.app');

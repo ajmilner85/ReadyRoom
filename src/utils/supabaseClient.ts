@@ -494,6 +494,7 @@ export const createEvent = async (event: Omit<Event, 'id' | 'creator' | 'attenda
     timezone: event.timezone || 'America/New_York',
     groupResponsesByQualification: event.trackQualifications || false,
     groupBySquadron: (event as any).groupBySquadron || false,
+    showNoResponse: (event as any).showNoResponse || false,
     firstReminderEnabled: event.reminders?.firstReminder?.enabled || false,
     firstReminderTime: {
       value: event.reminders?.firstReminder?.value || 15,
@@ -524,30 +525,42 @@ export const createEvent = async (event: Omit<Event, 'id' | 'creator' | 'attenda
 
 
   // Map from frontend format to database format
+  const insertData = {
+    name: event.title, // Frontend uses 'title', DB field is 'name'
+    description: event.description,
+    start_datetime: event.datetime, // Frontend uses 'datetime', DB uses 'start_datetime'
+    end_datetime: event.endDatetime, // Pass end datetime if available
+    status: event.status,
+    event_type: event.eventType,
+    cycle_id: event.cycleId,
+    participants: event.participants || [], // Store participants in database
+    track_qualifications: event.trackQualifications || false, // Keep for backward compatibility
+    event_settings: eventSettings, // Store all event-specific settings
+    creator_id: user.id,
+    creator_pilot_id: creatorPilotId, // Store the pilot UUID
+    creator_call_sign: creatorCallsign,
+    creator_board_number: creatorBoardNumber,
+    creator_billet: creatorBillet
+  };
+
+  console.log('[CREATE-EVENT] User attempting insert:', {
+    userId: user.id,
+    userEmail: user.email,
+    creatorPilotId,
+    hasParticipants: insertData.participants.length > 0,
+    participants: insertData.participants
+  });
+  console.log('[CREATE-EVENT] Full insert data:', insertData);
+
   const { data, error } = await supabase
     .from('events')
-    .insert({
-      name: event.title, // Frontend uses 'title', DB field is 'name'
-      description: event.description,
-      start_datetime: event.datetime, // Frontend uses 'datetime', DB uses 'start_datetime'
-      end_datetime: event.endDatetime, // Pass end datetime if available
-      status: event.status,
-      event_type: event.eventType,
-      cycle_id: event.cycleId,
-      participants: event.participants || [], // Store participants in database
-      track_qualifications: event.trackQualifications || false, // Keep for backward compatibility
-      event_settings: eventSettings, // Store all event-specific settings
-      creator_id: user.id,
-      creator_pilot_id: creatorPilotId, // Store the pilot UUID
-      creator_call_sign: creatorCallsign,
-      creator_board_number: creatorBoardNumber,
-      creator_billet: creatorBillet
-    })
+    .insert(insertData)
     .select()
     .single();
 
   if (error) {
-    console.error('Error creating event:', error);
+    console.error('[CREATE-EVENT] Insert failed with RLS error:', error);
+    console.error('[CREATE-EVENT] User context:', { userId: user.id, email: user.email, role: user.role });
     return { event: null, error };
   }
 
@@ -617,7 +630,7 @@ export const updateEvent = async (eventId: string, updates: Partial<Omit<Event, 
   if (updates.participants !== undefined) dbUpdates.participants = updates.participants;
   // track_qualifications field not in current database schema
   // Handle event settings updates
-  if (updates.timezone !== undefined || updates.trackQualifications !== undefined || (updates as any).groupBySquadron !== undefined || updates.reminders !== undefined || updates.reminderRecipients !== undefined || updates.eventSettings !== undefined || (updates as any).event_settings !== undefined) {
+  if (updates.timezone !== undefined || updates.trackQualifications !== undefined || (updates as any).groupBySquadron !== undefined || (updates as any).showNoResponse !== undefined || updates.reminders !== undefined || updates.reminderRecipients !== undefined || updates.eventSettings !== undefined || (updates as any).event_settings !== undefined) {
     // If event_settings is passed directly, use it (from EventsManagement.tsx)
     if ((updates as any).event_settings !== undefined) {
       dbUpdates.event_settings = (updates as any).event_settings;
@@ -638,8 +651,10 @@ export const updateEvent = async (eventId: string, updates: Partial<Omit<Event, 
     if (updates.timezone !== undefined) eventSettings.timezone = updates.timezone;
     if (updates.trackQualifications !== undefined) eventSettings.groupResponsesByQualification = updates.trackQualifications;
     if ((updates as any).groupBySquadron !== undefined) eventSettings.groupBySquadron = (updates as any).groupBySquadron;
+    if ((updates as any).showNoResponse !== undefined) eventSettings.showNoResponse = (updates as any).showNoResponse;
     if (updates.eventSettings?.groupResponsesByQualification !== undefined) eventSettings.groupResponsesByQualification = updates.eventSettings.groupResponsesByQualification;
     if (updates.eventSettings?.groupBySquadron !== undefined) eventSettings.groupBySquadron = updates.eventSettings.groupBySquadron;
+    if (updates.eventSettings?.showNoResponse !== undefined) eventSettings.showNoResponse = updates.eventSettings.showNoResponse;
     console.log('[UPDATE-EVENT] Final eventSettings:', eventSettings);
     if (updates.reminders?.firstReminder !== undefined) {
       eventSettings.firstReminderEnabled = updates.reminders.firstReminder.enabled;
@@ -820,18 +835,41 @@ export const updateEvent = async (eventId: string, updates: Partial<Omit<Event, 
 };
 
 export const deleteEvent = async (eventId: string) => {
+  console.log(`[DELETE-EVENT-DB] Starting delete for event ${eventId}`);
+
   // Cancel any scheduled reminders first
   try {
     const { cancelEventReminders } = await import('./reminderService');
+    console.log(`[DELETE-EVENT-DB] Canceling reminders for event ${eventId}`);
     await cancelEventReminders(eventId);
+    console.log(`[DELETE-EVENT-DB] Reminders canceled successfully`);
   } catch (reminderError) {
     console.warn('Failed to cancel reminders for deleted event:', reminderError);
   }
 
-  const { error } = await supabase
+  // First verify the event exists and check permissions
+  const { data: eventCheck } = await supabase
+    .from('events')
+    .select('id, participants')
+    .eq('id', eventId)
+    .single();
+
+  console.log(`[DELETE-EVENT-DB] Event verification:`, eventCheck ? 'exists' : 'not found', eventCheck);
+
+  console.log(`[DELETE-EVENT-DB] Executing database delete for event ${eventId}`);
+  const { error, data } = await supabase
     .from('events')
     .delete()
-    .eq('id', eventId);
+    .eq('id', eventId)
+    .select();
+
+  console.log(`[DELETE-EVENT-DB] Database delete result - error:`, error, `data:`, data);
+
+  // Check if any rows were actually deleted
+  if (!error && (!data || data.length === 0)) {
+    console.error(`[DELETE-EVENT-DB] No rows deleted - likely blocked by RLS policy`);
+    return { error: { message: 'Event could not be deleted. This may be due to insufficient permissions or the event may have already been deleted.' } as any };
+  }
 
   return { error };
 };
@@ -974,6 +1012,7 @@ export interface EventSettings {
   timezone?: string;
   groupResponsesByQualification?: boolean;
   groupBySquadron?: boolean;
+  showNoResponse?: boolean;
   firstReminderEnabled?: boolean;
   firstReminderTime?: {
     value: number;

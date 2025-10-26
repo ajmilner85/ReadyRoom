@@ -50,6 +50,7 @@ export interface AppSettings {
     // Response Grouping
     groupResponsesByQualification: boolean;
     groupBySquadron: boolean;
+    showNoResponse: boolean;
   };
 }
 
@@ -97,9 +98,10 @@ const defaultSettings: AppSettings = {
     sendRemindersToAccepted: true,
     sendRemindersToTentative: true,
 
-    // Response grouping default
-    groupResponsesByQualification: false,
-    groupBySquadron: false
+    // Response grouping default (ALL ENABLED by default)
+    groupResponsesByQualification: true,
+    groupBySquadron: true,
+    showNoResponse: true
   }
 };
 

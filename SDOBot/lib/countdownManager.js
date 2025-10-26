@@ -132,7 +132,7 @@ class CountdownUpdateManager {
         }
 
         // Get existing responses from database
-        let currentResponses = { accepted: [], declined: [], tentative: [] };
+        let currentResponses = { accepted: [], declined: [], tentative: [], noResponse: [] };
         
         try {
           const { data: attendanceData, error: attendanceError } = await this.supabase
@@ -240,7 +240,38 @@ class CountdownUpdateManager {
         const correctTimezone = await this.fetchSquadronTimezone(eventData.id);
         const embedData = this.extractEmbedDataFromDatabaseEvent(eventData, correctTimezone);
         console.log(`[COUNTDOWN-TIMEZONE-FIX] Using timezone ${correctTimezone} for event ${eventData.id}`);
-        
+
+        // Fetch no-response users if showNoResponse is enabled
+        if (embedData?.eventOptions?.showNoResponse) {
+          try {
+            const { data: noResponseData, error: noResponseError } = await this.supabase
+              .rpc('get_event_no_response_users', {
+                discord_message_id: messageId
+              });
+
+            if (noResponseError) {
+              console.error('[COUNTDOWN-NO-RESPONSE] Error fetching no-response users:', noResponseError);
+              currentResponses.noResponse = [];
+            } else if (noResponseData && noResponseData.length > 0) {
+              console.log(`[COUNTDOWN-NO-RESPONSE] Found ${noResponseData.length} no-response users`);
+              currentResponses.noResponse = noResponseData.map(record => ({
+                userId: record.discord_id,
+                displayName: record.discord_username || 'Unknown User',
+                boardNumber: record.board_number || '',
+                callsign: record.callsign || record.discord_username || 'Unknown User',
+                pilotRecord: null
+              }));
+            } else {
+              currentResponses.noResponse = [];
+            }
+          } catch (error) {
+            console.error('[COUNTDOWN-NO-RESPONSE] Unexpected error fetching no-response users:', error);
+            currentResponses.noResponse = [];
+          }
+        } else {
+          currentResponses.noResponse = [];
+        }
+
         const updatedEmbed = createEventEmbed(
           embedData.title,
           embedData.description,

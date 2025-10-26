@@ -124,7 +124,8 @@ function setupDiscordEventHandlers(supabase, upsertEventAttendance, getEventByDi
             : null,
           accepted: [],
           declined: [],
-          tentative: []
+          tentative: [],
+          noResponse: []
         };
         
         eventResponses.set(eventId, eventData);
@@ -280,6 +281,7 @@ function setupDiscordEventHandlers(supabase, upsertEventAttendance, getEventByDi
           eventData.accepted = [];
           eventData.declined = [];
           eventData.tentative = [];
+          eventData.noResponse = [];
 
           // BATCH FETCHING OPTIMIZATION
           const discordIds = existingAttendance
@@ -388,7 +390,8 @@ function setupDiscordEventHandlers(supabase, upsertEventAttendance, getEventByDi
     eventData.accepted = eventData.accepted.filter(u => u.userId !== userId);
     eventData.declined = eventData.declined.filter(u => u.userId !== userId);
     eventData.tentative = eventData.tentative.filter(u => u.userId !== userId);
-    
+    eventData.noResponse = (eventData.noResponse || []).filter(u => u.userId !== userId);
+
     if (customId === 'accept') {
       eventData.accepted.push(userEntry);
     } else if (customId === 'decline') {
@@ -419,9 +422,40 @@ function setupDiscordEventHandlers(supabase, upsertEventAttendance, getEventByDi
         eventOptions: { trackQualifications: false, eventType: null, timezone: 'America/New_York' }
       };
     }
-    
+
+    // Fetch no-response users if showNoResponse is enabled
+    if (embedData?.eventOptions?.showNoResponse) {
+      try {
+        const { data: noResponseData, error: noResponseError } = await supabase
+          .rpc('get_event_no_response_users', {
+            discord_message_id: eventId
+          });
+
+        if (noResponseError) {
+          console.error('[NO-RESPONSE-FETCH] Error fetching no-response users:', noResponseError);
+          eventData.noResponse = [];
+        } else if (noResponseData && noResponseData.length > 0) {
+          console.log(`[NO-RESPONSE-FETCH] Found ${noResponseData.length} no-response users`);
+          eventData.noResponse = noResponseData.map(record => ({
+            userId: record.discord_id,
+            displayName: record.discord_username || 'Unknown User',
+            boardNumber: record.board_number || '',
+            callsign: record.callsign || record.discord_username || 'Unknown User',
+            pilotRecord: null
+          }));
+        } else {
+          eventData.noResponse = [];
+        }
+      } catch (error) {
+        console.error('[NO-RESPONSE-FETCH] Unexpected error fetching no-response users:', error);
+        eventData.noResponse = [];
+      }
+    } else {
+      eventData.noResponse = [];
+    }
+
     const finalEventTime = freshEventTime;
-    
+
     const updatedEmbed = createEventEmbed(
       embedData.title, 
       embedData.description, 

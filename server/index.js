@@ -182,18 +182,23 @@ app.post('/api/discord/switch-bot', async (req, res) => {
 
     // Check database for bot token preference and switch if needed
     try {
-      // Get all user profiles and find one with a bot token preference
+      // Get YOUR user profile specifically (the one running the local server)
+      // In local dev, we prioritize profiles with pilot_id set, as that's the active developer
       const { data: userProfiles, error } = await supabase
         .from('user_profiles')
-        .select('settings');
+        .select('settings, pilot_id, auth_user_id')
+        .not('pilot_id', 'is', null)
+        .order('updated_at', { ascending: false });
 
       if (!error && userProfiles && userProfiles.length > 0) {
-        // Find the first profile that has a bot token preference set
+        console.log(`[STARTUP] Found ${userProfiles.length} user profiles with pilot_id`);
+
+        // Find the most recently updated profile with a bot token preference
         const profileWithPreference = userProfiles.find(p => p.settings?.developer?.discordBotToken);
 
         if (profileWithPreference) {
           const tokenType = profileWithPreference.settings.developer.discordBotToken;
-          console.log(`[STARTUP] Found bot token preference: ${tokenType}`);
+          console.log(`[STARTUP] Found bot token preference: ${tokenType} from user ${profileWithPreference.auth_user_id}`);
 
           const botToken = tokenType === 'production'
             ? process.env.BOT_TOKEN_PROD || process.env.BOT_TOKEN
@@ -496,13 +501,16 @@ app.post('/api/events/publish', async (req, res) => {
           // Extract participating squadrons for threading decision
           participatingSquadrons = Array.isArray(eventData.participants) ? eventData.participants : [];
           console.log(`[THREADING] Event ${eventId} has ${participatingSquadrons.length} participating squadrons:`, participatingSquadrons);
-          
+
           eventOptions = {
             trackQualifications: eventData.track_qualifications || false,
             eventType: eventData.event_type || null,
             participatingSquadrons: participatingSquadrons, // Pass to Discord bot
             // Use notificationRoles from request body (already deduplicated by frontend)
-            initialNotificationRoles: notificationRoles || []
+            initialNotificationRoles: notificationRoles || [],
+            // Pass event settings from database
+            groupBySquadron: eventData.event_settings?.groupBySquadron || false,
+            showNoResponse: eventData.event_settings?.showNoResponse || false
           };
           
           // Use creator info from database if available
@@ -525,7 +533,7 @@ app.post('/api/events/publish', async (req, res) => {
     // Call the Discord bot to publish the event, passing both the guild ID, channel ID, and image URL if available
     console.log(`[MULTI-PUBLISH] About to call publishEventToDiscord for guild ${guildId}, channel ${channelId} with options:`, eventOptions);
     // console.log(`[CREATOR-DEBUG] Passing creator to Discord bot:`, creatorFromDb);
-    const result = await publishEventToDiscord(title, description || '', eventTime, guildId, channelId, imageUrl, creatorFromDb, images, eventOptions);
+    const result = await publishEventToDiscord(title, description || '', eventTime, guildId, channelId, imageUrl, creatorFromDb, images, eventOptions, eventId, supabase);
     console.log(`[MULTI-PUBLISH] Discord publish result for guild ${guildId}:`, result);
       // If eventId was provided, update the event in Supabase with the Discord message ID, guild ID and image URL
     // Don't try to store the channelId in the events table as it doesn't have that column
@@ -691,22 +699,76 @@ app.put('/api/events/:messageId/edit', async (req, res) => {
     try {
       const { data: eventData, error: eventError } = await supabase
         .from('events')
-        .select('track_qualifications, event_type')
+        .select('track_qualifications, event_type, event_settings')
         .or(`discord_event_id.eq.${messageId},discord_event_id.cs.[{"messageId":"${messageId}"}]`)
         .single();
-      
+
       if (!eventError && eventData) {
+        // Extract event settings (groupBySquadron, timezone, etc.)
+        const eventSettings = eventData.event_settings || {};
+
         eventOptions = {
-          trackQualifications: eventData.track_qualifications || false,
-          eventType: eventData.event_type || null
+          trackQualifications: eventData.track_qualifications || eventSettings.groupResponsesByQualification || false,
+          eventType: eventData.event_type || null,
+          groupBySquadron: eventSettings.groupBySquadron || false,
+          showNoResponse: eventSettings.showNoResponse || false
         };
       }
     } catch (error) {
       console.warn('[WARNING] Could not fetch event options for edit:', error.message);
     }
-    
+
+    // Fetch existing responses including no-response users
+    let existingResponses = { accepted: [], declined: [], tentative: [], noResponse: [] };
+    try {
+      const { data: attendanceData } = await supabase
+        .from('discord_event_attendance')
+        .select('discord_id, discord_username, user_response')
+        .eq('discord_event_id', messageId);
+
+      if (attendanceData) {
+        for (const record of attendanceData) {
+          const userEntry = {
+            userId: record.discord_id,
+            displayName: record.discord_username || 'Unknown User',
+            boardNumber: '',
+            callsign: record.discord_username || 'Unknown User',
+            pilotRecord: null
+          };
+
+          if (record.user_response === 'accepted') {
+            existingResponses.accepted.push(userEntry);
+          } else if (record.user_response === 'declined') {
+            existingResponses.declined.push(userEntry);
+          } else if (record.user_response === 'tentative') {
+            existingResponses.tentative.push(userEntry);
+          }
+        }
+      }
+
+      // Fetch no-response users if enabled
+      if (eventOptions.showNoResponse) {
+        const { data: noResponseData } = await supabase
+          .rpc('get_event_no_response_users', {
+            discord_message_id: messageId
+          });
+
+        if (noResponseData && noResponseData.length > 0) {
+          existingResponses.noResponse = noResponseData.map(record => ({
+            userId: record.discord_id,
+            displayName: record.discord_username || 'Unknown User',
+            boardNumber: record.board_number || '',
+            callsign: record.callsign || record.discord_username || 'Unknown User',
+            pilotRecord: null
+          }));
+        }
+      }
+    } catch (error) {
+      console.warn('[WARNING] Could not fetch existing responses for edit:', error.message);
+    }
+
     // Call the Discord bot to edit the message
-    const result = await editEventMessage(messageId, title, description || '', eventTime, guildId, channelId, imageUrl, creator, images, eventOptions);
+    const result = await editEventMessage(messageId, title, description || '', eventTime, guildId, channelId, existingResponses, imageUrl, creator, images, eventOptions);
     // console.log(`[DEBUG] Discord edit result:`, result);
     
     if (result.success) {

@@ -559,15 +559,27 @@ const EventSettings: React.FC<EventSettingsProps> = ({ error, setError }) => {
             )}
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
             <div>
               <label style={fieldLabelStyle}>Event responses grouped by squadron by default</label>
               <p style={{ fontSize: '12px', color: '#64748B', margin: '4px 0 0 0', fontFamily: 'Inter' }}>
                 When enabled, Discord event responses will be organized by squadron.
               </p>
             </div>
-            {renderToggle(appSettings.eventDefaults.groupBySquadron, (enabled) => 
+            {renderToggle(appSettings.eventDefaults.groupBySquadron, (enabled) =>
               handleSettingChange('groupBySquadron', enabled)
+            )}
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div>
+              <label style={fieldLabelStyle}>Show "No Response" users by default</label>
+              <p style={{ fontSize: '12px', color: '#64748B', margin: '4px 0 0 0', fontFamily: 'Inter' }}>
+                When enabled, active users who haven't responded will be displayed in Discord event posts.
+              </p>
+            </div>
+            {renderToggle(appSettings.eventDefaults.showNoResponse, (enabled) =>
+              handleSettingChange('showNoResponse', enabled)
             )}
           </div>
         </div>

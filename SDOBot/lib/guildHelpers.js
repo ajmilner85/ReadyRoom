@@ -127,7 +127,19 @@ async function getGuildChannels(guildId) {
     await ensureLoggedIn();
 
     const client = getClient();
-    const guild = client.guilds.cache.get(guildId);
+    let guild = client.guilds.cache.get(guildId);
+
+    // If not in cache, try to fetch it
+    if (!guild) {
+      console.log(`[GET-GUILD-CHANNELS] Guild ${guildId} not in cache, attempting to fetch...`);
+      try {
+        guild = await client.guilds.fetch(guildId);
+        console.log(`[GET-GUILD-CHANNELS] Successfully fetched guild: ${guild.name}`);
+      } catch (fetchError) {
+        console.error(`[GET-GUILD-CHANNELS] Failed to fetch guild:`, fetchError);
+        throw new Error(`Discord server with ID ${guildId} not found or bot doesn't have access`);
+      }
+    }
 
     if (!guild) {
       throw new Error(`Discord server with ID ${guildId} not found or bot doesn't have access`);

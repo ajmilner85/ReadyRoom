@@ -12,12 +12,13 @@ const { formatInTimeZone } = require('date-fns-tz');
  */
 function createEventEmbed(title, description, eventTime, responses = {}, creator = null, images = null, eventOptions = {}) {
   // VERSION SENTINEL
-  console.log(`[CODE-VERSION-SENTINEL] createEventEmbed v3.0 - Restructured Layout with Tentative/Declined at End`);
-  console.log(`[CODE-VERSION-SENTINEL] Event: ${title}, trackQuals: ${eventOptions.trackQualifications}, groupSquad: ${eventOptions.groupBySquadron}`);
-  
+  console.log(`[CODE-VERSION-SENTINEL] createEventEmbed v3.1 - Added No Response Support`);
+  console.log(`[CODE-VERSION-SENTINEL] Event: ${title}, trackQuals: ${eventOptions.trackQualifications}, groupSquad: ${eventOptions.groupBySquadron}, showNoResponse: ${eventOptions.showNoResponse}`);
+
   const accepted = responses.accepted || [];
   const declined = responses.declined || [];
   const tentative = responses.tentative || [];
+  const noResponse = responses.noResponse || [];
   
   // Helper function to format pilot entries
   const formatPilotEntry = (entry) => {
@@ -234,9 +235,10 @@ function createEventEmbed(title, description, eventTime, responses = {}, creator
   
   // Check if there are no responses at all
   const hasNoResponses = accepted.length === 0 && tentative.length === 0 && declined.length === 0;
-  
-  if (hasNoResponses) {
-    // Add placeholder text when no responses have been recorded yet
+  const shouldShowNoResponse = eventOptions.showNoResponse && noResponse.length > 0;
+
+  if (hasNoResponses && !shouldShowNoResponse) {
+    // Add placeholder text when no responses have been recorded yet AND showNoResponse is disabled or has no users
     embed.addFields(
       { name: '\u200B', value: '*No Responses Recorded Yet*', inline: false }
     );
@@ -339,23 +341,38 @@ function createEventEmbed(title, description, eventTime, responses = {}, creator
       }
     }
 
-    // Add spacer before Tentative section
-    embed.addFields({ name: '\u200B', value: '\u200B', inline: false });
-
-    // Add Tentative section at the end
-    if (tentative.length > 0) {
-      const tentativeText = createBlockQuote(tentative);
-      embed.addFields(
-        { name: `❓ **Tentative** (${tentative.length})`, value: tentativeText, inline: false }
-      );
+    // Add spacer before Tentative section (only if there are accepted users or mission support)
+    if (accepted.length > 0) {
+      embed.addFields({ name: '\u200B', value: '\u200B', inline: false });
     }
 
-    // Add Declined section at the end
-    if (declined.length > 0) {
-      const declinedText = createBlockQuote(declined);
+    // Add Tentative, Declined, and No Response sections at the end (in 3-column layout if showNoResponse)
+    if (shouldShowNoResponse) {
+      // Use 3-column layout: Tentative | Declined | No Response
+      const tentativeText = tentative.length > 0 ? createBlockQuote(tentative) : '-';
+      const declinedText = declined.length > 0 ? createBlockQuote(declined) : '-';
+      const noResponseText = createBlockQuote(noResponse);
+
       embed.addFields(
-        { name: `❌ **Declined** (${declined.length})`, value: declinedText, inline: false }
+        { name: `❓ **Tentative** (${tentative.length})`, value: tentativeText, inline: true },
+        { name: `❌ **Declined** (${declined.length})`, value: declinedText, inline: true },
+        { name: `⏳ **No Response** (${noResponse.length})`, value: noResponseText, inline: true }
       );
+    } else {
+      // Use original layout without No Response
+      if (tentative.length > 0) {
+        const tentativeText = createBlockQuote(tentative);
+        embed.addFields(
+          { name: `❓ **Tentative** (${tentative.length})`, value: tentativeText, inline: false }
+        );
+      }
+
+      if (declined.length > 0) {
+        const declinedText = createBlockQuote(declined);
+        embed.addFields(
+          { name: `❌ **Declined** (${declined.length})`, value: declinedText, inline: false }
+        );
+      }
     }
   } else {
     // No squadron grouping
@@ -411,23 +428,39 @@ function createEventEmbed(title, description, eventTime, responses = {}, creator
       );
     }
 
-    // Add spacer before Tentative section
-    embed.addFields({ name: '\u200B', value: '\u200B', inline: false });
-
-    // Add Tentative section at the end
-    if (tentative.length > 0) {
-      const tentativeText = createBlockQuote(tentative);
-      embed.addFields(
-        { name: `❓ **Tentative** (${tentative.length})`, value: tentativeText, inline: false }
-      );
+    // Add spacer before Tentative section (only if there are accepted users or mission support)
+    if (accepted.length > 0) {
+      embed.addFields({ name: '\u200B', value: '\u200B', inline: false });
     }
 
-    // Add Declined section at the end
-    if (declined.length > 0) {
-      const declinedText = createBlockQuote(declined);
+    // Add Tentative, Declined, and No Response sections at the end (in 3-column layout if showNoResponse)
+
+    if (shouldShowNoResponse) {
+      // Use 3-column layout: Tentative | Declined | No Response
+      const tentativeText = tentative.length > 0 ? createBlockQuote(tentative) : '-';
+      const declinedText = declined.length > 0 ? createBlockQuote(declined) : '-';
+      const noResponseText = createBlockQuote(noResponse);
+
       embed.addFields(
-        { name: `❌ **Declined** (${declined.length})`, value: declinedText, inline: false }
+        { name: `❓ **Tentative** (${tentative.length})`, value: tentativeText, inline: true },
+        { name: `❌ **Declined** (${declined.length})`, value: declinedText, inline: true },
+        { name: `⏳ **No Response** (${noResponse.length})`, value: noResponseText, inline: true }
       );
+    } else {
+      // Use original layout without No Response
+      if (tentative.length > 0) {
+        const tentativeText = createBlockQuote(tentative);
+        embed.addFields(
+          { name: `❓ **Tentative** (${tentative.length})`, value: tentativeText, inline: false }
+        );
+      }
+
+      if (declined.length > 0) {
+        const declinedText = createBlockQuote(declined);
+        embed.addFields(
+          { name: `❌ **Declined** (${declined.length})`, value: declinedText, inline: false }
+        );
+      }
     }
   }
 
