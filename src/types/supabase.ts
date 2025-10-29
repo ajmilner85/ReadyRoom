@@ -1054,6 +1054,12 @@ export type Database = {
         }
         Returns: boolean
       }
+      find_pilot_by_discord_id: {
+        Args: {
+          p_discord_id: string
+        }
+        Returns: string | null
+      }
     }
     Enums: {
       [_ in never]: never
