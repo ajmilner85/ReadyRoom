@@ -13,6 +13,9 @@ import { registerWakeHandlers, wake } from './utils/wake'
 // Import debug utilities for development
 import './utils/debugUtils.ts'
 
+// Import attendance report service to expose console command
+import './utils/attendanceReportService.ts'
+
 // Register wake handlers for tab visibility/resume events
 registerWakeHandlers()
 wake() // optional: wake once on initial load
