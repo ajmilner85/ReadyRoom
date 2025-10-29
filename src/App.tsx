@@ -33,6 +33,7 @@ const RosterManagement = React.lazy(() => import('./components/ui/RosterManageme
 const EventsManagement = React.lazy(() => import('./components/ui/EventsManagement'));
 const MissionPreparation = React.lazy(() => import('./components/ui/MissionPreparation'));
 const Settings = React.lazy(() => import('./components/settings/Settings'));
+const Reports = React.lazy(() => import('./components/reports/Reports'));
 const Home = React.lazy(() => import('./components/ui/Home'));
 const ClearCache = React.lazy(() => import('./pages/ClearCache'));
 
@@ -58,6 +59,7 @@ const App: React.FC = () => {
     if (path === '/roster') return 'roster';
     if (path === '/mission-coordination') return 'flights';
     if (path === '/mission-prep') return 'mission-prep';
+    if (path === '/reports') return 'reports';
     if (path === '/settings') return 'admin';
     return 'home'; // default to home
   };
@@ -492,6 +494,13 @@ const App: React.FC = () => {
               <PermissionGuardedRoute requiredPermission="access_settings">
                 <Suspense fallback={<StandardPageLoader message="Loading settings..." />}>
                   <Settings />
+                </Suspense>
+              </PermissionGuardedRoute>
+            } />
+            <Route path="/reports" element={
+              <PermissionGuardedRoute requiredPermission="access_reports">
+                <Suspense fallback={<StandardPageLoader message="Loading reports..." />}>
+                  <Reports />
                 </Suspense>
               </PermissionGuardedRoute>
             } />

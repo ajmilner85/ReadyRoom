@@ -183,7 +183,8 @@ export function usePermissions() {
     canAccessEvents: state.permissions?.canAccessEvents || false,
     canAccessMissionPrep: state.permissions?.canAccessMissionPrep || false,
     canAccessFlights: state.permissions?.canAccessFlights || false,
-    canAccessSettings: state.permissions?.canAccessSettings || false
+    canAccessSettings: state.permissions?.canAccessSettings || false,
+    canAccessReports: state.permissions?.canAccessReports || false
   };
 }
 
@@ -224,16 +225,17 @@ function checkScopedPermission(scopes: PermissionScopeContext[], context?: Permi
  * Useful for simple yes/no permission checks without scope awareness
  */
 export function useSimplePermissions() {
-  const { 
-    hasPermission, 
-    loading, 
+  const {
+    hasPermission,
+    loading,
     error,
     canAccessHome,
     canAccessRoster,
     canAccessEvents,
     canAccessMissionPrep,
     canAccessFlights,
-    canAccessSettings
+    canAccessSettings,
+    canAccessReports
   } = usePermissions();
 
   return {
@@ -244,6 +246,7 @@ export function useSimplePermissions() {
     canAccessMissionPrep,
     canAccessFlights,
     canAccessSettings,
+    canAccessReports,
     
     // Generic permission check
     hasPermission,

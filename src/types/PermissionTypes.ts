@@ -58,6 +58,7 @@ export interface UserPermissions {
   canAccessMissionPrep: boolean;
   canAccessFlights: boolean;
   canAccessSettings: boolean;
+  canAccessReports: boolean;
   
   // Roster Management (scope-aware)
   canManageRoster: PermissionScopeContext[];
