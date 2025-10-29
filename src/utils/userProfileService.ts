@@ -208,23 +208,14 @@ async function findMatchingPilot(discordData: DiscordUserData | null): Promise<{
     }
 
     if (pilotIdResult) {
-      // Get full pilot data now that we have the ID
-      const { data: pilotByDiscord, error: pilotError } = await supabase
-        .from('pilots')
-        .select('*')
-        .eq('id', pilotIdResult)
-        .single();
-
-      if (!pilotError && pilotByDiscord) {
-        console.log('[PILOT-MATCH] ✓ Found pilot by discord_id (via RPC):', {
-          pilotId: pilotByDiscord.id,
-          callsign: pilotByDiscord.callsign,
-          boardNumber: pilotByDiscord.boardNumber
-        });
-        return { pilotId: pilotByDiscord.id, pilotData: pilotByDiscord };
-      } else if (pilotError) {
-        console.error('[PILOT-MATCH] Error fetching pilot details:', pilotError);
-      }
+      // RPC function returned a pilot ID - use it directly
+      // We don't fetch the full pilot record here because RLS would still block it
+      // (user doesn't have pilot_id set in their profile yet)
+      console.log('[PILOT-MATCH] ✓ Found pilot by discord_id (via RPC):', {
+        pilotId: pilotIdResult,
+        note: 'Full pilot data will be available after profile update completes'
+      });
+      return { pilotId: pilotIdResult, pilotData: null };
     } else {
       console.log('[PILOT-MATCH] No pilot found with discord_id:', discordData.id);
     }
