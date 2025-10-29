@@ -1,5 +1,5 @@
 import React from 'react';
-import { Users, Layout, Calendar, FileText, Settings, LogOut, Home } from 'lucide-react';
+import { Users, Layout, Calendar, FileText, Settings, LogOut, Home, FileBarChart } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { signOut } from '../../utils/supabaseClient';
@@ -14,7 +14,7 @@ interface NavigationButton {
   label: string;
   route: string;
   // Updated to use new permission names
-  requiresPermission: 'access_home' | 'access_roster' | 'access_events' | 'access_mission_prep' | 'access_flights' | 'access_settings';
+  requiresPermission: 'access_home' | 'access_roster' | 'access_events' | 'access_mission_prep' | 'access_flights' | 'access_settings' | 'access_reports';
   // Legacy permission for backward compatibility during migration
   legacyPermission?: 'canManageRoster' | 'canManageFlights' | 'canManageEvents' | 'canAccessMissionPrep' | 'canAccessSettings';
 }
@@ -31,7 +31,7 @@ const buttons: NavigationButton[] = [
   {
     id: 'roster',
     icon: <Users size={24} />,
-    label: 'Squadron Roster',
+    label: 'Roster',
     route: '/roster',
     requiresPermission: 'access_roster',
     legacyPermission: 'canManageRoster'
@@ -39,7 +39,7 @@ const buttons: NavigationButton[] = [
   {
     id: 'events',
     icon: <Calendar size={24} />,
-    label: 'Squadron Events',
+    label: 'Events',
     route: '/events',
     requiresPermission: 'access_events',
     legacyPermission: 'canManageEvents'
@@ -55,10 +55,17 @@ const buttons: NavigationButton[] = [
   {
     id: 'flights',
     icon: <Layout size={24} />,
-    label: 'Flight Management',
+    label: 'Mission Coordination',
     route: '/mission-coordination',
     requiresPermission: 'access_flights',
     legacyPermission: 'canManageFlights'
+  },
+  {
+    id: 'reports',
+    icon: <FileBarChart size={24} />,
+    label: 'Reports',
+    route: '/reports',
+    requiresPermission: 'access_reports'
   },
   {
     id: 'admin',
@@ -232,6 +239,7 @@ const NavigationBar: React.FC<NavigationBarProps> = ({ activeButton }) => {
                 case 'access_events': return activePermissions.canAccessEvents;
                 case 'access_mission_prep': return activePermissions.canAccessMissionPrep;
                 case 'access_flights': return activePermissions.canAccessFlights;
+                case 'access_reports': return activePermissions.canAccessReports;
                 case 'access_settings': return activePermissions.canAccessSettings;
                 default: return false;
               }

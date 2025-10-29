@@ -343,6 +343,7 @@ export class PermissionCalculator {
       canAccessMissionPrep: false,
       canAccessFlights: false,
       canAccessSettings: false,
+      canAccessReports: false,
       
       // Roster (scoped)
       canManageRoster: [],
@@ -428,7 +429,10 @@ export class PermissionCalculator {
       case 'access_settings':
         permissions.canAccessSettings = true;
         break;
-        
+      case 'access_reports':
+        permissions.canAccessReports = true;
+        break;
+
       // Roster permissions (scoped)
       case 'manage_roster':
         if (!this.hasScopeContext(permissions.canManageRoster, scopeContext)) {
