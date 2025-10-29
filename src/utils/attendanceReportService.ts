@@ -77,7 +77,9 @@ async function fetchCycleEvents(cycleId: string): Promise<EventReportData[]> {
       id: event.id,
       name: event.name,
       startDatetime: event.start_datetime,
-      discordEventIds: Array.isArray(event.discord_event_id) ? event.discord_event_id : []
+      discordEventIds: Array.isArray(event.discord_event_id)
+        ? (event.discord_event_id as Array<{ messageId: string; guildId: string; channelId: string; squadronId: string; }>)
+        : []
     }));
   } catch (error) {
     console.error('Unexpected error fetching cycle events:', error);
@@ -437,7 +439,7 @@ function generateExcelWorkbook(sheetData: CycleSheetData): XLSX.WorkBook {
 
   // Header row (Event 1, Event 2, etc.)
   const headerRow = ['Board # - Callsign'];
-  sheetData.events.forEach((event, index) => {
+  sheetData.events.forEach((_event, index) => {
     headerRow.push(`Event ${index + 1}`);
   });
   wsData.push(headerRow);
@@ -472,7 +474,7 @@ function generateExcelWorkbook(sheetData: CycleSheetData): XLSX.WorkBook {
 
   // Qualification rows
   sheetData.qualificationRows.forEach(qualRow => {
-    const row = [qualRow.qualificationName];
+    const row: (string | number)[] = [qualRow.qualificationName];
     sheetData.events.forEach(event => {
       row.push(qualRow.attendance[event.id] || 0);
     });
@@ -487,7 +489,7 @@ function generateExcelWorkbook(sheetData: CycleSheetData): XLSX.WorkBook {
 
   // Squadron rows
   sheetData.squadronRows.forEach(squadronRow => {
-    const row = [squadronRow.squadronName];
+    const row: (string | number)[] = [squadronRow.squadronName];
     sheetData.events.forEach(event => {
       row.push(squadronRow.attendance[event.id] || 0);
     });
