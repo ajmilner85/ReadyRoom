@@ -409,6 +409,7 @@ export class PermissionCacheService {
       canAccessMissionPrep: false,
       canAccessFlights: false,
       canAccessSettings: false,
+      canAccessReports: false,
       
       // All scoped permissions empty
       canManageRoster: [],
