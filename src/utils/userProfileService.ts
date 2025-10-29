@@ -197,28 +197,36 @@ async function findMatchingPilot(discordData: DiscordUserData | null): Promise<{
   console.log('[PILOT-MATCH] Attempting to match pilot with Discord ID:', discordData.id);
 
   try {
-    // First try to match by Discord ID (the stable unique identifier)
-    const { data: pilotByDiscord, error: discordError } = await supabase
-      .from('pilots')
-      .select('*')
-      .eq('discord_id', discordData.id)
-      .single();
+    // First try to match by Discord ID using SECURITY DEFINER function to bypass RLS
+    // This is necessary because new users don't have pilot_id set yet, which causes
+    // the RLS policies to block access to the pilots table
+    const { data: pilotIdResult, error: functionError } = await supabase
+      .rpc('find_pilot_by_discord_id', { p_discord_id: discordData.id });
 
-    if (discordError) {
-      if (discordError.code === 'PGRST116') {
-        console.log('[PILOT-MATCH] No pilot found with discord_id:', discordData.id);
-      } else {
-        console.error('[PILOT-MATCH] Error querying pilots by discord_id:', discordError);
-      }
+    if (functionError) {
+      console.error('[PILOT-MATCH] Error calling find_pilot_by_discord_id function:', functionError);
     }
 
-    if (!discordError && pilotByDiscord) {
-      console.log('[PILOT-MATCH] ✓ Found pilot by discord_id:', {
-        pilotId: pilotByDiscord.id,
-        callsign: pilotByDiscord.callsign,
-        boardNumber: pilotByDiscord.boardNumber
-      });
-      return { pilotId: pilotByDiscord.id, pilotData: pilotByDiscord };
+    if (pilotIdResult) {
+      // Get full pilot data now that we have the ID
+      const { data: pilotByDiscord, error: pilotError } = await supabase
+        .from('pilots')
+        .select('*')
+        .eq('id', pilotIdResult)
+        .single();
+
+      if (!pilotError && pilotByDiscord) {
+        console.log('[PILOT-MATCH] ✓ Found pilot by discord_id (via RPC):', {
+          pilotId: pilotByDiscord.id,
+          callsign: pilotByDiscord.callsign,
+          boardNumber: pilotByDiscord.boardNumber
+        });
+        return { pilotId: pilotByDiscord.id, pilotData: pilotByDiscord };
+      } else if (pilotError) {
+        console.error('[PILOT-MATCH] Error fetching pilot details:', pilotError);
+      }
+    } else {
+      console.log('[PILOT-MATCH] No pilot found with discord_id:', discordData.id);
     }
 
     // If no direct match, try to match by username pattern (board number + callsign)
