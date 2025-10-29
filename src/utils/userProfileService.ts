@@ -150,22 +150,39 @@ function extractDiscordData(user: User): DiscordUserData | null {
   const hasDiscord = user.app_metadata?.providers?.includes('discord') ||
                     user.identities?.some(i => i.provider === 'discord');
 
-  if (hasDiscord && user.user_metadata) {
-    // Extract username without discriminator
-    // Discord's new username system (post-2023) doesn't use discriminators for most users
-    const rawUsername = user.user_metadata.name || user.user_metadata.user_name;
-    const username = rawUsername ? rawUsername.split('#')[0] : rawUsername; // Remove #0 suffix if present
-
-    return {
-      id: user.user_metadata.provider_id || user.user_metadata.sub,
-      username: username,
-      discriminator: user.user_metadata.discriminator || '0000',
-      avatar: user.user_metadata.avatar_url,
-      guilds: user.user_metadata.guilds || []
-    };
+  if (!hasDiscord) {
+    console.log('[DISCORD-EXTRACT] User does not have Discord identity');
+    return null;
   }
 
-  return null;
+  // Find the Discord identity from the identities array
+  const discordIdentity = user.identities?.find(i => i.provider === 'discord');
+
+  if (!discordIdentity?.id) {
+    console.warn('[DISCORD-EXTRACT] Discord identity found but no ID available');
+    return null;
+  }
+
+  // Extract username without discriminator
+  // Discord's new username system (post-2023) doesn't use discriminators for most users
+  const rawUsername = user.user_metadata?.name || user.user_metadata?.user_name || '';
+  const username = rawUsername ? rawUsername.split('#')[0] : rawUsername; // Remove #0 suffix if present
+
+  const discordData = {
+    id: discordIdentity.id, // Use the ID from the Discord identity, not user_metadata
+    username: username,
+    discriminator: user.user_metadata?.discriminator || '0000',
+    avatar: user.user_metadata?.avatar_url,
+    guilds: user.user_metadata?.guilds || []
+  };
+
+  console.log('[DISCORD-EXTRACT] Extracted Discord data:', {
+    discordId: discordData.id,
+    username: discordData.username,
+    source: 'user.identities'
+  });
+
+  return discordData;
 }
 
 /**
@@ -173,8 +190,11 @@ function extractDiscordData(user: User): DiscordUserData | null {
  */
 async function findMatchingPilot(discordData: DiscordUserData | null): Promise<{ pilotId: string | null; pilotData: any | null }> {
   if (!discordData) {
+    console.log('[PILOT-MATCH] No Discord data provided');
     return { pilotId: null, pilotData: null };
   }
+
+  console.log('[PILOT-MATCH] Attempting to match pilot with Discord ID:', discordData.id);
 
   try {
     // First try to match by Discord ID (the stable unique identifier)
@@ -184,15 +204,30 @@ async function findMatchingPilot(discordData: DiscordUserData | null): Promise<{
       .eq('discord_id', discordData.id)
       .single();
 
+    if (discordError) {
+      if (discordError.code === 'PGRST116') {
+        console.log('[PILOT-MATCH] No pilot found with discord_id:', discordData.id);
+      } else {
+        console.error('[PILOT-MATCH] Error querying pilots by discord_id:', discordError);
+      }
+    }
+
     if (!discordError && pilotByDiscord) {
+      console.log('[PILOT-MATCH] ✓ Found pilot by discord_id:', {
+        pilotId: pilotByDiscord.id,
+        callsign: pilotByDiscord.callsign,
+        boardNumber: pilotByDiscord.boardNumber
+      });
       return { pilotId: pilotByDiscord.id, pilotData: pilotByDiscord };
     }
 
     // If no direct match, try to match by username pattern (board number + callsign)
+    console.log('[PILOT-MATCH] No discord_id match, attempting username pattern match:', discordData.username);
     const usernameMatch = discordData.username.match(/^(\d{3})[\s|\/\-_]+(.+)$/);
     if (usernameMatch) {
       const [, boardNumber, callsign] = usernameMatch;
-      
+      console.log('[PILOT-MATCH] Username pattern matched:', { boardNumber, callsign });
+
       const { data: pilotByPattern, error: patternError } = await supabase
         .from('pilots')
         .select('*')
@@ -200,15 +235,31 @@ async function findMatchingPilot(discordData: DiscordUserData | null): Promise<{
         .ilike('callsign', callsign)
         .single();
 
+      if (patternError) {
+        if (patternError.code === 'PGRST116') {
+          console.log('[PILOT-MATCH] No pilot found with pattern match');
+        } else {
+          console.error('[PILOT-MATCH] Error querying pilots by pattern:', patternError);
+        }
+      }
+
       if (!patternError && pilotByPattern) {
+        console.log('[PILOT-MATCH] ✓ Found pilot by username pattern:', {
+          pilotId: pilotByPattern.id,
+          callsign: pilotByPattern.callsign,
+          boardNumber: pilotByPattern.boardNumber
+        });
         return { pilotId: pilotByPattern.id, pilotData: pilotByPattern };
       }
+    } else {
+      console.log('[PILOT-MATCH] Username does not match expected pattern (###-Callsign)');
     }
 
+    console.log('[PILOT-MATCH] ✗ No matching pilot found');
     return { pilotId: null, pilotData: null };
 
   } catch (error) {
-    console.error('Error finding matching pilot:', error);
+    console.error('[PILOT-MATCH] Unexpected error finding matching pilot:', error);
     return { pilotId: null, pilotData: null };
   }
 }
