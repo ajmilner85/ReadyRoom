@@ -1639,6 +1639,9 @@ async function processReminders() {
     let skipped = 0;
     const errors = [];
 
+    // Generate instance ID for debugging
+    const instanceId = process.env.INSTANCE_ID || `pid-${process.pid}-${Math.random().toString(36).substring(7)}`;
+
     // Process each reminder with distributed locking
     for (const reminder of pendingReminders) {
       const lockKey = uuidToLockKey(reminder.id);
@@ -1650,25 +1653,25 @@ async function processReminders() {
           .rpc('try_acquire_reminder_lock', { lock_key: lockKey });
 
         if (lockError) {
-          console.error(`[REMINDER-LOCK] Error acquiring lock for reminder ${reminder.id}:`, lockError);
+          console.error(`[REMINDER-LOCK] 🤖 Instance ${instanceId}: Error acquiring lock for reminder ${reminder.id}:`, lockError);
           errors.push({ reminderId: reminder.id, error: lockError });
           continue;
         }
 
         if (!lockResult) {
           // Lock is held by another bot instance
-          console.log(`[REMINDER-LOCK] Reminder ${reminder.id} is being processed by another instance, skipping`);
+          console.log(`[REMINDER-LOCK] 🤖 Instance ${instanceId}: Reminder ${reminder.id} is being processed by another instance, skipping`);
           skipped++;
           continue;
         }
 
         lockAcquired = true;
-        console.log(`[REMINDER-LOCK] Acquired lock for reminder ${reminder.id}`);
+        console.log(`[REMINDER-LOCK] 🤖 Instance ${instanceId}: ✅ ACQUIRED LOCK for reminder ${reminder.id} (type: ${reminder.reminder_type})`);
 
         // Process the reminder
         await processIndividualReminder(reminder);
         processed++;
-        console.log(`[REMINDER-PROCESSOR] Successfully processed reminder ${reminder.id} for event ${reminder.event_id}`);
+        console.log(`[REMINDER-PROCESSOR] 🤖 Instance ${instanceId}: ✅ Successfully processed reminder ${reminder.id} for event ${reminder.event_id}`);
 
       } catch (error) {
         console.error(`[REMINDER-PROCESSOR] Error processing reminder ${reminder.id}:`, error);
@@ -1712,7 +1715,15 @@ async function processIndividualReminder(reminder) {
     throw new Error(`Could not fetch event data: ${eventError?.message || 'Event not found'}`);
   }
 
-  // console.log('[EVENT-DEBUG] Retrieved event data:', JSON.stringify(eventData, null, 2));
+  // Log thread IDs in event data to diagnose threading issues
+  if (Array.isArray(eventData.discord_event_id)) {
+    const threadStatus = eventData.discord_event_id.map(pub => ({
+      squadron: pub.squadronId?.substring(0, 8),
+      hasThread: !!pub.threadId,
+      threadId: pub.threadId?.substring(0, 20)
+    }));
+    console.log(`[REMINDER-THREAD-CHECK] Event ${reminder.event_id} publications thread status:`, threadStatus);
+  }
 
   // Get attendance data
   let discordEventIds = [];
@@ -1936,16 +1947,22 @@ async function sendReminderToDiscordChannels(event, message) {
       }
     });
 
-    console.log(`[REMINDER-DEDUP] Event ${event.id}: ${event.discord_event_id.length} total publications, ${uniquePublications.size} unique locations`);
+    // Generate a unique instance ID for this bot process (for debugging multi-instance issues)
+    const instanceId = process.env.INSTANCE_ID || `pid-${process.pid}-${Math.random().toString(36).substring(7)}`;
+
+    console.log(`[REMINDER-DEDUP] 🤖 Instance ${instanceId} processing event ${event.id}: ${event.discord_event_id.length} total publications, ${uniquePublications.size} unique locations`);
+    console.log(`[REMINDER-DEDUP] Deduplication map keys:`, Array.from(uniquePublications.keys()));
     console.log(`[REMINDER-DEDUP] Publications:`, event.discord_event_id.map(p => ({
-      squadron: p.squadronId,
+      squadron: p.squadronId?.substring(0, 8),
       guild: p.guildId,
       channel: p.channelId,
-      thread: p.threadId,
-      message: p.messageId
+      thread: p.threadId?.substring(0, 20) || 'NONE',
+      message: p.messageId,
+      dedupKey: `${p.guildId}:${p.threadId || p.channelId}`
     })));
 
     for (const publication of uniquePublications.values()) {
+      console.log(`[REMINDER-INSTANCE] 🤖 Instance ${instanceId} processing unique publication for guild ${publication.guildId}, channel ${publication.channelId}, squadron ${publication.squadronId?.substring(0, 8)}`);
       try {
         // Thread creation logic: Create thread on first reminder if threading is enabled
         let createdThreadId = null;
@@ -1981,23 +1998,81 @@ async function sendReminderToDiscordChannels(event, message) {
               targetChannelId = threadResult.threadId; // Send reminder to the new thread
               
               // Update the database to store the thread ID for future reminders
-              try {
-                // Update ALL publications that share the same guild+channel with the thread ID
-                // This ensures multi-squadron events in shared channels all get the thread ID
-                const updatedPublications = event.discord_event_id.map(pub =>
-                  (pub.guildId === publication.guildId && pub.channelId === publication.channelId)
-                    ? { ...pub, threadId: threadResult.threadId }
-                    : pub
-                );
+              // CRITICAL: This must complete successfully before continuing to prevent duplicate reminders
+              const updatedPublications = event.discord_event_id.map(pub =>
+                (pub.guildId === publication.guildId && pub.channelId === publication.channelId)
+                  ? { ...pub, threadId: threadResult.threadId }
+                  : pub
+              );
 
-                await supabase
-                  .from('events')
-                  .update({ discord_event_id: updatedPublications })
-                  .eq('id', event.id);
+              let threadIdStored = false;
+              let retryCount = 0;
+              const maxRetries = 3;
 
-                console.log(`[REMINDER-THREAD] Updated event ${event.id} with thread ID ${threadResult.threadId} for all publications in guild ${publication.guildId}, channel ${publication.channelId}`);
-              } catch (updateError) {
-                console.warn(`[REMINDER-THREAD] Failed to update event with thread ID:`, updateError.message);
+              while (!threadIdStored && retryCount < maxRetries) {
+                try {
+                  retryCount++;
+                  console.log(`[REMINDER-THREAD] Attempt ${retryCount}/${maxRetries} to store thread ID ${threadResult.threadId}`);
+
+                  const { error: updateError } = await supabase
+                    .from('events')
+                    .update({ discord_event_id: updatedPublications })
+                    .eq('id', event.id);
+
+                  if (updateError) {
+                    console.error(`[REMINDER-THREAD] Database update FAILED (attempt ${retryCount}):`, updateError);
+                    if (retryCount < maxRetries) {
+                      await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second before retry
+                      continue;
+                    }
+                    throw updateError;
+                  }
+
+                  // Verify the update was successful by reading it back
+                  const { data: verifyData, error: verifyError } = await supabase
+                    .from('events')
+                    .select('discord_event_id')
+                    .eq('id', event.id)
+                    .single();
+
+                  if (verifyError || !verifyData) {
+                    console.error(`[REMINDER-THREAD] Verification query failed (attempt ${retryCount}):`, verifyError);
+                    if (retryCount < maxRetries) {
+                      await new Promise(resolve => setTimeout(resolve, 1000));
+                      continue;
+                    }
+                    throw new Error('Verification query failed');
+                  }
+
+                  const storedPubs = Array.isArray(verifyData.discord_event_id) ? verifyData.discord_event_id : [];
+                  const hasThreadId = storedPubs.some(pub =>
+                    pub.guildId === publication.guildId &&
+                    pub.channelId === publication.channelId &&
+                    pub.threadId === threadResult.threadId
+                  );
+
+                  if (hasThreadId) {
+                    console.log(`[REMINDER-THREAD] ✅ VERIFIED: Thread ID ${threadResult.threadId} successfully stored for event ${event.id} (attempt ${retryCount})`);
+                    threadIdStored = true;
+                    // Update the in-memory event object
+                    event.discord_event_id = updatedPublications;
+                  } else {
+                    console.error(`[REMINDER-THREAD] ❌ VERIFICATION FAILED: Thread ID not in database (attempt ${retryCount})`);
+                    if (retryCount < maxRetries) {
+                      await new Promise(resolve => setTimeout(resolve, 1000));
+                      continue;
+                    }
+                    throw new Error('Thread ID verification failed after update');
+                  }
+
+                } catch (error) {
+                  if (retryCount >= maxRetries) {
+                    console.error(`[REMINDER-THREAD] 🚨 CRITICAL: Failed to store thread ID after ${maxRetries} attempts:`, error.message);
+                    console.error(`[REMINDER-THREAD] 🚨 This will cause duplicate reminders on subsequent reminder attempts!`);
+                    // Don't throw - we still want to send the reminder, but log the critical issue
+                    break;
+                  }
+                }
               }
             } else {
               console.warn(`[REMINDER-THREAD] Thread creation failed: ${threadResult.error}`);
@@ -2191,38 +2266,14 @@ async function processConcludedEvents() {
 
     for (const event of concludedEvents) {
       try {
-        const discordEventIds = Array.isArray(event.discord_event_id) ? event.discord_event_id : [];
+        // NOTE: Button removal and "Event Finished" text is handled by the Discord bot's
+        // countdown manager in SDOBot. The server-side processor only marks events as
+        // processed in the database so they don't get checked repeatedly.
+        // The actual Discord message updates happen in SDOBot/lib/countdownManager.js
 
-        for (const publication of discordEventIds) {
-          try {
-            // TODO: Refactor to use Discord bot module instead of direct client access
-            console.warn(`[CONCLUDED-EVENTS] Skipping Discord cleanup for channel ${publication.channelId} - needs refactoring`);
-            continue;
-            // const channel = await discordClient.channels.fetch(publication.channelId);
-            // if (!channel) {
-            //   console.warn(`[CONCLUDED-EVENTS] Could not fetch channel ${publication.channelId}`);
-            //   continue;
-            // }
+        console.log(`[CONCLUDED-EVENTS] Marking event "${event.name}" as processed (Discord bot will handle final updates)`);
 
-            // const message = await channel.messages.fetch(publication.messageId);
-            // if (!message) {
-            //   console.warn(`[CONCLUDED-EVENTS] Could not fetch message ${publication.messageId}`);
-            //   continue;
-            // }
-
-            // Remove all button components from the message
-            await message.edit({
-              components: []
-            });
-
-            console.log(`[CONCLUDED-EVENTS] Removed buttons from message ${publication.messageId} for event "${event.name}"`);
-          } catch (msgError) {
-            console.error(`[CONCLUDED-EVENTS] Error removing buttons from message ${publication.messageId}:`, msgError);
-            errors.push({ eventId: event.id, messageId: publication.messageId, error: msgError });
-          }
-        }
-
-        // Mark event as having buttons removed
+        // Mark event as having buttons removed (Discord bot will actually remove them)
         await supabase
           .from('events')
           .update({ buttons_removed: true })

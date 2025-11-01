@@ -9,7 +9,10 @@ import {
   AttendanceData,
   PilotData,
   SquadronData,
+  QualificationData,
   ChartDataPoint,
+  EventSquadronMetrics,
+  SquadronMetrics,
   CycleAttendanceReportData,
   ReportFilters
 } from '../types/ReportTypes';
@@ -20,7 +23,7 @@ import {
 export async function fetchCycles(): Promise<CycleData[]> {
   const { data, error } = await supabase
     .from('cycles')
-    .select('id, name, start_date, end_date, type')
+    .select('id, name, start_date, end_date, type, participants')
     .order('start_date', { ascending: false });
 
   if (error) {
@@ -40,7 +43,7 @@ export async function fetchDefaultCycle(): Promise<CycleData | null> {
   // First try to find an active cycle
   const { data: activeCycles, error: activeError } = await supabase
     .from('cycles')
-    .select('id, name, start_date, end_date, type')
+    .select('id, name, start_date, end_date, type, participants')
     .lte('start_date', now)
     .gte('end_date', now)
     .order('start_date', { ascending: false })
@@ -58,7 +61,7 @@ export async function fetchDefaultCycle(): Promise<CycleData | null> {
   // If no active cycle, get the most recently completed one
   const { data: recentCycles, error: recentError } = await supabase
     .from('cycles')
-    .select('id, name, start_date, end_date, type')
+    .select('id, name, start_date, end_date, type, participants')
     .lt('end_date', now)
     .order('end_date', { ascending: false })
     .limit(1);
@@ -72,7 +75,7 @@ export async function fetchDefaultCycle(): Promise<CycleData | null> {
 }
 
 /**
- * Fetch active pilots during a cycle period, optionally filtered by squadron
+ * Fetch active pilots during a cycle period, optionally filtered by squadron and qualification
  */
 async function fetchActivePilots(
   startDate: string,
@@ -80,7 +83,7 @@ async function fetchActivePilots(
   filters?: ReportFilters
 ): Promise<PilotData[]> {
   // Get pilots who had an active status during the cycle period
-  let statusQuery = supabase
+  const statusQuery = supabase
     .from('pilot_statuses')
     .select(`
       pilot_id,
@@ -153,9 +156,24 @@ async function fetchActivePilots(
       }
     }
 
-    // Apply pilot filter if specified
-    if (filters?.pilotIds && filters.pilotIds.length > 0) {
-      if (!filters.pilotIds.includes(pilot.id)) {
+    // Apply qualification filter if specified
+    if (filters?.qualificationIds && filters.qualificationIds.length > 0) {
+      // Fetch pilot qualifications
+      const { data: qualData, error: qualError } = await supabase
+        .from('pilot_qualifications')
+        .select('qualification_id')
+        .eq('pilot_id', pilotId)
+        .or(`expiry_date.is.null,expiry_date.gte.${startDate}`);
+
+      if (qualError) {
+        console.error(`Error fetching qualifications for pilot ${pilotId}:`, qualError);
+        continue;
+      }
+
+      const pilotQualIds = (qualData || []).map(q => q.qualification_id);
+      const hasRequiredQual = filters.qualificationIds.some(qid => pilotQualIds.includes(qid));
+
+      if (!hasRequiredQual) {
         continue; // Skip this pilot
       }
     }
@@ -193,7 +211,7 @@ async function fetchAttendanceData(events: EventData[], pilots: PilotData[]): Pr
     // Fetch roll call responses for this event's message IDs
     const { data: attendanceData, error: attendanceError } = await supabase
       .from('discord_event_attendance')
-      .select('discord_id, roll_call_response, updated_at')
+      .select('discord_id, roll_call_response')
       .in('discord_event_id', messageIds)
       .not('roll_call_response', 'is', null);
 
@@ -214,7 +232,7 @@ async function fetchAttendanceData(events: EventData[], pilots: PilotData[]): Pr
       }
     });
 
-    // Map to attendance records with updated_at for last-minute snivel detection
+    // Map to attendance records
     attendanceData.forEach(record => {
       if (record.discord_id) {
         const pilot = discordToPilotMap.get(record.discord_id);
@@ -224,22 +242,75 @@ async function fetchAttendanceData(events: EventData[], pilots: PilotData[]): Pr
             eventId: event.id,
             rollCallResponse: record.roll_call_response as 'Present' | 'Absent' | 'Tentative' | null
           });
-
-          // Track updated_at separately for snivel detection
-          if (record.roll_call_response === 'Absent') {
-            const eventDate = new Date(event.start_datetime);
-            const twentyFourHoursBefore = new Date(eventDate.getTime() - 24 * 60 * 60 * 1000);
-            const responseDate = new Date(record.updated_at);
-
-            // Store this info on the record for later use (we'll track it in the processing step)
-            (record as any).isLastMinuteSnivel = responseDate >= twentyFourHoursBefore;
-          }
         }
       }
     });
   }
 
   return attendanceRecords;
+}
+
+/**
+ * Calculate squadron-specific metrics for each event
+ */
+function calculateEventSquadronMetrics(
+  events: EventData[],
+  pilots: PilotData[],
+  attendance: AttendanceData[]
+): EventSquadronMetrics[] {
+  // Group pilots by squadron
+  const pilotsBySquadron = new Map<string, PilotData[]>();
+  pilots.forEach(pilot => {
+    const squadronId = pilot.squadronId || 'unassigned';
+    if (!pilotsBySquadron.has(squadronId)) {
+      pilotsBySquadron.set(squadronId, []);
+    }
+    pilotsBySquadron.get(squadronId)!.push(pilot);
+  });
+
+  return events.map(event => {
+    const eventAttendance = attendance.filter(a => a.eventId === event.id);
+    const squadronMetrics: SquadronMetrics[] = [];
+
+    // Calculate metrics for each squadron
+    pilotsBySquadron.forEach((squadronPilots, squadronId) => {
+      const totalPilots = squadronPilots.length;
+      const squadronPilotIds = new Set(squadronPilots.map(p => p.id));
+
+      // Filter attendance to only this squadron's pilots
+      const squadronAttendance = eventAttendance.filter(a => squadronPilotIds.has(a.pilotId));
+
+      // Count presents
+      const attendanceCount = squadronAttendance.filter(a => a.rollCallResponse === 'Present').length;
+
+      // Count no-shows (pilots who didn't respond)
+      const respondedPilotIds = new Set(squadronAttendance.map(a => a.pilotId));
+      const noShowCount = totalPilots - respondedPilotIds.size;
+
+      // Count snivels (absent responses)
+      const lastMinuteSniveCount = squadronAttendance.filter(a => a.rollCallResponse === 'Absent').length;
+
+      const attendancePercentage = totalPilots > 0
+        ? Math.round((attendanceCount / totalPilots) * 100)
+        : 0;
+
+      squadronMetrics.push({
+        squadronId,
+        attendanceCount,
+        noShowCount,
+        lastMinuteSniveCount,
+        totalPilots,
+        attendancePercentage
+      });
+    });
+
+    return {
+      eventId: event.id,
+      eventName: event.name,
+      eventDate: event.start_datetime,
+      squadronMetrics
+    };
+  });
 }
 
 /**
@@ -252,7 +323,7 @@ export async function fetchCycleAttendanceReport(
   // Fetch cycle details
   const { data: cycleData, error: cycleError } = await supabase
     .from('cycles')
-    .select('id, name, start_date, end_date, type')
+    .select('id, name, start_date, end_date, type, participants')
     .eq('id', cycleId)
     .single();
 
@@ -261,11 +332,13 @@ export async function fetchCycleAttendanceReport(
     throw cycleError || new Error('Cycle not found');
   }
 
-  // Fetch events in this cycle
-  const { data: eventsData, error: eventsError } = await supabase
+  // Fetch events in this cycle (filter out future events)
+  const now = new Date().toISOString();
+  const { data: eventsData, error: eventsError} = await supabase
     .from('events')
     .select('id, name, start_datetime, cycle_id, discord_event_id')
     .eq('cycle_id', cycleId)
+    .lte('start_datetime', now) // Only past events
     .order('start_datetime', { ascending: true });
 
   if (eventsError) {
@@ -289,10 +362,10 @@ export async function fetchCycleAttendanceReport(
   // Fetch attendance records
   const attendance = await fetchAttendanceData(events, pilots);
 
-  // Fetch squadrons for filter UI
+  // Fetch squadrons with color palettes
   const { data: squadronsData, error: squadronsError } = await supabase
     .from('org_squadrons')
-    .select('id, name')
+    .select('id, name, designation, insignia_url, color_palette')
     .order('name', { ascending: true });
 
   if (squadronsError) {
@@ -302,22 +375,31 @@ export async function fetchCycleAttendanceReport(
 
   const squadrons = (squadronsData || []) as SquadronData[];
 
-  // Process data into chart format
+  // Fetch qualifications
+  const { data: qualificationsData, error: qualificationsError } = await supabase
+    .from('qualifications')
+    .select('id, name, code, color')
+    .eq('active', true)
+    .order('order', { ascending: true });
+
+  if (qualificationsError) {
+    console.error('Error fetching qualifications:', qualificationsError);
+    throw qualificationsError;
+  }
+
+  const qualifications = (qualificationsData || []) as QualificationData[];
+
+  // Calculate squadron metrics for each event
+  const eventSquadronMetrics = calculateEventSquadronMetrics(events, pilots, attendance);
+
+  // Process data into overall chart format (legacy, kept for compatibility)
   const chartData: ChartDataPoint[] = events.map(event => {
     const eventAttendance = attendance.filter(a => a.eventId === event.id);
 
-    // Count unique pilots who responded Present
     const presentCount = eventAttendance.filter(a => a.rollCallResponse === 'Present').length;
-
-    // Count pilots who didn't respond at all (no record for this event)
     const respondedPilotIds = new Set(eventAttendance.map(a => a.pilotId));
     const noShowCount = pilots.length - respondedPilotIds.size;
-
-    // Count "Last Minute Snivel" (Absent responses within 24h of event)
-    // Note: We simplified this - in production you'd track updated_at through the whole chain
-    const lastMinuteSniveCount = eventAttendance.filter(a => {
-      return a.rollCallResponse === 'Absent';
-    }).length;
+    const lastMinuteSniveCount = eventAttendance.filter(a => a.rollCallResponse === 'Absent').length;
 
     const totalPilots = pilots.length;
     const attendancePercentage = totalPilots > 0
@@ -339,7 +421,9 @@ export async function fetchCycleAttendanceReport(
     cycle: cycleData,
     events,
     chartData,
+    eventSquadronMetrics,
     squadrons,
+    qualifications,
     pilots
   };
 }

@@ -21,8 +21,7 @@ import {
 import {
   CycleData,
   CycleAttendanceReportData,
-  ReportFilters,
-  PilotData
+  ReportFilters
 } from '../../types/ReportTypes';
 
 // Register Chart.js components
@@ -48,9 +47,16 @@ const CycleAttendanceReport: React.FC<CycleAttendanceReportProps> = ({ error, se
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
+  const [filterLoading, setFilterLoading] = useState(false);
   const [filters, setFilters] = useState<ReportFilters>({
     squadronIds: [],
-    pilotIds: []
+    qualificationIds: [],
+    showAttendancePercent: false,
+    showAttendanceCount: true,
+    showNoShowsPercent: false,
+    showNoShowsCount: true,
+    showSnivelsPercent: false,
+    showSnivelsCount: true
   });
 
   // Load cycles and set default cycle
@@ -61,17 +67,18 @@ const CycleAttendanceReport: React.FC<CycleAttendanceReportProps> = ({ error, se
         const cyclesData = await fetchCycles();
         setCycles(cyclesData);
 
-        // Auto-select default cycle
         const defaultCycle = await fetchDefaultCycle();
         if (defaultCycle) {
           setSelectedCycleId(defaultCycle.id);
         } else if (cyclesData.length > 0) {
           setSelectedCycleId(cyclesData[0].id);
+        } else {
+          // No cycles available, stop loading
+          setLoading(false);
         }
       } catch (err) {
         console.error('Error loading cycles:', err);
         setError('Failed to load cycles');
-      } finally {
         setLoading(false);
       }
     };
@@ -79,7 +86,7 @@ const CycleAttendanceReport: React.FC<CycleAttendanceReportProps> = ({ error, se
     loadCycles();
   }, [setError]);
 
-  // Load report data when cycle or filters change
+  // Load report data when cycle changes
   const loadReportData = useCallback(async (cycleId: string, reportFilters: ReportFilters) => {
     try {
       const data = await fetchCycleAttendanceReport(cycleId, reportFilters);
@@ -93,13 +100,42 @@ const CycleAttendanceReport: React.FC<CycleAttendanceReportProps> = ({ error, se
 
   useEffect(() => {
     if (selectedCycleId) {
-      loadReportData(selectedCycleId, filters);
+      setLoading(true);
+      loadReportData(selectedCycleId, filters).finally(() => setLoading(false));
     }
-  }, [selectedCycleId, filters, loadReportData]);
+  }, [selectedCycleId, loadReportData]);
+
+  // Auto-select squadron participants when report data loads
+  useEffect(() => {
+    if (reportData && reportData.cycle.participants && filters.squadronIds.length === 0) {
+      const participantSquadronIds = Array.isArray(reportData.cycle.participants)
+        ? reportData.cycle.participants.map((p: any) => p.squadronId).filter(Boolean)
+        : [];
+
+      if (participantSquadronIds.length > 0) {
+        setFilters(prev => ({ ...prev, squadronIds: participantSquadronIds }));
+      }
+    }
+  }, [reportData, filters.squadronIds.length]);
+
+  // Handle filter changes
+  const handleFilterChange = useCallback(async (newFilters: ReportFilters) => {
+    if (!selectedCycleId) return;
+
+    try {
+      setFilterLoading(true);
+      setFilters(newFilters);
+      await loadReportData(selectedCycleId, newFilters);
+    } finally {
+      setFilterLoading(false);
+    }
+  }, [selectedCycleId, loadReportData]);
 
   // Handle cycle selection change
   const handleCycleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     setSelectedCycleId(e.target.value);
+    // Reset squadron selection to allow auto-selection for new cycle
+    setFilters(prev => ({ ...prev, squadronIds: [] }));
   };
 
   // Handle refresh button click
@@ -128,73 +164,329 @@ const CycleAttendanceReport: React.FC<CycleAttendanceReportProps> = ({ error, se
     URL.revokeObjectURL(url);
   };
 
-  // Handle squadron filter toggle
+  // Squadron filter handlers
   const handleSquadronToggle = (squadronId: string) => {
-    setFilters(prev => {
-      const isSelected = prev.squadronIds.includes(squadronId);
-      return {
-        ...prev,
-        squadronIds: isSelected
-          ? prev.squadronIds.filter(id => id !== squadronId)
-          : [...prev.squadronIds, squadronId]
-      };
-    });
+    const newSquadronIds = filters.squadronIds.includes(squadronId)
+      ? filters.squadronIds.filter(id => id !== squadronId)
+      : [...filters.squadronIds, squadronId];
+
+    handleFilterChange({ ...filters, squadronIds: newSquadronIds });
   };
 
-  // Handle pilot filter toggle
-  const handlePilotToggle = (pilotId: string) => {
-    setFilters(prev => {
-      const isSelected = prev.pilotIds.includes(pilotId);
-      return {
-        ...prev,
-        pilotIds: isSelected
-          ? prev.pilotIds.filter(id => id !== pilotId)
-          : [...prev.pilotIds, pilotId]
-      };
-    });
+  const handleSelectAllSquadrons = () => {
+    if (!reportData) return;
+    handleFilterChange({ ...filters, squadronIds: reportData.squadrons.map(s => s.id) });
+  };
+
+  const handleClearAllSquadrons = () => {
+    handleFilterChange({ ...filters, squadronIds: [] });
+  };
+
+  // Qualification filter handlers
+  const handleQualificationToggle = (qualId: string) => {
+    const newQualIds = filters.qualificationIds.includes(qualId)
+      ? filters.qualificationIds.filter(id => id !== qualId)
+      : [...filters.qualificationIds, qualId];
+
+    handleFilterChange({ ...filters, qualificationIds: newQualIds });
+  };
+
+  const handleSelectAllQualifications = () => {
+    if (!reportData) return;
+    handleFilterChange({ ...filters, qualificationIds: reportData.qualifications.map(q => q.id) });
+  };
+
+  const handleClearAllQualifications = () => {
+    handleFilterChange({ ...filters, qualificationIds: [] });
+  };
+
+  // Metric toggle handlers
+  const handleToggleAttendancePercent = () => {
+    handleFilterChange({ ...filters, showAttendancePercent: !filters.showAttendancePercent });
+  };
+
+  const handleToggleAttendanceCount = () => {
+    handleFilterChange({ ...filters, showAttendanceCount: !filters.showAttendanceCount });
+  };
+
+  const handleToggleNoShowsPercent = () => {
+    handleFilterChange({ ...filters, showNoShowsPercent: !filters.showNoShowsPercent });
+  };
+
+  const handleToggleNoShowsCount = () => {
+    handleFilterChange({ ...filters, showNoShowsCount: !filters.showNoShowsCount });
+  };
+
+  const handleToggleSnivelsPercent = () => {
+    handleFilterChange({ ...filters, showSnivelsPercent: !filters.showSnivelsPercent });
+  };
+
+  const handleToggleSnivelsCount = () => {
+    handleFilterChange({ ...filters, showSnivelsCount: !filters.showSnivelsCount });
   };
 
   // Clear all filters
   const handleClearFilters = () => {
-    setFilters({
+    handleFilterChange({
       squadronIds: [],
-      pilotIds: []
+      qualificationIds: [],
+      showAttendancePercent: false,
+      showAttendanceCount: true,
+      showNoShowsPercent: false,
+      showNoShowsCount: true,
+      showSnivelsPercent: false,
+      showSnivelsCount: true
     });
   };
 
-  // Prepare chart data
-  const chartData = reportData ? {
-    labels: reportData.chartData.map(d => {
-      const date = new Date(d.eventDate);
-      return `${d.eventName}\n${date.toLocaleDateString()}`;
-    }),
-    datasets: [
-      {
-        label: 'Attendance %',
-        data: reportData.chartData.map(d => d.attendancePercentage),
-        borderColor: 'rgb(130, 114, 140)',
-        backgroundColor: 'rgba(130, 114, 140, 0.1)',
-        tension: 0.3,
-        yAxisID: 'y'
-      },
-      {
-        label: 'No Shows',
-        data: reportData.chartData.map(d => d.noShowCount),
-        borderColor: 'rgb(239, 68, 68)',
-        backgroundColor: 'rgba(239, 68, 68, 0.1)',
-        tension: 0.3,
-        yAxisID: 'y1'
-      },
-      {
-        label: 'Last Minute Snivels',
-        data: reportData.chartData.map(d => d.lastMinuteSniveCount),
-        borderColor: 'rgb(251, 191, 36)',
-        backgroundColor: 'rgba(251, 191, 36, 0.1)',
-        tension: 0.3,
-        yAxisID: 'y1'
+  // Generate chart data based on selected filters
+  const generateChartData = () => {
+    if (!reportData) return null;
+
+    const labels = reportData.eventSquadronMetrics.map(event => {
+      const date = new Date(event.eventDate);
+      return `${event.eventName}\n${date.toLocaleDateString()}`;
+    });
+
+    const datasets: any[] = [];
+    const selectedSquadrons = filters.squadronIds.length > 0
+      ? reportData.squadrons.filter(sq => filters.squadronIds.includes(sq.id))
+      : reportData.squadrons;
+
+    selectedSquadrons.forEach(squadron => {
+      const color = squadron.color_palette?.primary || '#6B7280';
+
+      // Attendance Percent
+      if (filters.showAttendancePercent) {
+        datasets.push({
+          label: `${squadron.designation} - Attendance`,
+          data: reportData.eventSquadronMetrics.map(event => {
+            const metrics = event.squadronMetrics.find(m => m.squadronId === squadron.id);
+            return metrics?.attendancePercentage || 0;
+          }),
+          borderColor: color,
+          backgroundColor: color + '20',
+          borderWidth: 2,
+          borderDash: [],
+          tension: 0.3,
+          yAxisID: 'y-percentage',
+          pointStyle: 'line'
+        });
       }
-    ]
-  } : null;
+
+      // Attendance Count
+      if (filters.showAttendanceCount) {
+        datasets.push({
+          label: `${squadron.designation} - Attendance`,
+          data: reportData.eventSquadronMetrics.map(event => {
+            const metrics = event.squadronMetrics.find(m => m.squadronId === squadron.id);
+            return metrics?.attendanceCount || 0;
+          }),
+          borderColor: color,
+          backgroundColor: color + '20',
+          borderWidth: 2,
+          borderDash: [],
+          tension: 0.3,
+          yAxisID: 'y-count',
+          pointStyle: 'line'
+        });
+      }
+
+      // No Shows Percent
+      if (filters.showNoShowsPercent) {
+        datasets.push({
+          label: `${squadron.designation} - No Shows`,
+          data: reportData.eventSquadronMetrics.map(event => {
+            const metrics = event.squadronMetrics.find(m => m.squadronId === squadron.id);
+            const percentage = metrics && metrics.totalPilots > 0
+              ? Math.round((metrics.noShowCount / metrics.totalPilots) * 100)
+              : 0;
+            return percentage;
+          }),
+          borderColor: color,
+          backgroundColor: color + '20',
+          borderWidth: 2,
+          borderDash: [5, 5],
+          tension: 0.3,
+          yAxisID: 'y-percentage',
+          opacity: 0.8,
+          pointStyle: 'dash'
+        });
+      }
+
+      // No Shows Count
+      if (filters.showNoShowsCount) {
+        datasets.push({
+          label: `${squadron.designation} - No Shows`,
+          data: reportData.eventSquadronMetrics.map(event => {
+            const metrics = event.squadronMetrics.find(m => m.squadronId === squadron.id);
+            return metrics?.noShowCount || 0;
+          }),
+          borderColor: color,
+          backgroundColor: color + '20',
+          borderWidth: 2,
+          borderDash: [5, 5],
+          tension: 0.3,
+          yAxisID: 'y-count',
+          opacity: 0.8,
+          pointStyle: 'dash'
+        });
+      }
+
+      // Snivels Percent
+      if (filters.showSnivelsPercent) {
+        datasets.push({
+          label: `${squadron.designation} - Snivels`,
+          data: reportData.eventSquadronMetrics.map(event => {
+            const metrics = event.squadronMetrics.find(m => m.squadronId === squadron.id);
+            const percentage = metrics && metrics.totalPilots > 0
+              ? Math.round((metrics.lastMinuteSniveCount / metrics.totalPilots) * 100)
+              : 0;
+            return percentage;
+          }),
+          borderColor: color,
+          backgroundColor: color + '20',
+          borderWidth: 2,
+          borderDash: [2, 2],
+          tension: 0.3,
+          yAxisID: 'y-percentage',
+          opacity: 0.6,
+          pointStyle: 'rect'
+        });
+      }
+
+      // Snivels Count
+      if (filters.showSnivelsCount) {
+        datasets.push({
+          label: `${squadron.designation} - Snivels`,
+          data: reportData.eventSquadronMetrics.map(event => {
+            const metrics = event.squadronMetrics.find(m => m.squadronId === squadron.id);
+            return metrics?.lastMinuteSniveCount || 0;
+          }),
+          borderColor: color,
+          backgroundColor: color + '20',
+          borderWidth: 2,
+          borderDash: [2, 2],
+          tension: 0.3,
+          yAxisID: 'y-count',
+          opacity: 0.6,
+          pointStyle: 'rect'
+        });
+      }
+    });
+
+    return { labels, datasets };
+  };
+
+  const chartData = generateChartData();
+
+  // Custom plugin for HTML legend
+  const htmlLegendPlugin = {
+    id: 'htmlLegend',
+    afterUpdate(chart: any) {
+      const legendContainer = document.getElementById(`legend-${selectedCycleId}`);
+      if (!legendContainer) return;
+
+      // Clear existing legend
+      legendContainer.innerHTML = '';
+
+      const datasets = chart.data.datasets;
+      const squadronGroups = new Map<string, any[]>();
+
+      // Group datasets by squadron
+      datasets.forEach((dataset: any, i: number) => {
+        const parts = (dataset.label || '').split(' - ');
+        const squadronDesig = parts[0];
+        const metricName = parts[1];
+
+        if (!squadronGroups.has(squadronDesig)) {
+          squadronGroups.set(squadronDesig, []);
+        }
+
+        squadronGroups.get(squadronDesig)!.push({
+          text: metricName,
+          color: dataset.borderColor,
+          borderDash: dataset.borderDash || [],
+          hidden: !chart.isDatasetVisible(i),
+          index: i
+        });
+      });
+
+      // Build HTML legend
+      const legendDiv = document.createElement('div');
+      legendDiv.style.display = 'flex';
+      legendDiv.style.flexWrap = 'wrap';
+      legendDiv.style.gap = '20px';
+      legendDiv.style.padding = '10px';
+      legendDiv.style.fontFamily = 'Inter';
+      legendDiv.style.fontSize = '11px';
+
+      squadronGroups.forEach((metrics, squadronDesig) => {
+        const squadronDiv = document.createElement('div');
+        squadronDiv.style.display = 'flex';
+        squadronDiv.style.flexDirection = 'column';
+        squadronDiv.style.gap = '4px';
+
+        // Squadron header
+        const headerDiv = document.createElement('div');
+        headerDiv.style.fontWeight = 'bold';
+        headerDiv.style.marginBottom = '4px';
+        headerDiv.textContent = squadronDesig;
+        squadronDiv.appendChild(headerDiv);
+
+        // Metrics under squadron
+        metrics.forEach(metric => {
+          const metricDiv = document.createElement('div');
+          metricDiv.style.display = 'flex';
+          metricDiv.style.alignItems = 'center';
+          metricDiv.style.gap = '6px';
+          metricDiv.style.cursor = 'pointer';
+          metricDiv.style.opacity = metric.hidden ? '0.3' : '1';
+          metricDiv.style.paddingLeft = '8px';
+
+          // Create SVG line indicator
+          const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+          svg.setAttribute('width', '30');
+          svg.setAttribute('height', '12');
+          svg.style.display = 'block';
+
+          const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+          line.setAttribute('x1', '0');
+          line.setAttribute('y1', '6');
+          line.setAttribute('x2', '30');
+          line.setAttribute('y2', '6');
+          line.setAttribute('stroke', metric.color);
+          line.setAttribute('stroke-width', '2');
+
+          // Apply dash pattern if present
+          if (metric.borderDash.length > 0) {
+            line.setAttribute('stroke-dasharray', metric.borderDash.join(','));
+          }
+
+          svg.appendChild(line);
+          metricDiv.appendChild(svg);
+
+          // Metric text
+          const textSpan = document.createElement('span');
+          textSpan.textContent = metric.text;
+          metricDiv.appendChild(textSpan);
+
+          // Click handler to toggle visibility
+          metricDiv.onclick = () => {
+            const meta = chart.getDatasetMeta(metric.index);
+            meta.hidden = !meta.hidden;
+            chart.update();
+          };
+
+          squadronDiv.appendChild(metricDiv);
+        });
+
+        legendDiv.appendChild(squadronDiv);
+      });
+
+      legendContainer.appendChild(legendDiv);
+    }
+  };
 
   const chartOptions: ChartOptions<'line'> = {
     responsive: true,
@@ -205,13 +497,7 @@ const CycleAttendanceReport: React.FC<CycleAttendanceReportProps> = ({ error, se
     },
     plugins: {
       legend: {
-        position: 'top' as const,
-        labels: {
-          font: {
-            family: 'Inter',
-            size: 12
-          }
-        }
+        display: false // Disable default legend, use custom HTML legend
       },
       title: {
         display: false
@@ -225,25 +511,62 @@ const CycleAttendanceReport: React.FC<CycleAttendanceReportProps> = ({ error, se
         bodyFont: {
           family: 'Inter',
           size: 12
+        },
+        callbacks: {
+          title: (context) => {
+            // Show full event name in tooltip
+            if (reportData && context[0]) {
+              const eventIndex = context[0].dataIndex;
+              const event = reportData.eventSquadronMetrics[eventIndex];
+              return event?.eventName || context[0].label;
+            }
+            return context[0]?.label || '';
+          }
         }
       }
     },
     scales: {
       x: {
+        title: {
+          display: true,
+          text: 'Event',
+          font: {
+            family: 'Inter',
+            size: 12
+          }
+        },
         ticks: {
           font: {
             family: 'Inter',
-            size: 11
+            size: 10
+          },
+          callback: function(value, index) {
+            // Format labels as "Week N\nDate"
+            if (reportData && reportData.eventSquadronMetrics[index]) {
+              const event = reportData.eventSquadronMetrics[index];
+              const eventName = event.eventName || '';
+
+              // Try to extract "Week N" from event name
+              const weekMatch = eventName.match(/Week\s+(\d+)/i);
+              const weekLabel = weekMatch ? `Week ${weekMatch[1]}` : `Event ${index + 1}`;
+
+              // Format date
+              const eventDate = new Date(event.eventDate);
+              const dateStr = eventDate.toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', year: 'numeric' });
+
+              return [weekLabel, dateStr];
+            }
+            return value;
           }
         }
       },
-      y: {
+      'y-percentage': {
         type: 'linear' as const,
-        display: true,
+        display: filters.showAttendancePercent || filters.showNoShowsPercent || filters.showSnivelsPercent,
         position: 'left' as const,
         title: {
           display: true,
-          text: 'Attendance %',
+          text: 'Percentage (%)',
           font: {
             family: 'Inter',
             size: 12
@@ -258,9 +581,9 @@ const CycleAttendanceReport: React.FC<CycleAttendanceReportProps> = ({ error, se
           }
         }
       },
-      y1: {
+      'y-count': {
         type: 'linear' as const,
-        display: true,
+        display: filters.showAttendanceCount || filters.showNoShowsCount || filters.showSnivelsCount,
         position: 'right' as const,
         title: {
           display: true,
@@ -283,25 +606,19 @@ const CycleAttendanceReport: React.FC<CycleAttendanceReportProps> = ({ error, se
     }
   };
 
-  // Group pilots by squadron for filter UI
-  const pilotsBySquadron: Record<string, PilotData[]> = {};
-  if (reportData) {
-    reportData.pilots.forEach(pilot => {
-      const squadronId = pilot.squadronId || 'unassigned';
-      if (!pilotsBySquadron[squadronId]) {
-        pilotsBySquadron[squadronId] = [];
-      }
-      pilotsBySquadron[squadronId].push(pilot);
-    });
-  }
-
+  // Loading state
   if (loading) {
     return (
-      <div style={{ display: 'flex', justifyContent: 'center', padding: '40px' }}>
-        <div style={{ fontFamily: 'Inter', color: '#64748B' }}>Loading...</div>
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '400px' }}>
+        <div style={{ textAlign: 'center' }}>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#82728C] mx-auto mb-4"></div>
+          <p style={{ fontFamily: 'Inter', color: '#64748B', fontSize: '14px' }}>Loading report data...</p>
+        </div>
       </div>
     );
   }
+
+  const activeFilterCount = filters.squadronIds.length + filters.qualificationIds.length;
 
   return (
     <div style={{ fontFamily: 'Inter' }}>
@@ -316,6 +633,7 @@ const CycleAttendanceReport: React.FC<CycleAttendanceReportProps> = ({ error, se
           <select
             value={selectedCycleId || ''}
             onChange={handleCycleChange}
+            disabled={filterLoading}
             style={{
               fontFamily: 'Inter',
               fontSize: '14px',
@@ -324,7 +642,8 @@ const CycleAttendanceReport: React.FC<CycleAttendanceReportProps> = ({ error, se
               border: '1px solid #E2E8F0',
               backgroundColor: 'white',
               color: '#1E293B',
-              cursor: 'pointer'
+              cursor: filterLoading ? 'not-allowed' : 'pointer',
+              opacity: filterLoading ? 0.6 : 1
             }}
           >
             {cycles.map(cycle => (
@@ -336,7 +655,7 @@ const CycleAttendanceReport: React.FC<CycleAttendanceReportProps> = ({ error, se
 
           <button
             onClick={handleRefresh}
-            disabled={refreshing}
+            disabled={refreshing || filterLoading}
             style={{
               display: 'flex',
               alignItems: 'center',
@@ -348,8 +667,8 @@ const CycleAttendanceReport: React.FC<CycleAttendanceReportProps> = ({ error, se
               color: '#64748B',
               fontSize: '14px',
               fontFamily: 'Inter',
-              cursor: refreshing ? 'not-allowed' : 'pointer',
-              opacity: refreshing ? 0.6 : 1
+              cursor: (refreshing || filterLoading) ? 'not-allowed' : 'pointer',
+              opacity: (refreshing || filterLoading) ? 0.6 : 1
             }}
           >
             <RefreshCw size={16} className={refreshing ? 'animate-spin' : ''} />
@@ -357,9 +676,14 @@ const CycleAttendanceReport: React.FC<CycleAttendanceReportProps> = ({ error, se
           </button>
         </div>
 
-        <div style={{ display: 'flex', gap: '12px' }}>
+        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+          {filterLoading && (
+            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-[#82728C]"></div>
+          )}
+
           <button
             onClick={() => setShowFilters(!showFilters)}
+            disabled={filterLoading}
             style={{
               display: 'flex',
               alignItems: 'center',
@@ -371,12 +695,13 @@ const CycleAttendanceReport: React.FC<CycleAttendanceReportProps> = ({ error, se
               color: showFilters ? 'white' : '#64748B',
               fontSize: '14px',
               fontFamily: 'Inter',
-              cursor: 'pointer'
+              cursor: filterLoading ? 'not-allowed' : 'pointer',
+              opacity: filterLoading ? 0.6 : 1
             }}
           >
             <Filter size={16} />
             Filters
-            {(filters.squadronIds.length > 0 || filters.pilotIds.length > 0) && (
+            {activeFilterCount > 0 && (
               <span style={{
                 backgroundColor: showFilters ? 'white' : '#82728C',
                 color: showFilters ? '#82728C' : 'white',
@@ -385,14 +710,14 @@ const CycleAttendanceReport: React.FC<CycleAttendanceReportProps> = ({ error, se
                 fontSize: '11px',
                 fontWeight: 600
               }}>
-                {filters.squadronIds.length + filters.pilotIds.length}
+                {activeFilterCount}
               </span>
             )}
           </button>
 
           <button
             onClick={handleExportCSV}
-            disabled={!reportData}
+            disabled={!reportData || filterLoading}
             style={{
               display: 'flex',
               alignItems: 'center',
@@ -404,8 +729,8 @@ const CycleAttendanceReport: React.FC<CycleAttendanceReportProps> = ({ error, se
               color: '#64748B',
               fontSize: '14px',
               fontFamily: 'Inter',
-              cursor: reportData ? 'pointer' : 'not-allowed',
-              opacity: reportData ? 1 : 0.5
+              cursor: (reportData && !filterLoading) ? 'pointer' : 'not-allowed',
+              opacity: (reportData && !filterLoading) ? 1 : 0.5
             }}
           >
             <Download size={16} />
@@ -437,7 +762,9 @@ const CycleAttendanceReport: React.FC<CycleAttendanceReportProps> = ({ error, se
           border: '1px solid #E2E8F0',
           borderRadius: '8px',
           padding: '16px',
-          marginBottom: '24px'
+          marginBottom: '24px',
+          opacity: filterLoading ? 0.6 : 1,
+          pointerEvents: filterLoading ? 'none' : 'auto'
         }}>
           <div style={{
             display: 'flex',
@@ -449,7 +776,8 @@ const CycleAttendanceReport: React.FC<CycleAttendanceReportProps> = ({ error, se
               fontFamily: 'Inter',
               fontSize: '14px',
               fontWeight: 600,
-              color: '#1E293B'
+              color: '#1E293B',
+              margin: 0
             }}>
               Filter Options
             </h3>
@@ -472,108 +800,144 @@ const CycleAttendanceReport: React.FC<CycleAttendanceReportProps> = ({ error, se
             </button>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px' }}>
             {/* Squadron filters */}
-            <div>
-              <h4 style={{
-                fontFamily: 'Inter',
-                fontSize: '12px',
-                fontWeight: 600,
-                color: '#64748B',
-                marginBottom: '8px',
-                textTransform: 'uppercase'
-              }}>
-                Squadrons
-              </h4>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                {reportData.squadrons.map(squadron => (
-                  <label
-                    key={squadron.id}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '8px',
-                      cursor: 'pointer',
-                      fontFamily: 'Inter',
-                      fontSize: '13px',
-                      color: '#1E293B'
-                    }}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={filters.squadronIds.includes(squadron.id)}
-                      onChange={() => handleSquadronToggle(squadron.id)}
-                      style={{ cursor: 'pointer' }}
-                    />
-                    {squadron.name}
-                  </label>
-                ))}
-              </div>
-            </div>
+            <FilterSection
+              title="Squadron"
+              onSelectAll={handleSelectAllSquadrons}
+              onClearAll={handleClearAllSquadrons}
+            >
+              {reportData.squadrons.map(squadron => (
+                <FilterItem
+                  key={squadron.id}
+                  isSelected={filters.squadronIds.includes(squadron.id)}
+                  onClick={() => handleSquadronToggle(squadron.id)}
+                >
+                  <Checkbox isSelected={filters.squadronIds.includes(squadron.id)} />
+                  {squadron.insignia_url ? (
+                    <div style={{
+                      width: '20px',
+                      height: '20px',
+                      backgroundImage: `url(${squadron.insignia_url})`,
+                      backgroundSize: 'contain',
+                      backgroundRepeat: 'no-repeat',
+                      backgroundPosition: 'center',
+                      flexShrink: 0
+                    }} />
+                  ) : (
+                    <div style={{
+                      width: '20px',
+                      height: '20px',
+                      backgroundColor: '#E5E7EB',
+                      borderRadius: '3px',
+                      flexShrink: 0
+                    }} />
+                  )}
+                  <span style={{ flex: 1, fontSize: '12px' }}>{squadron.designation}</span>
+                </FilterItem>
+              ))}
+            </FilterSection>
 
-            {/* Pilot filters */}
+            {/* Qualification filters */}
+            <FilterSection
+              title="Qualification"
+              onSelectAll={handleSelectAllQualifications}
+              onClearAll={handleClearAllQualifications}
+            >
+              {reportData.qualifications.map(qual => (
+                <FilterItem
+                  key={qual.id}
+                  isSelected={filters.qualificationIds.includes(qual.id)}
+                  onClick={() => handleQualificationToggle(qual.id)}
+                >
+                  <Checkbox isSelected={filters.qualificationIds.includes(qual.id)} />
+                  <div style={{
+                    minWidth: '20px',
+                    height: '14px',
+                    backgroundColor: qual.color || '#6B7280',
+                    borderRadius: '2px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexShrink: 0,
+                    padding: '0 2px'
+                  }}>
+                    <span style={{ fontSize: '8px', color: '#FFFFFF', fontFamily: 'Inter', fontWeight: 500 }}>
+                      {qual.code}
+                    </span>
+                  </div>
+                  <span style={{ fontSize: '12px', flex: 1 }}>{qual.name}</span>
+                </FilterItem>
+              ))}
+            </FilterSection>
+
+            {/* Metric toggles */}
             <div>
-              <h4 style={{
-                fontFamily: 'Inter',
-                fontSize: '12px',
-                fontWeight: 600,
-                color: '#64748B',
-                marginBottom: '8px',
-                textTransform: 'uppercase'
-              }}>
-                Pilots
-              </h4>
               <div style={{
-                maxHeight: '200px',
-                overflowY: 'auto',
                 display: 'flex',
-                flexDirection: 'column',
-                gap: '6px'
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: '8px'
               }}>
-                {Object.entries(pilotsBySquadron).map(([squadronId, pilots]) => {
-                  const squadron = reportData.squadrons.find(s => s.id === squadronId);
-                  return (
-                    <div key={squadronId}>
-                      {squadron && (
-                        <div style={{
-                          fontSize: '11px',
-                          fontWeight: 600,
-                          color: '#9CA3AF',
-                          marginTop: '8px',
-                          marginBottom: '4px',
-                          fontFamily: 'Inter'
-                        }}>
-                          {squadron.name}
-                        </div>
-                      )}
-                      {pilots
-                        .sort((a, b) => a.boardNumber.localeCompare(b.boardNumber))
-                        .map(pilot => (
-                          <label
-                            key={pilot.id}
-                            style={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '8px',
-                              cursor: 'pointer',
-                              fontFamily: 'Inter',
-                              fontSize: '13px',
-                              color: '#1E293B',
-                              marginLeft: '12px'
-                            }}
-                          >
-                            <input
-                              type="checkbox"
-                              checked={filters.pilotIds.includes(pilot.id)}
-                              onChange={() => handlePilotToggle(pilot.id)}
-                              style={{ cursor: 'pointer' }}
-                            />
-                            {pilot.boardNumber} - {pilot.callsign}
-                          </label>
-                        ))}
-                    </div>
-                  );
-                })}
+                <h4 style={{
+                  fontSize: '12px',
+                  fontWeight: 500,
+                  fontFamily: 'Inter',
+                  color: '#374151',
+                  margin: 0
+                }}>
+                  Metrics
+                </h4>
+              </div>
+              <div style={{
+                border: '1px solid #E5E7EB',
+                borderRadius: '4px',
+                padding: '8px'
+              }}>
+                <MetricRow label="Attendance">
+                  <MetricToggleButton
+                    active={filters.showAttendancePercent}
+                    onClick={handleToggleAttendancePercent}
+                  >
+                    %
+                  </MetricToggleButton>
+                  <MetricToggleButton
+                    active={filters.showAttendanceCount}
+                    onClick={handleToggleAttendanceCount}
+                  >
+                    Count
+                  </MetricToggleButton>
+                </MetricRow>
+
+                <MetricRow label="No Shows">
+                  <MetricToggleButton
+                    active={filters.showNoShowsPercent}
+                    onClick={handleToggleNoShowsPercent}
+                  >
+                    %
+                  </MetricToggleButton>
+                  <MetricToggleButton
+                    active={filters.showNoShowsCount}
+                    onClick={handleToggleNoShowsCount}
+                  >
+                    Count
+                  </MetricToggleButton>
+                </MetricRow>
+
+                <MetricRow label="Snivels">
+                  <MetricToggleButton
+                    active={filters.showSnivelsPercent}
+                    onClick={handleToggleSnivelsPercent}
+                  >
+                    %
+                  </MetricToggleButton>
+                  <MetricToggleButton
+                    active={filters.showSnivelsCount}
+                    onClick={handleToggleSnivelsCount}
+                  >
+                    Count
+                  </MetricToggleButton>
+                </MetricRow>
               </div>
             </div>
           </div>
@@ -581,30 +945,232 @@ const CycleAttendanceReport: React.FC<CycleAttendanceReportProps> = ({ error, se
       )}
 
       {/* Chart */}
-      {chartData && (
+      {chartData && chartData.datasets.length > 0 ? (
         <div style={{
           backgroundColor: 'white',
           border: '1px solid #E2E8F0',
           borderRadius: '8px',
           padding: '24px',
-          height: '500px'
+          position: 'relative'
         }}>
-          <Line data={chartData} options={chartOptions} />
-        </div>
-      )}
+          {filterLoading && (
+            <div style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              backgroundColor: 'rgba(255, 255, 255, 0.8)',
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+              borderRadius: '8px',
+              zIndex: 10
+            }}>
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#82728C]"></div>
+            </div>
+          )}
 
-      {!reportData && !loading && (
+          {/* Custom legend container */}
+          <div
+            id={`legend-${selectedCycleId}`}
+            style={{
+              marginBottom: '16px',
+              border: '1px solid #E2E8F0',
+              borderRadius: '6px',
+              backgroundColor: '#F8FAFC'
+            }}
+          />
+
+          {/* Chart */}
+          <div style={{ height: '450px' }}>
+            <Line data={chartData} options={chartOptions} plugins={[htmlLegendPlugin]} />
+          </div>
+        </div>
+      ) : (
         <div style={{
           textAlign: 'center',
-          padding: '40px',
+          padding: '60px 40px',
           color: '#64748B',
-          fontFamily: 'Inter'
+          fontFamily: 'Inter',
+          backgroundColor: 'white',
+          border: '1px solid #E2E8F0',
+          borderRadius: '8px'
         }}>
-          No data available for the selected cycle
+          {reportData && reportData.events.length === 0 ? (
+            <>
+              <p style={{ fontSize: '16px', fontWeight: 500, marginBottom: '8px' }}>No events found</p>
+              <p style={{ fontSize: '14px' }}>This cycle has no past events to display.</p>
+            </>
+          ) : (
+            <>
+              <p style={{ fontSize: '16px', fontWeight: 500, marginBottom: '8px' }}>No data to display</p>
+              <p style={{ fontSize: '14px' }}>Select squadrons and metrics from the filters above.</p>
+            </>
+          )}
         </div>
       )}
     </div>
   );
 };
+
+// Helper components
+const Checkbox: React.FC<{ isSelected: boolean }> = ({ isSelected }) => (
+  <div style={{
+    width: '14px',
+    height: '14px',
+    border: '1px solid #CBD5E1',
+    borderRadius: '3px',
+    backgroundColor: isSelected ? '#3B82F6' : '#FFFFFF',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0
+  }}>
+    {isSelected && (
+      <span style={{ color: '#FFFFFF', fontSize: '10px' }}>✓</span>
+    )}
+  </div>
+);
+
+const FilterSection: React.FC<{
+  title: string;
+  onSelectAll: () => void;
+  onClearAll: () => void;
+  children: React.ReactNode;
+}> = ({ title, onSelectAll, onClearAll, children }) => (
+  <div>
+    <div style={{
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: '8px'
+    }}>
+      <h4 style={{
+        fontSize: '12px',
+        fontWeight: 500,
+        fontFamily: 'Inter',
+        color: '#374151',
+        margin: 0
+      }}>
+        {title}
+      </h4>
+      <div style={{ display: 'flex', gap: '6px' }}>
+        <button onClick={onSelectAll} style={{
+          padding: '2px 6px',
+          backgroundColor: '#EFF6FF',
+          border: '1px solid #DBEAFE',
+          borderRadius: '3px',
+          fontSize: '10px',
+          cursor: 'pointer',
+          fontFamily: 'Inter',
+          color: '#1E40AF'
+        }}>
+          All
+        </button>
+        <button onClick={onClearAll} style={{
+          padding: '2px 6px',
+          backgroundColor: '#FEF2F2',
+          border: '1px solid #FECACA',
+          borderRadius: '3px',
+          fontSize: '10px',
+          cursor: 'pointer',
+          fontFamily: 'Inter',
+          color: '#DC2626'
+        }}>
+          None
+        </button>
+      </div>
+    </div>
+    <div style={{
+      maxHeight: '200px',
+      overflowY: 'auto',
+      border: '1px solid #E5E7EB',
+      borderRadius: '4px',
+      padding: '4px'
+    }}>
+      {children}
+    </div>
+  </div>
+);
+
+const FilterItem: React.FC<{
+  isSelected: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}> = ({ isSelected, onClick, children }) => {
+  const [isHovered, setIsHovered] = useState(false);
+
+  return (
+    <div
+      onClick={onClick}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      style={{
+        padding: '6px 8px',
+        cursor: 'pointer',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '8px',
+        backgroundColor: isSelected ? '#EFF6FF' : (isHovered ? '#F8FAFC' : 'transparent'),
+        borderRadius: '3px',
+        transition: 'background-color 0.2s',
+        marginBottom: '2px'
+      }}
+    >
+      {children}
+    </div>
+  );
+};
+
+const MetricRow: React.FC<{
+  label: string;
+  children: React.ReactNode;
+}> = ({ label, children }) => (
+  <div style={{
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: '8px',
+    gap: '8px'
+  }}>
+    <span style={{
+      fontSize: '12px',
+      fontFamily: 'Inter',
+      color: '#374151',
+      flex: 1
+    }}>
+      {label}
+    </span>
+    <div style={{ display: 'flex', gap: '4px' }}>
+      {children}
+    </div>
+  </div>
+);
+
+const MetricToggleButton: React.FC<{
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}> = ({ active, onClick, children }) => (
+  <button
+    onClick={onClick}
+    style={{
+      padding: '4px 12px',
+      borderRadius: '4px',
+      cursor: 'pointer',
+      backgroundColor: active ? '#EFF6FF' : '#F3F4F6',
+      border: `1px solid ${active ? '#DBEAFE' : '#D1D5DB'}`,
+      color: active ? '#1E40AF' : '#6B7280',
+      fontSize: '11px',
+      fontFamily: 'Inter',
+      fontWeight: 500,
+      transition: 'all 0.2s',
+      minWidth: '50px'
+    }}
+  >
+    {children}
+  </button>
+);
 
 export default CycleAttendanceReport;

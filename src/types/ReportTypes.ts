@@ -8,6 +8,7 @@ export interface CycleData {
   start_date: string;
   end_date: string;
   type: string;
+  participants?: any;
 }
 
 export interface EventData {
@@ -41,6 +42,20 @@ export interface PilotData {
 export interface SquadronData {
   id: string;
   name: string;
+  designation: string;
+  insignia_url?: string | null;
+  color_palette?: {
+    primary?: string;
+    secondary?: string;
+    accent?: string;
+  } | null;
+}
+
+export interface QualificationData {
+  id: string;
+  name: string;
+  code: string;
+  color?: string | null;
 }
 
 /**
@@ -57,11 +72,39 @@ export interface ChartDataPoint {
 }
 
 /**
+ * Squadron-specific metrics for a single event
+ */
+export interface SquadronMetrics {
+  squadronId: string;
+  attendanceCount: number;
+  noShowCount: number;
+  lastMinuteSniveCount: number;
+  totalPilots: number;
+  attendancePercentage: number;
+}
+
+/**
+ * Metrics grouped by squadron for all events
+ */
+export interface EventSquadronMetrics {
+  eventId: string;
+  eventName: string;
+  eventDate: string;
+  squadronMetrics: SquadronMetrics[];
+}
+
+/**
  * Filter options for the report
  */
 export interface ReportFilters {
   squadronIds: string[];
-  pilotIds: string[];
+  qualificationIds: string[];
+  showAttendancePercent: boolean;
+  showAttendanceCount: boolean;
+  showNoShowsPercent: boolean;
+  showNoShowsCount: boolean;
+  showSnivelsPercent: boolean;
+  showSnivelsCount: boolean;
 }
 
 /**
@@ -71,6 +114,8 @@ export interface CycleAttendanceReportData {
   cycle: CycleData;
   events: EventData[];
   chartData: ChartDataPoint[];
+  eventSquadronMetrics: EventSquadronMetrics[];
   squadrons: SquadronData[];
+  qualifications: QualificationData[];
   pilots: PilotData[];
 }

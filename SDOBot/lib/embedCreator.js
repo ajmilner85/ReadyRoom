@@ -252,9 +252,20 @@ function createEventEmbed(title, description, eventTime, responses = {}, creator
     // Add each squadron's ACCEPTED pilots only
     squadronGroups.forEach(group => {
       const { squadron } = group;
-      
-      if (group.accepted.length === 0) return; // Skip squadrons with no accepted pilots
-      
+
+      // DEFENSIVE: Always render squadrons if they have ANY responses (accepted, tentative, declined)
+      // This prevents squadrons from disappearing during countdown updates if data fetch is incomplete
+      const hasAnyResponses = group.accepted.length > 0 || group.tentative.length > 0 || group.declined.length > 0;
+
+      if (!hasAnyResponses) {
+        console.log(`[EMBED-SQUADRON-SKIP] Skipping squadron ${squadron?.designation || 'unknown'} - no responses at all`);
+        return; // Only skip if squadron has NO responses whatsoever
+      }
+
+      if (group.accepted.length === 0) {
+        console.log(`[EMBED-SQUADRON-WARN] Squadron ${squadron?.designation || 'unknown'} has ${group.tentative.length} tentative and ${group.declined.length} declined but NO accepted pilots - still rendering to prevent disappearance`);
+      }
+
       const acceptedCount = group.accepted.length;
       
       let squadronHeader;
@@ -292,15 +303,15 @@ function createEventEmbed(title, description, eventTime, responses = {}, creator
       if (shouldTrackQualifications) {
         // Show Flight Lead | Section Lead | Wingman columns with Hornet emojis in field names
         const grouped = groupByQualifications(group.accepted, isTrainingEvent);
-        
-        const flText = formatQualGroup(grouped.flightLead);
-        const slText = formatQualGroup(grouped.sectionLead);
-        const wmText = formatQualGroup(grouped.wingman);
+
+        const flText = formatQualGroup(grouped.flightLead || []);
+        const slText = formatQualGroup(grouped.sectionLead || []);
+        const wmText = formatQualGroup(grouped.wingman || []);
 
         embed.addFields(
-          { name: `${squadronHeader}\n*Flight Lead (${grouped.flightLead.length})*`, value: flText, inline: true },
-          { name: `\u200B\n*Section Lead (${grouped.sectionLead.length})*`, value: slText, inline: true },
-          { name: `\u200B\n*Wingman (${grouped.wingman.length})*`, value: wmText, inline: true }
+          { name: `${squadronHeader}\n*Flight Lead (${(grouped.flightLead || []).length})*`, value: flText, inline: true },
+          { name: `\u200B\n*Section Lead (${(grouped.sectionLead || []).length})*`, value: slText, inline: true },
+          { name: `\u200B\n*Wingman (${(grouped.wingman || []).length})*`, value: wmText, inline: true }
         );
       } else {
         // Show all pilots without qualification grouping
