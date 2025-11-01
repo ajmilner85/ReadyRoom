@@ -118,6 +118,12 @@ export interface ReportFilters {
   showTotalSnivelsCount: boolean;
   showNoResponsePercent: boolean;
   showNoResponseCount: boolean;
+  attendanceTrendLine: 'disabled' | 'linear' | 'moving-average';
+  noShowsTrendLine: 'disabled' | 'linear' | 'moving-average';
+  snivelsTrendLine: 'disabled' | 'linear' | 'moving-average';
+  advancedSnivelsTrendLine: 'disabled' | 'linear' | 'moving-average';
+  totalSnivelsTrendLine: 'disabled' | 'linear' | 'moving-average';
+  noResponseTrendLine: 'disabled' | 'linear' | 'moving-average';
 }
 
 /**

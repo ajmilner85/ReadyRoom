@@ -63,7 +63,13 @@ const CycleAttendanceReport: React.FC<CycleAttendanceReportProps> = ({ error, se
     showTotalSnivelsPercent: false,
     showTotalSnivelsCount: false,
     showNoResponsePercent: false,
-    showNoResponseCount: false
+    showNoResponseCount: false,
+    attendanceTrendLine: 'disabled',
+    noShowsTrendLine: 'disabled',
+    snivelsTrendLine: 'disabled',
+    advancedSnivelsTrendLine: 'disabled',
+    totalSnivelsTrendLine: 'disabled',
+    noResponseTrendLine: 'disabled'
   });
 
   // Load cycles and set default cycle
@@ -288,8 +294,60 @@ const CycleAttendanceReport: React.FC<CycleAttendanceReportProps> = ({ error, se
       showTotalSnivelsPercent: false,
       showTotalSnivelsCount: false,
       showNoResponsePercent: false,
-      showNoResponseCount: false
+      showNoResponseCount: false,
+      attendanceTrendLine: 'disabled',
+      noShowsTrendLine: 'disabled',
+      snivelsTrendLine: 'disabled',
+      advancedSnivelsTrendLine: 'disabled',
+      totalSnivelsTrendLine: 'disabled',
+      noResponseTrendLine: 'disabled'
     });
+  };
+
+  // Trend line toggle handlers
+  const handleToggleTrendLine = (metricType: 'attendance' | 'noShows' | 'snivels' | 'advancedSnivels' | 'totalSnivels' | 'noResponse') => {
+    const key = `${metricType}TrendLine` as keyof ReportFilters;
+    const currentValue = filters[key] as 'disabled' | 'linear' | 'moving-average';
+    const nextType =
+      currentValue === 'disabled' ? 'linear' :
+      currentValue === 'linear' ? 'moving-average' :
+      'disabled';
+    handleFilterChange({ ...filters, [key]: nextType }, false);
+  };
+
+  // Helper function to calculate linear regression trend line
+  const calculateLinearTrend = (data: number[]): number[] => {
+    const n = data.length;
+    if (n === 0) return [];
+
+    let sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0;
+    for (let i = 0; i < n; i++) {
+      sumX += i;
+      sumY += data[i];
+      sumXY += i * data[i];
+      sumX2 += i * i;
+    }
+
+    const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
+    const intercept = (sumY - slope * sumX) / n;
+
+    return data.map((_, i) => slope * i + intercept);
+  };
+
+  // Helper function to calculate moving average
+  const calculateMovingAverage = (data: number[], window: number = 3): number[] => {
+    if (data.length === 0) return [];
+    const result: number[] = [];
+
+    for (let i = 0; i < data.length; i++) {
+      const start = Math.max(0, i - Math.floor(window / 2));
+      const end = Math.min(data.length, i + Math.ceil(window / 2));
+      const slice = data.slice(start, end);
+      const avg = slice.reduce((sum, val) => sum + val, 0) / slice.length;
+      result.push(avg);
+    }
+
+    return result;
   };
 
   // Memoize chart data generation to prevent expensive recalculations
@@ -312,12 +370,14 @@ const CycleAttendanceReport: React.FC<CycleAttendanceReportProps> = ({ error, se
 
       // Attendance Percent
       if (filters.showAttendancePercent) {
+        const data = reportData.eventSquadronMetrics.map(event => {
+          const metrics = event.squadronMetrics.find(m => m.squadronId === squadron.id);
+          return metrics?.attendancePercentage || 0;
+        });
+
         datasets.push({
           label: `${squadron.designation} - Attendance`,
-          data: reportData.eventSquadronMetrics.map(event => {
-            const metrics = event.squadronMetrics.find(m => m.squadronId === squadron.id);
-            return metrics?.attendancePercentage || 0;
-          }),
+          data,
           borderColor: color,
           backgroundColor: color + '20',
           borderWidth: 2,
@@ -326,16 +386,38 @@ const CycleAttendanceReport: React.FC<CycleAttendanceReportProps> = ({ error, se
           yAxisID: 'y-percentage',
           pointStyle: 'line'
         });
+
+        // Add trend line if enabled
+        if (filters.attendanceTrendLine !== 'disabled') {
+          const trendData = filters.attendanceTrendLine === 'linear'
+            ? calculateLinearTrend(data)
+            : calculateMovingAverage(data);
+
+          datasets.push({
+            label: `${squadron.designation} - Attendance Trend`,
+            data: trendData,
+            borderColor: color,
+            backgroundColor: 'transparent',
+            borderWidth: 2,
+            borderDash: [10, 5],
+            tension: 0.3,
+            yAxisID: 'y-percentage',
+            pointStyle: false,
+            pointRadius: 0
+          });
+        }
       }
 
       // Attendance Count
       if (filters.showAttendanceCount) {
+        const data = reportData.eventSquadronMetrics.map(event => {
+          const metrics = event.squadronMetrics.find(m => m.squadronId === squadron.id);
+          return metrics?.attendanceCount || 0;
+        });
+
         datasets.push({
           label: `${squadron.designation} - Attendance`,
-          data: reportData.eventSquadronMetrics.map(event => {
-            const metrics = event.squadronMetrics.find(m => m.squadronId === squadron.id);
-            return metrics?.attendanceCount || 0;
-          }),
+          data,
           borderColor: color,
           backgroundColor: color + '20',
           borderWidth: 2,
@@ -344,19 +426,41 @@ const CycleAttendanceReport: React.FC<CycleAttendanceReportProps> = ({ error, se
           yAxisID: 'y-count',
           pointStyle: 'line'
         });
+
+        // Add trend line if enabled
+        if (filters.attendanceTrendLine !== 'disabled') {
+          const trendData = filters.attendanceTrendLine === 'linear'
+            ? calculateLinearTrend(data)
+            : calculateMovingAverage(data);
+
+          datasets.push({
+            label: `${squadron.designation} - Attendance Trend`,
+            data: trendData,
+            borderColor: color,
+            backgroundColor: 'transparent',
+            borderWidth: 2,
+            borderDash: [10, 5],
+            tension: 0.3,
+            yAxisID: 'y-count',
+            pointStyle: false,
+            pointRadius: 0
+          });
+        }
       }
 
       // No Shows Percent
       if (filters.showNoShowsPercent) {
+        const data = reportData.eventSquadronMetrics.map(event => {
+          const metrics = event.squadronMetrics.find(m => m.squadronId === squadron.id);
+          const percentage = metrics && metrics.totalPilots > 0
+            ? Math.round((metrics.noShowCount / metrics.totalPilots) * 100)
+            : 0;
+          return percentage;
+        });
+
         datasets.push({
           label: `${squadron.designation} - No Shows`,
-          data: reportData.eventSquadronMetrics.map(event => {
-            const metrics = event.squadronMetrics.find(m => m.squadronId === squadron.id);
-            const percentage = metrics && metrics.totalPilots > 0
-              ? Math.round((metrics.noShowCount / metrics.totalPilots) * 100)
-              : 0;
-            return percentage;
-          }),
+          data,
           borderColor: color,
           backgroundColor: color + '20',
           borderWidth: 2,
@@ -366,16 +470,38 @@ const CycleAttendanceReport: React.FC<CycleAttendanceReportProps> = ({ error, se
           opacity: 0.8,
           pointStyle: 'dash'
         });
+
+        // Add trend line if enabled
+        if (filters.noShowsTrendLine !== 'disabled') {
+          const trendData = filters.noShowsTrendLine === 'linear'
+            ? calculateLinearTrend(data)
+            : calculateMovingAverage(data);
+
+          datasets.push({
+            label: `${squadron.designation} - No Shows Trend`,
+            data: trendData,
+            borderColor: color,
+            backgroundColor: 'transparent',
+            borderWidth: 2,
+            borderDash: [10, 5],
+            tension: 0.3,
+            yAxisID: 'y-percentage',
+            pointStyle: false,
+            pointRadius: 0
+          });
+        }
       }
 
       // No Shows Count
       if (filters.showNoShowsCount) {
+        const data = reportData.eventSquadronMetrics.map(event => {
+          const metrics = event.squadronMetrics.find(m => m.squadronId === squadron.id);
+          return metrics?.noShowCount || 0;
+        });
+
         datasets.push({
           label: `${squadron.designation} - No Shows`,
-          data: reportData.eventSquadronMetrics.map(event => {
-            const metrics = event.squadronMetrics.find(m => m.squadronId === squadron.id);
-            return metrics?.noShowCount || 0;
-          }),
+          data,
           borderColor: color,
           backgroundColor: color + '20',
           borderWidth: 2,
@@ -385,19 +511,41 @@ const CycleAttendanceReport: React.FC<CycleAttendanceReportProps> = ({ error, se
           opacity: 0.8,
           pointStyle: 'dash'
         });
+
+        // Add trend line if enabled
+        if (filters.noShowsTrendLine !== 'disabled') {
+          const trendData = filters.noShowsTrendLine === 'linear'
+            ? calculateLinearTrend(data)
+            : calculateMovingAverage(data);
+
+          datasets.push({
+            label: `${squadron.designation} - No Shows Trend`,
+            data: trendData,
+            borderColor: color,
+            backgroundColor: 'transparent',
+            borderWidth: 2,
+            borderDash: [10, 5],
+            tension: 0.3,
+            yAxisID: 'y-count',
+            pointStyle: false,
+            pointRadius: 0
+          });
+        }
       }
 
       // Last Minute Snivels Percent
       if (filters.showSnivelsPercent) {
+        const data = reportData.eventSquadronMetrics.map(event => {
+          const metrics = event.squadronMetrics.find(m => m.squadronId === squadron.id);
+          const percentage = metrics && metrics.totalPilots > 0
+            ? Math.round((metrics.lastMinuteSniveCount / metrics.totalPilots) * 100)
+            : 0;
+          return percentage;
+        });
+
         datasets.push({
           label: `${squadron.designation} - Last Minute Snivels`,
-          data: reportData.eventSquadronMetrics.map(event => {
-            const metrics = event.squadronMetrics.find(m => m.squadronId === squadron.id);
-            const percentage = metrics && metrics.totalPilots > 0
-              ? Math.round((metrics.lastMinuteSniveCount / metrics.totalPilots) * 100)
-              : 0;
-            return percentage;
-          }),
+          data,
           borderColor: color,
           backgroundColor: color + '20',
           borderWidth: 2,
@@ -407,16 +555,38 @@ const CycleAttendanceReport: React.FC<CycleAttendanceReportProps> = ({ error, se
           opacity: 0.6,
           pointStyle: 'rect'
         });
+
+        // Add trend line if enabled
+        if (filters.snivelsTrendLine !== 'disabled') {
+          const trendData = filters.snivelsTrendLine === 'linear'
+            ? calculateLinearTrend(data)
+            : calculateMovingAverage(data);
+
+          datasets.push({
+            label: `${squadron.designation} - Last Minute Snivels Trend`,
+            data: trendData,
+            borderColor: color,
+            backgroundColor: 'transparent',
+            borderWidth: 2,
+            borderDash: [10, 5],
+            tension: 0.3,
+            yAxisID: 'y-percentage',
+            pointStyle: false,
+            pointRadius: 0
+          });
+        }
       }
 
       // Last Minute Snivels Count
       if (filters.showSnivelsCount) {
+        const data = reportData.eventSquadronMetrics.map(event => {
+          const metrics = event.squadronMetrics.find(m => m.squadronId === squadron.id);
+          return metrics?.lastMinuteSniveCount || 0;
+        });
+
         datasets.push({
           label: `${squadron.designation} - Last Minute Snivels`,
-          data: reportData.eventSquadronMetrics.map(event => {
-            const metrics = event.squadronMetrics.find(m => m.squadronId === squadron.id);
-            return metrics?.lastMinuteSniveCount || 0;
-          }),
+          data,
           borderColor: color,
           backgroundColor: color + '20',
           borderWidth: 2,
@@ -426,19 +596,41 @@ const CycleAttendanceReport: React.FC<CycleAttendanceReportProps> = ({ error, se
           opacity: 0.6,
           pointStyle: 'rect'
         });
+
+        // Add trend line if enabled
+        if (filters.snivelsTrendLine !== 'disabled') {
+          const trendData = filters.snivelsTrendLine === 'linear'
+            ? calculateLinearTrend(data)
+            : calculateMovingAverage(data);
+
+          datasets.push({
+            label: `${squadron.designation} - Last Minute Snivels Trend`,
+            data: trendData,
+            borderColor: color,
+            backgroundColor: 'transparent',
+            borderWidth: 2,
+            borderDash: [10, 5],
+            tension: 0.3,
+            yAxisID: 'y-count',
+            pointStyle: false,
+            pointRadius: 0
+          });
+        }
       }
 
       // Advanced Snivels Percent
       if (filters.showAdvancedSnivelsPercent) {
+        const data = reportData.eventSquadronMetrics.map(event => {
+          const metrics = event.squadronMetrics.find(m => m.squadronId === squadron.id);
+          const percentage = metrics && metrics.totalPilots > 0
+            ? Math.round((metrics.advancedSniveCount / metrics.totalPilots) * 100)
+            : 0;
+          return percentage;
+        });
+
         datasets.push({
           label: `${squadron.designation} - Advanced Snivels`,
-          data: reportData.eventSquadronMetrics.map(event => {
-            const metrics = event.squadronMetrics.find(m => m.squadronId === squadron.id);
-            const percentage = metrics && metrics.totalPilots > 0
-              ? Math.round((metrics.advancedSniveCount / metrics.totalPilots) * 100)
-              : 0;
-            return percentage;
-          }),
+          data,
           borderColor: color,
           backgroundColor: color + '20',
           borderWidth: 2,
@@ -448,16 +640,38 @@ const CycleAttendanceReport: React.FC<CycleAttendanceReportProps> = ({ error, se
           opacity: 0.6,
           pointStyle: 'triangle'
         });
+
+        // Add trend line if enabled
+        if (filters.advancedSnivelsTrendLine !== 'disabled') {
+          const trendData = filters.advancedSnivelsTrendLine === 'linear'
+            ? calculateLinearTrend(data)
+            : calculateMovingAverage(data);
+
+          datasets.push({
+            label: `${squadron.designation} - Advanced Snivels Trend`,
+            data: trendData,
+            borderColor: color,
+            backgroundColor: 'transparent',
+            borderWidth: 2,
+            borderDash: [10, 5],
+            tension: 0.3,
+            yAxisID: 'y-percentage',
+            pointStyle: false,
+            pointRadius: 0
+          });
+        }
       }
 
       // Advanced Snivels Count
       if (filters.showAdvancedSnivelsCount) {
+        const data = reportData.eventSquadronMetrics.map(event => {
+          const metrics = event.squadronMetrics.find(m => m.squadronId === squadron.id);
+          return metrics?.advancedSniveCount || 0;
+        });
+
         datasets.push({
           label: `${squadron.designation} - Advanced Snivels`,
-          data: reportData.eventSquadronMetrics.map(event => {
-            const metrics = event.squadronMetrics.find(m => m.squadronId === squadron.id);
-            return metrics?.advancedSniveCount || 0;
-          }),
+          data,
           borderColor: color,
           backgroundColor: color + '20',
           borderWidth: 2,
@@ -467,19 +681,41 @@ const CycleAttendanceReport: React.FC<CycleAttendanceReportProps> = ({ error, se
           opacity: 0.6,
           pointStyle: 'triangle'
         });
+
+        // Add trend line if enabled
+        if (filters.advancedSnivelsTrendLine !== 'disabled') {
+          const trendData = filters.advancedSnivelsTrendLine === 'linear'
+            ? calculateLinearTrend(data)
+            : calculateMovingAverage(data);
+
+          datasets.push({
+            label: `${squadron.designation} - Advanced Snivels Trend`,
+            data: trendData,
+            borderColor: color,
+            backgroundColor: 'transparent',
+            borderWidth: 2,
+            borderDash: [10, 5],
+            tension: 0.3,
+            yAxisID: 'y-count',
+            pointStyle: false,
+            pointRadius: 0
+          });
+        }
       }
 
       // Total Snivels Percent
       if (filters.showTotalSnivelsPercent) {
+        const data = reportData.eventSquadronMetrics.map(event => {
+          const metrics = event.squadronMetrics.find(m => m.squadronId === squadron.id);
+          const percentage = metrics && metrics.totalPilots > 0
+            ? Math.round((metrics.totalSnivelsCount / metrics.totalPilots) * 100)
+            : 0;
+          return percentage;
+        });
+
         datasets.push({
           label: `${squadron.designation} - Total Snivels`,
-          data: reportData.eventSquadronMetrics.map(event => {
-            const metrics = event.squadronMetrics.find(m => m.squadronId === squadron.id);
-            const percentage = metrics && metrics.totalPilots > 0
-              ? Math.round((metrics.totalSnivelsCount / metrics.totalPilots) * 100)
-              : 0;
-            return percentage;
-          }),
+          data,
           borderColor: color,
           backgroundColor: color + '20',
           borderWidth: 2,
@@ -489,16 +725,38 @@ const CycleAttendanceReport: React.FC<CycleAttendanceReportProps> = ({ error, se
           opacity: 0.7,
           pointStyle: 'circle'
         });
+
+        // Add trend line if enabled
+        if (filters.totalSnivelsTrendLine !== 'disabled') {
+          const trendData = filters.totalSnivelsTrendLine === 'linear'
+            ? calculateLinearTrend(data)
+            : calculateMovingAverage(data);
+
+          datasets.push({
+            label: `${squadron.designation} - Total Snivels Trend`,
+            data: trendData,
+            borderColor: color,
+            backgroundColor: 'transparent',
+            borderWidth: 2,
+            borderDash: [10, 5],
+            tension: 0.3,
+            yAxisID: 'y-percentage',
+            pointStyle: false,
+            pointRadius: 0
+          });
+        }
       }
 
       // Total Snivels Count
       if (filters.showTotalSnivelsCount) {
+        const data = reportData.eventSquadronMetrics.map(event => {
+          const metrics = event.squadronMetrics.find(m => m.squadronId === squadron.id);
+          return metrics?.totalSnivelsCount || 0;
+        });
+
         datasets.push({
           label: `${squadron.designation} - Total Snivels`,
-          data: reportData.eventSquadronMetrics.map(event => {
-            const metrics = event.squadronMetrics.find(m => m.squadronId === squadron.id);
-            return metrics?.totalSnivelsCount || 0;
-          }),
+          data,
           borderColor: color,
           backgroundColor: color + '20',
           borderWidth: 2,
@@ -508,19 +766,41 @@ const CycleAttendanceReport: React.FC<CycleAttendanceReportProps> = ({ error, se
           opacity: 0.7,
           pointStyle: 'circle'
         });
+
+        // Add trend line if enabled
+        if (filters.totalSnivelsTrendLine !== 'disabled') {
+          const trendData = filters.totalSnivelsTrendLine === 'linear'
+            ? calculateLinearTrend(data)
+            : calculateMovingAverage(data);
+
+          datasets.push({
+            label: `${squadron.designation} - Total Snivels Trend`,
+            data: trendData,
+            borderColor: color,
+            backgroundColor: 'transparent',
+            borderWidth: 2,
+            borderDash: [10, 5],
+            tension: 0.3,
+            yAxisID: 'y-count',
+            pointStyle: false,
+            pointRadius: 0
+          });
+        }
       }
 
       // No Response Percent
       if (filters.showNoResponsePercent) {
+        const data = reportData.eventSquadronMetrics.map(event => {
+          const metrics = event.squadronMetrics.find(m => m.squadronId === squadron.id);
+          const percentage = metrics && metrics.totalPilots > 0
+            ? Math.round((metrics.noResponseCount / metrics.totalPilots) * 100)
+            : 0;
+          return percentage;
+        });
+
         datasets.push({
           label: `${squadron.designation} - No Response`,
-          data: reportData.eventSquadronMetrics.map(event => {
-            const metrics = event.squadronMetrics.find(m => m.squadronId === squadron.id);
-            const percentage = metrics && metrics.totalPilots > 0
-              ? Math.round((metrics.noResponseCount / metrics.totalPilots) * 100)
-              : 0;
-            return percentage;
-          }),
+          data,
           borderColor: color,
           backgroundColor: color + '20',
           borderWidth: 2,
@@ -530,16 +810,38 @@ const CycleAttendanceReport: React.FC<CycleAttendanceReportProps> = ({ error, se
           opacity: 0.5,
           pointStyle: 'crossRot'
         });
+
+        // Add trend line if enabled
+        if (filters.noResponseTrendLine !== 'disabled') {
+          const trendData = filters.noResponseTrendLine === 'linear'
+            ? calculateLinearTrend(data)
+            : calculateMovingAverage(data);
+
+          datasets.push({
+            label: `${squadron.designation} - No Response Trend`,
+            data: trendData,
+            borderColor: color,
+            backgroundColor: 'transparent',
+            borderWidth: 2,
+            borderDash: [10, 5],
+            tension: 0.3,
+            yAxisID: 'y-percentage',
+            pointStyle: false,
+            pointRadius: 0
+          });
+        }
       }
 
       // No Response Count
       if (filters.showNoResponseCount) {
+        const data = reportData.eventSquadronMetrics.map(event => {
+          const metrics = event.squadronMetrics.find(m => m.squadronId === squadron.id);
+          return metrics?.noResponseCount || 0;
+        });
+
         datasets.push({
           label: `${squadron.designation} - No Response`,
-          data: reportData.eventSquadronMetrics.map(event => {
-            const metrics = event.squadronMetrics.find(m => m.squadronId === squadron.id);
-            return metrics?.noResponseCount || 0;
-          }),
+          data,
           borderColor: color,
           backgroundColor: color + '20',
           borderWidth: 2,
@@ -549,6 +851,26 @@ const CycleAttendanceReport: React.FC<CycleAttendanceReportProps> = ({ error, se
           opacity: 0.5,
           pointStyle: 'crossRot'
         });
+
+        // Add trend line if enabled
+        if (filters.noResponseTrendLine !== 'disabled') {
+          const trendData = filters.noResponseTrendLine === 'linear'
+            ? calculateLinearTrend(data)
+            : calculateMovingAverage(data);
+
+          datasets.push({
+            label: `${squadron.designation} - No Response Trend`,
+            data: trendData,
+            borderColor: color,
+            backgroundColor: 'transparent',
+            borderWidth: 2,
+            borderDash: [10, 5],
+            tension: 0.3,
+            yAxisID: 'y-count',
+            pointStyle: false,
+            pointRadius: 0
+          });
+        }
       }
     });
 
@@ -560,7 +882,7 @@ const CycleAttendanceReport: React.FC<CycleAttendanceReportProps> = ({ error, se
     id: 'htmlLegend',
     afterUpdate(chart: any) {
       const legendContainer = document.getElementById(`legend-${selectedCycleId}`);
-      if (!legendContainer) return;
+      if (!legendContainer || !reportData) return;
 
       // Clear existing legend
       legendContainer.innerHTML = '';
@@ -602,11 +924,34 @@ const CycleAttendanceReport: React.FC<CycleAttendanceReportProps> = ({ error, se
         squadronDiv.style.flexDirection = 'column';
         squadronDiv.style.gap = '4px';
 
-        // Squadron header
+        // Find squadron data for insignia
+        const squadron = reportData.squadrons.find(sq => sq.designation === squadronDesig);
+
+        // Squadron header with insignia
         const headerDiv = document.createElement('div');
         headerDiv.style.fontWeight = 'bold';
         headerDiv.style.marginBottom = '4px';
-        headerDiv.textContent = squadronDesig;
+        headerDiv.style.display = 'flex';
+        headerDiv.style.alignItems = 'center';
+        headerDiv.style.gap = '6px';
+
+        // Add squadron insignia if available
+        if (squadron?.insignia_url) {
+          const insigniaImg = document.createElement('div');
+          insigniaImg.style.width = '20px';
+          insigniaImg.style.height = '20px';
+          insigniaImg.style.backgroundImage = `url(${squadron.insignia_url})`;
+          insigniaImg.style.backgroundSize = 'contain';
+          insigniaImg.style.backgroundRepeat = 'no-repeat';
+          insigniaImg.style.backgroundPosition = 'center';
+          insigniaImg.style.flexShrink = '0';
+          headerDiv.appendChild(insigniaImg);
+        }
+
+        const textSpan = document.createElement('span');
+        textSpan.textContent = squadronDesig;
+        headerDiv.appendChild(textSpan);
+
         squadronDiv.appendChild(headerDiv);
 
         // Metrics under squadron
@@ -1093,6 +1438,10 @@ const CycleAttendanceReport: React.FC<CycleAttendanceReportProps> = ({ error, se
                   >
                     Count
                   </MetricToggleButton>
+                  <TrendLineToggleButton
+                    active={filters.attendanceTrendLine}
+                    onClick={() => handleToggleTrendLine('attendance')}
+                  />
                 </MetricRow>
 
                 <MetricRow label="No Shows">
@@ -1108,6 +1457,10 @@ const CycleAttendanceReport: React.FC<CycleAttendanceReportProps> = ({ error, se
                   >
                     Count
                   </MetricToggleButton>
+                  <TrendLineToggleButton
+                    active={filters.noShowsTrendLine}
+                    onClick={() => handleToggleTrendLine('noShows')}
+                  />
                 </MetricRow>
 
                 <MetricRow label="Last Minute Snivels">
@@ -1123,6 +1476,10 @@ const CycleAttendanceReport: React.FC<CycleAttendanceReportProps> = ({ error, se
                   >
                     Count
                   </MetricToggleButton>
+                  <TrendLineToggleButton
+                    active={filters.snivelsTrendLine}
+                    onClick={() => handleToggleTrendLine('snivels')}
+                  />
                 </MetricRow>
 
                 <MetricRow label="Advanced Snivels">
@@ -1138,6 +1495,10 @@ const CycleAttendanceReport: React.FC<CycleAttendanceReportProps> = ({ error, se
                   >
                     Count
                   </MetricToggleButton>
+                  <TrendLineToggleButton
+                    active={filters.advancedSnivelsTrendLine}
+                    onClick={() => handleToggleTrendLine('advancedSnivels')}
+                  />
                 </MetricRow>
 
                 <MetricRow label="Total Snivels">
@@ -1153,6 +1514,10 @@ const CycleAttendanceReport: React.FC<CycleAttendanceReportProps> = ({ error, se
                   >
                     Count
                   </MetricToggleButton>
+                  <TrendLineToggleButton
+                    active={filters.totalSnivelsTrendLine}
+                    onClick={() => handleToggleTrendLine('totalSnivels')}
+                  />
                 </MetricRow>
 
                 <MetricRow label="No Response">
@@ -1168,6 +1533,10 @@ const CycleAttendanceReport: React.FC<CycleAttendanceReportProps> = ({ error, se
                   >
                     Count
                   </MetricToggleButton>
+                  <TrendLineToggleButton
+                    active={filters.noResponseTrendLine}
+                    onClick={() => handleToggleTrendLine('noResponse')}
+                  />
                 </MetricRow>
               </div>
             </div>
@@ -1428,5 +1797,36 @@ const MetricToggleButton: React.FC<{
     {children}
   </button>
 );
+
+const TrendLineToggleButton: React.FC<{
+  active: 'disabled' | 'linear' | 'moving-average';
+  onClick: () => void;
+}> = ({ active, onClick }) => {
+  const displayText =
+    active === 'disabled' ? 'Disabled' :
+    active === 'linear' ? 'Linear' :
+    'Moving Avg';
+
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        padding: '4px 12px',
+        borderRadius: '4px',
+        cursor: 'pointer',
+        backgroundColor: active !== 'disabled' ? '#EFF6FF' : '#F3F4F6',
+        border: `1px solid ${active !== 'disabled' ? '#DBEAFE' : '#D1D5DB'}`,
+        color: active !== 'disabled' ? '#1E40AF' : '#6B7280',
+        fontSize: '11px',
+        fontFamily: 'Inter',
+        fontWeight: 500,
+        transition: 'all 0.2s',
+        minWidth: '90px'
+      }}
+    >
+      {displayText}
+    </button>
+  );
+};
 
 export default CycleAttendanceReport;
