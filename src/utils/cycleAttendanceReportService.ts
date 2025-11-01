@@ -115,7 +115,53 @@ async function fetchActivePilots(
   // Get unique pilot IDs
   const uniquePilotIds = [...new Set(pilotStatusRecords.map(record => record.pilot_id))];
 
-  // Fetch full pilot data with squadron assignments
+  // Batch fetch squadron assignments for all pilots at once (prevents N+1 queries)
+  const { data: squadronAssignments, error: squadronError } = await supabase
+    .from('pilot_assignments')
+    .select(`
+      pilot_id,
+      squadron_id,
+      org_squadrons(
+        id,
+        name
+      )
+    `)
+    .in('pilot_id', uniquePilotIds)
+    .is('end_date', null);
+
+  // Map squadron data by pilot_id for quick lookup
+  const squadronByPilot = new Map<string, { id: string; name: string }>();
+  if (!squadronError && squadronAssignments) {
+    squadronAssignments.forEach(assignment => {
+      if (assignment.org_squadrons) {
+        const squadron = Array.isArray(assignment.org_squadrons)
+          ? assignment.org_squadrons[0]
+          : assignment.org_squadrons;
+        squadronByPilot.set(assignment.pilot_id, {
+          id: squadron.id,
+          name: squadron.name
+        });
+      }
+    });
+  }
+
+  // Batch fetch qualifications for all pilots at once (prevents N+1 queries)
+  const { data: qualData, error: qualError } = await supabase
+    .from('pilot_qualifications')
+    .select('pilot_id, qualification_id')
+    .in('pilot_id', uniquePilotIds)
+    .or(`expiry_date.is.null,expiry_date.gte.${startDate}`);
+
+  // Map qualifications by pilot_id for quick lookup
+  const qualsByPilot = new Map<string, string[]>();
+  if (!qualError && qualData) {
+    qualData.forEach(qual => {
+      const existing = qualsByPilot.get(qual.pilot_id) || [];
+      qualsByPilot.set(qual.pilot_id, [...existing, qual.qualification_id]);
+    });
+  }
+
+  // Build pilot data with squadron and qualification info
   const pilots: PilotData[] = [];
 
   for (const pilotId of uniquePilotIds) {
@@ -124,42 +170,13 @@ async function fetchActivePilots(
 
     const pilot = Array.isArray(pilotRecord.pilots) ? pilotRecord.pilots[0] : pilotRecord.pilots;
 
-    // Fetch squadron assignment for this pilot
-    const { data: squadronData, error: squadronError } = await supabase
-      .from('pilot_assignments')
-      .select(`
-        squadron_id,
-        org_squadrons(
-          id,
-          name
-        )
-      `)
-      .eq('pilot_id', pilotId)
-      .is('end_date', null)
-      .maybeSingle();
+    // Get squadron from map
+    const squadron = squadronByPilot.get(pilotId);
+    const squadronId = squadron?.id;
+    const squadronName = squadron?.name;
 
-    let squadronId: string | undefined;
-    let squadronName: string | undefined;
-
-    if (!squadronError && squadronData && squadronData.org_squadrons) {
-      const squadron = Array.isArray(squadronData.org_squadrons)
-        ? squadronData.org_squadrons[0]
-        : squadronData.org_squadrons;
-      squadronId = squadron.id;
-      squadronName = squadron.name;
-    }
-
-    // Note: Squadron filtering is done client-side for instant filtering
-    // Qualification filtering requires refetch to recalculate metrics accurately
-
-    // Fetch pilot qualifications
-    const { data: qualData, error: qualError } = await supabase
-      .from('pilot_qualifications')
-      .select('qualification_id')
-      .eq('pilot_id', pilotId)
-      .or(`expiry_date.is.null,expiry_date.gte.${startDate}`);
-
-    const qualificationIds = qualError ? [] : (qualData || []).map(q => q.qualification_id);
+    // Get qualifications from map
+    const qualificationIds = qualsByPilot.get(pilotId) || [];
 
     // Apply qualification filter if specified
     if (filters?.qualificationIds && filters.qualificationIds.length > 0) {
