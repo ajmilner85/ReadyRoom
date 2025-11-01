@@ -12,6 +12,7 @@ import {
   ChartOptions
 } from 'chart.js';
 import { RefreshCw, Download, Filter, X } from 'lucide-react';
+import LoadingSpinner from '../ui/LoadingSpinner';
 import {
   fetchCycles,
   fetchDefaultCycle,
@@ -56,7 +57,13 @@ const CycleAttendanceReport: React.FC<CycleAttendanceReportProps> = ({ error, se
     showNoShowsPercent: false,
     showNoShowsCount: true,
     showSnivelsPercent: false,
-    showSnivelsCount: true
+    showSnivelsCount: true,
+    showAdvancedSnivelsPercent: false,
+    showAdvancedSnivelsCount: true,
+    showTotalSnivelsPercent: false,
+    showTotalSnivelsCount: false,
+    showNoResponsePercent: false,
+    showNoResponseCount: false
   });
 
   // Load cycles and set default cycle
@@ -124,15 +131,23 @@ const CycleAttendanceReport: React.FC<CycleAttendanceReportProps> = ({ error, se
   }, [reportData, selectedCycleId, filters.squadronIds.length]);
 
   // Handle filter changes
-  const handleFilterChange = useCallback(async (newFilters: ReportFilters) => {
+  const handleFilterChange = useCallback(async (newFilters: ReportFilters, requiresDataRefetch = true) => {
     if (!selectedCycleId) return;
 
     try {
-      setFilterLoading(true);
-      setFilters(newFilters);
-      await loadReportData(selectedCycleId, newFilters);
+      // Only show loading and refetch if squadron/qualification filters changed
+      if (requiresDataRefetch) {
+        setFilterLoading(true);
+        setFilters(newFilters);
+        await loadReportData(selectedCycleId, newFilters);
+      } else {
+        // Just update filters for display-only changes (metric toggles)
+        setFilters(newFilters);
+      }
     } finally {
-      setFilterLoading(false);
+      if (requiresDataRefetch) {
+        setFilterLoading(false);
+      }
     }
   }, [selectedCycleId, loadReportData]);
 
@@ -207,27 +222,54 @@ const CycleAttendanceReport: React.FC<CycleAttendanceReportProps> = ({ error, se
 
   // Metric toggle handlers
   const handleToggleAttendancePercent = () => {
-    handleFilterChange({ ...filters, showAttendancePercent: !filters.showAttendancePercent });
+    handleFilterChange({ ...filters, showAttendancePercent: !filters.showAttendancePercent }, false);
   };
 
   const handleToggleAttendanceCount = () => {
-    handleFilterChange({ ...filters, showAttendanceCount: !filters.showAttendanceCount });
+    handleFilterChange({ ...filters, showAttendanceCount: !filters.showAttendanceCount }, false);
   };
 
   const handleToggleNoShowsPercent = () => {
-    handleFilterChange({ ...filters, showNoShowsPercent: !filters.showNoShowsPercent });
+    handleFilterChange({ ...filters, showNoShowsPercent: !filters.showNoShowsPercent }, false);
   };
 
   const handleToggleNoShowsCount = () => {
-    handleFilterChange({ ...filters, showNoShowsCount: !filters.showNoShowsCount });
+    handleFilterChange({ ...filters, showNoShowsCount: !filters.showNoShowsCount }, false);
   };
 
   const handleToggleSnivelsPercent = () => {
-    handleFilterChange({ ...filters, showSnivelsPercent: !filters.showSnivelsPercent });
+    handleFilterChange({ ...filters, showSnivelsPercent: !filters.showSnivelsPercent }, false);
   };
 
   const handleToggleSnivelsCount = () => {
-    handleFilterChange({ ...filters, showSnivelsCount: !filters.showSnivelsCount });
+    handleFilterChange({ ...filters, showSnivelsCount: !filters.showSnivelsCount }, false);
+  };
+
+  // Metric toggle handlers for Advanced Snivels
+  const handleToggleAdvancedSnivelsPercent = () => {
+    handleFilterChange({ ...filters, showAdvancedSnivelsPercent: !filters.showAdvancedSnivelsPercent }, false);
+  };
+
+  const handleToggleAdvancedSnivelsCount = () => {
+    handleFilterChange({ ...filters, showAdvancedSnivelsCount: !filters.showAdvancedSnivelsCount }, false);
+  };
+
+  // Metric toggle handlers for Total Snivels
+  const handleToggleTotalSnivelsPercent = () => {
+    handleFilterChange({ ...filters, showTotalSnivelsPercent: !filters.showTotalSnivelsPercent }, false);
+  };
+
+  const handleToggleTotalSnivelsCount = () => {
+    handleFilterChange({ ...filters, showTotalSnivelsCount: !filters.showTotalSnivelsCount }, false);
+  };
+
+  // Metric toggle handlers for No Response
+  const handleToggleNoResponsePercent = () => {
+    handleFilterChange({ ...filters, showNoResponsePercent: !filters.showNoResponsePercent }, false);
+  };
+
+  const handleToggleNoResponseCount = () => {
+    handleFilterChange({ ...filters, showNoResponseCount: !filters.showNoResponseCount }, false);
   };
 
   // Clear all filters
@@ -240,7 +282,13 @@ const CycleAttendanceReport: React.FC<CycleAttendanceReportProps> = ({ error, se
       showNoShowsPercent: false,
       showNoShowsCount: true,
       showSnivelsPercent: false,
-      showSnivelsCount: true
+      showSnivelsCount: true,
+      showAdvancedSnivelsPercent: false,
+      showAdvancedSnivelsCount: true,
+      showTotalSnivelsPercent: false,
+      showTotalSnivelsCount: false,
+      showNoResponsePercent: false,
+      showNoResponseCount: false
     });
   };
 
@@ -338,10 +386,10 @@ const CycleAttendanceReport: React.FC<CycleAttendanceReportProps> = ({ error, se
         });
       }
 
-      // Snivels Percent
+      // Last Minute Snivels Percent
       if (filters.showSnivelsPercent) {
         datasets.push({
-          label: `${squadron.designation} - Snivels`,
+          label: `${squadron.designation} - Last Minute Snivels`,
           data: reportData.eventSquadronMetrics.map(event => {
             const metrics = event.squadronMetrics.find(m => m.squadronId === squadron.id);
             const percentage = metrics && metrics.totalPilots > 0
@@ -360,10 +408,10 @@ const CycleAttendanceReport: React.FC<CycleAttendanceReportProps> = ({ error, se
         });
       }
 
-      // Snivels Count
+      // Last Minute Snivels Count
       if (filters.showSnivelsCount) {
         datasets.push({
-          label: `${squadron.designation} - Snivels`,
+          label: `${squadron.designation} - Last Minute Snivels`,
           data: reportData.eventSquadronMetrics.map(event => {
             const metrics = event.squadronMetrics.find(m => m.squadronId === squadron.id);
             return metrics?.lastMinuteSniveCount || 0;
@@ -376,6 +424,129 @@ const CycleAttendanceReport: React.FC<CycleAttendanceReportProps> = ({ error, se
           yAxisID: 'y-count',
           opacity: 0.6,
           pointStyle: 'rect'
+        });
+      }
+
+      // Advanced Snivels Percent
+      if (filters.showAdvancedSnivelsPercent) {
+        datasets.push({
+          label: `${squadron.designation} - Advanced Snivels`,
+          data: reportData.eventSquadronMetrics.map(event => {
+            const metrics = event.squadronMetrics.find(m => m.squadronId === squadron.id);
+            const percentage = metrics && metrics.totalPilots > 0
+              ? Math.round((metrics.advancedSniveCount / metrics.totalPilots) * 100)
+              : 0;
+            return percentage;
+          }),
+          borderColor: color,
+          backgroundColor: color + '20',
+          borderWidth: 2,
+          borderDash: [8, 4],
+          tension: 0.3,
+          yAxisID: 'y-percentage',
+          opacity: 0.6,
+          pointStyle: 'triangle'
+        });
+      }
+
+      // Advanced Snivels Count
+      if (filters.showAdvancedSnivelsCount) {
+        datasets.push({
+          label: `${squadron.designation} - Advanced Snivels`,
+          data: reportData.eventSquadronMetrics.map(event => {
+            const metrics = event.squadronMetrics.find(m => m.squadronId === squadron.id);
+            return metrics?.advancedSniveCount || 0;
+          }),
+          borderColor: color,
+          backgroundColor: color + '20',
+          borderWidth: 2,
+          borderDash: [8, 4],
+          tension: 0.3,
+          yAxisID: 'y-count',
+          opacity: 0.6,
+          pointStyle: 'triangle'
+        });
+      }
+
+      // Total Snivels Percent
+      if (filters.showTotalSnivelsPercent) {
+        datasets.push({
+          label: `${squadron.designation} - Total Snivels`,
+          data: reportData.eventSquadronMetrics.map(event => {
+            const metrics = event.squadronMetrics.find(m => m.squadronId === squadron.id);
+            const percentage = metrics && metrics.totalPilots > 0
+              ? Math.round((metrics.totalSnivelsCount / metrics.totalPilots) * 100)
+              : 0;
+            return percentage;
+          }),
+          borderColor: color,
+          backgroundColor: color + '20',
+          borderWidth: 2,
+          borderDash: [4, 4],
+          tension: 0.3,
+          yAxisID: 'y-percentage',
+          opacity: 0.7,
+          pointStyle: 'circle'
+        });
+      }
+
+      // Total Snivels Count
+      if (filters.showTotalSnivelsCount) {
+        datasets.push({
+          label: `${squadron.designation} - Total Snivels`,
+          data: reportData.eventSquadronMetrics.map(event => {
+            const metrics = event.squadronMetrics.find(m => m.squadronId === squadron.id);
+            return metrics?.totalSnivelsCount || 0;
+          }),
+          borderColor: color,
+          backgroundColor: color + '20',
+          borderWidth: 2,
+          borderDash: [4, 4],
+          tension: 0.3,
+          yAxisID: 'y-count',
+          opacity: 0.7,
+          pointStyle: 'circle'
+        });
+      }
+
+      // No Response Percent
+      if (filters.showNoResponsePercent) {
+        datasets.push({
+          label: `${squadron.designation} - No Response`,
+          data: reportData.eventSquadronMetrics.map(event => {
+            const metrics = event.squadronMetrics.find(m => m.squadronId === squadron.id);
+            const percentage = metrics && metrics.totalPilots > 0
+              ? Math.round((metrics.noResponseCount / metrics.totalPilots) * 100)
+              : 0;
+            return percentage;
+          }),
+          borderColor: color,
+          backgroundColor: color + '20',
+          borderWidth: 2,
+          borderDash: [10, 2],
+          tension: 0.3,
+          yAxisID: 'y-percentage',
+          opacity: 0.5,
+          pointStyle: 'crossRot'
+        });
+      }
+
+      // No Response Count
+      if (filters.showNoResponseCount) {
+        datasets.push({
+          label: `${squadron.designation} - No Response`,
+          data: reportData.eventSquadronMetrics.map(event => {
+            const metrics = event.squadronMetrics.find(m => m.squadronId === squadron.id);
+            return metrics?.noResponseCount || 0;
+          }),
+          borderColor: color,
+          backgroundColor: color + '20',
+          borderWidth: 2,
+          borderDash: [10, 2],
+          tension: 0.3,
+          yAxisID: 'y-count',
+          opacity: 0.5,
+          pointStyle: 'crossRot'
         });
       }
     });
@@ -567,7 +738,7 @@ const CycleAttendanceReport: React.FC<CycleAttendanceReportProps> = ({ error, se
       },
       'y-percentage': {
         type: 'linear' as const,
-        display: filters.showAttendancePercent || filters.showNoShowsPercent || filters.showSnivelsPercent,
+        display: filters.showAttendancePercent || filters.showNoShowsPercent || filters.showSnivelsPercent || filters.showAdvancedSnivelsPercent || filters.showTotalSnivelsPercent || filters.showNoResponsePercent,
         position: 'left' as const,
         title: {
           display: true,
@@ -588,7 +759,7 @@ const CycleAttendanceReport: React.FC<CycleAttendanceReportProps> = ({ error, se
       },
       'y-count': {
         type: 'linear' as const,
-        display: filters.showAttendanceCount || filters.showNoShowsCount || filters.showSnivelsCount,
+        display: filters.showAttendanceCount || filters.showNoShowsCount || filters.showSnivelsCount || filters.showAdvancedSnivelsCount || filters.showTotalSnivelsCount || filters.showNoResponseCount,
         position: 'right' as const,
         title: {
           display: true,
@@ -616,7 +787,9 @@ const CycleAttendanceReport: React.FC<CycleAttendanceReportProps> = ({ error, se
     return (
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '400px' }}>
         <div style={{ textAlign: 'center' }}>
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#82728C] mx-auto mb-4"></div>
+          <div style={{ marginBottom: '16px' }}>
+            <LoadingSpinner size="large" color="#82728C" />
+          </div>
           <p style={{ fontFamily: 'Inter', color: '#64748B', fontSize: '14px' }}>Loading report data...</p>
         </div>
       </div>
@@ -929,7 +1102,7 @@ const CycleAttendanceReport: React.FC<CycleAttendanceReportProps> = ({ error, se
                   </MetricToggleButton>
                 </MetricRow>
 
-                <MetricRow label="Snivels">
+                <MetricRow label="Last Minute Snivels">
                   <MetricToggleButton
                     active={filters.showSnivelsPercent}
                     onClick={handleToggleSnivelsPercent}
@@ -939,6 +1112,51 @@ const CycleAttendanceReport: React.FC<CycleAttendanceReportProps> = ({ error, se
                   <MetricToggleButton
                     active={filters.showSnivelsCount}
                     onClick={handleToggleSnivelsCount}
+                  >
+                    Count
+                  </MetricToggleButton>
+                </MetricRow>
+
+                <MetricRow label="Advanced Snivels">
+                  <MetricToggleButton
+                    active={filters.showAdvancedSnivelsPercent}
+                    onClick={handleToggleAdvancedSnivelsPercent}
+                  >
+                    %
+                  </MetricToggleButton>
+                  <MetricToggleButton
+                    active={filters.showAdvancedSnivelsCount}
+                    onClick={handleToggleAdvancedSnivelsCount}
+                  >
+                    Count
+                  </MetricToggleButton>
+                </MetricRow>
+
+                <MetricRow label="Total Snivels">
+                  <MetricToggleButton
+                    active={filters.showTotalSnivelsPercent}
+                    onClick={handleToggleTotalSnivelsPercent}
+                  >
+                    %
+                  </MetricToggleButton>
+                  <MetricToggleButton
+                    active={filters.showTotalSnivelsCount}
+                    onClick={handleToggleTotalSnivelsCount}
+                  >
+                    Count
+                  </MetricToggleButton>
+                </MetricRow>
+
+                <MetricRow label="No Response">
+                  <MetricToggleButton
+                    active={filters.showNoResponsePercent}
+                    onClick={handleToggleNoResponsePercent}
+                  >
+                    %
+                  </MetricToggleButton>
+                  <MetricToggleButton
+                    active={filters.showNoResponseCount}
+                    onClick={handleToggleNoResponseCount}
                   >
                     Count
                   </MetricToggleButton>
@@ -990,6 +1208,26 @@ const CycleAttendanceReport: React.FC<CycleAttendanceReportProps> = ({ error, se
           {/* Chart */}
           <div style={{ height: '450px' }}>
             <Line data={chartData} options={chartOptions} plugins={[htmlLegendPlugin]} />
+          </div>
+
+          {/* Explanatory note */}
+          <div style={{
+            marginTop: '16px',
+            padding: '12px',
+            backgroundColor: '#F8FAFC',
+            borderRadius: '6px',
+            fontSize: '12px',
+            fontFamily: 'Inter',
+            color: '#64748B',
+            lineHeight: '1.8'
+          }}>
+            <strong style={{ color: '#475569' }}>Note:</strong>
+            <br />
+            <strong>No Shows:</strong> Pilots who responded "attending" to the Discord event but were not marked present during roll call.
+            <br />
+            <strong>Last Minute Snivels:</strong> Pilots who changed their response from "attending" to "declined" or "tentative" within 2 hours of the event start time.
+            <br />
+            <strong>Advanced Snivels:</strong> Pilots who were not in attendance but marked themselves as "declined" or "tentative" more than 2 hours before the event start time.
           </div>
         </div>
       ) : (

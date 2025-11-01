@@ -195,16 +195,107 @@ async function fetchActivePilots(
 }
 
 /**
- * Fetch attendance data for events
+ * Extended attendance data including Discord RSVP response history
  */
-async function fetchAttendanceData(events: EventData[], pilots: PilotData[]): Promise<AttendanceData[]> {
-  const attendanceRecords: AttendanceData[] = [];
+interface ExtendedAttendanceData extends AttendanceData {
+  userResponse?: string;
+  responseHistory?: Array<{ response: string; timestamp: string }>;
+  hadLastMinuteSnivel?: boolean;
+  hadAdvancedSnivel?: boolean;
+  hadNoResponse?: boolean;
+}
+
+/**
+ * Batch fetch all pilot statuses for efficiency
+ */
+async function fetchAllPilotStatuses(pilotIds: string[]): Promise<Map<string, Array<{ start_date: string; end_date: string | null; isActive: boolean }>>> {
+  const { data, error } = await supabase
+    .from('pilot_statuses')
+    .select(`
+      pilot_id,
+      start_date,
+      end_date,
+      statuses!inner(isActive)
+    `)
+    .in('pilot_id', pilotIds);
+
+  if (error) {
+    console.error('Error fetching pilot statuses:', error);
+    return new Map();
+  }
+
+  // Group statuses by pilot_id
+  const statusesByPilot = new Map<string, Array<{ start_date: string; end_date: string | null; isActive: boolean }>>();
+
+  data?.forEach((record: any) => {
+    const status = Array.isArray(record.statuses) ? record.statuses[0] : record.statuses;
+    if (!statusesByPilot.has(record.pilot_id)) {
+      statusesByPilot.set(record.pilot_id, []);
+    }
+    statusesByPilot.get(record.pilot_id)!.push({
+      start_date: record.start_date,
+      end_date: record.end_date,
+      isActive: status?.isActive ?? false
+    });
+  });
+
+  return statusesByPilot;
+}
+
+/**
+ * Check if a pilot was active on a specific date using pre-fetched statuses
+ */
+function isPilotActiveOnDate(
+  pilotStatuses: Array<{ start_date: string; end_date: string | null; isActive: boolean }>,
+  eventDate: string
+): boolean {
+  if (!pilotStatuses || pilotStatuses.length === 0) {
+    return false;
+  }
+
+  // Check if any status record covers this date and is active
+  return pilotStatuses.some(status => {
+    const startDate = new Date(status.start_date);
+    const endDate = status.end_date ? new Date(status.end_date) : null;
+    const checkDate = new Date(eventDate);
+
+    const isInRange = startDate <= checkDate && (!endDate || endDate >= checkDate);
+    return isInRange && status.isActive;
+  });
+}
+
+/**
+ * Fetch attendance data for events including response history
+ */
+async function fetchAttendanceData(events: EventData[], pilots: PilotData[]): Promise<ExtendedAttendanceData[]> {
+  const attendanceRecords: ExtendedAttendanceData[] = [];
+
+  // Batch fetch all pilot statuses upfront for performance
+  const pilotIds = pilots.map(p => p.id);
+  const pilotStatusesMap = await fetchAllPilotStatuses(pilotIds);
+
+  // Map discord_id to pilot_id
+  const discordToPilotMap = new Map<string, PilotData>();
+  pilots.forEach(pilot => {
+    if (pilot.discord_id) {
+      discordToPilotMap.set(pilot.discord_id, pilot);
+    }
+  });
 
   // For each event, get all Discord message IDs (or synthetic IDs for manual entries)
   for (const event of events) {
-    const messageIds = event.discord_event_id.map(d => d.messageId);
+    // Filter pilots to only include those who were active on this event's date
+    const eventDate = new Date(event.start_datetime).toISOString().split('T')[0];
+    const activePilotsForEvent: PilotData[] = [];
 
-    // Also check for synthetic manual entry IDs (format: manual-{event-id})
+    for (const pilot of pilots) {
+      const statuses = pilotStatusesMap.get(pilot.id) || [];
+      const isActive = isPilotActiveOnDate(statuses, eventDate);
+      if (isActive) {
+        activePilotsForEvent.push(pilot);
+      }
+    }
+    const messageIds = event.discord_event_id.map(d => d.messageId);
     const syntheticId = `manual-${event.id}`;
     const allEventIds = messageIds.length > 0 ? messageIds : [syntheticId];
 
@@ -212,12 +303,12 @@ async function fetchAttendanceData(events: EventData[], pilots: PilotData[]): Pr
       continue;
     }
 
-    // Fetch roll call responses for this event's message IDs (including synthetic IDs)
+    // Fetch ALL response rows (including history) for this event
     const { data: attendanceData, error: attendanceError } = await supabase
       .from('discord_event_attendance')
-      .select('discord_id, roll_call_response')
+      .select('discord_id, user_response, roll_call_response, created_at')
       .in('discord_event_id', allEventIds)
-      .not('roll_call_response', 'is', null);
+      .order('created_at', { ascending: true });
 
     if (attendanceError) {
       console.error(`Error fetching attendance for event ${event.name}:`, attendanceError);
@@ -228,25 +319,109 @@ async function fetchAttendanceData(events: EventData[], pilots: PilotData[]): Pr
       continue;
     }
 
-    // Map discord_id to pilot_id using the pilots we already have
-    const discordToPilotMap = new Map<string, PilotData>();
-    pilots.forEach(pilot => {
-      if (pilot.discord_id) {
-        discordToPilotMap.set(pilot.discord_id, pilot);
+    // Group responses by pilot
+    const responsesByPilot = new Map<string, typeof attendanceData>();
+    attendanceData.forEach(record => {
+      if (record.discord_id) {
+        const existing = responsesByPilot.get(record.discord_id) || [];
+        responsesByPilot.set(record.discord_id, [...existing, record]);
       }
     });
 
-    // Map to attendance records
-    attendanceData.forEach(record => {
-      if (record.discord_id) {
-        const pilot = discordToPilotMap.get(record.discord_id);
-        if (pilot) {
-          attendanceRecords.push({
-            pilotId: pilot.id,
-            eventId: event.id,
-            rollCallResponse: record.roll_call_response as 'Present' | 'Absent' | 'Tentative' | null
-          });
+    // Process each pilot's response history
+    const eventStartTime = new Date(event.start_datetime);
+    const twoHoursBeforeEvent = new Date(eventStartTime.getTime() - 2 * 60 * 60 * 1000);
+
+    // Track which pilots have responses
+    const pilotsWithResponses = new Set<string>();
+
+    responsesByPilot.forEach((responses, discordId) => {
+      const pilot = discordToPilotMap.get(discordId);
+      if (!pilot) return;
+
+      pilotsWithResponses.add(pilot.id);
+
+      // Separate roll call responses from Discord RSVP responses
+      const rollCallResponses = responses.filter(r => r.user_response === 'roll_call');
+      const discordResponses = responses.filter(r => r.user_response !== 'roll_call');
+
+      // Get the latest roll call response (if any)
+      const latestRollCall = rollCallResponses.length > 0
+        ? rollCallResponses[rollCallResponses.length - 1]
+        : null;
+
+      // Get the latest Discord RSVP response
+      const latestDiscordResponse = discordResponses.length > 0
+        ? discordResponses[discordResponses.length - 1]
+        : null;
+
+      // Build response history for Discord RSVPs
+      const responseHistory = discordResponses.map(r => ({
+        response: r.user_response,
+        timestamp: r.created_at
+      }));
+
+      // Determine if this was a "last minute snivel"
+      // Criteria: Changed from 'accepted' to 'declined' or 'tentative' within 2 hours of event start
+      let hadLastMinuteSnivel = false;
+      for (let i = 1; i < discordResponses.length; i++) {
+        const prevResponse = discordResponses[i - 1];
+        const currResponse = discordResponses[i];
+        const changeTime = new Date(currResponse.created_at);
+
+        if (prevResponse.user_response === 'accepted' &&
+            (currResponse.user_response === 'declined' || currResponse.user_response === 'tentative') &&
+            changeTime >= twoHoursBeforeEvent &&
+            changeTime <= eventStartTime) {
+          hadLastMinuteSnivel = true;
+          break;
         }
+      }
+
+      // Determine if this was an "advanced snivel"
+      // Criteria: Latest response is 'declined' or 'tentative', not present at roll call,
+      // and did NOT have a last minute snivel (i.e., marked declined/tentative >2 hours before event)
+      const hadAdvancedSnivel = Boolean(
+        !hadLastMinuteSnivel &&
+        (!latestRollCall || latestRollCall.roll_call_response !== 'Present') &&
+        latestDiscordResponse &&
+        (latestDiscordResponse.user_response === 'declined' || latestDiscordResponse.user_response === 'tentative')
+      );
+
+      // Determine if this was "no response"
+      // Criteria: No Discord RSVP response (no accepted/declined/tentative) AND no roll call entry at all
+      // If they have a roll call entry (even if Absent), they were accounted for
+      const hasValidDiscordResponse = latestDiscordResponse &&
+        ['accepted', 'declined', 'tentative'].includes(latestDiscordResponse.user_response);
+
+      const hadNoResponse = !latestRollCall && !hasValidDiscordResponse;
+
+      attendanceRecords.push({
+        pilotId: pilot.id,
+        eventId: event.id,
+        rollCallResponse: latestRollCall?.roll_call_response as 'Present' | 'Absent' | 'Tentative' | null,
+        userResponse: latestDiscordResponse?.user_response,
+        responseHistory,
+        hadLastMinuteSnivel,
+        hadAdvancedSnivel,
+        hadNoResponse
+      });
+    });
+
+    // Add records for pilots who had NO responses at all for this event
+    // Only include pilots who were active on this event's date
+    activePilotsForEvent.forEach(pilot => {
+      if (!pilotsWithResponses.has(pilot.id)) {
+        attendanceRecords.push({
+          pilotId: pilot.id,
+          eventId: event.id,
+          rollCallResponse: null,
+          userResponse: undefined,
+          responseHistory: [],
+          hadLastMinuteSnivel: false,
+          hadAdvancedSnivel: false,
+          hadNoResponse: true  // They didn't respond and weren't present
+        });
       }
     });
   }
@@ -260,7 +435,7 @@ async function fetchAttendanceData(events: EventData[], pilots: PilotData[]): Pr
 function calculateEventSquadronMetrics(
   events: EventData[],
   pilots: PilotData[],
-  attendance: AttendanceData[]
+  attendance: ExtendedAttendanceData[]
 ): EventSquadronMetrics[] {
   // Group pilots by squadron
   const pilotsBySquadron = new Map<string, PilotData[]>();
@@ -284,15 +459,52 @@ function calculateEventSquadronMetrics(
       // Filter attendance to only this squadron's pilots
       const squadronAttendance = eventAttendance.filter(a => squadronPilotIds.has(a.pilotId));
 
-      // Count presents
+      // Attendance: Pilots marked as present during roll call
       const attendanceCount = squadronAttendance.filter(a => a.rollCallResponse === 'Present').length;
 
-      // Count no-shows (pilots who didn't respond)
-      const respondedPilotIds = new Set(squadronAttendance.map(a => a.pilotId));
-      const noShowCount = totalPilots - respondedPilotIds.size;
+      // Last Minute Snivels: Pilots who changed from accepted to declined/tentative within 2 hours of event start
+      const lastMinuteSniveCount = squadronAttendance.filter(a => a.hadLastMinuteSnivel === true).length;
 
-      // Count snivels (absent responses)
-      const lastMinuteSniveCount = squadronAttendance.filter(a => a.rollCallResponse === 'Absent').length;
+      // Advanced Snivels: Pilots who marked declined/tentative more than 2 hours before event
+      const advancedSniveCount = squadronAttendance.filter(a => a.hadAdvancedSnivel === true).length;
+
+      // Total Snivels: Sum of last minute and advanced snivels
+      const totalSnivelsCount = lastMinuteSniveCount + advancedSniveCount;
+
+      // No Response: Pilots who didn't respond to Discord and weren't marked present
+      const noResponseCount = squadronAttendance.filter(a => a.hadNoResponse === true).length;
+
+      // Debug logging for development
+      if (event.name && event.name.includes('Week 6') && squadronId !== 'unassigned') {
+        const noResponsePilots = squadronAttendance.filter(a => a.hadNoResponse === true);
+        console.log(`${event.name} - Squadron ${squadronId}:`, {
+          totalPilots,
+          attendanceCount,
+          lastMinuteSniveCount,
+          advancedSniveCount,
+          totalSnivelsCount,
+          noResponseCount,
+          noResponsePilotIds: noResponsePilots.map(a => a.pilotId),
+          allPilotIds: squadronPilots.map(p => p.id),
+          attendanceRecords: squadronAttendance.map(a => ({
+            pilotId: a.pilotId,
+            rollCall: a.rollCallResponse,
+            userResponse: a.userResponse,
+            hadNoResponse: a.hadNoResponse,
+            hadAdvancedSnivel: a.hadAdvancedSnivel,
+            hadLastMinuteSnivel: a.hadLastMinuteSnivel
+          }))
+        });
+      }
+
+      // No Shows: Pilots who responded "accepted" to Discord but were NOT marked present during roll call
+      // (excluding those counted as last minute snivels)
+      const noShowCount = squadronAttendance.filter(a => {
+        const acceptedDiscord = a.userResponse === 'accepted';
+        const notPresent = a.rollCallResponse !== 'Present';
+        const notLastMinuteSnivel = !a.hadLastMinuteSnivel;
+        return acceptedDiscord && notPresent && notLastMinuteSnivel;
+      }).length;
 
       const attendancePercentage = totalPilots > 0
         ? Math.round((attendanceCount / totalPilots) * 100)
@@ -303,6 +515,9 @@ function calculateEventSquadronMetrics(
         attendanceCount,
         noShowCount,
         lastMinuteSniveCount,
+        advancedSniveCount,
+        totalSnivelsCount,
+        noResponseCount,
         totalPilots,
         attendancePercentage
       });
@@ -400,10 +615,29 @@ export async function fetchCycleAttendanceReport(
   const chartData: ChartDataPoint[] = events.map(event => {
     const eventAttendance = attendance.filter(a => a.eventId === event.id);
 
+    // Attendance: Pilots marked as present during roll call
     const presentCount = eventAttendance.filter(a => a.rollCallResponse === 'Present').length;
-    const respondedPilotIds = new Set(eventAttendance.map(a => a.pilotId));
-    const noShowCount = pilots.length - respondedPilotIds.size;
-    const lastMinuteSniveCount = eventAttendance.filter(a => a.rollCallResponse === 'Absent').length;
+
+    // Last Minute Snivels: Pilots who changed from accepted to declined/tentative within 2 hours of event start
+    const lastMinuteSniveCount = eventAttendance.filter(a => a.hadLastMinuteSnivel === true).length;
+
+    // Advanced Snivels: Pilots who marked declined/tentative more than 2 hours before event
+    const advancedSniveCount = eventAttendance.filter(a => a.hadAdvancedSnivel === true).length;
+
+    // Total Snivels: Sum of last minute and advanced snivels
+    const totalSnivelsCount = lastMinuteSniveCount + advancedSniveCount;
+
+    // No Response: Pilots who didn't respond to Discord and weren't marked present
+    const noResponseCount = eventAttendance.filter(a => a.hadNoResponse === true).length;
+
+    // No Shows: Pilots who responded "accepted" to Discord but were NOT marked present during roll call
+    // (excluding those counted as last minute snivels)
+    const noShowCount = eventAttendance.filter(a => {
+      const acceptedDiscord = a.userResponse === 'accepted';
+      const notPresent = a.rollCallResponse !== 'Present';
+      const notLastMinuteSnivel = !a.hadLastMinuteSnivel;
+      return acceptedDiscord && notPresent && notLastMinuteSnivel;
+    }).length;
 
     const totalPilots = pilots.length;
     const attendancePercentage = totalPilots > 0
@@ -417,7 +651,10 @@ export async function fetchCycleAttendanceReport(
       totalPilots,
       attendancePercentage,
       noShowCount,
-      lastMinuteSniveCount
+      lastMinuteSniveCount,
+      advancedSniveCount,
+      totalSnivelsCount,
+      noResponseCount
     };
   });
 
@@ -443,7 +680,8 @@ export function exportToCSV(data: CycleAttendanceReportData): string {
     'Total Pilots',
     'Attendance %',
     'No Show Count',
-    'Last Minute Snivel Count'
+    'Last Minute Snivel Count',
+    'Advanced Snivel Count'
   ];
 
   const rows = data.chartData.map(row => [
@@ -453,7 +691,8 @@ export function exportToCSV(data: CycleAttendanceReportData): string {
     row.totalPilots.toString(),
     `${row.attendancePercentage}%`,
     row.noShowCount.toString(),
-    row.lastMinuteSniveCount.toString()
+    row.lastMinuteSniveCount.toString(),
+    row.advancedSniveCount.toString()
   ]);
 
   const csv = [
