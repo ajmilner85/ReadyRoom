@@ -63,10 +63,11 @@ class CountdownUpdateManager {
 
     const nowUtc = new Date();
 
-    if (nowUtc > endTime) {
+    // FIXED: Changed from > to >= to catch the exact end time
+    if (nowUtc >= endTime) {
       const nowInTimezone = formatInTimeZone(nowUtc, referenceTimezone, "yyyy-MM-dd HH:mm:ss zzz");
       const endTimeInTimezone = formatInTimeZone(endTime, referenceTimezone, "yyyy-MM-dd HH:mm:ss zzz");
-      console.log(`[COUNTDOWN] Event ${messageId} has finished (now: ${nowInTimezone} > end: ${endTimeInTimezone}), performing final update then stopping`);
+      console.log(`[COUNTDOWN] Event ${messageId} has finished (now: ${nowInTimezone} >= end: ${endTimeInTimezone}), performing final update then stopping`);
 
       // Perform one final update to show "Event Finished"
       try {
@@ -80,8 +81,38 @@ class CountdownUpdateManager {
 
     const updateInterval = await this.calculateUpdateInterval(startTime, referenceTimezone);
 
+    // FIXED: Instead of stopping at event start, schedule one final update at event end
     if (!updateInterval) {
-      console.log(`[COUNTDOWN] Event ${messageId} has started, stopping countdown updates`);
+      const timeUntilEnd = endTime.getTime() - nowUtc.getTime();
+
+      if (timeUntilEnd > 0) {
+        console.log(`[COUNTDOWN] Event ${messageId} has started, scheduling final update at event end (${Math.round(timeUntilEnd / 1000 / 60)} minutes)`);
+
+        const timeoutId = setTimeout(async () => {
+          try {
+            let freshEventData = eventData;
+            try {
+              const { event: dbEvent } = await this.getEventByDiscordId(messageId);
+              if (dbEvent) {
+                freshEventData = dbEvent;
+              }
+            } catch (fetchError) {
+              console.warn(`[COUNTDOWN] Error fetching fresh event data for ${messageId}:`, fetchError.message);
+            }
+
+            // Perform final update to show "Event Finished"
+            await this.updateEventCountdown(freshEventData, messageId, guildId, channelId, referenceTimezone);
+            console.log(`[COUNTDOWN] Final update completed for finished event ${messageId}`);
+          } catch (error) {
+            console.error(`[COUNTDOWN] Error in final countdown update for event ${messageId}:`, error);
+          }
+        }, timeUntilEnd);
+
+        this.updateTimeouts.set(messageId, timeoutId);
+      } else {
+        console.log(`[COUNTDOWN] Event ${messageId} has already ended, no more updates needed`);
+      }
+
       return;
     }
 
@@ -96,7 +127,7 @@ class CountdownUpdateManager {
         } catch (fetchError) {
           console.warn(`[COUNTDOWN] Error fetching fresh event data for ${messageId}:`, fetchError.message);
         }
-        
+
         await this.updateEventCountdown(freshEventData, messageId, guildId, channelId, referenceTimezone);
         this.scheduleEventUpdate(freshEventData, messageId, guildId, channelId, referenceTimezone);
       } catch (error) {
@@ -139,10 +170,19 @@ class CountdownUpdateManager {
             .rpc('get_latest_event_responses', {
               event_id: messageId
             });
-          
-          if (!attendanceError && attendanceData) {
+
+          if (attendanceError) {
+            console.error(`[COUNTDOWN-QUERY-ERROR] Failed to fetch event responses for message ${messageId}:`, attendanceError);
+            throw attendanceError;
+          }
+
+          if (!attendanceData || attendanceData.length === 0) {
+            console.warn(`[COUNTDOWN-QUERY-WARN] No attendance data returned for message ${messageId} - this may indicate a database function issue`);
+          }
+
+          if (attendanceData) {
             const discordIds = attendanceData.map(record => record.discord_id);
-            console.log(`[COUNTDOWN-BATCH-FETCH] Fetching data for ${discordIds.length} users`);
+            console.log(`[COUNTDOWN-BATCH-FETCH] Fetching data for ${discordIds.length} users from message ${messageId}`);
 
             const { data: allPilots } = await this.supabase
               .from('pilots')
@@ -221,7 +261,8 @@ class CountdownUpdateManager {
                 pilotRecord
               };
 
-              if (record.user_response === 'accepted') {
+              if (record.user_response === 'accepted' || record.user_response === 'roll_call') {
+                // Treat both 'accepted' (pre-event) and 'roll_call' (during event) as accepted
                 currentResponses.accepted.push(userEntry);
               } else if (record.user_response === 'declined') {
                 currentResponses.declined.push(userEntry);
@@ -231,6 +272,7 @@ class CountdownUpdateManager {
             }
             
             console.log(`[COUNTDOWN-RESPONSES] Restored ${attendanceData.length} responses from database with pilot data for event ${messageId}`);
+            console.log(`[COUNTDOWN-RESPONSES] Response breakdown: ${currentResponses.accepted.length} accepted, ${currentResponses.tentative.length} tentative, ${currentResponses.declined.length} declined`);
           }
         } catch (dbError) {
           console.warn(`[COUNTDOWN-RESPONSES] Error fetching responses from database:`, dbError);
@@ -285,10 +327,25 @@ class CountdownUpdateManager {
         const additionalEmbeds = createAdditionalImageEmbeds(embedData.imageData, 'https://readyroom.app');
         const allEmbeds = [updatedEmbed, ...additionalEmbeds];
 
-        await message.edit({
-          embeds: allEmbeds,
-          components: message.components
-        });
+        // Check if event has concluded - if so, remove response buttons
+        const nowUtc = new Date();
+        const eventEndTime = new Date(eventData.end_datetime || eventData.end_time);
+        const hasEnded = nowUtc >= eventEndTime;
+
+        const messageUpdate = {
+          embeds: allEmbeds
+        };
+
+        if (hasEnded) {
+          // Event has concluded - remove response buttons
+          messageUpdate.components = [];
+          console.log(`[COUNTDOWN] Removing response buttons from concluded event ${messageId}`);
+        } else {
+          // Event still ongoing - keep existing buttons
+          messageUpdate.components = message.components;
+        }
+
+        await message.edit(messageUpdate);
 
       } catch (fetchError) {
         if (fetchError.code === 10008) {
@@ -327,11 +384,16 @@ class CountdownUpdateManager {
         console.warn(`[COUNTDOWN] Error getting timezone setting, using default: ${tzError.message}`);
       }
 
+      // Load events that haven't ended yet, OR ended recently (within last 24 hours)
+      // This ensures we can perform final updates to show "Event Finished" and remove buttons
+      // even if the bot was offline when the event ended
+      const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+
       const { data: events, error } = await this.supabase
         .from('events')
         .select('*')
         .not('discord_event_id', 'is', null)
-        .gte('end_datetime', new Date().toISOString());
+        .gte('end_datetime', oneDayAgo);
 
       if (error) {
         console.error('[COUNTDOWN] Error loading events:', error);
