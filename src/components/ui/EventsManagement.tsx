@@ -785,18 +785,25 @@ const EventsManagement: React.FC = () => {
 
   const handlePlanMission = async (event: Event) => {
     if (!event.id) return;
-    
+
     // Check if mission already exists for this event
     const existingMission = eventMissions[event.id];
-    
+
+    // Build URL with both eventId and cycleId
+    const urlParams = new URLSearchParams();
+    urlParams.set('eventId', event.id);
+    if (event.cycleId) {
+      urlParams.set('cycleId', event.cycleId);
+    }
+    const missionPrepUrl = `/mission-prep?${urlParams.toString()}`;
+
     if (existingMission) {
       // Mission exists, go to it
-      const missionPrepUrl = `/mission-prep?eventId=${event.id}`;
       window.location.href = missionPrepUrl;
     } else {
       // No mission exists, create one first
       setMissionLoading(prev => ({ ...prev, [event.id]: true }));
-      
+
       try {
         const missionName = `${event.title} Mission`;
         const { mission, error } = await createMission({
@@ -813,12 +820,11 @@ const EventsManagement: React.FC = () => {
         }
 
         // Navigate to Mission Preparation immediately (don't update state to avoid button flicker)
-        const missionPrepUrl = `/mission-prep?eventId=${event.id}`;
         window.location.href = missionPrepUrl;
-        
+
         // Update state with new mission (for when user returns to this page)
         setEventMissions(prev => ({ ...prev, [event.id]: mission }));
-        
+
       } catch (err: any) {
         console.error('Error creating mission:', err);
         setError(`Failed to create mission: ${err.message}`);

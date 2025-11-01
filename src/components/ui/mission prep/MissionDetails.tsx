@@ -2,9 +2,10 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Card } from '../card';
 import { Edit2, Check, X, Upload } from 'lucide-react';
 import { styles } from '../../../styles/MissionPrepStyles';
-import type { Event } from '../../../types/EventTypes';
+import type { Event, Cycle } from '../../../types/EventTypes';
 import { processMissionCoordinates } from '../../../utils/coordinateUtils';
 import { saveToLocalStorage, loadFromLocalStorage, STORAGE_KEYS } from '../../../utils/localStorageUtils';
+import { fetchCycles } from '../../../utils/supabaseClient';
 import JSZip from 'jszip';
 import { load } from 'fengari-web';
 import AircraftGroups from './AircraftGroups';
@@ -60,6 +61,17 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
   onStepTimeChange
 }) => {
   const { settings } = useAppSettings();
+
+  // State for cycles
+  const [cycles, setCycles] = useState<Cycle[]>([]);
+  const [selectedCycle, setSelectedCycle] = useState<Cycle | null>(null);
+  const [cyclesLoading, setCyclesLoading] = useState<boolean>(true);
+
+  // Get cycle ID from URL if navigating from Events Management page
+  const getCycleIdFromUrl = () => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get('cycleId');
+  };
 
   // Helper function to convert UTC datetime to timezone-local datetime string for input
   const utcToTimezoneLocal = (utcDateString: string, timezone: string): string => {
@@ -131,18 +143,45 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
     }
   };
 
-  // Sort events by date (newest first)
-  const sortedEvents = [...events].sort((a, b) => {
-    const dateA = new Date(a.datetime).getTime();
-    const dateB = new Date(b.datetime).getTime();
+  // Filter events by selected cycle and sort by date (newest first)
+  const filteredAndSortedEvents = [...events]
+    .filter(event => !selectedCycle || event.cycleId === selectedCycle.id)
+    .sort((a, b) => {
+      const dateA = new Date(a.datetime).getTime();
+      const dateB = new Date(b.datetime).getTime();
 
-    // Handle invalid dates by putting them at the end
-    if (isNaN(dateA) && isNaN(dateB)) return 0;
-    if (isNaN(dateA)) return 1;
-    if (isNaN(dateB)) return -1;
+      // Handle invalid dates by putting them at the end
+      if (isNaN(dateA) && isNaN(dateB)) return 0;
+      if (isNaN(dateA)) return 1;
+      if (isNaN(dateB)) return -1;
 
-    return dateB - dateA;
-  });
+      return dateB - dateA;
+    });
+
+  // Auto-select most recent event when cycle changes or events load
+  useEffect(() => {
+    console.log('🔍 MissionDetails: Event selection effect triggered:', {
+      hasCycle: !!selectedCycle,
+      cycleId: selectedCycle?.id,
+      cycleName: selectedCycle?.name,
+      filteredEventsCount: filteredAndSortedEvents.length,
+      hasSelectedEvent: !!selectedEvent,
+      selectedEventCycleId: selectedEvent?.cycleId,
+      eventsCount: events.length
+    });
+
+    if (selectedCycle && filteredAndSortedEvents.length > 0) {
+      // If current selected event is not in the filtered list, select the most recent one
+      if (!selectedEvent || selectedEvent.cycleId !== selectedCycle.id) {
+        console.log('🎯 MissionDetails: Auto-selecting most recent event:', filteredAndSortedEvents[0]);
+        onEventSelect(filteredAndSortedEvents[0]);
+      }
+    } else if (!selectedCycle && selectedEvent) {
+      // If no cycle selected, clear event selection
+      console.log('🎯 MissionDetails: Clearing event selection (no cycle selected)');
+      onEventSelect(null);
+    }
+  }, [selectedCycle?.id, filteredAndSortedEvents.length, events.length]);
 
   const [missionDetails, setMissionDetails] = useState<MissionDetailsData>(() => {
     // Load mission details from localStorage or use defaults
@@ -166,6 +205,70 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
   const [json2Lua, setJson2Lua] = useState<string | null>(null);
   const [hasExtractedForCurrentFile, setHasExtractedForCurrentFile] = useState(false);
 
+  // Fetch cycles on component mount
+  useEffect(() => {
+    const loadCycles = async () => {
+      setCyclesLoading(true);
+      console.log('🔄 MissionDetails: Loading cycles...');
+      try {
+        const { cycles: fetchedCycles, error } = await fetchCycles();
+
+        if (error) {
+          console.error('❌ MissionDetails: Error fetching cycles:', error);
+          return;
+        }
+
+        console.log('✅ MissionDetails: Fetched cycles:', fetchedCycles?.length || 0);
+
+        if (fetchedCycles && fetchedCycles.length > 0) {
+          setCycles(fetchedCycles);
+
+          // Check if there's a cycle ID from URL (navigating from Events Management)
+          const urlCycleId = getCycleIdFromUrl();
+          console.log('🔍 MissionDetails: URL cycle ID:', urlCycleId);
+
+          if (urlCycleId) {
+            const urlCycle = fetchedCycles.find(cycle => cycle.id === urlCycleId);
+            if (urlCycle) {
+              console.log('✅ MissionDetails: Found cycle from URL:', urlCycle.name);
+              setSelectedCycle(urlCycle);
+              return;
+            }
+          }
+
+          // Otherwise, auto-select the active cycle with the earliest start date
+          const activeCycles = fetchedCycles.filter(cycle => cycle.status === 'active');
+          console.log('🔍 MissionDetails: Active cycles found:', activeCycles.length);
+
+          if (activeCycles.length > 0) {
+            const sortedActiveCycles = [...activeCycles].sort((a, b) =>
+              new Date(a.startDate).getTime() - new Date(b.startDate).getTime()
+            );
+            console.log('✅ MissionDetails: Auto-selecting active cycle:', sortedActiveCycles[0].name);
+            setSelectedCycle(sortedActiveCycles[0]);
+          } else {
+            // No active cycles, select the most recent cycle by start date
+            console.log('⚠️ MissionDetails: No active cycles found, selecting most recent cycle');
+            const sortedCycles = [...fetchedCycles].sort((a, b) =>
+              new Date(b.startDate).getTime() - new Date(a.startDate).getTime()
+            );
+            console.log('✅ MissionDetails: Auto-selecting most recent cycle:', sortedCycles[0].name);
+            setSelectedCycle(sortedCycles[0]);
+          }
+        } else {
+          console.log('⚠️ MissionDetails: No cycles fetched');
+        }
+      } catch (err) {
+        console.error('❌ MissionDetails: Failed to load cycles:', err);
+      } finally {
+        setCyclesLoading(false);
+        console.log('🏁 MissionDetails: Finished loading cycles');
+      }
+    };
+
+    loadCycles();
+  }, []);
+
   // Load the json2.lua file on component mount
   useEffect(() => {
     async function loadJson2Lua() {
@@ -181,7 +284,7 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
         console.error('Error loading json2.lua:', error);
       }
     }
-    
+
     loadJson2Lua();
   }, []);
 
@@ -735,9 +838,9 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
             </div>
           )}
         </div>
-        <div style={{ 
-          display: 'flex', 
-          flexDirection: 'column', 
+        <div style={{
+          display: 'flex',
+          flexDirection: 'column',
           gap: '16px'
         }}>
           <div style={{ marginBottom: '0' }}>
@@ -748,15 +851,16 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
               fontWeight: 500,
               color: '#64748B'
             }}>
-              Event
+              Cycle
             </label>
-            <select 
+            <select
               className="w-full"
-              value={selectedEvent?.id || ''}
+              value={selectedCycle?.id || ''}
               onChange={(e) => {
-                const event = events.find(evt => evt.id === e.target.value);
-                onEventSelect(event || null);
+                const cycle = cycles.find(c => c.id === e.target.value);
+                setSelectedCycle(cycle || null);
               }}
+              disabled={cyclesLoading}
               style={{
                 width: '100%',
                 padding: '8px 12px',
@@ -764,24 +868,65 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
                 borderRadius: '4px',
                 fontSize: '14px',
                 boxSizing: 'border-box',
-                backgroundColor: '#FFFFFF'
+                backgroundColor: cyclesLoading ? '#F8FAFC' : '#FFFFFF',
+                cursor: cyclesLoading ? 'not-allowed' : 'pointer'
               }}
             >
-              <option value="">Select an event</option>
-              {sortedEvents.map(event => {
+              <option value="">Select a cycle</option>
+              {cycles.map(cycle => (
+                <option key={cycle.id} value={cycle.id}>
+                  {cycle.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div style={{ marginBottom: '0' }}>
+            <label style={{
+              display: 'block',
+              marginBottom: '8px',
+              fontSize: '14px',
+              fontWeight: 500,
+              color: '#64748B'
+            }}>
+              Event
+            </label>
+            <select
+              className="w-full"
+              value={selectedEvent?.id || ''}
+              onChange={(e) => {
+                const event = filteredAndSortedEvents.find(evt => evt.id === e.target.value);
+                onEventSelect(event || null);
+              }}
+              disabled={!selectedCycle || filteredAndSortedEvents.length === 0}
+              style={{
+                width: '100%',
+                padding: '8px 12px',
+                border: '1px solid #CBD5E1',
+                borderRadius: '4px',
+                fontSize: '14px',
+                boxSizing: 'border-box',
+                backgroundColor: (!selectedCycle || filteredAndSortedEvents.length === 0) ? '#F8FAFC' : '#FFFFFF',
+                cursor: (!selectedCycle || filteredAndSortedEvents.length === 0) ? 'not-allowed' : 'pointer'
+              }}
+            >
+              <option value="">
+                {!selectedCycle ? 'Select a cycle first' : filteredAndSortedEvents.length === 0 ? 'No events in this cycle' : 'Select an event'}
+              </option>
+              {filteredAndSortedEvents.map(event => {
                 const eventDate = new Date(event.datetime);
                 const isValidDate = !isNaN(eventDate.getTime());
-                const formattedDate = isValidDate 
-                  ? eventDate.toLocaleString('en-US', { 
-                      year: 'numeric', 
-                      month: 'short', 
-                      day: 'numeric', 
-                      hour: '2-digit', 
+                const formattedDate = isValidDate
+                  ? eventDate.toLocaleString('en-US', {
+                      year: 'numeric',
+                      month: 'short',
+                      day: 'numeric',
+                      hour: '2-digit',
                       minute: '2-digit',
                       timeZoneName: 'short'
                     })
                   : 'Invalid Date';
-                
+
                 return (
                   <option key={event.id} value={event.id}>
                     {formattedDate} - {event.title}
@@ -853,11 +998,11 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
         }}>
           <span style={styles.headerLabel}>Import</span>
         </div>
-        <div className="flex-1" style={{ 
+        <div className="flex-1" style={{
           display: 'flex',
           justifyContent: 'center',
           alignItems: 'center',
-          padding: '20px'
+          padding: '12px 20px'
         }}>
           {/* Hidden file input */}
           <input
@@ -867,12 +1012,12 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
             accept=".miz"
             style={{ display: 'none' }}
           />
-          
+
           {/* File drop zone with dashed border */}
-          <div 
+          <div
             style={{
               width: '100%',
-              height: '90px',
+              height: '60px',
               border: '1px dashed #CBD5E1',
               borderRadius: '4px',
               display: 'flex',
@@ -882,7 +1027,7 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
               color: '#64748B',
               fontSize: '14px',
               textAlign: 'center',
-              padding: '16px',
+              padding: '12px',
               transition: 'background-color 0.2s ease'
             }}
             onClick={handleDropZoneClick}
