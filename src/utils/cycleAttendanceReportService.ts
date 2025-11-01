@@ -149,30 +149,21 @@ async function fetchActivePilots(
       squadronName = squadron.name;
     }
 
-    // Apply squadron filter if specified
-    if (filters?.squadronIds && filters.squadronIds.length > 0) {
-      if (!squadronId || !filters.squadronIds.includes(squadronId)) {
-        continue; // Skip this pilot
-      }
-    }
+    // Note: Squadron filtering is done client-side for instant filtering
+    // Qualification filtering requires refetch to recalculate metrics accurately
+
+    // Fetch pilot qualifications
+    const { data: qualData, error: qualError } = await supabase
+      .from('pilot_qualifications')
+      .select('qualification_id')
+      .eq('pilot_id', pilotId)
+      .or(`expiry_date.is.null,expiry_date.gte.${startDate}`);
+
+    const qualificationIds = qualError ? [] : (qualData || []).map(q => q.qualification_id);
 
     // Apply qualification filter if specified
     if (filters?.qualificationIds && filters.qualificationIds.length > 0) {
-      // Fetch pilot qualifications
-      const { data: qualData, error: qualError } = await supabase
-        .from('pilot_qualifications')
-        .select('qualification_id')
-        .eq('pilot_id', pilotId)
-        .or(`expiry_date.is.null,expiry_date.gte.${startDate}`);
-
-      if (qualError) {
-        console.error(`Error fetching qualifications for pilot ${pilotId}:`, qualError);
-        continue;
-      }
-
-      const pilotQualIds = (qualData || []).map(q => q.qualification_id);
-      const hasRequiredQual = filters.qualificationIds.some(qid => pilotQualIds.includes(qid));
-
+      const hasRequiredQual = filters.qualificationIds.some(qid => qualificationIds.includes(qid));
       if (!hasRequiredQual) {
         continue; // Skip this pilot
       }
@@ -184,7 +175,8 @@ async function fetchActivePilots(
       boardNumber: pilot.boardNumber.toString(),
       discord_id: pilot.discord_id,
       squadronId,
-      squadronName
+      squadronName,
+      qualificationIds
     });
   }
 

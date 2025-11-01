@@ -37,6 +37,7 @@ export interface PilotData {
   discord_id: string | null;
   squadronId?: string;
   squadronName?: string;
+  qualificationIds?: string[];
 }
 
 export interface SquadronData {
