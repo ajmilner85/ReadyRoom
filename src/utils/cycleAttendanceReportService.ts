@@ -200,19 +200,23 @@ async function fetchActivePilots(
 async function fetchAttendanceData(events: EventData[], pilots: PilotData[]): Promise<AttendanceData[]> {
   const attendanceRecords: AttendanceData[] = [];
 
-  // For each event, get all Discord message IDs
+  // For each event, get all Discord message IDs (or synthetic IDs for manual entries)
   for (const event of events) {
     const messageIds = event.discord_event_id.map(d => d.messageId);
 
-    if (messageIds.length === 0) {
+    // Also check for synthetic manual entry IDs (format: manual-{event-id})
+    const syntheticId = `manual-${event.id}`;
+    const allEventIds = messageIds.length > 0 ? messageIds : [syntheticId];
+
+    if (allEventIds.length === 0) {
       continue;
     }
 
-    // Fetch roll call responses for this event's message IDs
+    // Fetch roll call responses for this event's message IDs (including synthetic IDs)
     const { data: attendanceData, error: attendanceError } = await supabase
       .from('discord_event_attendance')
       .select('discord_id, roll_call_response')
-      .in('discord_event_id', messageIds)
+      .in('discord_event_id', allEventIds)
       .not('roll_call_response', 'is', null);
 
     if (attendanceError) {

@@ -436,19 +436,17 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
       return;
     }
 
-    // Ensure we have a Discord event ID
-    if (!selectedEvent.discordEventId) {
-      console.log('Cannot update roll call response: Event has no Discord event ID');
-      return;
-    }
-    
+    // Generate a synthetic Discord event ID if the event doesn't have one
+    // This allows manual roll call entry for events created before Discord integration
+    const effectiveDiscordEventId = selectedEvent.discordEventId || `manual-${selectedEvent.id}`;
+
     // Find the pilot's Discord ID
     const pilot = pilots.find(p => p.id === pilotId || p.boardNumber === pilotId);
     if (!pilot) {
       console.log(`Cannot find pilot with ID ${pilotId}`);
       return;
     }
-    
+
     // Use discord_id (numeric ID) for Discord API calls
     const discordId = (pilot as any).discord_id;
     if (!discordId) {
@@ -458,7 +456,7 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
 
     // Use the utility function to update the roll call response
     await updateRollCallResponse(
-      selectedEvent.discordEventId,
+      effectiveDiscordEventId,
       discordId,
       pilot.callsign,
       responseValue
@@ -764,27 +762,29 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
   // Effect to sync roll call responses whenever the selected event changes
   useEffect(() => {
     const syncRollCall = async () => {
-      if (selectedEvent?.discordEventId) {
+      if (selectedEvent?.id) {
         try {
-          const discordIdToRollCallMap = await syncRollCallResponses(selectedEvent.discordEventId);
-          
+          // Use synthetic Discord event ID if the event doesn't have a real one
+          const effectiveDiscordEventId = selectedEvent.discordEventId || `manual-${selectedEvent.id}`;
+          const discordIdToRollCallMap = await syncRollCallResponses(effectiveDiscordEventId);
+
           // Map Discord IDs to pilot IDs
           const pilotRollCallResponses: Record<string, 'Present' | 'Absent' | 'Tentative'> = {};
-          
+
           // For each pilot, check if they have a roll call response
           pilots.forEach(pilot => {
             const pilotId = pilot.id || pilot.boardNumber;
             // Use discord_id (numeric ID) for matching roll call data
             const discordId = (pilot as any).discord_id;
-            
+
             if (discordId && discordIdToRollCallMap[discordId]) {
               pilotRollCallResponses[pilotId] = discordIdToRollCallMap[discordId];
             }
           });
-          
+
           // Update the state with all roll call responses
           setRollCallResponses(pilotRollCallResponses);
-          
+
           // console.log('[ROLL-CALL-DEBUG] Synced roll call responses for event:', selectedEvent.id);
         } catch (error) {
           console.error('Error syncing roll call responses:', error);
@@ -1082,26 +1082,28 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
                   if (onAutoAssign) {
                     // First, sync the latest roll call data from Discord to ensure we have fresh data
                     let freshRollCallResponses = { ...rollCallResponses };
-                    
-                    if (selectedEvent?.discordEventId) {
+
+                    if (selectedEvent?.id) {
                       try {
-                        const freshRollCallData = await syncRollCallResponses(selectedEvent.discordEventId);
-                        
+                        // Use synthetic Discord event ID if the event doesn't have a real one
+                        const effectiveDiscordEventId = selectedEvent.discordEventId || `manual-${selectedEvent.id}`;
+                        const freshRollCallData = await syncRollCallResponses(effectiveDiscordEventId);
+
                         // Convert Discord ID based responses to pilot ID based responses
                         const freshPilotResponses: Record<string, 'Present' | 'Absent' | 'Tentative'> = {};
-                        
+
                         pilots.forEach(pilot => {
                           const pilotId = pilot.id || pilot.boardNumber;
                           // Use discord_id (numeric ID) for matching roll call data
                           const discordId = (pilot as any).discord_id;
-                          
+
                           if (discordId && freshRollCallData[discordId]) {
                             freshPilotResponses[pilotId] = freshRollCallData[discordId];
                           }
                         });
-                        
+
                         freshRollCallResponses = freshPilotResponses;
-                        
+
                         // Update local state with fresh data
                         setRollCallResponses(freshRollCallResponses);
                       } catch (error) {
