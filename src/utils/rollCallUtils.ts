@@ -5,7 +5,7 @@ import { supabase } from './supabaseClient';
 
 /**
  * Synchronizes roll call data from the database
- * @param discordEventId The discord event ID to fetch roll call data for
+ * @param discordEventId The discord event ID to fetch roll call data for (can be synthetic: manual-{event-id})
  * @returns A record of pilot IDs to roll call responses
  */
 export const syncRollCallResponses = async (discordEventId: string) => {
@@ -20,7 +20,7 @@ export const syncRollCallResponses = async (discordEventId: string) => {
       .select('discord_id, roll_call_response')
       .eq('discord_event_id', discordEventId)
       .not('roll_call_response', 'is', null);
-    
+
     if (error) {
       console.error('Error fetching roll call responses:', error);
       return {};
@@ -47,7 +47,7 @@ export const syncRollCallResponses = async (discordEventId: string) => {
 
 /**
  * Updates the roll call response for a pilot
- * @param discordEventId The discord event ID
+ * @param discordEventId The discord event ID (can be synthetic: manual-{event-id})
  * @param discordId The discord ID of the pilot
  * @param pilotName The pilot's name/callsign for logging
  * @param response The new roll call response, or null to remove

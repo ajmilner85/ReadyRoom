@@ -35,29 +35,31 @@ export const RollCallProvider: React.FC<RollCallProviderProps> = ({ children, se
   // Effect to sync roll call responses whenever the selected event changes
   useEffect(() => {
     const syncRollCall = async () => {
-      if (!selectedEvent?.discordEventId) return;
+      if (!selectedEvent?.id) return;
 
       try {
         setIsLoadingRollCall(true);
-        const discordIdMap = await syncRollCallResponses(selectedEvent.discordEventId);
+        // Use synthetic Discord event ID if the event doesn't have a real one
+        const effectiveDiscordEventId = selectedEvent.discordEventId || `manual-${selectedEvent.id}`;
+        const discordIdMap = await syncRollCallResponses(effectiveDiscordEventId);
         setDiscordIdToRollCallMap(discordIdMap);
-        
+
         // Map Discord IDs to pilot IDs
         const pilotRollCallResponses: Record<string, 'Present' | 'Absent' | 'Tentative'> = {};
-        
+
         // For each pilot, check if they have a roll call response
         pilots.forEach(pilot => {
           const pilotId = pilot.id || pilot.boardNumber;
           const discordId = pilot.discord_id;
-          
+
           if (discordId && discordIdMap[discordId]) {
             pilotRollCallResponses[pilotId] = discordIdMap[discordId];
           }
         });
-        
+
         // Update the state with all roll call responses
         setRollCallResponses(pilotRollCallResponses);
-        
+
         // console.log('[ROLL-CALL-DEBUG] Synced roll call responses for event:', selectedEvent.id);
       } catch (error) {
         console.error('Error syncing roll call responses:', error);
@@ -65,7 +67,7 @@ export const RollCallProvider: React.FC<RollCallProviderProps> = ({ children, se
         setIsLoadingRollCall(false);
       }
     };
-    
+
     syncRollCall();
   }, [selectedEvent, pilots]);
 

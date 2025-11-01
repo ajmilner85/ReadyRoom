@@ -107,16 +107,21 @@ const CycleAttendanceReport: React.FC<CycleAttendanceReportProps> = ({ error, se
 
   // Auto-select squadron participants when report data loads
   useEffect(() => {
-    if (reportData && reportData.cycle.participants && filters.squadronIds.length === 0) {
+    if (
+      reportData &&
+      reportData.cycle.id === selectedCycleId &&
+      reportData.cycle.participants &&
+      filters.squadronIds.length === 0
+    ) {
       const participantSquadronIds = Array.isArray(reportData.cycle.participants)
-        ? reportData.cycle.participants.map((p: any) => p.squadronId).filter(Boolean)
+        ? reportData.cycle.participants.filter((id): id is string => typeof id === 'string')
         : [];
 
       if (participantSquadronIds.length > 0) {
         setFilters(prev => ({ ...prev, squadronIds: participantSquadronIds }));
       }
     }
-  }, [reportData, filters.squadronIds.length]);
+  }, [reportData, selectedCycleId, filters.squadronIds.length]);
 
   // Handle filter changes
   const handleFilterChange = useCallback(async (newFilters: ReportFilters) => {
