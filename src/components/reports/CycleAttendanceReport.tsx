@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Line } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
@@ -184,40 +184,40 @@ const CycleAttendanceReport: React.FC<CycleAttendanceReportProps> = ({ error, se
     URL.revokeObjectURL(url);
   };
 
-  // Squadron filter handlers
+  // Squadron filter handlers (client-side only, no refetch)
   const handleSquadronToggle = (squadronId: string) => {
     const newSquadronIds = filters.squadronIds.includes(squadronId)
       ? filters.squadronIds.filter(id => id !== squadronId)
       : [...filters.squadronIds, squadronId];
 
-    handleFilterChange({ ...filters, squadronIds: newSquadronIds });
+    handleFilterChange({ ...filters, squadronIds: newSquadronIds }, false);
   };
 
   const handleSelectAllSquadrons = () => {
     if (!reportData) return;
-    handleFilterChange({ ...filters, squadronIds: reportData.squadrons.map(s => s.id) });
+    handleFilterChange({ ...filters, squadronIds: reportData.squadrons.map(s => s.id) }, false);
   };
 
   const handleClearAllSquadrons = () => {
-    handleFilterChange({ ...filters, squadronIds: [] });
+    handleFilterChange({ ...filters, squadronIds: [] }, false);
   };
 
-  // Qualification filter handlers
+  // Qualification filter handlers (requires refetch to recalculate metrics)
   const handleQualificationToggle = (qualId: string) => {
     const newQualIds = filters.qualificationIds.includes(qualId)
       ? filters.qualificationIds.filter(id => id !== qualId)
       : [...filters.qualificationIds, qualId];
 
-    handleFilterChange({ ...filters, qualificationIds: newQualIds });
+    handleFilterChange({ ...filters, qualificationIds: newQualIds }, true);
   };
 
   const handleSelectAllQualifications = () => {
     if (!reportData) return;
-    handleFilterChange({ ...filters, qualificationIds: reportData.qualifications.map(q => q.id) });
+    handleFilterChange({ ...filters, qualificationIds: reportData.qualifications.map(q => q.id) }, true);
   };
 
   const handleClearAllQualifications = () => {
-    handleFilterChange({ ...filters, qualificationIds: [] });
+    handleFilterChange({ ...filters, qualificationIds: [] }, true);
   };
 
   // Metric toggle handlers
@@ -292,8 +292,8 @@ const CycleAttendanceReport: React.FC<CycleAttendanceReportProps> = ({ error, se
     });
   };
 
-  // Generate chart data based on selected filters
-  const generateChartData = () => {
+  // Memoize chart data generation to prevent expensive recalculations
+  const chartData = useMemo(() => {
     if (!reportData) return null;
 
     const labels = reportData.eventSquadronMetrics.map(event => {
@@ -302,6 +302,7 @@ const CycleAttendanceReport: React.FC<CycleAttendanceReportProps> = ({ error, se
     });
 
     const datasets: any[] = [];
+    // Filter squadrons client-side for instant filtering
     const selectedSquadrons = filters.squadronIds.length > 0
       ? reportData.squadrons.filter(sq => filters.squadronIds.includes(sq.id))
       : reportData.squadrons;
@@ -552,9 +553,7 @@ const CycleAttendanceReport: React.FC<CycleAttendanceReportProps> = ({ error, se
     });
 
     return { labels, datasets };
-  };
-
-  const chartData = generateChartData();
+  }, [reportData, filters]);
 
   // Custom plugin for HTML legend
   const htmlLegendPlugin = {
@@ -761,6 +760,7 @@ const CycleAttendanceReport: React.FC<CycleAttendanceReportProps> = ({ error, se
         type: 'linear' as const,
         display: filters.showAttendanceCount || filters.showNoShowsCount || filters.showSnivelsCount || filters.showAdvancedSnivelsCount || filters.showTotalSnivelsCount || filters.showNoResponseCount,
         position: 'right' as const,
+        beginAtZero: true,
         title: {
           display: true,
           text: 'Count',
@@ -776,6 +776,13 @@ const CycleAttendanceReport: React.FC<CycleAttendanceReportProps> = ({ error, se
           font: {
             family: 'Inter',
             size: 11
+          },
+          stepSize: 1,
+          callback: function(value) {
+            if (Number.isInteger(value)) {
+              return value;
+            }
+            return null; // Don't show non-integer values
           }
         }
       }
@@ -821,7 +828,8 @@ const CycleAttendanceReport: React.FC<CycleAttendanceReportProps> = ({ error, se
               backgroundColor: 'white',
               color: '#1E293B',
               cursor: filterLoading ? 'not-allowed' : 'pointer',
-              opacity: filterLoading ? 0.6 : 1
+              opacity: filterLoading ? 0.6 : 1,
+              minWidth: '400px'
             }}
           >
             {cycles.map(cycle => (
@@ -1207,7 +1215,12 @@ const CycleAttendanceReport: React.FC<CycleAttendanceReportProps> = ({ error, se
 
           {/* Chart */}
           <div style={{ height: '450px' }}>
-            <Line data={chartData} options={chartOptions} plugins={[htmlLegendPlugin]} />
+            <Line
+              data={chartData}
+              options={chartOptions}
+              plugins={[htmlLegendPlugin]}
+              redraw={false}
+            />
           </div>
 
           {/* Explanatory note */}
