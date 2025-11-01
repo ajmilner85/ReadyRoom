@@ -69,6 +69,9 @@ export interface ChartDataPoint {
   attendancePercentage: number;
   noShowCount: number;
   lastMinuteSniveCount: number;
+  advancedSniveCount: number;
+  totalSnivelsCount: number;
+  noResponseCount: number;
 }
 
 /**
@@ -79,6 +82,9 @@ export interface SquadronMetrics {
   attendanceCount: number;
   noShowCount: number;
   lastMinuteSniveCount: number;
+  advancedSniveCount: number;
+  totalSnivelsCount: number;
+  noResponseCount: number;
   totalPilots: number;
   attendancePercentage: number;
 }
@@ -105,6 +111,12 @@ export interface ReportFilters {
   showNoShowsCount: boolean;
   showSnivelsPercent: boolean;
   showSnivelsCount: boolean;
+  showAdvancedSnivelsPercent: boolean;
+  showAdvancedSnivelsCount: boolean;
+  showTotalSnivelsPercent: boolean;
+  showTotalSnivelsCount: boolean;
+  showNoResponsePercent: boolean;
+  showNoResponseCount: boolean;
 }
 
 /**
