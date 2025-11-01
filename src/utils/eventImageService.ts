@@ -1,6 +1,63 @@
 import { supabase } from './supabaseClient';
 
 /**
+ * Compress an image file to WebP format with quality reduction
+ * @param file The image file to compress
+ * @param maxWidth Maximum width in pixels (default 1920)
+ * @param quality Quality setting 0-1 (default 0.8)
+ * @returns Compressed image as File
+ */
+async function compressImage(file: File, maxWidth: number = 1920, quality: number = 0.8): Promise<File> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const reader = new FileReader();
+
+    reader.onload = (e) => {
+      img.src = e.target?.result as string;
+    };
+
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      let width = img.width;
+      let height = img.height;
+
+      // Resize if too large
+      if (width > maxWidth) {
+        height = (height * maxWidth) / width;
+        width = maxWidth;
+      }
+
+      canvas.width = width;
+      canvas.height = height;
+
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        reject(new Error('Could not get canvas context'));
+        return;
+      }
+
+      ctx.drawImage(img, 0, 0, width, height);
+
+      canvas.toBlob((blob) => {
+        if (blob) {
+          const compressedFile = new File([blob], file.name.replace(/\.[^.]+$/, '.webp'), {
+            type: 'image/webp',
+            lastModified: Date.now()
+          });
+          resolve(compressedFile);
+        } else {
+          reject(new Error('Compression failed'));
+        }
+      }, 'image/webp', quality);
+    };
+
+    img.onerror = () => reject(new Error('Failed to load image'));
+    reader.onerror = () => reject(new Error('Failed to read file'));
+    reader.readAsDataURL(file);
+  });
+}
+
+/**
  * Upload an event image to Supabase storage and return the public URL
  * @param eventId The event ID to associate with the image
  * @param file The image file to upload
@@ -8,19 +65,23 @@ import { supabase } from './supabaseClient';
  */
 export const uploadEventImage = async (eventId: string, file: File) => {
   try {
-    console.log(`Uploading image for event ${eventId}...`);
-    
+    console.log(`Uploading image for event ${eventId}, original size: ${(file.size / 1024 / 1024).toFixed(2)} MB`);
+
+    // Compress image before upload
+    const compressedFile = await compressImage(file);
+    console.log(`Compressed to: ${(compressedFile.size / 1024 / 1024).toFixed(2)} MB (${((1 - compressedFile.size / file.size) * 100).toFixed(1)}% reduction)`);
+
     // Create a unique file path for the event image
-    const fileExt = file.name.split('.').pop();
+    const fileExt = compressedFile.name.split('.').pop();
     const fileName = `${Date.now()}.${fileExt}`;
     const filePath = `${eventId}/${fileName}`;
-    
+
     console.log(`Upload path: ${filePath}`);
-    
-    // Upload the file to the 'event-images' bucket with upsert=true
+
+    // Upload the compressed file to the 'event-images' bucket with upsert=true
     const { data: _data, error } = await supabase.storage
       .from('event-images')
-      .upload(filePath, file, {
+      .upload(filePath, compressedFile, {
         cacheControl: '3600',
         upsert: true // Use upsert to override existing files
       });
@@ -234,16 +295,22 @@ export const uploadMultipleEventImages = async (eventId: string, images: {
  * Helper function to upload a single image file
  */
 const uploadSingleImageFile = async (eventId: string, file: File, imageType: string) => {
-  const fileExt = file.name.split('.').pop();
+  console.log(`Compressing ${imageType} image, original size: ${(file.size / 1024 / 1024).toFixed(2)} MB`);
+
+  // Compress image before upload
+  const compressedFile = await compressImage(file);
+  console.log(`Compressed to: ${(compressedFile.size / 1024 / 1024).toFixed(2)} MB (${((1 - compressedFile.size / file.size) * 100).toFixed(1)}% reduction)`);
+
+  const fileExt = compressedFile.name.split('.').pop();
   const fileName = `${imageType}-${Date.now()}.${fileExt}`;
   const filePath = `${eventId}/${fileName}`;
-  
+
   console.log(`Upload path for ${imageType}: ${filePath}`);
-  
-  // Upload the file to the 'event-images' bucket with upsert=true
+
+  // Upload the compressed file to the 'event-images' bucket with upsert=true
   const { data: _data, error } = await supabase.storage
     .from('event-images')
-    .upload(filePath, file, {
+    .upload(filePath, compressedFile, {
       cacheControl: '3600',
       upsert: true
     });
