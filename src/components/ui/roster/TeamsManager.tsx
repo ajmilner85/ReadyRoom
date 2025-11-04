@@ -2,7 +2,6 @@ import React, { useState, useRef, useEffect } from 'react';
 import { pilotDetailsStyles } from '../../../styles/RosterManagementStyles';
 import { Team } from '../../../types/TeamTypes';
 import { X } from 'lucide-react';
-import { utcTimestampToLocalDateString } from '../../../utils/dateUtils';
 
 interface TeamsManagerProps {
   pilotTeams: any[];

@@ -3,7 +3,6 @@ import { createPortal } from 'react-dom';
 import { X, Save, Upload, Edit, Trash } from 'lucide-react';
 import { supabase } from '../../utils/supabaseClient';
 import SquadronDiscordSettings from './SquadronDiscordSettings';
-import type { Team } from '../../types/TeamTypes';
 import { getAllTeams, createTeam, updateTeam, deleteTeam } from '../../utils/organizationService';
 import {
   Command,
@@ -150,9 +149,9 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
         setFormData({
           name: entity.name || '',
           designation: ('designation' in entity ? entity.designation : '') || '',
-          established_date: entity.established_date || '',
-          deactivated_date: entity.deactivated_date || '',
-          insignia_url: entity.insignia_url || '',
+          established_date: ('established_date' in entity ? entity.established_date : '') || '',
+          deactivated_date: ('deactivated_date' in entity ? entity.deactivated_date : '') || '',
+          insignia_url: ('insignia_url' in entity ? entity.insignia_url : '') || '',
           tail_code: ('tail_code' in entity ? entity.tail_code : '') || '',
           command_id: ('command_id' in entity ? entity.command_id : '') || '',
           group_id: ('group_id' in entity ? entity.group_id : '') || '',
@@ -1988,7 +1987,7 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
         }}>
           {/* Left side - Deactivate button (only in edit mode for active entities) */}
           <div>
-            {mode === 'edit' && entity && !entity.deactivated_date && (
+            {mode === 'edit' && entity && !('deactivated_date' in entity && entity.deactivated_date) && (
               <button
                 onClick={() => setShowDeactivateConfirm(true)}
                 style={{

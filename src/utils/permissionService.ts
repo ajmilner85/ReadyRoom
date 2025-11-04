@@ -301,7 +301,7 @@ export class PermissionService {
       id: t.id,
       name: t.scope !== 'global' ? `${t.name} (${t.scope})` : t.name,
       type: 'team' as BasisType,
-      description: t.description
+      description: t.description || undefined
     })) || [];
   }
   

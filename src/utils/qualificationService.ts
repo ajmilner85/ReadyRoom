@@ -12,7 +12,7 @@ export interface Qualification {
   is_expirable: boolean;
   validity_period: number | null; // In days
   active: boolean;
-  order?: number; // Sort order for display
+  order?: number | null; // Sort order for display
   created_at?: string;
   updated_at?: string | null;
 }
