@@ -189,6 +189,8 @@ export class PermissionService {
         return await this.getQualificationOptions();
       case 'billet':
         return await this.getBilletOptions();
+      case 'team':
+        return await this.getTeamOptions();
       case 'squadron':
         return await this.getSquadronOptions();
       case 'wing':
@@ -269,16 +271,37 @@ export class PermissionService {
       .from('org_wings')
       .select('id, name, designation')
       .order('name');
-    
+
     if (error) {
       console.warn('No wings table found, returning empty options');
       return [];
     }
-    
+
     return data?.map(w => ({
       id: w.id,
       name: `${w.designation} ${w.name}`,
       type: 'wing' as BasisType
+    })) || [];
+  }
+
+  private async getTeamOptions(): Promise<BasisOption[]> {
+    const { data, error } = await supabase
+      .from('teams')
+      .select('id, name, description, scope')
+      .eq('active', true)
+      .order('scope', { ascending: true })
+      .order('name');
+
+    if (error) {
+      console.warn('Error fetching teams, returning empty options:', error);
+      return [];
+    }
+
+    return data?.map(t => ({
+      id: t.id,
+      name: t.scope !== 'global' ? `${t.name} (${t.scope})` : t.name,
+      type: 'team' as BasisType,
+      description: t.description
     })) || [];
   }
   
@@ -563,17 +586,28 @@ export class PermissionService {
           .select('name, designation')
           .eq('id', basisId)
           .single();
-        
+
         if (error) throw error;
         return data ? `${data.designation} ${data.name}` : 'Unknown Wing';
       }
-      
+
+      case 'team': {
+        const { data, error } = await supabase
+          .from('teams')
+          .select('name, scope')
+          .eq('id', basisId)
+          .single();
+
+        if (error) throw error;
+        return data ? (data.scope !== 'global' ? `${data.name} (${data.scope})` : data.name) : 'Unknown Team';
+      }
+
       case 'authenticated_user':
         return 'All Authenticated Users';
-      
+
       case 'manual_override':
         return 'Manual Override';
-      
+
       default:
         return 'Unknown Basis';
     }

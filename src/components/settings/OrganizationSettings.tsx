@@ -10,6 +10,7 @@ import {
   NewWing,
   NewSquadron
 } from '../../types/OrganizationTypes';
+import type { Team, NewTeam } from '../../types/TeamTypes';
 import {
   getAllCommands,
   getAllGroups,
@@ -27,6 +28,10 @@ import {
   deleteGroup,
   deleteWing,
   deleteSquadron,
+  getAllTeams,
+  createTeam,
+  updateTeam,
+  deleteTeam,
   isEntityActive
 } from '../../utils/organizationService';
 import OrgEntityModal from './OrgEntityModal';
@@ -42,6 +47,7 @@ const OrganizationSettings: React.FC<OrganizationSettingsProps> = ({ error, setE
   const [groups, setGroups] = useState<Group[]>([]);
   const [wings, setWings] = useState<Wing[]>([]);
   const [squadrons, setSquadrons] = useState<Squadron[]>([]);
+  const [teams, setTeams] = useState<Team[]>([]);
   
   // UI state
   const [loading, setLoading] = useState(false);
@@ -52,8 +58,8 @@ const OrganizationSettings: React.FC<OrganizationSettingsProps> = ({ error, setE
   const [modalState, setModalState] = useState<{
     isOpen: boolean;
     mode: 'create' | 'edit';
-    entityType: 'command' | 'group' | 'wing' | 'squadron';
-    entity?: Command | Group | Wing | Squadron;
+    entityType: 'command' | 'group' | 'wing' | 'squadron' | 'team';
+    entity?: Command | Group | Wing | Squadron | Team;
   }>({
     isOpen: false,
     mode: 'create',
@@ -63,8 +69,8 @@ const OrganizationSettings: React.FC<OrganizationSettingsProps> = ({ error, setE
   // Delete confirmation state
   const [deleteConfirmation, setDeleteConfirmation] = useState<{
     isOpen: boolean;
-    entity?: Command | Group | Wing | Squadron;
-    entityType?: 'command' | 'group' | 'wing' | 'squadron';
+    entity?: Command | Group | Wing | Squadron | Team;
+    entityType?: 'command' | 'group' | 'wing' | 'squadron' | 'team';
     confirmText: string;
   }>({
     isOpen: false,
@@ -83,11 +89,12 @@ const OrganizationSettings: React.FC<OrganizationSettingsProps> = ({ error, setE
   const loadOrganizationData = async () => {
     setLoading(true);
     try {
-      const [commandsResult, groupsResult, wingsResult, squadronsResult] = await Promise.all([
+      const [commandsResult, groupsResult, wingsResult, squadronsResult, teamsResult] = await Promise.all([
         getAllCommands(),
         getAllGroups(),
         getAllWings(),
-        getAllSquadrons()
+        getAllSquadrons(),
+        getAllTeams()
       ]);
 
       if (commandsResult.error) {
@@ -121,6 +128,12 @@ const OrganizationSettings: React.FC<OrganizationSettingsProps> = ({ error, setE
       } else if (squadronsResult.data) {
         setSquadrons(squadronsResult.data);
       }
+
+      if (teamsResult.error) {
+        console.error('Error loading teams:', teamsResult.error);
+      } else if (teamsResult.data) {
+        setTeams(teamsResult.data);
+      }
     } catch (err: any) {
       setErrorMessage(err.message);
       console.error('Error loading organization data:', err);
@@ -134,13 +147,18 @@ const OrganizationSettings: React.FC<OrganizationSettingsProps> = ({ error, setE
   }, []);
 
   // Filter entities based on active status
-  const filterEntities = <T extends { deactivated_date: string | null }>(entities: T[]): T[] => {
+  const filterEntities = <T extends { deactivated_date?: string | null; active?: boolean }>(entities: T[]): T[] => {
     if (showInactive) return entities;
-    return entities.filter(isEntityActive);
+    // For teams (have active field), filter by active status
+    if (entities.length > 0 && 'active' in entities[0]) {
+      return entities.filter((e: any) => e.active);
+    }
+    // For other entities (have deactivated_date field), use isEntityActive
+    return entities.filter((e: any) => isEntityActive(e));
   };
 
   // Handle opening create modal
-  const handleCreateEntity = (entityType: 'command' | 'group' | 'wing' | 'squadron') => {
+  const handleCreateEntity = (entityType: 'command' | 'group' | 'wing' | 'squadron' | 'team') => {
     console.log('handleCreateEntity called with:', entityType);
     setModalState({
       isOpen: true,
@@ -152,7 +170,7 @@ const OrganizationSettings: React.FC<OrganizationSettingsProps> = ({ error, setE
   };
 
   // Handle opening edit modal
-  const handleEditEntity = (entity: Command | Group | Wing | Squadron, entityType: 'command' | 'group' | 'wing' | 'squadron') => {
+  const handleEditEntity = (entity: Command | Group | Wing | Squadron | Team, entityType: 'command' | 'group' | 'wing' | 'squadron' | 'team') => {
     setModalState({
       isOpen: true,
       mode: 'edit',
@@ -162,7 +180,7 @@ const OrganizationSettings: React.FC<OrganizationSettingsProps> = ({ error, setE
   };
 
   // Handle modal save
-  const handleModalSave = async (data: NewCommand | NewGroup | NewWing | NewSquadron) => {
+  const handleModalSave = async (data: NewCommand | NewGroup | NewWing | NewSquadron | NewTeam) => {
     console.log('handleModalSave called');
     setLoading(true);
     try {
@@ -184,6 +202,10 @@ const OrganizationSettings: React.FC<OrganizationSettingsProps> = ({ error, setE
           case 'squadron':
             result = await createSquadron(data as NewSquadron);
             if (result.data) setSquadrons([...squadrons, result.data]);
+            break;
+          case 'team':
+            result = await createTeam(data as NewTeam);
+            if (result.data) setTeams([...teams, result.data]);
             break;
         }
         
@@ -223,6 +245,12 @@ const OrganizationSettings: React.FC<OrganizationSettingsProps> = ({ error, setE
               setSquadrons(squadrons.map(s => s.id === modalState.entity!.id ? result.data! : s));
             }
             break;
+          case 'team':
+            result = await updateTeam(modalState.entity.id, data as Partial<NewTeam>);
+            if (result.data) {
+              setTeams(teams.map(t => t.id === modalState.entity!.id ? result.data! : t));
+            }
+            break;
         }
         
         if (result?.error) {
@@ -240,7 +268,7 @@ const OrganizationSettings: React.FC<OrganizationSettingsProps> = ({ error, setE
   };
 
   // Handle delete entity
-  const handleDeleteEntity = (entity: Command | Group | Wing | Squadron, entityType: 'command' | 'group' | 'wing' | 'squadron') => {
+  const handleDeleteEntity = (entity: Command | Group | Wing | Squadron | Team, entityType: 'command' | 'group' | 'wing' | 'squadron' | 'team') => {
     setDeleteConfirmation({
       isOpen: true,
       entity,
@@ -285,6 +313,12 @@ const OrganizationSettings: React.FC<OrganizationSettingsProps> = ({ error, setE
           result = await deleteSquadron(entityId);
           if (result.success) {
             setSquadrons(squadrons.filter(s => s.id !== entityId));
+          }
+          break;
+        case 'team':
+          result = await deleteTeam(entityId);
+          if (!result.error) {
+            setTeams(teams.filter(t => t.id !== entityId));
           }
           break;
       }
@@ -801,6 +835,88 @@ const OrganizationSettings: React.FC<OrganizationSettingsProps> = ({ error, setE
               </>
             )}
             </div>
+
+            {/* Teams Section */}
+            <div style={sectionStyle}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                <h3 style={{ fontSize: '18px', fontWeight: 600, color: '#0F172A', margin: 0 }}>
+                  Teams
+                </h3>
+                <span style={{ fontSize: '14px', color: '#64748B', fontFamily: 'Inter' }}>
+                  {filterEntities(teams).length} active
+                </span>
+              </div>
+
+            {filterEntities(teams).length === 0 ? (
+              <div className="text-center py-8 text-slate-500">
+                <p className="mb-4">No teams configured</p>
+                <button
+                  onClick={() => handleCreateEntity('team')}
+                  style={addButtonStyle}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.boxShadow = '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.boxShadow = 'none';
+                  }}
+                >
+                  +
+                </button>
+              </div>
+            ) : (
+              <>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
+                  {filterEntities(teams).map(team => (
+                    <div
+                      key={team.id}
+                      className={`p-4 border rounded-lg ${!team.active ? 'opacity-60 bg-slate-50' : 'bg-white'}`}
+                    >
+                      <div className="flex justify-between items-start mb-2">
+                        <div>
+                          <h4 className="font-medium text-slate-900">{team.name}</h4>
+                          <p className="text-sm text-slate-600 capitalize">{team.scope} Team</p>
+                        </div>
+                        <div className="flex gap-1">
+                          <button
+                            onClick={() => handleEditEntity(team, 'team')}
+                            className="p-1 hover:bg-slate-100 rounded"
+                            title="Edit"
+                          >
+                            <Edit size={14} className="text-slate-600" />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteEntity(team, 'team')}
+                            className="p-1 hover:bg-red-100 rounded"
+                            title="Delete"
+                          >
+                            <Trash size={14} className="text-red-600" />
+                          </button>
+                        </div>
+                      </div>
+                      {team.description && (
+                        <p className="text-xs text-slate-600 mb-2">{team.description}</p>
+                      )}
+                      {!team.active && (
+                        <p className="text-xs text-red-500 mt-1">Inactive</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                <button
+                  onClick={() => handleCreateEntity('team')}
+                  style={addButtonStyle}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.boxShadow = '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.boxShadow = 'none';
+                  }}
+                >
+                  +
+                </button>
+              </>
+            )}
+            </div>
           </>
         )}
 
@@ -813,6 +929,7 @@ const OrganizationSettings: React.FC<OrganizationSettingsProps> = ({ error, setE
         commands={commands}
         groups={groups}
         wings={wings}
+        squadrons={squadrons}
         onSave={handleModalSave}
         onClose={() => {
           console.log('Modal onClose called');

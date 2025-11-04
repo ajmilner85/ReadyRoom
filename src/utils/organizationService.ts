@@ -13,6 +13,7 @@ import {
   UpdateWing,
   UpdateSquadron
 } from '../types/OrganizationTypes';
+import type { Team, NewTeam } from '../types/TeamTypes';
 
 // ===============================
 // COMMAND OPERATIONS
@@ -528,4 +529,87 @@ export function getHierarchyPath(entity: Wing | Squadron | Group): string {
   }
   
   return path.join(' > ');
+}
+
+// ===============================
+// TEAM OPERATIONS
+// ===============================
+
+export async function getAllTeams(): Promise<{ data: Team[] | null; error: any }> {
+  try {
+    const { data, error } = await supabase
+      .from('teams')
+      .select('*')
+      .order('scope', { ascending: true })
+      .order('name', { ascending: true });
+
+    return { data, error };
+  } catch (error) {
+    console.error('Error fetching teams:', error);
+    return { data: null, error };
+  }
+}
+
+export async function createTeam(team: NewTeam): Promise<{ data: Team | null; error: any }> {
+  try {
+    const { data, error } = await supabase
+      .from('teams')
+      .insert({
+        name: team.name,
+        description: team.description || null,
+        scope: team.scope,
+        scope_id: team.scope_id || null,
+        active: team.active !== undefined ? team.active : true
+      })
+      .select()
+      .single();
+
+    return { data, error };
+  } catch (error) {
+    console.error('Error creating team:', error);
+    return { data: null, error };
+  }
+}
+
+export async function updateTeam(id: string, updates: Partial<NewTeam>): Promise<{ data: Team | null; error: any }> {
+  try {
+    const updateData: any = { updated_at: new Date().toISOString() };
+
+    if (updates.name !== undefined) updateData.name = updates.name;
+    if (updates.description !== undefined) updateData.description = updates.description;
+    if (updates.scope !== undefined) updateData.scope = updates.scope;
+    if (updates.scope_id !== undefined) updateData.scope_id = updates.scope_id;
+    if (updates.active !== undefined) updateData.active = updates.active;
+
+    const { data, error } = await supabase
+      .from('teams')
+      .update(updateData)
+      .eq('id', id)
+      .select()
+      .single();
+
+    return { data, error };
+  } catch (error) {
+    console.error('Error updating team:', error);
+    return { data: null, error };
+  }
+}
+
+export async function deleteTeam(id: string): Promise<{ error: any }> {
+  try {
+    const { error } = await supabase
+      .from('teams')
+      .delete()
+      .eq('id', id);
+
+    return { error };
+  } catch (error) {
+    console.error('Error deleting team:', error);
+    return { error };
+  }
+}
+
+// Check if team is active (not deleted/deactivated)
+export function isTeamActive(team: Team): boolean {
+  return team.active;
 }

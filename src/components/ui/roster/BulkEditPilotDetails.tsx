@@ -6,6 +6,7 @@ import { Status } from '../../../utils/statusService';
 import { Standing } from '../../../utils/standingService';
 import { Squadron } from '../../../utils/squadronService';
 import { Qualification } from '../../../utils/qualificationService';
+import type { Team, PilotTeam } from '../../../types/TeamTypes';
 import StatusSelector from './StatusSelector';
 import StandingSelector from './StandingSelector';
 import SquadronSelector from './SquadronSelector';
@@ -19,11 +20,15 @@ interface BulkEditPilotDetailsProps {
   squadrons: Squadron[];
   availableQualifications: Qualification[];
   allPilotQualifications: Record<string, any[]>;
+  availableTeams: Team[];
+  allPilotTeams: Record<string, PilotTeam[]>;
   onBulkStatusChange: (statusId: string) => Promise<void>;
   onBulkStandingChange: (standingId: string) => Promise<void>;
   onBulkSquadronChange: (squadronId: string) => Promise<void>;
   onBulkAddQualification: (qualificationId: string, achievedDate: string) => Promise<void>;
   onBulkRemoveQualification: (qualificationId: string) => Promise<void>;
+  onBulkAddTeam: (teamId: string, startDate: string) => Promise<void>;
+  onBulkRemoveTeam: (teamId: string) => Promise<void>;
   onBulkDeletePilots: () => Promise<void>;
   onBulkClearDiscord: () => Promise<void>;
 }
@@ -37,6 +42,14 @@ interface CommonQualification {
   latestAchieved: string;
   earliestExpiry?: string;
   latestExpiry?: string;
+}
+
+interface CommonTeam {
+  id: string;
+  name: string;
+  scope: 'global' | 'wing' | 'squadron';
+  earliestJoined: string;
+  latestJoined: string;
 }
 
 interface ConfirmationDialogProps {
@@ -168,15 +181,20 @@ const BulkEditPilotDetails: React.FC<BulkEditPilotDetailsProps> = ({
   squadrons,
   availableQualifications,
   allPilotQualifications,
+  availableTeams,
+  allPilotTeams,
   onBulkStatusChange,
   onBulkStandingChange,
   onBulkSquadronChange,
   onBulkAddQualification,
   onBulkRemoveQualification,
+  onBulkAddTeam,
+  onBulkRemoveTeam,
   onBulkDeletePilots,
   onBulkClearDiscord
 }) => {
   const [showAddQualDialog, setShowAddQualDialog] = useState(false);
+  const [showAddTeamDialog, setShowAddTeamDialog] = useState(false);
 
   // Track pending changes
   const [pendingStatusId, setPendingStatusId] = useState<string>('');
@@ -185,9 +203,12 @@ const BulkEditPilotDetails: React.FC<BulkEditPilotDetailsProps> = ({
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [selectedQualification, setSelectedQualification] = useState('');
   const [achievedDate, setAchievedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [selectedTeam, setSelectedTeam] = useState('');
+  const [teamStartDate, setTeamStartDate] = useState(new Date().toISOString().split('T')[0]);
   const [confirmDialog, setConfirmDialog] = useState<{
-    type: 'delete_pilots' | 'clear_discord' | 'remove_qualification';
+    type: 'delete_pilots' | 'clear_discord' | 'remove_qualification' | 'remove_team';
     qualificationId?: string;
+    teamId?: string;
   } | null>(null);
 
   const exportButtonStyle = {
@@ -266,6 +287,58 @@ const BulkEditPilotDetails: React.FC<BulkEditPilotDetailsProps> = ({
     return Array.from(qualMap.values());
   }, [selectedPilots, allPilotQualifications]);
 
+  // Calculate common teams across all selected pilots
+  const commonTeams = useMemo((): CommonTeam[] => {
+    if (selectedPilots.length === 0) return [];
+
+    // Get teams for first pilot
+    const firstPilotTeams = allPilotTeams[selectedPilots[0].id] || [];
+    const teamMap = new Map<string, CommonTeam>();
+
+    // Only consider active team memberships (no end_date)
+    firstPilotTeams
+      .filter(pt => !pt.end_date)
+      .forEach((pt: PilotTeam) => {
+        if (pt.team) {
+          teamMap.set(pt.team.id, {
+            id: pt.team.id,
+            name: pt.team.name,
+            scope: pt.team.scope,
+            earliestJoined: pt.start_date,
+            latestJoined: pt.start_date
+          });
+        }
+      });
+
+    // Check each other pilot to find common teams
+    for (let i = 1; i < selectedPilots.length; i++) {
+      const pilotTeams = allPilotTeams[selectedPilots[i].id] || [];
+      const pilotActiveTeamIds = new Set(
+        pilotTeams.filter(pt => !pt.end_date).map(pt => pt.team_id)
+      );
+
+      // Remove teams not present in this pilot
+      for (const [teamId, commonTeam] of teamMap.entries()) {
+        if (!pilotActiveTeamIds.has(teamId)) {
+          teamMap.delete(teamId);
+        } else {
+          // Update date ranges
+          const pilotTeam = pilotTeams.find(pt => pt.team_id === teamId && !pt.end_date);
+          if (pilotTeam) {
+            if (pilotTeam.start_date < commonTeam.earliestJoined) {
+              commonTeam.earliestJoined = pilotTeam.start_date;
+            }
+            if (pilotTeam.start_date > commonTeam.latestJoined) {
+              commonTeam.latestJoined = pilotTeam.start_date;
+            }
+          }
+        }
+      }
+    }
+
+    return Array.from(teamMap.values());
+  }, [selectedPilots, allPilotTeams]);
+
   // Calculate common Discord roles
   const hasDiscordLinked = selectedPilots.every(p => p.discordUsername);
 
@@ -284,6 +357,16 @@ const BulkEditPilotDetails: React.FC<BulkEditPilotDetailsProps> = ({
     setShowAddQualDialog(false);
     setSelectedQualification('');
     setAchievedDate(new Date().toISOString().split('T')[0]);
+  };
+
+  const handleAddTeam = async () => {
+    if (!selectedTeam) return;
+
+    await onBulkAddTeam(selectedTeam, teamStartDate);
+
+    setShowAddTeamDialog(false);
+    setSelectedTeam('');
+    setTeamStartDate(new Date().toISOString().split('T')[0]);
   };
 
   const handleStatusChange = (statusId: string) => {
@@ -672,6 +755,197 @@ const BulkEditPilotDetails: React.FC<BulkEditPilotDetailsProps> = ({
             </div>
           )}
         </Card>
+
+        {/* Common Teams */}
+        <Card className="p-4">
+          <h2 className="text-lg font-semibold mb-4" style={pilotDetailsStyles.sectionTitle}>
+            Common Teams
+          </h2>
+
+          <div style={{ marginBottom: '16px' }}>
+            <button
+              onClick={() => setShowAddTeamDialog(true)}
+              style={{
+                ...exportButtonStyle,
+                backgroundColor: '#3B82F6',
+                color: '#FFFFFF',
+                border: 'none',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = '#2563EB';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = '#3B82F6';
+              }}
+            >
+              <Plus size={16} />
+              Bulk Add Team
+            </button>
+          </div>
+
+          {commonTeams.length > 0 ? (
+            <div style={{ border: '1px solid #E5E7EB', borderRadius: '6px', backgroundColor: '#FFFFFF' }}>
+              {/* Table Header */}
+              <div style={{
+                display: 'flex',
+                backgroundColor: '#F9FAFB',
+                borderBottom: '1px solid #E5E7EB',
+                borderRadius: '6px 6px 0 0'
+              }}>
+                <div style={{
+                  padding: '8px 12px',
+                  fontSize: '12px',
+                  fontWeight: 500,
+                  color: '#6B7280',
+                  textTransform: 'uppercase',
+                  width: '300px',
+                  borderRight: '1px solid #E5E7EB'
+                }}>
+                  Team
+                </div>
+                <div style={{
+                  padding: '8px 12px',
+                  fontSize: '12px',
+                  fontWeight: 500,
+                  color: '#6B7280',
+                  textTransform: 'uppercase',
+                  width: '100px',
+                  borderRight: '1px solid #E5E7EB',
+                  textAlign: 'center'
+                }}>
+                  Scope
+                </div>
+                <div style={{
+                  padding: '8px 12px',
+                  fontSize: '12px',
+                  fontWeight: 500,
+                  color: '#6B7280',
+                  textTransform: 'uppercase',
+                  width: '150px',
+                  borderRight: '1px solid #E5E7EB',
+                  textAlign: 'center'
+                }}>
+                  Joined
+                </div>
+                <div style={{
+                  width: '30px',
+                  padding: '8px 12px'
+                }}>
+                </div>
+              </div>
+
+              {/* Table Body */}
+              {commonTeams.map((team, index) => (
+                <div
+                  key={team.id}
+                  style={{
+                    display: 'flex',
+                    borderBottom: index < commonTeams.length - 1 ? '1px solid #F3F4F6' : 'none',
+                    backgroundColor: '#FFFFFF',
+                    height: '34px'
+                  }}
+                >
+                  {/* Team Name Column */}
+                  <div style={{
+                    padding: '5px 12px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    width: '300px',
+                    borderRight: '1px solid #F3F4F6'
+                  }}>
+                    <span style={{
+                      fontSize: '14px',
+                      fontWeight: 500,
+                      color: '#111827'
+                    }}>
+                      {team.name}
+                    </span>
+                  </div>
+
+                  {/* Scope Column */}
+                  <div style={{
+                    padding: '5px 12px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: '100px',
+                    borderRight: '1px solid #F3F4F6'
+                  }}>
+                    <span style={{
+                      fontSize: '13px',
+                      color: '#6B7280',
+                      textTransform: 'capitalize'
+                    }}>
+                      {team.scope}
+                    </span>
+                  </div>
+
+                  {/* Joined Date Column */}
+                  <div style={{
+                    padding: '5px 12px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: '150px',
+                    borderRight: '1px solid #F3F4F6',
+                    flexDirection: 'column',
+                    gap: '2px'
+                  }}>
+                    <span style={{
+                      fontSize: '13px',
+                      color: '#6B7280'
+                    }}>
+                      {team.earliestJoined === team.latestJoined
+                        ? new Date(team.earliestJoined).toLocaleDateString()
+                        : `${new Date(team.earliestJoined).toLocaleDateString()} - ${new Date(team.latestJoined).toLocaleDateString()}`}
+                    </span>
+                  </div>
+
+                  {/* Actions Column */}
+                  <div style={{
+                    width: '30px',
+                    padding: '5px 12px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}>
+                    <button
+                      onClick={() => setConfirmDialog({ type: 'remove_team', teamId: team.id })}
+                      title="Remove team from all selected pilots"
+                      style={{
+                        width: '16px',
+                        height: '16px',
+                        padding: '0',
+                        borderRadius: '4px',
+                        background: 'none',
+                        border: 'none',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        cursor: 'pointer',
+                        color: '#9CA3AF'
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.color = '#EF4444';
+                        e.currentTarget.style.backgroundColor = '#FEF2F2';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.color = '#9CA3AF';
+                        e.currentTarget.style.backgroundColor = 'transparent';
+                      }}
+                    >
+                      <X size={12} strokeWidth={2.5} />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div style={{ color: '#9CA3AF', fontSize: '14px', textAlign: 'center', padding: '16px' }}>
+              No teams common to all selected pilots
+            </div>
+          )}
+        </Card>
       </div>
 
       {/* Footer with action buttons */}
@@ -889,6 +1163,132 @@ const BulkEditPilotDetails: React.FC<BulkEditPilotDetailsProps> = ({
           onConfirm={async () => {
             if (confirmDialog?.qualificationId) {
               await onBulkRemoveQualification(confirmDialog.qualificationId);
+            }
+            setConfirmDialog(null);
+          }}
+          onCancel={() => setConfirmDialog(null)}
+        />
+
+        {/* Add Team Dialog */}
+        {showAddTeamDialog && (
+          <div
+            style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              backgroundColor: 'rgba(0, 0, 0, 0.5)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              zIndex: 1000
+            }}
+            onClick={() => setShowAddTeamDialog(false)}
+          >
+            <div
+              style={{
+                backgroundColor: '#FFFFFF',
+                borderRadius: '8px',
+                padding: '24px',
+                minWidth: '500px',
+                maxWidth: '600px',
+                boxShadow: '0 10px 25px rgba(0, 0, 0, 0.1)'
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h3 style={{ fontSize: '18px', fontWeight: 600, marginBottom: '20px', color: '#1F2937' }}>
+                Add Team to {selectedPilots.length} Pilot{selectedPilots.length > 1 ? 's' : ''}
+              </h3>
+
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{ display: 'block', fontSize: '14px', fontWeight: 500, color: '#64748B', marginBottom: '8px' }}>
+                  Team *
+                </label>
+                <select
+                  value={selectedTeam}
+                  onChange={(e) => setSelectedTeam(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '8px 12px',
+                    border: '1px solid #D1D5DB',
+                    borderRadius: '6px',
+                    fontSize: '14px',
+                    backgroundColor: 'white',
+                    boxSizing: 'border-box'
+                  }}
+                >
+                  <option value="">Select a team</option>
+                  {availableTeams.filter(t => t.active).map(team => (
+                    <option key={team.id} value={team.id}>
+                      {team.name} ({team.scope})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div style={{ marginBottom: '24px' }}>
+                <label style={{ display: 'block', fontSize: '14px', fontWeight: 500, color: '#64748B', marginBottom: '8px' }}>
+                  Start Date
+                </label>
+                <input
+                  type="date"
+                  value={teamStartDate}
+                  onChange={(e) => setTeamStartDate(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '8px 12px',
+                    border: '1px solid #D1D5DB',
+                    borderRadius: '6px',
+                    fontSize: '14px',
+                    boxSizing: 'border-box'
+                  }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+                <button
+                  onClick={() => setShowAddTeamDialog(false)}
+                  style={{
+                    padding: '8px 16px',
+                    backgroundColor: '#FFFFFF',
+                    color: '#6B7280',
+                    border: '1px solid #D1D5DB',
+                    borderRadius: '6px',
+                    fontSize: '14px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleAddTeam}
+                  disabled={!selectedTeam}
+                  style={{
+                    padding: '8px 16px',
+                    backgroundColor: !selectedTeam ? '#9CA3AF' : '#3B82F6',
+                    color: '#FFFFFF',
+                    border: 'none',
+                    borderRadius: '6px',
+                    fontSize: '14px',
+                    cursor: !selectedTeam ? 'not-allowed' : 'pointer'
+                  }}
+                >
+                  Add to {selectedPilots.length} Pilot{selectedPilots.length > 1 ? 's' : ''}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <ConfirmationDialog
+          isOpen={confirmDialog?.type === 'remove_team'}
+          title="Remove Team"
+          message={`Are you sure you want to remove this team from all ${selectedPilots.length} selected pilot${selectedPilots.length > 1 ? 's' : ''}?`}
+          confirmText="Remove"
+          onConfirm={async () => {
+            if (confirmDialog?.teamId) {
+              await onBulkRemoveTeam(confirmDialog.teamId);
             }
             setConfirmDialog(null);
           }}

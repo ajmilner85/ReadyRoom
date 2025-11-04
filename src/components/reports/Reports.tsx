@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { usePageLoading } from '../../context/PageLoadingContext';
 import { Card } from '../ui/card';
-import { BarChart3 } from 'lucide-react';
+import { BarChart3, Shield } from 'lucide-react';
 import CycleAttendanceReport from './CycleAttendanceReport';
+import DiscordRoleVerificationReport from './DiscordRoleVerificationReport';
 
-type ReportType = 'cycle-attendance';
+type ReportType = 'cycle-attendance' | 'discord-role-verification';
 
 interface ReportsNavItem {
   id: ReportType;
@@ -17,6 +18,11 @@ const reportsNavItems: ReportsNavItem[] = [
     id: 'cycle-attendance',
     icon: <BarChart3 size={20} />,
     label: 'Cycle Attendance'
+  },
+  {
+    id: 'discord-role-verification',
+    icon: <Shield size={20} />,
+    label: 'Discord Role Verification'
   }
 ];
 
@@ -40,6 +46,8 @@ const Reports: React.FC = () => {
     switch (activeReport) {
       case 'cycle-attendance':
         return <CycleAttendanceReport error={error} setError={setError} />;
+      case 'discord-role-verification':
+        return <DiscordRoleVerificationReport error={error} setError={setError} />;
       default:
         return <div>Select a report type</div>;
     }

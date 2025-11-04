@@ -13,8 +13,10 @@ import RoleSelector from './RoleSelector';
 import SquadronSelector from './SquadronSelector';
 import { Squadron } from '../../../utils/squadronService';
 import QualificationsManager from './QualificationsManager';
+import TeamsManager from './TeamsManager';
 import QualificationBadge from '../QualificationBadge';
 import { Save, X, Trash2, Wrench } from 'lucide-react';
+import type { Team, PilotTeam } from '../../../types/TeamTypes';
 import { fetchDiscordGuildMember, fetchDiscordGuildRoles } from '../../../utils/discordService';
 import { fetchDiscordGuildMembers, DiscordMember } from '../../../utils/discordPilotService';
 import { supabase } from '../../../utils/supabaseClient';
@@ -50,6 +52,8 @@ interface RoleMapping {
   appPermission?: 'admin' | 'flight_lead' | 'member' | 'guest';
   qualification?: string; // Qualification ID
   qualificationName?: string; // Human readable qualification name
+  teamId?: string; // Team ID
+  teamName?: string; // Human readable team name
   isIgnoreUsers?: boolean; // Special flag for "Ignore Users" mapping
   priority: number;
 }
@@ -63,28 +67,40 @@ interface PilotDetailsProps {
   squadrons: Squadron[];
   availableQualifications: Qualification[];
   pilotQualifications: any[];
+  availableTeams: Team[];
+  pilotTeams: PilotTeam[];
   loadingRoles: boolean;
   updatingRoles: boolean;
   updatingStatus: boolean;
   updatingStanding: boolean;
   updatingSquadron: boolean;
   loadingQualifications: boolean;
+  loadingTeams: boolean;
   disabledRoles: Record<string, boolean>;
   selectedQualification: string;
   qualificationAchievedDate: string;
+  selectedTeam: string;
+  teamStartDate: string;
   isAddingQualification: boolean;
+  isAddingTeam: boolean;
   updatingQualifications: boolean;
+  updatingTeams: boolean;
   setSelectedQualification: (id: string) => void;
   setQualificationAchievedDate: (date: string) => void;
+  setSelectedTeam: (id: string) => void;
+  setTeamStartDate: (date: string) => void;
   handleStatusChange: (statusId: string) => void;
   handleStandingChange: (standingId: string) => void;
   handleRoleChange: (roleId: string) => void;
   handleSquadronChange: (squadronId: string) => void;
   handleAddQualification: () => void;
   handleRemoveQualification: (id: string) => void;
+  handleAddTeam: () => void;
+  handleRemoveTeam: (id: string) => void;
   handleDeletePilot?: (pilotId: string) => void;
   handleSavePilotChanges?: (pilot: Pilot) => Promise<{ success: boolean; error?: string }>;
   onQualificationAdded?: (pilotId: string, qualificationData: any[]) => void;
+  onTeamAdded?: (pilotId: string) => void;
   isNewPilot?: boolean;
   onPilotFieldChange?: (field: string, value: string) => void;
   onSaveNewPilot?: () => void;
@@ -102,20 +118,32 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
   squadrons,
   availableQualifications,
   pilotQualifications,
+  availableTeams,
+  pilotTeams,
   loadingRoles,
   loadingQualifications,
+  loadingTeams,
   disabledRoles,
   selectedQualification,
   qualificationAchievedDate,
+  selectedTeam,
+  teamStartDate,
   isAddingQualification,
+  isAddingTeam,
   updatingQualifications,
+  updatingTeams,
   setSelectedQualification,
   setQualificationAchievedDate,
+  setSelectedTeam,
+  setTeamStartDate,
   handleAddQualification,
   handleRemoveQualification,
+  handleAddTeam,
+  handleRemoveTeam,
   handleDeletePilot,
   handleSavePilotChanges,
   onQualificationAdded,
+  onTeamAdded,
   isNewPilot = false,
   onPilotFieldChange,
   onSaveNewPilot,
@@ -141,6 +169,12 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
     mapping: RoleMapping;
     selectedQualificationId: string;
     earnedDate: string;
+  } | null>(null);
+  const [showTeamRepairDialog, setShowTeamRepairDialog] = useState(false);
+  const [teamRepairDialogData, setTeamRepairDialogData] = useState<{
+    discordRole: DiscordRole;
+    mapping: RoleMapping;
+    startDate: string;
   } | null>(null);
   const [showQualificationDropdown, setShowQualificationDropdown] = useState(false);
   const [cachedQualifications, setCachedQualifications] = useState<any[]>([]);
@@ -355,6 +389,78 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
     setShowRepairDialog(false);
     setRepairDialogData(null);
     setShowQualificationDropdown(false);
+  };
+
+  const handleAddMissingTeam = (role: DiscordRole, mapping: RoleMapping) => {
+    if (!selectedPilot || !mapping.teamId) return;
+
+    setTeamRepairDialogData({
+      discordRole: role,
+      mapping,
+      startDate: new Date().toISOString().split('T')[0] // Default to today
+    });
+    setShowTeamRepairDialog(true);
+  };
+
+  const handleTeamRepairDialogConfirm = async () => {
+    if (!teamRepairDialogData || !selectedPilot || !teamRepairDialogData.mapping.teamId) return;
+
+    try {
+      // Check if team membership already exists to prevent duplicate key error
+      const { data: existingMemberships, error: checkError } = await supabase
+        .from('pilot_teams')
+        .select('id')
+        .eq('pilot_id', selectedPilot.id)
+        .eq('team_id', teamRepairDialogData.mapping.teamId)
+        .is('end_date', null);
+
+      if (checkError) {
+        console.error('Error checking existing team memberships:', checkError);
+        alert(`Failed to check existing team memberships: ${checkError.message}`);
+        return;
+      }
+
+      if (existingMemberships && existingMemberships.length > 0) {
+        console.log('Pilot is already a member of this team');
+        alert('This pilot is already a member of this team.');
+        return;
+      }
+
+      // Add pilot to team in pilot_teams table
+      const { error } = await supabase
+        .from('pilot_teams')
+        .insert({
+          pilot_id: selectedPilot.id,
+          team_id: teamRepairDialogData.mapping.teamId,
+          start_date: dateInputToLocalDate(teamRepairDialogData.startDate).toISOString(),
+          created_at: new Date().toISOString()
+        });
+
+      if (error) {
+        console.error('Error adding pilot to team:', error);
+        alert(`Failed to add pilot to team: ${error.message}`);
+        return;
+      }
+
+      // Close dialog
+      setShowTeamRepairDialog(false);
+      setTeamRepairDialogData(null);
+
+      // Call the parent callback to refresh team data
+      if (onTeamAdded) {
+        onTeamAdded(selectedPilot.id);
+      }
+
+      console.log('Team added successfully');
+    } catch (error: any) {
+      console.error('Error adding team:', error);
+      alert(`Failed to add team: ${error.message}`);
+    }
+  };
+
+  const handleTeamRepairDialogCancel = () => {
+    setShowTeamRepairDialog(false);
+    setTeamRepairDialogData(null);
   };
 
   const loadDiscordRoles = async () => {
@@ -930,6 +1036,31 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
         }
       }
 
+      // Check if it's a team mapping
+      if (mapping.teamId) {
+        // Check if pilot is a member of this team
+        const hasTeam = pilotTeams?.some((pt: PilotTeam) => {
+          // Check if pilot is active member of this team (no end_date)
+          return pt.team_id === mapping.teamId && !pt.end_date;
+        });
+
+        if (hasTeam) {
+          // Has team membership - green
+          return {
+            backgroundColor: '#D1FAE5',
+            color: '#065F46',
+            border: '1px solid #10B981'
+          };
+        } else {
+          // Missing team membership - red
+          return {
+            backgroundColor: '#FEE2E2',
+            color: '#DC2626',
+            border: '1px solid #EF4444'
+          };
+        }
+      }
+
       // Check if it's a permission mapping
       if (mapping.appPermission) {
         // Check if pilot has the corresponding site permission (this would need actual implementation)
@@ -949,49 +1080,87 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
       };
     };
 
-    // Helper function to render qualification fix button
+    // Helper function to render qualification/team fix button
     const renderFixButton = (role: DiscordRole) => {
       const mapping = roleMappings.find(m => m.discordRoleId === role.id);
-      
-      if (!mapping || !mapping.qualification) return null;
-      
-      // Check if pilot is missing this qualification using the local pilotQualifications state
-      const hasQualification = localPilotQualifications?.some((pq: any) => {
-        const qualification = pq.qualification;
-        if (!qualification) return false;
-        
+
+      if (!mapping) return null;
+
+      // Check for missing qualification
+      if (mapping.qualification) {
+        // Check if pilot is missing this qualification using the local pilotQualifications state
+        const hasQualification = localPilotQualifications?.some((pq: any) => {
+          const qualification = pq.qualification;
+          if (!qualification) return false;
+
+          return (
+            qualification.name === mapping.qualificationName ||
+            qualification.id === mapping.qualification ||
+            qualification.name === mapping.qualification ||
+            pq.qualification_id === mapping.qualification
+          );
+        });
+
+        if (hasQualification) return null;
+
         return (
-          qualification.name === mapping.qualificationName ||
-          qualification.id === mapping.qualification ||
-          qualification.name === mapping.qualification ||
-          pq.qualification_id === mapping.qualification
+          <button
+            onClick={() => handleAddMissingQualification(role, mapping)}
+            style={{
+              marginLeft: '6px',
+              padding: '2px',
+              backgroundColor: 'transparent',
+              border: 'none',
+              borderRadius: '50%',
+              cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: '18px',
+              height: '18px',
+              color: '#DC2626'
+            }}
+            title={`Quick Add Qualification: ${mapping.qualificationName}`}
+          >
+            <Wrench size={12} />
+          </button>
         );
-      });
-      
-      if (hasQualification) return null;
-      
-      return (
-        <button
-          onClick={() => handleAddMissingQualification(role, mapping)}
-          style={{
-            marginLeft: '6px',
-            padding: '2px',
-            backgroundColor: 'transparent',
-            border: 'none',
-            borderRadius: '50%',
-            cursor: 'pointer',
-            display: 'inline-flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            width: '18px',
-            height: '18px',
-            color: '#DC2626'
-          }}
-          title={`Add missing qualification: ${mapping.qualificationName}`}
-        >
-          <Wrench size={12} />
-        </button>
-      );
+      }
+
+      // Check for missing team
+      if (mapping.teamId) {
+        // Check if pilot is missing this team
+        const hasTeam = pilotTeams?.some((pt: PilotTeam) => {
+          return pt.team_id === mapping.teamId && !pt.end_date;
+        });
+
+        if (hasTeam) return null;
+
+        return (
+          <button
+            onClick={() => handleAddMissingTeam(role, mapping)}
+            style={{
+              marginLeft: '6px',
+              padding: '2px',
+              backgroundColor: 'transparent',
+              border: 'none',
+              borderRadius: '50%',
+              cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: '18px',
+              height: '18px',
+              color: '#DC2626'
+            }}
+            title={`Quick Add to Team: ${mapping.teamName}`}
+          >
+            <Wrench size={12} />
+          </button>
+        );
+      }
+
+      return null;
     };
 
     // Create responsive column layout
@@ -1257,6 +1426,26 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
                 setQualificationAchievedDate={setQualificationAchievedDate}
                 handleAddQualification={handleAddQualification}
                 handleRemoveQualification={handleRemoveQualification}
+              />
+            </Card>
+
+            <Card className="p-4">
+              <h2 className="text-lg font-semibold mb-4" style={pilotDetailsStyles.sectionTitle}>
+                Teams
+              </h2>
+
+              <TeamsManager
+                pilotTeams={pilotTeams}
+                availableTeams={availableTeams}
+                selectedTeam={selectedTeam}
+                teamStartDate={teamStartDate}
+                loadingTeams={loadingTeams}
+                isAddingTeam={isAddingTeam}
+                updatingTeams={updatingTeams}
+                setSelectedTeam={setSelectedTeam}
+                setTeamStartDate={setTeamStartDate}
+                handleAddTeam={handleAddTeam}
+                handleRemoveTeam={handleRemoveTeam}
               />
             </Card>
           </div>
@@ -1747,6 +1936,180 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
             </div>
           </div>
         )}
+
+      {/* Team Repair Dialog */}
+      {showTeamRepairDialog && teamRepairDialogData && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000
+          }}
+          onClick={handleTeamRepairDialogCancel}
+        >
+          <div
+            style={{
+              backgroundColor: '#FFFFFF',
+              borderRadius: '8px',
+              padding: '24px',
+              minWidth: '500px',
+              maxWidth: '600px',
+              boxShadow: '0 10px 25px rgba(0, 0, 0, 0.1)'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              marginBottom: '20px'
+            }}>
+              <div style={{
+                width: '24px',
+                height: '24px',
+                marginRight: '8px'
+              }}>
+                <svg viewBox="0 0 24 24" style={{ width: '100%', height: '100%' }}>
+                  <path
+                    fill="#5865F2"
+                    d="M20.317 4.3698a19.7913 19.7913 0 00-4.8851-1.5152.0741.0741 0 00-.0785.0371c-.211.3753-.4447.8648-.6083 1.2495-1.8447-.2762-3.68-.2762-5.4868 0-.1636-.3933-.4058-.8742-.6177-1.2495a.077.077 0 00-.0785-.037 19.7363 19.7363 0 00-4.8852 1.515.0699.0699 0 00-.0321.0277C.5334 9.0458-.319 13.5799.0992 18.0578a.0824.0824 0 00.0312.0561c2.0528 1.5076 4.0413 2.4228 5.9929 3.0294a.0777.0777 0 00.0842-.0276c.4616-.6304.8731-1.2952 1.226-1.9942a.076.076 0 00-.0416-.1057c-.6528-.2476-1.2743-.5495-1.8722-.8923a.077.077 0 01-.0076-.1277c.1258-.0943.2517-.1923.3718-.2914a.0743.0743 0 01.0776-.0105c3.9278 1.7933 8.18 1.7933 12.0614 0a.0739.0739 0 01.0785.0095c.1202.099.246.1981.3728.2924a.077.077 0 01-.0066.1276 12.2986 12.2986 0 01-1.873.8914.0766.0766 0 00-.0407.1067c.3604.698.7719 1.3628 1.225 1.9932a.076.076 0 00.0842.0286c1.961-.6067 3.9495-1.5219 6.0023-3.0294a.077.077 0 00.0313-.0552c.5004-5.177-.8382-9.6739-3.5485-13.6604a.061.061 0 00-.0312-.0286zM8.02 15.3312c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9555-2.4189 2.157-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419-.0002 1.3332-.9555 2.4189-2.1569 2.4189zm7.9748 0c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9554-2.4189 2.1569-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.9554 2.4189-2.1568 2.4189Z"
+                  />
+                </svg>
+              </div>
+              <h3 style={{
+                margin: '0',
+                fontSize: '18px',
+                fontWeight: '600',
+                color: '#1F2937'
+              }}>
+                Add to Team
+              </h3>
+            </div>
+
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '12px',
+              marginBottom: '24px',
+              padding: '16px',
+              backgroundColor: '#F8FAFC',
+              borderRadius: '8px',
+              border: '1px solid #E2E8F0'
+            }}>
+              {/* Discord Logo */}
+              <div style={{
+                width: '20px',
+                height: '20px',
+                flexShrink: 0
+              }}>
+                <svg viewBox="0 0 24 24" style={{ width: '100%', height: '100%' }}>
+                  <path
+                    fill="#5865F2"
+                    d="M20.317 4.3698a19.7913 19.7913 0 00-4.8851-1.5152.0741.0741 0 00-.0785.0371c-.211.3753-.4447.8648-.6083 1.2495-1.8447-.2762-3.68-.2762-5.4868 0-.1636-.3933-.4058-.8742-.6177-1.2495a.077.077 0 00-.0785-.037 19.7363 19.7363 0 00-4.8852 1.515.0699.0699 0 00-.0321.0277C.5334 9.0458-.319 13.5799.0992 18.0578a.0824.0824 0 00.0312.0561c2.0528 1.5076 4.0413 2.4228 5.9929 3.0294a.0777.0777 0 00.0842-.0276c.4616-.6304.8731-1.2952 1.226-1.9942a.076.076 0 00-.0416-.1057c-.6528-.2476-1.2743-.5495-1.8722-.8923a.077.077 0 01-.0076-.1277c.1258-.0943.2517-.1923.3718-.2914a.0743.0743 0 01.0776-.0105c3.9278 1.7933 8.18 1.7933 12.0614 0a.0739.0739 0 01.0785.0095c.1202.099.246.1981.3728.2924a.077.077 0 01-.0066.1276 12.2986 12.2986 0 01-1.873.8914.0766.0766 0 00-.0407.1067c.3604.698.7719 1.3628 1.225 1.9932a.076.076 0 00.0842.0286c1.961-.6067 3.9495-1.5219 6.0023-3.0294a.077.077 0 00.0313-.0552c.5004-5.177-.8382-9.6739-3.5485-13.6604a.061.061 0 00-.0312-.0286zM8.02 15.3312c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9555-2.4189 2.157-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419-.0002 1.3332-.9555 2.4189-2.1569 2.4189zm7.9748 0c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9554-2.4189 2.1569-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.9554 2.4189-2.1568 2.4189Z"
+                  />
+                </svg>
+              </div>
+
+              {/* Discord Role Name */}
+              <span style={{
+                fontSize: '14px',
+                color: '#1F2937',
+                fontWeight: '500',
+                flexShrink: 0
+              }}>
+                {teamRepairDialogData.discordRole.name}
+              </span>
+
+              {/* Arrow */}
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}>
+                <path d="M13.5 6L20.5 12L13.5 18M19.5 12H3" stroke="#9CA3AF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+
+              {/* Team Name */}
+              <span style={{
+                fontSize: '14px',
+                color: '#1F2937',
+                fontWeight: '600',
+                backgroundColor: '#D1FAE5',
+                color: '#065F46',
+                border: '1px solid #10B981',
+                padding: '4px 12px',
+                borderRadius: '4px'
+              }}>
+                {teamRepairDialogData.mapping.teamName}
+              </span>
+            </div>
+
+            <div style={{ marginBottom: '24px' }}>
+              <label style={{
+                display: 'block',
+                marginBottom: '8px',
+                fontSize: '14px',
+                fontWeight: '500',
+                color: '#374151'
+              }}>
+                Start Date
+              </label>
+              <input
+                type="date"
+                value={teamRepairDialogData.startDate}
+                onChange={(e) => {
+                  setTeamRepairDialogData({
+                    ...teamRepairDialogData,
+                    startDate: e.target.value
+                  });
+                  setTeamStartDate(e.target.value);
+                }}
+                style={{
+                  width: '100%',
+                  padding: '8px 12px',
+                  border: '1px solid #D1D5DB',
+                  borderRadius: '6px',
+                  fontSize: '14px',
+                  boxSizing: 'border-box'
+                }}
+              />
+            </div>
+
+            <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+              <button
+                onClick={handleTeamRepairDialogCancel}
+                style={{
+                  padding: '8px 16px',
+                  backgroundColor: '#FFFFFF',
+                  color: '#6B7280',
+                  border: '1px solid #D1D5DB',
+                  borderRadius: '6px',
+                  fontSize: '14px',
+                  cursor: 'pointer'
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleTeamRepairDialogConfirm}
+                style={{
+                  padding: '8px 16px',
+                  backgroundColor: '#10B981',
+                  color: '#FFFFFF',
+                  border: 'none',
+                  borderRadius: '6px',
+                  fontSize: '14px',
+                  cursor: 'pointer'
+                }}
+              >
+                Add to Team
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

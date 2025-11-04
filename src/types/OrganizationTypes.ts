@@ -45,7 +45,14 @@ export interface Wing {
       id: string;
       discordRoleId: string;
       discordRoleName: string;
-      appPermission: 'admin' | 'flight_lead' | 'member' | 'guest';
+      appPermission?: 'admin' | 'flight_lead' | 'member' | 'guest';
+      qualification?: string;
+      qualificationName?: string;
+      squadronId?: string;
+      squadronName?: string;
+      teamId?: string;
+      teamName?: string;
+      isIgnoreUsers?: boolean;
       priority: number;
     }>;
   };
@@ -78,7 +85,14 @@ export interface Squadron {
       id: string;
       discordRoleId: string;
       discordRoleName: string;
-      appPermission: 'admin' | 'flight_lead' | 'member' | 'guest';
+      appPermission?: 'admin' | 'flight_lead' | 'member' | 'guest';
+      qualification?: string;
+      qualificationName?: string;
+      squadronId?: string;
+      squadronName?: string;
+      teamId?: string;
+      teamName?: string;
+      isIgnoreUsers?: boolean;
       priority: number;
     }>;
     threadingSettings?: {
@@ -111,8 +125,11 @@ export type UpdateGroup = Partial<NewGroup>;
 export type UpdateWing = Partial<NewWing>;
 export type UpdateSquadron = Partial<NewSquadron>;
 
+// Import Team types for unified entity handling
+import type { Team } from './TeamTypes';
+
 // Organizational hierarchy level types
-export type OrgLevel = 'command' | 'group' | 'wing' | 'squadron';
+export type OrgLevel = 'command' | 'group' | 'wing' | 'squadron' | 'team';
 
 // Entity union type for generic operations
-export type OrgEntity = Command | Group | Wing | Squadron;
+export type OrgEntity = Command | Group | Wing | Squadron | Team;
