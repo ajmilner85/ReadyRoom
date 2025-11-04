@@ -24,6 +24,7 @@ const dotenv = require('dotenv');
 const express = require('express');
 const cors = require('cors');
 const bodyParser = require('body-parser');
+const { Client, GatewayIntentBits } = require('discord.js');
 
 // Load environment variables - check for .env.local first (development), then .env (production)
 const envLocalPath = path.resolve(__dirname, '../.env.local');

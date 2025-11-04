@@ -20,15 +20,22 @@ import { getAllStandings, Standing } from '../../utils/standingService';
 import { assignPilotStatus, assignPilotStanding } from '../../utils/pilotStatusStandingService';
 import { getAllRoles, Role } from '../../utils/roleService';
 import { getAllSquadrons, assignPilotToSquadron, Squadron } from '../../utils/squadronService';
-import { 
-  Qualification, 
-  getAllQualifications, 
+import {
+  Qualification,
+  getAllQualifications,
   assignQualificationToPilot,
   removeQualificationFromPilot,
   getPilotQualifications,
   getBatchPilotQualifications,
   clearPilotQualificationsCache
 } from '../../utils/qualificationService';
+import type { Team, PilotTeam } from '../../types/TeamTypes';
+import {
+  getAllTeams,
+  getPilotTeams,
+  assignPilotToTeam,
+  removePilotFromTeam
+} from '../../utils/teamService';
 import { dateInputToLocalDate } from '../../utils/dateUtils';
 import { rosterStyles } from '../../styles/RosterManagementStyles';
 import PilotList from './roster/PilotList';
@@ -132,9 +139,23 @@ const RosterManagement: React.FC = () => {
   );
   const [isAddingQualification, setIsAddingQualification] = useState(false);
   const [updatingQualifications, setUpdatingQualifications] = useState(false);
-  
+
   // Add a state variable to store qualifications for all pilots
   const [allPilotQualifications, setAllPilotQualifications] = useState<Record<string, any[]>>({});
+
+  // Add a state variable to store teams for all pilots
+  const [allPilotTeams, setAllPilotTeams] = useState<Record<string, PilotTeam[]>>({});
+
+  // Team management state
+  const [availableTeams, setAvailableTeams] = useState<Team[]>([]);
+  const [pilotTeams, setPilotTeams] = useState<PilotTeam[]>([]);
+  const [loadingTeams, setLoadingTeams] = useState(false);
+  const [selectedTeam, setSelectedTeam] = useState<string>('');
+  const [teamStartDate, setTeamStartDate] = useState<string>(
+    new Date().toISOString().split('T')[0] // Default to today's date
+  );
+  const [isAddingTeam, setIsAddingTeam] = useState(false);
+  const [updatingTeams, setUpdatingTeams] = useState(false);
 
   const rosterListRef = useRef<HTMLDivElement>(null);
   const pilotDetailsRef = useRef<HTMLDivElement>(null);
@@ -198,6 +219,7 @@ const RosterManagement: React.FC = () => {
             setSelectedPilot(refreshedPilot);
             fetchPilotRoles(refreshedPilot.id);
             fetchPilotQualifications(refreshedPilot.id);
+            fetchPilotTeams(refreshedPilot.id);
           } else if (attempts < maxAttempts) {
             attempts++;
             findAndUpdatePilot();
@@ -1214,20 +1236,54 @@ const RosterManagement: React.FC = () => {
     }
   };
 
+  // Function to fetch teams for all pilots
+  const fetchAllPilotTeams = async () => {
+    if (pilots.length === 0) return;
+
+    try {
+      const pilotIds = pilots.map(pilot => pilot.id);
+
+      // Fetch teams for each pilot
+      const teamsPromises = pilotIds.map(async (pilotId) => {
+        const actualId = await getActualPilotId(pilotId);
+        const response = await getPilotTeams(actualId);
+        return { pilotId, teams: response.data || [] };
+      });
+
+      const results = await Promise.all(teamsPromises);
+
+      // Build map of pilot ID to teams
+      const teamsMap: Record<string, PilotTeam[]> = {};
+      results.forEach(({ pilotId, teams }) => {
+        teamsMap[pilotId] = teams;
+      });
+
+      setAllPilotTeams(teamsMap);
+    } catch (err: any) {
+      console.error('Error fetching all pilot teams:', err);
+    }
+  };
+
   // Callback for when a qualification is added via repair dialog
   const handleQualificationAddedViaRepair = (pilotId: string, qualificationData: any[]) => {
-    
+
     // Update pilotQualifications if this is the selected pilot
     if (selectedPilot && selectedPilot.id === pilotId) {
       setPilotQualifications(qualificationData);
     }
-    
+
     // Update allPilotQualifications for badge rendering
     setAllPilotQualifications(prev => ({
       ...prev,
       [pilotId]: qualificationData
     }));
-    
+
+  };
+
+  // Callback for when a team is added via repair dialog
+  const handleTeamAddedViaRepair = (pilotId: string) => {
+    // Refresh teams for this pilot
+    fetchPilotTeams(pilotId);
   };
 
   // Function to add a qualification to a pilot
@@ -1360,6 +1416,126 @@ const RosterManagement: React.FC = () => {
       fetchPilotQualifications(selectedPilot.id);
     } finally {
       setUpdatingQualifications(false);
+    }
+  };
+
+  // Function to fetch all available teams
+  const fetchAvailableTeams = async () => {
+    try {
+      const teamsResponse = await getAllTeams();
+      if (teamsResponse.error) {
+        throw new Error(teamsResponse.error.message);
+      }
+      if (teamsResponse.data) {
+        setAvailableTeams(teamsResponse.data);
+      }
+    } catch (err: any) {
+      console.error('Error fetching teams:', err);
+    }
+  };
+
+  // Function to fetch a pilot's teams
+  const fetchPilotTeams = async (pilotId: string) => {
+    setLoadingTeams(true);
+
+    try {
+      // Get the actual UUID
+      const actualPilotId = await getActualPilotId(pilotId);
+
+      // Fetch teams
+      const teamsResponse = await getPilotTeams(actualPilotId);
+
+      if (teamsResponse.error) {
+        throw new Error(teamsResponse.error.message);
+      }
+
+      setPilotTeams(teamsResponse.data || []);
+    } catch (err: any) {
+      console.error('Error fetching pilot teams:', err);
+      setPilotTeams([]);
+    } finally {
+      setLoadingTeams(false);
+    }
+  };
+
+  // Function to add a pilot to a team
+  const handleAddTeam = async () => {
+    if (!selectedPilot || !selectedTeam) return;
+
+    setUpdatingTeams(true);
+
+    try {
+      // Get the actual UUID
+      const actualPilotId = await getActualPilotId(selectedPilot.id);
+
+      // Convert start date string to Date object
+      const startDate = teamStartDate ? dateInputToLocalDate(teamStartDate) : undefined;
+
+      console.log('Adding pilot to team:', {
+        pilotId: actualPilotId,
+        teamId: selectedTeam,
+        startDate: startDate?.toISOString()
+      });
+
+      // Assign pilot to team
+      const teamResponse = await assignPilotToTeam(
+        actualPilotId,
+        selectedTeam,
+        startDate
+      );
+
+      if (teamResponse.error) {
+        console.error('Database error adding team:', teamResponse.error);
+        throw new Error(teamResponse.error.message || 'Failed to add team');
+      }
+
+      console.log('Pilot added to team successfully:', teamResponse.data);
+
+      // Refresh teams for the selected pilot
+      await fetchPilotTeams(actualPilotId);
+
+      // Reset form
+      setSelectedTeam('');
+      setIsAddingTeam(false);
+    } catch (err: any) {
+      console.error('Error adding team:', err);
+      alert(`Error adding team: ${err.message}`);
+    } finally {
+      setUpdatingTeams(false);
+    }
+  };
+
+  // Function to remove a pilot from a team
+  const handleRemoveTeam = async (pilotTeamRecordId: string) => {
+    if (!selectedPilot) return;
+
+    setUpdatingTeams(true);
+
+    try {
+      // Get the actual UUID
+      const actualPilotId = await getActualPilotId(selectedPilot.id);
+
+      // Remove the pilot from the team (sets end_date to today)
+      const { success, error } = await removePilotFromTeam(pilotTeamRecordId);
+
+      if (error) {
+        console.error('Database error removing team:', error);
+        throw new Error(error.message || 'Failed to remove team');
+      }
+
+      console.log('Pilot removed from team successfully');
+
+      // Refresh teams from database
+      await fetchPilotTeams(actualPilotId);
+
+    } catch (err: any) {
+      console.error('Error removing team:', err);
+      alert(`Error removing team: ${err.message}`);
+
+      // Force refresh teams from database to ensure UI is in sync
+      fetchPilotTeams(selectedPilot.id);
+    } finally {
+      setUpdatingTeams(false);
     }
   };
 
@@ -1646,6 +1822,79 @@ const RosterManagement: React.FC = () => {
       console.error('Error removing qualification:', error);
     } finally {
       setUpdatingQualifications(false);
+    }
+  };
+
+  const handleBulkAddTeam = async (teamId: string, startDate: string) => {
+    if (!teamId || selectedPilots.length === 0) return;
+
+    // Check permission - for scoped permissions, just check if user has any scope
+    const canBulkEdit = hasPermission('canBulkEditRoster');
+    if (!canBulkEdit) {
+      console.error('Permission denied: bulk_edit_roster');
+      return;
+    }
+
+    try {
+      setUpdatingTeams(true);
+
+      const startDateObj = startDate ? dateInputToLocalDate(startDate) : undefined;
+
+      const operations = selectedPilots.map(async (pilot) => {
+        const actualPilotId = await getActualPilotId(pilot.id);
+        return assignPilotToTeam(actualPilotId, teamId, startDateObj);
+      });
+
+      await Promise.all(operations);
+
+      // Refresh pilots to show updated teams
+      await refreshPilots();
+    } catch (error) {
+      console.error('Error adding team:', error);
+      alert('Error adding team to pilots');
+    } finally {
+      setUpdatingTeams(false);
+    }
+  };
+
+  const handleBulkRemoveTeam = async (teamId: string) => {
+    if (!teamId || selectedPilots.length === 0) return;
+
+    // Check permission - for scoped permissions, just check if user has any scope
+    const canBulkEdit = hasPermission('canBulkEditRoster');
+    if (!canBulkEdit) {
+      console.error('Permission denied: bulk_edit_roster');
+      return;
+    }
+
+    try {
+      setUpdatingTeams(true);
+
+      // For each pilot, find their pilot_team record for this team and remove it
+      const operations = selectedPilots.map(async (pilot) => {
+        const actualPilotId = await getActualPilotId(pilot.id);
+        const teamsResponse = await getPilotTeams(actualPilotId);
+
+        if (teamsResponse.data) {
+          const pilotTeamRecord = teamsResponse.data.find(
+            pt => pt.team_id === teamId && !pt.end_date
+          );
+
+          if (pilotTeamRecord) {
+            return removePilotFromTeam(pilotTeamRecord.id);
+          }
+        }
+      });
+
+      await Promise.all(operations);
+
+      // Refresh pilots to show updated teams
+      await refreshPilots();
+    } catch (error) {
+      console.error('Error removing team:', error);
+      alert('Error removing team from pilots');
+    } finally {
+      setUpdatingTeams(false);
     }
   };
 
@@ -1971,6 +2220,13 @@ const RosterManagement: React.FC = () => {
           console.error('Error fetching qualifications (continuing anyway):', qualErr);
         }
 
+        // Fetch teams with timeout
+        try {
+          await withTimeout(fetchAvailableTeams(), 8000);
+        } catch (teamsErr) {
+          console.error('Error fetching teams (continuing anyway):', teamsErr);
+        }
+
         // Fetch pilots with timeout
         try {
           await withTimeout(refreshPilots(), 10000);
@@ -2001,20 +2257,23 @@ const RosterManagement: React.FC = () => {
   }, []); // No dependencies needed since refreshPilots doesn't depend on statusMap anymore
 
   useEffect(() => {
-    // When pilots are loaded, fetch qualifications for all pilots
+    // When pilots are loaded, fetch qualifications and teams for all pilots
     if (pilots.length > 0) {
       fetchAllPilotQualifications();
+      fetchAllPilotTeams();
     }
   }, [pilots]);
 
-  // When a pilot is selected, fetch their roles and qualifications
+  // When a pilot is selected, fetch their roles, qualifications, and teams
   useEffect(() => {
     if (selectedPilot) {
       fetchPilotRoles(selectedPilot.id);
       fetchPilotQualifications(selectedPilot.id);
+      fetchPilotTeams(selectedPilot.id);
     } else {
       setPilotRoles([]);
       setPilotQualifications([]);
+      setPilotTeams([]);
     }
   }, [selectedPilot]);
 
@@ -2045,25 +2304,36 @@ const RosterManagement: React.FC = () => {
       squadrons={squadrons}
       availableQualifications={availableQualifications}
       pilotQualifications={pilotQualifications}
+      availableTeams={availableTeams}
+      pilotTeams={pilotTeams}
       loadingRoles={loadingRoles}
       updatingRoles={updatingRoles}
       updatingStatus={updatingStatus}
       updatingStanding={updatingStanding}
       updatingSquadron={updatingSquadron}
       loadingQualifications={loadingQualifications}
+      loadingTeams={loadingTeams}
       disabledRoles={disabledRoles}
       selectedQualification={selectedQualification}
       qualificationAchievedDate={qualificationAchievedDate}
+      selectedTeam={selectedTeam}
+      teamStartDate={teamStartDate}
       isAddingQualification={isAddingQualification}
+      isAddingTeam={isAddingTeam}
       updatingQualifications={updatingQualifications}
+      updatingTeams={updatingTeams}
       setSelectedQualification={setSelectedQualification}
       setQualificationAchievedDate={setQualificationAchievedDate}
+      setSelectedTeam={setSelectedTeam}
+      setTeamStartDate={setTeamStartDate}
       handleStatusChange={(statusId) => handleNewPilotChange('status_id', statusId)}
       handleStandingChange={(standingId) => handleNewPilotChange('standing_id', standingId)}
       handleRoleChange={handleRoleChange}
       handleSquadronChange={handleSquadronChange}
       handleAddQualification={handleAddQualification}
       handleRemoveQualification={handleRemoveQualification}
+      handleAddTeam={handleAddTeam}
+      handleRemoveTeam={handleRemoveTeam}
       handleDeletePilot={handleDeletePilot}
       handleSavePilotChanges={handleSavePilotChanges}
       isNewPilot={true}
@@ -2073,7 +2343,7 @@ const RosterManagement: React.FC = () => {
       isSavingNewPilot={isSavingNewPilot}
       saveError={saveError}
     />
-  ), [selectedPilot, statuses, standings, roles, pilotRoles, squadrons, availableQualifications, pilotQualifications, loadingRoles, updatingRoles, updatingStatus, updatingStanding, updatingSquadron, loadingQualifications, disabledRoles, selectedQualification, qualificationAchievedDate, isAddingQualification, updatingQualifications, handleRoleChange, handleSquadronChange, handleAddQualification, handleRemoveQualification, handleDeletePilot, handleSavePilotChanges, handleClearDiscord, handleNewPilotChange, handleSaveNewPilot, handleCancelAddPilot, isSavingNewPilot, saveError]);
+  ), [selectedPilot, statuses, standings, roles, pilotRoles, squadrons, availableQualifications, pilotQualifications, availableTeams, pilotTeams, loadingRoles, updatingRoles, updatingStatus, updatingStanding, updatingSquadron, loadingQualifications, loadingTeams, disabledRoles, selectedQualification, qualificationAchievedDate, selectedTeam, teamStartDate, isAddingQualification, isAddingTeam, updatingQualifications, updatingTeams, handleRoleChange, handleSquadronChange, handleAddQualification, handleRemoveQualification, handleAddTeam, handleRemoveTeam, handleDeletePilot, handleSavePilotChanges, handleClearDiscord, handleNewPilotChange, handleSaveNewPilot, handleCancelAddPilot, isSavingNewPilot, saveError]);
 
   const memoizedSelectedPilotDetails = useMemo(() => (
     <PilotDetails
@@ -2085,31 +2355,43 @@ const RosterManagement: React.FC = () => {
       squadrons={squadrons}
       availableQualifications={availableQualifications}
       pilotQualifications={pilotQualifications}
+      availableTeams={availableTeams}
+      pilotTeams={pilotTeams}
       loadingRoles={loadingRoles}
       updatingRoles={updatingRoles}
       updatingStatus={updatingStatus}
       updatingStanding={updatingStanding}
       updatingSquadron={updatingSquadron}
       loadingQualifications={loadingQualifications}
+      loadingTeams={loadingTeams}
       disabledRoles={disabledRoles}
       selectedQualification={selectedQualification}
       qualificationAchievedDate={qualificationAchievedDate}
+      selectedTeam={selectedTeam}
+      teamStartDate={teamStartDate}
       isAddingQualification={isAddingQualification}
+      isAddingTeam={isAddingTeam}
       updatingQualifications={updatingQualifications}
+      updatingTeams={updatingTeams}
       setSelectedQualification={setSelectedQualification}
       setQualificationAchievedDate={setQualificationAchievedDate}
+      setSelectedTeam={setSelectedTeam}
+      setTeamStartDate={setTeamStartDate}
       handleStatusChange={handleStatusChange}
       handleStandingChange={handleStandingChange}
       handleRoleChange={handleRoleChange}
       handleSquadronChange={handleSquadronChange}
       handleAddQualification={handleAddQualification}
       handleRemoveQualification={handleRemoveQualification}
+      handleAddTeam={handleAddTeam}
+      handleRemoveTeam={handleRemoveTeam}
       handleDeletePilot={handleDeletePilot}
       handleSavePilotChanges={handleSavePilotChanges}
       isNewPilot={false}
       onQualificationAdded={handleQualificationAddedViaRepair}
+      onTeamAdded={handleTeamAddedViaRepair}
     />
-  ), [selectedPilot, statuses, standings, roles, pilotRoles, squadrons, availableQualifications, pilotQualifications, loadingRoles, updatingRoles, updatingStatus, updatingStanding, updatingSquadron, loadingQualifications, disabledRoles, selectedQualification, qualificationAchievedDate, isAddingQualification, updatingQualifications, handleStatusChange, handleStandingChange, handleRoleChange, handleSquadronChange, handleAddQualification, handleRemoveQualification, handleDeletePilot, handleSavePilotChanges, handleQualificationAddedViaRepair]);
+  ), [selectedPilot, statuses, standings, roles, pilotRoles, squadrons, availableQualifications, pilotQualifications, availableTeams, pilotTeams, loadingRoles, updatingRoles, updatingStatus, updatingStanding, updatingSquadron, loadingQualifications, loadingTeams, disabledRoles, selectedQualification, qualificationAchievedDate, selectedTeam, teamStartDate, isAddingQualification, isAddingTeam, updatingQualifications, updatingTeams, handleStatusChange, handleStandingChange, handleRoleChange, handleSquadronChange, handleAddQualification, handleRemoveQualification, handleAddTeam, handleRemoveTeam, handleDeletePilot, handleSavePilotChanges, handleQualificationAddedViaRepair, handleTeamAddedViaRepair]);
 
   return (
     <div style={rosterStyles.container}>
@@ -2294,11 +2576,15 @@ const RosterManagement: React.FC = () => {
                 squadrons={squadrons}
                 availableQualifications={availableQualifications}
                 allPilotQualifications={allPilotQualifications}
+                availableTeams={availableTeams}
+                allPilotTeams={allPilotTeams}
                 onBulkStatusChange={handleBulkStatusChange}
                 onBulkStandingChange={handleBulkStandingChange}
                 onBulkSquadronChange={handleBulkSquadronChange}
                 onBulkAddQualification={handleBulkAddQualification}
                 onBulkRemoveQualification={handleBulkRemoveQualification}
+                onBulkAddTeam={handleBulkAddTeam}
+                onBulkRemoveTeam={handleBulkRemoveTeam}
                 onBulkDeletePilots={handleBulkDeletePilots}
                 onBulkClearDiscord={handleBulkClearDiscord}
               />

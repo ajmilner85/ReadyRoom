@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { MessageSquare, Plus, Trash, Crown, Shield, Users, User, Server, X } from 'lucide-react';
 import { getAvailableDiscordServers, getServerChannels, DiscordServer, fetchDiscordGuildRoles } from '../../utils/discordService';
 import { getAllQualifications } from '../../utils/qualificationService';
+import { getAllTeams } from '../../utils/teamService';
 import { supabase } from '../../utils/supabaseClient';
 
 // Add custom styles for optgroup indentation
@@ -86,6 +87,8 @@ interface RoleMapping {
   qualificationName?: string; // Human readable qualification name
   squadronId?: string; // Squadron ID for squadron affiliation mapping
   squadronName?: string; // Human readable squadron name
+  teamId?: string; // Team ID for team mapping
+  teamName?: string; // Human readable team name
   isIgnoreUsers?: boolean; // Special flag for "Ignore Users" mapping
   priority: number;
 }
@@ -124,17 +127,20 @@ const SquadronDiscordSettings: React.FC<SquadronDiscordSettingsProps> = ({
   onThreadingSettingsChange,
   onDefaultNotificationRolesChange
 }) => {
+  const roleFormRef = React.useRef<HTMLDivElement>(null);
   const [showChannelForm, setShowChannelForm] = useState(false);
   const [showRoleForm, setShowRoleForm] = useState(false);
   const [newChannel, setNewChannel] = useState<{ id: string; name: string; type: 'events' | 'briefing' }>({ id: '', name: '', type: 'events' });
   const [newRoleMapping, setNewRoleMapping] = useState({
     discordRoleId: '',
     discordRoleName: '',
-    mappingType: 'qualification' as 'qualification' | 'permission' | 'squadron' | 'ignore',
+    mappingType: 'qualification' as 'qualification' | 'permission' | 'squadron' | 'team' | 'ignore',
     qualificationId: '',
     qualificationName: '',
     squadronId: '',
     squadronName: '',
+    teamId: '',
+    teamName: '',
     appPermission: 'member' as 'admin' | 'flight_lead' | 'member' | 'guest'
   });
   
@@ -144,6 +150,7 @@ const SquadronDiscordSettings: React.FC<SquadronDiscordSettingsProps> = ({
   const [availableDiscordRoles, setAvailableDiscordRoles] = useState<Array<{id: string, name: string, color: number}>>([]);
   const [availableQualifications, setAvailableQualifications] = useState<Array<{id: string, name: string}>>([]);
   const [availableSquadrons, setAvailableSquadrons] = useState<Array<{id: string, name: string, designation: string}>>([]);
+  const [availableTeams, setAvailableTeams] = useState<Array<{id: string, name: string, scope: string}>>([]);
   const [loadingServers, setLoadingServers] = useState(false);
   const [loadingChannels, setLoadingChannels] = useState(false);
   const [loadingRoles, setLoadingRoles] = useState(false);
@@ -198,12 +205,12 @@ const SquadronDiscordSettings: React.FC<SquadronDiscordSettingsProps> = ({
           .from('org_squadrons')
           .select('id, name, designation')
           .order('designation', { ascending: true });
-        
+
         if (squadronsError) {
           console.error('Error fetching squadrons:', squadronsError);
           return;
         }
-        
+
         if (squadronsData) {
           setAvailableSquadrons(squadronsData.map(s => ({
             id: s.id,
@@ -217,6 +224,28 @@ const SquadronDiscordSettings: React.FC<SquadronDiscordSettingsProps> = ({
     };
 
     fetchSquadrons();
+  }, []);
+
+  // Load teams on component mount
+  useEffect(() => {
+    const fetchTeams = async () => {
+      try {
+        const result = await getAllTeams();
+        if (!result.error && result.data) {
+          setAvailableTeams(result.data
+            .filter(t => t.active)
+            .map(t => ({
+              id: t.id,
+              name: t.name,
+              scope: t.scope
+            })));
+        }
+      } catch (err: any) {
+        console.error('Error fetching teams:', err);
+      }
+    };
+
+    fetchTeams();
   }, []);
 
   // Load Discord roles when guild is selected
@@ -246,6 +275,16 @@ const SquadronDiscordSettings: React.FC<SquadronDiscordSettingsProps> = ({
       setAvailableDiscordRoles([]);
     }
   }, [selectedGuildId]);
+
+  // Scroll to role form when it's shown
+  useEffect(() => {
+    if (showRoleForm && roleFormRef.current) {
+      // Small delay to ensure the form is rendered
+      setTimeout(() => {
+        roleFormRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }, 100);
+    }
+  }, [showRoleForm]);
 
   // Load channels when guild is selected
   useEffect(() => {
@@ -347,6 +386,9 @@ const SquadronDiscordSettings: React.FC<SquadronDiscordSettingsProps> = ({
     if (mapping.squadronId) {
       return mapping.squadronName || 'Unknown Squadron';
     }
+    if (mapping.teamId) {
+      return mapping.teamName || 'Unknown Team';
+    }
     return mapping.qualificationName || mapping.qualification || 'Unknown Qualification';
   };
 
@@ -365,8 +407,8 @@ const SquadronDiscordSettings: React.FC<SquadronDiscordSettingsProps> = ({
   };
 
   const handleAddRoleMapping = () => {
-    if (newRoleMapping.discordRoleId && newRoleMapping.discordRoleName && 
-        (newRoleMapping.mappingType === 'ignore' || newRoleMapping.qualificationId || newRoleMapping.appPermission || newRoleMapping.squadronId)) {
+    if (newRoleMapping.discordRoleId && newRoleMapping.discordRoleName &&
+        (newRoleMapping.mappingType === 'ignore' || newRoleMapping.qualificationId || newRoleMapping.appPermission || newRoleMapping.squadronId || newRoleMapping.teamId)) {
       const mapping: RoleMapping = {
         id: `${Date.now()}-${Math.random().toString(36).substring(2)}`, // Unique ID generation
         discordRoleId: newRoleMapping.discordRoleId,
@@ -383,12 +425,16 @@ const SquadronDiscordSettings: React.FC<SquadronDiscordSettingsProps> = ({
         ...(newRoleMapping.mappingType === 'squadron' && {
           squadronId: newRoleMapping.squadronId,
           squadronName: newRoleMapping.squadronName
+        }),
+        ...(newRoleMapping.mappingType === 'team' && {
+          teamId: newRoleMapping.teamId,
+          teamName: newRoleMapping.teamName
         })
       };
-      
+
       const updatedMappings = [...roleMappings, mapping];
       onRoleMappingsChange?.(updatedMappings);
-      
+
       // Reset form
       setNewRoleMapping({
         discordRoleId: '',
@@ -398,6 +444,8 @@ const SquadronDiscordSettings: React.FC<SquadronDiscordSettingsProps> = ({
         qualificationName: '',
         squadronId: '',
         squadronName: '',
+        teamId: '',
+        teamName: '',
         appPermission: 'member'
       });
       setShowRoleForm(false);
@@ -1174,13 +1222,15 @@ const SquadronDiscordSettings: React.FC<SquadronDiscordSettingsProps> = ({
 
           {/* Add Role Mapping Form - matches channel form design */}
           {showRoleForm && (
-            <div style={{
-              marginTop: '8px',
-              padding: '12px',
-              backgroundColor: '#F8FAFC',
-              border: '1px solid #E2E8F0',
-              borderRadius: '4px'
-            }}>
+            <div
+              ref={roleFormRef}
+              style={{
+                marginTop: '8px',
+                padding: '12px',
+                backgroundColor: '#F8FAFC',
+                border: '1px solid #E2E8F0',
+                borderRadius: '4px'
+              }}>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '12px' }}>
                 <select
                   value={newRoleMapping.discordRoleId}
@@ -1207,7 +1257,7 @@ const SquadronDiscordSettings: React.FC<SquadronDiscordSettingsProps> = ({
                 </select>
                 <select
                   className="custom-select"
-                  value={newRoleMapping.mappingType + ':' + (newRoleMapping.qualificationId || newRoleMapping.squadronId || newRoleMapping.appPermission || 'ignore')}
+                  value={newRoleMapping.mappingType + ':' + (newRoleMapping.qualificationId || newRoleMapping.squadronId || newRoleMapping.teamId || newRoleMapping.appPermission || 'ignore')}
                   onChange={(e) => {
                     const [type, value] = e.target.value.split(':');
                     if (type === 'ignore') {
@@ -1240,6 +1290,21 @@ const SquadronDiscordSettings: React.FC<SquadronDiscordSettingsProps> = ({
                         qualificationName: '',
                         squadronId: value,
                         squadronName: squadron ? `${squadron.designation} - ${squadron.name}` : '',
+                        teamId: '',
+                        teamName: '',
+                        appPermission: 'member'
+                      });
+                    } else if (type === 'team') {
+                      const team = availableTeams.find(t => t.id === value);
+                      setNewRoleMapping({
+                        ...newRoleMapping,
+                        mappingType: 'team',
+                        qualificationId: '',
+                        qualificationName: '',
+                        squadronId: '',
+                        squadronName: '',
+                        teamId: value,
+                        teamName: team?.name || '',
                         appPermission: 'member'
                       });
                     } else if (type === 'permission') {
@@ -1250,6 +1315,8 @@ const SquadronDiscordSettings: React.FC<SquadronDiscordSettingsProps> = ({
                         qualificationName: '',
                         squadronId: '',
                         squadronName: '',
+                        teamId: '',
+                        teamName: '',
                         appPermission: value as 'admin' | 'flight_lead' | 'member' | 'guest'
                       });
                     }
@@ -1283,6 +1350,14 @@ const SquadronDiscordSettings: React.FC<SquadronDiscordSettingsProps> = ({
                   {availableSquadrons.map((squadron) => (
                     <option key={`mapping-squad-${squadron.id}`} value={`squadron:${squadron.id}`} style={{ paddingLeft: '20px' }}>
                       &nbsp;&nbsp;{squadron.designation} - {squadron.name}
+                    </option>
+                  ))}
+                  <option value="" disabled style={{ fontWeight: 'normal', color: '#64748B', backgroundColor: '#f8fafc' }}>
+                    Teams
+                  </option>
+                  {availableTeams.map((team) => (
+                    <option key={`mapping-team-${team.id}`} value={`team:${team.id}`} style={{ paddingLeft: '20px' }}>
+                      &nbsp;&nbsp;{team.name} ({team.scope})
                     </option>
                   ))}
                   <option value="" disabled style={{ fontWeight: 'normal', color: '#64748B', backgroundColor: '#f8fafc' }}>
@@ -1322,14 +1397,14 @@ const SquadronDiscordSettings: React.FC<SquadronDiscordSettingsProps> = ({
                 <button
                   type="button"
                   onClick={handleAddRoleMapping}
-                  disabled={!newRoleMapping.discordRoleId || (!newRoleMapping.qualificationId && newRoleMapping.mappingType !== 'ignore' && !newRoleMapping.appPermission && !newRoleMapping.squadronId)}
+                  disabled={!newRoleMapping.discordRoleId || (!newRoleMapping.qualificationId && newRoleMapping.mappingType !== 'ignore' && !newRoleMapping.appPermission && !newRoleMapping.squadronId && !newRoleMapping.teamId)}
                   style={{
                     padding: '4px 8px',
-                    backgroundColor: (!newRoleMapping.discordRoleId || (!newRoleMapping.qualificationId && newRoleMapping.mappingType !== 'ignore' && !newRoleMapping.appPermission && !newRoleMapping.squadronId)) ? '#9CA3AF' : '#8B5CF6',
+                    backgroundColor: (!newRoleMapping.discordRoleId || (!newRoleMapping.qualificationId && newRoleMapping.mappingType !== 'ignore' && !newRoleMapping.appPermission && !newRoleMapping.squadronId && !newRoleMapping.teamId)) ? '#9CA3AF' : '#8B5CF6',
                     color: '#FFFFFF',
                     border: 'none',
                     borderRadius: '4px',
-                    cursor: (!newRoleMapping.discordRoleId || (!newRoleMapping.qualificationId && newRoleMapping.mappingType !== 'ignore' && !newRoleMapping.appPermission && !newRoleMapping.squadronId)) ? 'not-allowed' : 'pointer',
+                    cursor: (!newRoleMapping.discordRoleId || (!newRoleMapping.qualificationId && newRoleMapping.mappingType !== 'ignore' && !newRoleMapping.appPermission && !newRoleMapping.squadronId && !newRoleMapping.teamId)) ? 'not-allowed' : 'pointer',
                     fontSize: '14px'
                   }}
                 >

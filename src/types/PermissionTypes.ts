@@ -5,7 +5,7 @@ export type PermissionCategory = 'navigation' | 'roster' | 'events' | 'settings'
 
 export type ScopeType = 'global' | 'squadron' | 'wing';
 
-export type BasisType = 'standing' | 'qualification' | 'billet' | 'squadron' | 'wing' | 'authenticated_user' | 'manual_override';
+export type BasisType = 'standing' | 'qualification' | 'billet' | 'team' | 'squadron' | 'wing' | 'authenticated_user' | 'manual_override';
 
 export type PermissionScope = 'global' | 'own_squadron' | 'all_squadrons' | 'own_wing' | 'all_wings';
 
@@ -129,6 +129,7 @@ export interface UserBases {
   standings: Array<{ id: string; name: string; startDate: string; endDate?: string }>;
   qualifications: Array<{ id: string; name: string; achievedDate: string; expiryDate?: string }>;
   billets: Array<{ id: string; name: string; effectiveDate: string; endDate?: string }>;
+  teams: Array<{ id: string; name: string; startDate: string; endDate?: string }>;
   squadronAssignments: Array<{ id: string; name: string; startDate: string; endDate?: string }>;
 }
 
@@ -251,6 +252,7 @@ export const BASIS_TYPE_LABELS: Record<BasisType, string> = {
   standing: 'Standing',
   qualification: 'Qualification',
   billet: 'Billet',
+  team: 'Team Membership',
   squadron: 'Squadron Affiliation',
   wing: 'Wing Affiliation',
   authenticated_user: 'Authenticated User',
@@ -263,6 +265,7 @@ export const BASIS_PRIORITIES: Record<BasisType, number> = {
   standing: 900,
   billet: 800,
   qualification: 700,
+  team: 650,
   wing: 600,
   squadron: 500,
   authenticated_user: 100

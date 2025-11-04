@@ -75,12 +75,13 @@ export class PermissionCalculator {
       ?.sort((a: any, b: any) => new Date(b.start_date).getTime() - new Date(a.start_date).getTime())[0];
     
     // Fetch all bases in parallel
-    const [standingsResult, qualificationsResult, billetsResult] = await Promise.all([
+    const [standingsResult, qualificationsResult, billetsResult, teamsResult] = await Promise.all([
       this.getCurrentStandings(pilotId),
-      this.getCurrentQualifications(pilotId), 
-      this.getCurrentBillets(pilotId)
+      this.getCurrentQualifications(pilotId),
+      this.getCurrentBillets(pilotId),
+      this.getCurrentTeams(pilotId)
     ]);
-    
+
     return {
       userId,
       pilotId,
@@ -89,6 +90,7 @@ export class PermissionCalculator {
       standings: standingsResult,
       qualifications: qualificationsResult,
       billets: billetsResult,
+      teams: teamsResult,
       squadronAssignments: (userProfile as any).pilots?.pilot_assignments?.map((assignment: any) => ({
         id: assignment.org_squadrons.id,
         name: assignment.org_squadrons.name,
@@ -104,6 +106,7 @@ export class PermissionCalculator {
       standings: [],
       qualifications: [],
       billets: [],
+      teams: [],
       squadronAssignments: []
     };
   }
@@ -187,16 +190,47 @@ export class PermissionCalculator {
       `)
       .eq('pilot_id', pilotId)
       .or('end_date.is.null,end_date.gt.now()');
-    
+
     if (error) {
       console.warn('Error fetching pilot roles:', error);
       return [];
     }
-    
+
     return data?.map((item: any) => ({
       id: item.role_id || '',
       name: item.roles.name,
       effectiveDate: item.effective_date || '',
+      endDate: item.end_date
+    })) || [];
+  }
+
+  /**
+   * Get current team memberships for a pilot
+   */
+  private async getCurrentTeams(pilotId: string) {
+    const { data, error } = await supabase
+      .from('pilot_teams')
+      .select(`
+        team_id,
+        start_date,
+        end_date,
+        teams (
+          id,
+          name
+        )
+      `)
+      .eq('pilot_id', pilotId)
+      .or('end_date.is.null,end_date.gt.now()');
+
+    if (error) {
+      console.warn('Error fetching pilot teams:', error);
+      return [];
+    }
+
+    return data?.map((item: any) => ({
+      id: item.team_id || '',
+      name: item.teams.name,
+      startDate: item.start_date || '',
       endDate: item.end_date
     })) || [];
   }
@@ -209,6 +243,7 @@ export class PermissionCalculator {
       ...userBases.standings.map(s => s.id),
       ...userBases.qualifications.map(q => q.id),
       ...userBases.billets.map(b => b.id),
+      ...userBases.teams.map(t => t.id),
       ...userBases.squadronAssignments.map(s => s.id)
     ];
     

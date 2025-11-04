@@ -269,7 +269,7 @@ export const PermissionMatrix: React.FC<PermissionMatrixProps> = ({
     }
   };
   
-  const basisTypeOptions: BasisType[] = ['authenticated_user', 'standing', 'billet', 'qualification'];
+  const basisTypeOptions: BasisType[] = ['authenticated_user', 'standing', 'billet', 'qualification', 'team'];
   
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', width: '100%' }}>
