@@ -24,8 +24,8 @@ const convertRowToMission = (row: MissionRow): Mission => {
     status: row.status as MissionStatus,
     created_by: row.created_by || undefined,
     updated_by: row.updated_by || undefined,
-    created_at: row.created_at,
-    updated_at: row.updated_at,
+    created_at: row.created_at || new Date().toISOString(),
+    updated_at: row.updated_at || new Date().toISOString(),
     step_time: row.step_time || undefined,
     selected_squadrons: Array.isArray(row.selected_squadrons)
       ? row.selected_squadrons as string[]

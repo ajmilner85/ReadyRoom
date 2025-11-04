@@ -2034,7 +2034,6 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
               {/* Team Name */}
               <span style={{
                 fontSize: '14px',
-                color: '#1F2937',
                 fontWeight: '600',
                 backgroundColor: '#D1FAE5',
                 color: '#065F46',

@@ -5,7 +5,6 @@ import type {
   TeamResponse,
   TeamsResponse,
   PilotTeam,
-  NewPilotTeam,
   PilotTeamResponse,
   PilotTeamsResponse,
   TeamScope

@@ -543,7 +543,7 @@ export async function getAllTeams(): Promise<{ data: Team[] | null; error: any }
       .order('scope', { ascending: true })
       .order('name', { ascending: true });
 
-    return { data, error };
+    return { data: data as Team[] | null, error };
   } catch (error) {
     console.error('Error fetching teams:', error);
     return { data: null, error };
@@ -564,7 +564,7 @@ export async function createTeam(team: NewTeam): Promise<{ data: Team | null; er
       .select()
       .single();
 
-    return { data, error };
+    return { data: data as Team | null, error };
   } catch (error) {
     console.error('Error creating team:', error);
     return { data: null, error };
@@ -588,7 +588,7 @@ export async function updateTeam(id: string, updates: Partial<NewTeam>): Promise
       .select()
       .single();
 
-    return { data, error };
+    return { data: data as Team | null, error };
   } catch (error) {
     console.error('Error updating team:', error);
     return { data: null, error };

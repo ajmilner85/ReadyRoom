@@ -14,7 +14,40 @@ export type Database = {
   }
   public: {
     Tables: {
-      "carrier_ classes": {
+      app_permissions: {
+        Row: {
+          category: string
+          created_at: string | null
+          description: string | null
+          display_name: string
+          id: string
+          name: string
+          scope_type: string
+          updated_at: string | null
+        }
+        Insert: {
+          category?: string
+          created_at?: string | null
+          description?: string | null
+          display_name: string
+          id?: string
+          name: string
+          scope_type?: string
+          updated_at?: string | null
+        }
+        Update: {
+          category?: string
+          created_at?: string | null
+          description?: string | null
+          display_name?: string
+          id?: string
+          name?: string
+          scope_type?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      "carrier classes": {
         Row: {
           created_at: string
           id: string
@@ -68,7 +101,48 @@ export type Database = {
             foreignKeyName: "carriers_class_fkey"
             columns: ["class"]
             isOneToOne: false
-            referencedRelation: "carrier_ classes"
+            referencedRelation: "carrier classes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      change_log_posts: {
+        Row: {
+          content: string
+          created_at: string | null
+          created_by: string
+          id: string
+          is_archived: boolean
+          reactions: Json
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          content: string
+          created_at?: string | null
+          created_by: string
+          id?: string
+          is_archived?: boolean
+          reactions?: Json
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          content?: string
+          created_at?: string | null
+          created_by?: string
+          id?: string
+          is_archived?: boolean
+          reactions?: Json
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "change_log_posts_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -215,6 +289,7 @@ export type Database = {
       }
       events: {
         Row: {
+          buttons_removed: boolean | null
           created_at: string
           creator_billet: string | null
           creator_board_number: string | null
@@ -224,6 +299,8 @@ export type Database = {
           cycle_id: string | null
           description: string | null
           discord_event_id: Json | null
+          discord_flight_assignments_posts: Json | null
+          discord_thread_ids: Json | null
           end_datetime: string | null
           event_settings: Json | null
           event_type: string | null
@@ -239,6 +316,7 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          buttons_removed?: boolean | null
           created_at?: string
           creator_billet?: string | null
           creator_board_number?: string | null
@@ -248,6 +326,8 @@ export type Database = {
           cycle_id?: string | null
           description?: string | null
           discord_event_id?: Json | null
+          discord_flight_assignments_posts?: Json | null
+          discord_thread_ids?: Json | null
           end_datetime?: string | null
           event_settings?: Json | null
           event_type?: string | null
@@ -263,6 +343,7 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          buttons_removed?: boolean | null
           created_at?: string
           creator_billet?: string | null
           creator_board_number?: string | null
@@ -272,6 +353,8 @@ export type Database = {
           cycle_id?: string | null
           description?: string | null
           discord_event_id?: Json | null
+          discord_flight_assignments_posts?: Json | null
+          discord_thread_ids?: Json | null
           end_datetime?: string | null
           event_settings?: Json | null
           event_type?: string | null
@@ -301,64 +384,71 @@ export type Database = {
             referencedRelation: "cycles"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "events_mission_id_fkey"
+            columns: ["mission_id"]
+            isOneToOne: false
+            referencedRelation: "missions"
+            referencedColumns: ["id"]
+          },
         ]
       }
       missions: {
         Row: {
-          created_at: string
+          created_at: string | null
           created_by: string | null
           description: string | null
           event_id: string | null
-          flight_import_filter: string
-          flights: Json
+          flight_import_filter: string | null
+          flights: Json | null
           id: string
-          mission_settings: Json
-          miz_file_data: Json
+          mission_settings: Json | null
+          miz_file_data: Json | null
           name: string
-          pilot_assignments: Json
-          selected_squadrons: Json
-          status: string
+          pilot_assignments: Json | null
+          selected_squadrons: Json | null
+          status: string | null
           step_time: string | null
-          support_role_assignments: Json
-          updated_at: string
+          support_role_assignments: Json | null
+          updated_at: string | null
           updated_by: string | null
         }
         Insert: {
-          created_at?: string
+          created_at?: string | null
           created_by?: string | null
           description?: string | null
           event_id?: string | null
-          flight_import_filter?: string
-          flights?: Json
+          flight_import_filter?: string | null
+          flights?: Json | null
           id?: string
-          mission_settings?: Json
-          miz_file_data?: Json
+          mission_settings?: Json | null
+          miz_file_data?: Json | null
           name: string
-          pilot_assignments?: Json
-          selected_squadrons?: Json
-          status?: string
+          pilot_assignments?: Json | null
+          selected_squadrons?: Json | null
+          status?: string | null
           step_time?: string | null
-          support_role_assignments?: Json
-          updated_at?: string
+          support_role_assignments?: Json | null
+          updated_at?: string | null
           updated_by?: string | null
         }
         Update: {
-          created_at?: string
+          created_at?: string | null
           created_by?: string | null
           description?: string | null
           event_id?: string | null
-          flight_import_filter?: string
-          flights?: Json
+          flight_import_filter?: string | null
+          flights?: Json | null
           id?: string
-          mission_settings?: Json
-          miz_file_data?: Json
+          mission_settings?: Json | null
+          miz_file_data?: Json | null
           name?: string
-          pilot_assignments?: Json
-          selected_squadrons?: Json
-          status?: string
+          pilot_assignments?: Json | null
+          selected_squadrons?: Json | null
+          status?: string | null
           step_time?: string | null
-          support_role_assignments?: Json
-          updated_at?: string
+          support_role_assignments?: Json | null
+          updated_at?: string | null
           updated_by?: string | null
         }
         Relationships: [
@@ -458,6 +548,7 @@ export type Database = {
       }
       org_squadrons: {
         Row: {
+          airframe_id: string | null
           callsigns: Json | null
           carrier_id: string | null
           color_palette: Json | null
@@ -468,11 +559,13 @@ export type Database = {
           id: string
           insignia_url: string | null
           name: string
+          settings: Json | null
           tail_code: string | null
           updated_at: string | null
           wing_id: string
         }
         Insert: {
+          airframe_id?: string | null
           callsigns?: Json | null
           carrier_id?: string | null
           color_palette?: Json | null
@@ -483,11 +576,13 @@ export type Database = {
           id?: string
           insignia_url?: string | null
           name: string
+          settings?: Json | null
           tail_code?: string | null
           updated_at?: string | null
           wing_id?: string
         }
         Update: {
+          airframe_id?: string | null
           callsigns?: Json | null
           carrier_id?: string | null
           color_palette?: Json | null
@@ -498,6 +593,7 @@ export type Database = {
           id?: string
           insignia_url?: string | null
           name?: string
+          settings?: Json | null
           tail_code?: string | null
           updated_at?: string | null
           wing_id?: string
@@ -515,6 +611,13 @@ export type Database = {
             columns: ["wing_id"]
             isOneToOne: false
             referencedRelation: "org_wings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "org_squadrons_airframe_id_fkey"
+            columns: ["airframe_id"]
+            isOneToOne: false
+            referencedRelation: "ref_aircraft_types"
             referencedColumns: ["id"]
           },
         ]
@@ -579,6 +682,50 @@ export type Database = {
           },
         ]
       }
+      permission_rules: {
+        Row: {
+          active: boolean | null
+          basis_id: string | null
+          basis_type: string
+          created_at: string | null
+          created_by: string | null
+          id: string
+          permission_id: string
+          scope: string
+          updated_at: string | null
+        }
+        Insert: {
+          active?: boolean | null
+          basis_id?: string | null
+          basis_type: string
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          permission_id: string
+          scope?: string
+          updated_at?: string | null
+        }
+        Update: {
+          active?: boolean | null
+          basis_id?: string | null
+          basis_type?: string
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          permission_id?: string
+          scope?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "permission_rules_permission_id_fkey"
+            columns: ["permission_id"]
+            isOneToOne: false
+            referencedRelation: "app_permissions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pilot_assignments: {
         Row: {
           created_at: string
@@ -630,9 +777,12 @@ export type Database = {
           created_at: string
           expiry_date: string | null
           id: string
+          is_current: boolean
           notes: string | null
           pilot_id: string
           qualification_id: string
+          superseded_at: string | null
+          superseded_by: string | null
           updated_at: string | null
         }
         Insert: {
@@ -640,9 +790,12 @@ export type Database = {
           created_at?: string
           expiry_date?: string | null
           id?: string
+          is_current?: boolean
           notes?: string | null
           pilot_id: string
           qualification_id: string
+          superseded_at?: string | null
+          superseded_by?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -650,9 +803,12 @@ export type Database = {
           created_at?: string
           expiry_date?: string | null
           id?: string
+          is_current?: boolean
           notes?: string | null
           pilot_id?: string
           qualification_id?: string
+          superseded_at?: string | null
+          superseded_by?: string | null
           updated_at?: string | null
         }
         Relationships: [
@@ -668,6 +824,20 @@ export type Database = {
             columns: ["qualification_id"]
             isOneToOne: false
             referencedRelation: "qualifications"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pilot_qualifications_superseded_by_fkey"
+            columns: ["superseded_by"]
+            isOneToOne: false
+            referencedRelation: "current_pilot_qualifications"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pilot_qualifications_superseded_by_fkey"
+            columns: ["superseded_by"]
+            isOneToOne: false
+            referencedRelation: "pilot_qualifications"
             referencedColumns: ["id"]
           },
         ]
@@ -810,6 +980,51 @@ export type Database = {
           },
         ]
       }
+      pilot_teams: {
+        Row: {
+          created_at: string
+          end_date: string | null
+          id: string
+          pilot_id: string
+          start_date: string
+          team_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string
+          end_date?: string | null
+          id?: string
+          pilot_id: string
+          start_date?: string
+          team_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string
+          end_date?: string | null
+          id?: string
+          pilot_id?: string
+          start_date?: string
+          team_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pilot_teams_pilot_id_fkey"
+            columns: ["pilot_id"]
+            isOneToOne: false
+            referencedRelation: "pilots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pilot_teams_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pilots: {
         Row: {
           boardNumber: number
@@ -843,6 +1058,71 @@ export type Database = {
         }
         Relationships: []
       }
+      polls: {
+        Row: {
+          archived_at: string | null
+          created_at: string | null
+          created_by: string
+          description: string | null
+          id: string
+          is_active: boolean
+          options: Json
+          title: string
+          updated_at: string | null
+          votes: Json
+        }
+        Insert: {
+          archived_at?: string | null
+          created_at?: string | null
+          created_by: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          options?: Json
+          title: string
+          updated_at?: string | null
+          votes?: Json
+        }
+        Update: {
+          archived_at?: string | null
+          created_at?: string | null
+          created_by?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          options?: Json
+          title?: string
+          updated_at?: string | null
+          votes?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "polls_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      processed_interactions: {
+        Row: {
+          expires_at: string
+          interaction_id: string
+          processed_at: string
+        }
+        Insert: {
+          expires_at: string
+          interaction_id: string
+          processed_at?: string
+        }
+        Update: {
+          expires_at?: string
+          interaction_id?: string
+          processed_at?: string
+        }
+        Relationships: []
+      }
       qualifications: {
         Row: {
           active: boolean
@@ -853,6 +1133,7 @@ export type Database = {
           id: string
           is_expirable: boolean
           name: string
+          order: number | null
           requirements: Json | null
           updated_at: string | null
           validity_period: number | null
@@ -866,6 +1147,7 @@ export type Database = {
           id?: string
           is_expirable?: boolean
           name: string
+          order?: number | null
           requirements?: Json | null
           updated_at?: string | null
           validity_period?: number | null
@@ -879,9 +1161,40 @@ export type Database = {
           id?: string
           is_expirable?: boolean
           name?: string
+          order?: number | null
           requirements?: Json | null
           updated_at?: string | null
           validity_period?: number | null
+        }
+        Relationships: []
+      }
+      ref_aircraft_types: {
+        Row: {
+          created_at: string | null
+          designation: string
+          icon: string | null
+          id: string
+          mission_types: Json | null
+          name: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          designation: string
+          icon?: string | null
+          id?: string
+          mission_types?: Json | null
+          name: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          designation?: string
+          icon?: string | null
+          id?: string
+          mission_types?: Json | null
+          name?: string
+          updated_at?: string | null
         }
         Relationships: []
       }
@@ -963,41 +1276,109 @@ export type Database = {
         }
         Relationships: []
       }
+      teams: {
+        Row: {
+          active: boolean
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          name: string
+          scope: string
+          scope_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          name: string
+          scope: string
+          scope_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          name?: string
+          scope?: string
+          scope_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      user_permission_cache: {
+        Row: {
+          bases_hash: string
+          calculated_at: string | null
+          expires_at: string | null
+          permissions: Json
+          user_id: string
+        }
+        Insert: {
+          bases_hash: string
+          calculated_at?: string | null
+          expires_at?: string | null
+          permissions: Json
+          user_id: string
+        }
+        Update: {
+          bases_hash?: string
+          calculated_at?: string | null
+          expires_at?: string | null
+          permissions?: Json
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_permission_cache_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_profiles: {
         Row: {
           auth_user_id: string
           created_at: string | null
+          discord_avatar_url: string | null
           discord_guilds: string[] | null
           discord_id: string | null
           discord_username: string | null
-          discord_avatar_url: string | null
           id: string
           pilot_id: string | null
-          settings: Json
+          settings: Json | null
           updated_at: string | null
         }
         Insert: {
           auth_user_id: string
           created_at?: string | null
+          discord_avatar_url?: string | null
           discord_guilds?: string[] | null
           discord_id?: string | null
           discord_username?: string | null
-          discord_avatar_url?: string | null
           id?: string
           pilot_id?: string | null
-          settings?: Json
+          settings?: Json | null
           updated_at?: string | null
         }
         Update: {
           auth_user_id?: string
           created_at?: string | null
+          discord_avatar_url?: string | null
           discord_guilds?: string[] | null
           discord_id?: string | null
           discord_username?: string | null
-          discord_avatar_url?: string | null
           id?: string
           pilot_id?: string | null
-          settings?: Json
+          settings?: Json | null
           updated_at?: string | null
         }
         Relationships: [
@@ -1012,32 +1393,224 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      current_pilot_qualifications: {
+        Row: {
+          achieved_date: string | null
+          created_at: string | null
+          expiry_date: string | null
+          id: string | null
+          notes: string | null
+          pilot_id: string | null
+          qualification_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          achieved_date?: string | null
+          created_at?: string | null
+          expiry_date?: string | null
+          id?: string | null
+          notes?: string | null
+          pilot_id?: string | null
+          qualification_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          achieved_date?: string | null
+          created_at?: string | null
+          expiry_date?: string | null
+          id?: string | null
+          notes?: string | null
+          pilot_id?: string | null
+          qualification_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pilot_qualifications_pilot_id_fkey"
+            columns: ["pilot_id"]
+            isOneToOne: false
+            referencedRelation: "pilots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pilot_qualifications_qualification_id_fkey"
+            columns: ["qualification_id"]
+            isOneToOne: false
+            referencedRelation: "qualifications"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
-      gtrgm_compress: {
-        Args: { "": unknown }
-        Returns: unknown
+      add_event_thread_id: {
+        Args: {
+          p_channel_id: string
+          p_event_id: string
+          p_guild_id: string
+          p_message_id: string
+          p_squadron_id: string
+          p_thread_id: string
+        }
+        Returns: boolean
       }
-      gtrgm_decompress: {
-        Args: { "": unknown }
-        Returns: unknown
+      add_pilot_qualification: {
+        Args: {
+          p_achieved_date?: string
+          p_expiry_date?: string
+          p_notes?: string
+          p_pilot_id: string
+          p_qualification_id: string
+        }
+        Returns: string
       }
-      gtrgm_in: {
-        Args: { "": unknown }
-        Returns: unknown
+      atomic_attendance_upsert: {
+        Args: {
+          p_discord_event_id: string
+          p_discord_id: string
+          p_discord_username: string
+          p_user_response: string
+        }
+        Returns: {
+          created_at: string
+          discord_event_id: string
+          discord_id: string
+          discord_username: string
+          id: string
+          updated_at: string
+          user_response: string
+        }[]
       }
-      gtrgm_options: {
-        Args: { "": unknown }
+      bulk_add_pilot_qualifications: {
+        Args: {
+          p_achieved_date?: string
+          p_pilot_ids: string[]
+          p_qualification_id: string
+        }
+        Returns: {
+          new_record_id: string
+          pilot_id: string
+          qualification_id: string
+          was_updated: boolean
+        }[]
+      }
+      check_admin_permissions: {
+        Args: { p_auth_user_id: string }
+        Returns: {
+          has_admin_permissions: boolean
+          permission_count: number
+          user_profile_id: string
+        }[]
+      }
+      check_squadrons_use_threads: {
+        Args: { p_squadron_ids: string[] }
+        Returns: boolean
+      }
+      clean_expired_permission_cache: { Args: Record<PropertyKey, never>; Returns: number }
+      cleanup_expired_interactions: { Args: Record<PropertyKey, never>; Returns: undefined }
+      clear_user_permission_cache: { Args: Record<PropertyKey, never>; Returns: undefined }
+      debug_permission_check: {
+        Args: { permission_name: string; user_auth_id: string }
+        Returns: {
+          result: string
+          step: string
+        }[]
+      }
+      debug_scope_matching: {
+        Args: { user_auth_id: string }
+        Returns: {
+          check_type: string
+          details: string
+          matches: boolean
+          perm_value: string
+          user_value: string
+        }[]
+      }
+      debug_user_permissions: {
+        Args: { user_auth_id: string }
+        Returns: {
+          step_data: string
+          step_name: string
+          step_result: string
+        }[]
+      }
+      find_pilot_by_discord_id: {
+        Args: { p_discord_id: string }
+        Returns: string
+      }
+      get_event_no_response_users: {
+        Args: { discord_message_id: string }
+        Returns: {
+          board_number: string
+          callsign: string
+          discord_id: string
+          discord_username: string
+        }[]
+      }
+      get_event_no_response_users_by_uuid: {
+        Args: { event_uuid: string }
+        Returns: {
+          board_number: string
+          callsign: string
+          discord_id: string
+          discord_username: string
+        }[]
+      }
+      get_event_thread_ids: {
+        Args: { p_event_id: string }
+        Returns: {
+          channel_id: string
+          created_at: string
+          guild_id: string
+          message_id: string
+          squadron_id: string
+          thread_id: string
+        }[]
+      }
+      get_latest_event_responses: {
+        Args: { event_id: string }
+        Returns: {
+          created_at: string
+          discord_event_id: string
+          discord_id: string
+          discord_username: string
+          id: string
+          updated_at: string
+          user_response: string
+        }[]
+      }
+      get_pilot_qualification_history: {
+        Args: { p_pilot_id: string; p_qualification_id: string }
+        Returns: {
+          achieved_date: string
+          expiry_date: string
+          id: string
+          is_current: boolean
+          notes: string
+          superseded_at: string
+        }[]
+      }
+      get_thread_id_for_channel: {
+        Args: { p_channel_id: string; p_event_id: string; p_guild_id: string }
+        Returns: string
+      }
+      get_user_bases_hash: { Args: { p_user_id: string }; Returns: string }
+      grant_admin_permissions: {
+        Args: { p_auth_user_id: string }
+        Returns: string
+      }
+      invalidate_user_permissions: {
+        Args: { p_user_id: string }
         Returns: undefined
       }
-      gtrgm_out: {
-        Args: { "": unknown }
-        Returns: unknown
+      populate_user_permission_cache: {
+        Args: { target_user_id?: string }
+        Returns: undefined
       }
-      set_limit: {
-        Args: { "": number }
-        Returns: number
+      release_reminder_lock: { Args: { lock_key: number }; Returns: boolean }
+      revoke_admin_permissions: {
+        Args: { p_auth_user_id: string }
+        Returns: string
       }
       show_limit: {
         Args: Record<PropertyKey, never>
@@ -1047,18 +1620,107 @@ export type Database = {
         Args: { "": string }
         Returns: string[]
       }
-      user_can_manage_cycle: {
+      test_event_view_debug: {
+        Args: { test_event_id: string; test_user_auth_id: string }
+        Returns: {
+          step: string
+          value: string
+        }[]
+      }
+      test_user_permissions: { Args: { user_auth_id: string }; Returns: string }
+      try_acquire_reminder_lock: {
+        Args: { lock_key: number }
+        Returns: boolean
+      }
+      update_event_settings: {
+        Args: { p_event_id: string; p_event_settings: Json }
+        Returns: Json
+      }
+      update_squadron_timezone: {
+        Args: { new_timezone: string }
+        Returns: undefined
+      }
+      user_can_manage_assignment: {
+        Args: { target_pilot_id: string; user_auth_id: string }
+        Returns: boolean
+      }
+      user_can_manage_cycle:
+        | {
+            Args: { cycle_participants?: Json; user_auth_id: string }
+            Returns: boolean
+          }
+        | {
+            Args: { cycle_type: string; user_auth_id: string }
+            Returns: boolean
+          }
+      user_can_manage_cycle_debug_return: {
+        Args: { cycle_participants?: Json; user_auth_id: string }
+        Returns: boolean
+      }
+      user_can_manage_cycle_with_logging: {
+        Args: { cycle_participants?: Json; user_auth_id: string }
+        Returns: boolean
+      }
+      user_can_manage_squadron: {
+        Args: { squadron_id: string; user_auth_id: string }
+        Returns: boolean
+      }
+      user_can_view_assignment: {
+        Args: { target_pilot_id: string; user_auth_id: string }
+        Returns: boolean
+      }
+      user_can_view_cycle:
+        | {
+            Args: { cycle_participants: Json; user_auth_id: string }
+            Returns: boolean
+          }
+        | {
+            Args: { cycle_squadron_id: string; user_auth_id: string }
+            Returns: boolean
+          }
+      user_can_view_event: {
+        Args: { target_event_id: string; user_auth_id: string }
+        Returns: boolean
+      }
+      user_can_view_mission: {
+        Args: { target_mission_id: string; user_auth_id: string }
+        Returns: boolean
+      }
+      user_can_view_pilot: {
+        Args: { target_pilot_id: string; user_auth_id: string }
+        Returns: boolean
+      }
+      user_can_view_squadron: {
+        Args: { squadron_id: string; user_auth_id: string }
+        Returns: boolean
+      }
+      user_can_view_wing: {
+        Args: { user_auth_id: string; wing_id: string }
+        Returns: boolean
+      }
+      user_has_event_permission: {
         Args: {
-          user_auth_id: string | undefined
-          cycle_participants: Json | null
+          permission_name: string
+          target_event_id?: string
+          user_auth_id: string
         }
         Returns: boolean
       }
-      find_pilot_by_discord_id: {
+      user_has_global_org_permission: {
+        Args: { user_auth_id: string }
+        Returns: boolean
+      }
+      user_has_manage_change_log_permission: {
+        Args: { check_user_id: string }
+        Returns: boolean
+      }
+      user_has_roster_permission: {
         Args: {
-          p_discord_id: string
+          permission_name: string
+          target_pilot_id?: string
+          user_auth_id: string
         }
-        Returns: string | null
+        Returns: boolean
       }
     }
     Enums: {

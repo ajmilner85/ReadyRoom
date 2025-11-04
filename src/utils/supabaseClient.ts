@@ -281,9 +281,14 @@ export const updateCycle = async (cycleId: string, updates: Partial<Omit<Cycle, 
   console.log('[DEBUG] Can read cycle:', { existingCycle, readError });
 
   // Check user permissions via SQL function
+  const userId = (await supabase.auth.getUser()).data.user?.id;
+  if (!userId) {
+    throw new Error('User not authenticated');
+  }
+
   const { data: permTest, error: permError } = await supabase
     .rpc('user_can_manage_cycle', {
-      user_auth_id: (await supabase.auth.getUser()).data.user?.id,
+      user_auth_id: userId,
       cycle_participants: existingCycle?.participants || null
     });
 

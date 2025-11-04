@@ -1379,6 +1379,8 @@ const SquadronDiscordSettings: React.FC<SquadronDiscordSettingsProps> = ({
                       qualificationName: '',
                       squadronId: '',
                       squadronName: '',
+                      teamId: '',
+                      teamName: '',
                       appPermission: 'member'
                     });
                   }}

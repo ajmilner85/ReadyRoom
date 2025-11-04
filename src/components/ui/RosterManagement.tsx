@@ -1516,7 +1516,7 @@ const RosterManagement: React.FC = () => {
       const actualPilotId = await getActualPilotId(selectedPilot.id);
 
       // Remove the pilot from the team (sets end_date to today)
-      const { success, error } = await removePilotFromTeam(pilotTeamRecordId);
+      const { error } = await removePilotFromTeam(pilotTeamRecordId);
 
       if (error) {
         console.error('Database error removing team:', error);
