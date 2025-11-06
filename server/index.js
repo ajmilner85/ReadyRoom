@@ -1755,33 +1755,60 @@ async function processIndividualReminder(reminder) {
   if (recipients.declined) responseTypes.push('declined');
 
   // Get attendance data for users who have responded
+  // IMPORTANT: Fetch ALL responses with timestamps to deduplicate and get the latest response per user
   let attendanceData = [];
   if (responseTypes.length > 0) {
-    const { data, error: attendanceError } = await supabase
+    const { data: allResponses, error: attendanceError } = await supabase
       .from('discord_event_attendance')
-      .select('discord_id, discord_username, user_response')
-      .in('discord_event_id', discordEventIds)
-      .in('user_response', responseTypes);
+      .select('discord_id, discord_username, user_response, updated_at, created_at')
+      .in('discord_event_id', discordEventIds);
 
     if (attendanceError) {
       throw new Error(`Could not fetch attendance data: ${attendanceError.message}`);
     }
 
-    attendanceData = data || [];
+    // Deduplicate responses by discord_id, keeping only the MOST RECENT response
+    const latestResponseMap = new Map();
+    (allResponses || []).forEach(response => {
+      const existing = latestResponseMap.get(response.discord_id);
+      const responseTime = new Date(response.updated_at || response.created_at);
+
+      if (!existing || new Date(existing.updated_at || existing.created_at) < responseTime) {
+        latestResponseMap.set(response.discord_id, response);
+      }
+    });
+
+    // Filter to only include users whose LATEST response matches the target response types
+    attendanceData = Array.from(latestResponseMap.values())
+      .filter(response => responseTypes.includes(response.user_response));
+
+    console.log(`[REMINDER-DEDUP] Fetched ${allResponses?.length || 0} total responses, deduplicated to ${latestResponseMap.size} latest responses, filtered to ${attendanceData.length} matching target types`);
   }
 
   // Handle no_response case (users who haven't responded yet)
   if (recipients.noResponse) {
-    // Get all users who have responded
+    // Get all users who have responded with their latest response
     const { data: allResponses, error: responseError } = await supabase
       .from('discord_event_attendance')
-      .select('discord_id')
+      .select('discord_id, updated_at, created_at')
       .in('discord_event_id', discordEventIds);
 
     if (responseError) {
       console.warn(`[REMINDER] Could not fetch all responses for no-response filtering: ${responseError.message}`);
     } else {
-      const respondedUserIds = new Set((allResponses || []).map(r => r.discord_id));
+      // Deduplicate to get only users who have responded (regardless of response type)
+      // We only care if they've responded at all, not what their response was
+      const latestResponseMap = new Map();
+      (allResponses || []).forEach(response => {
+        const existing = latestResponseMap.get(response.discord_id);
+        const responseTime = new Date(response.updated_at || response.created_at);
+
+        if (!existing || new Date(existing.updated_at || existing.created_at) < responseTime) {
+          latestResponseMap.set(response.discord_id, response);
+        }
+      });
+
+      const respondedUserIds = new Set(latestResponseMap.keys());
 
       // Get all active pilots from participating squadrons
       const { data: pilots, error: pilotsError } = await supabase
