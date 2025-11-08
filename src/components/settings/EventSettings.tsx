@@ -550,6 +550,26 @@ const EventSettings: React.FC<EventSettingsProps> = ({ error, setError }) => {
             padding: '20px',
             backgroundColor: '#F8FAFC',
             borderRadius: '6px',
+            border: '1px solid #E5E7EB',
+            marginBottom: '16px'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <div>
+                <label style={fieldLabelStyle}>Schedule publication by default</label>
+                <p style={{ fontSize: '12px', color: '#64748B', margin: '4px 0 0 0', fontFamily: 'Inter' }}>
+                  When enabled, the "Schedule Publication" option will be turned on by default when creating new events.
+                </p>
+              </div>
+              {renderToggle(appSettings.eventDefaults.scheduledPublicationEnabledByDefault, (enabled) =>
+                handleSettingChange('scheduledPublicationEnabledByDefault', enabled)
+              )}
+            </div>
+          </div>
+
+          <div style={{
+            padding: '20px',
+            backgroundColor: '#F8FAFC',
+            borderRadius: '6px',
             border: '1px solid #E5E7EB'
           }}>
             <label style={fieldLabelStyle}>Default scheduled publication offset</label>

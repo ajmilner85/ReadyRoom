@@ -53,6 +53,7 @@ export interface AppSettings {
     showNoResponse: boolean;
 
     // Scheduled Publication
+    scheduledPublicationEnabledByDefault: boolean;
     scheduledPublicationOffset: {
       value: number;
       unit: 'minutes' | 'hours' | 'days';
@@ -109,7 +110,8 @@ const defaultSettings: AppSettings = {
     groupBySquadron: true,
     showNoResponse: true,
 
-    // Scheduled publication default (1 hour before event start)
+    // Scheduled publication defaults
+    scheduledPublicationEnabledByDefault: false,
     scheduledPublicationOffset: { value: 1, unit: 'hours' }
   }
 };
