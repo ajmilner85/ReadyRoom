@@ -49,6 +49,7 @@ const EventDetails: React.FC<EventDetailsProps> = ({
   const [scheduledReminders, setScheduledReminders] = useState<any[]>([]);
   const [serverConnectivity, ] = useState<'connected' | 'pending' | 'error'>('connected');
   const [sendingReminder, setSendingReminder] = useState(false);
+  const [scheduledPublication, setScheduledPublication] = useState<{scheduled_time: string} | null>(null);
   // Set initial image preview from event data
   useEffect(() => {
     const eventObj = event as any; // Cast to access non-standard properties
@@ -67,6 +68,7 @@ const EventDetails: React.FC<EventDetailsProps> = ({
     if (!event) {
       setSquadrons([]);
       setScheduledReminders([]);
+      setScheduledPublication(null);
       return;
     }
 
@@ -91,7 +93,7 @@ const EventDetails: React.FC<EventDetailsProps> = ({
           .eq('event_id', event.id)
           .eq('sent', false)
           .order('scheduled_time', { ascending: true });
-        
+
         if (data && !error) {
           setScheduledReminders(data);
         }
@@ -100,9 +102,41 @@ const EventDetails: React.FC<EventDetailsProps> = ({
       }
     };
 
+    // Load scheduled publication
+    const loadScheduledPublication = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('scheduled_event_publications')
+          .select('scheduled_time')
+          .eq('event_id', event.id)
+          .eq('sent', false)
+          .single();
+
+        if (data && !error) {
+          setScheduledPublication(data);
+        } else {
+          setScheduledPublication(null);
+        }
+      } catch (error) {
+        console.error('Failed to load scheduled publication:', error);
+        setScheduledPublication(null);
+      }
+    };
+
     loadSquadrons();
     loadReminders();
+    loadScheduledPublication();
   }, [event]);
+
+  // Debug logging for event status
+  useEffect(() => {
+    if (!event) return;
+    const eventObj = event as any;
+    console.log('[EVENT-STATUS-DEBUG] Event:', event.id);
+    console.log('[EVENT-STATUS-DEBUG] discordEventId:', event.discordEventId);
+    console.log('[EVENT-STATUS-DEBUG] discord_event_id:', eventObj.discord_event_id);
+    console.log('[EVENT-STATUS-DEBUG] scheduledPublication:', scheduledPublication);
+  }, [event, scheduledPublication]);
 
   // Handle image upload
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -492,6 +526,20 @@ const EventDetails: React.FC<EventDetailsProps> = ({
 
   // Check which Discord ID field is actually populated
   const isPublished = Boolean(event.discordEventId) || Boolean(event.discord_event_id);
+  const isScheduled = !isPublished && scheduledPublication !== null;
+
+  // Format scheduled publication time
+  const formatScheduledTime = (isoString: string) => {
+    const date = new Date(isoString);
+    return date.toLocaleString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true
+    });
+  };
 
   return (
     <div
@@ -973,7 +1021,7 @@ const EventDetails: React.FC<EventDetailsProps> = ({
       )}
       
       {/* Discord Integration Status */}
-      {isPublished && (
+      {(isPublished || isScheduled) && (
         <Card className="p-4" style={{ marginBottom: '4px' }}>
           <h2 style={{ fontSize: '18px', fontWeight: 600, color: '#1E293B', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
             <DiscordIcon size={18} className="text-indigo-500" />
@@ -982,19 +1030,29 @@ const EventDetails: React.FC<EventDetailsProps> = ({
           <div style={{ display: 'grid', gap: '12px' }}>
             {/* Publication Status */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <div style={{
-                width: '8px',
-                height: '8px',
-                borderRadius: '50%',
-                backgroundColor: '#10B981', // Green for published/active
-                flexShrink: 0
-              }} />
+              {isScheduled ? (
+                <Clock size={16} style={{ color: '#5865F2', flexShrink: 0 }} />
+              ) : (
+                <div style={{
+                  width: '8px',
+                  height: '8px',
+                  borderRadius: '50%',
+                  backgroundColor: '#10B981', // Green for published/active
+                  flexShrink: 0
+                }} />
+              )}
               <div style={{
                 fontSize: '13px',
-                color: '#374151',
-                fontWeight: 500
+                fontWeight: 500,
+                backgroundColor: isScheduled ? '#5865F2' : 'transparent',
+                color: isScheduled ? 'white' : '#374151',
+                padding: isScheduled ? '4px 8px' : '0',
+                borderRadius: isScheduled ? '4px' : '0'
               }}>
-                Published to Discord
+                {isScheduled
+                  ? `Scheduled for Publication on ${formatScheduledTime(scheduledPublication!.scheduled_time)}`
+                  : 'Published to Discord'
+                }
               </div>
             </div>
             
@@ -1094,56 +1152,152 @@ const EventDetails: React.FC<EventDetailsProps> = ({
           </div>
         )}
 
-        <button
-          onClick={handlePublishToDiscord}
-          disabled={publishing || isPublished}
-          style={{
+{isScheduled ? (
+          <div style={{
             display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            padding: '12px 24px',
-            backgroundColor: isPublished ? '#10B981' : '#3B82F6',
-            color: 'white',
-            borderRadius: '8px',
-            border: 'none',
-            cursor: isPublished ? 'not-allowed' : 'pointer',
-            transition: 'all 0.2s ease',
-            fontFamily: 'Inter',
-            fontSize: '14px',
-            fontWeight: 500,
             width: '100%',
-            justifyContent: 'center',
-            opacity: isPublished ? 0.7 : 1
-          }}
-          onMouseEnter={(e) => {
-            if (!isPublished && !publishing) {
-              e.currentTarget.style.backgroundColor = '#2563EB';
-            }
-          }}
-          onMouseLeave={(e) => {
-            if (!isPublished && !publishing) {
-              e.currentTarget.style.backgroundColor = '#3B82F6';
-            }
-          }}
-        >
-          {publishing ? (
-            <>
-              <div className="w-4 h-4 border-2 border-t-transparent rounded-full animate-spin" 
-                   style={{ borderColor: 'white', borderTopColor: 'transparent' }} />
-              <span>Publishing...</span>
-            </>
-          ) : isPublished ? (
-            <>
-              <Check size={18} />
-              <span>Published to Discord</span>
-            </>
-          ) : (
-            <>
-              <Send size={18} />
-              <span>Publish to Discord</span>
-            </>
-          )}
-        </button>
+            borderRadius: '8px',
+            overflow: 'hidden'
+          }}>
+            {/* Left side - Scheduled status */}
+            <div style={{
+              flex: 1,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              padding: '12px 24px',
+              backgroundColor: '#5865F2',
+              color: 'white',
+              fontFamily: 'Inter',
+              fontSize: '14px',
+              fontWeight: 500,
+              justifyContent: 'center',
+              opacity: 0.7
+            }}>
+              <Clock size={18} />
+              <span>Scheduled for Publication</span>
+            </div>
+
+            {/* Right side - Publish Now button */}
+            <button
+              onClick={async () => {
+                if (publishing || !event) return;
+
+                setPublishing(true);
+                try {
+                  // First, publish the event
+                  await handlePublishToDiscord();
+
+                  // Then delete the scheduled publication record
+                  if (scheduledPublication) {
+                    const { error: deleteError } = await supabase
+                      .from('scheduled_event_publications')
+                      .delete()
+                      .eq('event_id', event.id);
+
+                    if (deleteError) {
+                      console.error('Failed to delete scheduled publication:', deleteError);
+                    } else {
+                      setScheduledPublication(null);
+                    }
+                  }
+                } catch (error) {
+                  console.error('Failed to publish now:', error);
+                } finally {
+                  setPublishing(false);
+                }
+              }}
+              disabled={publishing}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '12px 16px',
+                backgroundColor: '#4C51BF',
+                color: 'white',
+                border: 'none',
+                borderLeft: '1px solid rgba(255, 255, 255, 0.2)',
+                cursor: publishing ? 'not-allowed' : 'pointer',
+                fontFamily: 'Inter',
+                fontSize: '13px',
+                fontWeight: 500,
+                whiteSpace: 'nowrap',
+                transition: 'background-color 0.2s ease'
+              }}
+              onMouseEnter={(e) => {
+                if (!publishing) {
+                  e.currentTarget.style.backgroundColor = '#4338CA';
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!publishing) {
+                  e.currentTarget.style.backgroundColor = '#4C51BF';
+                }
+              }}
+            >
+              {publishing ? (
+                <div className="w-4 h-4 border-2 border-t-transparent rounded-full animate-spin"
+                     style={{ borderColor: 'white', borderTopColor: 'transparent' }} />
+              ) : (
+                <>
+                  <Send size={16} />
+                  <span>Publish Now</span>
+                </>
+              )}
+            </button>
+          </div>
+        ) : (
+          <button
+            onClick={handlePublishToDiscord}
+            disabled={publishing || isPublished}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              padding: '12px 24px',
+              backgroundColor: isPublished ? '#10B981' : '#3B82F6',
+              color: 'white',
+              borderRadius: '8px',
+              border: 'none',
+              cursor: isPublished ? 'not-allowed' : 'pointer',
+              transition: 'all 0.2s ease',
+              fontFamily: 'Inter',
+              fontSize: '14px',
+              fontWeight: 500,
+              width: '100%',
+              justifyContent: 'center',
+              opacity: isPublished ? 0.7 : 1
+            }}
+            onMouseEnter={(e) => {
+              if (!isPublished && !publishing) {
+                e.currentTarget.style.backgroundColor = '#2563EB';
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (!isPublished && !publishing) {
+                e.currentTarget.style.backgroundColor = '#3B82F6';
+              }
+            }}
+          >
+            {publishing ? (
+              <>
+                <div className="w-4 h-4 border-2 border-t-transparent rounded-full animate-spin"
+                     style={{ borderColor: 'white', borderTopColor: 'transparent' }} />
+                <span>Publishing...</span>
+              </>
+            ) : isPublished ? (
+              <>
+                <Check size={18} />
+                <span>Published to Discord</span>
+              </>
+            ) : (
+              <>
+                <Send size={18} />
+                <span>Publish to Discord</span>
+              </>
+            )}
+          </button>
+        )}
       </div>
     </div>
   );

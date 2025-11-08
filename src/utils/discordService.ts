@@ -860,11 +860,11 @@ export async function getServerChannels(guildId: string): Promise<{
  */
 export async function deleteMultiChannelEvent(event: Event): Promise<{ success: boolean; deletedCount: number; errors: string[] }> {
   try {
-    // console.log('[DELETE-MULTI-DEBUG] Starting deleteMultiChannelEvent for event:', event.id);
-    // console.log('[DELETE-MULTI-DEBUG] Event discord_event_id:', event.discord_event_id);
-    // console.log('[DELETE-MULTI-DEBUG] Event discord_event_id type:', typeof event.discord_event_id);
-    // console.log('[DELETE-MULTI-DEBUG] Event discord_event_id isArray:', Array.isArray(event.discord_event_id));
-    // console.log('[DELETE-MULTI-DEBUG] Event discordEventId (legacy):', event.discordEventId);
+    console.log('[DELETE-MULTI-DEBUG] Starting deleteMultiChannelEvent for event:', event.id);
+    console.log('[DELETE-MULTI-DEBUG] Event discord_event_id:', event.discord_event_id);
+    console.log('[DELETE-MULTI-DEBUG] Event discord_event_id type:', typeof event.discord_event_id);
+    console.log('[DELETE-MULTI-DEBUG] Event discord_event_id isArray:', Array.isArray(event.discord_event_id));
+    console.log('[DELETE-MULTI-DEBUG] Event discordEventId (legacy):', event.discordEventId);
     
     let participatingSquadrons: string[] = [];
     const errors: string[] = [];
@@ -872,30 +872,30 @@ export async function deleteMultiChannelEvent(event: Event): Promise<{ success: 
     
     // Use event-level participating squadrons if they exist, otherwise get from cycle
     if (event.participants && event.participants.length > 0) {
-      // console.log('[DELETE-MULTI-DEBUG] Using event-level participants:', event.participants);
+      console.log('[DELETE-MULTI-DEBUG] Using event-level participants:', event.participants);
       participatingSquadrons = event.participants;
     } else if (event.cycleId) {
-      // console.log('[DELETE-MULTI-DEBUG] Event has no participants, fetching from cycle:', event.cycleId);
-      // console.log('[DELETE-MULTI-DEBUG] About to query database for cycle participants...');
-      
+      console.log('[DELETE-MULTI-DEBUG] Event has no participants, fetching from cycle:', event.cycleId);
+      console.log('[DELETE-MULTI-DEBUG] About to query database for cycle participants...');
+
       // Get the event's cycle to find participating squadrons
       const { data: cycleData, error: cycleError } = await supabase
         .from('cycles')
         .select('participants')
         .eq('id', event.cycleId)
         .single();
-      
-      // console.log('[DELETE-MULTI-DEBUG] Database query completed. CycleData:', cycleData, 'Error:', cycleError);
-      
+
+      console.log('[DELETE-MULTI-DEBUG] Database query completed. CycleData:', cycleData, 'Error:', cycleError);
+
       if (cycleError || !cycleData) {
-        // console.log('[DELETE-MULTI-DEBUG] Failed to fetch cycle data - returning error');
+        console.log('[DELETE-MULTI-DEBUG] Failed to fetch cycle data - returning error');
         return {
           success: false,
           deletedCount: 0,
           errors: ['Failed to fetch cycle information for deletion']
         };
       }
-      
+
       participatingSquadrons = Array.isArray(cycleData.participants) ? cycleData.participants as string[] : [];
     } else {
       return {

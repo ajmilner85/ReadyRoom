@@ -51,6 +51,12 @@ export interface AppSettings {
     groupResponsesByQualification: boolean;
     groupBySquadron: boolean;
     showNoResponse: boolean;
+
+    // Scheduled Publication
+    scheduledPublicationOffset: {
+      value: number;
+      unit: 'minutes' | 'hours' | 'days';
+    };
   };
 }
 
@@ -101,7 +107,10 @@ const defaultSettings: AppSettings = {
     // Response grouping default (ALL ENABLED by default)
     groupResponsesByQualification: true,
     groupBySquadron: true,
-    showNoResponse: true
+    showNoResponse: true,
+
+    // Scheduled publication default (1 hour before event start)
+    scheduledPublicationOffset: { value: 1, unit: 'hours' }
   }
 };
 

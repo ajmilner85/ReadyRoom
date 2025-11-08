@@ -541,6 +541,36 @@ const EventSettings: React.FC<EventSettingsProps> = ({ error, setError }) => {
           )}
         </div>
 
+        {/* Scheduled Publication Section */}
+        <div style={sectionStyle}>
+          <h3 style={{ fontSize: '18px', fontWeight: 600, color: '#0F172A', margin: '0 0 16px 0' }}>
+            Scheduled Publication
+          </h3>
+          <div style={{
+            padding: '20px',
+            backgroundColor: '#F8FAFC',
+            borderRadius: '6px',
+            border: '1px solid #E5E7EB'
+          }}>
+            <label style={fieldLabelStyle}>Default scheduled publication offset</label>
+            <p style={{ fontSize: '12px', color: '#64748B', margin: '4px 0 12px 0', fontFamily: 'Inter' }}>
+              When scheduling publication for new events, this offset will be applied before the event start time.
+            </p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              {renderReminderTimeSelector(
+                appSettings.eventDefaults.scheduledPublicationOffset,
+                (field, value) => {
+                  const newOffset = {
+                    ...appSettings.eventDefaults.scheduledPublicationOffset,
+                    [field]: value
+                  };
+                  handleSettingChange('scheduledPublicationOffset', newOffset);
+                }
+              )}
+            </div>
+          </div>
+        </div>
+
         {/* Response Grouping Section */}
         <div style={sectionStyle}>
           <h3 style={{ fontSize: '18px', fontWeight: 600, color: '#0F172A', margin: '0 0 16px 0' }}>
