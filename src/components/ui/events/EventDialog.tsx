@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, Clock, Image as ImageIcon, ChevronLeft, ChevronRight, Check, Plus } from 'lucide-react';
 import { useAppSettings } from '../../../context/AppSettingsContext';
 import { fetchDiscordGuildRoles } from '../../../utils/discordService';
+import { supabase } from '../../../utils/supabaseClient';
 
 interface EventDialogProps {
   onSave: (eventData: {
@@ -46,15 +47,21 @@ interface EventDialogProps {
       };
       initialNotificationRoles?: Array<{ id: string; name: string }>;
     };
+    scheduledPublication?: {
+      enabled: boolean;
+      scheduledTime?: string;
+    };
   }, shouldPublish?: boolean) => Promise<void>;
   onCancel: () => void;
   initialData?: {
+    id?: string;
     title: string;
     description: string;
     datetime: string;
     endDatetime?: string;
     restrictedTo?: string[];
     participants?: string[];
+    isPublished?: boolean;
     imageUrl?: string;
     headerImageUrl?: string;
     additionalImageUrls?: string[];
@@ -96,7 +103,7 @@ interface EventDialogProps {
   selectedCycle?: { participants?: string[] };
 }
 
-type WorkflowStep = 'details' | 'participants' | 'reminders';
+type WorkflowStep = 'details' | 'participants' | 'reminders' | 'publish';
 
 // Helper function to convert reminder time to milliseconds
 const reminderTimeToMilliseconds = (value: number, unit: 'minutes' | 'hours' | 'days'): number => {
@@ -234,7 +241,14 @@ export const EventDialog: React.FC<EventDialogProps> = ({
   );
   const [loadingRoles, setLoadingRoles] = useState(false);
   const [selectedRoleId, setSelectedRoleId] = useState('');
-  
+
+  // Scheduled publication state
+  const [scheduledPublicationEnabled, setScheduledPublicationEnabled] = useState(false);
+  const [scheduledPublicationDatetime, setScheduledPublicationDatetime] = useState('');
+  const [scheduledPublicationOffset, setScheduledPublicationOffset] = useState(
+    settings.eventDefaults.scheduledPublicationOffset
+  );
+
   // Image state
   const [images, setImages] = useState<(File | null)[]>([null, null, null, null]);
   const [imagePreviews, setImagePreviews] = useState<(string | null)[]>([null, null, null, null]);
@@ -392,6 +406,17 @@ export const EventDialog: React.FC<EventDialogProps> = ({
     }
   }, [selectedCycle?.participants, initialData?.participants]);
 
+  // Initialize and sync scheduled publication datetime when event datetime changes
+  useEffect(() => {
+    if (datetime && scheduledPublicationEnabled) {
+      // If offset is set but datetime isn't, or if event datetime changed, recalculate
+      const calculatedDatetime = offsetToDatetime(scheduledPublicationOffset, datetime, timezone);
+      if (calculatedDatetime && calculatedDatetime !== scheduledPublicationDatetime) {
+        setScheduledPublicationDatetime(calculatedDatetime);
+      }
+    }
+  }, [datetime, timezone, scheduledPublicationEnabled, scheduledPublicationOffset]);
+
   // Load existing images when editing
   useEffect(() => {
     if (initialData) {
@@ -504,6 +529,50 @@ export const EventDialog: React.FC<EventDialogProps> = ({
       }
     }
   }, [initialData]);
+
+  // Load scheduled publication data when editing an event
+  useEffect(() => {
+    const loadScheduledPublication = async () => {
+      if (!initialData?.id) {
+        console.log('[LOAD-SCHEDULED-DEBUG] No initialData.id, skipping load');
+        return;
+      }
+
+      console.log('[LOAD-SCHEDULED-DEBUG] Loading scheduled publication for event:', initialData.id);
+      try {
+        const { data, error } = await supabase
+          .from('scheduled_event_publications')
+          .select('scheduled_time')
+          .eq('event_id', initialData.id)
+          .eq('sent', false)
+          .single();
+
+        console.log('[LOAD-SCHEDULED-DEBUG] Query result:', { data, error });
+
+        if (data && !error) {
+          console.log('[LOAD-SCHEDULED-DEBUG] Setting scheduled publication enabled, datetime:', data.scheduled_time);
+          setScheduledPublicationEnabled(true);
+          // Convert UTC scheduled time to local timezone for the input field
+          const localTime = utcToTimezoneLocal(data.scheduled_time, timezone);
+          console.log('[LOAD-SCHEDULED-DEBUG] Converted to local time:', localTime);
+          setScheduledPublicationDatetime(localTime);
+
+          // Calculate offset from scheduled time and event start time
+          if (datetime) {
+            const offset = datetimeToOffset(localTime, datetime, timezone);
+            console.log('[LOAD-SCHEDULED-DEBUG] Calculated offset:', offset);
+            setScheduledPublicationOffset(offset);
+          }
+        } else {
+          console.log('[LOAD-SCHEDULED-DEBUG] No scheduled publication found or error occurred');
+        }
+      } catch (error) {
+        console.error('[LOAD-SCHEDULED-DEBUG] Failed to load scheduled publication:', error);
+      }
+    };
+
+    loadScheduledPublication();
+  }, [initialData?.id, timezone, datetime]);
 
   useEffect(() => {
     if (datetime) {
@@ -638,7 +707,8 @@ export const EventDialog: React.FC<EventDialogProps> = ({
   const steps: Array<{ key: WorkflowStep; title: string; description: string }> = [
     { key: 'details', title: 'Event Details', description: 'Basic event information' },
     { key: 'participants', title: 'Participants', description: 'Who can participate' },
-    { key: 'reminders', title: 'Reminders', description: 'Notification settings' }
+    { key: 'reminders', title: 'Reminders', description: 'Notification settings' },
+    { key: 'publish', title: 'Publish', description: 'Publication settings' }
   ];
 
   const currentStepIndex = steps.findIndex(step => step.key === currentStep);
@@ -674,11 +744,11 @@ export const EventDialog: React.FC<EventDialogProps> = ({
           // Convert both reminders to milliseconds for comparison
           const firstReminderMs = reminderTimeToMilliseconds(firstReminderValue, firstReminderUnit);
           const secondReminderMs = reminderTimeToMilliseconds(secondReminderValue, secondReminderUnit);
-          
+
           console.log('[REMINDER-VALIDATION] First reminder:', firstReminderValue, firstReminderUnit, '=', firstReminderMs, 'ms');
           console.log('[REMINDER-VALIDATION] Second reminder:', secondReminderValue, secondReminderUnit, '=', secondReminderMs, 'ms');
           console.log('[REMINDER-VALIDATION] Checking if first (', firstReminderMs, ') <= second (', secondReminderMs, ')');
-          
+
           // First reminder should be FURTHER from event (larger value) than second reminder
           // Example: First = 3 days (259200000ms), Second = 15 minutes (900000ms) is CORRECT
           // Example: First = 15 minutes (900000ms), Second = 3 days (259200000ms) is WRONG
@@ -689,7 +759,31 @@ export const EventDialog: React.FC<EventDialogProps> = ({
           console.log('[REMINDER-VALIDATION] Validation passed');
         }
         return { isValid: true };
-        
+
+      case 'publish':
+        // Validate scheduled publication if enabled
+        if (scheduledPublicationEnabled) {
+          if (!scheduledPublicationDatetime) {
+            return { isValid: false, errorMessage: 'Please specify a publication time' };
+          }
+
+          // Convert both to UTC for comparison
+          const pubTimeUtc = timezoneLocalToUtc(scheduledPublicationDatetime, timezone);
+          const eventTimeUtc = timezoneLocalToUtc(datetime, timezone);
+          const nowUtc = new Date().toISOString();
+
+          // Check if publication time is in the past
+          if (pubTimeUtc < nowUtc) {
+            return { isValid: false, errorMessage: 'Publication time must be in the future' };
+          }
+
+          // Check if publication time is after event start
+          if (pubTimeUtc >= eventTimeUtc) {
+            return { isValid: false, errorMessage: 'Publication time must be before event start time' };
+          }
+        }
+        return { isValid: true };
+
       default:
         return { isValid: true };
     }
@@ -751,6 +845,106 @@ export const EventDialog: React.FC<EventDialogProps> = ({
     setSelectedNotificationRoles(selectedNotificationRoles.filter(r => r.id !== roleId));
   };
 
+  // Helper functions for scheduled publication datetime/offset conversion
+  const offsetToDatetime = (
+    offset: { value: number; unit: 'minutes' | 'hours' | 'days' },
+    eventStartTime: string,
+    tz: string
+  ): string => {
+    if (!eventStartTime) return '';
+
+    try {
+      // Parse event start time in the specified timezone
+      const eventUtc = timezoneLocalToUtc(eventStartTime, tz);
+      const eventDate = new Date(eventUtc);
+
+      // Calculate offset in milliseconds
+      let offsetMs = 0;
+      switch (offset.unit) {
+        case 'days':
+          offsetMs = offset.value * 24 * 60 * 60 * 1000;
+          break;
+        case 'hours':
+          offsetMs = offset.value * 60 * 60 * 1000;
+          break;
+        case 'minutes':
+          offsetMs = offset.value * 60 * 1000;
+          break;
+      }
+
+      // Subtract offset from event time (publication is BEFORE event)
+      const pubDateUtc = new Date(eventDate.getTime() - offsetMs);
+
+      // Convert back to timezone-local for display
+      return utcToTimezoneLocal(pubDateUtc.toISOString(), tz);
+    } catch (error) {
+      console.warn('Error converting offset to datetime:', error);
+      return '';
+    }
+  };
+
+  const datetimeToOffset = (
+    publicationTime: string,
+    eventStartTime: string,
+    tz: string
+  ): { value: number; unit: 'minutes' | 'hours' | 'days' } => {
+    if (!publicationTime || !eventStartTime) {
+      return { value: 3, unit: 'days' };
+    }
+
+    try {
+      // Convert both to UTC for accurate comparison
+      const pubUtc = timezoneLocalToUtc(publicationTime, tz);
+      const eventUtc = timezoneLocalToUtc(eventStartTime, tz);
+
+      const pubDate = new Date(pubUtc);
+      const eventDate = new Date(eventUtc);
+
+      // Calculate difference in milliseconds
+      const diffMs = eventDate.getTime() - pubDate.getTime();
+      const diffMinutes = Math.round(diffMs / (60 * 1000));
+
+      // Choose best unit representation
+      if (diffMinutes % (24 * 60) === 0) {
+        return { value: diffMinutes / (24 * 60), unit: 'days' };
+      } else if (diffMinutes % 60 === 0) {
+        return { value: diffMinutes / 60, unit: 'hours' };
+      } else {
+        return { value: diffMinutes, unit: 'minutes' };
+      }
+    } catch (error) {
+      console.warn('Error converting datetime to offset:', error);
+      return { value: 3, unit: 'days' };
+    }
+  };
+
+  // Handler for scheduled publication datetime change (updates offset)
+  const handleScheduledPublicationDatetimeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newDatetime = e.target.value;
+    setScheduledPublicationDatetime(newDatetime);
+
+    // Update offset based on new datetime
+    if (newDatetime && datetime) {
+      const newOffset = datetimeToOffset(newDatetime, datetime, timezone);
+      setScheduledPublicationOffset(newOffset);
+    }
+  };
+
+  // Handler for scheduled publication offset change (updates datetime)
+  const handleScheduledPublicationOffsetChange = (field: 'value' | 'unit', value: number | string) => {
+    const newOffset = {
+      ...scheduledPublicationOffset,
+      [field]: field === 'value' ? Math.max(1, parseInt(value as string) || 1) : value
+    };
+    setScheduledPublicationOffset(newOffset);
+
+    // Update datetime based on new offset
+    if (datetime) {
+      const newDatetime = offsetToDatetime(newOffset, datetime, timezone);
+      setScheduledPublicationDatetime(newDatetime);
+    }
+  };
+
   const handleSubmit = async (shouldPublish: boolean = false) => {
     if (isSubmitting) return; // Prevent multiple submissions
     
@@ -759,7 +953,7 @@ export const EventDialog: React.FC<EventDialogProps> = ({
     console.log('[SUBMIT-DEBUG] Second reminder enabled:', secondReminderEnabled, 'value:', secondReminderValue, 'unit:', secondReminderUnit);
     
     // Validate ALL steps before submission
-    const stepsToValidate: WorkflowStep[] = ['details', 'participants', 'reminders'];
+    const stepsToValidate: WorkflowStep[] = ['details', 'participants', 'reminders', 'publish'];
     for (const step of stepsToValidate) {
       console.log('[SUBMIT-DEBUG] Validating step:', step);
       const validation = validateStep(step);
@@ -847,6 +1041,12 @@ export const EventDialog: React.FC<EventDialogProps> = ({
             }
           },
           initialNotificationRoles: selectedNotificationRoles
+        },
+        scheduledPublication: scheduledPublicationEnabled ? {
+          enabled: true,
+          scheduledTime: timezoneLocalToUtc(scheduledPublicationDatetime, timezone)
+        } : {
+          enabled: false
         }
       }, shouldPublish);
     } catch (error) {
@@ -862,122 +1062,94 @@ export const EventDialog: React.FC<EventDialogProps> = ({
   const ProgressBar = () => (
     <div style={{ padding: '16px 24px' }}>
       <nav aria-label="Progress">
-        <div style={{ 
+        <div style={{
           display: 'flex',
-          justifyContent: 'space-between',
           alignItems: 'flex-start',
-          position: 'relative',
-          maxWidth: '400px',
+          maxWidth: '550px',
           margin: '0 auto'
         }}>
-          {/* Connecting lines between squares */}
-          {currentStepIndex > 0 && (
-            <div style={{
-              position: 'absolute',
-              top: '16px',
-              left: 'calc(16.67% + 16px)',
-              width: 'calc(33.33% - 32px)',
-              height: '2px',
-              backgroundColor: '#10B981',
-              zIndex: 0
-            }} />
-          )}
-          
-          {currentStepIndex > 1 && (
-            <div style={{
-              position: 'absolute',
-              top: '16px',
-              left: 'calc(50% + 16px)',
-              width: 'calc(33.33% - 32px)',
-              height: '2px',
-              backgroundColor: '#10B981',
-              zIndex: 0
-            }} />
-          )}
-          
-          {/* Background lines */}
-          {currentStepIndex < 1 && (
-            <div style={{
-              position: 'absolute',
-              top: '16px',
-              left: 'calc(16.67% + 16px)',
-              width: 'calc(33.33% - 32px)',
-              height: '2px',
-              backgroundColor: '#E5E7EB',
-              zIndex: 0
-            }} />
-          )}
-          
-          {currentStepIndex < 2 && (
-            <div style={{
-              position: 'absolute',
-              top: '16px',
-              left: 'calc(50% + 16px)',
-              width: 'calc(33.33% - 32px)',
-              height: '2px',
-              backgroundColor: '#E5E7EB',
-              zIndex: 0
-            }} />
-          )}
-          
           {steps.map((step, index) => {
             const isCompleted = completedSteps.has(step.key);
             const isCurrent = currentStep === step.key;
             const isClickable = index <= currentStepIndex || isCompleted;
-            
+            const showLine = index < steps.length - 1;
+            const lineActive = index < currentStepIndex;
+
             return (
-              <div key={step.key} style={{ 
+              <div key={step.key} style={{
                 display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                position: 'relative',
-                zIndex: 1
+                alignItems: 'flex-start',
+                flex: index === steps.length - 1 ? '0 0 auto' : '1',
+                position: 'relative'
               }}>
-                <button
-                  onClick={() => isClickable && handleStepClick(step.key)}
-                  disabled={!isClickable}
-                  style={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    background: 'none',
-                    border: 'none',
-                    cursor: isClickable ? 'pointer' : 'default',
-                    padding: '0'
-                  }}
-                >
-                  {/* Rounded square */}
-                  <div
+                <div style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  position: 'relative',
+                  zIndex: 1
+                }}>
+                  <button
+                    onClick={() => isClickable && handleStepClick(step.key)}
+                    disabled={!isClickable}
                     style={{
-                      width: '32px',
-                      height: '32px',
-                      borderRadius: '8px',
                       display: 'flex',
+                      flexDirection: 'column',
                       alignItems: 'center',
-                      justifyContent: 'center',
-                      backgroundColor: isCompleted ? '#10B981' : isCurrent ? '#3B82F6' : '#E5E7EB',
-                      color: isCompleted || isCurrent ? 'white' : '#6B7280',
-                      fontSize: '14px',
-                      fontWeight: 500,
-                      marginBottom: '8px'
+                      background: 'none',
+                      border: 'none',
+                      cursor: isClickable ? 'pointer' : 'default',
+                      padding: '0'
                     }}
                   >
-                    {isCompleted ? <Check size={16} /> : index + 1}
-                  </div>
-                  
-                  {/* Title below */}
+                    {/* Rounded square */}
+                    <div
+                      style={{
+                        width: '32px',
+                        height: '32px',
+                        borderRadius: '12px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        backgroundColor: isCompleted ? '#10B981' : isCurrent ? '#3B82F6' : '#E5E7EB',
+                        color: isCompleted || isCurrent ? 'white' : '#6B7280',
+                        fontSize: '14px',
+                        fontWeight: 500,
+                        marginBottom: '8px',
+                        border: '5px solid #FFFFFF',
+                        boxSizing: 'content-box'
+                      }}
+                    >
+                      {isCompleted ? <Check size={16} /> : index + 1}
+                    </div>
+
+                    {/* Title below */}
+                    <div style={{
+                      fontSize: '14px',
+                      fontWeight: isCurrent ? 600 : 500,
+                      color: isCurrent ? '#1F2937' : isCompleted ? '#374151' : '#6B7280',
+                      textAlign: 'center',
+                      whiteSpace: 'nowrap',
+                      width: '90px',
+                      minWidth: '90px'
+                    }}>
+                      {step.title}
+                    </div>
+                  </button>
+                </div>
+
+                {/* Connecting line */}
+                {showLine && (
                   <div style={{
-                    fontSize: '14px',
-                    fontWeight: isCurrent ? 600 : 500,
-                    color: isCurrent ? '#1F2937' : isCompleted ? '#374151' : '#6B7280',
-                    textAlign: 'center',
-                    whiteSpace: 'nowrap',
-                    width: '90px',
-                    minWidth: '90px'
-                  }}>
-                    {step.title}
-                  </div>
-                </button>
+                    position: 'absolute',
+                    left: '45px',
+                    right: '-45px',
+                    top: '21px',
+                    height: '2px',
+                    backgroundColor: lineActive ? '#10B981' : '#E5E7EB',
+                    zIndex: 0
+                  }} />
+                )}
               </div>
             );
           })}
@@ -1682,116 +1854,6 @@ export const EventDialog: React.FC<EventDialogProps> = ({
 
           {currentStep === 'reminders' && (
             <div>
-              {/* Initial Notification Roles */}
-              <div style={{ marginBottom: '24px', padding: '16px', border: '1px solid #E5E7EB', borderRadius: '6px', backgroundColor: '#F8FAFC' }}>
-                <div style={{ marginBottom: '12px' }}>
-                  <span style={{ fontSize: '14px', fontWeight: 500, color: '#374151' }}>Initial Notification</span>
-                  <p style={{ fontSize: '12px', color: '#64748B', marginTop: '4px', fontStyle: 'italic' }}>
-                    Mention Discord roles when the event is first published
-                  </p>
-                </div>
-
-                <div style={{ display: 'flex', gap: '8px', marginBottom: selectedNotificationRoles.length > 0 ? '12px' : '0' }}>
-                  <select
-                    value={selectedRoleId}
-                    onChange={(e) => setSelectedRoleId(e.target.value)}
-                    disabled={loadingRoles || availableDiscordRoles.length === 0}
-                    style={{
-                      flex: 1,
-                      padding: '8px',
-                      border: '1px solid #CBD5E1',
-                      borderRadius: '4px',
-                      fontSize: '14px',
-                      backgroundColor: loadingRoles ? '#F9FAFB' : 'white',
-                      cursor: loadingRoles ? 'not-allowed' : 'pointer'
-                    }}
-                  >
-                    <option value="">
-                      {loadingRoles ? 'Loading roles...' : availableDiscordRoles.length === 0 ? 'No mentionable roles available' : 'Select a Discord role'}
-                    </option>
-                    {availableDiscordRoles.map((role) => (
-                      <option key={role.id} value={role.id}>
-                        {role.name}
-                      </option>
-                    ))}
-                  </select>
-                  <button
-                    type="button"
-                    onClick={handleAddNotificationRole}
-                    disabled={!selectedRoleId || loadingRoles}
-                    style={{
-                      padding: '8px 16px',
-                      backgroundColor: !selectedRoleId || loadingRoles ? '#9CA3AF' : '#3B82F6',
-                      color: '#FFFFFF',
-                      border: 'none',
-                      borderRadius: '4px',
-                      cursor: !selectedRoleId || loadingRoles ? 'not-allowed' : 'pointer',
-                      fontSize: '14px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '4px'
-                    }}
-                  >
-                    <Plus size={16} />
-                    Add
-                  </button>
-                </div>
-
-                {selectedNotificationRoles.length > 0 ? (
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                    {selectedNotificationRoles.map((role) => (
-                      <div
-                        key={role.id}
-                        style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '6px',
-                          padding: '4px 8px 4px 10px',
-                          borderRadius: '8px',
-                          fontSize: '12px',
-                          fontWeight: '500',
-                          height: '26px',
-                          boxSizing: 'border-box',
-                          whiteSpace: 'nowrap',
-                          backgroundColor: '#DBEAFE',
-                          color: '#1D4ED8',
-                          border: '1px solid #3B82F6'
-                        }}
-                      >
-                        <span>@{role.name}</span>
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveNotificationRole(role.id)}
-                          style={{
-                            padding: '0',
-                            width: '14px',
-                            height: '14px',
-                            backgroundColor: 'transparent',
-                            border: 'none',
-                            cursor: 'pointer',
-                            color: '#1D4ED8',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            borderRadius: '50%',
-                            transition: 'background-color 0.2s'
-                          }}
-                          onMouseEnter={(e) => {
-                            e.currentTarget.style.backgroundColor = 'rgba(29, 78, 216, 0.1)';
-                          }}
-                          onMouseLeave={(e) => {
-                            e.currentTarget.style.backgroundColor = 'transparent';
-                          }}
-                          title="Remove role"
-                        >
-                          <X size={12} strokeWidth={2.5} />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                ) : null}
-              </div>
-
               <div style={{ marginBottom: '24px', padding: '16px', border: '1px solid #E5E7EB', borderRadius: '6px', backgroundColor: '#F8FAFC' }}>
                 <div style={{ marginBottom: '12px' }}>
                   <span style={{ fontSize: '14px', fontWeight: 500, color: '#374151' }}>First Reminder</span>
@@ -2020,6 +2082,247 @@ export const EventDialog: React.FC<EventDialogProps> = ({
             </div>
           )}
 
+          {currentStep === 'publish' && (
+            <div>
+              {/* Initial Notification Roles - Moved from Reminders step */}
+              <div style={{ marginBottom: '24px', padding: '16px', border: '1px solid #E5E7EB', borderRadius: '6px', backgroundColor: '#F8FAFC' }}>
+                <div style={{ marginBottom: '12px' }}>
+                  <span style={{ fontSize: '14px', fontWeight: 500, color: '#374151' }}>Initial Notification</span>
+                  <p style={{ fontSize: '12px', color: '#64748B', marginTop: '4px', fontStyle: 'italic' }}>
+                    Mention Discord roles when the event is first published
+                  </p>
+                </div>
+
+                <div style={{ display: 'flex', gap: '8px', marginBottom: selectedNotificationRoles.length > 0 ? '12px' : '0' }}>
+                  <select
+                    value={selectedRoleId}
+                    onChange={(e) => setSelectedRoleId(e.target.value)}
+                    disabled={loadingRoles || availableDiscordRoles.length === 0}
+                    style={{
+                      flex: 1,
+                      padding: '8px',
+                      border: '1px solid #CBD5E1',
+                      borderRadius: '4px',
+                      fontSize: '14px',
+                      backgroundColor: loadingRoles ? '#F9FAFB' : 'white',
+                      cursor: loadingRoles ? 'not-allowed' : 'pointer'
+                    }}
+                  >
+                    <option value="">
+                      {loadingRoles ? 'Loading roles...' : availableDiscordRoles.length === 0 ? 'No mentionable roles available' : 'Select a Discord role'}
+                    </option>
+                    {availableDiscordRoles.map((role) => (
+                      <option key={role.id} value={role.id}>
+                        {role.name}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={handleAddNotificationRole}
+                    disabled={!selectedRoleId || loadingRoles}
+                    style={{
+                      padding: '8px 16px',
+                      backgroundColor: !selectedRoleId || loadingRoles ? '#9CA3AF' : '#3B82F6',
+                      color: '#FFFFFF',
+                      border: 'none',
+                      borderRadius: '4px',
+                      cursor: !selectedRoleId || loadingRoles ? 'not-allowed' : 'pointer',
+                      fontSize: '14px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px'
+                    }}
+                  >
+                    <Plus size={16} />
+                    Add
+                  </button>
+                </div>
+
+                {selectedNotificationRoles.length > 0 ? (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                    {selectedNotificationRoles.map((role) => (
+                      <div
+                        key={role.id}
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          padding: '4px 8px 4px 10px',
+                          borderRadius: '8px',
+                          fontSize: '12px',
+                          fontWeight: '500',
+                          height: '26px',
+                          boxSizing: 'border-box',
+                          whiteSpace: 'nowrap',
+                          backgroundColor: '#DBEAFE',
+                          color: '#1D4ED8',
+                          border: '1px solid #3B82F6'
+                        }}
+                      >
+                        <span>@{role.name}</span>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveNotificationRole(role.id)}
+                          style={{
+                            padding: '0',
+                            width: '14px',
+                            height: '14px',
+                            backgroundColor: 'transparent',
+                            border: 'none',
+                            cursor: 'pointer',
+                            color: '#1D4ED8',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            borderRadius: '50%',
+                            transition: 'background-color 0.2s'
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.backgroundColor = 'rgba(29, 78, 216, 0.1)';
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.backgroundColor = 'transparent';
+                          }}
+                          title="Remove role"
+                        >
+                          <X size={12} strokeWidth={2.5} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+
+              {/* Scheduled Publication - NEW */}
+              <div style={{ marginBottom: '24px', padding: '16px', border: '1px solid #E5E7EB', borderRadius: '6px', backgroundColor: '#F8FAFC' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                  <div>
+                    <span style={{ fontSize: '14px', fontWeight: 500, color: '#374151' }}>Schedule Publication</span>
+                    <p style={{ fontSize: '12px', color: '#64748B', marginTop: '4px', fontStyle: 'italic' }}>
+                      {initialData?.isPublished
+                        ? 'Event is already published. Scheduled publication is not available.'
+                        : 'Automatically publish this event at a specific time'}
+                    </p>
+                  </div>
+                  <div
+                    onClick={() => !initialData?.isPublished && setScheduledPublicationEnabled(!scheduledPublicationEnabled)}
+                    style={{
+                      width: '44px',
+                      height: '24px',
+                      backgroundColor: scheduledPublicationEnabled ? '#3B82F6' : '#E5E7EB',
+                      borderRadius: '12px',
+                      position: 'relative',
+                      cursor: initialData?.isPublished ? 'not-allowed' : 'pointer',
+                      opacity: initialData?.isPublished ? 0.5 : 1,
+                      transition: 'background-color 0.2s ease'
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: '20px',
+                        height: '20px',
+                        backgroundColor: 'white',
+                        borderRadius: '50%',
+                        position: 'absolute',
+                        top: '2px',
+                        left: scheduledPublicationEnabled ? '22px' : '2px',
+                        transition: 'left 0.2s ease',
+                        boxShadow: '0 2px 4px rgba(0, 0, 0, 0.2)'
+                      }}
+                    />
+                  </div>
+                </div>
+
+                {scheduledPublicationEnabled && (
+                  <div>
+                    <div style={{ marginBottom: '16px' }}>
+                      <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: '#64748B', marginBottom: '6px' }}>
+                        Publication Date & Time
+                      </label>
+                      <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                        <input
+                          type="datetime-local"
+                          value={scheduledPublicationDatetime}
+                          onChange={handleScheduledPublicationDatetimeChange}
+                          style={{
+                            flex: 1,
+                            padding: '8px',
+                            border: '1px solid #CBD5E1',
+                            borderRadius: '4px',
+                            fontSize: '14px',
+                            backgroundColor: 'white'
+                          }}
+                        />
+                        <select
+                          value={timezone}
+                          disabled
+                          style={{
+                            padding: '8px',
+                            border: '1px solid #CBD5E1',
+                            borderRadius: '4px',
+                            fontSize: '14px',
+                            backgroundColor: '#F9FAFB',
+                            color: '#9CA3AF',
+                            cursor: 'not-allowed'
+                          }}
+                        >
+                          <option value={timezone}>{timezone.replace('_', ' ')}</option>
+                        </select>
+                      </div>
+                      <p style={{ fontSize: '11px', color: '#9CA3AF', marginTop: '4px', fontStyle: 'italic' }}>
+                        Uses event timezone: {timezone}
+                      </p>
+                    </div>
+
+                    <div style={{ marginBottom: '8px' }}>
+                      <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: '#64748B', marginBottom: '6px' }}>
+                        Or, specify as offset from event start
+                      </label>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <input
+                          type="number"
+                          min="1"
+                          max="999"
+                          value={scheduledPublicationOffset.value}
+                          onChange={(e) => handleScheduledPublicationOffsetChange('value', e.target.value)}
+                          style={{
+                            width: '80px',
+                            padding: '8px',
+                            border: '1px solid #CBD5E1',
+                            borderRadius: '4px',
+                            fontSize: '14px',
+                            textAlign: 'center',
+                            backgroundColor: 'white'
+                          }}
+                        />
+                        <select
+                          value={scheduledPublicationOffset.unit}
+                          onChange={(e) => handleScheduledPublicationOffsetChange('unit', e.target.value)}
+                          style={{
+                            padding: '8px',
+                            border: '1px solid #CBD5E1',
+                            borderRadius: '4px',
+                            fontSize: '14px',
+                            backgroundColor: 'white'
+                          }}
+                        >
+                          <option value="minutes">minutes</option>
+                          <option value="hours">hours</option>
+                          <option value="days">days</option>
+                        </select>
+                        <span style={{ fontSize: '14px', color: '#64748B' }}>before event start</span>
+                      </div>
+                      <p style={{ fontSize: '11px', color: '#9CA3AF', marginTop: '4px', fontStyle: 'italic' }}>
+                        Both inputs stay synchronized automatically
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           {error && (
             <div style={{
               color: '#EF4444',
@@ -2125,7 +2428,7 @@ export const EventDialog: React.FC<EventDialogProps> = ({
                 
                 <button
                   type="button"
-                  onClick={() => handleSubmit(true)}
+                  onClick={() => handleSubmit(!scheduledPublicationEnabled)}
                   disabled={isSubmitting}
                   style={{
                     padding: '8px 16px',
@@ -2151,9 +2454,12 @@ export const EventDialog: React.FC<EventDialogProps> = ({
                       animation: 'spin 1s linear infinite'
                     }} />
                   )}
-                  {isSubmitting 
-                    ? (initialData ? 'Publishing...' : 'Creating...') 
-                    : (initialData ? 'Update & Publish' : 'Create & Publish')
+                  {isSubmitting
+                    ? (initialData ? (scheduledPublicationEnabled ? 'Scheduling...' : 'Publishing...') : 'Creating...')
+                    : (initialData
+                        ? (scheduledPublicationEnabled ? 'Update and Publish Per Schedule' : 'Update & Publish')
+                        : (scheduledPublicationEnabled ? 'Create and Publish Per Schedule' : 'Create & Publish')
+                      )
                   }
                 </button>
               </div>

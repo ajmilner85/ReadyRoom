@@ -115,6 +115,98 @@ const EventsManagement: React.FC = () => {
     loadEvents(selectedCycle?.id);
   }, [selectedCycle]);
 
+  // Subscribe to events table changes to detect when scheduled publications are processed
+  useEffect(() => {
+    if (!selectedCycle?.id) return;
+
+    console.log('[EVENTS-REALTIME] Setting up subscription for cycle:', selectedCycle.id);
+
+    const channel = supabase
+      .channel('events-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'events',
+          filter: `cycle_id=eq.${selectedCycle.id}`
+        },
+        (payload) => {
+          console.log('[EVENTS-REALTIME] Received UPDATE event:', payload);
+          // When an event's discord_event_id is updated (published), reload events
+          if (payload.new && payload.new.discord_event_id) {
+            console.log('[EVENTS-REALTIME] Event published, reloading events');
+            loadEvents(selectedCycle.id);
+          }
+        }
+      )
+      .subscribe((status) => {
+        console.log('[EVENTS-REALTIME] Subscription status:', status);
+      });
+
+    return () => {
+      console.log('[EVENTS-REALTIME] Cleaning up subscription');
+      supabase.removeChannel(channel);
+    };
+  }, [selectedCycle?.id]);
+
+  // Polling fallback: Check for scheduled publication updates
+  useEffect(() => {
+    if (!selectedCycle?.id) return;
+
+    let pollInterval: NodeJS.Timeout | null = null;
+    let isPollingActive = false;
+
+    const checkScheduledPublications = async () => {
+      // Check if there are any pending scheduled publications for events in this cycle
+      const { data: pendingPubs, error } = await supabase
+        .from('scheduled_event_publications')
+        .select('event_id, scheduled_time, sent')
+        .eq('sent', false)
+        .lte('scheduled_time', new Date(Date.now() + 5 * 60 * 1000).toISOString()); // Check for publications scheduled within next 5 minutes
+
+      if (!error && pendingPubs && pendingPubs.length > 0) {
+        // Get event IDs from pending publications
+        const eventIds = pendingPubs.map(p => p.event_id);
+
+        // Check if any of these events are in the current cycle
+        const { data: cycleEvents } = await supabase
+          .from('events')
+          .select('id')
+          .eq('cycle_id', selectedCycle.id)
+          .in('id', eventIds);
+
+        if (cycleEvents && cycleEvents.length > 0 && !isPollingActive) {
+          console.log('[EVENTS-POLLING] Starting polling for', cycleEvents.length, 'pending publications');
+          isPollingActive = true;
+
+          // Poll for updates every 15 seconds
+          pollInterval = setInterval(async () => {
+            console.log('[EVENTS-POLLING] Checking for published events...');
+            await loadEvents(selectedCycle.id);
+          }, 15000);
+        }
+      } else if (isPollingActive && pollInterval) {
+        // No more pending publications, stop polling
+        console.log('[EVENTS-POLLING] No pending publications, stopping polling');
+        clearInterval(pollInterval);
+        pollInterval = null;
+        isPollingActive = false;
+      }
+    };
+
+    checkScheduledPublications();
+
+    // Re-check every minute
+    const checkInterval = setInterval(checkScheduledPublications, 60000);
+
+    return () => {
+      if (pollInterval) clearInterval(pollInterval);
+      clearInterval(checkInterval);
+      isPollingActive = false;
+    };
+  }, [selectedCycle?.id]);
+
   // Watch for WebSocket event updates - fixed to prevent infinite loops
   useEffect(() => {
     // Skip if no update or already processed this update
@@ -343,6 +435,11 @@ const EventsManagement: React.FC = () => {
       };
       initialNotificationRoles?: Array<{ id: string; name: string }>;
     };
+    scheduledPublication?: {
+      enabled: boolean;
+      scheduledTime?: string;
+      
+    };
   }, shouldPublish: boolean = false) => {
     
     let createTimeoutId: NodeJS.Timeout | undefined;
@@ -500,9 +597,27 @@ const EventsManagement: React.FC = () => {
           console.error('[CREATE-PUBLISH-DEBUG] Error publishing event:', publishError);
           setError('Event created successfully but failed to publish to Discord');
         }
+      } else if (eventData.scheduledPublication?.enabled && eventData.scheduledPublication.scheduledTime && eventToPublish) {
+        // If not publishing immediately but scheduling publication, create scheduled publication record
+        try {
+          const { error: scheduleError } = await supabase
+            .from('scheduled_event_publications')
+            .insert({
+              event_id: eventToPublish.id,
+              scheduled_time: eventData.scheduledPublication.scheduledTime
+            });
+
+          if (scheduleError) {
+            console.error('[CREATE-SCHEDULE-DEBUG] Error scheduling publication:', scheduleError);
+            setError('Event created successfully but failed to schedule publication');
+          }
+        } catch (scheduleError) {
+          console.error('[CREATE-SCHEDULE-DEBUG] Error scheduling publication:', scheduleError);
+          setError('Event created successfully but failed to schedule publication');
+        }
       }
       // Note: Reminders are only scheduled when events are published to Discord
-      
+
       // Reload events to get the latest data - force a fresh fetch
       await loadEvents(selectedCycle?.id);
       
@@ -567,6 +682,11 @@ const EventsManagement: React.FC = () => {
         };
       };
       initialNotificationRoles?: Array<{ id: string; name: string }>;
+    };
+    scheduledPublication?: {
+      enabled: boolean;
+      scheduledTime?: string;
+      
     };
   }, shouldPublish: boolean = false) => {
     
@@ -761,7 +881,69 @@ const EventsManagement: React.FC = () => {
           setError('Event updated successfully but failed to publish to Discord');
         }
       }
-      
+
+      // Handle scheduled publication updates
+      try {
+        // Check if there's an existing scheduled publication
+        const { data: existingScheduled, error: fetchScheduledError } = await supabase
+          .from('scheduled_event_publications')
+          .select('id')
+          .eq('event_id', editingEvent.id)
+          .eq('sent', false)
+          .maybeSingle();
+
+        if (fetchScheduledError) {
+          console.error('[EDIT-SCHEDULED-DEBUG] Error fetching scheduled publication:', fetchScheduledError);
+        }
+
+        if (eventData.scheduledPublication?.enabled && eventData.scheduledPublication.scheduledTime) {
+          // Check if event is already published
+          if (editingEvent.discordEventId || editingEvent.discord_event_id) {
+            console.warn('[EDIT-SCHEDULED-DEBUG] Event is already published, cannot schedule new publication');
+            setError('Event is already published. You cannot schedule a new publication for an already published event.');
+          } else {
+            // User wants scheduled publication and event is not yet published
+            if (existingScheduled) {
+              // Update existing scheduled publication
+              const { error: updateScheduledError } = await supabase
+                .from('scheduled_event_publications')
+                .update({ scheduled_time: eventData.scheduledPublication.scheduledTime })
+                .eq('id', existingScheduled.id);
+
+              if (updateScheduledError) {
+                console.error('[EDIT-SCHEDULED-DEBUG] Error updating scheduled publication:', updateScheduledError);
+                setError('Event updated but failed to update scheduled publication');
+              }
+            } else {
+              // Create new scheduled publication
+              const { error: createScheduledError } = await supabase
+                .from('scheduled_event_publications')
+                .insert({
+                  event_id: editingEvent.id,
+                  scheduled_time: eventData.scheduledPublication.scheduledTime
+                });
+
+              if (createScheduledError) {
+                console.error('[EDIT-SCHEDULED-DEBUG] Error creating scheduled publication:', createScheduledError);
+                setError('Event updated but failed to schedule publication');
+              }
+            }
+          }
+        } else if (existingScheduled && !eventData.scheduledPublication?.enabled) {
+          // User disabled scheduled publication, remove it
+          const { error: deleteScheduledError } = await supabase
+            .from('scheduled_event_publications')
+            .delete()
+            .eq('id', existingScheduled.id);
+
+          if (deleteScheduledError) {
+            console.error('[EDIT-SCHEDULED-DEBUG] Error deleting scheduled publication:', deleteScheduledError);
+          }
+        }
+      } catch (scheduledError) {
+        console.error('[EDIT-SCHEDULED-DEBUG] Error handling scheduled publication:', scheduledError);
+      }
+
       // Reload events to get the latest data
       const reloadedEvents = await loadEvents(selectedCycle?.id);
       // Update selected event with fresh data
@@ -1483,6 +1665,7 @@ const EventsManagement: React.FC = () => {
             setEditingEvent(null);
           }}
           initialData={editingEvent ? {
+            id: editingEvent.id,
             title: editingEvent.title,
             description: editingEvent.description || '',
             datetime: editingEvent.datetime,
@@ -1493,7 +1676,8 @@ const EventsManagement: React.FC = () => {
             headerImageUrl: editingEvent.headerImageUrl || editingEvent.imageUrl,
             additionalImageUrls: editingEvent.additionalImageUrls || [],
             trackQualifications: (editingEvent as any).trackQualifications || false,
-            eventSettings: editingEvent.eventSettings // Include event settings for editing
+            eventSettings: editingEvent.eventSettings, // Include event settings for editing
+            isPublished: !!(editingEvent.discordEventId || editingEvent.discord_event_id) // Flag to indicate if event is already published
           } : undefined}
           squadrons={squadrons}
           selectedCycle={selectedCycle ?? undefined}

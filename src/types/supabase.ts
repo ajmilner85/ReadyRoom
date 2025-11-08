@@ -287,6 +287,41 @@ export type Database = {
           },
         ]
       }
+      scheduled_event_publications: {
+        Row: {
+          created_at: string
+          event_id: string
+          id: string
+          scheduled_time: string
+          sent: boolean
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          event_id: string
+          id?: string
+          scheduled_time: string
+          sent?: boolean
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          event_id?: string
+          id?: string
+          scheduled_time?: string
+          sent?: boolean
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "scheduled_event_publications_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       events: {
         Row: {
           buttons_removed: boolean | null
