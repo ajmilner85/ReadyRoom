@@ -242,8 +242,10 @@ export const EventDialog: React.FC<EventDialogProps> = ({
   const [loadingRoles, setLoadingRoles] = useState(false);
   const [selectedRoleId, setSelectedRoleId] = useState('');
 
-  // Scheduled publication state
-  const [scheduledPublicationEnabled, setScheduledPublicationEnabled] = useState(false);
+  // Scheduled publication state - use default setting only for new events (not editing)
+  const [scheduledPublicationEnabled, setScheduledPublicationEnabled] = useState(
+    initialData?.id ? false : settings.eventDefaults.scheduledPublicationEnabledByDefault
+  );
   const [scheduledPublicationDatetime, setScheduledPublicationDatetime] = useState('');
   const [scheduledPublicationOffset, setScheduledPublicationOffset] = useState(
     settings.eventDefaults.scheduledPublicationOffset
