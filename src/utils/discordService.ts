@@ -1394,17 +1394,31 @@ async function editDiscordMessageInChannel(messageId: string, event: Event, guil
       originalStartTime: originalStartTime,
       eventId: event.id,
       // Add reminder settings for proper reminder scheduling
-      reminders: reminders
+      reminders: reminders,
+      // CRITICAL: Include event options for proper embed rendering
+      eventOptions: {
+        trackQualifications: (event as any).trackQualifications || event.eventSettings?.groupResponsesByQualification || false,
+        groupBySquadron: event.eventSettings?.groupBySquadron || false,
+        showNoResponse: event.eventSettings?.showNoResponse || false,
+        eventType: event.eventType || null
+      }
     };
     
-    // console.log('[EDIT-REQUEST-DEBUG] Sending to Discord bot:', {
-    //   messageId,
-    //   title: requestBody.title,
-    //   hasImages: !!(requestBody.images?.headerImage || requestBody.images?.additionalImages?.length),
-    //   hasCreator: !!requestBody.creator,
-    //   creator: requestBody.creator
-    // });
-    
+    console.log('[EDIT-REQUEST-DEBUG] Sending to Discord bot:', {
+      messageId,
+      title: requestBody.title,
+      hasImages: !!(requestBody.images?.headerImage || requestBody.images?.additionalImages?.length),
+      imagesObject: JSON.stringify(requestBody.images),
+      hasCreator: !!requestBody.creator,
+      creator: requestBody.creator
+    });
+    console.log('[EDIT-REQUEST-DEBUG] Event object image fields:', {
+      'event.imageUrl': event.imageUrl,
+      'event.headerImageUrl': event.headerImageUrl,
+      'event.additionalImageUrls': event.additionalImageUrls,
+      'event.image_url': (event as any).image_url
+    });
+
     const baseUrl = await getDiscordApiBaseUrl();
     const response = await fetch(`${baseUrl}/api/events/${messageId}/edit`, {
       method: 'PUT',
