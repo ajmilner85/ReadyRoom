@@ -35,9 +35,42 @@ async function createThreadFromMessage(messageId, threadName, guildId, channelId
       autoArchiveDuration: autoArchiveDuration,
       reason: 'ReadyRoom event discussion thread'
     });
-    
+
     console.log(`[THREAD-CREATE-SUCCESS] Thread "${threadName}" created with ID ${thread.id}`);
-    
+    console.log(`[THREAD-CREATE-DEBUG] Thread object properties:`, {
+      id: thread.id,
+      type: thread.type,
+      parentId: thread.parentId,
+      ownerId: thread.ownerId,
+      name: thread.name,
+      guildId: thread.guildId
+    });
+    console.log(`[THREAD-CREATE-DEBUG] Original message ID: ${messageId}`);
+
+    // Ensure the bot is a member of the thread (required to post messages)
+    // The bot should be automatically added, but explicitly joining ensures access
+    try {
+      await thread.join();
+      console.log(`[THREAD-CREATE] Bot joined thread ${thread.id}`);
+    } catch (joinError) {
+      console.warn(`[THREAD-CREATE] Could not join thread (might already be a member):`, joinError.message);
+    }
+
+    // Check bot's permissions in the thread
+    try {
+      const botMember = await guild.members.fetch(client.user.id);
+      const permissions = thread.permissionsFor(botMember);
+      console.log(`[THREAD-CREATE-DEBUG] Bot permissions in thread:`, {
+        canSendMessages: permissions?.has('SendMessages'),
+        canSendMessagesInThreads: permissions?.has('SendMessagesInThreads'),
+        canViewChannel: permissions?.has('ViewChannel'),
+        canReadMessageHistory: permissions?.has('ReadMessageHistory'),
+        allPermissions: permissions?.toArray()
+      });
+    } catch (permError) {
+      console.warn(`[THREAD-CREATE] Could not check permissions:`, permError.message);
+    }
+
     return {
       success: true,
       threadId: thread.id,
@@ -76,34 +109,57 @@ async function postMessageToThread(threadId, guildId, message) {
       throw new Error(`Guild ${guildId} not found or bot doesn't have access`);
     }
     
-    const thread = guild.channels.cache.get(threadId);
+    let thread = guild.channels.cache.get(threadId);
+    console.log(`[THREAD-POST-DEBUG] Thread from cache: ${thread ? 'found' : 'not found'}`);
+
     if (!thread) {
+      console.log(`[THREAD-POST-DEBUG] Fetching thread ${threadId} from Discord API`);
       try {
         const fetchedThread = await guild.channels.fetch(threadId);
+        console.log(`[THREAD-POST-DEBUG] Fetched thread properties:`, {
+          id: fetchedThread?.id,
+          type: fetchedThread?.type,
+          parentId: fetchedThread?.parentId,
+          isThread: fetchedThread?.isThread(),
+          archived: fetchedThread?.archived,
+          locked: fetchedThread?.locked
+        });
+
         if (!fetchedThread || !fetchedThread.isThread()) {
           throw new Error(`Thread ${threadId} not found or is not a thread`);
         }
-        
-        const sentMessage = await fetchedThread.send(message);
-        console.log(`[THREAD-POST-SUCCESS] Message posted to thread ${threadId}: ${sentMessage.id}`);
-        
-        return {
-          success: true,
-          messageId: sentMessage.id,
-          threadId: threadId
-        };
+
+        thread = fetchedThread;
       } catch (fetchError) {
-        throw new Error(`Thread ${threadId} not found in guild ${guildId}`);
+        console.error(`[THREAD-POST-DEBUG] Fetch error:`, fetchError);
+        throw new Error(`Thread ${threadId} not found in guild ${guildId}: ${fetchError.message}`);
       }
     }
-    
+
     if (!thread.isThread()) {
+      console.error(`[THREAD-POST-DEBUG] Channel ${threadId} is not a thread, type: ${thread.type}`);
       throw new Error(`Channel ${threadId} is not a thread`);
     }
-    
+
+    // Check bot's permissions in the thread before attempting to send
+    try {
+      const botMember = await guild.members.fetch(client.user.id);
+      const permissions = thread.permissionsFor(botMember);
+      console.log(`[THREAD-POST-DEBUG] Bot permissions in thread ${threadId}:`, {
+        canSendMessages: permissions?.has('SendMessages'),
+        canSendMessagesInThreads: permissions?.has('SendMessagesInThreads'),
+        canViewChannel: permissions?.has('ViewChannel'),
+        canReadMessageHistory: permissions?.has('ReadMessageHistory'),
+        allPermissions: permissions?.toArray()
+      });
+    } catch (permError) {
+      console.warn(`[THREAD-POST] Could not check permissions:`, permError.message);
+    }
+
+    console.log(`[THREAD-POST-DEBUG] About to send message to thread ${threadId}`);
     const sentMessage = await thread.send(message);
     console.log(`[THREAD-POST-SUCCESS] Message posted to thread ${threadId}: ${sentMessage.id}`);
-    
+
     return {
       success: true,
       messageId: sentMessage.id,

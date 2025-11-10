@@ -134,23 +134,23 @@ async function publishEventToDiscord(title, description, eventTime, guildId, cha
 async function editEventMessage(messageId, title, description, eventTime, guildId, channelId, existingResponses, imageUrl = null, creator = null, images = null, eventOptions = {}) {
   try {
     await ensureLoggedIn();
-    
+
     const eventsChannel = await findEventsChannel(guildId, channelId);
-    
+
     try {
       const message = await eventsChannel.messages.fetch(messageId);
       if (message) {
         const imageData = images || (imageUrl ? { imageUrl } : null);
         const eventEmbed = createEventEmbed(title, description, eventTime, existingResponses, creator, imageData, eventOptions);
-        
+
         const additionalEmbeds = createAdditionalImageEmbeds(imageData, 'https://readyroom.app');
         const allEmbeds = [eventEmbed, ...additionalEmbeds];
-        
+
         await message.edit({
           embeds: allEmbeds,
           components: message.components
         });
-        
+
         console.log(`Successfully edited Discord message: ${messageId}`);
         return { success: true };
       }

@@ -1837,6 +1837,38 @@ async function processIndividualReminder(reminder) {
     console.log(`[REMINDER-${reminder.id}] Filtered to ${attendanceData.length} active pilots (from ${originalCount} total)`);
   }
 
+  // DEBUGGING: Inject 744 Nubs as a test member for VX-14 Testing Squadron
+  // This allows testing reminder notifications without spamming real squadron members
+  // This runs on ALL instances (dev and production) since VX-14 is explicitly a testing squadron
+  const TESTING_SQUADRON_ID = 'fd56a33c-5b26-46f5-9332-7acf83f45e77';
+  const TEST_PILOT_DISCORD_ID = '118942689508065280';
+  const TEST_PILOT_CALLSIGN = '744 Nubs';
+
+  // Check if event includes testing squadron
+  const isTestingEvent = eventData.participants &&
+    Array.isArray(eventData.participants) &&
+    eventData.participants.includes(TESTING_SQUADRON_ID);
+
+  if (isTestingEvent) {
+    console.log(`[REMINDER-DEBUG] 🧪 VX-14 Testing Squadron event detected, injecting test pilot ${TEST_PILOT_CALLSIGN}`);
+
+    // Check if test pilot is already in attendanceData (from actual responses)
+    const hasTestPilot = attendanceData.some(a => a.discord_id === TEST_PILOT_DISCORD_ID);
+
+    if (!hasTestPilot) {
+      // Inject test pilot with appropriate response status
+      // Default to 'no_response' so they get included in both first and second reminders
+      attendanceData.push({
+        discord_id: TEST_PILOT_DISCORD_ID,
+        discord_username: TEST_PILOT_CALLSIGN,
+        user_response: 'no_response'
+      });
+      console.log(`[REMINDER-DEBUG] 🧪 Injected test pilot ${TEST_PILOT_CALLSIGN} into reminder recipients`);
+    } else {
+      console.log(`[REMINDER-DEBUG] 🧪 Test pilot already has a response, using actual response data`);
+    }
+  }
+
   if (!attendanceData || attendanceData.length === 0) {
     console.log(`No eligible recipients for reminder ${reminder.id}, marking as sent`);
     await markReminderAsSent(reminder.id);
@@ -1960,9 +1992,15 @@ async function sendReminderToDiscordChannels(event, message) {
         
         // Check if thread already exists for this publication
         if (publication.threadId) {
-          // Thread already exists, use it
-          console.log(`[REMINDER-THREAD] Thread already exists for this event: ${publication.threadId}`);
-          targetChannelId = publication.threadId;
+          // Check if threading was previously disabled due to failure
+          if (publication.threadId === 'DISABLED') {
+            console.log(`[REMINDER-THREAD] Threading was previously disabled for this publication, posting to channel`);
+            targetChannelId = publication.channelId;
+          } else {
+            // Thread already exists, use it
+            console.log(`[REMINDER-THREAD] Thread already exists for this event: ${publication.threadId}`);
+            targetChannelId = publication.threadId;
+          }
         } else {
           // No thread exists yet, check if we should create one
           console.log(`[REMINDER-THREAD] No thread exists yet, checking if thread should be created for event "${event.name}"`);
@@ -2007,7 +2045,44 @@ async function sendReminderToDiscordChannels(event, message) {
               }
             } else {
               console.warn(`[REMINDER-THREAD] Thread creation failed: ${threadResult.error}`);
-              // Continue with channel posting if thread creation fails
+              // Store DISABLED sentinel to prevent future retry attempts
+              console.log(`[REMINDER-THREAD] Storing threadId='DISABLED' to prevent future thread creation attempts`);
+
+              try {
+                // Read latest event data first to avoid race conditions
+                const { data: latestEventData, error: fetchError } = await supabase
+                  .from('events')
+                  .select('discord_event_id')
+                  .eq('id', event.id)
+                  .single();
+
+                if (fetchError || !latestEventData) {
+                  console.error(`[REMINDER-THREAD] Failed to fetch latest event data:`, fetchError);
+                } else {
+                  const updatedPublications = latestEventData.discord_event_id.map(pub =>
+                    (pub.guildId === publication.guildId && pub.channelId === publication.channelId)
+                      ? { ...pub, threadId: 'DISABLED' }
+                      : pub
+                  );
+
+                  const { error: updateError } = await supabase
+                    .from('events')
+                    .update({ discord_event_id: updatedPublications })
+                    .eq('id', event.id);
+
+                  if (updateError) {
+                    console.error(`[REMINDER-THREAD] Failed to store DISABLED status:`, updateError);
+                  } else {
+                    console.log(`[REMINDER-THREAD] Successfully stored threadId='DISABLED' for future reminders`);
+                    // Update in-memory event object
+                    event.discord_event_id = updatedPublications;
+                  }
+                }
+              } catch (error) {
+                console.error(`[REMINDER-THREAD] Error storing DISABLED status:`, error);
+              }
+
+              // Continue with channel posting
               targetChannelId = publication.channelId;
             }
           } else {
@@ -2030,22 +2105,41 @@ async function sendReminderToDiscordChannels(event, message) {
           // If threading is disabled and we posted to channel, track the message ID for deletion
           if (reminderResult.success && reminderResult.messageId) {
             try {
-              // Store reminder message ID in the publication for later deletion
-              const updatedPublications = event.discord_event_id.map(pub => 
-                pub.messageId === publication.messageId 
-                  ? { 
-                      ...pub, 
+              // CRITICAL: Read latest event data from database to avoid overwriting threadId
+              // This prevents race conditions where threadId gets lost during reminderMessageIds updates
+              const { data: latestEventData, error: fetchError } = await supabase
+                .from('events')
+                .select('discord_event_id')
+                .eq('id', event.id)
+                .single();
+
+              if (fetchError || !latestEventData) {
+                console.error(`[REMINDER-TRACKING] Failed to fetch latest event data:`, fetchError);
+                throw new Error('Cannot update reminderMessageIds without latest event data');
+              }
+
+              // Store reminder message ID in the SPECIFIC publication for later deletion
+              // Match by all three keys to handle multi-squadron events correctly
+              const updatedPublications = latestEventData.discord_event_id.map(pub =>
+                (pub.guildId === publication.guildId &&
+                 pub.channelId === publication.channelId &&
+                 pub.squadronId === publication.squadronId)
+                  ? {
+                      ...pub,
                       reminderMessageIds: [...(pub.reminderMessageIds || []), reminderResult.messageId]
                     }
                   : pub
               );
-              
+
               await supabase
                 .from('events')
                 .update({ discord_event_id: updatedPublications })
                 .eq('id', event.id);
-                
-              console.log(`[REMINDER-TRACKING] Stored reminder message ID ${reminderResult.messageId} for event ${event.id}`);
+
+              console.log(`[REMINDER-TRACKING] Stored reminder message ID ${reminderResult.messageId} for event ${event.id}, squadron ${publication.squadronId?.substring(0, 8)}`);
+
+              // Update in-memory event object to keep it in sync
+              event.discord_event_id = updatedPublications;
             } catch (trackingError) {
               console.warn(`[REMINDER-TRACKING] Failed to store reminder message ID:`, trackingError.message);
             }

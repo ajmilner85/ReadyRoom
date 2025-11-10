@@ -689,8 +689,15 @@ const EventsManagement: React.FC = () => {
       
     };
   }, shouldPublish: boolean = false) => {
-    
+
     if (!editingEvent) return;
+
+    console.log('[HANDLE-EDIT-EVENT-DEBUG] eventData received:', {
+      headerImage: eventData.headerImage,
+      additionalImages: eventData.additionalImages,
+      headerImageType: typeof eventData.headerImage,
+      additionalImagesLength: eventData.additionalImages?.length
+    });
 
     try {
       // Build event_settings object to save reminder settings
@@ -829,16 +836,35 @@ const EventsManagement: React.FC = () => {
               callsign: freshEventData.creator_call_sign || '',
               billet: freshEventData.creator_billet || ''
             },
+            // Map image fields from database JSONB or string
+            imageUrl: typeof freshEventData.image_url === 'object' && freshEventData.image_url && 'headerImage' in freshEventData.image_url
+              ? (freshEventData.image_url as { headerImage: string }).headerImage
+              : (typeof freshEventData.image_url === 'string' ? freshEventData.image_url : null),
+            headerImageUrl: typeof freshEventData.image_url === 'object' && freshEventData.image_url && 'headerImage' in freshEventData.image_url
+              ? (freshEventData.image_url as { headerImage: string }).headerImage
+              : (typeof freshEventData.image_url === 'string' ? freshEventData.image_url : null),
+            additionalImageUrls: typeof freshEventData.image_url === 'object' && freshEventData.image_url && 'additionalImages' in freshEventData.image_url
+              ? ((freshEventData.image_url as { additionalImages?: string[] }).additionalImages || [])
+              : [],
             // Convert discord_event_id from Json to proper array type
-            discord_event_id: Array.isArray(freshEventData.discord_event_id) 
-              ? freshEventData.discord_event_id 
-              : freshEventData.discord_event_id 
-                ? [freshEventData.discord_event_id] 
+            discord_event_id: Array.isArray(freshEventData.discord_event_id)
+              ? freshEventData.discord_event_id
+              : freshEventData.discord_event_id
+                ? [freshEventData.discord_event_id]
                 : undefined,
             attendance: { accepted: [], declined: [], tentative: [] }
           } as Event;
-        
-          
+
+          console.log('[UPDATE-EVENT-DEBUG] Built updatedEvent for Discord:', {
+            id: updatedEvent.id,
+            title: updatedEvent.title,
+            imageUrl: updatedEvent.imageUrl,
+            headerImageUrl: updatedEvent.headerImageUrl,
+            additionalImageUrls: updatedEvent.additionalImageUrls,
+            image_url: (updatedEvent as any).image_url,
+            freshEventData_image_url: freshEventData.image_url
+          });
+
           try {
             const discordResult = await updateMultiChannelEvent(updatedEvent, editingEvent.datetime, eventData.reminders);
             
