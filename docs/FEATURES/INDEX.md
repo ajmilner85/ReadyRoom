@@ -10,6 +10,7 @@ This document provides a quick reference to all major features in ReadyRoom, org
 | **Events Management** | Create, schedule, and track squadron events with Discord integration | [EVENTS.md](./EVENTS.md) |
 | **Mission Planning** | Extract flights from DCS mission files, assign pilots, manage communications | [MISSION_PLANNING.md](./MISSION_PLANNING.md) |
 | **Mission Execution** | Real-time flight tracking (launch, en-route, recovery) with drag-and-drop | [MISSION_EXECUTION.md](./MISSION_EXECUTION.md) |
+| **Mission Debriefing** | Post-flight after action reports, performance assessment, kill tracking, aggregate analytics | [MISSION_DEBRIEFING.md](./MISSION_DEBRIEFING.md) |
 | **Discord Integration** | Publish events, sync roles, verify pilots, send notifications | [DISCORD.md](./DISCORD.md) |
 | **Reports & Analytics** | Cycle attendance reports, Discord role verification, trend analysis | [REPORTS.md](./REPORTS.md) |
 | **Permissions & Roles** | Role-based access control (RBAC) with permission matrix | [PERMISSIONS.md](./PERMISSIONS.md) |
@@ -28,6 +29,7 @@ This document provides a quick reference to all major features in ReadyRoom, org
 | `/events` | Events Management | EventsManagement.tsx |
 | `/mission-prep` | Mission Planning | MissionPreparation.tsx |
 | `/mission-coordination` | Mission Execution | AppContent.tsx (Flights view) |
+| `/mission-debriefing` | Mission Debriefing | MissionDebriefing.tsx |
 | `/reports` | Reports & Analytics | Reports.tsx |
 | `/settings` | Settings & Admin | Settings.tsx |
 
