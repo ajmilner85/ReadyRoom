@@ -40,12 +40,39 @@ Main table storing the debriefing record for each mission.
 |--------|------|-------------|
 | `id` | uuid | Primary key |
 | `mission_id` | uuid | Foreign key to missions table |
+| `mission_status` | enum | 'pending', 'in_progress', 'complete', 'scrubbed' |
 | `status` | enum | 'in_progress', 'submitted', 'finalized' |
+| `mission_objectives` | jsonb | Mission objectives with success/failure status (future) |
+| `tacview_file_url` | text | URL to Tacview recording in cloud storage (R2) |
+| `tacview_uploaded_by` | uuid | Foreign key to user_profiles |
+| `tacview_uploaded_at` | timestamptz | When Tacview file was uploaded |
 | `finalized_by` | uuid | User who finalized (department head) |
 | `finalized_at` | timestamptz | When finalized |
 | `created_at` | timestamptz | Creation timestamp |
 | `updated_at` | timestamptz | Last update timestamp |
 | `created_by` | uuid | Foreign key to user_profiles |
+
+**Mission Status Transitions:**
+- `pending` → Created, awaiting mission execution
+- `in_progress` → Set when Flight Assignments are published from Mission Prep
+- `complete` → Set manually by authorized users after mission completion
+- `scrubbed` → Mission cancelled/not executed
+
+**Mission Objectives JSONB Structure (Future Bonus Feature):**
+```json
+{
+  "objectives": [
+    {
+      "id": "uuid",
+      "description": "Destroy enemy SAM sites",
+      "priority": "primary" | "secondary",
+      "status": "success" | "failure" | "partial",
+      "notes": "text",
+      "assessed_by": "user_profile_id"
+    }
+  ]
+}
+```
 
 **Relationships:**
 - One-to-one with `missions` (one debriefing per mission)
@@ -66,11 +93,17 @@ Individual flight after-action reports submitted by Flight Leads.
 | `flight_lead_pilot_id` | uuid | Foreign key to pilots (the -1 slot pilot) |
 | `submitted_by_user_id` | uuid | Foreign key to user_profiles (actual submitter) |
 | `submitted_at` | timestamptz | Submission timestamp |
+| `flight_status` | enum | 'scheduled', 'launched', 'scrubbed' |
 | `status` | enum | 'pending', 'submitted', 'finalized' |
 | `performance_ratings` | jsonb | SAT/UNSAT ratings (see structure below) |
 | `key_lessons_learned` | text | Final comments section |
 | `created_at` | timestamptz | Creation timestamp |
 | `updated_at` | timestamptz | Last update timestamp |
+
+**Flight Status:**
+- `scheduled` → Default when created
+- `launched` → Flight participated in mission (default assumption if AAR submitted)
+- `scrubbed` → Flight did not launch; can be set by Flight Lead or authorized user
 
 **Performance Ratings JSONB Structure:**
 ```json
@@ -257,6 +290,17 @@ New permissions to be added to `app_permissions` table:
 | `reassign_debrief_squadron` | Reassign Squadron Debriefs | squadron | Reassign debrief responsibility within squadron |
 | `reassign_debrief_wing` | Reassign Wing Debriefs | wing | Reassign debrief responsibility within wing |
 | `reassign_debrief_global` | Reassign All Debriefs | global | Reassign any debrief responsibility |
+
+### Tacview & Mission Status Permissions
+
+| Permission Name | Display Name | Scope Type | Description |
+|----------------|--------------|------------|-------------|
+| `upload_tacview_recording` | Upload Tacview Recording | squadron | Upload Tacview file for mission (requires Cloudflare R2) |
+| `download_tacview_recording` | Download Tacview Recording | squadron | Download Tacview file from mission |
+| `set_mission_status` | Set Mission Status | squadron | Change mission status (pending/in_progress/complete/scrubbed) |
+| `set_flight_status` | Set Flight Status | flight | Mark own flight as scrubbed |
+| `assess_mission_objectives` | Assess Mission Objectives | squadron | Mark mission objectives as success/failure (future) |
+| `publish_aar_discord` | Publish AAR to Discord | squadron | Post AAR infographic to Discord channel |
 
 ### Permission Logic
 
@@ -743,62 +787,460 @@ Uses Chart.js (already in dependencies) for visualizations.
 
 ---
 
-## Open Questions (Awaiting User Feedback)
+## Detailed Implementation Specifications
 
-### Discord Integration
-1. **Infographic Content**: What should the Discord infographic show?
-   - Top performers by kills?
-   - Squadron performance comparison?
-   - Mission summary?
-   - All of the above?
+### Leadership Dashboard Design
 
-2. **Posting Trigger**: Should infographic posting be:
-   - Automatic after all flights submit?
-   - Manual trigger by leadership?
-   - Optional per mission?
+The Mission Debriefing page presents a comprehensive view for leadership to monitor and assess mission performance.
 
-3. **Notification Channel**: Should notifications go to:
-   - Same channel as event?
-   - Dedicated "after action" channel?
-   - Configurable per squadron?
+**Main Interface Components:**
 
-4. **Reminder Timing**: When should reminders be sent?
-   - 24 hours after mission?
-   - 48 hours after mission?
-   - Configurable?
+1. **Cycle & Event Selectors** (Top of page)
+   - Dropdown for Cycle selection (similar to Mission Preparation page)
+   - Dropdown for Event selection within cycle
+   - Filter flights based on selected event/mission
 
-### Service Records
-1. **Service Record Page**: Do you want a new dedicated page for pilot service records, or should it be:
-   - Integrated into existing Pilot Details page?
-   - A new tab in Roster Management?
-   - Standalone page linked from roster?
+2. **Flight List** (Left panel, ~40% width)
+   - Displays all flights for selected mission
+   - Each flight entry shows:
+     - **Callsign** (e.g., "STING 1", "HAWK 2")
+     - **Flight Lead** (Board # and Callsign)
+     - **Status Indicator**:
+       - If pending: Orange badge "PENDING AAR"
+       - If submitted: Performance summary showing:
+         - Percentage score: "SAT: 7/8 (87.5%)"
+         - Kill tallies: "A2A: 3 | A2G: 5"
+       - If scrubbed: Gray badge "SCRUBBED"
+   - Click flight to view detailed AAR in modal/panel
+   - Sort options: By callsign, by squadron, by status
 
-2. **Qualification Impact**: Should poor performance (UNSAT ratings) affect pilot qualifications?
-   - Trigger currency review?
-   - Require remedial training?
-   - Flag for leadership review?
+3. **Squadron Performance Cards** (Right panel, ~60% width)
+   - Grouped by Wing, then Squadron
+   - Wing-level summary card at top:
+     - Wing name and insignia
+     - Overall SAT percentage across all categories
+     - Total A2A and A2G kills for wing
+     - Number of flights submitted/total
+   - Squadron cards below, grouped under wing:
+     - Squadron name and insignia
+     - SAT percentage for squadron
+     - Total kills for squadron
+     - Number of flights submitted/total
+     - Color-coded: Green (>80% SAT), Yellow (60-80%), Red (<60%)
 
-3. **Career Statistics**: What career stats should be tracked?
-   - Total missions flown?
-   - Total kills (career)?
-   - Average performance ratings?
-   - Flight Lead experience?
+4. **Export Options**
+   - Export to Excel: Mission summary with all flight data
+   - Export to PDF: Future enhancement (not Phase 1)
 
-### Edge Cases
-1. **Cancelled Missions**: What happens if:
-   - Mission is cancelled before launch?
-   - Flight doesn't launch (scrub)?
-   - Should debrief still be required?
+**Layout:**
+```
+┌──────────────────────────────────────────────────────────────────┐
+│  Mission Debriefing                                              │
+│  Cycle: [Training Cycle Q1 ▼]  Event: [Red Flag Jan 15 ▼]      │
+├──────────────────────────────────────────────────────────────────┤
+│                                                                   │
+│  ┌──────────────────────────┐  ┌──────────────────────────────┐ │
+│  │  Flight List             │  │  Wing Performance            │ │
+│  │  ───────────────────     │  │  ────────────────────────    │ │
+│  │                          │  │  CVW-8                       │ │
+│  │  ┌────────────────────┐  │  │  SAT: 82% | A2A: 12 A2G: 47 │ │
+│  │  │ STING 1            │  │  │  Flights: 8/10              │ │
+│  │  │ FL: 100 "Maverick" │  │  │                             │ │
+│  │  │ SAT: 7/8 (87.5%)   │  │  │  ┌────────────────────────┐ │ │
+│  │  │ A2A: 2 | A2G: 3    │  │  │  │  VFA-113 (Squadron)    │ │ │
+│  │  └────────────────────┘  │  │  │  SAT: 85% | A2A: 5 | 19│ │ │
+│  │                          │  │  │  Flights: 3/4          │ │ │
+│  │  ┌────────────────────┐  │  │  └────────────────────────┘ │ │
+│  │  │ STING 2            │  │  │                             │ │
+│  │  │ FL: 101 "Goose"    │  │  │  ┌────────────────────────┐ │ │
+│  │  │ PENDING AAR        │  │  │  │  VFA-211 (Squadron)    │ │ │
+│  │  └────────────────────┘  │  │  │  SAT: 80% | A2A: 7 | 28│ │ │
+│  │                          │  │  │  Flights: 5/6          │ │ │
+│  │  ┌────────────────────┐  │  │  └────────────────────────┘ │ │
+│  │  │ HAWK 1 (SCRUBBED)  │  │  │                             │ │
+│  │  └────────────────────┘  │  └──────────────────────────────┘ │
+│  └──────────────────────────┘                                   │
+│                                                                   │
+│  [Export to Excel]  [Publish AAR to Discord]                    │
+└──────────────────────────────────────────────────────────────────┘
+```
 
-2. **Missing Reports**: If Flight Lead doesn't submit:
-   - Reminder system?
-   - Auto-escalation to leadership?
-   - Mark as "Not Submitted" after deadline?
+---
 
-3. **Multi-Squadron Ops**: For joint missions:
-   - Does each squadron's leadership see only their flights or all flights?
-   - Can Wing leadership compare cross-squadron?
-   - Privacy/access control considerations?
+### Discord Integration Specifications
+
+#### AAR Channel Configuration
+
+**Settings Location:** Settings → Discord Integration → AAR Channel
+
+**New Settings Fields:**
+- **AAR Channel** (dropdown): Select Discord channel for AAR posting
+  - Shows list of channels from connected Discord server
+  - Separate from event publication channel
+  - Can be same channel if desired, but defaults to dedicated channel
+
+**Settings UI Addition:**
+```
+Discord Integration Settings
+────────────────────────────
+Event Publication Channel:  [#squadron-events ▼]
+AAR Channel:               [#after-action-reports ▼]
+```
+
+#### Infographic Content
+
+The Discord AAR infographic includes:
+
+1. **Mission Header**
+   - Mission name
+   - Date/time
+   - Participating squadrons
+
+2. **Wing Performance**
+   - Overall SAT percentage
+   - Total A2A kills
+   - Total A2G kills
+   - Flights completed/total
+
+3. **Squadron Breakdowns**
+   - Each squadron's SAT percentage
+   - Kill counts per squadron
+   - Visual bar charts or progress bars
+
+4. **Top Performing Flight**
+   - Callsign
+   - Flight Lead name
+   - 100% SAT achievement or highest kill count
+   - Optional: Include squadron insignia
+
+**Posting Trigger:**
+- **Manual only** (Phase 1-3)
+- User with `publish_aar_discord` permission clicks "Publish AAR to Discord" button
+- Confirmation dialog before posting
+- Button only enabled when at least one flight has submitted AAR
+
+**Example Infographic:**
+```
+╔══════════════════════════════════════════════════════════╗
+║  AFTER ACTION REPORT                                     ║
+║  Operation Red Flag - January 15, 2025                   ║
+╠══════════════════════════════════════════════════════════╣
+║  CVW-8 Performance                                       ║
+║  SAT: 82% (66/80 categories) | A2A: 12 | A2G: 47        ║
+║  Flights: 10 sorties                                     ║
+╠══════════════════════════════════════════════════════════╣
+║  Squadron Performance                                    ║
+║  ───────────────────────────────────────────────────     ║
+║  VFA-113  ████████░░ 85% | A2A: 5 | A2G: 19            ║
+║  VFA-211  ████████░░ 80% | A2A: 7 | A2G: 28            ║
+║                                                          ║
+║  Top Flight: STING 1 (VFA-113)                          ║
+║  FL: 100 "Maverick" Smith                               ║
+║  100% SAT | A2A: 2 | A2G: 3                             ║
+╚══════════════════════════════════════════════════════════╝
+```
+
+**Implementation:**
+- Use `html-to-image` library (already in dependencies) to generate PNG
+- Post via existing `POST /api/discord/post-image` endpoint
+- Store Discord message ID in `mission_debriefings` table for reference
+
+---
+
+### AAR Submission Reminder System
+
+#### Configuration (Squadron Settings)
+
+**Settings Location:** Settings → Events → AAR Reminders (new section)
+
+**Configuration Options:**
+1. **Enable AAR Reminders** (toggle)
+   - Default: Disabled
+   - Enables automated reminder system
+
+2. **Reminder Schedule**
+   - **First Reminder:** X hours after event end time
+     - Input field: Number (default: 24)
+     - Dropdown: hours/days
+   - **Second Reminder:** Y hours after event end time
+     - Input field: Number (default: 48)
+     - Dropdown: hours/days
+   - Validation: Second reminder must be > First reminder
+
+3. **Additional Recipients** (multi-select)
+   - Tag squadron leadership (CO, XO, etc.) in reminder
+   - Optional: Notify if Flight Lead is truant
+   - Multi-select from squadron members with appropriate roles
+
+**Settings UI:**
+```
+AAR Reminder Settings
+─────────────────────────────────────────────────
+☑ Enable AAR Reminders
+
+First Reminder:  [24] [hours ▼] after event end
+Second Reminder: [48] [hours ▼] after event end
+
+Additional Recipients (notified if Flight Lead is truant):
+  ☑ CO - 100 "Maverick" Smith
+  ☑ XO - 101 "Goose" Mitchell
+  ☐ Operations Officer - 102 "Iceman" Kazansky
+```
+
+#### Reminder Behavior
+
+**Processing:**
+- Background job runs every 15 minutes (similar to event reminders)
+- Checks `flight_debriefs` table for flights with `status = 'pending'`
+- Compares current time against event end time + reminder offset
+- Sends reminders to AAR channel via SDOBot
+
+**Reminder Message Format:**
+```
+📋 **AAR Submission Reminder**
+
+The following Flight Leads have pending After Action Reports for **Operation Red Flag (Jan 15, 2025)**:
+
+@Maverick (STING 1), @Goose (STING 2), @Iceman (VIPER 1)
+
+Please submit your AARs at your earliest convenience.
+
+[Link to Mission Debriefing Page]
+```
+
+**Second Reminder with Leadership Notification:**
+```
+📋 **AAR Submission Reminder (2nd Notice)**
+
+The following Flight Leads still have pending After Action Reports for **Operation Red Flag (Jan 15, 2025)**:
+
+@Goose (STING 2)
+
+Notifying: @CO @XO
+
+Please submit your AAR or contact squadron leadership.
+
+[Link to Mission Debriefing Page]
+```
+
+**Implementation:**
+- Add `aar_reminder_settings` JSONB column to `organizations` table
+- Background processor in `server/index.js` (similar to `processReminders()`)
+- Use existing `threadManager.js` to post to AAR channel
+- Track sent reminders in `event_reminders` table (reuse existing infrastructure)
+
+---
+
+### Service Record Integration
+
+**Future Implementation:** Pilot Profile Page (separate feature)
+
+**Data Requirements for Service Records:**
+The Mission Debriefing system must track:
+
+1. **Cumulative Kill Counts**
+   - Career total: A2A and A2G kills
+   - Per cycle: A2A and A2G kills for each training cycle
+
+2. **Cycle Participation**
+   - Number of missions participated in per cycle
+   - Based on published flight assignments (pilot appears in `pilot_assignments` for mission)
+   - Count missions where pilot was assigned, regardless of AAR submission
+
+3. **Flight Lead Experience**
+   - Number of times assigned to -1 slot
+   - Number of successful missions as Flight Lead
+
+**Database Support:**
+- `pilot_kills` table already links to `pilot_id` and `mission_id`
+- Queries can aggregate kills by pilot across missions
+- Queries can filter by cycle using `events.cycle_id` → `missions.event_id` relationship
+- No additional tables needed; service records will query existing data
+
+**Future Service Record Display (placeholder for Phase 4+):**
+```
+Pilot Profile: 100 "Maverick" Smith
+─────────────────────────────────────────────
+Career Statistics:
+  Total Missions: 47
+  A2A Kills: 23
+  A2G Kills: 156
+  Flight Lead Experience: 12 missions
+
+Current Cycle (Training Q1 2025):
+  Missions: 8
+  A2A: 5
+  A2G: 24
+  Participation Rate: 80% (8/10 cycle missions)
+```
+
+---
+
+### Mission and Flight Status Handling
+
+#### Mission Status
+
+**Status Field:** `mission_debriefings.mission_status`
+
+**Status Values:**
+- `pending` - Mission created, awaiting execution (default)
+- `in_progress` - Flight assignments published from Mission Prep page
+- `complete` - Mission executed, debriefs being collected
+- `scrubbed` - Mission cancelled/not executed
+
+**Status Transitions:**
+- Automatic: `pending` → `in_progress` when flight assignments published
+- Manual: Authorized users can set to `complete` or `scrubbed` from Mission Debriefing page
+
+**UI Controls:**
+- Status dropdown on Mission Debriefing page header
+- Visible to users with `set_mission_status` permission
+- Confirmation dialog when changing to `scrubbed`
+
+**Impact:**
+- `scrubbed` missions: AARs not required, reminders not sent
+- `complete` missions: Eligible for finalization and AAR publication
+
+#### Flight Status
+
+**Status Field:** `flight_debriefs.flight_status`
+
+**Status Values:**
+- `scheduled` - Flight is planned (default)
+- `launched` - Flight participated in mission
+- `scrubbed` - Flight did not launch
+
+**Status Transitions:**
+- Default: `scheduled` when created
+- Automatic: `scheduled` → `launched` when Flight Lead submits AAR
+- Manual: Flight Lead or authorized user can mark as `scrubbed`
+
+**UI Controls:**
+- "Mark as Scrubbed" button on flight debrief form
+- Available to Flight Lead or users with `set_flight_status` permission
+- Once scrubbed, AAR submission not required for that flight
+- Scrubbed flights excluded from performance calculations
+
+**Missing Reports:**
+- If Flight Lead doesn't submit AAR:
+  - Reminder system sends notifications (configured per squadron)
+  - Leadership notified on 2nd reminder
+  - Flight remains in `pending` state (no automatic "Not Submitted" status)
+  - Leadership can manually mark as scrubbed or follow up directly
+
+---
+
+### Multi-Squadron Operations & Permissions
+
+**View Access:**
+- Controlled by permission system
+- Squadron leadership: Granted `view_debriefs_wing` to see all squadrons in wing
+- Wing leadership: Can view all flights across wing
+- Permission-based filtering in queries ensures proper access
+
+**Edit Access:**
+- Squadron leadership: Typically `edit_debriefs_squadron` (own squadron only)
+- Wing leadership: May have `edit_debriefs_wing` (all squadrons in wing)
+- Flexible permission assignment allows custom configurations
+
+**Example Permission Setup:**
+```
+Squadron XO:
+  - view_debriefs_wing (can see all wing debriefs)
+  - edit_debriefs_squadron (can only edit own squadron)
+  - finalize_debriefs_squadron (can finalize own squadron)
+
+Wing CAG:
+  - view_debriefs_wing (can see all wing debriefs)
+  - edit_debriefs_wing (can edit any wing debrief)
+  - finalize_debriefs_wing (can finalize any debrief)
+```
+
+---
+
+### Tacview Recording Upload/Download
+
+**Feature Status:** Skeleton implementation (Phase 1-2), full functionality after Cloudflare R2 migration
+
+#### Database Fields
+
+Already added to `mission_debriefings`:
+- `tacview_file_url` - URL to file in R2 storage
+- `tacview_uploaded_by` - User who uploaded
+- `tacview_uploaded_at` - Upload timestamp
+
+#### UI Components (Skeleton)
+
+**On Mission Debriefing Page:**
+
+1. **Upload Section** (if user has `upload_tacview_recording` permission)
+   ```
+   ┌────────────────────────────────────────────────┐
+   │  Tacview Recording                             │
+   │  ──────────────────────────────────────────    │
+   │  ⚠ Tacview upload will be enabled after       │
+   │     Cloudflare R2 migration                    │
+   │                                                 │
+   │  [Upload Tacview File] (disabled)              │
+   └────────────────────────────────────────────────┘
+   ```
+
+2. **Download Section** (if file exists and user has `download_tacview_recording` permission)
+   ```
+   ┌────────────────────────────────────────────────┐
+   │  Tacview Recording                             │
+   │  ──────────────────────────────────────────    │
+   │  📁 tacview_red_flag_jan15.acmi                │
+   │  Uploaded by: 100 "Maverick" Smith             │
+   │  Date: Jan 15, 2025 22:30                      │
+   │                                                 │
+   │  [Download Tacview] (disabled for now)         │
+   └────────────────────────────────────────────────┘
+   ```
+
+#### Implementation Notes
+
+**Phase 1-2 (Skeleton):**
+- Display UI components
+- Show "Coming Soon" message
+- Store placeholder data in database fields (null initially)
+- Validate permissions for future use
+
+**Phase 4+ (Full Implementation after R2 migration):**
+- Configure Cloudflare R2 bucket for file storage
+- Implement signed URL generation for uploads
+- Implement signed URL generation for downloads (time-limited)
+- Add file size validation (max 100MB recommended)
+- Add file type validation (.acmi, .txt.acmi, .zip.acmi)
+- Generate upload progress indicator
+- Add "Replace File" functionality for authorized users
+
+**File Naming Convention:**
+```
+tacview_{mission_name}_{timestamp}.acmi
+Example: tacview_operation_red_flag_20250115_1930.acmi
+```
+
+---
+
+### Training Flights vs Live Sorties
+
+**Differentiation:** Future enhancement (not Phase 1-4)
+
+**Requirements for Training Flights:**
+- Ability to create training objectives (separate from mission objectives)
+- Mark individual pilots as SAT/UNSAT (not just flight-level)
+- Different performance categories (more granular/educational)
+- Link to training curriculum/syllabi
+
+**Database Consideration:**
+- Add `mission_type` field to `missions` table: 'live' | 'training'
+- Add `training_objectives` JSONB field to `mission_debriefings`
+- Add `pilot_training_assessments` table for individual pilot ratings
+
+**Note:** Current implementation focuses on live sorties. Training flight functionality will be designed and implemented as a separate enhancement after core AAR system is stable.
+
+---
 
 ---
 
