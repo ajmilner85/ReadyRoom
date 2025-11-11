@@ -254,74 +254,158 @@ Tracks delegation of debrief submission responsibility.
 
 ---
 
+#### `aar_reminders`
+Tracks scheduled AAR submission reminders (separate from event reminders).
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `id` | uuid | Primary key |
+| `mission_id` | uuid | Foreign key to missions |
+| `flight_debrief_id` | uuid | Foreign key to flight_debriefs (null for mission-level reminders) |
+| `squadron_id` | uuid | Foreign key to organizations (for filtering) |
+| `reminder_type` | enum | 'first_reminder', 'second_reminder' |
+| `scheduled_for` | timestamptz | When reminder should be sent |
+| `sent_at` | timestamptz | When reminder was actually sent (null if not sent yet) |
+| `recipients` | jsonb | Array of user/pilot IDs to notify |
+| `additional_recipients` | jsonb | Leadership to notify (for 2nd reminder) |
+| `message_id` | text | Discord message ID (for tracking) |
+| `created_at` | timestamptz | Creation timestamp |
+
+**Relationships:**
+- Many-to-one with `missions`
+- Many-to-one with `flight_debriefs` (optional)
+- Many-to-one with `organizations` (squadrons)
+
+**JSONB Structures:**
+
+`recipients`:
+```json
+[
+  {
+    "pilot_id": "uuid",
+    "user_id": "uuid",
+    "discord_id": "discord-user-id",
+    "flight_callsign": "STING 1"
+  }
+]
+```
+
+`additional_recipients`:
+```json
+[
+  {
+    "user_id": "uuid",
+    "discord_id": "discord-user-id",
+    "role": "CO" | "XO" | "Operations Officer"
+  }
+]
+```
+
+**Notes:**
+- Separate table from `event_reminders` to maintain clear separation of concerns
+- Background processor checks this table every 15 minutes for pending reminders
+- Reminders are marked as sent by updating `sent_at` timestamp
+- Leadership recipients (CO, XO) are only notified on 2nd reminder
+
+---
+
 ## Permissions System
 
-New permissions to be added to `app_permissions` table:
+### Permission System Enhancements
+
+To support Mission Debriefing, the permission system needs the following enhancements:
+
+**1. Add "Flight" Scope Level**
+- Current `ScopeType` enum: `'global' | 'squadron' | 'wing'`
+- **Add**: `'flight'` to support flight-level permissions
+- "Flight" scope means user can only perform action on flights where they are the flight lead
+
+**2. Add `available_scopes` Field to `app_permissions` Table**
+- **New column**: `available_scopes` (text[] or jsonb)
+- Defines which scopes are valid for each permission
+- Example:
+  - `view_debriefs`: `["flight", "squadron", "wing", "global"]`
+  - `manage_roster`: `["squadron", "wing", "global"]` (no flight scope)
+  - `manage_change_log`: `["global"]` (only global scope)
+
+**3. Update Permission Matrix UI**
+- Only display scope toggles that are in the permission's `available_scopes`
+- For Mission Debriefing permissions, show: `[ ] Flight  [ ] Squadron  [ ] Wing  [ ] Global`
+
+### New Permissions to Add
+
+The following permissions should be added to the `app_permissions` table:
 
 ### View Permissions
 
-| Permission Name | Display Name | Scope Type | Description |
-|----------------|--------------|------------|-------------|
-| `view_debriefs_own_flight` | View Own Flight Debriefs | flight | View debriefs for flights you participated in |
-| `view_debriefs_squadron` | View Squadron Debriefs | squadron | View all debriefs for own squadron |
-| `view_debriefs_wing` | View Wing Debriefs | wing | View all debriefs for own wing |
-| `view_debriefs_global` | View All Debriefs | global | View debriefs across all wings |
-| `view_aggregate_squadron` | View Squadron Aggregate Data | squadron | View aggregate performance for squadron |
-| `view_aggregate_wing` | View Wing Aggregate Data | wing | View aggregate performance for wing |
-| `view_aggregate_global` | View Global Aggregate Data | global | View aggregate performance across all wings |
+| Permission Name | Display Name | Available Scopes | Description |
+|----------------|--------------|-----------------|-------------|
+| `view_debriefs` | View Mission Debriefs | flight, squadron, wing, global | View mission debriefing data |
+| `view_aggregate_debriefs` | View Aggregate Debrief Data | squadron, wing, global | View aggregate performance statistics |
 
 ### Edit Permissions
 
-| Permission Name | Display Name | Scope Type | Description |
-|----------------|--------------|------------|-------------|
-| `edit_debriefs_own_flight` | Edit Own Flight Debriefs | flight | Edit debriefs for own flight (as flight lead) |
-| `edit_debriefs_squadron` | Edit Squadron Debriefs | squadron | Edit any debrief in own squadron |
-| `edit_debriefs_wing` | Edit Wing Debriefs | wing | Edit any debrief in own wing |
-| `edit_debriefs_global` | Edit All Debriefs | global | Edit debriefs across all wings |
-| `finalize_debriefs_squadron` | Finalize Squadron Debriefs | squadron | Mark debriefs as finalized (read-only) |
-| `finalize_debriefs_wing` | Finalize Wing Debriefs | wing | Finalize debriefs at wing level |
-| `finalize_debriefs_global` | Finalize All Debriefs | global | Finalize debriefs globally |
+| Permission Name | Display Name | Available Scopes | Description |
+|----------------|--------------|-----------------|-------------|
+| `edit_debriefs` | Edit Mission Debriefs | flight, squadron, wing, global | Edit flight after-action reports |
+| `finalize_debriefs` | Finalize Mission Debriefs | squadron, wing, global | Mark debriefs as finalized (read-only) |
 
 ### Delegation Permissions
 
-| Permission Name | Display Name | Scope Type | Description |
-|----------------|--------------|------------|-------------|
-| `delegate_own_debrief` | Delegate Own Debrief | flight | Delegate debrief responsibility as flight lead |
-| `reassign_debrief_squadron` | Reassign Squadron Debriefs | squadron | Reassign debrief responsibility within squadron |
-| `reassign_debrief_wing` | Reassign Wing Debriefs | wing | Reassign debrief responsibility within wing |
-| `reassign_debrief_global` | Reassign All Debriefs | global | Reassign any debrief responsibility |
+| Permission Name | Display Name | Available Scopes | Description |
+|----------------|--------------|-----------------|-------------|
+| `delegate_debrief` | Delegate Debrief Responsibility | flight, squadron, wing, global | Delegate or reassign debrief submission responsibility |
+
+**Notes on Delegation:**
+- **Flight scope**: User can delegate their own flight's debrief to another flight member
+- **Squadron scope**: User can reassign any debrief within their squadron
+- **Wing scope**: User can reassign any debrief within their wing
+- **Global scope**: User can reassign any debrief across all wings
 
 ### Tacview & Mission Status Permissions
 
-| Permission Name | Display Name | Scope Type | Description |
-|----------------|--------------|------------|-------------|
-| `upload_tacview_recording` | Upload Tacview Recording | squadron | Upload Tacview file for mission (requires Cloudflare R2) |
-| `download_tacview_recording` | Download Tacview Recording | squadron | Download Tacview file from mission |
-| `set_mission_status` | Set Mission Status | squadron | Change mission status (pending/in_progress/complete/scrubbed) |
-| `set_flight_status` | Set Flight Status | flight | Mark own flight as scrubbed |
-| `assess_mission_objectives` | Assess Mission Objectives | squadron | Mark mission objectives as success/failure (future) |
-| `publish_aar_discord` | Publish AAR to Discord | squadron | Post AAR infographic to Discord channel |
+| Permission Name | Display Name | Available Scopes | Description |
+|----------------|--------------|-----------------|-------------|
+| `upload_tacview_recording` | Upload Tacview Recording | squadron, wing, global | Upload Tacview file for mission (requires Cloudflare R2) |
+| `download_tacview_recording` | Download Tacview Recording | squadron, wing, global | Download Tacview file from mission |
+| `set_mission_status` | Set Mission Status | squadron, wing, global | Change mission status (pending/in_progress/complete/scrubbed) |
+| `set_flight_status` | Set Flight Status | flight, squadron, wing, global | Mark flight as scrubbed |
+| `assess_mission_objectives` | Assess Mission Objectives | squadron, wing, global | Mark mission objectives as success/failure (future) |
+| `publish_aar_discord` | Publish AAR to Discord | squadron, wing, global | Post AAR infographic to Discord channel |
 
 ### Permission Logic
 
 **Flight Lead Default Permissions:**
-- Automatically granted `edit_debriefs_own_flight` for their assigned flight
-- Can delegate via `delegate_own_debrief` (scoped to their flight members)
+- Automatically granted `edit_debriefs` at **Flight scope** for their assigned flight
+- Can delegate via `delegate_debrief` at **Flight scope** (scoped to their flight members)
 - Loses edit permission after delegation (unless explicitly reassigned)
 
 **Squadron Leadership (e.g., XO, Operations Officer):**
-- Typically granted `view_debriefs_squadron` and `edit_debriefs_squadron`
-- Can reassign within squadron via `reassign_debrief_squadron`
-- Can view aggregate data via `view_aggregate_squadron`
+- Typically granted:
+  - `view_debriefs` at **Wing scope** (can see all squadrons in wing)
+  - `edit_debriefs` at **Squadron scope** (can edit own squadron only)
+  - `finalize_debriefs` at **Squadron scope**
+  - `view_aggregate_debriefs` at **Squadron scope**
+  - `delegate_debrief` at **Squadron scope**
 
 **Wing Leadership (e.g., CAG, Wing Commander):**
-- Granted `view_debriefs_wing` and `edit_debriefs_wing`
-- Can finalize debriefs via `finalize_debriefs_wing`
-- Can view aggregate data via `view_aggregate_wing`
+- Typically granted:
+  - `view_debriefs` at **Wing scope**
+  - `edit_debriefs` at **Wing scope**
+  - `finalize_debriefs` at **Wing scope**
+  - `view_aggregate_debriefs` at **Wing scope**
+  - `delegate_debrief` at **Wing scope**
 
 **Department Heads:**
-- Require `finalize_debriefs_*` permission to mark debriefs as complete
-- Once finalized, only users with override permissions can edit
+- Require `finalize_debriefs` permission (Squadron/Wing/Global scope) to mark debriefs as complete
+- Once finalized, only users with appropriate `edit_debriefs` permissions can override
+
+**Permission Summary:**
+- Total new permissions: **10**
+  - 2 view permissions
+  - 2 edit permissions
+  - 1 delegation permission
+  - 5 Tacview & status permissions
 
 ---
 
@@ -1025,9 +1109,10 @@ Please submit your AAR or contact squadron leadership.
 
 **Implementation:**
 - Add `aar_reminder_settings` JSONB column to `organizations` table
-- Background processor in `server/index.js` (similar to `processReminders()`)
+- Create new `aar_reminders` table (separate from `event_reminders`)
+- Background processor in `server/index.js` (new function `processAARReminders()`)
 - Use existing `threadManager.js` to post to AAR channel
-- Track sent reminders in `event_reminders` table (reuse existing infrastructure)
+- Consider refactoring to generic scheduler in future (handles events, AAR, countdowns, etc.)
 
 ---
 
@@ -1169,7 +1254,7 @@ Already added to `mission_debriefings`:
 - `tacview_uploaded_by` - User who uploaded
 - `tacview_uploaded_at` - Upload timestamp
 
-#### UI Components (Skeleton)
+#### UI Components
 
 **On Mission Debriefing Page:**
 
@@ -1178,10 +1263,12 @@ Already added to `mission_debriefings`:
    ┌────────────────────────────────────────────────┐
    │  Tacview Recording                             │
    │  ──────────────────────────────────────────    │
-   │  ⚠ Tacview upload will be enabled after       │
-   │     Cloudflare R2 migration                    │
+   │  No recording uploaded                         │
    │                                                 │
-   │  [Upload Tacview File] (disabled)              │
+   │  [Select File] [Upload]  (grayed out/disabled) │
+   │                                                 │
+   │  Accepted formats: .acmi, .txt.acmi, .zip.acmi │
+   │  Max file size: 100 MB                         │
    └────────────────────────────────────────────────┘
    ```
 
@@ -1193,18 +1280,24 @@ Already added to `mission_debriefings`:
    │  📁 tacview_red_flag_jan15.acmi                │
    │  Uploaded by: 100 "Maverick" Smith             │
    │  Date: Jan 15, 2025 22:30                      │
+   │  Size: 45.2 MB                                 │
    │                                                 │
-   │  [Download Tacview] (disabled for now)         │
+   │  [Download] [Delete]  (grayed out/disabled)    │
    └────────────────────────────────────────────────┘
    ```
 
+3. **No Permission State** (if user lacks permission)
+   - Section is hidden entirely (not shown)
+
 #### Implementation Notes
 
-**Phase 1-2 (Skeleton):**
-- Display UI components
-- Show "Coming Soon" message
-- Store placeholder data in database fields (null initially)
-- Validate permissions for future use
+**Phase 1-2 (Initial Implementation):**
+- Display full UI components with proper styling
+- All buttons and inputs are disabled (grayed out, cursor: not-allowed)
+- Tooltip on hover: "Tacview upload/download will be available after cloud storage migration"
+- Form validation and file type checking implemented but not functional
+- Database fields (`tacview_file_url`, etc.) are ready and can be manually populated for testing
+- Permission checks fully functional (show/hide based on user permissions)
 
 **Phase 4+ (Full Implementation after R2 migration):**
 - Configure Cloudflare R2 bucket for file storage
@@ -1379,6 +1472,14 @@ CREATE INDEX idx_pilot_kills_mission_id ON pilot_kills(mission_id);
 -- debrief_delegation
 CREATE INDEX idx_debrief_delegation_flight_debrief_id ON debrief_delegation(flight_debrief_id);
 CREATE INDEX idx_debrief_delegation_delegated_to_user_id ON debrief_delegation(delegated_to_user_id);
+
+-- aar_reminders
+CREATE INDEX idx_aar_reminders_mission_id ON aar_reminders(mission_id);
+CREATE INDEX idx_aar_reminders_flight_debrief_id ON aar_reminders(flight_debrief_id);
+CREATE INDEX idx_aar_reminders_squadron_id ON aar_reminders(squadron_id);
+CREATE INDEX idx_aar_reminders_scheduled_for ON aar_reminders(scheduled_for);
+CREATE INDEX idx_aar_reminders_sent_at ON aar_reminders(sent_at);
+CREATE INDEX idx_aar_reminders_pending ON aar_reminders(scheduled_for, sent_at) WHERE sent_at IS NULL;
 ```
 
 ---
@@ -1479,10 +1580,12 @@ database_migrations/
     ├── 002_create_flight_debriefs.sql
     ├── 003_create_pilot_kills.sql
     ├── 004_create_debrief_delegation.sql
-    ├── 005_create_ref_target_types.sql     # Phase 2
-    ├── 006_create_ref_weapon_types.sql     # Phase 2
-    ├── 007_create_mission_target_inventory.sql # Phase 2
-    └── 008_add_indexes_and_rls.sql
+    ├── 005_create_aar_reminders.sql
+    ├── 006_create_ref_target_types.sql     # Phase 2
+    ├── 007_create_ref_weapon_types.sql     # Phase 2
+    ├── 008_create_mission_target_inventory.sql # Phase 2
+    ├── 009_add_permissions.sql              # Add new permissions to app_permissions
+    └── 010_add_indexes_and_rls.sql
 ```
 
 ---
