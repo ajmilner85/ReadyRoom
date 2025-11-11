@@ -157,7 +157,7 @@ Individual flight after-action reports submitted by Flight Leads.
 ---
 
 #### `pilot_kills`
-**Phase 1 (Simple):** Track aggregate kill counts per pilot per mission.
+**Phase 1 (Simple):** Track aggregate kill counts and mission status per pilot per mission.
 
 | Column | Type | Description |
 |--------|------|-------------|
@@ -165,10 +165,23 @@ Individual flight after-action reports submitted by Flight Leads.
 | `flight_debrief_id` | uuid | Foreign key to flight_debriefs |
 | `pilot_id` | uuid | Foreign key to pilots |
 | `mission_id` | uuid | Foreign key to missions (denormalized) |
-| `air_to_air_kills` | integer | Total A2A kills |
-| `air_to_ground_kills` | integer | Total A2G targets destroyed |
+| `pilot_mission_status` | enum | 'recovered', 'damaged', 'missing_in_action', 'killed_in_action' |
+| `air_to_air_kills` | integer | Total A2A kills (default: 0) |
+| `air_to_ground_kills` | integer | Total A2G targets destroyed (default: 0) |
 | `created_at` | timestamptz | Creation timestamp |
 | `updated_at` | timestamptz | Last update timestamp |
+
+**Pilot Mission Status Values:**
+- `recovered` - Pilot returned safely (default/most common)
+- `damaged` - Aircraft damaged but pilot recovered
+- `missing_in_action` - Pilot/aircraft missing, status unknown
+- `killed_in_action` - Pilot confirmed KIA
+
+**Notes:**
+- **Required for all flight members**: Flight Lead must record status for every pilot in their flight
+- Kill counts are optional (default to 0 if pilot had no kills)
+- One record per pilot per mission (even if pilot had no kills)
+- Status is recorded by Flight Lead during AAR submission
 
 **Phase 2 (Detailed):** Add specific kill tracking with types and weapons.
 
@@ -433,7 +446,11 @@ The following permissions should be added to the `app_permissions` table:
 5. User fills out form:
    - All 8 categories must be rated (validation)
    - Comments are optional but encouraged
-   - Adds kill counts for each pilot in flight
+   - **Pilot Status**: Selects mission status for each pilot in flight (required)
+     - Dropdown options: Recovered | Damaged | Missing In Action | Killed In Action
+     - Default: "Recovered"
+   - **Kill Counts**: Adds A2A and A2G kills for each pilot in flight
+     - Optional: defaults to 0 if left blank
 6. User clicks "Save Draft" or "Submit"
    - "Save Draft" keeps status as 'pending' (editable)
    - "Submit" changes status to 'submitted' (editable until finalized)
@@ -442,8 +459,10 @@ The following permissions should be added to the `app_permissions` table:
 
 **Validation Rules:**
 - All 8 performance categories must have a rating
+- **Pilot mission status required for all flight members** (Recovered/Damaged/MIA/KIA)
+- Kill counts must be non-negative integers (default: 0)
 - At least one comment is recommended (warning, not blocker)
-- Kill counts must be non-negative integers
+- If any pilot marked as KIA or MIA, require confirmation dialog
 
 ---
 
@@ -589,13 +608,19 @@ The following permissions should be added to the `app_permissions` table:
 │                                                                  │
 │  [... 6 more categories ...]                                    │
 │                                                                  │
-│  ── Kill Tracking ───────────────────────────────────────────   │
+│  ── Pilot Status & Kill Tracking ───────────────────────────   │
 │                                                                  │
-│  100 "Maverick" Smith                                           │
+│  100 "Maverick" Smith (Flight Lead)                             │
+│    Status: [Recovered ▼]                                        │
 │    A2A Kills: [2]  A2G Targets: [3]                            │
 │                                                                  │
 │  101 "Goose" Mitchell                                           │
+│    Status: [Recovered ▼]                                        │
 │    A2A Kills: [1]  A2G Targets: [2]                            │
+│                                                                  │
+│  102 "Iceman" Kazansky                                          │
+│    Status: [Damaged ▼]                                          │
+│    A2A Kills: [0]  A2G Targets: [1]                            │
 │                                                                  │
 │  [... other pilots ...]                                         │
 │                                                                  │
@@ -1136,9 +1161,15 @@ The Mission Debriefing system must track:
    - Number of times assigned to -1 slot
    - Number of successful missions as Flight Lead
 
+4. **Mission Status History**
+   - Count of missions by status (recovered, damaged, MIA, KIA)
+   - Important for tracking pilot safety record and combat effectiveness
+   - KIA status would effectively mark pilot as inactive in roster
+
 **Database Support:**
 - `pilot_kills` table already links to `pilot_id` and `mission_id`
-- Queries can aggregate kills by pilot across missions
+- `pilot_mission_status` field tracks Recovered/Damaged/MIA/KIA per mission
+- Queries can aggregate kills and status counts by pilot across missions
 - Queries can filter by cycle using `events.cycle_id` → `missions.event_id` relationship
 - No additional tables needed; service records will query existing data
 
@@ -1151,11 +1182,13 @@ Career Statistics:
   A2A Kills: 23
   A2G Kills: 156
   Flight Lead Experience: 12 missions
+  Mission Status: 45 Recovered, 2 Damaged, 0 MIA, 0 KIA
 
 Current Cycle (Training Q1 2025):
   Missions: 8
   A2A: 5
   A2G: 24
+  Status: 8 Recovered, 0 Damaged
   Participation Rate: 80% (8/10 cycle missions)
 ```
 
