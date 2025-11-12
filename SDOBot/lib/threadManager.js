@@ -324,10 +324,54 @@ async function getThreadIdForEvent(eventId, guildId, channelId, supabase) {
   }
 }
 
+/**
+ * Get the existing thread ID for a message
+ */
+async function getExistingThreadFromMessage(messageId, guildId, channelId) {
+  try {
+    console.log(`[THREAD-FETCH] Fetching existing thread for message ${messageId} in guild ${guildId}, channel ${channelId}`);
+
+    await ensureLoggedIn();
+
+    const client = getClient();
+    const guild = client.guilds.cache.get(guildId);
+    if (!guild) {
+      throw new Error(`Guild ${guildId} not found or bot doesn't have access`);
+    }
+
+    const channel = guild.channels.cache.get(channelId);
+    if (!channel) {
+      throw new Error(`Channel ${channelId} not found in guild ${guildId}`);
+    }
+
+    const message = await channel.messages.fetch(messageId);
+    if (!message) {
+      throw new Error(`Message ${messageId} not found in channel ${channelId}`);
+    }
+
+    // Check if message has a thread
+    if (message.hasThread && message.thread) {
+      console.log(`[THREAD-FETCH] Found existing thread ${message.thread.id} for message ${messageId}`);
+      return {
+        success: true,
+        threadId: message.thread.id,
+        threadName: message.thread.name
+      };
+    }
+
+    console.log(`[THREAD-FETCH] No thread found for message ${messageId}`);
+    return { success: false, error: 'No thread exists for this message' };
+  } catch (error) {
+    console.error(`[THREAD-FETCH-ERROR] Failed to fetch thread for message ${messageId}:`, error);
+    return { success: false, error: error.message || 'Unknown error fetching thread' };
+  }
+}
+
 module.exports = {
   createThreadFromMessage,
   postMessageToThread,
   deleteThread,
   shouldUseThreadsForEvent,
-  getThreadIdForEvent
+  getThreadIdForEvent,
+  getExistingThreadFromMessage
 };

@@ -39,11 +39,11 @@ if (result.error) {
 }
 
 // Require the Discord bot (paths adjusted for SDOBot directory)
-const { 
-  publishEventToDiscord, 
-  initializeDiscordBot, 
+const {
+  publishEventToDiscord,
+  initializeDiscordBot,
   deleteEventMessage,
-  editEventMessage, 
+  editEventMessage,
   getAvailableGuilds,
   countdownManager,
   sendReminderMessage,
@@ -52,6 +52,7 @@ const {
   getGuildMember,
   shouldUseThreadsForEvent,
   createThreadFromMessage,
+  getExistingThreadFromMessage,
   deleteThread
 } = require('./discordBot');
 
@@ -1753,7 +1754,14 @@ async function processIndividualReminder(reminder) {
   if (responseTypes.length > 0) {
     const { data: respondedUsers, error: attendanceError } = await supabase
       .from('discord_event_attendance')
-      .select('discord_id, discord_username, user_response')
+      .select(`
+        discord_id,
+        discord_username,
+        user_response,
+        pilots!discord_event_attendance_discord_id_fkey(
+          pilot_assignments(squadron_id)
+        )
+      `)
       .in('discord_event_id', discordEventIds)
       .in('user_response', responseTypes);
 
@@ -1761,7 +1769,13 @@ async function processIndividualReminder(reminder) {
       throw new Error(`Could not fetch attendance data: ${attendanceError.message}`);
     }
 
-    attendanceData = respondedUsers || [];
+    // Map to include squadron_id from pilot assignments
+    attendanceData = (respondedUsers || []).map(user => ({
+      discord_id: user.discord_id,
+      discord_username: user.discord_username,
+      user_response: user.user_response,
+      squadron_id: user.pilots?.pilot_assignments?.[0]?.squadron_id
+    }));
   }
 
   // Handle "no response" users if selected
@@ -1795,16 +1809,17 @@ async function processIndividualReminder(reminder) {
         .eq('pilot_statuses.statuses.isActive', true)
         .is('pilot_statuses.end_date', null)
         .not('discord_id', 'is', null);
-      
-      // Filter for users who haven't responded
+
+      // Filter for users who haven't responded and include squadron info
       const noResponseUsers = (eligiblePilots || [])
         .filter(pilot => !responderIds.has(pilot.discord_id))
         .map(pilot => ({
           discord_id: pilot.discord_id,
           discord_username: pilot.discord_username,
-          user_response: 'no_response'
+          user_response: 'no_response',
+          squadron_id: pilot.pilot_assignments?.[0]?.squadron_id // Include squadron for filtering later
         }));
-      
+
       console.log(`[REMINDER-${reminder.id}] Found ${noResponseUsers.length} no-response users`);
       attendanceData = [...attendanceData, ...noResponseUsers];
     }
@@ -1879,30 +1894,13 @@ async function processIndividualReminder(reminder) {
   // console.log('[EVENT-DEBUG] Event start_datetime field:', eventData.start_datetime);
   // console.log('[EVENT-DEBUG] Available event fields:', Object.keys(eventData));
   const timeUntilEvent = calculateTimeUntilEvent(eventData.start_datetime);
-  
+
   // Format the reminder message
   const message = formatReminderMessage(eventData, timeUntilEvent);
-  
-  // Deduplicate users by discord_id to avoid duplicate mentions
-  const uniqueUsers = new Map();
-  attendanceData.forEach(user => {
-    if (!uniqueUsers.has(user.discord_id)) {
-      uniqueUsers.set(user.discord_id, user);
-    }
-  });
-  
-  // console.log(`[REMINDER-DEBUG] Total attendance records: ${attendanceData.length}`);
-  // console.log(`[REMINDER-DEBUG] Unique users after deduplication: ${uniqueUsers.size}`);
-  
-  // Create Discord mentions for actual notification using unique users only
-  const discordMentions = Array.from(uniqueUsers.values())
-    .map(user => `<@${user.discord_id}>`)
-    .join(' ');
-  const fullMessage = discordMentions ? `${discordMentions}\n${message}` : message;
-  
-  // Send the reminder message to Discord channels
-  await sendReminderToDiscordChannels(eventData, fullMessage);
-  
+
+  // Send the reminder message to Discord channels with squadron-specific filtering
+  await sendReminderToDiscordChannels(eventData, message, attendanceData);
+
   // Mark reminder as sent
   await markReminderAsSent(reminder.id);
 }
@@ -1981,15 +1979,42 @@ ${event.name}
 ${formattedTime}`;
 }
 
-async function sendReminderToDiscordChannels(event, message) {
+async function sendReminderToDiscordChannels(event, message, attendanceData = []) {
   if (Array.isArray(event.discord_event_id)) {
     // Multi-channel event
     for (const publication of event.discord_event_id) {
       try {
+        // Filter attendanceData to only include pilots from this publication's squadron
+        const squadronAttendance = attendanceData.filter(user =>
+          user.squadron_id === publication.squadronId
+        );
+
+        console.log(`[REMINDER-SQUADRON] Publication for squadron ${publication.squadronId}: ${squadronAttendance.length} recipients`);
+
+        // If no recipients for this squadron, skip this publication
+        if (squadronAttendance.length === 0) {
+          console.log(`[REMINDER-SQUADRON] No recipients for squadron ${publication.squadronId}, skipping`);
+          continue;
+        }
+
+        // Deduplicate users by discord_id to avoid duplicate mentions
+        const uniqueUsers = new Map();
+        squadronAttendance.forEach(user => {
+          if (!uniqueUsers.has(user.discord_id)) {
+            uniqueUsers.set(user.discord_id, user);
+          }
+        });
+
+        // Create Discord mentions for this squadron only
+        const discordMentions = Array.from(uniqueUsers.values())
+          .map(user => `<@${user.discord_id}>`)
+          .join(' ');
+        const fullMessage = discordMentions ? `${discordMentions}\n${message}` : message;
+
         // Thread creation logic: Create thread on first reminder if threading is enabled
         let createdThreadId = null;
         let targetChannelId = publication.channelId; // Default to main channel
-        
+
         // Check if thread already exists for this publication
         if (publication.threadId) {
           // Check if threading was previously disabled due to failure
@@ -2019,29 +2044,66 @@ async function sendReminderToDiscordChannels(event, message) {
               publication.channelId,
               threadDecision.autoArchiveDuration
             );
-            
+
             if (threadResult.success) {
               console.log(`[REMINDER-THREAD] Thread created successfully: ${threadResult.threadId}`);
               createdThreadId = threadResult.threadId;
               targetChannelId = threadResult.threadId; // Send reminder to the new thread
-              
+
               // Update the database to store the thread ID for future reminders
               try {
                 // Find the publication entry and update it with thread ID
-                const updatedPublications = event.discord_event_id.map(pub => 
-                  pub.messageId === publication.messageId 
+                const updatedPublications = event.discord_event_id.map(pub =>
+                  pub.messageId === publication.messageId
                     ? { ...pub, threadId: threadResult.threadId }
                     : pub
                 );
-                
+
                 await supabase
                   .from('events')
                   .update({ discord_event_id: updatedPublications })
                   .eq('id', event.id);
-                  
+
                 console.log(`[REMINDER-THREAD] Updated event ${event.id} with thread ID ${threadResult.threadId}`);
               } catch (updateError) {
                 console.warn(`[REMINDER-THREAD] Failed to update event with thread ID:`, updateError.message);
+              }
+            } else if (threadResult.error === 'The message already has a thread') {
+              // Thread already exists! Fetch the existing thread ID and use it
+              console.log(`[REMINDER-THREAD] Thread already exists, fetching existing thread ID`);
+
+              const existingThreadResult = await getExistingThreadFromMessage(
+                publication.messageId,
+                publication.guildId,
+                publication.channelId
+              );
+
+              if (existingThreadResult.success) {
+                console.log(`[REMINDER-THREAD] Found existing thread: ${existingThreadResult.threadId}`);
+                createdThreadId = existingThreadResult.threadId;
+                targetChannelId = existingThreadResult.threadId; // Send reminder to the existing thread
+
+                // Update the database to store the thread ID for future reminders
+                try {
+                  const updatedPublications = event.discord_event_id.map(pub =>
+                    pub.messageId === publication.messageId
+                      ? { ...pub, threadId: existingThreadResult.threadId }
+                      : pub
+                  );
+
+                  await supabase
+                    .from('events')
+                    .update({ discord_event_id: updatedPublications })
+                    .eq('id', event.id);
+
+                  console.log(`[REMINDER-THREAD] Updated event ${event.id} with existing thread ID ${existingThreadResult.threadId}`);
+                } catch (updateError) {
+                  console.warn(`[REMINDER-THREAD] Failed to update event with thread ID:`, updateError.message);
+                }
+              } else {
+                console.error(`[REMINDER-THREAD] Failed to fetch existing thread: ${existingThreadResult.error}`);
+                // Fall back to posting in the channel
+                targetChannelId = publication.channelId;
               }
             } else {
               console.warn(`[REMINDER-THREAD] Thread creation failed: ${threadResult.error}`);
@@ -2091,15 +2153,15 @@ async function sendReminderToDiscordChannels(event, message) {
           }
         }
         
-        // Send the reminder message
+        // Send the reminder message with squadron-specific mentions
         let reminderResult;
         if (targetChannelId !== publication.channelId) {
           // We're sending to a thread, use postMessageToThread directly
-          reminderResult = await postMessageToThread(targetChannelId, publication.guildId, message);
+          reminderResult = await postMessageToThread(targetChannelId, publication.guildId, fullMessage);
           console.log(`[REMINDER] Sent reminder to thread ${targetChannelId} in guild ${publication.guildId}`);
         } else {
           // No thread, use normal channel messaging
-          reminderResult = await sendReminderMessage(publication.guildId, targetChannelId, message);
+          reminderResult = await sendReminderMessage(publication.guildId, targetChannelId, fullMessage);
           console.log(`[REMINDER] Sent reminder to channel ${targetChannelId} in guild ${publication.guildId}`);
           
           // If threading is disabled and we posted to channel, track the message ID for deletion
