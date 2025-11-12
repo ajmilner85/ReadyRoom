@@ -28,7 +28,7 @@ const { supabase, upsertEventAttendance, getEventIdByDiscordId, getEventByDiscor
 const { initializeClient, ensureLoggedIn, findEventsChannel, getClient, destroyClient, setIsLoggedIn } = require('./lib/discordClient');
 const { createEventEmbed, createAdditionalImageEmbeds, createGoogleCalendarLink } = require('./lib/embedCreator');
 const { publishEventToDiscord, editEventMessage, deleteEventMessage, sendReminderMessage } = require('./lib/messageManager');
-const { createThreadFromMessage, postMessageToThread, deleteThread, shouldUseThreadsForEvent, getThreadIdForEvent } = require('./lib/threadManager');
+const { createThreadFromMessage, getExistingThreadFromMessage, postMessageToThread, deleteThread, shouldUseThreadsForEvent, getThreadIdForEvent } = require('./lib/threadManager');
 const { getAvailableGuilds, getGuildRoles, getGuildMember, getGuildChannels, getEventAttendance } = require('./lib/guildHelpers');
 const { setupDiscordEventHandlers } = require('./lib/eventHandlers');
 const { CountdownUpdateManager } = require('./lib/countdownManager');
@@ -749,6 +749,7 @@ module.exports = {
   getGuildRoles,
   getGuildMember,
   createThreadFromMessage,
+  getExistingThreadFromMessage,
   deleteThread,
   postMessageToThread,
   switchDiscordBot,
