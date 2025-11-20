@@ -535,6 +535,7 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
                 setMissionCommander={setMissionCommander}
                 onExtractedFlights={persistenceHandleExtractedFlights}
                 onStepTimeChange={handleStepTimeChange}
+                mission={mission}
               />
               <AvailablePilots
                 width={CARD_WIDTH}

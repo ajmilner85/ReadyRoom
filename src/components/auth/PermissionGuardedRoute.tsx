@@ -5,7 +5,7 @@ import { useAuth } from '../../context/AuthContext';
 
 interface PermissionGuardedRouteProps {
   children: React.ReactNode;
-  requiredPermission: 'access_home' | 'access_roster' | 'access_events' | 'access_mission_prep' | 'access_flights' | 'access_settings' | 'access_reports';
+  requiredPermission: 'access_home' | 'access_roster' | 'access_events' | 'access_mission_prep' | 'access_flights' | 'access_settings' | 'access_reports' | 'access_mission_debriefing';
   fallbackMessage?: string;
 }
 
@@ -48,6 +48,7 @@ const PermissionGuardedRoute: React.FC<PermissionGuardedRouteProps> = ({
       case 'access_events': return activePermissions.canAccessEvents;
       case 'access_mission_prep': return activePermissions.canAccessMissionPrep;
       case 'access_flights': return activePermissions.canAccessFlights;
+      case 'access_mission_debriefing': return activePermissions.canAccessMissionDebriefing;
       case 'access_settings': return activePermissions.canAccessSettings;
       case 'access_reports': return activePermissions.canAccessReports;
       default: return false;
