@@ -410,7 +410,8 @@ export class PermissionCacheService {
       canAccessFlights: false,
       canAccessSettings: false,
       canAccessReports: false,
-      
+      canAccessMissionDebriefing: false,
+
       // All scoped permissions empty
       canManageRoster: [],
       canEditPilotQualifications: [],
@@ -432,7 +433,12 @@ export class PermissionCacheService {
       canEditFlightAssignments: [],
       canAssignMissionRoles: [],
       canPublishToDiscord: [],
-      
+
+      view_debriefs: [],
+      edit_debriefs: [],
+      finalize_debriefs: [],
+      delegate_debriefs: [],
+
       canSyncWithDiscord: [],
       canViewOwnProfile: true, // Always allow viewing own profile
       

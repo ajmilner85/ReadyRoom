@@ -37,6 +37,7 @@ interface MissionDetailsProps {
   }[];
   onExtractedFlights?: (flights: any[]) => void;
   onStepTimeChange?: (stepTime: string) => void;
+  mission?: any; // Mission object from database
 }
 
 interface MissionDetailsData {
@@ -58,7 +59,8 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
   setMissionCommander,
   getMissionCommanderCandidates,
   onExtractedFlights,
-  onStepTimeChange
+  onStepTimeChange,
+  mission
 }) => {
   const { settings } = useAppSettings();
 
@@ -292,6 +294,17 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
   useEffect(() => {
     saveToLocalStorage(STORAGE_KEYS.MISSION_DETAILS, missionDetails);
   }, [missionDetails]);
+
+  // Load step time from mission database when mission changes
+  useEffect(() => {
+    if (mission?.step_time) {
+      console.log('🕐 MissionDetails: Loading step time from mission:', mission.step_time);
+      setMissionDetails(prev => ({
+        ...prev,
+        stepTime: mission.step_time
+      }));
+    }
+  }, [mission?.id, mission?.step_time]);
 
   const startEditing = () => {
     setIsEditing(true);

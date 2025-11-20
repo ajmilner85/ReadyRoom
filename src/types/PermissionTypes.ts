@@ -59,7 +59,8 @@ export interface UserPermissions {
   canAccessFlights: boolean;
   canAccessSettings: boolean;
   canAccessReports: boolean;
-  
+  canAccessMissionDebriefing: boolean;
+
   // Roster Management (scope-aware)
   canManageRoster: PermissionScopeContext[];
   canEditPilotQualifications: PermissionScopeContext[];
@@ -84,7 +85,13 @@ export interface UserPermissions {
   canEditFlightAssignments: PermissionScopeContext[];
   canAssignMissionRoles: PermissionScopeContext[];
   canPublishToDiscord: PermissionScopeContext[];
-  
+
+  // Mission Debriefing (scope-aware)
+  view_debriefs: PermissionScopeContext[];
+  edit_debriefs: PermissionScopeContext[];
+  finalize_debriefs: PermissionScopeContext[];
+  delegate_debriefs: PermissionScopeContext[];
+
   // Component-level permissions (mixed)
   canSyncWithDiscord: PermissionScopeContext[];
   canViewOwnProfile: boolean;                    // Global only

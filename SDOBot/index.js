@@ -1231,10 +1231,33 @@ app.post('/api/reminders/send', async (req, res) => {
       });
     }
     
-    // Use the new threading-aware reminder function instead of individual channel processing
+    // Convert userIds to attendanceData with squadron info for filtering
+    let attendanceData = [];
+    if (userIds && userIds.length > 0) {
+      // Fetch squadron assignments for the users being reminded
+      const { data: pilotData } = await supabase
+        .from('pilots')
+        .select(`
+          discord_id,
+          pilot_assignments!inner(squadron_id)
+        `)
+        .in('discord_id', userIds);
+
+      // Map to attendanceData format
+      attendanceData = (pilotData || []).map(pilot => ({
+        discord_id: pilot.discord_id,
+        discord_username: '', // Not needed for reminders, just the mention
+        user_response: 'manual', // Mark as manual reminder
+        squadron_id: pilot.pilot_assignments?.[0]?.squadron_id
+      }));
+
+      console.log(`[REMINDER-API] Prepared ${attendanceData.length} users with squadron info for filtering`);
+    }
+
+    // Use the new threading-aware reminder function with squadron filtering
     console.log('[REMINDER-API] Using new threading-aware reminder system');
-    await sendReminderToDiscordChannels(eventData, message);
-    
+    await sendReminderToDiscordChannels(eventData, message, attendanceData);
+
     res.json({
       success: true,
       message: 'Reminder sent using new threading system'
@@ -1754,14 +1777,7 @@ async function processIndividualReminder(reminder) {
   if (responseTypes.length > 0) {
     const { data: respondedUsers, error: attendanceError } = await supabase
       .from('discord_event_attendance')
-      .select(`
-        discord_id,
-        discord_username,
-        user_response,
-        pilots!discord_event_attendance_discord_id_fkey(
-          pilot_assignments(squadron_id)
-        )
-      `)
+      .select('discord_id, discord_username, user_response')
       .in('discord_event_id', discordEventIds)
       .in('user_response', responseTypes);
 
@@ -1769,13 +1785,34 @@ async function processIndividualReminder(reminder) {
       throw new Error(`Could not fetch attendance data: ${attendanceError.message}`);
     }
 
-    // Map to include squadron_id from pilot assignments
-    attendanceData = (respondedUsers || []).map(user => ({
-      discord_id: user.discord_id,
-      discord_username: user.discord_username,
-      user_response: user.user_response,
-      squadron_id: user.pilots?.pilot_assignments?.[0]?.squadron_id
-    }));
+    // Get squadron assignments for these users
+    if (respondedUsers && respondedUsers.length > 0) {
+      const discordIds = respondedUsers.map(u => u.discord_id);
+
+      const { data: pilotData } = await supabase
+        .from('pilots')
+        .select(`
+          discord_id,
+          pilot_assignments!inner(squadron_id)
+        `)
+        .in('discord_id', discordIds);
+
+      // Create a map of discord_id to squadron_id
+      const squadronMap = new Map();
+      (pilotData || []).forEach(pilot => {
+        if (pilot.pilot_assignments && pilot.pilot_assignments.length > 0) {
+          squadronMap.set(pilot.discord_id, pilot.pilot_assignments[0].squadron_id);
+        }
+      });
+
+      // Map attendance data to include squadron_id
+      attendanceData = respondedUsers.map(user => ({
+        discord_id: user.discord_id,
+        discord_username: user.discord_username,
+        user_response: user.user_response,
+        squadron_id: squadronMap.get(user.discord_id)
+      }));
+    }
   }
 
   // Handle "no response" users if selected
@@ -2017,10 +2054,42 @@ async function sendReminderToDiscordChannels(event, message, attendanceData = []
 
         // Check if thread already exists for this publication
         if (publication.threadId) {
-          // Check if threading was previously disabled due to failure
+          // Check if threading was previously disabled due to failure - try to recover
           if (publication.threadId === 'DISABLED') {
-            console.log(`[REMINDER-THREAD] Threading was previously disabled for this publication, posting to channel`);
-            targetChannelId = publication.channelId;
+            console.log(`[REMINDER-THREAD] Threading was marked DISABLED, attempting to fetch existing thread`);
+
+            // Try to fetch the existing thread that was created with the original event post
+            const existingThreadResult = await getExistingThreadFromMessage(
+              publication.messageId,
+              publication.guildId,
+              publication.channelId
+            );
+
+            if (existingThreadResult.success) {
+              console.log(`[REMINDER-THREAD] Found existing thread ${existingThreadResult.threadId}, will use it instead of channel`);
+              targetChannelId = existingThreadResult.threadId;
+
+              // Update database to store the thread ID we found
+              try {
+                const updatedPublications = event.discord_event_id.map(pub =>
+                  pub.messageId === publication.messageId
+                    ? { ...pub, threadId: existingThreadResult.threadId }
+                    : pub
+                );
+
+                await supabase
+                  .from('events')
+                  .update({ discord_event_id: updatedPublications })
+                  .eq('id', event.id);
+
+                console.log(`[REMINDER-THREAD] Updated database with recovered thread ID ${existingThreadResult.threadId}`);
+              } catch (updateError) {
+                console.warn(`[REMINDER-THREAD] Failed to update database with recovered thread ID:`, updateError.message);
+              }
+            } else {
+              console.log(`[REMINDER-THREAD] Could not find existing thread, posting to channel`);
+              targetChannelId = publication.channelId;
+            }
           } else {
             // Thread already exists, use it
             console.log(`[REMINDER-THREAD] Thread already exists for this event: ${publication.threadId}`);

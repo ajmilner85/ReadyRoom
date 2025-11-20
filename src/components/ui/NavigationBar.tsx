@@ -1,5 +1,5 @@
 import React from 'react';
-import { Users, Layout, Calendar, FileText, Settings, LogOut, Home, FileBarChart } from 'lucide-react';
+import { Users, Layout, Calendar, FileText, Settings, LogOut, Home, FileBarChart, ClipboardCheck } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { signOut } from '../../utils/supabaseClient';
@@ -14,7 +14,7 @@ interface NavigationButton {
   label: string;
   route: string;
   // Updated to use new permission names
-  requiresPermission: 'access_home' | 'access_roster' | 'access_events' | 'access_mission_prep' | 'access_flights' | 'access_settings' | 'access_reports';
+  requiresPermission: 'access_home' | 'access_roster' | 'access_events' | 'access_mission_prep' | 'access_flights' | 'access_settings' | 'access_reports' | 'access_mission_debriefing';
   // Legacy permission for backward compatibility during migration
   legacyPermission?: 'canManageRoster' | 'canManageFlights' | 'canManageEvents' | 'canAccessMissionPrep' | 'canAccessSettings';
 }
@@ -59,6 +59,13 @@ const buttons: NavigationButton[] = [
     route: '/mission-coordination',
     requiresPermission: 'access_flights',
     legacyPermission: 'canManageFlights'
+  },
+  {
+    id: 'debriefing',
+    icon: <ClipboardCheck size={24} />,
+    label: 'Mission Debriefing',
+    route: '/debriefing',
+    requiresPermission: 'access_mission_debriefing'
   },
   {
     id: 'reports',
@@ -239,6 +246,7 @@ const NavigationBar: React.FC<NavigationBarProps> = ({ activeButton }) => {
                 case 'access_events': return activePermissions.canAccessEvents;
                 case 'access_mission_prep': return activePermissions.canAccessMissionPrep;
                 case 'access_flights': return activePermissions.canAccessFlights;
+                case 'access_mission_debriefing': return activePermissions.canAccessMissionDebriefing;
                 case 'access_reports': return activePermissions.canAccessReports;
                 case 'access_settings': return activePermissions.canAccessSettings;
                 default: return false;

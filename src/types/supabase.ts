@@ -14,8 +14,73 @@ export type Database = {
   }
   public: {
     Tables: {
+      aar_reminders: {
+        Row: {
+          additional_recipients: Json | null
+          created_at: string
+          flight_debrief_id: string | null
+          id: string
+          message_id: string | null
+          mission_id: string
+          recipients: Json
+          reminder_type: string
+          scheduled_for: string
+          sent_at: string | null
+          squadron_id: string
+        }
+        Insert: {
+          additional_recipients?: Json | null
+          created_at?: string
+          flight_debrief_id?: string | null
+          id?: string
+          message_id?: string | null
+          mission_id: string
+          recipients?: Json
+          reminder_type: string
+          scheduled_for: string
+          sent_at?: string | null
+          squadron_id: string
+        }
+        Update: {
+          additional_recipients?: Json | null
+          created_at?: string
+          flight_debrief_id?: string | null
+          id?: string
+          message_id?: string | null
+          mission_id?: string
+          recipients?: Json
+          reminder_type?: string
+          scheduled_for?: string
+          sent_at?: string | null
+          squadron_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "aar_reminders_flight_debrief_id_fkey"
+            columns: ["flight_debrief_id"]
+            isOneToOne: false
+            referencedRelation: "flight_debriefs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "aar_reminders_mission_id_fkey"
+            columns: ["mission_id"]
+            isOneToOne: false
+            referencedRelation: "missions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "aar_reminders_squadron_id_fkey"
+            columns: ["squadron_id"]
+            isOneToOne: false
+            referencedRelation: "org_squadrons"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       app_permissions: {
         Row: {
+          available_scopes: string[] | null
           category: string
           created_at: string | null
           description: string | null
@@ -26,6 +91,7 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          available_scopes?: string[] | null
           category?: string
           created_at?: string | null
           description?: string | null
@@ -36,6 +102,7 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          available_scopes?: string[] | null
           category?: string
           created_at?: string | null
           description?: string | null
@@ -47,7 +114,7 @@ export type Database = {
         }
         Relationships: []
       }
-      "carrier classes": {
+      "carrier_ classes": {
         Row: {
           created_at: string
           id: string
@@ -101,7 +168,7 @@ export type Database = {
             foreignKeyName: "carriers_class_fkey"
             columns: ["class"]
             isOneToOne: false
-            referencedRelation: "carrier classes"
+            referencedRelation: "carrier_ classes"
             referencedColumns: ["id"]
           },
         ]
@@ -204,6 +271,65 @@ export type Database = {
         }
         Relationships: []
       }
+      debrief_delegation: {
+        Row: {
+          created_at: string
+          delegated_by_user_id: string
+          delegated_to_user_id: string
+          flight_debrief_id: string
+          id: string
+          original_flight_lead_id: string
+          reason: string | null
+        }
+        Insert: {
+          created_at?: string
+          delegated_by_user_id: string
+          delegated_to_user_id: string
+          flight_debrief_id: string
+          id?: string
+          original_flight_lead_id: string
+          reason?: string | null
+        }
+        Update: {
+          created_at?: string
+          delegated_by_user_id?: string
+          delegated_to_user_id?: string
+          flight_debrief_id?: string
+          id?: string
+          original_flight_lead_id?: string
+          reason?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "debrief_delegation_delegated_by_user_id_fkey"
+            columns: ["delegated_by_user_id"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "debrief_delegation_delegated_to_user_id_fkey"
+            columns: ["delegated_to_user_id"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "debrief_delegation_flight_debrief_id_fkey"
+            columns: ["flight_debrief_id"]
+            isOneToOne: false
+            referencedRelation: "flight_debriefs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "debrief_delegation_original_flight_lead_id_fkey"
+            columns: ["original_flight_lead_id"]
+            isOneToOne: false
+            referencedRelation: "pilots"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       discord_event_attendance: {
         Row: {
           created_at: string
@@ -280,41 +406,6 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "event_reminders_event_id_fkey"
-            columns: ["event_id"]
-            isOneToOne: false
-            referencedRelation: "events"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      scheduled_event_publications: {
-        Row: {
-          created_at: string
-          event_id: string
-          id: string
-          scheduled_time: string
-          sent: boolean
-          updated_at: string
-        }
-        Insert: {
-          created_at?: string
-          event_id: string
-          id?: string
-          scheduled_time: string
-          sent?: boolean
-          updated_at?: string
-        }
-        Update: {
-          created_at?: string
-          event_id?: string
-          id?: string
-          scheduled_time?: string
-          sent?: boolean
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "scheduled_event_publications_event_id_fkey"
             columns: ["event_id"]
             isOneToOne: false
             referencedRelation: "events"
@@ -424,6 +515,163 @@ export type Database = {
             columns: ["mission_id"]
             isOneToOne: false
             referencedRelation: "missions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      flight_debriefs: {
+        Row: {
+          callsign: string
+          created_at: string
+          flight_id: string
+          flight_lead_pilot_id: string
+          flight_status: string
+          id: string
+          key_lessons_learned: string | null
+          mission_debriefing_id: string
+          performance_ratings: Json
+          squadron_id: string
+          status: string
+          submitted_at: string | null
+          submitted_by_user_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          callsign: string
+          created_at?: string
+          flight_id: string
+          flight_lead_pilot_id: string
+          flight_status?: string
+          id?: string
+          key_lessons_learned?: string | null
+          mission_debriefing_id: string
+          performance_ratings?: Json
+          squadron_id: string
+          status?: string
+          submitted_at?: string | null
+          submitted_by_user_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          callsign?: string
+          created_at?: string
+          flight_id?: string
+          flight_lead_pilot_id?: string
+          flight_status?: string
+          id?: string
+          key_lessons_learned?: string | null
+          mission_debriefing_id?: string
+          performance_ratings?: Json
+          squadron_id?: string
+          status?: string
+          submitted_at?: string | null
+          submitted_by_user_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "flight_debriefs_flight_lead_pilot_id_fkey"
+            columns: ["flight_lead_pilot_id"]
+            isOneToOne: false
+            referencedRelation: "pilots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "flight_debriefs_mission_debriefing_id_fkey"
+            columns: ["mission_debriefing_id"]
+            isOneToOne: false
+            referencedRelation: "mission_debriefings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "flight_debriefs_squadron_id_fkey"
+            columns: ["squadron_id"]
+            isOneToOne: false
+            referencedRelation: "org_squadrons"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "flight_debriefs_submitted_by_user_id_fkey"
+            columns: ["submitted_by_user_id"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      mission_debriefings: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          finalized_at: string | null
+          finalized_by: string | null
+          id: string
+          mission_id: string
+          mission_objectives: Json | null
+          mission_outcome: string | null
+          status: string
+          tacview_file_url: string | null
+          tacview_uploaded_at: string | null
+          tacview_uploaded_by: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          finalized_at?: string | null
+          finalized_by?: string | null
+          id?: string
+          mission_id: string
+          mission_objectives?: Json | null
+          mission_outcome?: string | null
+          status?: string
+          tacview_file_url?: string | null
+          tacview_uploaded_at?: string | null
+          tacview_uploaded_by?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          finalized_at?: string | null
+          finalized_by?: string | null
+          id?: string
+          mission_id?: string
+          mission_objectives?: Json | null
+          mission_outcome?: string | null
+          status?: string
+          tacview_file_url?: string | null
+          tacview_uploaded_at?: string | null
+          tacview_uploaded_by?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mission_debriefings_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mission_debriefings_finalized_by_fkey"
+            columns: ["finalized_by"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mission_debriefings_mission_id_fkey"
+            columns: ["mission_id"]
+            isOneToOne: true
+            referencedRelation: "missions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mission_debriefings_tacview_uploaded_by_fkey"
+            columns: ["tacview_uploaded_by"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -802,6 +1050,57 @@ export type Database = {
             columns: ["squadron_id"]
             isOneToOne: false
             referencedRelation: "org_squadrons"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pilot_kills: {
+        Row: {
+          air_to_air_kills: number
+          air_to_ground_kills: number
+          created_at: string
+          flight_debrief_id: string
+          id: string
+          mission_id: string
+          pilot_id: string
+          pilot_mission_status: string
+          updated_at: string
+        }
+        Insert: {
+          air_to_air_kills?: number
+          air_to_ground_kills?: number
+          created_at?: string
+          flight_debrief_id: string
+          id?: string
+          mission_id: string
+          pilot_id: string
+          pilot_mission_status?: string
+          updated_at?: string
+        }
+        Update: {
+          air_to_air_kills?: number
+          air_to_ground_kills?: number
+          created_at?: string
+          flight_debrief_id?: string
+          id?: string
+          mission_id?: string
+          pilot_id?: string
+          pilot_mission_status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pilot_kills_flight_debrief_id_fkey"
+            columns: ["flight_debrief_id"]
+            isOneToOne: false
+            referencedRelation: "flight_debriefs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pilot_kills_pilot_id_fkey"
+            columns: ["pilot_id"]
+            isOneToOne: false
+            referencedRelation: "pilots"
             referencedColumns: ["id"]
           },
         ]
@@ -1260,6 +1559,41 @@ export type Database = {
         }
         Relationships: []
       }
+      scheduled_event_publications: {
+        Row: {
+          created_at: string
+          event_id: string
+          id: string
+          scheduled_time: string
+          sent: boolean
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          event_id: string
+          id?: string
+          scheduled_time: string
+          sent?: boolean
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          event_id?: string
+          id?: string
+          scheduled_time?: string
+          sent?: boolean
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "scheduled_event_publications_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       standings: {
         Row: {
           created_at: string
@@ -1541,9 +1875,9 @@ export type Database = {
         Args: { p_squadron_ids: string[] }
         Returns: boolean
       }
-      clean_expired_permission_cache: { Args: Record<PropertyKey, never>; Returns: number }
-      cleanup_expired_interactions: { Args: Record<PropertyKey, never>; Returns: undefined }
-      clear_user_permission_cache: { Args: Record<PropertyKey, never>; Returns: undefined }
+      clean_expired_permission_cache: { Args: never; Returns: number }
+      cleanup_expired_interactions: { Args: never; Returns: undefined }
+      clear_user_permission_cache: { Args: never; Returns: undefined }
       debug_permission_check: {
         Args: { permission_name: string; user_auth_id: string }
         Returns: {
@@ -1638,6 +1972,10 @@ export type Database = {
         Args: { p_user_id: string }
         Returns: undefined
       }
+      is_valid_scope_for_permission: {
+        Args: { p_permission_id: string; p_requested_scope: string }
+        Returns: boolean
+      }
       populate_user_permission_cache: {
         Args: { target_user_id?: string }
         Returns: undefined
@@ -1647,14 +1985,8 @@ export type Database = {
         Args: { p_auth_user_id: string }
         Returns: string
       }
-      show_limit: {
-        Args: Record<PropertyKey, never>
-        Returns: number
-      }
-      show_trgm: {
-        Args: { "": string }
-        Returns: string[]
-      }
+      show_limit: { Args: never; Returns: number }
+      show_trgm: { Args: { "": string }; Returns: string[] }
       test_event_view_debug: {
         Args: { test_event_id: string; test_user_auth_id: string }
         Returns: {
@@ -1713,6 +2045,14 @@ export type Database = {
             Args: { cycle_squadron_id: string; user_auth_id: string }
             Returns: boolean
           }
+      user_can_view_debrief: {
+        Args: {
+          target_flight_id?: string
+          target_mission_id: string
+          user_auth_id: string
+        }
+        Returns: boolean
+      }
       user_can_view_event: {
         Args: { target_event_id: string; user_auth_id: string }
         Returns: boolean

@@ -379,7 +379,8 @@ export class PermissionCalculator {
       canAccessFlights: false,
       canAccessSettings: false,
       canAccessReports: false,
-      
+      canAccessMissionDebriefing: false,
+
       // Roster (scoped)
       canManageRoster: [],
       canEditPilotQualifications: [],
@@ -404,7 +405,13 @@ export class PermissionCalculator {
       canEditFlightAssignments: [],
       canAssignMissionRoles: [],
       canPublishToDiscord: [],
-      
+
+      // Mission Debriefing (scoped)
+      view_debriefs: [],
+      edit_debriefs: [],
+      finalize_debriefs: [],
+      delegate_debriefs: [],
+
       // Component level (mixed)
       canSyncWithDiscord: [],
       canViewOwnProfile: false,
@@ -466,6 +473,9 @@ export class PermissionCalculator {
         break;
       case 'access_reports':
         permissions.canAccessReports = true;
+        break;
+      case 'access_mission_debriefing':
+        permissions.canAccessMissionDebriefing = true;
         break;
 
       // Roster permissions (scoped)

@@ -36,6 +36,7 @@ const Settings = React.lazy(() => import('./components/settings/Settings'));
 const Reports = React.lazy(() => import('./components/reports/Reports'));
 const Home = React.lazy(() => import('./components/ui/Home'));
 const ClearCache = React.lazy(() => import('./pages/ClearCache'));
+const Debriefing = React.lazy(() => import('./components/debriefing/Debriefing'));
 
 const App: React.FC = () => {
   const { user } = useAuth();
@@ -59,6 +60,7 @@ const App: React.FC = () => {
     if (path === '/roster') return 'roster';
     if (path === '/mission-coordination') return 'flights';
     if (path === '/mission-prep') return 'mission-prep';
+    if (path === '/debriefing') return 'debriefing';
     if (path === '/reports') return 'reports';
     if (path === '/settings') return 'admin';
     return 'home'; // default to home
@@ -501,6 +503,13 @@ const App: React.FC = () => {
               <PermissionGuardedRoute requiredPermission="access_reports">
                 <Suspense fallback={<StandardPageLoader message="Loading reports..." />}>
                   <Reports />
+                </Suspense>
+              </PermissionGuardedRoute>
+            } />
+            <Route path="/debriefing" element={
+              <PermissionGuardedRoute requiredPermission="access_mission_debriefing">
+                <Suspense fallback={<StandardPageLoader message="Loading debriefing..." />}>
+                  <Debriefing />
                 </Suspense>
               </PermissionGuardedRoute>
             } />
