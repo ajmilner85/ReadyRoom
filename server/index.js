@@ -1415,7 +1415,10 @@ app.get('/api/discord/flight-posts/:eventId', async (req, res) => {
 
     // Parse flight posts and filter for latest posts only
     const flightPosts = eventData?.discord_flight_assignments_posts || [];
-    const latestPosts = flightPosts.filter(post => post.isLatest);
+    console.log(`[FLIGHT-POSTS] Event ${eventId}: Found ${flightPosts.length} total posts`);
+
+    const latestPosts = flightPosts.filter(post => post && post.isLatest === true);
+    console.log(`[FLIGHT-POSTS] Event ${eventId}: ${latestPosts.length} latest posts:`, latestPosts.map(p => ({ squadronId: p.squadronId, revision: p.revision, messageId: p.messageId })));
 
     res.json({
       success: true,

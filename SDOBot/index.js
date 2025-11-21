@@ -1477,10 +1477,12 @@ app.post('/api/discord/post-image', async (req, res) => {
 app.get('/api/discord/flight-posts/:eventId', async (req, res) => {
   try {
     const { eventId } = req.params;
-    
+    console.log(`[FLIGHT-POSTS] Checking for existing posts - Event: ${eventId}`);
+
     if (!eventId) {
-      return res.status(400).json({ 
-        error: 'Event ID is required' 
+      console.error('[FLIGHT-POSTS] No event ID provided');
+      return res.status(400).json({
+        error: 'Event ID is required'
       });
     }
 
@@ -1493,20 +1495,32 @@ app.get('/api/discord/flight-posts/:eventId', async (req, res) => {
 
     if (error) {
       console.error('[FLIGHT-POSTS] Error fetching event:', error);
-      return res.status(500).json({ 
-        error: 'Failed to fetch event data' 
+      return res.status(500).json({
+        error: 'Failed to fetch event data'
       });
     }
 
+    console.log(`[FLIGHT-POSTS] Event data retrieved:`, {
+      hasData: !!eventData,
+      hasFlightPosts: !!eventData?.discord_flight_assignments_posts,
+      isArray: Array.isArray(eventData?.discord_flight_assignments_posts)
+    });
+
     // Parse flight posts and filter for latest posts only
     const flightPosts = eventData?.discord_flight_assignments_posts || [];
-    const latestPosts = flightPosts.filter(post => post.isLatest);
+    console.log(`[FLIGHT-POSTS] Event ${eventId}: Found ${flightPosts.length} total posts`);
 
-    res.json({
+    const latestPosts = flightPosts.filter(post => post && post.isLatest === true);
+    console.log(`[FLIGHT-POSTS] Event ${eventId}: ${latestPosts.length} latest posts:`, latestPosts.map(p => ({ squadronId: p.squadronId, revision: p.revision, messageId: p.messageId })));
+
+    const response = {
       success: true,
       existingPosts: latestPosts,
       hasExistingPosts: latestPosts.length > 0
-    });
+    };
+    console.log(`[FLIGHT-POSTS] Returning response:`, response);
+
+    res.json(response);
 
   } catch (error) {
     console.error('[FLIGHT-POSTS] Unexpected error:', error);
