@@ -1239,17 +1239,30 @@ app.post('/api/reminders/send', async (req, res) => {
         .from('pilots')
         .select(`
           discord_id,
-          pilot_assignments!inner(squadron_id)
+          pilot_assignments!inner(squadron_id, created_at)
         `)
-        .in('discord_id', userIds);
+        .in('discord_id', userIds)
+        .is('pilot_assignments.end_date', null)  // Only get active (non-ended) assignments
+        .order('pilot_assignments.created_at', { ascending: false });  // Most recent first
+
+      // Create map of discord_id to squadron_id (taking most recent non-null assignment)
+      const squadronMap = new Map();
+      (pilotData || []).forEach(pilot => {
+        if (pilot.pilot_assignments && pilot.pilot_assignments.length > 0 && !squadronMap.has(pilot.discord_id)) {
+          const validAssignment = pilot.pilot_assignments.find(a => a.squadron_id != null);
+          if (validAssignment) {
+            squadronMap.set(pilot.discord_id, validAssignment.squadron_id);
+          }
+        }
+      });
 
       // Map to attendanceData format
-      attendanceData = (pilotData || []).map(pilot => ({
-        discord_id: pilot.discord_id,
+      attendanceData = userIds.map(discord_id => ({
+        discord_id,
         discord_username: '', // Not needed for reminders, just the mention
         user_response: 'manual', // Mark as manual reminder
-        squadron_id: pilot.pilot_assignments?.[0]?.squadron_id
-      }));
+        squadron_id: squadronMap.get(discord_id)
+      })).filter(user => user.squadron_id != null);  // Only include users with valid squadron assignments
 
       console.log(`[REMINDER-API] Prepared ${attendanceData.length} users with squadron info for filtering`);
     }
@@ -1793,15 +1806,23 @@ async function processIndividualReminder(reminder) {
         .from('pilots')
         .select(`
           discord_id,
-          pilot_assignments!inner(squadron_id)
+          pilot_assignments!inner(squadron_id, created_at)
         `)
-        .in('discord_id', discordIds);
+        .in('discord_id', discordIds)
+        .is('pilot_assignments.end_date', null)  // Only get active (non-ended) assignments
+        .order('pilot_assignments.created_at', { ascending: false });  // Most recent first
 
       // Create a map of discord_id to squadron_id
+      // Group by discord_id since we may get multiple rows per pilot if they have duplicate active assignments
       const squadronMap = new Map();
       (pilotData || []).forEach(pilot => {
         if (pilot.pilot_assignments && pilot.pilot_assignments.length > 0) {
-          squadronMap.set(pilot.discord_id, pilot.pilot_assignments[0].squadron_id);
+          // Take the first (most recent) non-null squadron assignment
+          const validAssignment = pilot.pilot_assignments.find(a => a.squadron_id != null);
+          if (validAssignment && !squadronMap.has(pilot.discord_id)) {
+            squadronMap.set(pilot.discord_id, validAssignment.squadron_id);
+            console.log(`[REMINDER-SQUADRON-MAP] Pilot ${pilot.discord_id} mapped to active squadron ${validAssignment.squadron_id}`);
+          }
         }
       });
 
