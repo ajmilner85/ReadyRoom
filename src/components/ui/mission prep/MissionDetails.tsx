@@ -299,12 +299,13 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
   useEffect(() => {
     if (mission?.step_time) {
       console.log('🕐 MissionDetails: Loading step time from mission:', mission.step_time);
+      const timezone = settings.eventDefaults.referenceTimezone || 'America/New_York';
       setMissionDetails(prev => ({
         ...prev,
-        stepTime: mission.step_time
+        stepTime: utcToTimezoneLocal(mission.step_time, timezone)
       }));
     }
-  }, [mission?.id, mission?.step_time]);
+  }, [mission?.id, mission?.step_time, settings.eventDefaults.referenceTimezone]);
 
   const startEditing = () => {
     setIsEditing(true);

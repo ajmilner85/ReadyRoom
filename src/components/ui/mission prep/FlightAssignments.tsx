@@ -212,7 +212,11 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
     }
 
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/discord/flight-posts/${selectedEvent.id}`);
+      // Add timestamp to URL to prevent caching without using CORS-restricted headers
+      const timestamp = Date.now();
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/discord/flight-posts/${selectedEvent.id}?_t=${timestamp}`, {
+        cache: 'no-cache'  // Browser-level cache control (doesn't trigger CORS preflight)
+      });
       const data = await response.json();
       
       if (data.success) {
