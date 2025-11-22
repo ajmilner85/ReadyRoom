@@ -627,17 +627,20 @@ async function postDiscordMessageImage(guildId, channelId, messageContent, image
   try {
     console.log('[DISCORD-BOT] Posting new message with image:', { guildId, channelId, imageName });
 
+    // Get the current client instance (important after bot switches)
+    const currentClient = getClient();
+
     // Check if client is ready
-    if (!client.isReady()) {
+    if (!currentClient.isReady()) {
       console.error('[DISCORD-BOT] Discord client is not ready');
       return { success: false, error: 'Discord client is not ready' };
     }
 
     // Get the guild
-    const guild = client.guilds.cache.get(guildId);
+    const guild = currentClient.guilds.cache.get(guildId);
     if (!guild) {
       console.error('[DISCORD-BOT] Guild not found:', guildId);
-      const availableGuilds = client.guilds.cache.map(g => ({ id: g.id, name: g.name }));
+      const availableGuilds = currentClient.guilds.cache.map(g => ({ id: g.id, name: g.name }));
       return {
         success: false,
         error: `Guild with ID ${guildId} not found`,
@@ -685,14 +688,17 @@ async function updateDiscordMessageImage(messageId, guildId, channelId, messageC
   try {
     console.log('[DISCORD-BOT] Updating message with new image:', { messageId, guildId, channelId, imageName });
 
+    // Get the current client instance (important after bot switches)
+    const currentClient = getClient();
+
     // Check if client is ready
-    if (!client.isReady()) {
+    if (!currentClient.isReady()) {
       console.error('[DISCORD-BOT] Discord client is not ready');
       return { success: false, error: 'Discord client is not ready' };
     }
 
     // Get the guild
-    const guild = client.guilds.cache.get(guildId);
+    const guild = currentClient.guilds.cache.get(guildId);
     if (!guild) {
       console.error('[DISCORD-BOT] Guild not found:', guildId);
       return { success: false, error: `Guild with ID ${guildId} not found` };
