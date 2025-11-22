@@ -68,28 +68,28 @@ interface AppSettingsContextType {
 
 const defaultSettings: AppSettings = {
   displayPilotsWithSquadronColors: true,
-  interfaceThemeUsesSquadronColors: false,
-  
+  interfaceThemeUsesSquadronColors: true,
+
   eventDefaults: {
     // Timing and Duration defaults
-    defaultStartDayOfWeek: 'Friday',
-    defaultStartTime: '20:00',
+    defaultStartDayOfWeek: 'Thursday',
+    defaultStartTime: '20:30',
     defaultDurationHours: 2,
     defaultDurationMinutes: 0,
     referenceTimezone: 'America/New_York',
 
     // Reminder defaults
-    firstReminderTime: { value: 15, unit: 'minutes' },
+    firstReminderTime: { value: 2, unit: 'days' },
     firstReminderEnabled: true,
-    secondReminderTime: { value: 3, unit: 'days' },
+    secondReminderTime: { value: 15, unit: 'minutes' },
     secondReminderEnabled: true,
 
     // Granular reminder recipients defaults
     firstReminderRecipients: {
-      accepted: true,
+      accepted: false,
       tentative: true,
       declined: false,
-      noResponse: false
+      noResponse: true
     },
     secondReminderRecipients: {
       accepted: true,
@@ -97,7 +97,7 @@ const defaultSettings: AppSettings = {
       declined: false,
       noResponse: false
     },
-    
+
     // Initial notification roles default
     initialNotificationRoles: [],
 
@@ -112,7 +112,7 @@ const defaultSettings: AppSettings = {
 
     // Scheduled publication defaults
     scheduledPublicationEnabledByDefault: false,
-    scheduledPublicationOffset: { value: 1, unit: 'hours' }
+    scheduledPublicationOffset: { value: 4, unit: 'days' }
   }
 };
 
