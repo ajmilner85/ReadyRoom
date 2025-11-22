@@ -2721,6 +2721,99 @@ async function processConcludedEvents() {
   }
 }
 
+// Process mission status updates based on event timing
+async function processMissionStatusUpdates() {
+  try {
+    console.log('[MISSION-STATUS] Checking for missions requiring status updates...');
+
+    const now = new Date().toISOString();
+
+    // Find missions that need status updates by joining with events
+    const { data: missions, error: fetchError } = await supabase
+      .from('missions')
+      .select(`
+        id,
+        name,
+        status,
+        events!missions_event_id_fkey (
+          id,
+          start_datetime,
+          end_datetime
+        )
+      `)
+      .in('status', ['planning', 'in_progress']);
+
+    if (fetchError) {
+      console.error('[MISSION-STATUS] Error fetching missions:', fetchError);
+      return { updated: 0, errors: [fetchError] };
+    }
+
+    if (!missions || missions.length === 0) {
+      console.log('[MISSION-STATUS] No missions found requiring status check');
+      return { updated: 0, errors: [] };
+    }
+
+    let updated = 0;
+    const errors = [];
+
+    for (const mission of missions) {
+      try {
+        // Skip if no associated event
+        if (!mission.events) {
+          continue;
+        }
+
+        const eventStartTime = new Date(mission.events.start_datetime);
+        const eventEndTime = mission.events.end_datetime
+          ? new Date(mission.events.end_datetime)
+          : null;
+        const nowTime = new Date(now);
+
+        let newStatus = null;
+
+        // Determine new status based on timing
+        if (mission.status === 'planning' && nowTime >= eventStartTime) {
+          // Event has started, move to in_progress
+          newStatus = 'in_progress';
+        } else if (mission.status === 'in_progress' && eventEndTime && nowTime >= eventEndTime) {
+          // Event has ended, move to completed
+          newStatus = 'completed';
+        }
+
+        // Update if status changed
+        if (newStatus && newStatus !== mission.status) {
+          const { error: updateError } = await supabase
+            .from('missions')
+            .update({
+              status: newStatus,
+              updated_at: now
+            })
+            .eq('id', mission.id);
+
+          if (updateError) {
+            console.error(`[MISSION-STATUS] Error updating mission ${mission.id}:`, updateError);
+            errors.push({ missionId: mission.id, error: updateError });
+          } else {
+            updated++;
+            console.log(`[MISSION-STATUS] Updated mission "${mission.name}" (${mission.id}) from "${mission.status}" to "${newStatus}"`);
+          }
+        }
+      } catch (error) {
+        console.error(`[MISSION-STATUS] Error processing mission ${mission.id}:`, error);
+        errors.push({ missionId: mission.id, error });
+      }
+    }
+
+    if (updated > 0 || errors.length > 0) {
+      console.log(`[MISSION-STATUS] Completed: ${updated} updated, ${errors.length} errors`);
+    }
+    return { updated, errors };
+  } catch (error) {
+    console.error('[MISSION-STATUS] Error in processMissionStatusUpdates:', error);
+    return { updated: 0, errors: [{ error }] };
+  }
+}
+
 // Start reminder processor
 let reminderIntervalId = null;
 
@@ -2742,6 +2835,11 @@ function startReminderProcessor() {
     console.error('Error in initial concluded events processing:', error);
   });
 
+  // Process mission status updates immediately
+  processMissionStatusUpdates().catch(error => {
+    console.error('Error in initial mission status updates processing:', error);
+  });
+
   // Then process every 1 minute
   reminderIntervalId = setInterval(() => {
     processReminders().catch(error => {
@@ -2752,6 +2850,9 @@ function startReminderProcessor() {
     });
     processConcludedEvents().catch(error => {
       console.error('Error in scheduled concluded events processing:', error);
+    });
+    processMissionStatusUpdates().catch(error => {
+      console.error('Error in scheduled mission status updates processing:', error);
     });
   }, 60000); // 1 minute = 60000ms
 
