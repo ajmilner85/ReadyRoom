@@ -417,8 +417,7 @@ export async function getUserProfile(authUserId: string): Promise<{ profile: Use
             roles:role_id (
               id,
               name,
-              isExclusive,
-              compatible_statuses,
+              exclusivity_scope,
               order
             )
           ),

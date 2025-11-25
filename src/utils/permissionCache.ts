@@ -252,11 +252,13 @@ export class PermissionCacheService {
       // Convert auth_user_id to user_profiles.id for the foreign key
       const userProfileId = await this.getUserProfileId(cacheEntry.userId);
       if (!userProfileId) {
-        console.warn('Cannot store cache: user profile not found for auth_user_id:', cacheEntry.userId);
+        console.error('Cannot store cache: user profile not found for auth_user_id:', cacheEntry.userId);
         return;
       }
 
-      const { error } = await supabase
+      console.log('Storing permission cache to database:', { userProfileId, expiresAt: cacheEntry.expiresAt });
+
+      const { data, error } = await supabase
         .from('user_permission_cache' as any)
         .upsert({
           user_id: userProfileId, // Use user_profiles.id instead of auth_user_id
@@ -264,14 +266,17 @@ export class PermissionCacheService {
           bases_hash: cacheEntry.basesHash,
           calculated_at: cacheEntry.calculatedAt.toISOString(),
           expires_at: cacheEntry.expiresAt.toISOString()
-        });
-      
+        })
+        .select();
+
       if (error) {
-        console.warn('Error storing database cache:', error);
+        console.error('Error storing database cache:', error);
+      } else {
+        console.log('Successfully stored permission cache in database:', data);
       }
-      
+
     } catch (error) {
-      console.warn('Error storing database cache:', error);
+      console.error('Error storing database cache:', error);
     }
   }
   

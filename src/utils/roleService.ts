@@ -2,12 +2,13 @@
 import { supabase, getCurrentUser } from './supabaseClient';
 import { permissionCache } from './permissionCache';
 
-// Define the Role interface with support for null created_at
+// Define the Role interface with hierarchical exclusivity scope
+export type ExclusivityScope = 'none' | 'squadron' | 'wing';
+
 export interface Role {
   id: string;
   name: string;
-  isExclusive: boolean;
-  compatible_statuses: string[];
+  exclusivity_scope: ExclusivityScope;
   order: number;
   created_at?: string | null;
 }
@@ -17,50 +18,24 @@ export interface Role {
  */
 export async function getAllRoles(): Promise<{ data: Role[] | null; error: any }> {
   try {
-    // First, try with the expected camelCase column name
     const { data, error } = await supabase
       .from('roles')
-      .select('id, name, "isExclusive", compatible_statuses, order, created_at');
+      .select('id, name, exclusivity_scope, order, created_at')
+      .order('order', { ascending: true });
 
     if (error) {
-      // If that fails, try with lowercase column name and alias it to match our interface
-      const { data: dataAlt, error: errorAlt } = await supabase
-        .from('roles')
-        .select('id, name, isexclusive as "isExclusive", compatible_statuses, order, created_at')
-        .order('order', { ascending: true });
-      
-      if (errorAlt) {
-        throw errorAlt;
-      }
-      
-      // Handle potential parser errors by validating each result item
-      const validDataAlt: Role[] = [];
-      if (Array.isArray(dataAlt)) {
-        dataAlt.forEach(item => {
-          if (item && 
-              typeof item === 'object' && 
-              'id' in item && 
-              'name' in item && 
-              ('isExclusive' in item || 'isexclusive' in item) && 
-              'compatible_statuses' in item && 
-              'order' in item) {
-            validDataAlt.push(item as unknown as Role);
-          }
-        });
-      }
-      return { data: validDataAlt, error: null };
+      throw error;
     }
-    
-    // Handle potential parser errors by validating each result item
+
+    // Validate each result item
     const validData: Role[] = [];
     if (Array.isArray(data)) {
       data.forEach(item => {
-        if (item && 
-            typeof item === 'object' && 
-            'id' in item && 
-            'name' in item && 
-            ('isExclusive' in item || 'isexclusive' in item) && 
-            'compatible_statuses' in item && 
+        if (item &&
+            typeof item === 'object' &&
+            'id' in item &&
+            'name' in item &&
+            'exclusivity_scope' in item &&
             'order' in item) {
           validData.push(item as unknown as Role);
         }
@@ -84,65 +59,31 @@ export async function createRole(role: Omit<Role, 'id' | 'created_at'>): Promise
       return { data: null, error: userError || new Error('User not authenticated') };
     }
 
-    console.log('Creating role with user context:', {
-      role,
-      userId: user.id
-    });
-
     // Ensure user permissions are calculated and cached in the correct format for RLS
     try {
       await permissionCache.getUserPermissions(user.id);
-      console.log('User permissions cached for RLS compliance');
     } catch (permError) {
       console.warn('Could not cache permissions, proceeding anyway:', permError);
     }
 
-    // Try different column names to handle potential schema differences
-    const roleData = {
-      name: role.name,
-      "isExclusive": role.isExclusive, // Try with quotes for exact case match
-      compatible_statuses: role.compatible_statuses,
-      order: role.order
-    };
-
     const { data, error } = await supabase
       .from('roles')
-      .insert(roleData)
-      .select('id, name, "isExclusive", compatible_statuses, order, created_at')
+      .insert({
+        name: role.name,
+        exclusivity_scope: role.exclusivity_scope,
+        order: role.order
+      })
+      .select('id, name, exclusivity_scope, order, created_at')
       .single();
 
     if (error) {
-      // If that fails, try with lowercase
-      const roleLowerData = {
-        name: role.name,
-        isexclusive: role.isExclusive, 
-        compatible_statuses: role.compatible_statuses,
-        order: role.order
-      };
-      
-      const { data: dataAlt, error: errorAlt } = await supabase
-        .from('roles')
-        .insert(roleLowerData)
-        .select('id, name, isexclusive as "isExclusive", compatible_statuses, order, created_at')
-        .single();
-        
-      if (errorAlt) {
-        throw errorAlt;
-      }
-      
-      // Make sure we're returning a valid Role
-      if (dataAlt && typeof dataAlt === 'object') {
-        return { data: dataAlt as unknown as Role, error: null };
-      }
-      
-      return { data: null, error: new Error("Invalid role data returned from database") };
+      throw error;
     }
-    
-    // Make sure we're returning a valid Role
+
     if (data && typeof data === 'object') {
       return { data: data as unknown as Role, error: null };
     }
-    
+
     return { data: null, error: new Error("Invalid role data returned from database") };
   } catch (e) {
     console.error('Error in createRole:', e);
@@ -155,51 +96,41 @@ export async function createRole(role: Omit<Role, 'id' | 'created_at'>): Promise
  */
 export async function updateRole(id: string, updates: Partial<Omit<Role, 'id' | 'created_at'>>): Promise<{ data: Role | null; error: any }> {
   try {
-    // Create update objects for both potential column cases
+    // Get current user for RLS context
+    const { user, error: userError } = await getCurrentUser();
+    if (userError || !user) {
+      return { data: null, error: userError || new Error('User not authenticated') };
+    }
+
+    // Ensure user permissions are calculated and cached in the correct format for RLS
+    try {
+      await permissionCache.getUserPermissions(user.id);
+    } catch (permError) {
+      console.error('Could not cache permissions:', permError);
+      throw new Error('Failed to load user permissions');
+    }
+
+    // Create update object
     const updateData: any = {};
     if (updates.name !== undefined) updateData.name = updates.name;
-    if (updates.compatible_statuses !== undefined) updateData.compatible_statuses = updates.compatible_statuses;
+    if (updates.exclusivity_scope !== undefined) updateData.exclusivity_scope = updates.exclusivity_scope;
     if (updates.order !== undefined) updateData.order = updates.order;
-    
-    // Handle isExclusive with multiple approaches
-    if (updates.isExclusive !== undefined) {
-      updateData["isExclusive"] = updates.isExclusive; // Try with quotes for exact case
-      updateData.isexclusive = updates.isExclusive; // Also try lowercase
-    }
-    
+
     const { data, error } = await supabase
       .from('roles')
       .update(updateData)
       .eq('id', id)
-      .select('id, name, "isExclusive", compatible_statuses, order, created_at')
+      .select('id, name, exclusivity_scope, order, created_at')
       .single();
-      
+
     if (error) {
-      // If that fails, try with lowercase fields
-      const { data: dataAlt, error: errorAlt } = await supabase
-        .from('roles')
-        .update(updateData)
-        .eq('id', id)
-        .select('id, name, isexclusive as "isExclusive", compatible_statuses, order, created_at')
-        .single();
-        
-      if (errorAlt) {
-        throw errorAlt;
-      }
-      
-      // Make sure we're returning a valid Role
-      if (dataAlt && typeof dataAlt === 'object') {
-        return { data: dataAlt as unknown as Role, error: null };
-      }
-      
-      return { data: null, error: new Error("Invalid role data returned from database") };
+      throw error;
     }
-    
-    // Make sure we're returning a valid Role
+
     if (data && typeof data === 'object') {
       return { data: data as unknown as Role, error: null };
     }
-    
+
     return { data: null, error: new Error("Invalid role data returned from database") };
   } catch (e) {
     console.error('Error in updateRole:', e);
@@ -301,53 +232,145 @@ export async function getRoleUsageCount(roleId: string): Promise<{ count: number
 }
 
 /**
- * Assign a role to a pilot using the pilot_roles join table
+ * Assign a role to a pilot using the pilot_roles join table with hierarchical exclusivity checks
+ *
+ * Exclusivity rules:
+ * - 'none': Any number of active pilots can hold this role
+ * - 'squadron': Only one active pilot per squadron can hold this role
+ * - 'wing': Only one active pilot per wing can hold this role
+ *
+ * Note: Only considers pilots with ACTIVE statuses (statuses.isActive = true).
+ * Retired/inactive pilots do not block new assignments.
  */
 export async function assignRoleToPilot(
-  pilotId: string, 
-  roleId: string, 
+  pilotId: string,
+  roleId: string,
   isActing: boolean = false,
   effectiveDate: string = new Date().toISOString().split('T')[0]
 ): Promise<{ data: any; error: any }> {
   try {
-    // First check if the role is exclusive
+    // Get role exclusivity scope
     const { data: roleData, error: roleError } = await supabase
       .from('roles')
-      .select('isExclusive')
+      .select('exclusivity_scope')
       .eq('id', roleId)
       .single();
-    
+
     if (roleError) {
       throw roleError;
     }
-    
-    // If the role is exclusive, end existing assignments of this role
-    if (roleData?.isExclusive) {
-      const { error: endExistingError } = await supabase
+
+    const scope = (roleData as any)?.exclusivity_scope as ExclusivityScope;
+
+    // If role has exclusivity scope, check for conflicts with active pilots
+    if (scope && scope !== 'none') {
+      // Get the pilot's current squadron and wing
+      const { data: pilotAssignment, error: assignmentError } = await supabase
+        .from('pilot_assignments')
+        .select(`
+          squadron_id,
+          org_squadrons!inner (
+            id,
+            wing_id
+          )
+        `)
+        .eq('pilot_id', pilotId)
+        .is('end_date', null)
+        .single();
+
+      if (assignmentError || !pilotAssignment) {
+        throw new Error('Could not determine pilot squadron/wing assignment');
+      }
+
+      const pilotSquadronId = pilotAssignment.squadron_id;
+      const pilotWingId = pilotAssignment.org_squadrons?.wing_id;
+
+      // Find pilots with this role who have ACTIVE statuses
+      const { data: conflictingAssignments, error: conflictError } = await supabase
         .from('pilot_roles')
-        .update({ 
-          end_date: new Date().toISOString().split('T')[0],
-          updated_at: new Date().toISOString()
-        })
+        .select(`
+          pilot_id,
+          pilots!inner (
+            id,
+            callsign,
+            pilot_assignments!inner (
+              squadron_id,
+              org_squadrons!inner (
+                id,
+                wing_id
+              )
+            ),
+            pilot_statuses!inner (
+              statuses!inner (
+                isActive
+              )
+            )
+          )
+        `)
         .eq('role_id', roleId)
-        .is('end_date', null);
-        
-      if (endExistingError) {
-        throw endExistingError;
+        .is('end_date', null)
+        .neq('pilot_id', pilotId); // Exclude the pilot we're assigning to
+
+      if (conflictError) {
+        throw conflictError;
+      }
+
+      // Filter to only active pilots
+      const activeConflicts = conflictingAssignments?.filter(assignment => {
+        const pilot = assignment.pilots;
+        if (!pilot) return false;
+
+        // Check if pilot has an active status
+        const hasActiveStatus = pilot.pilot_statuses?.some(ps =>
+          ps.statuses?.isActive === true
+        );
+
+        if (!hasActiveStatus) return false;
+
+        // Check if the pilot's current assignment conflicts based on scope
+        const currentAssignment = pilot.pilot_assignments?.[0]; // Get most recent
+        if (!currentAssignment) return false;
+
+        if (scope === 'squadron') {
+          return currentAssignment.squadron_id === pilotSquadronId;
+        } else if (scope === 'wing') {
+          return currentAssignment.org_squadrons?.wing_id === pilotWingId;
+        }
+
+        return false;
+      });
+
+      // If there are conflicts, end those role assignments
+      if (activeConflicts && activeConflicts.length > 0) {
+        const conflictingPilotIds = activeConflicts.map(ac => ac.pilot_id);
+
+        const { error: endExistingError } = await supabase
+          .from('pilot_roles')
+          .update({
+            end_date: new Date().toISOString().split('T')[0],
+            updated_at: new Date().toISOString()
+          })
+          .eq('role_id', roleId)
+          .in('pilot_id', conflictingPilotIds)
+          .is('end_date', null);
+
+        if (endExistingError) {
+          throw endExistingError;
+        }
       }
     }
-    
+
     // Create new role assignment
     const { data, error } = await supabase
       .from('pilot_roles')
-      .insert({ 
-        pilot_id: pilotId, 
+      .insert({
+        pilot_id: pilotId,
         role_id: roleId,
         effective_date: effectiveDate,
         is_acting: isActing
       })
       .select();
-      
+
     return { data, error };
   } catch (e) {
     console.error('Error in assignRoleToPilot:', e);
@@ -394,36 +417,37 @@ export async function getPilotRoles(pilotId: string): Promise<{ data: Role[] | n
         roles:role_id (
           id,
           name,
-          isExclusive,
-          compatible_statuses,
+          exclusivity_scope,
           order,
           created_at
         )
       `)
       .eq('pilot_id', pilotId)
       .or('end_date.is.null,end_date.gt.' + new Date().toISOString())
-      .order('effective_date', { ascending: false });
-      
+      .order('effective_date', { ascending: false});
+
     if (pilotRoleError) {
       throw pilotRoleError;
     }
-    
+
     if (!pilotRoles || pilotRoles.length === 0) {
       return { data: [], error: null };
     }
-    
+
     // Transform to Role format
     const roles: Role[] = pilotRoles
-      .filter(pr => pr.roles && pr.roles.id)
-      .map(pr => ({
-        id: pr.roles!.id,
-        name: pr.roles!.name,
-        isExclusive: pr.roles!.isExclusive,
-        compatible_statuses: pr.roles!.compatible_statuses,
-        order: pr.roles!.order,
-        created_at: pr.roles!.created_at
-      }));
-    
+      .filter(pr => pr.roles && (pr.roles as any).id)
+      .map(pr => {
+        const roleData = pr.roles as any;
+        return {
+          id: roleData.id,
+          name: roleData.name,
+          exclusivity_scope: roleData.exclusivity_scope as ExclusivityScope,
+          order: roleData.order,
+          created_at: roleData.created_at
+        };
+      });
+
     return { data: roles, error: null };
   } catch (e) {
     console.error('Error in getPilotRoles:', e);
@@ -433,31 +457,14 @@ export async function getPilotRoles(pilotId: string): Promise<{ data: Role[] | n
 
 /**
  * Initialize default roles if none exist
+ * Note: Compatible statuses no longer exist - any billet can be assigned to any status
  */
 export async function initializeDefaultRoles(): Promise<void> {
-  // Check if statuses exist first to get their IDs
-  const { data: statuses, error: statusError } = await supabase
-    .from('statuses')
-    .select('id, name');
-  
-  if (statusError) {
-    console.error('Error checking statuses:', statusError);
-    return;
-  }
-  
-  // Create a map of status names to IDs
-  const statusMap: Record<string, string> = {};
-  if (Array.isArray(statuses)) {
-    statuses.forEach(status => {
-      statusMap[status.name] = status.id;
-    });
-  }
-  
   // Check if roles table exists and has data
   const { count, error: countError } = await supabase
     .from('roles')
     .select('id', { count: 'exact' });
-  
+
   // If error, the table might not exist yet
   if (countError) {
     console.error('Error checking roles table:', countError);
@@ -470,71 +477,17 @@ export async function initializeDefaultRoles(): Promise<void> {
   }
 
   try {
-    // Default roles with appropriate status compatibility
+    // Default roles with hierarchical exclusivity scopes
     const defaultRoles = [
-      { 
-        name: 'CO', 
-        isExclusive: true, 
-        isexclusive: true, // Include both cases to be safe
-        compatible_statuses: [statusMap['Command']], 
-        order: 10 
-      },
-      { 
-        name: 'XO', 
-        isExclusive: true, 
-        isexclusive: true,
-        compatible_statuses: [statusMap['Command']], 
-        order: 20 
-      },
-      { 
-        name: 'OPSO', 
-        isExclusive: true, 
-        isexclusive: true,
-        compatible_statuses: [statusMap['Command']], 
-        order: 30 
-      },
-      { 
-        name: 'Admin OIC', 
-        isExclusive: true, 
-        isexclusive: true,
-        compatible_statuses: [statusMap['Staff']], 
-        order: 40 
-      },
-      { 
-        name: 'Intel OIC', 
-        isExclusive: true, 
-        isexclusive: true,
-        compatible_statuses: [statusMap['Staff']], 
-        order: 50 
-      },
-      { 
-        name: 'Train OIC', 
-        isExclusive: true, 
-        isexclusive: true,
-        compatible_statuses: [statusMap['Staff']], 
-        order: 60 
-      },
-      { 
-        name: 'DS Admin', 
-        isExclusive: true, 
-        isexclusive: true,
-        compatible_statuses: [statusMap['Staff']], 
-        order: 70 
-      },
-      { 
-        name: 'Instructor', 
-        isExclusive: false, 
-        isexclusive: false,
-        compatible_statuses: [statusMap['Command'], statusMap['Staff'], statusMap['Cadre']], 
-        order: 80 
-      },
-      { 
-        name: 'LSO', 
-        isExclusive: false,
-        isexclusive: false, 
-        compatible_statuses: [statusMap['Command'], statusMap['Staff'], statusMap['Cadre'], statusMap['Provisional']], 
-        order: 90 
-      }
+      { name: 'CO', exclusivity_scope: 'squadron' as ExclusivityScope, order: 10 },
+      { name: 'XO', exclusivity_scope: 'squadron' as ExclusivityScope, order: 20 },
+      { name: 'OPSO', exclusivity_scope: 'squadron' as ExclusivityScope, order: 30 },
+      { name: 'Admin OIC', exclusivity_scope: 'squadron' as ExclusivityScope, order: 40 },
+      { name: 'Intel OIC', exclusivity_scope: 'squadron' as ExclusivityScope, order: 50 },
+      { name: 'Train OIC', exclusivity_scope: 'squadron' as ExclusivityScope, order: 60 },
+      { name: 'DS Admin', exclusivity_scope: 'squadron' as ExclusivityScope, order: 70 },
+      { name: 'Instructor', exclusivity_scope: 'none' as ExclusivityScope, order: 80 },
+      { name: 'LSO', exclusivity_scope: 'none' as ExclusivityScope, order: 90 }
     ];
 
     await supabase.from('roles').insert(defaultRoles);

@@ -49,19 +49,24 @@ const UserAccounts: React.FC<UserAccountsProps> = ({ }) => {
   };
 
   return (
-    <div>
-      {/* Header */}
-      <div style={{ marginBottom: '32px' }}>
-        <h2 style={{ fontSize: '24px', fontWeight: 600, margin: 0, color: '#0F172A' }}>
-          Account
-        </h2>
-        <p style={{ fontSize: '14px', color: '#64748B', margin: '8px 0 0 0', fontFamily: 'Inter' }}>
-          Manage your account information and security settings.
-        </p>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', backgroundColor: '#FFFFFF' }}>
+      {/* Fixed Header */}
+      <div style={{ padding: '40px 40px 0 40px', flexShrink: 0 }}>
+        <div style={{ maxWidth: '800px', margin: '0 auto', borderBottom: '1px solid #E2E8F0', paddingBottom: '24px' }}>
+          <h2 style={{ fontSize: '24px', fontWeight: 600, margin: 0, color: '#0F172A' }}>
+            Account
+          </h2>
+          <p style={{ fontSize: '14px', color: '#64748B', margin: '8px 0 0 0', fontFamily: 'Inter' }}>
+            Manage your account information and security settings.
+          </p>
+        </div>
       </div>
 
-      {/* Current Session Info */}
-      <div style={sectionStyle}>
+      {/* Scrollable Content */}
+      <div style={{ flex: 1, overflow: 'auto', padding: '24px 40px 40px 40px' }}>
+        <div style={{ maxWidth: '800px', margin: '0 auto' }}>
+          {/* Current Session Info */}
+          <div style={sectionStyle}>
         <h3 style={{ fontSize: '18px', fontWeight: 600, color: '#0F172A', margin: '0 0 16px 0', display: 'flex', alignItems: 'center', gap: '8px' }}>
           <Shield size={20} />
           Current Session
@@ -345,7 +350,9 @@ const UserAccounts: React.FC<UserAccountsProps> = ({ }) => {
             </button>
           </div>
         </div>
+        </div>
       </div>
+    </div>
     </div>
   );
 };

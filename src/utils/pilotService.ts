@@ -23,8 +23,7 @@ export async function getAllPilots(): Promise<{ data: Pilot[] | null; error: any
           roles:role_id (
             id,
             name,
-            isExclusive,
-            compatible_statuses,
+            exclusivity_scope,
             order
           )
         ),
@@ -174,8 +173,7 @@ export async function getPilotById(id: string): Promise<{ data: Pilot | null; er
         roles:role_id (
           id,
           name,
-          isExclusive,
-          compatible_statuses,
+          exclusivity_scope,
           order
         )
       )
@@ -248,8 +246,7 @@ export async function getPilotByDiscordId(discordId: string): Promise<{ data: Pi
         roles:role_id (
           id,
           name,
-          isExclusive,
-          compatible_statuses,
+          exclusivity_scope,
           order
         )
       ),
@@ -849,12 +846,11 @@ export async function getPilotsByActiveStatus(
  * @param pilotId The ID of the pilot
  * @returns The primary role object associated with this pilot or null if no role is assigned
  */
-export async function getPilotRole(pilotId: string): Promise<{ 
-  data: { 
-    id: string; 
-    name: string; 
-    isExclusive: boolean;
-    compatible_statuses: string[];
+export async function getPilotRole(pilotId: string): Promise<{
+  data: {
+    id: string;
+    name: string;
+    exclusivity_scope: 'none' | 'squadron' | 'wing';
     order: number;
     created_at: string;
   } | null; 
@@ -872,8 +868,7 @@ export async function getPilotRole(pilotId: string): Promise<{
         roles:role_id (
           id,
           name,
-          isExclusive,
-          compatible_statuses,
+          exclusivity_scope,
           order,
           created_at
         )
@@ -893,18 +888,21 @@ export async function getPilotRole(pilotId: string): Promise<{
     
     // Get the most recent role
     const mostRecentRole = pilotRoles[0];
-    const role = mostRecentRole.roles;
-    
-    if (!role) {
+    const role = mostRecentRole.roles as any;
+
+    if (!role || !role.id) {
       return { data: null, error: null };
     }
-    
-    return { 
+
+    return {
       data: {
-        ...role,
+        id: role.id,
+        name: role.name,
+        exclusivity_scope: role.exclusivity_scope,
+        order: role.order,
         created_at: role.created_at || ''
-      }, 
-      error: null 
+      },
+      error: null
     };
   } catch (error) {
     console.error('Error in getPilotRole:', error);
@@ -913,68 +911,29 @@ export async function getPilotRole(pilotId: string): Promise<{
 }
 
 /**
- * Check if a role can be assigned to a pilot based on their status
+ * Check if a role can be assigned to a pilot
+ * Note: All billets can now be assigned to any status - this function is simplified
  * @param pilotId The ID of the pilot to check
  * @param roleId The ID of the role to possibly assign
  * @returns Object indicating if assignment is possible and reason if not
  */
 export async function canAssignRoleToPilot(
-  pilotId: string, 
+  _pilotId: string,
   roleId: string
 ): Promise<{ canAssign: boolean; reason?: string }> {
   try {
-    // Get the pilot's current status from pilot_statuses join table
-    const { data: statusAssignment, error: pilotError } = await supabase
-      .from('pilot_statuses')
-      .select('status_id')
-      .eq('pilot_id', pilotId)
-      .is('end_date', null)
-      .single();
-    
-    if (pilotError) {
-      // If no status assignment found, allow role assignment
-      if (pilotError.code === 'PGRST116') {
-        return { canAssign: true };
-      }
-      throw new Error(`Error fetching pilot status: ${pilotError.message}`);
-    }
-    
-    // Get the role details
+    // Verify the role exists
     const { data: role, error: roleError } = await supabase
       .from('roles')
-      .select('id, name, compatible_statuses, isExclusive')
+      .select('id')
       .eq('id', roleId)
       .single();
-    
-    if (roleError) {
-      throw new Error(`Error fetching role data: ${roleError.message}`);
-    }
-    
-    if (!role) {
+
+    if (roleError || !role) {
       return { canAssign: false, reason: "Role not found" };
     }
-    
-    // If the role has no compatible statuses specified, allow the assignment
-    if (!role.compatible_statuses || role.compatible_statuses.length === 0) {
-      return { canAssign: true };
-    }
-    
-    // Check if pilot's status is compatible
-    const pilotStatusId = statusAssignment?.status_id;
-    if (!pilotStatusId) {
-      // If pilot has no status, allow assignment
-      return { canAssign: true };
-    }
-    
-    const compatibleStatusIds = role.compatible_statuses.map(id => String(id));
-    
-    if (!compatibleStatusIds.includes(String(pilotStatusId))) {
-      return { 
-        canAssign: false, 
-        reason: "Pilot's status is not compatible with this role" 
-      };
-    }
-    
+
+    // All billets can be assigned to any status now
     return { canAssign: true };
   } catch (error: any) {
     console.error('Error checking role compatibility:', error);
@@ -1020,19 +979,25 @@ export async function updatePilotRole(
     }
 
     
-    // Check if the role is exclusive
+    // NOTE: Exclusivity handling is now done by assignRoleToPilot in roleService
+    // which handles hierarchical scope (none/squadron/wing) and only considers active pilots
+    // We skip the old squadron-only exclusive logic here
+
+    // For backward compatibility, we'll check if there's a scope issue
     const { data: roleData, error: roleError } = await supabase
       .from('roles')
-      .select('isExclusive')
+      .select('exclusivity_scope')
       .eq('id', roleId)
       .single();
-    
+
     if (roleError) {
       throw roleError;
     }
-    
-    // If the role is exclusive, end any existing assignments of this role IN THE SAME SQUADRON
-    if (roleData?.isExclusive) {
+
+    // If the role has hierarchical exclusivity, the proper logic is in roleService.assignRoleToPilot
+    // This function is kept for compatibility but should ideally use roleService functions
+    const scope = (roleData as any)?.exclusivity_scope as 'none' | 'squadron' | 'wing' | undefined;
+    if (scope && scope !== 'none') {
       // Get the current pilot's squadron
       const { data: currentPilotSquadron, error: squadronError } = await supabase
         .from('pilot_assignments')
@@ -1244,16 +1209,15 @@ export async function updatePilotRoleAllowDuplicates(
  * @param pilotId The ID of the pilot
  * @returns The current role object assigned to this pilot
  */
-export async function getPilotAssignedRoles(pilotId: string): Promise<{ 
-  data: Array<{ 
-    id: string; 
-    name: string; 
-    isExclusive: boolean;
-    compatible_statuses: string[];
+export async function getPilotAssignedRoles(pilotId: string): Promise<{
+  data: Array<{
+    id: string;
+    name: string;
+    exclusivity_scope: 'none' | 'squadron' | 'wing';
     order: number;
     created_at: string;
-  }>; 
-  error: any 
+  }>;
+  error: any
 }> {
   try {
     // Get the pilot's current active role assignment (most recent)
@@ -1268,8 +1232,7 @@ export async function getPilotAssignedRoles(pilotId: string): Promise<{
         roles:role_id (
           id,
           name,
-          isExclusive,
-          compatible_statuses,
+          exclusivity_scope,
           order,
           created_at
         )
@@ -1290,17 +1253,18 @@ export async function getPilotAssignedRoles(pilotId: string): Promise<{
     
     // Return single role in array format for consistency
     const currentRole = pilotRoles[0];
-    if (!currentRole.roles || !currentRole.roles.id) {
+    const roleData = currentRole.roles as any;
+
+    if (!roleData || !roleData.id) {
       return { data: [], error: null };
     }
-    
+
     const role = {
-      id: currentRole.roles.id,
-      name: currentRole.roles.name,
-      isExclusive: currentRole.roles.isExclusive,
-      compatible_statuses: currentRole.roles.compatible_statuses,
-      order: currentRole.roles.order,
-      created_at: currentRole.roles.created_at || ''
+      id: roleData.id,
+      name: roleData.name,
+      exclusivity_scope: roleData.exclusivity_scope as 'none' | 'squadron' | 'wing',
+      order: roleData.order,
+      created_at: roleData.created_at || ''
     };
     
     return { data: [role], error: null };

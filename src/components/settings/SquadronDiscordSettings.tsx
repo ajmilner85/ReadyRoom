@@ -75,7 +75,7 @@ const DiscordLogo: React.FC<{ size?: number; overlayIcon?: React.ReactNode }> = 
 interface DiscordChannel {
   id: string;
   name: string;
-  type: 'events' | 'briefing';
+  type: 'events' | 'briefing' | 'debriefing';
 }
 
 interface RoleMapping {
@@ -130,7 +130,7 @@ const SquadronDiscordSettings: React.FC<SquadronDiscordSettingsProps> = ({
   const roleFormRef = React.useRef<HTMLDivElement>(null);
   const [showChannelForm, setShowChannelForm] = useState(false);
   const [showRoleForm, setShowRoleForm] = useState(false);
-  const [newChannel, setNewChannel] = useState<{ id: string; name: string; type: 'events' | 'briefing' }>({ id: '', name: '', type: 'events' });
+  const [newChannel, setNewChannel] = useState<{ id: string; name: string; type: 'events' | 'briefing' | 'debriefing' }>({ id: '', name: '', type: 'events' });
   const [newRoleMapping, setNewRoleMapping] = useState({
     discordRoleId: '',
     discordRoleName: '',
@@ -713,8 +713,8 @@ const SquadronDiscordSettings: React.FC<SquadronDiscordSettingsProps> = ({
                     <span style={{
                       fontSize: '14px',
                       padding: '2px 6px',
-                      backgroundColor: channel.type === 'events' ? '#DBEAFE' : '#FEF3C7',
-                      color: channel.type === 'events' ? '#1D4ED8' : '#D97706',
+                      backgroundColor: channel.type === 'events' ? '#DBEAFE' : channel.type === 'briefing' ? '#FEF3C7' : '#F0FDF4',
+                      color: channel.type === 'events' ? '#1D4ED8' : channel.type === 'briefing' ? '#D97706' : '#16A34A',
                       borderRadius: '3px',
                       textTransform: 'uppercase',
                       fontWeight: 500
@@ -760,20 +760,21 @@ const SquadronDiscordSettings: React.FC<SquadronDiscordSettingsProps> = ({
               }}>
                 <select
                   value={newChannel.type}
-                  onChange={(e) => setNewChannel({ 
-                    ...newChannel, 
-                    type: e.target.value as 'events' | 'briefing' 
+                  onChange={(e) => setNewChannel({
+                    ...newChannel,
+                    type: e.target.value as 'events' | 'briefing' | 'debriefing'
                   })}
                   style={{
                     padding: '4px 8px',
                     border: '1px solid #CBD5E1',
                     borderRadius: '4px',
                     fontSize: '14px',
-                    width: '80px'
+                    width: '110px'
                   }}
                 >
                   <option value="events">Events</option>
                   <option value="briefing">Briefing</option>
+                  <option value="debriefing">Debriefing</option>
                 </select>
                 <span style={{ fontSize: '14px', color: '#64748B' }}>#</span>
                 <select

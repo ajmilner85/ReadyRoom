@@ -10,11 +10,12 @@ import UserAccounts from './UserAccounts';
 import RosterSettings from './RosterSettings';
 import OrganizationSettings from './OrganizationSettings';
 import EventSettings from './EventSettings';
+import MissionDebriefingSettings from './MissionDebriefingSettings';
 import PermissionsSettings from './PermissionsSettings';
 import DeveloperSettings from './DeveloperSettings';
 
 // Define the types of settings pages
-type SettingsPage = 'roster' | 'organization' | 'events' | 'permissions' | 'appearance' | 'accounts' | 'developer';
+type SettingsPage = 'roster' | 'organization' | 'events' | 'mission-debriefing' | 'permissions' | 'appearance' | 'accounts' | 'developer';
 
 interface SettingsNavItem {
   id: SettingsPage;
@@ -71,6 +72,11 @@ const settingsNavSections: SettingsNavSection[] = [
         id: 'events',
         icon: <Calendar size={20} />,
         label: 'Events'
+      },
+      {
+        id: 'mission-debriefing',
+        icon: <Calendar size={20} />,
+        label: 'Mission Debriefing'
       }
     ]
   }
@@ -78,7 +84,7 @@ const settingsNavSections: SettingsNavSection[] = [
 
 const Settings: React.FC = () => {
   const { setPageLoading } = usePageLoading();
-  const [activeSettingsPage, setActiveSettingsPage] = useState<SettingsPage>('roster');
+  const [activeSettingsPage, setActiveSettingsPage] = useState<SettingsPage | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   // Clear page loading immediately since settings load fast
@@ -93,6 +99,22 @@ const Settings: React.FC = () => {
 
   // Render content based on active settings page
   const renderSettingsContent = () => {
+    if (!activeSettingsPage) {
+      return (
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          height: '100%',
+          color: '#94A3B8',
+          fontSize: '14px',
+          fontFamily: 'Inter'
+        }}>
+          Select a settings page from the sidebar
+        </div>
+      );
+    }
+
     switch (activeSettingsPage) {
       case 'roster':
         return <RosterSettings error={error} setError={setError} />;
@@ -100,6 +122,8 @@ const Settings: React.FC = () => {
         return <OrganizationSettings error={error} setError={setError} />;
       case 'events':
         return <EventSettings error={error} setError={setError} />;
+      case 'mission-debriefing':
+        return <MissionDebriefingSettings error={error} setError={setError} />;
       case 'permissions':
         return <PermissionsSettings />;
       case 'developer':
@@ -114,39 +138,51 @@ const Settings: React.FC = () => {
   };
 
   // Settings navigation item
-  const SettingsNavItem: React.FC<{ item: SettingsNavItem; active: boolean; onClick: () => void }> = ({ 
-    item, 
-    active, 
-    onClick 
+  const SettingsNavItem: React.FC<{ item: SettingsNavItem; active: boolean; onClick: () => void }> = ({
+    item,
+    active,
+    onClick
   }) => {
+    const [isHovered, setIsHovered] = React.useState(false);
+
     return (
-      <div 
-        className={`flex items-center px-4 py-3 mb-2 cursor-pointer rounded-md ${
-          active ? 'bg-[#82728C] text-white' : 'hover:bg-slate-100 text-[#64748B]'
-        }`}
+      <div
         onClick={onClick}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
         style={{
+          display: 'flex',
+          alignItems: 'center',
+          paddingLeft: '16px',
+          paddingRight: '16px',
+          cursor: 'pointer',
           fontFamily: 'Inter',
           fontSize: '14px',
           fontWeight: active ? 500 : 400,
-          transition: 'all 0.2s ease'
+          transition: 'all 0.2s ease',
+          borderRadius: '6px',
+          marginBottom: '5px',
+          height: '32px',
+          gap: '5px',
+          backgroundColor: active ? '#82728C' : isHovered ? '#F1F5F9' : 'transparent',
+          color: active ? 'white' : '#64748B'
         }}
       >
-        <div className="mr-3">{item.icon}</div>
+        <div>{item.icon}</div>
         <div>{item.label}</div>
       </div>
     );
   };
 
   return (
-    <div 
-      style={{ 
-        backgroundColor: '#F0F4F8', 
+    <div
+      style={{
+        backgroundColor: '#F0F4F8',
         height: '100vh',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        padding: '20px 0',
+        padding: '20px 20px 20px 20px',
         boxSizing: 'border-box',
         fontFamily: 'Inter, sans-serif',
       }}
@@ -155,42 +191,35 @@ const Settings: React.FC = () => {
         maxWidth: '1350px',
         width: '100%',
         margin: '0 auto',
-        padding: '0 20px'
+        height: 'calc(100vh - 40px)',
+        display: 'flex',
+        flexDirection: 'column'
       }}>
         {/* Main settings card with navigation and content */}
-        <Card 
+        <Card
           className="bg-white rounded-lg shadow-md overflow-hidden"
           style={{
             boxShadow: '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)',
             borderRadius: '8px',
-            backgroundColor: '#FFFFFF'
+            backgroundColor: '#FFFFFF',
+            height: 'calc(100vh - 40px)',
+            display: 'flex',
+            flexDirection: 'column',
+            overflow: 'hidden'
           }}
         >
-          <div style={{ padding: '24px' }}>
-            <h1 style={{
-              fontFamily: 'Inter',
-              fontStyle: 'normal',
-              fontWeight: 300,
-              fontSize: '20px',
-              lineHeight: '24px',
-              color: '#64748B',
-              textTransform: 'uppercase',
-              marginBottom: '24px'
-            }}>
-              Settings
-            </h1>
-            
-            <div className="flex" style={{ height: 'calc(100vh - 170px)', maxHeight: 'calc(100vh - 170px)', overflow: 'hidden' }}>
-              {/* Settings navigation sidebar */}
-              <div
-                className="w-64 p-6"
-                style={{
-                  borderRight: '1px solid #E2E8F0',
-                  backgroundColor: '#FFFFFF',
-                  paddingRight: '16px',
-                  paddingTop: '16px',
-                }}
-              >
+          <div className="flex" style={{ flex: 1, overflow: 'hidden' }}>
+            {/* Settings navigation sidebar */}
+            <div
+              className="w-64"
+              style={{
+                backgroundColor: '#FFFFFF',
+                padding: '40px 24px 24px 24px',
+                display: 'flex',
+                flexDirection: 'column'
+              }}
+            >
+              <div style={{ overflowY: 'auto', flex: 1 }}>
                 {settingsNavSections.map((section) => (
                   <div key={section.title} style={{ marginBottom: '32px' }}>
                     {/* Section Title */}
@@ -234,17 +263,16 @@ const Settings: React.FC = () => {
                   </div>
                 ))}
               </div>
+            </div>
 
-              {/* Main content area */}
-              <div 
-                className="flex-1 p-6 overflow-auto" 
-                style={{ 
-                  padding: '16px 24px',
-                  fontFamily: 'Inter'
-                }}
-              >
-                {renderSettingsContent()}
-              </div>
+            {/* Main content area */}
+            <div
+              className="flex-1 overflow-auto"
+              style={{
+                fontFamily: 'Inter'
+              }}
+            >
+              {renderSettingsContent()}
             </div>
           </div>
         </Card>

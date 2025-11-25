@@ -47,15 +47,13 @@ export interface PilotRoleAssignment {
   role?: {
     id: string;
     name: string;
-    isExclusive: boolean;
-    compatible_statuses: string[];
+    exclusivity_scope: 'none' | 'squadron' | 'wing';
     order: number;
   };
   roles?: {  // Alias from SQL join (roles:role_id)
     id: string;
     name: string;
-    isExclusive: boolean;
-    compatible_statuses: string[];
+    exclusivity_scope: 'none' | 'squadron' | 'wing';
     order: number;
   } | null;
 }
