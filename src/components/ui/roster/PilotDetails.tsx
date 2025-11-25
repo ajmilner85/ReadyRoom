@@ -621,7 +621,12 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
         end_date: null,
         created_at: new Date().toISOString(),
         updated_at: null,
-        role: role
+        role: {
+          id: role.id,
+          name: role.name,
+          exclusivity_scope: role.exclusivity_scope,
+          order: role.order
+        }
       }] : []
     });
 
@@ -820,7 +825,12 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
             <div style={{ ...sectionSpacingStyle, marginTop: '12px' }}>
               <RoleSelector
                 roles={roles}
-                pilotRoles={selectedPilot?.roles && selectedPilot.roles.length > 0 && selectedPilot.roles[0].role ? [selectedPilot.roles[0].role] : []}
+                pilotRoles={selectedPilot?.roles && selectedPilot.roles.length > 0 && selectedPilot.roles[0].role ? [{
+                  id: selectedPilot.roles[0].role.id,
+                  name: selectedPilot.roles[0].role.name,
+                  exclusivity_scope: selectedPilot.roles[0].role.exclusivity_scope,
+                  order: selectedPilot.roles[0].role.order
+                }] : []}
                 updatingRoles={false}
                 loadingRoles={false}
                 disabledRoles={{}}

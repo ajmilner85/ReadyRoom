@@ -153,22 +153,6 @@ const DeveloperSettings: React.FC<DeveloperSettingsProps> = ({ setError }) => {
     );
   }
 
-  const containerStyle = {
-    backgroundColor: '#FFFFFF',
-    minHeight: '100vh',
-    padding: '40px',
-    boxSizing: 'border-box' as const
-  };
-
-  const contentWrapperStyle = {
-    maxWidth: '800px',
-    margin: '0 auto'
-  };
-
-  const headerStyle = {
-    marginBottom: '40px'
-  };
-
   const sectionStyle = {
     paddingTop: '32px',
     paddingBottom: '32px',
@@ -184,10 +168,10 @@ const DeveloperSettings: React.FC<DeveloperSettingsProps> = ({ setError }) => {
   };
 
   return (
-    <div style={containerStyle}>
-      <div style={contentWrapperStyle}>
-        {/* Header */}
-        <div style={headerStyle}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', backgroundColor: '#FFFFFF' }}>
+      {/* Fixed Header */}
+      <div style={{ padding: '40px 40px 0 40px', flexShrink: 0 }}>
+        <div style={{ maxWidth: '800px', margin: '0 auto', borderBottom: '1px solid #E2E8F0', paddingBottom: '24px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
             <Code size={28} style={{ color: '#7C3AED' }} />
             <h2 style={{ fontSize: '24px', fontWeight: 600, margin: 0, color: '#0F172A' }}>
@@ -198,9 +182,13 @@ const DeveloperSettings: React.FC<DeveloperSettingsProps> = ({ setError }) => {
             Advanced settings for development and testing. These settings only affect your account.
           </p>
         </div>
+      </div>
 
-        {/* Discord Bot Token Selection */}
-        <div style={firstSectionStyle}>
+      {/* Scrollable Content */}
+      <div style={{ flex: 1, overflow: 'auto', padding: '24px 40px 40px 40px' }}>
+        <div style={{ maxWidth: '800px', margin: '0 auto' }}>
+          {/* Discord Bot Token Selection */}
+          <div style={firstSectionStyle}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
             <Server size={20} style={{ color: '#5865F2' }} />
             <h3 style={{ fontSize: '18px', fontWeight: 600, color: '#0F172A', margin: 0 }}>
@@ -402,6 +390,7 @@ const DeveloperSettings: React.FC<DeveloperSettingsProps> = ({ setError }) => {
               </span>
             </div>
           )}
+        </div>
         </div>
       </div>
     </div>

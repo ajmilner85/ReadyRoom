@@ -282,7 +282,7 @@ const FilterDrawer: React.FC<FilterDrawerProps> = ({
                 key={`role-${role.id}`}
                 label={role.name}
                 onRemove={() => removeRole(role.id)}
-                color={role.isExclusive ? '#F59E0B' : '#6B7280'}
+                color={role.exclusivity_scope && role.exclusivity_scope !== 'none' ? '#F59E0B' : '#6B7280'}
               />
             ))}
             {getActiveQualifications().map(qual => {
@@ -419,7 +419,7 @@ const FilterDrawer: React.FC<FilterDrawerProps> = ({
                       width: '12px',
                       height: '12px',
                       borderRadius: '2px',
-                      backgroundColor: role.isExclusive ? '#F59E0B' : '#6B7280',
+                      backgroundColor: role.exclusivity_scope && role.exclusivity_scope !== 'none' ? '#F59E0B' : '#6B7280',
                       flexShrink: 0
                     }} />
                     <span style={{ flex: 1 }}>{role.name}</span>

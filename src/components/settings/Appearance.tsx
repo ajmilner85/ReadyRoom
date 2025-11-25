@@ -9,23 +9,6 @@ interface AppearanceProps {
 const Appearance: React.FC<AppearanceProps> = () => {
   const { settings, updateSetting } = useAppSettings();
 
-  const containerStyle = {
-    backgroundColor: '#FFFFFF',
-    minHeight: '100vh',
-    padding: '40px',
-    boxSizing: 'border-box' as const
-  };
-
-  const contentWrapperStyle = {
-    maxWidth: '800px',
-    margin: '0 auto'
-  };
-
-  const headerStyle = {
-    marginBottom: '40px'
-  };
-
-
   const firstSectionStyle = {
     paddingTop: '0',
     paddingBottom: '32px',
@@ -49,10 +32,10 @@ const Appearance: React.FC<AppearanceProps> = () => {
   };
 
   return (
-    <div style={containerStyle}>
-      <div style={contentWrapperStyle}>
-        {/* Header */}
-        <div style={headerStyle}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', backgroundColor: '#FFFFFF' }}>
+      {/* Fixed Header */}
+      <div style={{ padding: '40px 40px 0 40px', flexShrink: 0 }}>
+        <div style={{ maxWidth: '800px', margin: '0 auto', borderBottom: '1px solid #E2E8F0', paddingBottom: '24px' }}>
           <h2 style={{ fontSize: '24px', fontWeight: 600, margin: 0, color: '#0F172A' }}>
             Appearance
           </h2>
@@ -60,9 +43,13 @@ const Appearance: React.FC<AppearanceProps> = () => {
             Configure visual appearance and color themes.
           </p>
         </div>
+      </div>
 
-        {/* Color Themes Section */}
-        <div style={firstSectionStyle}>
+      {/* Scrollable Content */}
+      <div style={{ flex: 1, overflow: 'auto', padding: '24px 40px 40px 40px' }}>
+        <div style={{ maxWidth: '800px', margin: '0 auto' }}>
+          {/* Color Themes Section */}
+          <div style={firstSectionStyle}>
           <h3 style={{ fontSize: '18px', fontWeight: 600, color: '#0F172A', margin: '0 0 16px 0' }}>
             Color Themes
           </h3>
@@ -163,8 +150,8 @@ const Appearance: React.FC<AppearanceProps> = () => {
               />
             </button>
           </div>
+          </div>
         </div>
-        
       </div>
     </div>
   );

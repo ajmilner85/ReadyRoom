@@ -163,11 +163,11 @@ export const DiscordPilotsDialog: React.FC<DiscordPilotsDialogProps> = ({
       // Fetch roles and statuses for dropdowns
       const { data: rolesData, error: rolesError } = await supabase
         .from('roles')
-        .select('*')
+        .select('id, name, exclusivity_scope, order, created_at')
         .order('order', { ascending: true });
-        
+
       if (rolesError) throw rolesError;
-      setRoles(rolesData || []);
+      setRoles((rolesData as any) || []);
       
       const { data: statusesData, error: statusesError } = await supabase
         .from('statuses')
@@ -189,7 +189,7 @@ export const DiscordPilotsDialog: React.FC<DiscordPilotsDialogProps> = ({
       // First fetch exclusive role assignments since we need this before showing the UI
       // This ensures the role restrictions are shown on first open
       if (rolesData && rolesData.length > 0) {
-        await fetchExclusiveRoleAssignments(rolesData);
+        await fetchExclusiveRoleAssignments(rolesData as any);
       }
       
       // Fetch Discord guild members
@@ -420,8 +420,8 @@ export const DiscordPilotsDialog: React.FC<DiscordPilotsDialogProps> = ({
   // Fetch all exclusive roles that are already assigned
   const fetchExclusiveRoleAssignments = async (rolesList = roles) => {
     try {
-      // Get all exclusive roles
-      const exclusiveRoles = rolesList.filter(role => role.isExclusive);
+      // Get all roles with exclusivity scope
+      const exclusiveRoles = rolesList.filter(role => role.exclusivity_scope && role.exclusivity_scope !== 'none');
       
       if (!exclusiveRoles.length) return;
       

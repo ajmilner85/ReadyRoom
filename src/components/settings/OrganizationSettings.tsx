@@ -357,25 +357,6 @@ const OrganizationSettings: React.FC<OrganizationSettingsProps> = ({ error, setE
     marginRight: 'auto'
   };
 
-  const containerStyle = {
-    backgroundColor: '#FFFFFF',
-    minHeight: '100vh',
-    padding: '40px',
-    boxSizing: 'border-box' as const
-  };
-
-  const contentWrapperStyle = {
-    maxWidth: '800px',
-    margin: '0 auto'
-  };
-
-  // const headerStyle = {
-  //   marginBottom: '40px',
-  //   display: 'flex',
-  //   justifyContent: 'space-between',
-  //   alignItems: 'flex-start'
-  // };
-
   const sectionStyle = {
     paddingTop: '32px',
     paddingBottom: '32px',
@@ -391,93 +372,99 @@ const OrganizationSettings: React.FC<OrganizationSettingsProps> = ({ error, setE
   };
 
   return (
-    <div style={containerStyle}>
-      <div style={contentWrapperStyle}>
-        {/* Header */}
-        <div style={{
-          marginBottom: '40px',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'flex-start'
-        }}>
-          <div>
-            <h2 style={{ fontSize: '24px', fontWeight: 600, margin: 0, color: '#0F172A' }}>
-              Organization
-            </h2>
-            <p style={{ fontSize: '14px', color: '#64748B', margin: '8px 0 0 0', fontFamily: 'Inter' }}>
-              Configure your organizational hierarchy and entities.
-            </p>
-          </div>
-          
-          <button
-            onClick={() => setShowInactive(!showInactive)}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              padding: '8px 12px',
-              backgroundColor: '#FFFFFF',
-              border: '1px solid #D1D5DB',
-              borderRadius: '6px',
-              cursor: 'pointer',
-              fontSize: '14px',
-              fontFamily: 'Inter',
-              color: '#374151',
-              transition: 'background-color 0.2s ease'
-            }}
-            title={showInactive ? "Hide inactive entities" : "Show inactive entities"}
-            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#F8FAFC'}
-            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#FFFFFF'}
-          >
-            {showInactive ? <EyeOff size={16} /> : <Eye size={16} />}
-            <span>
-              {showInactive ? 'Hide Inactive' : 'Show Inactive'}
-            </span>
-          </button>
-        </div>
-
-        {(error || localError) && (
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', backgroundColor: '#FFFFFF' }}>
+      {/* Fixed Header */}
+      <div style={{ padding: '40px 40px 0 40px', flexShrink: 0 }}>
+        <div style={{ maxWidth: '800px', margin: '0 auto', borderBottom: '1px solid #E2E8F0', paddingBottom: '24px' }}>
           <div style={{
-            padding: '16px',
-            marginBottom: '24px',
-            backgroundColor: '#FEF2F2',
-            border: '1px solid #FECACA',
-            color: '#DC2626',
-            borderRadius: '6px',
             display: 'flex',
-            alignItems: 'center',
-            fontFamily: 'Inter',
-            fontSize: '14px'
-          }} role="alert">
-            <AlertCircle size={18} style={{ marginRight: '8px' }} />
-            <span>{error || localError}</span>
-            <button onClick={() => setErrorMessage(null)} style={{
-              marginLeft: 'auto',
-              background: 'none',
-              border: 'none',
-              cursor: 'pointer',
-              padding: '4px'
-            }}>
-              <X size={16} />
+            justifyContent: 'space-between',
+            alignItems: 'flex-start'
+          }}>
+            <div>
+              <h2 style={{ fontSize: '24px', fontWeight: 600, margin: 0, color: '#0F172A' }}>
+                Organization
+              </h2>
+              <p style={{ fontSize: '14px', color: '#64748B', margin: '8px 0 0 0', fontFamily: 'Inter' }}>
+                Configure your organizational hierarchy and entities.
+              </p>
+            </div>
+
+            <button
+              onClick={() => setShowInactive(!showInactive)}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '8px 12px',
+                backgroundColor: '#FFFFFF',
+                border: '1px solid #D1D5DB',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                fontSize: '14px',
+                fontFamily: 'Inter',
+                color: '#374151',
+                transition: 'background-color 0.2s ease'
+              }}
+              title={showInactive ? "Hide inactive entities" : "Show inactive entities"}
+              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#F8FAFC'}
+              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#FFFFFF'}
+            >
+              {showInactive ? <EyeOff size={16} /> : <Eye size={16} />}
+              <span>
+                {showInactive ? 'Hide Inactive' : 'Show Inactive'}
+              </span>
             </button>
           </div>
-        )}
+        </div>
+      </div>
 
-        {loading && (
-          <div style={{
-            textAlign: 'center',
-            padding: '32px 0',
-            color: '#64748B',
-            fontFamily: 'Inter',
-            fontSize: '14px'
-          }}>
-            Loading organization data...
-          </div>
-        )}
+      {/* Scrollable Content */}
+      <div style={{ flex: 1, overflow: 'auto', padding: '24px 40px 40px 40px' }}>
+        <div style={{ maxWidth: '800px', margin: '0 auto' }}>
+          {(error || localError) && (
+            <div style={{
+              padding: '16px',
+              marginBottom: '24px',
+              backgroundColor: '#FEF2F2',
+              border: '1px solid #FECACA',
+              color: '#DC2626',
+              borderRadius: '6px',
+              display: 'flex',
+              alignItems: 'center',
+              fontFamily: 'Inter',
+              fontSize: '14px'
+            }} role="alert">
+              <AlertCircle size={18} style={{ marginRight: '8px' }} />
+              <span>{error || localError}</span>
+              <button onClick={() => setErrorMessage(null)} style={{
+                marginLeft: 'auto',
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
+                padding: '4px'
+              }}>
+                <X size={16} />
+              </button>
+            </div>
+          )}
 
-        {!loading && (
+          {loading && (
+            <div style={{
+              textAlign: 'center',
+              padding: '32px 0',
+              color: '#64748B',
+              fontFamily: 'Inter',
+              fontSize: '14px'
+            }}>
+              Loading organization data...
+            </div>
+          )}
+
+          {!loading && (
           <>
             {/* Commands Level */}
+            {(showInactive || filterEntities(commands).length > 0) && (
             <div style={firstSectionStyle}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
                 <h3 style={{ fontSize: '18px', fontWeight: 600, color: '#0F172A', margin: 0 }}>
@@ -487,7 +474,7 @@ const OrganizationSettings: React.FC<OrganizationSettingsProps> = ({ error, setE
                   {filterEntities(commands).length} active
                 </span>
               </div>
-            
+
             {filterEntities(commands).length === 0 ? (
               <div className="text-center py-8 text-slate-500">
                 <p className="mb-4">No commands configured</p>
@@ -506,38 +493,97 @@ const OrganizationSettings: React.FC<OrganizationSettingsProps> = ({ error, setE
               </div>
             ) : (
               <>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px', marginBottom: '16px' }}>
                   {filterEntities(commands).map(command => (
                     <div
                       key={command.id}
-                      className={`p-4 border rounded-lg ${!isEntityActive(command) ? 'opacity-60 bg-slate-50' : 'bg-white'}`}
+                      style={{
+                        padding: '16px',
+                        border: '1px solid #E5E7EB',
+                        borderRadius: '8px',
+                        backgroundColor: !isEntityActive(command) ? '#F8FAFC' : '#FFFFFF',
+                        opacity: !isEntityActive(command) ? 0.6 : 1,
+                        position: 'relative'
+                      }}
                     >
-                      <div className="flex justify-between items-start mb-2">
-                        <h4 className="font-medium text-slate-900">{command.name}</h4>
-                        <div className="flex gap-1">
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontWeight: 500, fontSize: '14px', color: '#0F172A', fontFamily: 'Inter' }}>
+                            {command.name}
+                          </div>
+                        </div>
+                        <div style={{ display: 'flex', gap: '4px', marginLeft: '8px' }}>
                           <button
                             onClick={() => handleEditEntity(command, 'command')}
-                            className="p-1 hover:bg-slate-100 rounded"
+                            style={{
+                              padding: '4px',
+                              borderRadius: '4px',
+                              cursor: 'pointer',
+                              background: 'white',
+                              boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                              border: 'none',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              transition: 'all 0.1s ease',
+                              color: '#64748B',
+                              width: '24px',
+                              height: '24px'
+                            }}
                             title="Edit"
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.15)';
+                              e.currentTarget.style.background = '#F8FAFC';
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
+                              e.currentTarget.style.background = 'white';
+                            }}
                           >
-                            <Edit size={14} className="text-slate-600" />
+                            <Edit size={14} />
                           </button>
                           <button
                             onClick={() => handleDeleteEntity(command, 'command')}
-                            className="p-1 hover:bg-red-100 rounded"
+                            style={{
+                              padding: '4px',
+                              borderRadius: '4px',
+                              cursor: 'pointer',
+                              background: 'white',
+                              boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                              border: 'none',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              transition: 'all 0.1s ease',
+                              color: '#64748B',
+                              width: '24px',
+                              height: '24px'
+                            }}
                             title="Delete"
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.15)';
+                              e.currentTarget.style.background = '#FEF2F2';
+                              e.currentTarget.style.color = '#DC2626';
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
+                              e.currentTarget.style.background = 'white';
+                              e.currentTarget.style.color = '#64748B';
+                            }}
                           >
-                            <Trash size={14} className="text-red-600" />
+                            <Trash size={14} />
                           </button>
                         </div>
                       </div>
                       {command.established_date && (
-                        <p className="text-xs text-slate-500">
+                        <div style={{ fontSize: '11px', color: '#94A3B8', fontFamily: 'Inter', fontStyle: 'italic' }}>
                           Est. {new Date(command.established_date).getFullYear()}
-                        </p>
+                        </div>
                       )}
                       {!isEntityActive(command) && (
-                        <p className="text-xs text-red-500 mt-1">Deactivated</p>
+                        <div style={{ fontSize: '11px', color: '#DC2626', fontFamily: 'Inter', marginTop: '4px' }}>
+                          Deactivated
+                        </div>
                       )}
                     </div>
                   ))}
@@ -557,8 +603,10 @@ const OrganizationSettings: React.FC<OrganizationSettingsProps> = ({ error, setE
               </>
             )}
             </div>
+            )}
 
             {/* Groups Level */}
+            {(showInactive || filterEntities(groups).length > 0) && (
             <div style={sectionStyle}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
                 <h3 style={{ fontSize: '18px', fontWeight: 600, color: '#0F172A', margin: 0 }}>
@@ -568,7 +616,7 @@ const OrganizationSettings: React.FC<OrganizationSettingsProps> = ({ error, setE
                   {filterEntities(groups).length} active
                 </span>
               </div>
-            
+
             {filterEntities(groups).length === 0 ? (
               <div className="text-center py-8 text-slate-500">
                 <p className="mb-4">No groups configured</p>
@@ -587,43 +635,102 @@ const OrganizationSettings: React.FC<OrganizationSettingsProps> = ({ error, setE
               </div>
             ) : (
               <>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px', marginBottom: '16px' }}>
                   {filterEntities(groups).map(group => (
                     <div
                       key={group.id}
-                      className={`p-4 border rounded-lg ${!isEntityActive(group) ? 'opacity-60 bg-slate-50' : 'bg-white'}`}
+                      style={{
+                        padding: '16px',
+                        border: '1px solid #E5E7EB',
+                        borderRadius: '8px',
+                        backgroundColor: !isEntityActive(group) ? '#F8FAFC' : '#FFFFFF',
+                        opacity: !isEntityActive(group) ? 0.6 : 1,
+                        position: 'relative'
+                      }}
                     >
-                      <div className="flex justify-between items-start mb-2">
-                        <h4 className="font-medium text-slate-900">{group.name}</h4>
-                        <div className="flex gap-1">
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontWeight: 500, fontSize: '14px', color: '#0F172A', fontFamily: 'Inter' }}>
+                            {group.name}
+                          </div>
+                        </div>
+                        <div style={{ display: 'flex', gap: '4px', marginLeft: '8px' }}>
                           <button
                             onClick={() => handleEditEntity(group, 'group')}
-                            className="p-1 hover:bg-slate-100 rounded"
+                            style={{
+                              padding: '4px',
+                              borderRadius: '4px',
+                              cursor: 'pointer',
+                              background: 'white',
+                              boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                              border: 'none',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              transition: 'all 0.1s ease',
+                              color: '#64748B',
+                              width: '24px',
+                              height: '24px'
+                            }}
                             title="Edit"
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.15)';
+                              e.currentTarget.style.background = '#F8FAFC';
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
+                              e.currentTarget.style.background = 'white';
+                            }}
                           >
-                            <Edit size={14} className="text-slate-600" />
+                            <Edit size={14} />
                           </button>
                           <button
                             onClick={() => handleDeleteEntity(group, 'group')}
-                            className="p-1 hover:bg-red-100 rounded"
+                            style={{
+                              padding: '4px',
+                              borderRadius: '4px',
+                              cursor: 'pointer',
+                              background: 'white',
+                              boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                              border: 'none',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              transition: 'all 0.1s ease',
+                              color: '#64748B',
+                              width: '24px',
+                              height: '24px'
+                            }}
                             title="Delete"
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.15)';
+                              e.currentTarget.style.background = '#FEF2F2';
+                              e.currentTarget.style.color = '#DC2626';
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
+                              e.currentTarget.style.background = 'white';
+                              e.currentTarget.style.color = '#64748B';
+                            }}
                           >
-                            <Trash size={14} className="text-red-600" />
+                            <Trash size={14} />
                           </button>
                         </div>
                       </div>
                       {group.command && (
-                        <p className="text-xs text-slate-600 mb-1">
+                        <div style={{ fontSize: '11px', color: '#94A3B8', fontFamily: 'Inter', marginBottom: '4px' }}>
                           {group.command.name}
-                        </p>
+                        </div>
                       )}
                       {group.established_date && (
-                        <p className="text-xs text-slate-500">
+                        <div style={{ fontSize: '11px', color: '#94A3B8', fontFamily: 'Inter', fontStyle: 'italic' }}>
                           Est. {new Date(group.established_date).getFullYear()}
-                        </p>
+                        </div>
                       )}
                       {!isEntityActive(group) && (
-                        <p className="text-xs text-red-500 mt-1">Deactivated</p>
+                        <div style={{ fontSize: '11px', color: '#DC2626', fontFamily: 'Inter', marginTop: '4px' }}>
+                          Deactivated
+                        </div>
                       )}
                     </div>
                   ))}
@@ -643,6 +750,7 @@ const OrganizationSettings: React.FC<OrganizationSettingsProps> = ({ error, setE
               </>
             )}
             </div>
+            )}
 
             {/* Wings Level */}
             <div style={sectionStyle}>
@@ -654,7 +762,7 @@ const OrganizationSettings: React.FC<OrganizationSettingsProps> = ({ error, setE
                   {filterEntities(wings).length} active
                 </span>
               </div>
-            
+
             {filterEntities(wings).length === 0 ? (
               <div className="text-center py-8 text-slate-500">
                 <p className="mb-4">No wings configured</p>
@@ -673,53 +781,110 @@ const OrganizationSettings: React.FC<OrganizationSettingsProps> = ({ error, setE
               </div>
             ) : (
               <>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px', marginBottom: '16px' }}>
                   {filterEntities(wings).map(wing => (
                     <div
                       key={wing.id}
-                      className={`p-4 border rounded-lg ${!isEntityActive(wing) ? 'opacity-60 bg-slate-50' : 'bg-white'}`}
+                      style={{
+                        padding: '16px',
+                        border: '1px solid #E5E7EB',
+                        borderRadius: '8px',
+                        backgroundColor: !isEntityActive(wing) ? '#F8FAFC' : '#FFFFFF',
+                        opacity: !isEntityActive(wing) ? 0.6 : 1,
+                        position: 'relative'
+                      }}
                     >
-                      <div className="flex justify-between items-start mb-2">
-                        <div>
-                          <h4 className="font-medium text-slate-900">{wing.name}</h4>
-                          {wing.designation && (
-                            <p className="text-sm text-slate-600">{wing.designation}</p>
-                          )}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontWeight: 500, fontSize: '14px', color: '#0F172A', fontFamily: 'Inter', marginBottom: '2px' }}>
+                            {wing.designation}
+                          </div>
+                          <div style={{ fontSize: '13px', color: '#64748B', fontFamily: 'Inter' }}>
+                            {wing.name}
+                          </div>
                         </div>
-                        <div className="flex gap-1">
+                        <div style={{ display: 'flex', gap: '4px', marginLeft: '8px' }}>
                           <button
                             onClick={() => handleEditEntity(wing, 'wing')}
-                            className="p-1 hover:bg-slate-100 rounded"
+                            style={{
+                              padding: '4px',
+                              borderRadius: '4px',
+                              cursor: 'pointer',
+                              background: 'white',
+                              boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                              border: 'none',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              transition: 'all 0.1s ease',
+                              color: '#64748B',
+                              width: '24px',
+                              height: '24px'
+                            }}
                             title="Edit"
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.15)';
+                              e.currentTarget.style.background = '#F8FAFC';
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
+                              e.currentTarget.style.background = 'white';
+                            }}
                           >
-                            <Edit size={14} className="text-slate-600" />
+                            <Edit size={14} />
                           </button>
                           <button
                             onClick={() => handleDeleteEntity(wing, 'wing')}
-                            className="p-1 hover:bg-red-100 rounded"
+                            style={{
+                              padding: '4px',
+                              borderRadius: '4px',
+                              cursor: 'pointer',
+                              background: 'white',
+                              boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                              border: 'none',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              transition: 'all 0.1s ease',
+                              color: '#64748B',
+                              width: '24px',
+                              height: '24px'
+                            }}
                             title="Delete"
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.15)';
+                              e.currentTarget.style.background = '#FEF2F2';
+                              e.currentTarget.style.color = '#DC2626';
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
+                              e.currentTarget.style.background = 'white';
+                              e.currentTarget.style.color = '#64748B';
+                            }}
                           >
-                            <Trash size={14} className="text-red-600" />
+                            <Trash size={14} />
                           </button>
                         </div>
                       </div>
                       {wing.group && (
-                        <p className="text-xs text-slate-600 mb-1">
+                        <div style={{ fontSize: '11px', color: '#94A3B8', fontFamily: 'Inter', marginBottom: '4px' }}>
                           {wing.group.command?.name ? `${wing.group.command.name} > ` : ''}{wing.group.name}
-                        </p>
+                        </div>
                       )}
                       {wing.tail_code && (
-                        <p className="text-xs text-slate-600 mb-1">
+                        <div style={{ fontSize: '11px', color: '#94A3B8', fontFamily: 'Inter', marginBottom: '4px' }}>
                           Tail Code: {wing.tail_code}
-                        </p>
+                        </div>
                       )}
                       {wing.established_date && (
-                        <p className="text-xs text-slate-500">
+                        <div style={{ fontSize: '11px', color: '#94A3B8', fontFamily: 'Inter', fontStyle: 'italic' }}>
                           Est. {new Date(wing.established_date).getFullYear()}
-                        </p>
+                        </div>
                       )}
                       {!isEntityActive(wing) && (
-                        <p className="text-xs text-red-500 mt-1">Deactivated</p>
+                        <div style={{ fontSize: '11px', color: '#DC2626', fontFamily: 'Inter', marginTop: '4px' }}>
+                          Deactivated
+                        </div>
                       )}
                     </div>
                   ))}
@@ -750,7 +915,7 @@ const OrganizationSettings: React.FC<OrganizationSettingsProps> = ({ error, setE
                   {filterEntities(squadrons).length} active
                 </span>
               </div>
-            
+
             {filterEntities(squadrons).length === 0 ? (
               <div className="text-center py-8 text-slate-500">
                 <p className="mb-4">No squadrons configured</p>
@@ -769,54 +934,143 @@ const OrganizationSettings: React.FC<OrganizationSettingsProps> = ({ error, setE
               </div>
             ) : (
               <>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px', marginBottom: '16px' }}>
                   {filterEntities(squadrons).map(squadron => (
                     <div
                       key={squadron.id}
-                      className={`p-4 border rounded-lg ${!isEntityActive(squadron) ? 'opacity-60 bg-slate-50' : 'bg-white'}`}
+                      style={{
+                        padding: '16px',
+                        border: '1px solid #E5E7EB',
+                        borderRadius: '8px',
+                        backgroundColor: !isEntityActive(squadron) ? '#F8FAFC' : '#FFFFFF',
+                        opacity: !isEntityActive(squadron) ? 0.6 : 1,
+                        position: 'relative',
+                        display: 'flex',
+                        gap: '12px',
+                        alignItems: 'flex-start'
+                      }}
                     >
-                      <div className="flex justify-between items-start mb-2">
-                        <div>
-                          <h4 className="font-medium text-slate-900">{squadron.name}</h4>
-                          <p className="text-sm text-slate-600">{squadron.designation}</p>
+                      {/* Squadron Insignia */}
+                      {squadron.insignia_url ? (
+                        <div style={{
+                          width: '48px',
+                          height: '48px',
+                          backgroundImage: `url(${squadron.insignia_url})`,
+                          backgroundSize: 'contain',
+                          backgroundRepeat: 'no-repeat',
+                          backgroundPosition: 'center',
+                          flexShrink: 0
+                        }} />
+                      ) : (
+                        <div style={{
+                          width: '48px',
+                          height: '48px',
+                          backgroundColor: '#E5E7EB',
+                          borderRadius: '6px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          flexShrink: 0
+                        }}>
+                          <span style={{ fontSize: '20px', color: '#9CA3AF' }}>?</span>
                         </div>
-                        <div className="flex gap-1">
-                          <button
-                            onClick={() => handleEditEntity(squadron, 'squadron')}
-                            className="p-1 hover:bg-slate-100 rounded"
-                            title="Edit"
-                          >
-                            <Edit size={14} className="text-slate-600" />
-                          </button>
-                          <button
-                            onClick={() => handleDeleteEntity(squadron, 'squadron')}
-                            className="p-1 hover:bg-red-100 rounded"
-                            title="Delete"
-                          >
-                            <Trash size={14} className="text-red-600" />
-                          </button>
+                      )}
+
+                      {/* Squadron Info */}
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontWeight: 600, fontSize: '14px', color: '#0F172A', fontFamily: 'Inter', marginBottom: '2px' }}>
+                          {squadron.designation}
                         </div>
+                        <div style={{ fontSize: '13px', color: '#64748B', fontFamily: 'Inter', marginBottom: '8px' }}>
+                          {squadron.name}
+                        </div>
+                        {squadron.wing && (
+                          <div style={{ fontSize: '11px', color: '#94A3B8', fontFamily: 'Inter', marginBottom: '4px' }}>
+                            {squadron.wing.group?.command?.name ? `${squadron.wing.group.command.name} > ` : ''}
+                            {squadron.wing.group ? `${squadron.wing.group.name} > ` : ''}
+                            {squadron.wing.name}
+                          </div>
+                        )}
+                        {squadron.tail_code && (
+                          <div style={{ fontSize: '11px', color: '#94A3B8', fontFamily: 'Inter', marginBottom: '4px' }}>
+                            Tail Code: {squadron.tail_code}
+                          </div>
+                        )}
+                        {squadron.established_date && (
+                          <div style={{ fontSize: '11px', color: '#94A3B8', fontFamily: 'Inter', fontStyle: 'italic' }}>
+                            Est. {new Date(squadron.established_date).getFullYear()}
+                          </div>
+                        )}
+                        {!isEntityActive(squadron) && (
+                          <div style={{ fontSize: '11px', color: '#DC2626', fontFamily: 'Inter', marginTop: '4px' }}>
+                            Deactivated
+                          </div>
+                        )}
                       </div>
-                      {squadron.wing && (
-                        <p className="text-xs text-slate-600 mb-1">
-                          {squadron.wing.group?.command?.name ? `${squadron.wing.group.command.name} > ` : ''}
-                          {squadron.wing.group ? `${squadron.wing.group.name} > ` : ''}
-                          {squadron.wing.name}
-                        </p>
-                      )}
-                      {squadron.tail_code && (
-                        <p className="text-xs text-slate-600 mb-1">
-                          Tail Code: {squadron.tail_code}
-                        </p>
-                      )}
-                      {squadron.established_date && (
-                        <p className="text-xs text-slate-500">
-                          Est. {new Date(squadron.established_date).getFullYear()}
-                        </p>
-                      )}
-                      {!isEntityActive(squadron) && (
-                        <p className="text-xs text-red-500 mt-1">Deactivated</p>
-                      )}
+
+                      {/* Action Buttons */}
+                      <div style={{ display: 'flex', gap: '4px', flexShrink: 0 }}>
+                        <button
+                          onClick={() => handleEditEntity(squadron, 'squadron')}
+                          style={{
+                            padding: '4px',
+                            borderRadius: '4px',
+                            cursor: 'pointer',
+                            background: 'white',
+                            boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                            border: 'none',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            transition: 'all 0.1s ease',
+                            color: '#64748B',
+                            width: '24px',
+                            height: '24px'
+                          }}
+                          title="Edit"
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.15)';
+                            e.currentTarget.style.background = '#F8FAFC';
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
+                            e.currentTarget.style.background = 'white';
+                          }}
+                        >
+                          <Edit size={14} />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteEntity(squadron, 'squadron')}
+                          style={{
+                            padding: '4px',
+                            borderRadius: '4px',
+                            cursor: 'pointer',
+                            background: 'white',
+                            boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                            border: 'none',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            transition: 'all 0.1s ease',
+                            color: '#64748B',
+                            width: '24px',
+                            height: '24px'
+                          }}
+                          title="Delete"
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.15)';
+                            e.currentTarget.style.background = '#FEF2F2';
+                            e.currentTarget.style.color = '#DC2626';
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
+                            e.currentTarget.style.background = 'white';
+                            e.currentTarget.style.color = '#64748B';
+                          }}
+                        >
+                          <Trash size={14} />
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -865,39 +1119,100 @@ const OrganizationSettings: React.FC<OrganizationSettingsProps> = ({ error, setE
               </div>
             ) : (
               <>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px', marginBottom: '16px' }}>
                   {filterEntities(teams).map(team => (
                     <div
                       key={team.id}
-                      className={`p-4 border rounded-lg ${!team.active ? 'opacity-60 bg-slate-50' : 'bg-white'}`}
+                      style={{
+                        padding: '16px',
+                        border: '1px solid #E5E7EB',
+                        borderRadius: '8px',
+                        backgroundColor: !team.active ? '#F8FAFC' : '#FFFFFF',
+                        opacity: !team.active ? 0.6 : 1,
+                        position: 'relative'
+                      }}
                     >
-                      <div className="flex justify-between items-start mb-2">
-                        <div>
-                          <h4 className="font-medium text-slate-900">{team.name}</h4>
-                          <p className="text-sm text-slate-600 capitalize">{team.scope} Team</p>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontWeight: 600, fontSize: '14px', color: '#0F172A', fontFamily: 'Inter', marginBottom: '2px' }}>
+                            {team.name}
+                          </div>
+                          <div style={{ fontSize: '13px', color: '#64748B', fontFamily: 'Inter', textTransform: 'capitalize' }}>
+                            {team.scope} Team
+                          </div>
                         </div>
-                        <div className="flex gap-1">
+                        <div style={{ display: 'flex', gap: '4px', marginLeft: '8px' }}>
                           <button
                             onClick={() => handleEditEntity(team, 'team')}
-                            className="p-1 hover:bg-slate-100 rounded"
+                            style={{
+                              padding: '4px',
+                              borderRadius: '4px',
+                              cursor: 'pointer',
+                              background: 'white',
+                              boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                              border: 'none',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              transition: 'all 0.1s ease',
+                              color: '#64748B',
+                              width: '24px',
+                              height: '24px'
+                            }}
                             title="Edit"
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.15)';
+                              e.currentTarget.style.background = '#F8FAFC';
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
+                              e.currentTarget.style.background = 'white';
+                            }}
                           >
-                            <Edit size={14} className="text-slate-600" />
+                            <Edit size={14} />
                           </button>
                           <button
                             onClick={() => handleDeleteEntity(team, 'team')}
-                            className="p-1 hover:bg-red-100 rounded"
+                            style={{
+                              padding: '4px',
+                              borderRadius: '4px',
+                              cursor: 'pointer',
+                              background: 'white',
+                              boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                              border: 'none',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              transition: 'all 0.1s ease',
+                              color: '#64748B',
+                              width: '24px',
+                              height: '24px'
+                            }}
                             title="Delete"
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.15)';
+                              e.currentTarget.style.background = '#FEF2F2';
+                              e.currentTarget.style.color = '#DC2626';
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
+                              e.currentTarget.style.background = 'white';
+                              e.currentTarget.style.color = '#64748B';
+                            }}
                           >
-                            <Trash size={14} className="text-red-600" />
+                            <Trash size={14} />
                           </button>
                         </div>
                       </div>
                       {team.description && (
-                        <p className="text-xs text-slate-600 mb-2">{team.description}</p>
+                        <div style={{ fontSize: '11px', color: '#94A3B8', fontFamily: 'Inter', marginTop: '8px' }}>
+                          {team.description}
+                        </div>
                       )}
                       {!team.active && (
-                        <p className="text-xs text-red-500 mt-1">Inactive</p>
+                        <div style={{ fontSize: '11px', color: '#DC2626', fontFamily: 'Inter', marginTop: '4px' }}>
+                          Inactive
+                        </div>
                       )}
                     </div>
                   ))}
@@ -918,7 +1233,9 @@ const OrganizationSettings: React.FC<OrganizationSettingsProps> = ({ error, setE
             )}
             </div>
           </>
-        )}
+          )}
+        </div>
+      </div>
 
       {/* Modal for creating/editing entities */}
       <OrgEntityModal
@@ -976,8 +1293,6 @@ const OrganizationSettings: React.FC<OrganizationSettingsProps> = ({ error, setE
           </div>
         </div>
       )}
-
-      </div>
     </div>
   );
 };

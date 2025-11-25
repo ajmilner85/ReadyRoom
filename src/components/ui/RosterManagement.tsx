@@ -414,7 +414,12 @@ const RosterManagement: React.FC = () => {
               end_date: null,
               created_at: new Date().toISOString(),
               updated_at: null,
-              role: role
+              role: {
+                id: role.id,
+                name: role.name,
+                exclusivity_scope: role.exclusivity_scope,
+                order: role.order
+              }
             }];
           }
         } else {
@@ -643,7 +648,7 @@ const RosterManagement: React.FC = () => {
       
       // Get the pilot's current role
       const pilotRole = selectedPilot?.roles?.[0]?.role;
-      if (!pilotRole?.isExclusive) {
+      if (!pilotRole?.exclusivity_scope || pilotRole.exclusivity_scope === 'none') {
         return { hasConflict: false };
       }
       
@@ -855,8 +860,7 @@ const RosterManagement: React.FC = () => {
           roles:role_id (
             id,
             name,
-            isExclusive,
-            compatible_statuses,
+            exclusivity_scope,
             order
           )
         `)
@@ -870,7 +874,13 @@ const RosterManagement: React.FC = () => {
       }
       
       if (roleAssignments && roleAssignments.length > 0 && roleAssignments[0].roles) {
-        setPilotRoles([roleAssignments[0].roles]);
+        const roleData = roleAssignments[0].roles as any;
+        setPilotRoles([{
+          id: roleData.id,
+          name: roleData.name,
+          exclusivity_scope: roleData.exclusivity_scope,
+          order: roleData.order
+        }]);
       } else {
         setPilotRoles([]);
       }
@@ -926,9 +936,9 @@ const RosterManagement: React.FC = () => {
   // Fetch all exclusive roles that are already assigned
   const fetchExclusiveRoleAssignments = async () => {
     try {
-      // Get all exclusive roles
-      const exclusiveRoles = roles.filter(role => role.isExclusive);
-      
+      // Get all roles with exclusivity scope (squadron or wing)
+      const exclusiveRoles = roles.filter(role => role.exclusivity_scope && role.exclusivity_scope !== 'none');
+
       if (!exclusiveRoles.length) return;
       
       // Create a map to track which roles are already assigned
@@ -1070,10 +1080,10 @@ const RosterManagement: React.FC = () => {
         return;
       }
       
-      // Check if the role is exclusive
+      // Check if the role has exclusivity scope
       const selectedRole = roles.find(r => r.id === roleId);
-      
-      if (selectedRole?.isExclusive) {
+
+      if (selectedRole?.exclusivity_scope && selectedRole.exclusivity_scope !== 'none') {
         // For exclusive roles, check if it's already assigned to someone else IN THE SAME SQUADRON
         const { data, error } = await supabase
           .from('pilot_roles')
@@ -1958,7 +1968,7 @@ const RosterManagement: React.FC = () => {
       const originalPilot = pilots.find(p => p.id === updatedPilot.id);
       const squadronChanged = (originalPilot as any)?.currentSquadron?.id !== (updatedPilot as any)?.currentSquadron?.id;
       
-      if (squadronChanged && (updatedPilot as any)?.currentSquadron?.id && updatedPilot.roles?.[0]?.role?.isExclusive) {
+      if (squadronChanged && (updatedPilot as any)?.currentSquadron?.id && (updatedPilot.roles?.[0]?.role as any)?.exclusivity_scope && (updatedPilot.roles?.[0]?.role as any)?.exclusivity_scope !== 'none') {
         const conflict = await checkSquadronRoleConflicts(updatedPilot.id, (updatedPilot as any).currentSquadron.id);
         
         if (conflict.hasConflict) {

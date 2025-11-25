@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { RefreshCw } from 'lucide-react';
 import { permissionService } from '../../utils/permissionService';
 import type { PermissionRule, GroupedPermissions } from '../../types/PermissionTypes';
 import { PermissionMatrix } from './PermissionsMatrix';
 import { useAuth } from '../../context/AuthContext';
+import LoadingSpinner from '../ui/LoadingSpinner';
 
 
 const PermissionsSettings: React.FC = () => {
@@ -83,59 +83,63 @@ const PermissionsSettings: React.FC = () => {
 
   if (loading && !permissions) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <RefreshCw className="animate-spin mr-2" size={20} />
-        Loading permissions...
+      <div style={{ display: 'flex', flexDirection: 'column', height: '100%', backgroundColor: '#FFFFFF' }}>
+        <div style={{ padding: '40px 40px 24px 40px', borderBottom: '1px solid #E2E8F0' }}>
+          <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
+            <h2 style={{ fontSize: '24px', fontWeight: 600, margin: 0, color: '#0F172A' }}>
+              Permissions Management
+            </h2>
+            <p style={{ fontSize: '14px', color: '#64748B', margin: '8px 0 0 0', fontFamily: 'Inter' }}>
+              Manage user permissions and access control for your squadron.
+            </p>
+          </div>
+        </div>
+        <div style={{ flex: 1, overflow: 'auto', padding: '24px 40px 40px 40px' }}>
+          <div style={{
+            maxWidth: '1200px',
+            margin: '0 auto',
+            textAlign: 'center',
+            color: '#64748B',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: '12px',
+            paddingTop: '60px'
+          }}>
+            <LoadingSpinner size="medium" />
+            <div style={{ fontSize: '14px', fontFamily: 'Inter' }}>Loading permissions...</div>
+          </div>
+        </div>
       </div>
     );
   }
 
   return (
-    <div style={{ 
-      height: '100%', 
-      display: 'flex', 
-      flexDirection: 'column',
-      position: 'relative',
-      overflow: 'hidden'
-    }}>
-      {/* Header */}
-      <div style={{ 
-        marginBottom: '24px',
-        flexShrink: 0
-      }}>
-        <h2 style={{ 
-          fontSize: '24px', 
-          fontWeight: 600, 
-          color: '#1F2937', 
-          margin: 0, 
-          marginBottom: '8px' 
-        }}>
-          Permissions Management
-        </h2>
-        <p style={{ 
-          color: '#6B7280', 
-          margin: 0,
-          fontSize: '14px'
-        }}>
-          Manage user permissions and access control for your squadron.
-        </p>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', backgroundColor: '#FFFFFF' }}>
+      {/* Fixed Header */}
+      <div style={{ padding: '40px 40px 0 40px', flexShrink: 0 }}>
+        <div style={{ maxWidth: '1200px', margin: '0 auto', borderBottom: '1px solid #E2E8F0', paddingBottom: '24px' }}>
+          <h2 style={{ fontSize: '24px', fontWeight: 600, margin: 0, color: '#0F172A' }}>
+            Permissions Management
+          </h2>
+          <p style={{ fontSize: '14px', color: '#64748B', margin: '8px 0 0 0', fontFamily: 'Inter' }}>
+            Manage user permissions and access control for your squadron.
+          </p>
+        </div>
       </div>
 
-      {/* Permission Matrix Content */}
-      <div style={{ 
-        flex: 1, 
-        minHeight: 0,
-        overflow: 'hidden',
-        paddingRight: '8px'
-      }}>
-        <PermissionMatrix
-          permissions={permissions}
-          rules={rules}
-          onCreateRule={handleCreateRule}
-          onUpdateRule={handleUpdateRule}
-          onDeleteRule={handleDeleteRule}
-          loading={loading}
-        />
+      {/* Scrollable Content */}
+      <div style={{ flex: 1, overflow: 'auto', padding: '24px 40px 40px 40px' }}>
+        <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
+          <PermissionMatrix
+            permissions={permissions}
+            rules={rules}
+            onCreateRule={handleCreateRule}
+            onUpdateRule={handleUpdateRule}
+            onDeleteRule={handleDeleteRule}
+            loading={loading}
+          />
+        </div>
       </div>
     </div>
   );
