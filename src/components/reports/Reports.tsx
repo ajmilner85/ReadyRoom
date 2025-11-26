@@ -59,20 +59,32 @@ const Reports: React.FC = () => {
     active,
     onClick
   }) => {
+    const [isHovered, setIsHovered] = React.useState(false);
+
     return (
       <div
-        className={`flex items-center px-4 py-3 mb-2 cursor-pointer rounded-md ${
-          active ? 'bg-[#82728C] text-white' : 'hover:bg-slate-100 text-[#64748B]'
-        }`}
         onClick={onClick}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
         style={{
+          display: 'flex',
+          alignItems: 'center',
+          paddingLeft: '16px',
+          paddingRight: '16px',
+          cursor: 'pointer',
           fontFamily: 'Inter',
           fontSize: '14px',
           fontWeight: active ? 500 : 400,
-          transition: 'all 0.2s ease'
+          transition: 'all 0.2s ease',
+          borderRadius: '6px',
+          marginBottom: '5px',
+          height: '32px',
+          gap: '5px',
+          backgroundColor: active ? '#82728C' : isHovered ? '#F1F5F9' : 'transparent',
+          color: active ? 'white' : '#64748B'
         }}
       >
-        <div className="mr-3">{item.icon}</div>
+        <div>{item.icon}</div>
         <div>{item.label}</div>
       </div>
     );
@@ -86,7 +98,7 @@ const Reports: React.FC = () => {
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        padding: '20px 0',
+        padding: '20px 20px 20px 20px',
         boxSizing: 'border-box',
         fontFamily: 'Inter, sans-serif',
       }}
@@ -95,7 +107,9 @@ const Reports: React.FC = () => {
         maxWidth: '1350px',
         width: '100%',
         margin: '0 auto',
-        padding: '0 20px'
+        height: 'calc(100vh - 40px)',
+        display: 'flex',
+        flexDirection: 'column'
       }}>
         {/* Main reports card with navigation and content */}
         <Card
@@ -103,34 +117,25 @@ const Reports: React.FC = () => {
           style={{
             boxShadow: '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)',
             borderRadius: '8px',
-            backgroundColor: '#FFFFFF'
+            backgroundColor: '#FFFFFF',
+            height: 'calc(100vh - 40px)',
+            display: 'flex',
+            flexDirection: 'column',
+            overflow: 'hidden'
           }}
         >
-          <div style={{ padding: '24px' }}>
-            <h1 style={{
-              fontFamily: 'Inter',
-              fontStyle: 'normal',
-              fontWeight: 300,
-              fontSize: '20px',
-              lineHeight: '24px',
-              color: '#64748B',
-              textTransform: 'uppercase',
-              marginBottom: '24px'
-            }}>
-              Reports
-            </h1>
-
-            <div className="flex" style={{ height: 'calc(100vh - 170px)', maxHeight: 'calc(100vh - 170px)', overflow: 'hidden' }}>
-              {/* Reports navigation sidebar */}
-              <div
-                className="w-64 p-6"
-                style={{
-                  borderRight: '1px solid #E2E8F0',
-                  backgroundColor: '#FFFFFF',
-                  paddingRight: '16px',
-                  paddingTop: '16px',
-                }}
-              >
+          <div className="flex" style={{ flex: 1, overflow: 'hidden' }}>
+            {/* Reports navigation sidebar */}
+            <div
+              className="w-64"
+              style={{
+                backgroundColor: '#FFFFFF',
+                padding: '40px 24px 24px 24px',
+                display: 'flex',
+                flexDirection: 'column'
+              }}
+            >
+              <div style={{ overflowY: 'auto', flex: 1 }}>
                 <div style={{ marginBottom: '32px' }}>
                   {/* Section Title */}
                   <h3 style={{
@@ -156,17 +161,17 @@ const Reports: React.FC = () => {
                   ))}
                 </div>
               </div>
+            </div>
 
-              {/* Main content area */}
-              <div
-                className="flex-1 p-6 overflow-auto"
-                style={{
-                  padding: '16px 24px',
-                  fontFamily: 'Inter'
-                }}
-              >
-                {renderReportContent()}
-              </div>
+            {/* Main content area */}
+            <div
+              className="flex-1 overflow-auto"
+              style={{
+                fontFamily: 'Inter',
+                padding: '40px'
+              }}
+            >
+              {renderReportContent()}
             </div>
           </div>
         </Card>
