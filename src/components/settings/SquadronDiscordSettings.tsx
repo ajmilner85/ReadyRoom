@@ -507,8 +507,8 @@ const SquadronDiscordSettings: React.FC<SquadronDiscordSettingsProps> = ({
     onDefaultNotificationRolesChange(defaultNotificationRoles.filter(r => r.id !== roleId));
   };
 
-  const handleRemoveChannel = (channelId: string) => {
-    const updatedChannels = discordChannels.filter(c => c.id !== channelId);
+  const handleRemoveChannel = (index: number) => {
+    const updatedChannels = discordChannels.filter((_, i) => i !== index);
     onChannelsChange?.(updatedChannels);
   };
 
@@ -699,8 +699,8 @@ const SquadronDiscordSettings: React.FC<SquadronDiscordSettingsProps> = ({
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-              {discordChannels.map((channel) => (
-                <div key={channel.id} style={{
+              {discordChannels.map((channel, index) => (
+                <div key={`${channel.id}-${channel.type}-${index}`} style={{
                   display: 'flex',
                   justifyContent: 'space-between',
                   alignItems: 'center',
@@ -727,7 +727,7 @@ const SquadronDiscordSettings: React.FC<SquadronDiscordSettingsProps> = ({
                   </div>
                   <button
                     type="button"
-                    onClick={() => handleRemoveChannel(channel.id)}
+                    onClick={() => handleRemoveChannel(index)}
                     style={{
                       padding: '2px',
                       backgroundColor: 'transparent',
@@ -1205,6 +1205,10 @@ const SquadronDiscordSettings: React.FC<SquadronDiscordSettingsProps> = ({
                   </div>
                   <button
                     type="button"
+                    onClick={() => {
+                      const updatedMappings = roleMappings.filter(m => m.id !== mapping.id);
+                      onRoleMappingsChange?.(updatedMappings);
+                    }}
                     style={{
                       padding: '2px',
                       backgroundColor: 'transparent',

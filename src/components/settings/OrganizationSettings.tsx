@@ -52,7 +52,7 @@ const OrganizationSettings: React.FC<OrganizationSettingsProps> = ({ error, setE
   // UI state
   const [loading, setLoading] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
-  const [showInactive, setShowInactive] = useState(true);
+  const [showInactive, setShowInactive] = useState(false);
   
   // Modal state
   const [modalState, setModalState] = useState<{
