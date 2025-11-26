@@ -44,7 +44,7 @@ const MissionFilterDrawer: React.FC<MissionFilterDrawerProps> = ({
   setEndDate,
   setFiltersEnabled
 }) => {
-  const [isExpanded, setIsExpanded] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(true);
 
   // Ensure squadrons and cycles are always arrays
   const safeSquadrons = Array.isArray(squadrons) ? squadrons : [];

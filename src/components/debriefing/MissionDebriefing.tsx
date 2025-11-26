@@ -92,6 +92,20 @@ const MissionDebriefing: React.FC = () => {
     try {
       const cyclesData = await debriefingService.getCycles();
       setCycles(cyclesData || []);
+
+      // Set current cycle as default if not already selected
+      if (!selectedCycleId && cyclesData && cyclesData.length > 0) {
+        const now = new Date();
+        const currentCycle = cyclesData.find(cycle => {
+          const startDate = new Date(cycle.start_date);
+          const endDate = new Date(cycle.end_date);
+          return now >= startDate && now <= endDate;
+        });
+
+        if (currentCycle) {
+          setSelectedCycleId(currentCycle.id);
+        }
+      }
     } catch (err: any) {
       console.error('Failed to load cycles:', err);
     }

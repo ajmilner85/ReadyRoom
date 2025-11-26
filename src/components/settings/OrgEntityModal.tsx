@@ -545,6 +545,9 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
         break;
       case 'squadron':
         const discordSettings = getCurrentDiscordSettings();
+        console.log('Squadron save - discordSettings:', discordSettings);
+        console.log('Squadron save - entity:', entity);
+        console.log('Squadron save - mode:', mode);
         saveData = {
           ...baseData,
           wing_id: formData.wing_id,
@@ -560,6 +563,7 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
             threadingSettings: discordSettings.threadingSettings
           }
         } as NewSquadron;
+        console.log('Squadron save - saveData:', saveData);
         break;
       case 'team':
         saveData = {
