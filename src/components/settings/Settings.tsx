@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { usePageLoading } from '../../context/PageLoadingContext';
 import { Card } from '../ui/card';
 import { PermissionGate } from '../ui/PermissionGate';
-import { User, Users, PaintBucket, Calendar, Network, Shield, Code } from 'lucide-react';
+import { User, Users, PaintBucket, Calendar, Network, Shield, Code, Database } from 'lucide-react';
 
 // Import settings subpages
 import Appearance from './Appearance';
@@ -13,9 +13,10 @@ import EventSettings from './EventSettings';
 import MissionDebriefingSettings from './MissionDebriefingSettings';
 import PermissionsSettings from './PermissionsSettings';
 import DeveloperSettings from './DeveloperSettings';
+import DCSReferenceSettings from './DCSReferenceSettings';
 
 // Define the types of settings pages
-type SettingsPage = 'roster' | 'organization' | 'events' | 'mission-debriefing' | 'permissions' | 'appearance' | 'accounts' | 'developer';
+type SettingsPage = 'roster' | 'organization' | 'events' | 'mission-debriefing' | 'dcs-reference' | 'permissions' | 'appearance' | 'accounts' | 'developer';
 
 interface SettingsNavItem {
   id: SettingsPage;
@@ -77,6 +78,11 @@ const settingsNavSections: SettingsNavSection[] = [
         id: 'mission-debriefing',
         icon: <Calendar size={20} />,
         label: 'Mission Debriefing'
+      },
+      {
+        id: 'dcs-reference',
+        icon: <Database size={20} />,
+        label: 'DCS Reference Data'
       }
     ]
   }
@@ -124,6 +130,8 @@ const Settings: React.FC = () => {
         return <EventSettings error={error} setError={setError} />;
       case 'mission-debriefing':
         return <MissionDebriefingSettings error={error} setError={setError} />;
+      case 'dcs-reference':
+        return <DCSReferenceSettings error={error} setError={setError} />;
       case 'permissions':
         return <PermissionsSettings />;
       case 'developer':

@@ -271,6 +271,45 @@ export type Database = {
         }
         Relationships: []
       }
+      dcs_unit_types: {
+        Row: {
+          category: string
+          created_at: string
+          display_name: string
+          id: string
+          is_active: boolean
+          kill_category: string
+          source: string
+          sub_category: string | null
+          type_name: string
+          updated_at: string
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          display_name: string
+          id?: string
+          is_active?: boolean
+          kill_category: string
+          source?: string
+          sub_category?: string | null
+          type_name: string
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          display_name?: string
+          id?: string
+          is_active?: boolean
+          kill_category?: string
+          source?: string
+          sub_category?: string | null
+          type_name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       debrief_delegation: {
         Row: {
           created_at: string
@@ -676,6 +715,55 @@ export type Database = {
           },
         ]
       }
+      mission_unit_type_pool: {
+        Row: {
+          added_at: string
+          added_by: string | null
+          id: string
+          kill_category: string
+          mission_debriefing_id: string
+          unit_type_id: string
+        }
+        Insert: {
+          added_at?: string
+          added_by?: string | null
+          id?: string
+          kill_category: string
+          mission_debriefing_id: string
+          unit_type_id: string
+        }
+        Update: {
+          added_at?: string
+          added_by?: string | null
+          id?: string
+          kill_category?: string
+          mission_debriefing_id?: string
+          unit_type_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mission_unit_type_pool_added_by_fkey"
+            columns: ["added_by"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mission_unit_type_pool_mission_debriefing_id_fkey"
+            columns: ["mission_debriefing_id"]
+            isOneToOne: false
+            referencedRelation: "mission_debriefings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mission_unit_type_pool_unit_type_id_fkey"
+            columns: ["unit_type_id"]
+            isOneToOne: false
+            referencedRelation: "dcs_unit_types"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       missions: {
         Row: {
           created_at: string | null
@@ -1056,36 +1144,48 @@ export type Database = {
       }
       pilot_kills: {
         Row: {
+          aircraft_status: string | null
           air_to_air_kills: number
           air_to_ground_kills: number
           created_at: string
           flight_debrief_id: string
           id: string
+          kill_count: number
           mission_id: string
           pilot_id: string
           pilot_mission_status: string
+          pilot_status: string | null
+          unit_type_id: string | null
           updated_at: string
         }
         Insert: {
+          aircraft_status?: string | null
           air_to_air_kills?: number
           air_to_ground_kills?: number
           created_at?: string
           flight_debrief_id: string
           id?: string
+          kill_count?: number
           mission_id: string
           pilot_id: string
           pilot_mission_status?: string
+          pilot_status?: string | null
+          unit_type_id?: string | null
           updated_at?: string
         }
         Update: {
+          aircraft_status?: string | null
           air_to_air_kills?: number
           air_to_ground_kills?: number
           created_at?: string
           flight_debrief_id?: string
           id?: string
+          kill_count?: number
           mission_id?: string
           pilot_id?: string
           pilot_mission_status?: string
+          pilot_status?: string | null
+          unit_type_id?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -1101,6 +1201,13 @@ export type Database = {
             columns: ["pilot_id"]
             isOneToOne: false
             referencedRelation: "pilots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pilot_kills_unit_type_id_fkey"
+            columns: ["unit_type_id"]
+            isOneToOne: false
+            referencedRelation: "dcs_unit_types"
             referencedColumns: ["id"]
           },
         ]

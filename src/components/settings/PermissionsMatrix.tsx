@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 // import { Save } from 'lucide-react';
 import type { AppPermission, PermissionRule, BasisOption, BasisType, GroupedPermissions } from '../../types/PermissionTypes';
+import { PERMISSION_CATEGORIES } from '../../types/PermissionTypes';
 import { permissionService } from '../../utils/permissionService';
 
 interface PermissionMatrixProps {
@@ -57,10 +58,14 @@ export const PermissionMatrix: React.FC<PermissionMatrixProps> = ({
   }
 
   // Get all permissions as a flat array with categories
-  const categorizedPermissions = Object.entries(permissions).map(([category, perms]) => ({
-    category: category.charAt(0).toUpperCase() + category.slice(1).replace(/([A-Z])/g, ' $1'),
-    permissions: perms
-  }));
+  const categorizedPermissions = Object.entries(permissions).map(([category, perms]) => {
+    // Map camelCase keys back to snake_case for PERMISSION_CATEGORIES lookup
+    const categoryKey = category === 'missionPrep' ? 'mission_prep' : category;
+    return {
+      category: PERMISSION_CATEGORIES[categoryKey as keyof typeof PERMISSION_CATEGORIES] || category,
+      permissions: perms
+    };
+  });
   
   // Create matrix data structure  
   const getMatrixKey = (permissionId: string, basisId: string) => `${permissionId}::${basisId}`;
