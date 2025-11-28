@@ -163,6 +163,186 @@ class KillTrackingService {
       recordCount: data.length
     };
   }
+
+  /**
+   * Get mission unit pool - units available for kill tracking in this mission
+   */
+  async getMissionUnitPool(missionDebriefingId: string) {
+    const { data, error } = await supabase
+      .from('mission_unit_type_pool')
+      .select(`
+        id,
+        unit_type_id,
+        kill_category,
+        added_at,
+        unit_type:dcs_unit_types(
+          id,
+          type_name,
+          display_name,
+          category,
+          kill_category
+        )
+      `)
+      .eq('mission_debriefing_id', missionDebriefingId)
+      .order('added_at', { ascending: true });
+
+    if (error) {
+      throw new Error(`Failed to get mission unit pool: ${error.message}`);
+    }
+
+    return data;
+  }
+
+  /**
+   * Add units to mission pool
+   */
+  async addUnitsToPool(missionDebriefingId: string, unitTypeIds: string[]) {
+    // Get unit types to determine their kill categories
+    const { data: unitTypes, error: fetchError } = await supabase
+      .from('dcs_unit_types')
+      .select('id, kill_category')
+      .in('id', unitTypeIds);
+
+    if (fetchError) {
+      throw new Error(`Failed to fetch unit types: ${fetchError.message}`);
+    }
+
+    // Create pool entries
+    const poolEntries = unitTypes.map((unit) => ({
+      mission_debriefing_id: missionDebriefingId,
+      unit_type_id: unit.id,
+      kill_category: unit.kill_category
+    }));
+
+    const { error } = await supabase
+      .from('mission_unit_type_pool')
+      .insert(poolEntries);
+
+    if (error) {
+      throw new Error(`Failed to add units to pool: ${error.message}`);
+    }
+  }
+
+  /**
+   * Remove unit from mission pool
+   */
+  async removeUnitFromPool(poolId: string) {
+    const { error } = await supabase
+      .from('mission_unit_type_pool')
+      .delete()
+      .eq('id', poolId);
+
+    if (error) {
+      throw new Error(`Failed to remove unit from pool: ${error.message}`);
+    }
+  }
+
+  /**
+   * Record unit-specific kills for a pilot
+   */
+  async recordUnitKills(
+    flightDebriefId: string,
+    pilotId: string,
+    missionId: string,
+    unitTypeId: string,
+    killCount: number,
+    pilotStatus: 'alive' | 'mia' | 'kia' = 'alive',
+    aircraftStatus: 'recovered' | 'damaged' | 'destroyed' = 'recovered'
+  ) {
+    // Check if kills already exist for this pilot/debrief/unit combination
+    const { data: existing } = await supabase
+      .from('pilot_kills')
+      .select('id')
+      .eq('flight_debrief_id', flightDebriefId)
+      .eq('pilot_id', pilotId)
+      .eq('unit_type_id', unitTypeId)
+      .maybeSingle();
+
+    if (existing) {
+      // Update existing record
+      const { data, error } = await supabase
+        .from('pilot_kills')
+        .update({
+          kill_count: killCount,
+          pilot_status: pilotStatus,
+          aircraft_status: aircraftStatus
+        })
+        .eq('id', existing.id)
+        .select()
+        .single();
+
+      if (error) {
+        throw new Error(`Failed to update unit kills: ${error.message}`);
+      }
+      return data;
+    }
+
+    // Create new record
+    const { data, error } = await supabase
+      .from('pilot_kills')
+      .insert({
+        flight_debrief_id: flightDebriefId,
+        pilot_id: pilotId,
+        mission_id: missionId,
+        unit_type_id: unitTypeId,
+        kill_count: killCount,
+        pilot_status: pilotStatus,
+        aircraft_status: aircraftStatus
+      })
+      .select()
+      .single();
+
+    if (error) {
+      throw new Error(`Failed to record unit kills: ${error.message}`);
+    }
+
+    return data;
+  }
+
+  /**
+   * Get unit-specific kills for a flight debrief
+   */
+  async getUnitKillsByFlight(flightDebriefId: string) {
+    const { data, error } = await supabase
+      .from('pilot_kills')
+      .select(`
+        *,
+        pilot:pilots(
+          id,
+          callsign,
+          boardNumber
+        ),
+        unit_type:dcs_unit_types(
+          id,
+          type_name,
+          display_name,
+          kill_category
+        )
+      `)
+      .eq('flight_debrief_id', flightDebriefId)
+      .not('unit_type_id', 'is', null)
+      .order('created_at', { ascending: true });
+
+    if (error) {
+      throw new Error(`Failed to get unit kills: ${error.message}`);
+    }
+
+    return data;
+  }
+
+  /**
+   * Delete unit-specific kill record
+   */
+  async deleteUnitKills(killRecordId: string) {
+    const { error } = await supabase
+      .from('pilot_kills')
+      .delete()
+      .eq('id', killRecordId);
+
+    if (error) {
+      throw new Error(`Failed to delete unit kills: ${error.message}`);
+    }
+  }
 }
 
 export const killTrackingService = new KillTrackingService();

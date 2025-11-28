@@ -445,8 +445,9 @@ export class PermissionCacheService {
       delegate_debriefs: [],
 
       canSyncWithDiscord: [],
+      manage_dcs_reference_data: false,
       canViewOwnProfile: true, // Always allow viewing own profile
-      
+
       // Developer permissions
       access_developer_settings: false,
       

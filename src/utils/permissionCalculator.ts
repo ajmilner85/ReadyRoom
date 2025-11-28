@@ -424,7 +424,10 @@ export class PermissionCalculator {
       canVoteInPolls: false,
       canManageChangeLog: false,
       canReactToPosts: false,
-      
+
+      // DCS Reference Data (global only)
+      manage_dcs_reference_data: false,
+
       // Meta
       bases: this.extractPermissionBases(userBases),
       calculatedAt: new Date(),
@@ -592,6 +595,11 @@ export class PermissionCalculator {
         break;
       case 'react_to_posts':
         permissions.canReactToPosts = true;
+        break;
+
+      // DCS Reference Data permissions (global only)
+      case 'manage_dcs_reference_data':
+        permissions.manage_dcs_reference_data = true;
         break;
     }
   }

@@ -139,9 +139,10 @@ export class PermissionService {
       events: [],
       settings: [],
       missionPrep: [],
+      debriefing: [],
       other: []
     };
-    
+
     for (const perm of data || []) {
       const permission: AppPermission = {
         id: (perm as any).id,
@@ -153,7 +154,7 @@ export class PermissionService {
         createdAt: (perm as any).created_at,
         updatedAt: (perm as any).updated_at
       };
-      
+
       switch ((perm as any).category) {
         case 'navigation':
           grouped.navigation.push(permission);
@@ -169,6 +170,9 @@ export class PermissionService {
           break;
         case 'mission_prep':
           grouped.missionPrep.push(permission);
+          break;
+        case 'debriefing':
+          grouped.debriefing.push(permission);
           break;
         default:
           grouped.other.push(permission);

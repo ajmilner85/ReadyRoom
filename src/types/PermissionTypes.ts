@@ -1,7 +1,7 @@
 // Enhanced Permission System Types
 // This file defines all types for the new inheritance-based permission system
 
-export type PermissionCategory = 'navigation' | 'roster' | 'events' | 'settings' | 'mission_prep' | 'other';
+export type PermissionCategory = 'navigation' | 'roster' | 'events' | 'settings' | 'mission_prep' | 'debriefing' | 'other';
 
 export type ScopeType = 'global' | 'squadron' | 'wing';
 
@@ -104,7 +104,10 @@ export interface UserPermissions {
   canVoteInPolls: boolean;                       // Global only
   canManageChangeLog: boolean;                   // Global only
   canReactToPosts: boolean;                      // Global only
-  
+
+  // DCS Reference Data (global only)
+  manage_dcs_reference_data: boolean;            // Global only
+
   // Meta information
   bases: PermissionBasis[];
   calculatedAt: Date;
@@ -158,6 +161,7 @@ export interface GroupedPermissions {
   events: AppPermission[];
   settings: AppPermission[];
   missionPrep: AppPermission[];
+  debriefing: AppPermission[];
   other: AppPermission[];
 }
 
@@ -240,10 +244,11 @@ export interface PermissionAuditEntry {
 // Constants for permission system
 export const PERMISSION_CATEGORIES: Record<PermissionCategory, string> = {
   navigation: 'Navigation',
-  roster: 'Roster Management', 
+  roster: 'Roster Management',
   events: 'Events Management',
   settings: 'Settings',
   mission_prep: 'Mission Preparation',
+  debriefing: 'Mission Debriefing',
   other: 'Other'
 };
 
