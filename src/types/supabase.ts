@@ -1151,6 +1151,7 @@ export type Database = {
           flight_debrief_id: string
           id: string
           kill_count: number
+          kills_detail: Json
           mission_id: string
           pilot_id: string
           pilot_mission_status: string
@@ -1166,6 +1167,7 @@ export type Database = {
           flight_debrief_id: string
           id?: string
           kill_count?: number
+          kills_detail?: Json
           mission_id: string
           pilot_id: string
           pilot_mission_status?: string
@@ -1181,6 +1183,7 @@ export type Database = {
           flight_debrief_id?: string
           id?: string
           kill_count?: number
+          kills_detail?: Json
           mission_id?: string
           pilot_id?: string
           pilot_mission_status?: string

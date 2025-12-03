@@ -238,7 +238,7 @@ class KillTrackingService {
   }
 
   /**
-   * Record unit-specific kills for a pilot
+   * Record unit-specific kills for a pilot (using JSONB structure)
    */
   async recordUnitKills(
     flightDebriefId: string,
@@ -249,21 +249,36 @@ class KillTrackingService {
     pilotStatus: 'alive' | 'mia' | 'kia' = 'alive',
     aircraftStatus: 'recovered' | 'damaged' | 'destroyed' = 'recovered'
   ) {
-    // Check if kills already exist for this pilot/debrief/unit combination
+    // Get existing record for this pilot in this mission
     const { data: existing } = await supabase
       .from('pilot_kills')
-      .select('id')
+      .select('id, kills_detail')
       .eq('flight_debrief_id', flightDebriefId)
       .eq('pilot_id', pilotId)
-      .eq('unit_type_id', unitTypeId)
+      .eq('mission_id', missionId)
       .maybeSingle();
 
     if (existing) {
-      // Update existing record
+      // Update existing record - modify kills_detail JSONB array
+      const killsDetail = existing.kills_detail as Array<{unit_type_id: string, kill_count: number}> || [];
+
+      // Find if this unit type already exists in the array
+      const existingKillIndex = killsDetail.findIndex(k => k.unit_type_id === unitTypeId);
+
+      let updatedKillsDetail;
+      if (existingKillIndex >= 0) {
+        // Update existing unit kill count
+        updatedKillsDetail = [...killsDetail];
+        updatedKillsDetail[existingKillIndex] = { unit_type_id: unitTypeId, kill_count: killCount };
+      } else {
+        // Add new unit kill to array
+        updatedKillsDetail = [...killsDetail, { unit_type_id: unitTypeId, kill_count: killCount }];
+      }
+
       const { data, error } = await supabase
         .from('pilot_kills')
         .update({
-          kill_count: killCount,
+          kills_detail: updatedKillsDetail,
           pilot_status: pilotStatus,
           aircraft_status: aircraftStatus
         })
@@ -277,15 +292,14 @@ class KillTrackingService {
       return data;
     }
 
-    // Create new record
+    // Create new record with kills_detail as JSONB array
     const { data, error } = await supabase
       .from('pilot_kills')
       .insert({
         flight_debrief_id: flightDebriefId,
         pilot_id: pilotId,
         mission_id: missionId,
-        unit_type_id: unitTypeId,
-        kill_count: killCount,
+        kills_detail: [{ unit_type_id: unitTypeId, kill_count: killCount }],
         pilot_status: pilotStatus,
         aircraft_status: aircraftStatus
       })
@@ -300,48 +314,217 @@ class KillTrackingService {
   }
 
   /**
-   * Get unit-specific kills for a flight debrief
+   * Get unit-specific kills for a flight debrief (expands JSONB kills_detail)
    */
   async getUnitKillsByFlight(flightDebriefId: string) {
     const { data, error } = await supabase
       .from('pilot_kills')
       .select(`
-        *,
+        id,
+        flight_debrief_id,
+        pilot_id,
+        mission_id,
+        kills_detail,
+        pilot_status,
+        aircraft_status,
+        created_at,
+        updated_at,
         pilot:pilots(
           id,
           callsign,
           boardNumber
-        ),
-        unit_type:dcs_unit_types(
-          id,
-          type_name,
-          display_name,
-          kill_category
         )
       `)
       .eq('flight_debrief_id', flightDebriefId)
-      .not('unit_type_id', 'is', null)
       .order('created_at', { ascending: true });
 
     if (error) {
       throw new Error(`Failed to get unit kills: ${error.message}`);
     }
 
-    return data;
+    // Expand kills_detail JSONB array into individual records
+    const expandedKills: any[] = [];
+
+    for (const record of data || []) {
+      const killsDetail = record.kills_detail as Array<{unit_type_id: string, kill_count: number}> || [];
+
+      for (const kill of killsDetail) {
+        // Fetch unit type data for each kill
+        const { data: unitType } = await supabase
+          .from('dcs_unit_types')
+          .select('id, type_name, display_name, kill_category')
+          .eq('id', kill.unit_type_id)
+          .single();
+
+        expandedKills.push({
+          id: `${record.id}-${kill.unit_type_id}`, // Composite ID for UI
+          flight_debrief_id: record.flight_debrief_id,
+          pilot_id: record.pilot_id,
+          mission_id: record.mission_id,
+          unit_type_id: kill.unit_type_id,
+          kill_count: kill.kill_count,
+          pilot_status: record.pilot_status,
+          aircraft_status: record.aircraft_status,
+          pilot: record.pilot,
+          unit_type: unitType,
+          created_at: record.created_at,
+          updated_at: record.updated_at,
+          parent_record_id: record.id // Reference to parent pilot_kills record
+        });
+      }
+    }
+
+    return expandedKills;
   }
 
   /**
-   * Delete unit-specific kill record
+   * Delete unit-specific kill record (removes unit from JSONB array)
+   * @param killRecordId - Composite ID in format "parentId-unitTypeId" or actual record ID
+   * @param unitTypeId - Optional unit type ID to remove from kills_detail array
    */
-  async deleteUnitKills(killRecordId: string) {
-    const { error } = await supabase
+  async deleteUnitKills(killRecordId: string, unitTypeId?: string) {
+    console.log('Attempting to delete kill record from DB:', { killRecordId, unitTypeId });
+
+    // Parse composite ID if needed (format: "parentId-unitTypeId")
+    let parentRecordId: string;
+    let targetUnitTypeId: string;
+
+    if (killRecordId.includes('-') && !unitTypeId) {
+      const parts = killRecordId.split('-');
+      parentRecordId = parts[0];
+      targetUnitTypeId = parts.slice(1).join('-'); // Handle UUIDs with dashes
+    } else {
+      parentRecordId = killRecordId;
+      targetUnitTypeId = unitTypeId || '';
+    }
+
+    console.log('Parsed IDs:', { parentRecordId, targetUnitTypeId });
+
+    // Get the parent record
+    const { data: parentRecord, error: fetchError } = await supabase
       .from('pilot_kills')
-      .delete()
-      .eq('id', killRecordId);
+      .select('id, kills_detail')
+      .eq('id', parentRecordId)
+      .maybeSingle();
+
+    if (fetchError) {
+      console.error('Failed to fetch parent record:', fetchError);
+      throw new Error(`Failed to fetch kill record: ${fetchError.message}`);
+    }
+
+    if (!parentRecord) {
+      console.warn('Parent record not found:', parentRecordId);
+      return;
+    }
+
+    console.log('Found parent record:', parentRecord);
+
+    const killsDetail = parentRecord.kills_detail as Array<{unit_type_id: string, kill_count: number}> || [];
+
+    // Remove the specific unit from the array
+    const updatedKillsDetail = killsDetail.filter(k => k.unit_type_id !== targetUnitTypeId);
+
+    console.log('Kills detail before:', killsDetail);
+    console.log('Kills detail after:', updatedKillsDetail);
+
+    if (updatedKillsDetail.length === 0) {
+      // If no kills left, delete the entire record
+      console.log('No kills remaining, deleting entire record');
+      const { data, error } = await supabase
+        .from('pilot_kills')
+        .delete()
+        .eq('id', parentRecordId)
+        .select();
+
+      if (error) {
+        console.error('Delete failed with error:', error);
+        throw new Error(`Failed to delete pilot kills record: ${error.message}`);
+      }
+
+      console.log('Delete successful:', data);
+    } else {
+      // Update the record with the filtered kills_detail
+      console.log('Updating kills_detail array');
+      const { data, error } = await supabase
+        .from('pilot_kills')
+        .update({ kills_detail: updatedKillsDetail })
+        .eq('id', parentRecordId)
+        .select();
+
+      if (error) {
+        console.error('Update failed with error:', error);
+        throw new Error(`Failed to update kills detail: ${error.message}`);
+      }
+
+      console.log('Update successful:', data);
+    }
+  }
+
+  /**
+   * Batch save kills for a pilot (replaces entire kills_detail array)
+   * More efficient than calling recordUnitKills multiple times
+   */
+  async saveAllKillsForPilot(
+    flightDebriefId: string,
+    pilotId: string,
+    missionId: string,
+    kills: Array<{ unitTypeId: string, killCount: number }>,
+    pilotStatus: 'alive' | 'mia' | 'kia' = 'alive',
+    aircraftStatus: 'recovered' | 'damaged' | 'destroyed' = 'recovered'
+  ) {
+    // Get existing record for this pilot in this mission
+    const { data: existing } = await supabase
+      .from('pilot_kills')
+      .select('id')
+      .eq('flight_debrief_id', flightDebriefId)
+      .eq('pilot_id', pilotId)
+      .eq('mission_id', missionId)
+      .maybeSingle();
+
+    // Build kills_detail array
+    const killsDetail = kills.map(k => ({
+      unit_type_id: k.unitTypeId,
+      kill_count: k.killCount
+    }));
+
+    if (existing) {
+      // Update existing record
+      const { data, error } = await supabase
+        .from('pilot_kills')
+        .update({
+          kills_detail: killsDetail,
+          pilot_status: pilotStatus,
+          aircraft_status: aircraftStatus
+        })
+        .eq('id', existing.id)
+        .select()
+        .single();
+
+      if (error) {
+        throw new Error(`Failed to update pilot kills: ${error.message}`);
+      }
+      return data;
+    }
+
+    // Create new record
+    const { data, error } = await supabase
+      .from('pilot_kills')
+      .insert({
+        flight_debrief_id: flightDebriefId,
+        pilot_id: pilotId,
+        mission_id: missionId,
+        kills_detail: killsDetail,
+        pilot_status: pilotStatus,
+        aircraft_status: aircraftStatus
+      })
+      .select()
+      .single();
 
     if (error) {
-      throw new Error(`Failed to delete unit kills: ${error.message}`);
+      throw new Error(`Failed to save pilot kills: ${error.message}`);
     }
+
+    return data;
   }
 }
 

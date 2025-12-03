@@ -1,13 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Save, X, AlertCircle } from 'lucide-react';
 import PerformanceCategories from './PerformanceCategories';
-import KillTracker, { type KillCounts } from './KillTracker';
-import PilotIDBadgeSm from '../ui/PilotIDBadgeSm';
-import { useAppSettings } from '../../context/AppSettingsContext';
+// import KillTracker, { type KillCounts } from './KillTracker';
+import EnhancedKillTrackingCard, { type EnhancedKillTrackingCardRef } from './EnhancedKillTrackingCard';
+// import PilotIDBadgeSm from '../ui/PilotIDBadgeSm';
+// import { useAppSettings } from '../../context/AppSettingsContext';
 import type { PerformanceRatingsFormState, PerformanceCategoryKey } from '../../types/DebriefingTypes';
 import type { PilotAssignment } from '../../types/MissionTypes';
 import { debriefingService } from '../../services/debriefingService';
-import { killTrackingService } from '../../services/killTrackingService';
+// import { killTrackingService } from '../../services/killTrackingService';
 import { supabase } from '../../utils/supabaseClient';
 
 interface FlightDebriefFormProps {
@@ -50,7 +51,8 @@ const FlightDebriefForm: React.FC<FlightDebriefFormProps> = ({
   onClose,
   onSuccess
 }) => {
-  const { settings } = useAppSettings();
+  // const { settings } = useAppSettings();
+  const killTrackingRef = useRef<EnhancedKillTrackingCardRef>(null);
   const [pilots, setPilots] = useState<Array<{ id: string; callsign: string; boardNumber: number }>>([]);
   const [squadron, setSquadron] = useState<Squadron | null>(null);
 
@@ -67,23 +69,23 @@ const FlightDebriefForm: React.FC<FlightDebriefFormProps> = ({
   }, [pilots, flightLeadPilotId]);
 
   // Sort pilots by dash number for kill tracking display
-  const sortedPilots = React.useMemo(() => {
-    return [...pilots].sort((a, b) => {
-      const dashA = pilotAssignments.find(pa => pa.pilot_id === a.id)?.dash_number || '99';
-      const dashB = pilotAssignments.find(pa => pa.pilot_id === b.id)?.dash_number || '99';
-      return parseInt(dashA) - parseInt(dashB);
-    });
-  }, [pilots, pilotAssignments]);
+  // const sortedPilots = React.useMemo(() => {
+  //   return [...pilots].sort((a, b) => {
+  //     const dashA = pilotAssignments.find(pa => pa.pilot_id === a.id)?.dash_number || '99';
+  //     const dashB = pilotAssignments.find(pa => pa.pilot_id === b.id)?.dash_number || '99';
+  //     return parseInt(dashA) - parseInt(dashB);
+  //   });
+  // }, [pilots, pilotAssignments]);
 
   // Get squadron primary color for callsign styling
-  const getCallsignColor = () => {
-    // When setting is disabled, use black
-    if (!settings.displayPilotsWithSquadronColors) {
-      return '#000000';
-    }
-    // Use squadron primary color from color_palette.primary if available, otherwise black
-    return squadron?.color_palette?.primary || '#000000';
-  };
+  // const getCallsignColor = () => {
+  //   // When setting is disabled, use black
+  //   if (!settings.displayPilotsWithSquadronColors) {
+  //     return '#000000';
+  //   }
+  //   // Use squadron primary color from color_palette.primary if available, otherwise black
+  //   return squadron?.color_palette?.primary || '#000000';
+  // };
 
   // Fetch squadron details
   useEffect(() => {
@@ -140,7 +142,7 @@ const FlightDebriefForm: React.FC<FlightDebriefFormProps> = ({
   });
 
   const [comments, setComments] = useState<Record<string, string>>({});
-  const [killCounts, setKillCounts] = useState<Record<string, KillCounts>>({});
+  // const [killCounts, setKillCounts] = useState<Record<string, KillCounts>>({});
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -187,16 +189,16 @@ const FlightDebriefForm: React.FC<FlightDebriefFormProps> = ({
       }
 
       // Initialize kill counts for all flight members
-      const initialKills: Record<string, KillCounts> = {};
-      pilots.forEach((member) => {
-        initialKills[member.id] = { a2a: 0, a2g: 0 };
-      });
-      setKillCounts(initialKills);
+      // const initialKills: Record<string, KillCounts> = {};
+      // pilots.forEach((member) => {
+      //   initialKills[member.id] = { a2a: 0, a2g: 0 };
+      // });
+      // setKillCounts(initialKills);
 
       // Load existing kill data if available (await this to complete before enabling change tracking)
-      if (existingDebrief?.id) {
-        await loadExistingKills(existingDebrief.id);
-      }
+      // if (existingDebrief?.id) {
+      //   await loadExistingKills(existingDebrief.id);
+      // }
 
       // Allow change tracking after ALL async loads complete
       console.log('[UNSAVED-CHANGES] Setting isInitialLoad to false');
@@ -206,29 +208,29 @@ const FlightDebriefForm: React.FC<FlightDebriefFormProps> = ({
     loadData();
   }, [existingDebrief, pilots]);
 
-  const loadExistingKills = async (debriefId: string) => {
-    try {
-      const kills = await killTrackingService.getKillsByFlight(debriefId);
-      const killsMap: Record<string, KillCounts> = {};
-      kills.forEach((kill) => {
-        killsMap[kill.pilot_id] = {
-          a2a: kill.air_to_air_kills || 0,
-          a2g: kill.air_to_ground_kills || 0
-        };
-      });
-      setKillCounts((prev) => ({ ...prev, ...killsMap }));
-    } catch (err) {
-      console.error('Failed to load existing kills:', err);
-    }
-  };
+  // const loadExistingKills = async (debriefId: string) => {
+  //   try {
+  //     const kills = await killTrackingService.getKillsByFlight(debriefId);
+  //     const killsMap: Record<string, KillCounts> = {};
+  //     kills.forEach((kill) => {
+  //       killsMap[kill.pilot_id] = {
+  //         a2a: kill.air_to_air_kills || 0,
+  //         a2g: kill.air_to_ground_kills || 0
+  //       };
+  //     });
+  //     setKillCounts((prev: any) => ({ ...prev, ...killsMap }));
+  //   } catch (err) {
+  //     console.error('Failed to load existing kills:', err);
+  //   }
+  // };
 
-  const handleKillChange = (pilotId: string, kills: KillCounts) => {
-    setKillCounts((prev) => ({
-      ...prev,
-      [pilotId]: kills
-    }));
-    setHasUnsavedChanges(true);
-  };
+  // const handleKillChange = (pilotId: string, kills: KillCounts) => {
+  //   setKillCounts((prev) => ({
+  //     ...prev,
+  //     [pilotId]: kills
+  //   }));
+  //   setHasUnsavedChanges(true);
+  // };
 
   // Track changes to ratings, comments, and notes (only after initial load)
   useEffect(() => {
@@ -324,27 +326,32 @@ const FlightDebriefForm: React.FC<FlightDebriefFormProps> = ({
         key_lessons_learned: notes.trim() || null
       };
 
-      let debriefId: string;
+      // let debriefId: string;
 
       if (existingDebrief?.id) {
         // Update existing debrief
-        const updated = await debriefingService.updateFlightDebrief(
+        await debriefingService.updateFlightDebrief(
           existingDebrief.id,
           formData as any
         );
-        debriefId = updated.id;
+        // debriefId = updated.id;
       } else {
         // Create new debrief
-        const created = await debriefingService.createFlightDebrief(formData);
-        debriefId = created.id;
+        await debriefingService.createFlightDebrief(formData);
+        // debriefId = created.id;
       }
 
-      // Save kill counts
-      await Promise.all(
-        Object.entries(killCounts).map(([pilotId, kills]) =>
-          killTrackingService.recordKills(debriefId, pilotId, missionId, kills.a2a, kills.a2g)
-        )
-      );
+      // Save unit-specific kills from enhanced kill tracking
+      if (killTrackingRef.current) {
+        await killTrackingRef.current.saveKills();
+      }
+
+      // Legacy kill counts (old system) - skip if using enhanced tracking
+      // await Promise.all(
+      //   Object.entries(killCounts).map(([pilotId, kills]) =>
+      //     killTrackingService.recordKills(debriefId, pilotId, missionId, kills.a2a, kills.a2g)
+      //   )
+      // );
 
       setHasUnsavedChanges(false);
       onSuccess();
@@ -489,8 +496,8 @@ const FlightDebriefForm: React.FC<FlightDebriefFormProps> = ({
               </div>
 
               {/* Right Column - Kill Tracking and Notes */}
-              <div style={{ minWidth: '560px', maxWidth: '560px', display: 'flex', flexDirection: 'column' }}>
-                {/* Kill Tracking */}
+              <div style={{ minWidth: '560px', maxWidth: '960px', display: 'flex', flexDirection: 'column', flex: 1 }}>
+                {/* Enhanced Kill Tracking */}
                 <div style={{ marginBottom: '24px', flexShrink: 0 }}>
                   <div
                     style={{
@@ -502,113 +509,19 @@ const FlightDebriefForm: React.FC<FlightDebriefFormProps> = ({
                   >
                     Kill Tracking
                   </div>
-                  <div
-                    style={{
-                      backgroundColor: '#F8FAFC',
-                      border: '1px solid #E2E8F0',
-                      borderRadius: '8px',
-                      paddingTop: '12px',
-                      paddingBottom: '12px',
-                      paddingLeft: '2px',
-                      paddingRight: '20px'
+                  <EnhancedKillTrackingCard
+                    ref={killTrackingRef}
+                    flightDebriefId={existingDebrief?.id || ''}
+                    missionId={missionId}
+                    missionDebriefingId={missionDebriefId}
+                    pilotAssignments={pilotAssignments}
+                    flightCallsign={flightName}
+                    onKillsChange={(hasChanges) => {
+                      if (hasChanges) {
+                        setHasUnsavedChanges(true);
+                      }
                     }}
-                  >
-                    {/* Header Row */}
-                    <div
-                      style={{
-                        display: 'flex',
-                        gap: '0px',
-                        marginBottom: '12px',
-                        alignItems: 'center',
-                        paddingLeft: '12px'
-                      }}
-                    >
-                      <div style={{ width: '60px', marginRight: '4px' }} />
-                      <div style={{ width: '200px' }} />
-                      <div style={{
-                        fontSize: '12px',
-                        fontWeight: 600,
-                        color: '#475569',
-                        textAlign: 'center',
-                        width: '102px',
-                        marginLeft: '44px'
-                      }}>
-                        A2A
-                      </div>
-                      <div style={{
-                        fontSize: '12px',
-                        fontWeight: 600,
-                        color: '#475569',
-                        textAlign: 'center',
-                        width: '102px',
-                        marginLeft: '16px'
-                      }}>
-                        A2G
-                      </div>
-                    </div>
-
-                    {/* Pilot Rows */}
-                    {sortedPilots.map((pilot) => {
-                      const dashNumber = pilotAssignments.find(pa => pa.pilot_id === pilot.id)?.dash_number || '1';
-                      return (
-                        <div
-                          key={pilot.id}
-                          style={{
-                            display: 'flex',
-                            gap: '0px',
-                            alignItems: 'center',
-                            marginBottom: '8px',
-                            paddingLeft: '12px'
-                          }}
-                        >
-                          <div style={{
-                            width: '60px',
-                            fontFamily: 'Inter',
-                            fontWeight: 400,
-                            fontSize: '12px',
-                            lineHeight: '14px',
-                            textAlign: 'left',
-                            color: '#64748B',
-                            marginRight: '4px'
-                          }}>
-                            {flightName} {flightLeadDashNumber}-{dashNumber}
-                          </div>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '200px' }}>
-                            <PilotIDBadgeSm
-                              squadronTailCode={squadron?.tail_code ?? undefined}
-                              boardNumber={pilot.boardNumber?.toString()}
-                              squadronInsigniaUrl={squadron?.insignia_url ?? undefined}
-                            />
-                            <span style={{
-                              fontSize: '16px',
-                              fontWeight: 700,
-                              color: getCallsignColor()
-                            }}>
-                              {pilot.callsign}
-                            </span>
-                          </div>
-                          <div style={{ display: 'flex', justifyContent: 'center', width: '102px', marginLeft: '44px' }}>
-                            <KillTracker
-                              pilotId={pilot.id}
-                              kills={killCounts[pilot.id] || { a2a: 0, a2g: 0 }}
-                              onChange={handleKillChange}
-                              disabled={saving || missionFinalized}
-                              type="a2a"
-                            />
-                          </div>
-                          <div style={{ display: 'flex', justifyContent: 'center', width: '102px', marginLeft: '16px' }}>
-                            <KillTracker
-                              pilotId={pilot.id}
-                              kills={killCounts[pilot.id] || { a2a: 0, a2g: 0 }}
-                              onChange={handleKillChange}
-                              disabled={saving || missionFinalized}
-                              type="a2g"
-                            />
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
+                  />
                 </div>
 
                 {/* Notes */}
