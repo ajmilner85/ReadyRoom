@@ -11,6 +11,8 @@ import { load } from 'fengari-web';
 import AircraftGroups from './AircraftGroups';
 import { useAppSettings } from '../../../context/AppSettingsContext';
 import { extractRedCoalitionUnitTypes } from '../../../utils/redUnitExtractor';
+import { MizImportOptionsDialog, type MizImportMode } from '../dialogs/MizImportOptionsDialog';
+import { ConfirmationDialog } from '../dialogs/ConfirmationDialog';
 
 interface MissionCommanderInfo {
   boardNumber: string;
@@ -36,10 +38,12 @@ interface MissionDetailsProps {
     flightCallsign: string;
     flightNumber: string;
   }[];
-  onExtractedFlights?: (flights: any[]) => void;
+  onExtractedFlights?: (flights: any[], mode?: MizImportMode) => void;
   onStepTimeChange?: (stepTime: string) => void;
   mission?: any; // Mission object from database
   updateMissionData?: (updates: any) => Promise<any>; // Function to update mission in database
+  prepFlights?: any[]; // Current flights for checking if merge is needed
+  onClearAssignments?: () => void; // Callback to clear all pilot assignments
 }
 
 interface MissionDetailsData {
@@ -63,7 +67,9 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
   onExtractedFlights,
   onStepTimeChange,
   mission,
-  updateMissionData
+  updateMissionData,
+  prepFlights,
+  onClearAssignments
 }) => {
   const { settings } = useAppSettings();
 
@@ -204,11 +210,17 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
   const [isEditing, setIsEditing] = useState(false);
   const [editedDetails, setEditedDetails] = useState<MissionDetailsData>(missionDetails);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [pendingFile, setPendingFile] = useState<File | null>(null); // File waiting for import mode selection
   const [isProcessingFile, setIsProcessingFile] = useState(false);
   const [parsedMission, setParsedMission] = useState<any>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [json2Lua, setJson2Lua] = useState<string | null>(null);
   const [hasExtractedForCurrentFile, setHasExtractedForCurrentFile] = useState(false);
+
+  // Dialog states
+  const [showImportOptionsDialog, setShowImportOptionsDialog] = useState(false);
+  const [showClearConfirmDialog, setShowClearConfirmDialog] = useState(false);
+  const [selectedImportMode, setSelectedImportMode] = useState<MizImportMode | null>(null);
 
   // Fetch cycles on component mount
   useEffect(() => {
@@ -511,9 +523,9 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
   };
 
   // Function to process the uploaded mission file
-  const processMissionFile = async (file: File) => {
+  const processMissionFile = async (file: File, importMode: MizImportMode = 'clear') => {
     setIsProcessingFile(true);
-    console.log('🔄 MissionDetails: Starting .miz file processing for:', file.name);
+    console.log('🔄 MissionDetails: Starting .miz file processing for:', file.name, 'with mode:', importMode);
     
     try {
       // Make sure json2Lua is loaded
@@ -650,30 +662,44 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
         const redUnitTypes = extractRedCoalitionUnitTypes(missionData);
         console.log(`✅ MissionDetails: Extracted ${redUnitTypes.length} unique red unit types`);
 
-        // Save extracted red unit types to database
-        if (mission && updateMissionData && redUnitTypes.length > 0) {
-          console.log('💾 MissionDetails: Saving red unit types to database...');
-          try {
-            await updateMissionData({
-              miz_file_data: {
-                ...mission.miz_file_data,
-                red_coalition_units: redUnitTypes,
-                processed_at: new Date().toISOString(),
-                file_name: file.name
-              }
-            });
-            console.log('✅ MissionDetails: Red unit types saved to database successfully');
-          } catch (dbError) {
-            console.error('❌ MissionDetails: Failed to save red unit types to database:', dbError);
-            // Don't throw - this is a non-critical error, mission processing can continue
+        // Save extracted red unit types to database with retry logic
+        const saveMizFileData = async (retryCount = 0, maxRetries = 5) => {
+          const retryDelay = 500; // 500ms between retries
+
+          if (!updateMissionData) {
+            console.warn('⚠️ MissionDetails: No updateMissionData function available');
+            return;
           }
-        } else if (!mission) {
-          console.warn('⚠️ MissionDetails: No mission available to save red unit types');
-        } else if (!updateMissionData) {
-          console.warn('⚠️ MissionDetails: No updateMissionData function available');
-        } else if (redUnitTypes.length === 0) {
-          console.warn('⚠️ MissionDetails: No red coalition units found in mission file');
-        }
+
+          if (redUnitTypes.length === 0) {
+            console.warn('⚠️ MissionDetails: No red coalition units found in mission file');
+            return;
+          }
+
+          if (mission) {
+            console.log('💾 MissionDetails: Saving red unit types to database...');
+            try {
+              await updateMissionData({
+                miz_file_data: {
+                  ...mission.miz_file_data,
+                  red_coalition_units: redUnitTypes,
+                  processed_at: new Date().toISOString(),
+                  file_name: file.name
+                }
+              });
+              console.log('✅ MissionDetails: Red unit types saved to database successfully');
+            } catch (dbError) {
+              console.error('❌ MissionDetails: Failed to save red unit types to database:', dbError);
+            }
+          } else if (retryCount < maxRetries) {
+            console.log(`⏳ MissionDetails: Mission not yet available, retrying (${retryCount + 1}/${maxRetries}) in ${retryDelay}ms...`);
+            setTimeout(() => saveMizFileData(retryCount + 1, maxRetries), retryDelay);
+          } else {
+            console.error('❌ MissionDetails: Failed to save red unit types - mission not available after max retries');
+          }
+        };
+
+        saveMizFileData();
 
         // Reset selected file after successful processing to allow new imports
         // Add a small delay to ensure AircraftGroups processes the data first
@@ -752,12 +778,71 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
 
   const handleFileSelect = (file: File) => {
     if (file && file.name.endsWith('.miz')) {
-      setSelectedFile(file);
-      setHasExtractedForCurrentFile(false); // Reset extraction flag for new file
-      processMissionFile(file);
+      // Check if there are existing flights
+      const hasExistingFlights = prepFlights && prepFlights.length > 0;
+
+      if (hasExistingFlights) {
+        // Show import options dialog
+        setPendingFile(file);
+        setShowImportOptionsDialog(true);
+      } else {
+        // No existing flights, proceed directly with clear mode
+        setSelectedFile(file);
+        setHasExtractedForCurrentFile(false);
+        setSelectedImportMode('clear');
+        processMissionFile(file, 'clear');
+      }
     } else {
       alert('Only .miz files are supported');
     }
+  };
+
+  // Handle import mode selection from dialog
+  const handleImportModeSelect = (mode: MizImportMode) => {
+    setShowImportOptionsDialog(false);
+
+    if (mode === 'cancel' || !pendingFile) {
+      setPendingFile(null);
+      return;
+    }
+
+    if (mode === 'clear') {
+      // Show confirmation dialog for clear mode
+      setSelectedImportMode(mode);
+      setShowClearConfirmDialog(true);
+    } else {
+      // For merge and dataOnly modes, proceed directly
+      setSelectedImportMode(mode);
+      setSelectedFile(pendingFile);
+      setHasExtractedForCurrentFile(false);
+      processMissionFile(pendingFile, mode);
+      setPendingFile(null);
+    }
+  };
+
+  // Handle confirmation for clear existing flights
+  const handleConfirmClear = () => {
+    setShowClearConfirmDialog(false);
+
+    if (!pendingFile) return;
+
+    // Clear all assignments
+    if (onClearAssignments) {
+      onClearAssignments();
+    }
+
+    // Proceed with file processing
+    setSelectedFile(pendingFile);
+    setHasExtractedForCurrentFile(false);
+    processMissionFile(pendingFile, 'clear');
+    setPendingFile(null);
+  };
+
+  // Handle cancellation of clear confirmation
+  const handleCancelClear = () => {
+    setShowClearConfirmDialog(false);
+    setPendingFile(null);
+    setSelectedImportMode(null);
   };
 
   const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1104,16 +1189,17 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
       {/* Aircraft Groups - Hidden but still processing data */}
       {parsedMission && (
         <div style={{ display: 'none' }}>
-          <AircraftGroups 
-            missionData={parsedMission} 
+          <AircraftGroups
+            missionData={parsedMission}
             width="100%"
             aircraftType="FA-18C_hornet"
             onExtractedFlights={(flights) => {
               // Only extract flights once per file upload
               if (!!selectedFile && !hasExtractedForCurrentFile && onExtractedFlights) {
-                console.log('🎯 MissionDetails: Extracting flights for new file upload');
+                console.log('🎯 MissionDetails: Extracting flights for new file upload with mode:', selectedImportMode);
                 setHasExtractedForCurrentFile(true);
-                onExtractedFlights(flights);
+                // Pass the import mode to the parent component
+                onExtractedFlights(flights, selectedImportMode || 'clear');
               } else {
                 console.log('⚠️ MissionDetails: Skipping extraction:', {
                   hasFile: !!selectedFile,
@@ -1122,10 +1208,30 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
                 });
               }
             }}
-            shouldExtractFlights={!!selectedFile}
+            shouldExtractFlights={!!selectedFile && selectedImportMode !== 'dataOnly'}
           />
         </div>
       )}
+
+      {/* Import Options Dialog */}
+      <MizImportOptionsDialog
+        isOpen={showImportOptionsDialog}
+        onSelectMode={handleImportModeSelect}
+        existingFlightCount={prepFlights?.length || 0}
+      />
+
+      {/* Clear Confirmation Dialog */}
+      <ConfirmationDialog
+        isOpen={showClearConfirmDialog}
+        onConfirm={handleConfirmClear}
+        onCancel={handleCancelClear}
+        title="Clear Existing Flights?"
+        message="This will delete all existing flights and pilot assignments. This action cannot be undone."
+        confirmText="Clear All"
+        cancelText="Cancel"
+        type="danger"
+        icon="trash"
+      />
     </div>
   );
 };
