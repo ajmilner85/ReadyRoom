@@ -282,9 +282,14 @@ export const useMissionPrepDataPersistence = (
         });
       }, 10);
     } else {
-      // console.log('🔄 Persistence: No flights to restore, clearing prepFlights');
-      // Clear flights if mission has no flights
-      setPrepFlightsLocal([]);
+      // Only clear flights if they weren't just extracted from a .miz file
+      if (flightsJustExtractedRef.current) {
+        console.log('🛡️ Persistence: Protecting newly extracted flights from being cleared');
+      } else {
+        // console.log('🔄 Persistence: No flights to restore, clearing prepFlights');
+        // Clear flights if mission has no flights
+        setPrepFlightsLocal([]);
+      }
     }
   }, [mission?.id, selectedEvent?.id, activePilots?.length, missionLoading, isSyncing]);
 
@@ -630,28 +635,38 @@ export const useMissionPrepDataPersistence = (
   // Use a ref to track processed flights to prevent duplicate processing
   const processedFlightsRef = useRef<string | null>(null);
 
+  // Track if flights were just extracted to prevent clearing them
+  const flightsJustExtractedRef = useRef<boolean>(false);
+
   // Reset processed flights ref when event changes
   useEffect(() => {
     processedFlightsRef.current = null;
+    flightsJustExtractedRef.current = false;
   }, [selectedEvent?.id]);
 
   // Handle extracted flights from .miz import
-  const handleExtractedFlights = useCallback((flights: any[]) => {
-    console.log('🛫 useMissionPrepDataPersistence: Processing extracted flights:', flights.length);
-    
+  const handleExtractedFlights = useCallback((flights: any[], importMode: string = 'clear') => {
+    console.log('🛫 useMissionPrepDataPersistence: Processing extracted flights:', flights.length, 'with mode:', importMode);
+
     // Create a unique key for this batch of flights
     const flightKey = flights.map(f => f.name).sort().join(',');
-    
-    // Only process if we haven't already processed this exact set of flights in the current session
-    if (processedFlightsRef.current === flightKey) {
+
+    // For clear mode, always process (reset the ref first to allow re-import)
+    // For merge mode, always process (to add new flights)
+    // For other modes, skip if we've already processed this exact set
+    if (importMode === 'clear') {
+      console.log('🗑️ useMissionPrepDataPersistence: Clear mode - resetting processed flights ref');
+      processedFlightsRef.current = null; // Allow re-processing
+    } else if (importMode !== 'merge' && processedFlightsRef.current === flightKey) {
       console.log('⚠️ useMissionPrepDataPersistence: Skipping duplicate flight processing for key:', flightKey);
       return;
     }
-    
+
     processedFlightsRef.current = flightKey;
-    
+    flightsJustExtractedRef.current = true; // Mark that flights were just extracted
+
     setExtractedFlights(flights);
-    
+
     // Convert extracted flights to prep flights format
     const batchTimestamp = Date.now().toString();
     const convertedFlights = flights.map((extractedFlight, index) => {
@@ -672,10 +687,44 @@ export const useMissionPrepDataPersistence = (
         extractedFlightData: extractedFlight
       };
     });
-    
+
     console.log('🔄 useMissionPrepDataPersistence: Converted flights to prep format:', convertedFlights.map(f => f.callsign));
-    setPrepFlights(convertedFlights);
-  }, [setPrepFlights]);
+
+    // Handle different import modes
+    if (importMode === 'merge') {
+      // Merge: Only add flights that don't already exist
+      const existingFlightKeys = new Set(
+        prepFlights.map(f => `${f.callsign}-${f.flightNumber}`.toUpperCase())
+      );
+
+      const newFlights = convertedFlights.filter(flight => {
+        const flightKey = `${flight.callsign}-${flight.flightNumber}`.toUpperCase();
+        return !existingFlightKeys.has(flightKey);
+      });
+
+      console.log(`🔀 useMissionPrepDataPersistence: Merging flights - ${newFlights.length} new, ${convertedFlights.length - newFlights.length} skipped (already exist)`);
+
+      // Append new flights to existing ones, preserving creation order
+      const maxOrder = prepFlights.reduce((max, f) => Math.max(max, f.creationOrder || 0), -1);
+      const mergedFlights = [
+        ...prepFlights,
+        ...newFlights.map((f, i) => ({ ...f, creationOrder: maxOrder + i + 1 }))
+      ];
+
+      setPrepFlights(mergedFlights);
+    } else if (importMode === 'clear') {
+      // Clear: Replace all flights (assignments already cleared by MissionDetails)
+      console.log('🗑️ useMissionPrepDataPersistence: Clearing all flights and replacing with new flights');
+      setPrepFlights(convertedFlights);
+    }
+    // For 'dataOnly' mode, we don't process flights at all (handled by shouldExtractFlights in MissionDetails)
+
+    // Reset the flag after a short delay to allow mission creation to complete
+    setTimeout(() => {
+      flightsJustExtractedRef.current = false;
+      console.log('🔓 useMissionPrepDataPersistence: Flights extraction protection released');
+    }, 3000); // 3 seconds should be enough for mission creation
+  }, [setPrepFlights, prepFlights]);
 
   return {
     // State
