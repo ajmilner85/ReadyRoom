@@ -10,6 +10,7 @@ import JSZip from 'jszip';
 import { load } from 'fengari-web';
 import AircraftGroups from './AircraftGroups';
 import { useAppSettings } from '../../../context/AppSettingsContext';
+import { extractRedCoalitionUnitTypes } from '../../../utils/redUnitExtractor';
 
 interface MissionCommanderInfo {
   boardNumber: string;
@@ -38,6 +39,7 @@ interface MissionDetailsProps {
   onExtractedFlights?: (flights: any[]) => void;
   onStepTimeChange?: (stepTime: string) => void;
   mission?: any; // Mission object from database
+  updateMissionData?: (updates: any) => Promise<any>; // Function to update mission in database
 }
 
 interface MissionDetailsData {
@@ -60,7 +62,8 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
   getMissionCommanderCandidates,
   onExtractedFlights,
   onStepTimeChange,
-  mission
+  mission,
+  updateMissionData
 }) => {
   const { settings } = useAppSettings();
 
@@ -641,7 +644,37 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
         // Store the parsed mission data
         console.log('💾 MissionDetails: Storing parsed mission data');
         setParsedMission(missionData);
-        
+
+        // Extract red coalition unit types for AAR pre-population
+        console.log('🎯 MissionDetails: Extracting red coalition unit types...');
+        const redUnitTypes = extractRedCoalitionUnitTypes(missionData);
+        console.log(`✅ MissionDetails: Extracted ${redUnitTypes.length} unique red unit types`);
+
+        // Save extracted red unit types to database
+        if (mission && updateMissionData && redUnitTypes.length > 0) {
+          console.log('💾 MissionDetails: Saving red unit types to database...');
+          try {
+            await updateMissionData({
+              miz_file_data: {
+                ...mission.miz_file_data,
+                red_coalition_units: redUnitTypes,
+                processed_at: new Date().toISOString(),
+                file_name: file.name
+              }
+            });
+            console.log('✅ MissionDetails: Red unit types saved to database successfully');
+          } catch (dbError) {
+            console.error('❌ MissionDetails: Failed to save red unit types to database:', dbError);
+            // Don't throw - this is a non-critical error, mission processing can continue
+          }
+        } else if (!mission) {
+          console.warn('⚠️ MissionDetails: No mission available to save red unit types');
+        } else if (!updateMissionData) {
+          console.warn('⚠️ MissionDetails: No updateMissionData function available');
+        } else if (redUnitTypes.length === 0) {
+          console.warn('⚠️ MissionDetails: No red coalition units found in mission file');
+        }
+
         // Reset selected file after successful processing to allow new imports
         // Add a small delay to ensure AircraftGroups processes the data first
         setTimeout(() => {

@@ -415,3 +415,32 @@ export const PERFORMANCE_RATING_LABELS: Record<PerformanceRating, string> = {
   SAT: 'Satisfactory',
   UNSAT: 'Unsatisfactory'
 };
+
+// ============================================================================
+// Enhanced Kill Tracking Types (Unit-Specific)
+// ============================================================================
+
+export interface UnitKill {
+  pilotId: string;
+  unitTypeId: string;
+  killCount: number;
+  unitDisplayName: string;
+  unitTypeName: string;
+  killCategory: 'A2A' | 'A2G' | 'A2S';
+  killRecordId?: string; // Database ID for existing kill records
+}
+
+export interface PilotKillsState {
+  [pilotId: string]: UnitKill[];
+}
+
+export interface MissionUnitPoolItem {
+  id: string;
+  type_name: string;
+  display_name: string;
+  category: 'AIRPLANE' | 'HELICOPTER' | 'GROUND_UNIT' | 'SHIP' | 'STRUCTURE' | 'HELIPORT' | 'CARGO' | 'UNKNOWN';
+  sub_category?: string | null;
+  kill_category: 'A2A' | 'A2G' | 'A2S';
+  source: 'DCS' | 'Manual';
+  is_active: boolean;
+}
