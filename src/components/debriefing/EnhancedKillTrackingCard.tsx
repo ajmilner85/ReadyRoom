@@ -1,5 +1,7 @@
-import React, { useState, useEffect, useImperativeHandle, forwardRef } from 'react';
+import React, { useState, useEffect, useImperativeHandle, forwardRef, useRef } from 'react';
 import PilotKillTile from './kill-tracking/PilotKillTile';
+import PilotStatusMenu from './kill-tracking/PilotStatusMenu';
+import AircraftStatusMenu from './kill-tracking/AircraftStatusMenu';
 import UnitSelectorPopup from './kill-tracking/UnitSelectorPopup';
 import UnitBrowserModal from './kill-tracking/UnitBrowserModal';
 import KillCell from './kill-tracking/KillCell';
@@ -27,6 +29,12 @@ interface UnitKillRecord {
   unitTypeName: string;
   killCount: number;
   killCategory: 'A2A' | 'A2G' | 'A2S';
+}
+
+interface PilotStatusRecord {
+  pilotId: string;
+  pilotStatus: 'alive' | 'mia' | 'kia';
+  aircraftStatus: 'recovered' | 'damaged' | 'destroyed';
 }
 
 interface EnhancedKillTrackingCardV2Props {
@@ -58,6 +66,7 @@ const EnhancedKillTrackingCardV2 = forwardRef<EnhancedKillTrackingCardRef, Enhan
 }, ref) => {
   const [pilots, setPilots] = useState<PilotInfo[]>([]);
   const [killRecords, setKillRecords] = useState<UnitKillRecord[]>([]);
+  const [pilotStatuses, setPilotStatuses] = useState<Map<string, PilotStatusRecord>>(new Map());
   const [missionPoolUnits, setMissionPoolUnits] = useState<MissionUnitPoolItem[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -70,6 +79,15 @@ const EnhancedKillTrackingCardV2 = forwardRef<EnhancedKillTrackingCardRef, Enhan
   // Browser modal state
   const [showBrowser, setShowBrowser] = useState(false);
   const [browserKillCategory, setBrowserKillCategory] = useState<'A2A' | 'A2G' | 'A2S'>('A2A');
+
+  // Status menu state
+  const [showPilotStatusMenu, setShowPilotStatusMenu] = useState(false);
+  const [showAircraftStatusMenu, setShowAircraftStatusMenu] = useState(false);
+  const [statusMenuPilotId, setStatusMenuPilotId] = useState<string | null>(null);
+  const [statusMenuPosition, setStatusMenuPosition] = useState({ pilot: { top: 0, left: 0 }, aircraft: { top: 0, left: 0 } });
+
+  // Ref for click outside detection
+  const containerRef = useRef<HTMLDivElement>(null);
 
   // Category colors
   const categoryColors: Record<string, string> = {
@@ -101,16 +119,28 @@ const EnhancedKillTrackingCardV2 = forwardRef<EnhancedKillTrackingCardRef, Enhan
           await killTrackingService.deleteUnitKills(deletedId);
         }
 
-        // 2. Save/update all current kill records
+        // 2. Save/update all current kill records with pilot/aircraft status
         const savedRecords: UnitKillRecord[] = [];
+        const pilotsWithKills = new Set<string>();
+
         for (const record of killRecords) {
           console.log('Saving kill record:', { id: record.id, pilot: record.pilotId, unit: record.unitDisplayName, count: record.killCount });
+
+          pilotsWithKills.add(record.pilotId);
+
+          // Get pilot status for this pilot
+          const statusRecord = pilotStatuses.get(record.pilotId);
+          const pilotStatus = statusRecord?.pilotStatus || 'alive';
+          const aircraftStatus = statusRecord?.aircraftStatus || 'recovered';
+
           const result = await killTrackingService.recordUnitKills(
             flightDebriefId,
             record.pilotId,
             missionId,
             record.unitTypeId,
-            record.killCount
+            record.killCount,
+            pilotStatus,
+            aircraftStatus
           );
 
           // Update record with actual DB ID if it was a temp record
@@ -120,9 +150,24 @@ const EnhancedKillTrackingCardV2 = forwardRef<EnhancedKillTrackingCardRef, Enhan
           });
         }
 
-        console.log('All kills saved successfully');
+        // 3. Save pilot/aircraft status for pilots with no kills but status was changed
+        for (const [pilotId, statusRecord] of pilotStatuses.entries()) {
+          if (!pilotsWithKills.has(pilotId)) {
+            // This pilot has no kills but has status - save it with empty kills_detail
+            console.log('Saving status-only record for pilot:', pilotId);
+            await killTrackingService.savePilotStatus(
+              flightDebriefId,
+              pilotId,
+              missionId,
+              statusRecord.pilotStatus,
+              statusRecord.aircraftStatus
+            );
+          }
+        }
 
-        // 3. Update local state with actual DB IDs
+        console.log('All kills and statuses saved successfully');
+
+        // 4. Update local state with actual DB IDs
         setKillRecords(savedRecords);
         setOriginalKillIds(new Set(savedRecords.map(r => r.id)));
       } catch (err) {
@@ -130,7 +175,7 @@ const EnhancedKillTrackingCardV2 = forwardRef<EnhancedKillTrackingCardRef, Enhan
         throw err;
       }
     }
-  }), [killRecords, originalKillIds, flightDebriefId, missionId]);
+  }), [killRecords, originalKillIds, pilotStatuses, flightDebriefId, missionId]);
 
   useEffect(() => {
     loadData();
@@ -218,6 +263,12 @@ const EnhancedKillTrackingCardV2 = forwardRef<EnhancedKillTrackingCardRef, Enhan
 
   const initializeUnitPoolFromMission = async () => {
     try {
+      // Check if missionDebriefingId is valid before proceeding
+      if (!missionDebriefingId || missionDebriefingId === 'undefined') {
+        console.log('No valid mission debriefing ID, skipping unit pool initialization from mission');
+        return;
+      }
+
       const { data: missionData, error: missionError } = await supabase
         .from('missions')
         .select('miz_file_data')
@@ -252,8 +303,11 @@ const EnhancedKillTrackingCardV2 = forwardRef<EnhancedKillTrackingCardRef, Enhan
   const loadExistingKills = async () => {
     try {
       console.log('Loading existing kills for flight debrief:', flightDebriefId);
+
+      // Load kill records
       const kills = await killTrackingService.getUnitKillsByFlight(flightDebriefId);
       console.log('Loaded kills from DB:', kills);
+
       const records: UnitKillRecord[] = kills.map((kill: any) => ({
         id: kill.id,
         pilotId: kill.pilot_id,
@@ -263,8 +317,24 @@ const EnhancedKillTrackingCardV2 = forwardRef<EnhancedKillTrackingCardRef, Enhan
         killCount: kill.kill_count || 1,
         killCategory: kill.unit_type?.kill_category || 'A2A'
       }));
+
+      // Load pilot/aircraft statuses for ALL pilots (including those with no kills)
+      const statuses = await killTrackingService.getPilotStatusesByFlight(flightDebriefId);
+      console.log('Loaded pilot statuses from DB:', statuses);
+
+      const statusMap = new Map<string, PilotStatusRecord>();
+      statuses.forEach((status: any) => {
+        statusMap.set(status.pilot_id, {
+          pilotId: status.pilot_id,
+          pilotStatus: status.pilot_status || 'alive',
+          aircraftStatus: status.aircraft_status || 'recovered'
+        });
+      });
+
       console.log('Mapped kill records:', records);
+      console.log('Mapped pilot statuses:', Array.from(statusMap.entries()));
       setKillRecords(records);
+      setPilotStatuses(statusMap);
       setOriginalKillIds(new Set(records.map(r => r.id)));
     } catch (err) {
       console.error('Failed to load existing kills:', err);
@@ -456,6 +526,91 @@ const EnhancedKillTrackingCardV2 = forwardRef<EnhancedKillTrackingCardRef, Enhan
     onKillsChange?.(true);
   };
 
+  const handlePilotStatusIndicatorClick = (event: React.MouseEvent, pilotId: string) => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    const indicatorBottom = rect.bottom;
+    const indicatorLeft = rect.left;
+    const gap = 4;
+
+    // Position menu below the indicator, centered horizontally with it
+    const menuWidth = 40; // 32px button + 4px padding each side
+    const menuLeft = indicatorLeft + (rect.width / 2) - (menuWidth / 2);
+
+    setStatusMenuPosition({
+      pilot: { top: indicatorBottom + gap, left: menuLeft },
+      aircraft: { top: 0, left: 0 } // Not used but required
+    });
+
+    setStatusMenuPilotId(pilotId);
+    setShowPilotStatusMenu(true);
+    setShowAircraftStatusMenu(false);
+  };
+
+  const handleAircraftStatusIndicatorClick = (event: React.MouseEvent, pilotId: string) => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    const indicatorBottom = rect.bottom;
+    const indicatorLeft = rect.left;
+    const gap = 4;
+
+    // Position menu below the indicator, centered horizontally with it
+    const menuWidth = 40; // 32px button + 4px padding each side
+    const menuLeft = indicatorLeft + (rect.width / 2) - (menuWidth / 2);
+
+    setStatusMenuPosition({
+      pilot: { top: 0, left: 0 }, // Not used but required
+      aircraft: { top: indicatorBottom + gap, left: menuLeft }
+    });
+
+    setStatusMenuPilotId(pilotId);
+    setShowPilotStatusMenu(false);
+    setShowAircraftStatusMenu(true);
+  };
+
+  const handlePilotStatusChange = (pilotId: string, status: 'alive' | 'mia' | 'kia') => {
+    setPilotStatuses(prev => {
+      const newMap = new Map(prev);
+      const existing = newMap.get(pilotId) || { pilotId, pilotStatus: 'alive', aircraftStatus: 'recovered' };
+      newMap.set(pilotId, { ...existing, pilotStatus: status });
+      return newMap;
+    });
+    setShowPilotStatusMenu(false);
+    onKillsChange?.(true);
+  };
+
+  const handleAircraftStatusChange = (pilotId: string, status: 'recovered' | 'damaged' | 'destroyed') => {
+    setPilotStatuses(prev => {
+      const newMap = new Map(prev);
+      const existing = newMap.get(pilotId) || { pilotId, pilotStatus: 'alive', aircraftStatus: 'recovered' };
+      newMap.set(pilotId, { ...existing, aircraftStatus: status });
+      return newMap;
+    });
+    setShowAircraftStatusMenu(false);
+    onKillsChange?.(true);
+  };
+
+  // Click outside to close status menus
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+
+      // Don't close if clicking inside a status menu
+      if (target.closest('[data-status-menu]')) {
+        return;
+      }
+
+      // Close menus on outside click
+      setShowPilotStatusMenu(false);
+      setShowAircraftStatusMenu(false);
+    };
+
+    if (showPilotStatusMenu || showAircraftStatusMenu) {
+      // Small delay to prevent immediate closure when opening
+      setTimeout(() => {
+        document.addEventListener('mousedown', handleClickOutside);
+      }, 0);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [showPilotStatusMenu, showAircraftStatusMenu]);
 
   const renderCategorySection = (category: 'A2A' | 'A2G' | 'A2S', label: string) => {
     // Calculate totals for each pilot in this category
@@ -604,7 +759,7 @@ const EnhancedKillTrackingCardV2 = forwardRef<EnhancedKillTrackingCardRef, Enhan
   );
 
   return (
-    <div>
+    <div ref={containerRef} style={{ position: 'relative' }}>
       {/* Pilot Tiles Row - using same structure as category sections for perfect alignment */}
       <div style={{ marginBottom: '12px' }}>
         <div style={{ display: 'flex', justifyContent: 'center' }}>
@@ -638,6 +793,10 @@ const EnhancedKillTrackingCardV2 = forwardRef<EnhancedKillTrackingCardRef, Enhan
                         flightCallsign={pilot.flightCallsign}
                         isFlightLead={pilot.isFlightLead}
                         isSectionLead={dashNumber === '3'}
+                        onPilotStatusClick={(e) => handlePilotStatusIndicatorClick(e, pilot.id)}
+                        onAircraftStatusClick={(e) => handleAircraftStatusIndicatorClick(e, pilot.id)}
+                        pilotStatus={pilotStatuses.get(pilot.id)?.pilotStatus || 'alive'}
+                        aircraftStatus={pilotStatuses.get(pilot.id)?.aircraftStatus || 'recovered'}
                       />
                     ) : (
                       <PilotKillTile
@@ -681,6 +840,24 @@ const EnhancedKillTrackingCardV2 = forwardRef<EnhancedKillTrackingCardRef, Enhan
           killCategory={browserKillCategory}
           onSelectUnit={handleBrowserSelectUnit}
           onClose={() => setShowBrowser(false)}
+        />
+      )}
+
+      {/* Pilot Status Menu */}
+      {showPilotStatusMenu && statusMenuPilotId && (
+        <PilotStatusMenu
+          currentStatus={pilotStatuses.get(statusMenuPilotId)?.pilotStatus || 'alive'}
+          onSelect={(status) => handlePilotStatusChange(statusMenuPilotId, status)}
+          position={statusMenuPosition.pilot}
+        />
+      )}
+
+      {/* Aircraft Status Menu */}
+      {showAircraftStatusMenu && statusMenuPilotId && (
+        <AircraftStatusMenu
+          currentStatus={pilotStatuses.get(statusMenuPilotId)?.aircraftStatus || 'recovered'}
+          onSelect={(status) => handleAircraftStatusChange(statusMenuPilotId, status)}
+          position={statusMenuPosition.aircraft}
         />
       )}
     </div>

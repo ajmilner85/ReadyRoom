@@ -1933,6 +1933,17 @@ export type Database = {
         }
         Returns: boolean
       }
+      add_units_to_pool: {
+        Args: {
+          p_mission_debriefing_id: string
+          p_unit_type_ids: string[]
+          p_added_by?: string
+        }
+        Returns: {
+          added_count: number
+          duplicate_count: number
+        }[]
+      }
       add_pilot_qualification: {
         Args: {
           p_achieved_date?: string
