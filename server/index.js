@@ -1813,25 +1813,43 @@ async function processIndividualReminder(reminder) {
 
       const respondedUserIds = new Set(latestResponseMap.keys());
 
-      // Get all active pilots from participating squadrons
-      const { data: pilots, error: pilotsError } = await supabase
-        .from('pilots')
-        .select('discord_id, callsign')
-        .eq('status', 'Active'); // Only active pilots
+      // Get participating squadrons
+      const participatingSquadronIds = eventData.participants || [];
 
-      if (pilotsError) {
-        console.warn(`[REMINDER] Could not fetch pilots for no-response filtering: ${pilotsError.message}`);
-      } else {
-        // Add users who haven't responded to the attendance data
-        (pilots || []).forEach(pilot => {
-          if (pilot.discord_id && !respondedUserIds.has(pilot.discord_id)) {
-            attendanceData.push({
+      if (participatingSquadronIds.length > 0) {
+        // Get pilots from participating squadrons with active status
+        const { data: eligiblePilots, error: pilotsError } = await supabase
+          .from('pilots')
+          .select(`
+            discord_id,
+            discord_username,
+            pilot_statuses!inner(
+              status_id,
+              end_date,
+              statuses!inner(isActive)
+            ),
+            pilot_assignments!inner(squadron_id)
+          `)
+          .in('pilot_assignments.squadron_id', participatingSquadronIds)
+          .eq('pilot_statuses.statuses.isActive', true)
+          .is('pilot_statuses.end_date', null)
+          .not('discord_id', 'is', null);
+
+        if (pilotsError) {
+          console.warn(`[REMINDER] Could not fetch pilots for no-response filtering: ${pilotsError.message}`);
+        } else {
+          // Filter for users who haven't responded
+          const noResponseUsers = (eligiblePilots || [])
+            .filter(pilot => !respondedUserIds.has(pilot.discord_id))
+            .map(pilot => ({
               discord_id: pilot.discord_id,
-              discord_username: pilot.callsign,
+              discord_username: pilot.discord_username,
               user_response: 'no_response'
-            });
-          }
-        });
+            }));
+
+          console.log(`[REMINDER] Found ${noResponseUsers.length} no-response users from participating squadrons`);
+          attendanceData = [...attendanceData, ...noResponseUsers];
+        }
       }
     }
   }
