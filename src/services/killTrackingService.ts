@@ -194,33 +194,30 @@ class KillTrackingService {
   }
 
   /**
-   * Add units to mission pool
+   * Add units to mission pool (stored in mission_debriefings.unit_type_pool JSONB column)
+   * Uses the database function add_units_to_pool which handles duplicates
    */
   async addUnitsToPool(missionDebriefingId: string, unitTypeIds: string[]) {
-    // Get unit types to determine their kill categories
-    const { data: unitTypes, error: fetchError } = await supabase
-      .from('dcs_unit_types')
-      .select('id, kill_category')
-      .in('id', unitTypeIds);
-
-    if (fetchError) {
-      throw new Error(`Failed to fetch unit types: ${fetchError.message}`);
+    if (!unitTypeIds || unitTypeIds.length === 0) {
+      console.log('No unit type IDs provided to add to pool');
+      return;
     }
 
-    // Create pool entries
-    const poolEntries = unitTypes.map((unit) => ({
-      mission_debriefing_id: missionDebriefingId,
-      unit_type_id: unit.id,
-      kill_category: unit.kill_category
-    }));
+    console.log('Adding units to pool:', { missionDebriefingId, unitTypeIds });
 
-    const { error } = await supabase
-      .from('mission_unit_type_pool')
-      .insert(poolEntries);
+    // Call the database function to add units to the JSONB pool
+    const { data, error } = await supabase.rpc('add_units_to_pool', {
+      p_mission_debriefing_id: missionDebriefingId,
+      p_unit_type_ids: unitTypeIds
+    });
 
     if (error) {
-      throw new Error(`Failed to add units to pool: ${error.message}`);
+      console.error('Error adding units to pool:', error);
+      throw new Error(`Failed to add units to pool: ${error.message || JSON.stringify(error)}`);
     }
+
+    console.log('Successfully added units to pool:', data);
+    return data;
   }
 
   /**
@@ -311,6 +308,84 @@ class KillTrackingService {
     }
 
     return data;
+  }
+
+  /**
+   * Save pilot and aircraft status for a pilot with no kills
+   */
+  async savePilotStatus(
+    flightDebriefId: string,
+    pilotId: string,
+    missionId: string,
+    pilotStatus: 'alive' | 'mia' | 'kia',
+    aircraftStatus: 'recovered' | 'damaged' | 'destroyed'
+  ) {
+    // Check if record exists
+    const { data: existing } = await supabase
+      .from('pilot_kills')
+      .select('id')
+      .eq('flight_debrief_id', flightDebriefId)
+      .eq('pilot_id', pilotId)
+      .eq('mission_id', missionId)
+      .maybeSingle();
+
+    if (existing) {
+      // Update existing record
+      const { data, error } = await supabase
+        .from('pilot_kills')
+        .update({
+          pilot_status: pilotStatus,
+          aircraft_status: aircraftStatus
+        })
+        .eq('id', existing.id)
+        .select()
+        .single();
+
+      if (error) {
+        throw new Error(`Failed to update pilot status: ${error.message}`);
+      }
+      return data;
+    }
+
+    // Create new record with empty kills_detail
+    const { data, error } = await supabase
+      .from('pilot_kills')
+      .insert({
+        flight_debrief_id: flightDebriefId,
+        pilot_id: pilotId,
+        mission_id: missionId,
+        kills_detail: [],
+        pilot_status: pilotStatus,
+        aircraft_status: aircraftStatus
+      })
+      .select()
+      .single();
+
+    if (error) {
+      throw new Error(`Failed to save pilot status: ${error.message}`);
+    }
+
+    return data;
+  }
+
+  /**
+   * Get pilot and aircraft statuses for all pilots in a flight debrief
+   */
+  async getPilotStatusesByFlight(flightDebriefId: string) {
+    const { data, error } = await supabase
+      .from('pilot_kills')
+      .select(`
+        pilot_id,
+        pilot_status,
+        aircraft_status
+      `)
+      .eq('flight_debrief_id', flightDebriefId);
+
+    if (error) {
+      throw new Error(`Failed to get pilot statuses: ${error.message}`);
+    }
+
+    return data || [];
   }
 
   /**

@@ -1,4 +1,5 @@
 import React from 'react';
+import { User, UserSearch, Skull, PlaneLanding, Wrench, Flame } from 'lucide-react';
 import aircraftIcon from '../../../assets/Aircraft Icon.svg';
 
 interface PilotKillTileProps {
@@ -10,6 +11,10 @@ interface PilotKillTileProps {
   isFlightLead?: boolean;
   isSectionLead?: boolean;
   pilotSquadronColor?: string;
+  onPilotStatusClick?: (event: React.MouseEvent) => void;
+  onAircraftStatusClick?: (event: React.MouseEvent) => void;
+  pilotStatus?: 'alive' | 'mia' | 'kia';
+  aircraftStatus?: 'recovered' | 'damaged' | 'destroyed';
 }
 
 /**
@@ -24,8 +29,15 @@ const PilotKillTile: React.FC<PilotKillTileProps> = ({
   flightCallsign,
   isFlightLead = false,
   isSectionLead = false,
-  pilotSquadronColor
+  pilotSquadronColor,
+  onPilotStatusClick,
+  onAircraftStatusClick,
+  pilotStatus = 'alive',
+  aircraftStatus = 'recovered'
 }) => {
+  const [pilotStatusHovered, setPilotStatusHovered] = React.useState(false);
+  const [aircraftStatusHovered, setAircraftStatusHovered] = React.useState(false);
+
   // Component styling constants
   const PURPLE = '#5B4E61';
   const LIGHT_SLATE_GREY = '#F9FAFB';
@@ -43,6 +55,13 @@ const PilotKillTile: React.FC<PilotKillTileProps> = ({
   const accentColor = isEmpty
     ? (isFlightLead || isSectionLead ? FADED_PURPLE : '')
     : (isFlightLead || isSectionLead ? PURPLE : '');
+
+  // Get status colors and icons
+  const pilotStatusColor = pilotStatus === 'alive' ? '#10B981' : pilotStatus === 'mia' ? '#F59E0B' : '#EF4444';
+  const aircraftStatusColor = aircraftStatus === 'recovered' ? '#10B981' : aircraftStatus === 'damaged' ? '#F59E0B' : '#EF4444';
+
+  const PilotStatusIcon = pilotStatus === 'alive' ? User : pilotStatus === 'mia' ? UserSearch : Skull;
+  const AircraftStatusIcon = aircraftStatus === 'recovered' ? PlaneLanding : aircraftStatus === 'damaged' ? Wrench : Flame;
 
   return (
     <div
@@ -96,6 +115,70 @@ const PilotKillTile: React.FC<PilotKillTileProps> = ({
             boxShadow: pilotSquadronColor ? `inset 0 0 0 2px ${pilotSquadronColor}` : 'none'
           }}
         >
+          {/* Status indicators - positioned at top corners (matching MIDS channel positions) */}
+          {!isEmpty && (
+            <>
+              {/* Pilot status indicator - top left */}
+              <div
+                onClick={onPilotStatusClick ? (e) => {
+                  e.stopPropagation();
+                  onPilotStatusClick(e);
+                } : undefined}
+                onMouseEnter={() => onPilotStatusClick && setPilotStatusHovered(true)}
+                onMouseLeave={() => setPilotStatusHovered(false)}
+                style={{
+                  position: 'absolute',
+                  top: '5px',
+                  left: '5px',
+                  width: '20px',
+                  height: '20px',
+                  backgroundColor: pilotStatusHovered ? '#F3F4F6' : '#FFFFFF',
+                  borderRadius: '4px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  zIndex: 3,
+                  cursor: onPilotStatusClick ? 'pointer' : 'default',
+                  transition: 'background-color 0.15s ease'
+                }}
+              >
+                <PilotStatusIcon
+                  size={14}
+                  style={{ color: pilotStatusColor }}
+                />
+              </div>
+              {/* Aircraft status indicator - top right */}
+              <div
+                onClick={onAircraftStatusClick ? (e) => {
+                  e.stopPropagation();
+                  onAircraftStatusClick(e);
+                } : undefined}
+                onMouseEnter={() => onAircraftStatusClick && setAircraftStatusHovered(true)}
+                onMouseLeave={() => setAircraftStatusHovered(false)}
+                style={{
+                  position: 'absolute',
+                  top: '5px',
+                  right: '5px',
+                  width: '20px',
+                  height: '20px',
+                  backgroundColor: aircraftStatusHovered ? '#F3F4F6' : '#FFFFFF',
+                  borderRadius: '4px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  zIndex: 3,
+                  cursor: onAircraftStatusClick ? 'pointer' : 'default',
+                  transition: 'background-color 0.15s ease'
+                }}
+              >
+                <AircraftStatusIcon
+                  size={14}
+                  style={{ color: aircraftStatusColor }}
+                />
+              </div>
+            </>
+          )}
+
           {/* Bottom accent strip (for flight lead or section lead) */}
           {(isFlightLead || isSectionLead) && (
             <div
