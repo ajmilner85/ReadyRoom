@@ -132,19 +132,7 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
     // });
 
     // Always sync with initialFlights, even if empty (to clear stale state)
-    if (initialFlights && initialFlights.length > 0) {
-      // Reassign MIDS channels when loading from database to ensure they're populated
-      const flightsWithMids = [...initialFlights];
-      let midsCounter = 1;
-      flightsWithMids.forEach(flight => {
-        flight.midsA = midsCounter.toString();
-        flight.midsB = (midsCounter + 2).toString();
-        midsCounter += 3;
-      });
-      setFlights(flightsWithMids);
-    } else {
-      setFlights([]);
-    }
+    setFlights(initialFlights || []);
 
     // if (initialFlights && initialFlights.length > 0) {
     //   console.log('🔄 FlightAssignments: Updated flights from initialFlights prop:', initialFlights.length, 'flights');
