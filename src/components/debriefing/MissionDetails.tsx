@@ -2,11 +2,13 @@ import React, { useState, useRef, useEffect } from 'react';
 import { missionDetailsStyles, squadronTileStyles } from '../../styles/DebriefingStyles';
 import FlightListItem from './FlightListItem';
 import FlightDebriefForm from './FlightDebriefForm';
+import MissionSummaryWithPopups from './MissionSummaryWithPopups';
 import type { PilotAssignment } from '../../types/MissionTypes';
 import type { FlightDebrief } from '../../types/DebriefingTypes';
 import type { Squadron } from '../../utils/squadronService';
 import { ChevronDown } from 'lucide-react';
 import { debriefingService } from '../../services/debriefingService';
+import { killTrackingService } from '../../services/killTrackingService';
 
 interface MissionListItem {
   id: string;
@@ -68,7 +70,31 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
   // All hooks must be called before any conditional returns
   const [outcomeDropdownOpen, setOutcomeDropdownOpen] = useState(false);
   const [updatingOutcome, setUpdatingOutcome] = useState(false);
+  const [missionSummary, setMissionSummary] = useState<any>(null);
+  const [loadingSummary, setLoadingSummary] = useState(false);
   const outcomeDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Load mission summary when missionDebriefId changes
+  useEffect(() => {
+    const loadMissionSummary = async () => {
+      if (!missionDebriefId) {
+        setMissionSummary(null);
+        return;
+      }
+
+      setLoadingSummary(true);
+      try {
+        const summary = await killTrackingService.getMissionSummary(missionDebriefId);
+        setMissionSummary(summary);
+      } catch (error) {
+        console.error('Failed to load mission summary:', error);
+      } finally {
+        setLoadingSummary(false);
+      }
+    };
+
+    loadMissionSummary();
+  }, [missionDebriefId, flightDebriefs]); // Re-load when flight debriefs change
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -246,6 +272,28 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
           )}
         </div>
       </div>
+
+      {/* Mission Summary Section */}
+      {!loadingSummary && missionSummary && missionDebriefId && (
+        <MissionSummaryWithPopups
+          missionDebriefId={missionDebriefId}
+          summaryData={missionSummary}
+        />
+      )}
+
+      {/* After Action Reports Section */}
+      <h3 style={{
+        fontSize: '20px',
+        fontWeight: 300,
+        color: '#646F7E',
+        fontFamily: 'Inter',
+        textTransform: 'uppercase',
+        letterSpacing: '0.5px',
+        marginBottom: '16px',
+        textAlign: 'center'
+      }}>
+        After Action Reports
+      </h3>
 
       {/* Squadron Tiles with Flights */}
       {flightsBySquadron.size > 0 ? (

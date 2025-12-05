@@ -1,7 +1,7 @@
 import React from 'react';
-import { User, UserSearch, Skull } from 'lucide-react';
+import { User, UserSearch, Skull, HelpCircle } from 'lucide-react';
 
-type PilotStatus = 'alive' | 'mia' | 'kia';
+type PilotStatus = 'alive' | 'mia' | 'kia' | 'unaccounted';
 
 interface PilotStatusMenuProps {
   currentStatus: PilotStatus;
@@ -17,7 +17,8 @@ const PilotStatusMenu: React.FC<PilotStatusMenuProps> = ({
   const statuses: Array<{ value: PilotStatus; label: string; color: string; icon: React.ComponentType<any> }> = [
     { value: 'alive', label: 'Alive', color: '#10B981', icon: User }, // Green
     { value: 'mia', label: 'MIA', color: '#F59E0B', icon: UserSearch },    // Amber
-    { value: 'kia', label: 'KIA', color: '#EF4444', icon: Skull }      // Red
+    { value: 'kia', label: 'KIA', color: '#EF4444', icon: Skull },      // Red
+    { value: 'unaccounted', label: 'Unaccounted', color: '#9CA3AF', icon: HelpCircle } // Gray
   ];
 
   return (

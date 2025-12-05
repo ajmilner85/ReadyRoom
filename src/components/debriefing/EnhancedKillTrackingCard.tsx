@@ -33,8 +33,8 @@ interface UnitKillRecord {
 
 interface PilotStatusRecord {
   pilotId: string;
-  pilotStatus: 'alive' | 'mia' | 'kia';
-  aircraftStatus: 'recovered' | 'damaged' | 'destroyed';
+  pilotStatus: 'alive' | 'mia' | 'kia' | 'unaccounted';
+  aircraftStatus: 'recovered' | 'damaged' | 'destroyed' | 'down' | 'unaccounted';
 }
 
 interface EnhancedKillTrackingCardV2Props {
@@ -130,8 +130,10 @@ const EnhancedKillTrackingCardV2 = forwardRef<EnhancedKillTrackingCardRef, Enhan
 
           // Get pilot status for this pilot
           const statusRecord = pilotStatuses.get(record.pilotId);
-          const pilotStatus = statusRecord?.pilotStatus || 'alive';
-          const aircraftStatus = statusRecord?.aircraftStatus || 'recovered';
+          const pilotStatus = statusRecord?.pilotStatus === 'unaccounted' ? undefined : statusRecord?.pilotStatus;
+          let aircraftStatus = statusRecord?.aircraftStatus === 'unaccounted' ? undefined : statusRecord?.aircraftStatus;
+          // Map 'down' to 'damaged' for service compatibility
+          if (aircraftStatus === 'down') aircraftStatus = 'damaged';
 
           const result = await killTrackingService.recordUnitKills(
             flightDebriefId,
@@ -139,8 +141,8 @@ const EnhancedKillTrackingCardV2 = forwardRef<EnhancedKillTrackingCardRef, Enhan
             missionId,
             record.unitTypeId,
             record.killCount,
-            pilotStatus,
-            aircraftStatus
+            pilotStatus || 'alive',
+            aircraftStatus || 'recovered'
           );
 
           // Update record with actual DB ID if it was a temp record
@@ -153,14 +155,24 @@ const EnhancedKillTrackingCardV2 = forwardRef<EnhancedKillTrackingCardRef, Enhan
         // 3. Save pilot/aircraft status for pilots with no kills but status was changed
         for (const [pilotId, statusRecord] of pilotStatuses.entries()) {
           if (!pilotsWithKills.has(pilotId)) {
+            // Skip if both statuses are 'unaccounted' (default/no change)
+            if (statusRecord.pilotStatus === 'unaccounted' && statusRecord.aircraftStatus === 'unaccounted') {
+              continue;
+            }
+
             // This pilot has no kills but has status - save it with empty kills_detail
             console.log('Saving status-only record for pilot:', pilotId);
+            const pilotStatus = statusRecord.pilotStatus === 'unaccounted' ? 'alive' : statusRecord.pilotStatus;
+            let aircraftStatus = statusRecord.aircraftStatus === 'unaccounted' ? 'recovered' : statusRecord.aircraftStatus;
+            // Map 'down' to 'damaged' for service compatibility
+            if (aircraftStatus === 'down') aircraftStatus = 'damaged';
+
             await killTrackingService.savePilotStatus(
               flightDebriefId,
               pilotId,
               missionId,
-              statusRecord.pilotStatus,
-              statusRecord.aircraftStatus
+              pilotStatus,
+              aircraftStatus
             );
           }
         }
@@ -566,10 +578,10 @@ const EnhancedKillTrackingCardV2 = forwardRef<EnhancedKillTrackingCardRef, Enhan
     setShowAircraftStatusMenu(true);
   };
 
-  const handlePilotStatusChange = (pilotId: string, status: 'alive' | 'mia' | 'kia') => {
+  const handlePilotStatusChange = (pilotId: string, status: 'alive' | 'mia' | 'kia' | 'unaccounted') => {
     setPilotStatuses(prev => {
       const newMap = new Map(prev);
-      const existing = newMap.get(pilotId) || { pilotId, pilotStatus: 'alive', aircraftStatus: 'recovered' };
+      const existing = newMap.get(pilotId) || { pilotId, pilotStatus: 'unaccounted', aircraftStatus: 'unaccounted' };
       newMap.set(pilotId, { ...existing, pilotStatus: status });
       return newMap;
     });
@@ -577,10 +589,10 @@ const EnhancedKillTrackingCardV2 = forwardRef<EnhancedKillTrackingCardRef, Enhan
     onKillsChange?.(true);
   };
 
-  const handleAircraftStatusChange = (pilotId: string, status: 'recovered' | 'damaged' | 'destroyed') => {
+  const handleAircraftStatusChange = (pilotId: string, status: 'recovered' | 'damaged' | 'destroyed' | 'down' | 'unaccounted') => {
     setPilotStatuses(prev => {
       const newMap = new Map(prev);
-      const existing = newMap.get(pilotId) || { pilotId, pilotStatus: 'alive', aircraftStatus: 'recovered' };
+      const existing = newMap.get(pilotId) || { pilotId, pilotStatus: 'unaccounted', aircraftStatus: 'unaccounted' };
       newMap.set(pilotId, { ...existing, aircraftStatus: status });
       return newMap;
     });
@@ -795,8 +807,8 @@ const EnhancedKillTrackingCardV2 = forwardRef<EnhancedKillTrackingCardRef, Enhan
                         isSectionLead={dashNumber === '3'}
                         onPilotStatusClick={(e) => handlePilotStatusIndicatorClick(e, pilot.id)}
                         onAircraftStatusClick={(e) => handleAircraftStatusIndicatorClick(e, pilot.id)}
-                        pilotStatus={pilotStatuses.get(pilot.id)?.pilotStatus || 'alive'}
-                        aircraftStatus={pilotStatuses.get(pilot.id)?.aircraftStatus || 'recovered'}
+                        pilotStatus={pilotStatuses.get(pilot.id)?.pilotStatus || 'unaccounted'}
+                        aircraftStatus={pilotStatuses.get(pilot.id)?.aircraftStatus || 'unaccounted'}
                       />
                     ) : (
                       <PilotKillTile
