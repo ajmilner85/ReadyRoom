@@ -241,11 +241,19 @@ export const useMissionPrepDataPersistence = (
     // });
     
     if (mission.flights && mission.flights.length > 0) {
-      // console.log('📝 Persistence: Restoring flights from database:', mission.flights.map(f => ({ id: f.id, callsign: f.callsign })));
+      console.log('📝 Persistence: Restoring flights from database:', mission.flights.map(f => ({
+        id: f.id,
+        callsign: f.callsign,
+        flightData: f.flight_data,
+        midsA: f.flight_data?.midsA,
+        midsB: f.flight_data?.midsB
+      })));
       const convertedFlights = mission.flights.map((missionFlight, index) => {
         // Extract MIDS channels from the flight_data or use defaults
         const flightData = missionFlight.flight_data || {};
-        
+
+        console.log(`Flight ${index} (${missionFlight.callsign}): midsA="${flightData.midsA}", midsB="${flightData.midsB}"`);
+
         return {
           id: missionFlight.id,
           callsign: missionFlight.callsign || 'UNKNOWN',
