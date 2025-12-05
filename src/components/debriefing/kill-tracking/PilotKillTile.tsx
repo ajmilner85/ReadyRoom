@@ -1,5 +1,5 @@
 import React from 'react';
-import { User, UserSearch, Skull, PlaneLanding, Wrench, Flame } from 'lucide-react';
+import { User, UserSearch, Skull, PlaneLanding, Wrench, Flame, HelpCircle, ThumbsDown } from 'lucide-react';
 import aircraftIcon from '../../../assets/Aircraft Icon.svg';
 
 interface PilotKillTileProps {
@@ -13,8 +13,8 @@ interface PilotKillTileProps {
   pilotSquadronColor?: string;
   onPilotStatusClick?: (event: React.MouseEvent) => void;
   onAircraftStatusClick?: (event: React.MouseEvent) => void;
-  pilotStatus?: 'alive' | 'mia' | 'kia';
-  aircraftStatus?: 'recovered' | 'damaged' | 'destroyed';
+  pilotStatus?: 'alive' | 'mia' | 'kia' | 'unaccounted';
+  aircraftStatus?: 'recovered' | 'damaged' | 'destroyed' | 'down' | 'unaccounted';
 }
 
 /**
@@ -32,8 +32,8 @@ const PilotKillTile: React.FC<PilotKillTileProps> = ({
   pilotSquadronColor,
   onPilotStatusClick,
   onAircraftStatusClick,
-  pilotStatus = 'alive',
-  aircraftStatus = 'recovered'
+  pilotStatus = 'unaccounted',
+  aircraftStatus = 'unaccounted'
 }) => {
   const [pilotStatusHovered, setPilotStatusHovered] = React.useState(false);
   const [aircraftStatusHovered, setAircraftStatusHovered] = React.useState(false);
@@ -57,11 +57,27 @@ const PilotKillTile: React.FC<PilotKillTileProps> = ({
     : (isFlightLead || isSectionLead ? PURPLE : '');
 
   // Get status colors and icons
-  const pilotStatusColor = pilotStatus === 'alive' ? '#10B981' : pilotStatus === 'mia' ? '#F59E0B' : '#EF4444';
-  const aircraftStatusColor = aircraftStatus === 'recovered' ? '#10B981' : aircraftStatus === 'damaged' ? '#F59E0B' : '#EF4444';
+  const pilotStatusColor = pilotStatus === 'alive' ? '#10B981' :
+                           pilotStatus === 'mia' ? '#F59E0B' :
+                           pilotStatus === 'kia' ? '#EF4444' :
+                           '#9CA3AF'; // Gray for unaccounted
 
-  const PilotStatusIcon = pilotStatus === 'alive' ? User : pilotStatus === 'mia' ? UserSearch : Skull;
-  const AircraftStatusIcon = aircraftStatus === 'recovered' ? PlaneLanding : aircraftStatus === 'damaged' ? Wrench : Flame;
+  const aircraftStatusColor = aircraftStatus === 'recovered' ? '#10B981' :
+                              aircraftStatus === 'damaged' ? '#F59E0B' :
+                              aircraftStatus === 'destroyed' ? '#EF4444' :
+                              aircraftStatus === 'down' ? '#6B7280' :
+                              '#9CA3AF'; // Light gray for unaccounted
+
+  const PilotStatusIcon = pilotStatus === 'alive' ? User :
+                          pilotStatus === 'mia' ? UserSearch :
+                          pilotStatus === 'kia' ? Skull :
+                          HelpCircle;
+
+  const AircraftStatusIcon = aircraftStatus === 'recovered' ? PlaneLanding :
+                             aircraftStatus === 'damaged' ? Wrench :
+                             aircraftStatus === 'destroyed' ? Flame :
+                             aircraftStatus === 'down' ? ThumbsDown :
+                             HelpCircle;
 
   return (
     <div

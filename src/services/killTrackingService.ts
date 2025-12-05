@@ -601,6 +601,221 @@ class KillTrackingService {
 
     return data;
   }
+
+  /**
+   * Get mission summary aggregating data from all flight debriefs
+   */
+  async getMissionSummary(missionDebriefId: string) {
+    // Get the mission_debriefing record to find the mission_id
+    const { data: missionDebrief, error: missionDebriefError } = await supabase
+      .from('mission_debriefings')
+      .select('mission_id')
+      .eq('id', missionDebriefId)
+      .single();
+
+    if (missionDebriefError || !missionDebrief) {
+      throw new Error(`Failed to fetch mission debrief: ${missionDebriefError?.message || 'Not found'}`);
+    }
+
+    // Get mission to access pilot_assignments
+    const { data: mission, error: missionError } = await supabase
+      .from('missions')
+      .select('pilot_assignments')
+      .eq('id', missionDebrief.mission_id)
+      .single();
+
+    if (missionError) {
+      throw new Error(`Failed to fetch mission: ${missionError.message}`);
+    }
+
+    // Get all flight debriefs for this mission
+    const { data: flightDebriefs, error: flightDebriefError } = await supabase
+      .from('flight_debriefs')
+      .select('id, performance_ratings')
+      .eq('mission_debriefing_id', missionDebriefId);
+
+    if (flightDebriefError) {
+      throw new Error(`Failed to fetch flight debriefs: ${flightDebriefError.message}`);
+    }
+
+    // Get all pilot kills and statuses for these flight debriefs
+    const flightDebriefIds = flightDebriefs?.map(fd => fd.id) || [];
+
+    const { data: pilotKills, error: killsError } = await supabase
+      .from('pilot_kills')
+      .select('pilot_status, aircraft_status, kills_detail')
+      .in('flight_debrief_id', flightDebriefIds);
+
+    if (killsError) {
+      throw new Error(`Failed to fetch pilot kills: ${killsError.message}`);
+    }
+
+    // Count total aircraft slots and flights from mission pilot_assignments
+    // pilot_assignments is structured as: { [flightId]: [pilot1, pilot2, ...], ... }
+    const pilotAssignments = mission?.pilot_assignments as any || {};
+    let totalAircraftSlots = 0;
+    const totalFlights = Object.keys(pilotAssignments).length;
+
+    Object.values(pilotAssignments).forEach((flightPilots: any) => {
+      if (Array.isArray(flightPilots)) {
+        totalAircraftSlots += flightPilots.length;
+      }
+    });
+
+    console.log('Mission Summary Debug:', {
+      missionId: missionDebrief.mission_id,
+      pilotAssignments,
+      totalAircraftSlots,
+      totalFlights,
+      flightDebriefCount: flightDebriefs?.length,
+      pilotKillsCount: pilotKills?.length
+    });
+
+    // Initialize counters
+    const summary = {
+      pilotStatus: {
+        alive: 0,
+        mia: 0,
+        kia: 0,
+        unaccounted: totalAircraftSlots // Start with all pilots as unaccounted
+      },
+      aircraftStatus: {
+        recovered: 0,
+        damaged: 0,
+        destroyed: 0,
+        down: 0,
+        unaccounted: totalAircraftSlots // Start with all aircraft as unaccounted
+      },
+      totalKills: {
+        a2a: 0,
+        a2g: 0,
+        a2s: 0
+      },
+      performance: {
+        sats: 0,
+        unsats: 0,
+        total: 0,
+        totalPossible: 0,
+        unassessed: 0
+      }
+    };
+
+    // Calculate total possible performance evaluations
+    // Count actual performance categories from first flight debrief with ratings
+    let performanceCategoriesCount = 0;
+    if (flightDebriefs && flightDebriefs.length > 0) {
+      const firstDebrief = flightDebriefs.find(fd => fd.performance_ratings);
+      if (firstDebrief && firstDebrief.performance_ratings) {
+        performanceCategoriesCount = Object.keys(firstDebrief.performance_ratings).length;
+      }
+    }
+
+    // If no flight debriefs have ratings yet, default to 8 categories
+    if (performanceCategoriesCount === 0) {
+      performanceCategoriesCount = 8;
+    }
+
+    // Total possible = total flights in mission × number of performance categories
+    summary.performance.totalPossible = totalFlights * performanceCategoriesCount;
+
+    console.log('Performance calculation:', {
+      totalFlights,
+      performanceCategoriesCount,
+      flightDebriefCount: flightDebriefs?.length,
+      totalPossible: summary.performance.totalPossible
+    });
+
+    // Collect all unit type IDs that need to be looked up
+    const unitTypeIds = new Set<string>();
+    pilotKills?.forEach(record => {
+      if (record.kills_detail && Array.isArray(record.kills_detail)) {
+        const killsDetail = record.kills_detail as Array<{unit_type_id: string, kill_count: number}>;
+        killsDetail.forEach(kill => unitTypeIds.add(kill.unit_type_id));
+      }
+    });
+
+    // Fetch all unit types in one query
+    const { data: unitTypes } = await supabase
+      .from('dcs_unit_types')
+      .select('id, kill_category')
+      .in('id', Array.from(unitTypeIds));
+
+    // Create a map of unit type ID to kill category
+    const unitTypeCategories = new Map<string, string>();
+    unitTypes?.forEach(ut => {
+      unitTypeCategories.set(ut.id, ut.kill_category);
+    });
+
+    // Aggregate pilot and aircraft statuses and kills
+    pilotKills?.forEach(record => {
+      const pilotStatus = record.pilot_status || 'unaccounted';
+      const aircraftStatus = record.aircraft_status || 'unaccounted';
+
+      // Only count if status was explicitly set (not unaccounted)
+      if (pilotStatus !== 'unaccounted') {
+        summary.pilotStatus[pilotStatus as 'alive' | 'mia' | 'kia']++;
+        summary.pilotStatus.unaccounted--;
+      }
+
+      if (aircraftStatus !== 'unaccounted') {
+        summary.aircraftStatus[aircraftStatus as 'recovered' | 'damaged' | 'destroyed' | 'down']++;
+        summary.aircraftStatus.unaccounted--;
+      }
+
+      // Aggregate kills from kills_detail JSONB array
+      if (record.kills_detail && Array.isArray(record.kills_detail)) {
+        const killsDetail = record.kills_detail as Array<{unit_type_id: string, kill_count: number}>;
+
+        killsDetail.forEach(kill => {
+          const category = unitTypeCategories.get(kill.unit_type_id);
+          if (category === 'A2A') {
+            summary.totalKills.a2a += kill.kill_count;
+          } else if (category === 'A2G') {
+            summary.totalKills.a2g += kill.kill_count;
+          } else if (category === 'A2S') {
+            summary.totalKills.a2s += kill.kill_count;
+          }
+        });
+      }
+    });
+
+    // Aggregate performance ratings from flight debriefs
+    flightDebriefs?.forEach(fd => {
+      const performanceRatings = fd.performance_ratings as any;
+      console.log('Performance ratings for flight debrief:', fd.id, performanceRatings);
+      if (performanceRatings && typeof performanceRatings === 'object') {
+        // performance_ratings is a JSONB object with category keys containing objects with {rating, comments}
+        Object.values(performanceRatings).forEach((ratingObj: any) => {
+          if (ratingObj && typeof ratingObj === 'object' && ratingObj.rating) {
+            const rating = ratingObj.rating.toLowerCase();
+            console.log('Processing rating:', ratingObj);
+            if (rating === 'sat' || rating === 'unsat') {
+              summary.performance.total++;
+              if (rating === 'sat') {
+                summary.performance.sats++;
+              } else {
+                summary.performance.unsats++;
+              }
+            }
+          }
+        });
+      }
+    });
+
+    // Calculate unassessed performance items
+    summary.performance.unassessed = summary.performance.totalPossible - summary.performance.total;
+
+    console.log('Final summary:', summary);
+    console.log('Performance final values:', {
+      sats: summary.performance.sats,
+      unsats: summary.performance.unsats,
+      total: summary.performance.total,
+      totalPossible: summary.performance.totalPossible,
+      unassessed: summary.performance.unassessed
+    });
+
+    return summary;
+  }
 }
 
 export const killTrackingService = new KillTrackingService();

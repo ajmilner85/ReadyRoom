@@ -1,7 +1,7 @@
 import React from 'react';
-import { PlaneLanding, Wrench, Flame } from 'lucide-react';
+import { PlaneLanding, Wrench, Flame, HelpCircle, ThumbsDown } from 'lucide-react';
 
-type AircraftStatus = 'recovered' | 'damaged' | 'destroyed';
+type AircraftStatus = 'recovered' | 'damaged' | 'destroyed' | 'down' | 'unaccounted';
 
 interface AircraftStatusMenuProps {
   currentStatus: AircraftStatus;
@@ -17,7 +17,9 @@ const AircraftStatusMenu: React.FC<AircraftStatusMenuProps> = ({
   const statuses: Array<{ value: AircraftStatus; label: string; color: string; icon: React.ComponentType<any> }> = [
     { value: 'recovered', label: 'Recovered', color: '#10B981', icon: PlaneLanding }, // Green
     { value: 'damaged', label: 'Damaged', color: '#F59E0B', icon: Wrench },     // Amber
-    { value: 'destroyed', label: 'Destroyed', color: '#EF4444', icon: Flame }  // Red
+    { value: 'destroyed', label: 'Destroyed', color: '#EF4444', icon: Flame },  // Red
+    { value: 'down', label: 'Down', color: '#6B7280', icon: ThumbsDown }, // Gray
+    { value: 'unaccounted', label: 'Unaccounted', color: '#9CA3AF', icon: HelpCircle } // Light Gray
   ];
 
   return (
