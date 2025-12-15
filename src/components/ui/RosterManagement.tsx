@@ -115,7 +115,8 @@ const RosterManagement: React.FC = () => {
   });
   const [isSavingNewPilot, setIsSavingNewPilot] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
-  
+  const [boardNumberError, setBoardNumberError] = useState<string | null>(null);
+
   // Discord integration state
   const [isDiscordImportOpen, setIsDiscordImportOpen] = useState(false);
   const [syncMessage, setSyncMessage] = useState<{ 
@@ -378,13 +379,73 @@ const RosterManagement: React.FC = () => {
     setSelectedPilots([]); // Clear bulk selection when adding new pilot
   };
 
+  // Validate board number
+  const validateBoardNumber = async (boardNumber: string): Promise<string | null> => {
+    // Clear error if empty (will be caught by required validation)
+    if (!boardNumber) {
+      return null;
+    }
+
+    // Must be exactly 3 digits
+    if (boardNumber.length !== 3) {
+      return null; // Don't show error until 3 digits entered
+    }
+
+    // Must start with 5, 6, or 7
+    const firstDigit = boardNumber[0];
+    if (!['5', '6', '7'].includes(firstDigit)) {
+      return 'Board number must start with 5, 6, or 7';
+    }
+
+    // Cannot contain 8, 9, or 0
+    if (/[890]/.test(boardNumber)) {
+      return 'Board number cannot contain 8, 9, or 0';
+    }
+
+    // Check if board number already exists
+    const { data: existingPilots } = await supabase
+      .from('pilots')
+      .select(`
+        id,
+        pilot_statuses!inner (
+          statuses!inner (
+            name
+          )
+        )
+      `)
+      .eq('boardNumber', parseInt(boardNumber))
+      .is('pilot_statuses.end_date', null);
+
+    // Filter out pilots with Retired or Removed status
+    const activePilots = existingPilots?.filter(p =>
+      !p.pilot_statuses?.some((ps: any) =>
+        ps.statuses?.name === 'Retired' || ps.statuses?.name === 'Removed'
+      )
+    );
+
+    if (activePilots && activePilots.length > 0) {
+      return 'Board number already exists';
+    }
+
+    return null; // Valid
+  };
+
   // Update new pilot field
-  const handleNewPilotChange = (field: string, value: string) => {
+  const handleNewPilotChange = async (field: string, value: string) => {
     setNewPilot(prev => ({
       ...prev,
       [field]: value
     }));
-    
+
+    // Validate board number when it reaches 3 digits
+    if (field === 'boardNumber' && value.length === 3) {
+      const error = await validateBoardNumber(value);
+      setBoardNumberError(error);
+    } else if (field === 'boardNumber') {
+      // Clear error if not yet 3 digits
+      setBoardNumberError(null);
+    }
+
     // Also update the selected pilot for real-time preview with proper field mapping
     setSelectedPilot(prev => {
       if (!prev) return null;
@@ -524,6 +585,7 @@ const RosterManagement: React.FC = () => {
           role_id: '',
           qualifications: []
         });
+        setBoardNumberError(null);
         
       } else {
         // If no data returned, just refresh the full list
@@ -584,6 +646,7 @@ const RosterManagement: React.FC = () => {
     });
     setSelectedPilot(null);
     setSaveError(null);
+    setBoardNumberError(null);
   };
 
   // Function to handle pilot status change
@@ -2352,8 +2415,9 @@ const RosterManagement: React.FC = () => {
       onCancelAddPilot={handleCancelAddPilot}
       isSavingNewPilot={isSavingNewPilot}
       saveError={saveError}
+      boardNumberError={boardNumberError}
     />
-  ), [selectedPilot, statuses, standings, roles, pilotRoles, squadrons, availableQualifications, pilotQualifications, availableTeams, pilotTeams, loadingRoles, updatingRoles, updatingStatus, updatingStanding, updatingSquadron, loadingQualifications, loadingTeams, disabledRoles, selectedQualification, qualificationAchievedDate, selectedTeam, teamStartDate, isAddingQualification, isAddingTeam, updatingQualifications, updatingTeams, handleRoleChange, handleSquadronChange, handleAddQualification, handleRemoveQualification, handleAddTeam, handleRemoveTeam, handleDeletePilot, handleSavePilotChanges, handleClearDiscord, handleNewPilotChange, handleSaveNewPilot, handleCancelAddPilot, isSavingNewPilot, saveError]);
+  ), [selectedPilot, statuses, standings, roles, pilotRoles, squadrons, availableQualifications, pilotQualifications, availableTeams, pilotTeams, loadingRoles, updatingRoles, updatingStatus, updatingStanding, updatingSquadron, loadingQualifications, loadingTeams, disabledRoles, selectedQualification, qualificationAchievedDate, selectedTeam, teamStartDate, isAddingQualification, isAddingTeam, updatingQualifications, updatingTeams, handleRoleChange, handleSquadronChange, handleAddQualification, handleRemoveQualification, handleAddTeam, handleRemoveTeam, handleDeletePilot, handleSavePilotChanges, handleClearDiscord, handleNewPilotChange, handleSaveNewPilot, handleCancelAddPilot, isSavingNewPilot, saveError, boardNumberError]);
 
   const memoizedSelectedPilotDetails = useMemo(() => (
     <PilotDetails
