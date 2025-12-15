@@ -15,11 +15,12 @@ import { Squadron } from '../../../utils/squadronService';
 import QualificationsManager from './QualificationsManager';
 import TeamsManager from './TeamsManager';
 import QualificationBadge from '../QualificationBadge';
-import { Save, X, Trash2, Wrench } from 'lucide-react';
+import { Save, X, Trash2, Wrench, List } from 'lucide-react';
 import type { Team, PilotTeam } from '../../../types/TeamTypes';
 import { fetchDiscordGuildMember, fetchDiscordGuildRoles } from '../../../utils/discordService';
 import { fetchDiscordGuildMembers, DiscordMember } from '../../../utils/discordPilotService';
 import { supabase } from '../../../utils/supabaseClient';
+import BoardNumberModal from './BoardNumberModal';
 
 interface DiscordRole {
   id: string;
@@ -107,6 +108,7 @@ interface PilotDetailsProps {
   onCancelAddPilot?: () => void;
   isSavingNewPilot?: boolean;
   saveError?: string | null;
+  boardNumberError?: string | null;
 }
 
 const PilotDetails: React.FC<PilotDetailsProps> = ({
@@ -150,6 +152,7 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
   onCancelAddPilot,
   isSavingNewPilot = false,
   saveError = null,
+  boardNumberError = null,
 }) => {
   const pilotDetailsRef = useRef<HTMLDivElement>(null);
   const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
@@ -179,6 +182,7 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
   const [showQualificationDropdown, setShowQualificationDropdown] = useState(false);
   const [cachedQualifications, setCachedQualifications] = useState<any[]>([]);
   const [localPilotQualifications, setLocalPilotQualifications] = useState<any[]>(pilotQualifications);
+  const [showBoardNumberModal, setShowBoardNumberModal] = useState(false);
   const [allDiscordMembers, setAllDiscordMembers] = useState<DiscordMember[]>([]);
   const [availableDiscordMembers, setAvailableDiscordMembers] = useState<DiscordMember[]>([]);
   const [isLoadingDiscordMembers, setIsLoadingDiscordMembers] = useState(false);
@@ -767,16 +771,58 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
       <>
         <div style={{ ...pilotDetailsStyles.fieldContainer, ...sectionSpacingStyle }}>
           <label style={pilotDetailsStyles.fieldLabel}>Board Number *</label>
-          <input
-            type="text"
-            value={selectedPilot.boardNumber || ''}
-            onChange={(e) =>
-              onPilotFieldChange &&
-              onPilotFieldChange('boardNumber', e.target.value.replace(/[^0-9]/g, ''))
-            }
-            style={inputFieldStyle}
-            placeholder="Enter board number"
-          />
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
+            <input
+              type="text"
+              value={selectedPilot.boardNumber || ''}
+              onChange={(e) => {
+                const value = e.target.value.replace(/[^0-9]/g, '');
+                // Limit to 3 digits
+                if (value.length <= 3) {
+                  onPilotFieldChange && onPilotFieldChange('boardNumber', value);
+                }
+              }}
+              style={{
+                ...inputFieldStyle,
+                ...(boardNumberError && { borderColor: '#EF4444' }),
+              }}
+              placeholder="Enter board number"
+              maxLength={3}
+            />
+            <button
+              type="button"
+              onClick={() => setShowBoardNumberModal(true)}
+              style={{
+                padding: '8px 12px',
+                backgroundColor: '#FFFFFF',
+                border: '1px solid #CBD5E1',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+                fontSize: '14px',
+                color: '#64748B',
+                flexShrink: 0,
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = '#F8FAFC';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = '#FFFFFF';
+              }}
+            >
+              <List size={16} />
+            </button>
+          </div>
+          <div style={{ marginTop: '4px', fontSize: '12px', color: '#94A3B8' }}>
+            Must start with 5, 6, or 7. Cannot contain 8, 9, or 0.
+          </div>
+          {boardNumberError && (
+            <div style={{ marginTop: '4px', fontSize: '12px', color: '#EF4444' }}>
+              {boardNumberError}
+            </div>
+          )}
         </div>
 
         <div style={{ ...pilotDetailsStyles.fieldContainer, ...sectionSpacingStyle }}>
@@ -1528,7 +1574,8 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
                   !selectedPilot.callsign ||
                   !selectedPilot.boardNumber ||
                   !selectedPilot.status_id ||
-                  !selectedPilot.standing_id
+                  !selectedPilot.standing_id ||
+                  !!boardNumberError
                 }
                 style={{
                   ...exportButtonStyle,
@@ -1537,7 +1584,8 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
                     !selectedPilot.callsign ||
                     !selectedPilot.boardNumber ||
                     !selectedPilot.status_id ||
-                    !selectedPilot.standing_id
+                    !selectedPilot.standing_id ||
+                    !!boardNumberError
                       ? 'not-allowed'
                       : 'pointer',
                   opacity:
@@ -1545,7 +1593,8 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
                     !selectedPilot.callsign ||
                     !selectedPilot.boardNumber ||
                     !selectedPilot.status_id ||
-                    !selectedPilot.standing_id
+                    !selectedPilot.standing_id ||
+                    !!boardNumberError
                       ? 0.7
                       : 1,
                 }}
@@ -1555,7 +1604,8 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
                     selectedPilot.callsign &&
                     selectedPilot.boardNumber &&
                     selectedPilot.status_id &&
-                    selectedPilot.standing_id
+                    selectedPilot.standing_id &&
+                    !boardNumberError
                   ) {
                     e.currentTarget.style.backgroundColor = '#F8FAFC';
                   }
@@ -1566,7 +1616,8 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
                     selectedPilot.callsign &&
                     selectedPilot.boardNumber &&
                     selectedPilot.status_id &&
-                    selectedPilot.standing_id
+                    selectedPilot.standing_id &&
+                    !boardNumberError
                   ) {
                     e.currentTarget.style.backgroundColor = '#FFFFFF';
                   }
@@ -2119,6 +2170,17 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
           </div>
         </div>
       )}
+
+      {/* Board Number Selection Modal */}
+      <BoardNumberModal
+        isOpen={showBoardNumberModal}
+        onClose={() => setShowBoardNumberModal(false)}
+        onSelect={(boardNumber) => {
+          if (onPilotFieldChange) {
+            onPilotFieldChange('boardNumber', boardNumber);
+          }
+        }}
+      />
     </div>
   );
 };
