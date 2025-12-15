@@ -63,6 +63,7 @@ const BoardNumberModal: React.FC<BoardNumberModalProps> = ({ isOpen, onClose, on
       if (error) throw error;
 
       // Create a map of board numbers to their status
+      // Active pilots take precedence over inactive ones
       const boardNumberMap = new Map<string, { status: 'active' | 'inactive'; pilot: string }>();
 
       pilots?.forEach((pilot: any) => {
@@ -73,10 +74,14 @@ const BoardNumberModal: React.FC<BoardNumberModalProps> = ({ isOpen, onClose, on
           const isActive = statusName !== 'Retired' && statusName !== 'Removed';
           const boardNumStr = pilot.boardNumber.toString().padStart(3, '0');
 
-          boardNumberMap.set(boardNumStr, {
-            status: isActive ? 'active' : 'inactive',
-            pilot: pilot.callsign
-          });
+          // Only set if board number doesn't exist, or if this pilot is active and existing is inactive
+          const existing = boardNumberMap.get(boardNumStr);
+          if (!existing || (isActive && existing.status === 'inactive')) {
+            boardNumberMap.set(boardNumStr, {
+              status: isActive ? 'active' : 'inactive',
+              pilot: pilot.callsign
+            });
+          }
         }
       });
 
