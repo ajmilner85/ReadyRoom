@@ -7,15 +7,16 @@ export type ScopeType = 'global' | 'squadron' | 'wing';
 
 export type BasisType = 'standing' | 'qualification' | 'billet' | 'team' | 'squadron' | 'wing' | 'authenticated_user' | 'manual_override';
 
-export type PermissionScope = 'global' | 'own_squadron' | 'all_squadrons' | 'own_wing' | 'all_wings';
+export type PermissionScope = 'global' | 'own_squadron' | 'all_squadrons' | 'own_wing' | 'all_wings' | 'flight';
 
 export interface AppPermission {
   id: string;
   name: string;                // Technical name: 'manage_roster'
-  displayName: string;         // User-friendly: 'Manage Squadron Roster'  
+  displayName: string;         // User-friendly: 'Manage Squadron Roster'
   description?: string;        // What this permission allows
   category: PermissionCategory;
   scopeType: ScopeType;       // What level this permission operates at
+  availableScopes?: PermissionScope[]; // Available scope options for this permission
   createdAt: string;
   updatedAt: string;
 }
@@ -47,6 +48,7 @@ export interface PermissionScopeContext {
   type: PermissionScope;
   squadronId?: string;        // User's current squadron
   wingId?: string;            // User's current wing
+  flightId?: string;          // Specific flight ID (for flight scope)
 }
 
 // Core permissions interface with scope-aware permissions
@@ -255,9 +257,10 @@ export const PERMISSION_CATEGORIES: Record<PermissionCategory, string> = {
 export const SCOPE_LABELS: Record<PermissionScope, string> = {
   global: 'Global',
   own_squadron: 'Own Squadron',
-  all_squadrons: 'All Squadrons', 
+  all_squadrons: 'All Squadrons',
   own_wing: 'Own Wing',
-  all_wings: 'All Wings'
+  all_wings: 'All Wings',
+  flight: 'Flight Lead Only'
 };
 
 export const BASIS_TYPE_LABELS: Record<BasisType, string> = {

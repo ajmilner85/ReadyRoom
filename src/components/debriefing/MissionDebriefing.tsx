@@ -31,6 +31,7 @@ interface MissionListItem {
 interface FlightInfo {
   flightId: string;
   callsign: string;
+  flightNumber: number;
   squadronId: string;
   flightLeadPilotId: string;
   flightLeadBoardNumber: string;
@@ -210,6 +211,9 @@ const MissionDebriefing: React.FC = () => {
 
     console.log('[PARSE-FLIGHTS] Processing flights:', missionFlights);
 
+    // Count flights by callsign to assign sequential flight numbers
+    const callsignCounts = new Map<string, number>();
+
     // For each flight in the mission
     missionFlights.forEach((flight: any) => {
       console.log('[PARSE-FLIGHTS] Checking flight:', flight.id, 'callsign:', flight.callsign);
@@ -231,12 +235,31 @@ const MissionDebriefing: React.FC = () => {
         return;
       }
 
-      console.log('[PARSE-FLIGHTS] Flight squadron_id:', flight.squadron_id);
+      // Determine squadron - prefer existing debrief's squadron, then callsign lookup
+      let squadronId = '';
+      const existingDebrief = flightDebriefs.get(flight.id);
+
+      if (existingDebrief?.squadron_id) {
+        // Use squadron from existing debrief (authoritative source)
+        squadronId = existingDebrief.squadron_id;
+        console.log('[PARSE-FLIGHTS] Using squadron from existing debrief:', squadronId);
+      } else {
+        // Fallback to callsign lookup (first match if multiple squadrons share callsign)
+        const flightSquadron = squadrons.find(s => s.callsigns?.includes(flight.callsign));
+        squadronId = flightSquadron?.id || flight.squadron_id || '';
+        console.log('[PARSE-FLIGHTS] Flight callsign:', flight.callsign, 'mapped to squadron:', flightSquadron?.name, 'id:', squadronId);
+      }
+
+      // Generate flight number based on callsign
+      const currentCount = callsignCounts.get(flight.callsign) || 0;
+      const flightNumber = currentCount + 1;
+      callsignCounts.set(flight.callsign, flightNumber);
 
       flights.push({
         flightId: flight.id,
         callsign: flight.callsign,
-        squadronId: flight.squadron_id || '',
+        flightNumber: flightNumber,
+        squadronId: squadronId,
         flightLeadPilotId: flightLead.pilot_id,
         flightLeadBoardNumber: '',
         flightLeadCallsign: '',
@@ -268,29 +291,17 @@ const MissionDebriefing: React.FC = () => {
         return;
       }
 
-      // Fetch squadron assignments for these pilots
-      const { data: assignmentsData, error: assignmentsError } = await supabase
-        .from('pilot_assignments')
-        .select('pilot_id, squadron_id')
-        .in('pilot_id', pilotIds)
-        .is('end_date', null);
-
-      if (assignmentsError) {
-        console.error('Failed to fetch squadron assignments:', assignmentsError);
-      }
-
-      // Create maps for quick lookup
+      // Create map for quick lookup
       const pilotMap = new Map(pilotsData?.map(p => [p.id, p]) || []);
-      const squadronMap = new Map(assignmentsData?.map(a => [a.pilot_id, a.squadron_id]) || []);
 
-      // Update flights with pilot data and squadron assignments
+      // Update flights with pilot data (do NOT overwrite squadron from flight lead's assignment)
       const updatedFlights = flights.map(f => {
         const pilot = pilotMap.get(f.flightLeadPilotId);
-        const squadronId = squadronMap.get(f.flightLeadPilotId) || f.squadronId || '';
 
         return {
           ...f,
-          squadronId,
+          // Keep the squadron ID from flight (based on callsign or existing debrief)
+          // Do NOT use flight lead's personal squadron assignment
           flightLeadBoardNumber: pilot?.boardNumber?.toString() || 'Unknown',
           flightLeadCallsign: pilot?.callsign || 'Unknown'
         };
@@ -330,17 +341,112 @@ const MissionDebriefing: React.FC = () => {
 
   // Check if user can submit AAR for a specific flight
   const canSubmitAAR = (flight: FlightInfo): boolean => {
-    if (!userProfile?.pilot) return false;
+    console.log('[CAN-SUBMIT] userProfile:', {
+      hasPilot: !!userProfile?.pilot,
+      hasPermissions: !!userProfile?.permissions,
+      permissionKeys: userProfile?.permissions ? Object.keys(userProfile.permissions) : [],
+      edit_debriefs: userProfile?.permissions?.edit_debriefs
+    });
+
+    if (!userProfile?.pilot) {
+      console.log('[CAN-SUBMIT] No user profile/pilot');
+      return false;
+    }
 
     const pilotId = userProfile.pilot.id;
 
-    // Check if user is the flight lead
-    if (flight.flightLeadPilotId === pilotId) {
-      return true;
+    // Check edit_debriefs permission with scope validation
+    if (!userProfile.permissions?.edit_debriefs) {
+      // No permission - check if user is flight lead (legacy behavior)
+      const canSubmit = flight.flightLeadPilotId === pilotId;
+      console.log('[CAN-SUBMIT] No edit_debriefs permission, checking if flight lead:', canSubmit);
+      return canSubmit;
     }
 
-    // TODO: Check for delegation or squadron/wing leadership permissions
-    return false;
+    const editDebriefs = userProfile.permissions.edit_debriefs;
+
+    // If boolean (legacy), grant access if true
+    if (typeof editDebriefs === 'boolean') {
+      console.log('[CAN-SUBMIT] Boolean permission:', editDebriefs);
+      return editDebriefs;
+    }
+
+    // If array of scopes, check if any scope grants access to this flight
+    if (Array.isArray(editDebriefs)) {
+      const userSquadronId = userProfile.pilot.currentSquadron?.id;
+      const userWingId = userProfile.pilot.currentSquadron?.wing_id;
+
+      console.log('[CAN-SUBMIT] Checking scopes for flight:', {
+        flightId: flight.flightId,
+        flightCallsign: flight.callsign,
+        flightSquadronId: flight.squadronId,
+        userSquadronId,
+        userWingId,
+        scopeCount: editDebriefs.length
+      });
+
+      const canSubmit = editDebriefs.some(scope => {
+        console.log('[CAN-SUBMIT] Checking scope:', scope);
+
+        // Global scope grants access to all flights
+        if (scope.type === 'global') {
+          console.log('[CAN-SUBMIT] ✓ Global scope - GRANTED');
+          return true;
+        }
+
+        // Own wing scope grants access to flights in same wing
+        if (scope.type === 'own_wing' && userWingId) {
+          // Find the flight's squadron to check its wing
+          const flightSquadron = squadrons.find(s => s.id === flight.squadronId);
+          console.log('[CAN-SUBMIT] Wing scope check:', {
+            flightSquadronWing: flightSquadron?.wing_id,
+            userWing: userWingId,
+            match: flightSquadron && flightSquadron.wing_id === userWingId
+          });
+          if (flightSquadron && flightSquadron.wing_id === userWingId) {
+            console.log('[CAN-SUBMIT] ✓ Wing scope - GRANTED');
+            return true;
+          }
+        }
+
+        // Own squadron scope grants access to flights in same squadron
+        if (scope.type === 'own_squadron' && userSquadronId) {
+          const match = flight.squadronId === userSquadronId;
+          console.log('[CAN-SUBMIT] Squadron scope check:', {
+            flightSquadron: flight.squadronId,
+            userSquadron: userSquadronId,
+            match
+          });
+          if (match) {
+            console.log('[CAN-SUBMIT] ✓ Squadron scope - GRANTED');
+          }
+          return match;
+        }
+
+        // Flight scope grants access only if user is the flight lead
+        if (scope.type === 'flight') {
+          const isLead = flight.flightLeadPilotId === pilotId;
+          console.log('[CAN-SUBMIT] Flight scope check:', {
+            flightLead: flight.flightLeadPilotId,
+            userPilot: pilotId,
+            isLead
+          });
+          if (isLead) {
+            console.log('[CAN-SUBMIT] ✓ Flight scope - GRANTED');
+          }
+          return isLead;
+        }
+
+        console.log('[CAN-SUBMIT] ✗ No match for scope type:', scope.type);
+        return false;
+      });
+
+      console.log('[CAN-SUBMIT] Final result:', canSubmit);
+      return canSubmit;
+    }
+
+    // Fallback: if user is flight lead (legacy behavior for users without permission)
+    return flight.flightLeadPilotId === pilotId;
   };
 
   return (

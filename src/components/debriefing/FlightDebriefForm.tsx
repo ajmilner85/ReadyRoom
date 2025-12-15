@@ -326,24 +326,25 @@ const FlightDebriefForm: React.FC<FlightDebriefFormProps> = ({
         key_lessons_learned: notes.trim() || null
       };
 
-      // let debriefId: string;
+      let savedDebrief: any;
 
       if (existingDebrief?.id) {
         // Update existing debrief
-        await debriefingService.updateFlightDebrief(
+        savedDebrief = await debriefingService.updateFlightDebrief(
           existingDebrief.id,
           formData as any
         );
-        // debriefId = updated.id;
       } else {
         // Create new debrief
-        await debriefingService.createFlightDebrief(formData);
-        // debriefId = created.id;
+        savedDebrief = await debriefingService.createFlightDebrief(formData);
       }
 
-      // Save unit-specific kills from enhanced kill tracking
-      if (killTrackingRef.current) {
-        await killTrackingRef.current.saveKills();
+      // CRITICAL: Save unit-specific kills ONLY after we have a valid flight debrief ID
+      // This prevents "invalid input syntax for type uuid" errors when creating new debriefs
+      if (killTrackingRef.current && savedDebrief?.id) {
+        // Pass the saved debrief ID to ensure kills are associated with the correct debrief
+        // This is especially important for new debriefs where the ID wasn't available initially
+        await killTrackingRef.current.saveKills(savedDebrief.id);
       }
 
       // Legacy kill counts (old system) - skip if using enhanced tracking

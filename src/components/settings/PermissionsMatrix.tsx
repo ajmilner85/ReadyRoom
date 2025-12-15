@@ -122,22 +122,18 @@ export const PermissionMatrix: React.FC<PermissionMatrixProps> = ({
   // Handle scope cycling for scoped permissions
   const handleScopeCycle = (permission: AppPermission, basisId: string) => {
     const currentState = getEffectiveState(permission.id, basisId);
-    let nextScope: string;
-    
-    switch (currentState.scope) {
-      case 'none':
-        nextScope = 'own_squadron';
-        break;
-      case 'own_squadron':
-        nextScope = 'own_wing';
-        break;
-      case 'own_wing':
-        nextScope = 'none';
-        break;
-      default:
-        nextScope = 'own_squadron';
-    }
-    
+
+    // Get available scopes for this permission (default to standard scopes if not specified)
+    const availableScopes = permission.availableScopes || ['own_squadron', 'own_wing', 'global'];
+
+    // Add 'none' as the first option in the cycle
+    const scopeCycle = ['none', ...availableScopes];
+
+    // Find current index and move to next
+    const currentIndex = scopeCycle.indexOf(currentState.scope);
+    const nextIndex = (currentIndex + 1) % scopeCycle.length;
+    const nextScope = scopeCycle[nextIndex];
+
     handleMatrixChange(permission.id, basisId, 'scope', nextScope);
   };
   
@@ -220,21 +216,27 @@ export const PermissionMatrix: React.FC<PermissionMatrixProps> = ({
       const getScopeLabel = (scope: string) => {
         switch (scope) {
           case 'none': return 'None';
+          case 'flight': return 'Flight';
           case 'own_squadron': return 'Squadron';
           case 'own_wing': return 'Wing';
+          case 'global': return 'Global';
           default: return 'None';
         }
       };
       
       const getScopeColors = (scope: string) => {
         switch (scope) {
-          case 'none': 
+          case 'none':
             return { color: '#9CA3AF', backgroundColor: 'transparent', hoverColor: '#6B7280' };
-          case 'own_squadron': 
+          case 'flight':
+            return { color: '#059669', backgroundColor: '#ECFDF5', hoverColor: '#047857' };
+          case 'own_squadron':
             return { color: '#2563EB', backgroundColor: '#EFF6FF', hoverColor: '#1D4ED8' };
-          case 'own_wing': 
-            return { color: '#2563EB', backgroundColor: '#EFF6FF', hoverColor: '#1D4ED8' };
-          default: 
+          case 'own_wing':
+            return { color: '#7C3AED', backgroundColor: '#F5F3FF', hoverColor: '#6D28D9' };
+          case 'global':
+            return { color: '#DC2626', backgroundColor: '#FEF2F2', hoverColor: '#B91C1C' };
+          default:
             return { color: '#9CA3AF', backgroundColor: 'transparent', hoverColor: '#6B7280' };
         }
       };

@@ -151,6 +151,7 @@ export class PermissionService {
         description: (perm as any).description,
         category: (perm as any).category,
         scopeType: (perm as any).scope_type,
+        availableScopes: (perm as any).available_scopes,
         createdAt: (perm as any).created_at,
         updatedAt: (perm as any).updated_at
       };

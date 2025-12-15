@@ -113,9 +113,28 @@ class DebriefingService {
   }
 
   /**
-   * Create a flight debrief
+   * Create a flight debrief (with automatic upsert if duplicate exists)
    */
   async createFlightDebrief(data: any): Promise<FlightDebrief> {
+    // Check if a debrief already exists for this mission/flight combination
+    const { data: existing, error: checkError } = await supabase
+      .from('flight_debriefs')
+      .select('id')
+      .eq('mission_debriefing_id', data.mission_debriefing_id)
+      .eq('flight_id', data.flight_id)
+      .maybeSingle();
+
+    if (checkError) {
+      console.error('Error checking for existing debrief:', checkError);
+    }
+
+    // If debrief already exists, update it instead of creating a new one
+    if (existing) {
+      console.log('Flight debrief already exists, updating instead:', existing.id);
+      return await this.updateFlightDebrief(existing.id, data);
+    }
+
+    // No existing debrief, proceed with creation
     const insertData: any = {
       mission_debriefing_id: data.mission_debriefing_id,
       flight_id: data.flight_id,
