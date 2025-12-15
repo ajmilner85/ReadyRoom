@@ -6,6 +6,7 @@ import type { PilotAssignment } from '../../types/MissionTypes';
 interface FlightInfo {
   flightId: string;
   callsign: string;
+  flightNumber: number;
   squadronId: string;
   flightLeadPilotId: string;
   flightLeadBoardNumber: string;
@@ -33,18 +34,10 @@ const FlightListItem: React.FC<FlightListItemProps> = ({
   canSubmit,
   pilotKills,
   onSubmitAAR,
-  dashNumber,
+  dashNumber: _dashNumber,
   compact = false,
   missionFinalized = false
 }) => {
-  // Get flight lead dash number
-  const flightLeadDashNumber = dashNumber || React.useMemo(() => {
-    const flightLead = flight.pilotAssignments.find(
-      (a: PilotAssignment) => a.pilot_id === flight.flightLeadPilotId
-    );
-    return flightLead?.dash_number || '1';
-  }, [flight.pilotAssignments, flight.flightLeadPilotId]);
-
   // Calculate performance summary if debrief exists
   const getPerformanceSummary = () => {
     if (!debrief?.performance_ratings) return null;
@@ -95,7 +88,7 @@ const FlightListItem: React.FC<FlightListItemProps> = ({
             color: '#1E293B'
           }}
         >
-          {flight.callsign} {flightLeadDashNumber}
+          {flight.callsign} {flight.flightNumber}
         </div>
 
         {/* Flight Lead */}
@@ -110,7 +103,7 @@ const FlightListItem: React.FC<FlightListItemProps> = ({
 
         {/* AAR Status */}
         <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-          {debrief ? (
+          {debrief && canSubmit ? (
             <button
               onClick={onSubmitAAR}
               style={{
@@ -126,6 +119,19 @@ const FlightListItem: React.FC<FlightListItemProps> = ({
             >
               {missionFinalized ? 'AAR SUBMITTED' : 'VIEW/EDIT AAR'}
             </button>
+          ) : debrief && !canSubmit ? (
+            <span
+              style={{
+                fontSize: '11px',
+                fontWeight: 500,
+                color: '#64748B',
+                backgroundColor: '#F1F5F9',
+                padding: '4px 8px',
+                borderRadius: '4px'
+              }}
+            >
+              AAR SUBMITTED
+            </span>
           ) : canSubmit ? (
             <button
               onClick={onSubmitAAR}
@@ -183,7 +189,7 @@ const FlightListItem: React.FC<FlightListItemProps> = ({
                 marginBottom: '6px'
               }}
             >
-              {flight.callsign} {flightLeadDashNumber}
+              {flight.callsign} {flight.flightNumber}
             </h3>
             <p style={{ fontSize: '14px', color: '#64748B', marginBottom: '0' }}>
               {flight.flightLeadBoardNumber} {flight.flightLeadCallsign}
@@ -192,9 +198,9 @@ const FlightListItem: React.FC<FlightListItemProps> = ({
 
           {/* Status/Action Area */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-            {debrief ? (
+            {debrief && canSubmit ? (
               <>
-                {/* Show performance summary if AAR was submitted */}
+                {/* Show performance summary if AAR was submitted AND user has permission */}
                 <div
                   style={{
                     display: 'flex',
@@ -334,6 +340,21 @@ const FlightListItem: React.FC<FlightListItemProps> = ({
                 </button>
               )}
               </>
+            ) : debrief && !canSubmit ? (
+              // Show read-only submitted indicator for debriefs user cannot edit
+              <div
+                style={{
+                  padding: '8px 16px',
+                  fontSize: '13px',
+                  fontWeight: 500,
+                  color: '#047857',
+                  backgroundColor: '#DCFCE7',
+                  border: '1px solid #BBF7D0',
+                  borderRadius: '6px'
+                }}
+              >
+                AAR Submitted
+              </div>
             ) : canSubmit ? (
               // Show Submit AAR button if permitted
               <button

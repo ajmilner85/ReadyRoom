@@ -29,6 +29,7 @@ interface MissionListItem {
 interface FlightInfo {
   flightId: string;
   callsign: string;
+  flightNumber: number;
   squadronId: string;
   flightLeadPilotId: string;
   flightLeadBoardNumber: string;
@@ -331,12 +332,15 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
                       a => a.pilot_id === flight.flightLeadPilotId
                     )?.dash_number || '1';
 
+                    // Check permissions regardless of whether debrief exists
+                    const hasPermission = canSubmitAAR(flight);
+
                     return (
                       <FlightListItem
                         key={flight.flightId}
                         flight={flight}
                         debrief={debrief || null}
-                        canSubmit={!debrief && canSubmitAAR(flight)}
+                        canSubmit={hasPermission}
                         pilotKills={(debrief as any)?.pilot_kills}
                         onSubmitAAR={() => onSubmitAAR(flight)}
                         dashNumber={flightLeadDashNumber}
@@ -372,7 +376,7 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
           missionId={selectedMission.id}
           missionDebriefId={missionDebriefId}
           flightId={selectedFlight.flightId}
-          flightName={selectedFlight.callsign}
+          flightName={`${selectedFlight.callsign} ${selectedFlight.flightNumber}`}
           squadronId={selectedFlight.squadronId}
           flightLeadPilotId={selectedFlight.flightLeadPilotId}
           pilotAssignments={selectedFlight.pilotAssignments}

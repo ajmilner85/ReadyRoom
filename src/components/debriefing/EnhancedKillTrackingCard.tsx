@@ -47,7 +47,7 @@ interface EnhancedKillTrackingCardV2Props {
 }
 
 export interface EnhancedKillTrackingCardRef {
-  saveKills: () => Promise<void>;
+  saveKills: (overrideFlightDebriefId?: string) => Promise<void>;
 }
 
 /**
@@ -101,9 +101,15 @@ const EnhancedKillTrackingCardV2 = forwardRef<EnhancedKillTrackingCardRef, Enhan
 
   // Expose saveKills method to parent via ref
   useImperativeHandle(ref, () => ({
-    saveKills: async () => {
+    saveKills: async (overrideFlightDebriefId?: string) => {
       try {
+        // Use the override ID if provided (for newly created debriefs), otherwise use the prop
+        const actualFlightDebriefId = overrideFlightDebriefId || flightDebriefId;
+
         console.log('saveKills called');
+        console.log('flightDebriefId (prop):', flightDebriefId);
+        console.log('overrideFlightDebriefId (param):', overrideFlightDebriefId);
+        console.log('actualFlightDebriefId (using):', actualFlightDebriefId);
         console.log('originalKillIds:', Array.from(originalKillIds));
         console.log('current killRecords:', killRecords.map(r => ({ id: r.id, pilot: r.pilotId, unit: r.unitDisplayName, count: r.killCount })));
 
@@ -136,7 +142,7 @@ const EnhancedKillTrackingCardV2 = forwardRef<EnhancedKillTrackingCardRef, Enhan
           if (aircraftStatus === 'down') aircraftStatus = 'damaged';
 
           const result = await killTrackingService.recordUnitKills(
-            flightDebriefId,
+            actualFlightDebriefId,
             record.pilotId,
             missionId,
             record.unitTypeId,
@@ -168,7 +174,7 @@ const EnhancedKillTrackingCardV2 = forwardRef<EnhancedKillTrackingCardRef, Enhan
             if (aircraftStatus === 'down') aircraftStatus = 'damaged';
 
             await killTrackingService.savePilotStatus(
-              flightDebriefId,
+              actualFlightDebriefId,
               pilotId,
               missionId,
               pilotStatus,

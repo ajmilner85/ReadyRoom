@@ -1,5 +1,7 @@
 import { supabase } from './supabaseClient';
 import type { User } from '@supabase/supabase-js';
+import { permissionCache } from './permissionCache';
+import type { UserPermissions } from '../types/PermissionTypes';
 
 export interface UserProfile {
   id: string;
@@ -13,6 +15,7 @@ export interface UserProfile {
   lastRoleSync?: string;
   createdAt: string;
   updatedAt: string;
+  permissions?: UserPermissions;
   // Pilot data (when joined)
   pilot?: {
     callsign: string;
@@ -447,16 +450,27 @@ export async function getUserProfile(authUserId: string): Promise<{ profile: Use
       throw error;
     }
 
-    return { 
-      profile: convertToUserProfile(data), 
-      error: null 
+    const profile = convertToUserProfile(data);
+
+    // Fetch permissions from cache
+    try {
+      const permissions = await permissionCache.getUserPermissions(authUserId);
+      profile.permissions = permissions;
+    } catch (permError) {
+      console.error('Error fetching permissions for user profile:', permError);
+      // Continue without permissions rather than failing the whole request
+    }
+
+    return {
+      profile,
+      error: null
     };
 
   } catch (error: any) {
     console.error('Error getting user profile:', error);
-    return { 
-      profile: null, 
-      error: error 
+    return {
+      profile: null,
+      error: error
     };
   }
 }

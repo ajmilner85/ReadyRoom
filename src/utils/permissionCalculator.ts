@@ -567,7 +567,29 @@ export class PermissionCalculator {
           permissions.canPublishToDiscord.push(scopeContext);
         }
         break;
-        
+
+      // Mission Debriefing permissions (scoped)
+      case 'view_debriefs':
+        if (!this.hasScopeContext(permissions.view_debriefs, scopeContext)) {
+          permissions.view_debriefs.push(scopeContext);
+        }
+        break;
+      case 'edit_debriefs':
+        if (!this.hasScopeContext(permissions.edit_debriefs, scopeContext)) {
+          permissions.edit_debriefs.push(scopeContext);
+        }
+        break;
+      case 'finalize_debriefs':
+        if (!this.hasScopeContext(permissions.finalize_debriefs, scopeContext)) {
+          permissions.finalize_debriefs.push(scopeContext);
+        }
+        break;
+      case 'delegate_debriefs':
+        if (!this.hasScopeContext(permissions.delegate_debriefs, scopeContext)) {
+          permissions.delegate_debriefs.push(scopeContext);
+        }
+        break;
+
       // Component permissions (mixed)
       case 'sync_with_discord':
         if (!this.hasScopeContext(permissions.canSyncWithDiscord, scopeContext)) {
@@ -608,10 +630,11 @@ export class PermissionCalculator {
    * Check if a scope context already exists in a scope array
    */
   private hasScopeContext(scopes: PermissionScopeContext[], newScope: PermissionScopeContext): boolean {
-    return scopes.some(scope => 
-      scope.type === newScope.type && 
+    return scopes.some(scope =>
+      scope.type === newScope.type &&
       scope.squadronId === newScope.squadronId &&
-      scope.wingId === newScope.wingId
+      scope.wingId === newScope.wingId &&
+      scope.flightId === newScope.flightId
     );
   }
   
@@ -619,18 +642,20 @@ export class PermissionCalculator {
    * Apply scope inheritance rules (Own Wing includes Own Squadron)
    */
   private inheritScopes(permissions: UserPermissions, userBases: UserBases): void {
-    const scopedPermissions: (keyof Pick<UserPermissions, 
+    const scopedPermissions: (keyof Pick<UserPermissions,
       'canManageRoster' | 'canEditPilotQualifications' | 'canDeletePilots' | 'canManageStandings' |
       'canManageEvents' | 'canCreateTrainingCycles' | 'canManageEventAttendance' | 'canOverrideEventSettings' |
       'canManageSquadronSettings' | 'canEditDiscordIntegration' |
       'canEditFlightAssignments' | 'canAssignMissionRoles' | 'canPublishToDiscord' |
-      'canSyncWithDiscord'
+      'canSyncWithDiscord' |
+      'view_debriefs' | 'edit_debriefs' | 'finalize_debriefs' | 'delegate_debriefs'
     >)[] = [
       'canManageRoster', 'canEditPilotQualifications', 'canDeletePilots', 'canManageStandings',
       'canManageEvents', 'canCreateTrainingCycles', 'canManageEventAttendance', 'canOverrideEventSettings',
       'canManageSquadronSettings', 'canEditDiscordIntegration',
       'canEditFlightAssignments', 'canAssignMissionRoles', 'canPublishToDiscord',
-      'canSyncWithDiscord'
+      'canSyncWithDiscord',
+      'view_debriefs', 'edit_debriefs', 'finalize_debriefs', 'delegate_debriefs'
     ];
     
     for (const permissionKey of scopedPermissions) {

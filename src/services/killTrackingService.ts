@@ -246,6 +246,11 @@ class KillTrackingService {
     pilotStatus: 'alive' | 'mia' | 'kia' = 'alive',
     aircraftStatus: 'recovered' | 'damaged' | 'destroyed' = 'recovered'
   ) {
+    // Guard against invalid/empty flight debrief ID
+    if (!flightDebriefId || flightDebriefId.trim() === '') {
+      throw new Error('Invalid flight debrief ID: cannot record kills without a valid flight debrief');
+    }
+
     // Get existing record for this pilot in this mission
     const { data: existing } = await supabase
       .from('pilot_kills')
@@ -320,6 +325,11 @@ class KillTrackingService {
     pilotStatus: 'alive' | 'mia' | 'kia',
     aircraftStatus: 'recovered' | 'damaged' | 'destroyed'
   ) {
+    // Guard against invalid/empty flight debrief ID
+    if (!flightDebriefId || flightDebriefId.trim() === '') {
+      throw new Error('Invalid flight debrief ID: cannot save pilot status without a valid flight debrief');
+    }
+
     // Check if record exists
     const { data: existing } = await supabase
       .from('pilot_kills')
@@ -372,6 +382,12 @@ class KillTrackingService {
    * Get pilot and aircraft statuses for all pilots in a flight debrief
    */
   async getPilotStatusesByFlight(flightDebriefId: string) {
+    // Guard against invalid/empty flight debrief ID
+    if (!flightDebriefId || flightDebriefId.trim() === '') {
+      // Return empty array for new debriefs that don't have an ID yet
+      return [];
+    }
+
     const { data, error } = await supabase
       .from('pilot_kills')
       .select(`
@@ -392,6 +408,12 @@ class KillTrackingService {
    * Get unit-specific kills for a flight debrief (expands JSONB kills_detail)
    */
   async getUnitKillsByFlight(flightDebriefId: string) {
+    // Guard against invalid/empty flight debrief ID
+    if (!flightDebriefId || flightDebriefId.trim() === '') {
+      // Return empty array for new debriefs that don't have an ID yet
+      return [];
+    }
+
     const { data, error } = await supabase
       .from('pilot_kills')
       .select(`
