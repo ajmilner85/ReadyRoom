@@ -168,7 +168,7 @@ const MissionSummaryDetailPopup: React.FC<MissionSummaryDetailPopupProps> = ({
             style={{
               display: 'flex',
               justifyContent: 'space-between',
-              alignItems: 'center',
+              alignItems: 'baseline',
               padding: '8px 12px',
               backgroundColor: index % 2 === 0 ? '#FFFFFF' : '#F9FAFB',
               borderRadius: '4px',
@@ -178,7 +178,8 @@ const MissionSummaryDetailPopup: React.FC<MissionSummaryDetailPopupProps> = ({
             <span style={{
               fontSize: '13px',
               color: '#1E293B',
-              fontFamily: 'Inter'
+              fontFamily: 'Inter',
+              paddingRight: '12px'
             }}>
               {kill.displayName}
             </span>
@@ -334,7 +335,7 @@ const MissionSummaryDetailPopup: React.FC<MissionSummaryDetailPopupProps> = ({
           boxShadow: '0px 10px 20px rgba(0, 0, 0, 0.15)',
           zIndex: 1000,
           maxWidth: '400px',
-          maxHeight: '500px',
+          maxHeight: `calc(100vh - ${position.top}px - 20px)`,
           overflow: 'hidden',
           display: 'flex',
           flexDirection: 'column'
