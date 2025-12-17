@@ -887,6 +887,112 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
         </div>
 
         <div style={{ marginTop: '16px', color: '#64748B', fontSize: '14px' }}>* Board Number, Callsign, Status, and Standing are required</div>
+
+        {/* Discord User Information for New Pilot */}
+        <div style={{ marginTop: '24px' }}>
+          <h3 style={{ fontSize: '16px', fontWeight: '600', marginBottom: '12px', color: '#1E293B' }}>
+            Discord User Information
+          </h3>
+          <div style={{ ...pilotDetailsStyles.fieldContainer, ...sectionSpacingStyle }}>
+            <label style={pilotDetailsStyles.fieldLabel}>Discord Username</label>
+            <div style={{ display: 'flex', alignItems: 'flex-end', gap: '8px', flexWrap: 'wrap' }}>
+              {/* Discord Username Dropdown */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <select
+                  value={(selectedPilot as any)?.discord_id || ''}
+                  onChange={(e) => {
+                    const discordId = e.target.value;
+                    const selectedMember = allDiscordMembers.find(m => m.id === discordId);
+                    if (onPilotFieldChange) {
+                      onPilotFieldChange('discord_id', discordId);
+                      onPilotFieldChange('discordUsername', selectedMember?.username || '');
+                    }
+                  }}
+                  disabled={isLoadingDiscordMembers}
+                  style={{
+                    ...inputFieldStyle,
+                    width: '221px',
+                    backgroundColor: isLoadingDiscordMembers ? '#f1f5f9' : '#ffffff'
+                  }}
+                >
+                  <option value="">No Discord account linked</option>
+                  {availableDiscordMembers.map(member => (
+                    <option key={member.id} value={member.id}>
+                      {member.username}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Discord Display Name Dropdown (synchronized) */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <label style={{ ...pilotDetailsStyles.fieldLabel, marginBottom: '0' }}>Discord Display Name</label>
+                <select
+                  value={(selectedPilot as any)?.discord_id || ''}
+                  onChange={(e) => {
+                    const discordId = e.target.value;
+                    const selectedMember = allDiscordMembers.find(m => m.id === discordId);
+                    if (onPilotFieldChange) {
+                      onPilotFieldChange('discord_id', discordId);
+                      onPilotFieldChange('discordUsername', selectedMember?.username || '');
+                    }
+                  }}
+                  disabled={isLoadingDiscordMembers}
+                  style={{
+                    ...inputFieldStyle,
+                    width: '221px',
+                    backgroundColor: isLoadingDiscordMembers ? '#f1f5f9' : '#ffffff'
+                  }}
+                >
+                  <option value="">No Discord account linked</option>
+                  {availableDiscordMembers.map(member => (
+                    <option key={member.id} value={member.id}>
+                      {member.displayName}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Clear Button */}
+              <button
+                onClick={() => {
+                  if (onPilotFieldChange) {
+                    onPilotFieldChange('discord_id', '');
+                    onPilotFieldChange('discordUsername', '');
+                  }
+                }}
+                disabled={!(selectedPilot as any)?.discord_id || isLoadingDiscordMembers}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  padding: '8px 16px',
+                  cursor: !(selectedPilot as any)?.discord_id || isLoadingDiscordMembers ? 'not-allowed' : 'pointer',
+                  opacity: !(selectedPilot as any)?.discord_id || isLoadingDiscordMembers ? 0.7 : 1,
+                  minWidth: '80px',
+                  backgroundColor: '#FEE2E2',
+                  color: '#B91C1C',
+                  border: '1px solid #FCA5A5',
+                  borderRadius: '4px',
+                  fontSize: '14px',
+                  fontWeight: '500',
+                }}
+                onMouseEnter={(e) => {
+                  if ((selectedPilot as any)?.discord_id && !isLoadingDiscordMembers) {
+                    e.currentTarget.style.backgroundColor = '#FECACA';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if ((selectedPilot as any)?.discord_id && !isLoadingDiscordMembers) {
+                    e.currentTarget.style.backgroundColor = '#FEE2E2';
+                  }
+                }}
+              >
+                Clear
+              </button>
+            </div>
+          </div>
+        </div>
       </>
     );
   };
