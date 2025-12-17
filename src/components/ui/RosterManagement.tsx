@@ -47,7 +47,7 @@ import type { QualificationFilterMode } from './roster/FilterDrawer';
 
 const RosterManagement: React.FC = () => {
   const { setPageLoading } = usePageLoading();
-  const { hasPermission } = usePermissions();
+  const { hasPermission, refreshPermissions } = usePermissions();
 
   // State for pilots and filtering
   const [pilots, setPilots] = useState<Pilot[]>([]);
@@ -509,10 +509,10 @@ const RosterManagement: React.FC = () => {
       setSaveError('Board Number, Callsign, Status, and Standing are required.');
       return;
     }
-    
+
     setIsSavingNewPilot(true);
     setSaveError(null);
-    
+
     try {
       // Format the pilot data for the API - using the correct field structure
       const pilotData = {
@@ -521,18 +521,57 @@ const RosterManagement: React.FC = () => {
         discord_username: newPilot.discordUsername || undefined, // Changed null to undefined
         // Don't include status_id directly - it will be assigned via the join table
       };
-      
-      // Create the pilot in the database with status and standing
-      const { data, error } = await createPilotWithStatusAndStanding(
-        pilotData, 
-        newPilot.status_id,
-        newPilot.standing_id
-      );
-      
+
+      // Helper function to attempt pilot creation with optional retry on RLS errors
+      const attemptCreatePilot = async (isRetry = false): Promise<{ data: any; error: any }> => {
+        const result = await createPilotWithStatusAndStanding(
+          pilotData,
+          newPilot.status_id,
+          newPilot.standing_id
+        );
+
+        // Check if it's an RLS policy violation error and we haven't retried yet
+        if (result.error && !isRetry) {
+          const errorMessage = result.error.message || '';
+          const isRLSError = errorMessage.includes('row-level security') ||
+                            errorMessage.includes('RLS') ||
+                            errorMessage.includes('policy');
+
+          if (isRLSError) {
+            console.log('🔄 RLS policy error detected. Refreshing permissions and retrying...');
+
+            try {
+              // Refresh user permissions to regenerate cache
+              await refreshPermissions();
+
+              // Wait a brief moment for cache to propagate
+              await new Promise(resolve => setTimeout(resolve, 300));
+
+              // Retry the operation once
+              console.log('🔄 Retrying pilot creation after permission refresh...');
+              return await createPilotWithStatusAndStanding(
+                pilotData,
+                newPilot.status_id,
+                newPilot.standing_id
+              );
+            } catch (refreshError) {
+              console.error('❌ Failed to refresh permissions:', refreshError);
+              // Return original error if refresh fails
+              return result;
+            }
+          }
+        }
+
+        return result;
+      };
+
+      // Create the pilot in the database with status and standing (with auto-retry on RLS errors)
+      const { data, error } = await attemptCreatePilot();
+
       if (error) {
         throw new Error(error.message || 'Failed to create pilot');
       }
-      
+
       if (!data) {
         throw new Error('No pilot data returned from creation');
       }
@@ -2316,6 +2355,23 @@ const RosterManagement: React.FC = () => {
 
     fetchAllData();
   }, []);
+
+  // Proactively refresh permissions on page mount to ensure cache is populated
+  // This prevents RLS errors when cache has been invalidated but not regenerated
+  useEffect(() => {
+    const ensurePermissionCache = async () => {
+      try {
+        console.log('🔄 Ensuring permission cache is populated...');
+        await refreshPermissions();
+        console.log('✅ Permission cache refreshed successfully');
+      } catch (error) {
+        console.error('❌ Failed to refresh permissions on mount:', error);
+        // Don't block page load if permission refresh fails
+      }
+    };
+
+    ensurePermissionCache();
+  }, []); // Run once on mount
 
   useEffect(() => {
     // Subscribe to real-time updates for pilots table
