@@ -95,6 +95,7 @@ const RosterManagement: React.FC = () => {
     callsign: string;
     boardNumber: string;
     discordUsername: string;
+    discord_id?: string;
     status_id: string;
     standing_id: string;
     squadron_id: string;
@@ -107,6 +108,7 @@ const RosterManagement: React.FC = () => {
     callsign: '',
     boardNumber: '',
     discordUsername: '',
+    discord_id: '',
     status_id: '',
     standing_id: '',
     squadron_id: '',
@@ -353,6 +355,7 @@ const RosterManagement: React.FC = () => {
       callsign: '',
       boardNumber: '',
       discordUsername: '',
+      discord_id: '',
       status_id: statuses.find(s => s.name === 'Provisional')?.id || '',
       standing_id: standings.find(s => s.name === 'Good')?.id || '',
       squadron_id: '',
@@ -519,6 +522,7 @@ const RosterManagement: React.FC = () => {
         boardNumber: parseInt(newPilot.boardNumber),
         callsign: newPilot.callsign,
         discord_username: newPilot.discordUsername || undefined, // Changed null to undefined
+        discord_id: newPilot.discord_id || undefined, // Add Discord ID if selected
         // Don't include status_id directly - it will be assigned via the join table
       };
 
@@ -618,6 +622,7 @@ const RosterManagement: React.FC = () => {
           callsign: '',
           boardNumber: '',
           discordUsername: '',
+          discord_id: '',
           status_id: '',
           standing_id: '',
           squadron_id: '',
@@ -653,6 +658,7 @@ const RosterManagement: React.FC = () => {
           callsign: '',
           boardNumber: '',
           discordUsername: '',
+          discord_id: '',
           status_id: '',
           standing_id: '',
           squadron_id: '',
