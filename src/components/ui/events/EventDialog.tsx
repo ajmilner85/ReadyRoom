@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { X, Clock, Image as ImageIcon, ChevronLeft, ChevronRight, Check, Plus } from 'lucide-react';
+import { X, Clock, Image as ImageIcon, ChevronLeft, ChevronRight, Check, Plus, CheckSquare } from 'lucide-react';
 import { useAppSettings } from '../../../context/AppSettingsContext';
 import { fetchDiscordGuildRoles } from '../../../utils/discordService';
 import { supabase } from '../../../utils/supabaseClient';
+import ReferenceMaterialsInput from './ReferenceMaterialsInput';
+import type { ReferenceMaterial, TrainingSyllabusMission } from '../../../types/EventTypes';
 
 interface EventDialogProps {
   onSave: (eventData: {
@@ -51,6 +53,8 @@ interface EventDialogProps {
       enabled: boolean;
       scheduledTime?: string;
     };
+    referenceMaterials?: ReferenceMaterial[];
+    syllabusMissionId?: string;
   }, shouldPublish?: boolean) => Promise<void>;
   onCancel: () => void;
   initialData?: {
@@ -98,12 +102,19 @@ interface EventDialogProps {
       sendRemindersToAccepted?: boolean;
       sendRemindersToTentative?: boolean;
     };
+    referenceMaterials?: ReferenceMaterial[];
+    syllabusMissionId?: string;
   };
   squadrons?: Array<{ id: string; name: string; designation: string; insignia_url?: string | null }>;
-  selectedCycle?: { participants?: string[] };
+  selectedCycle?: {
+    id?: string;
+    participants?: string[];
+    syllabusId?: string;
+    type?: string;
+  };
 }
 
-type WorkflowStep = 'details' | 'participants' | 'reminders' | 'publish';
+type WorkflowStep = 'details' | 'training' | 'participants' | 'reminders' | 'publish';
 
 // Helper function to convert reminder time to milliseconds
 const reminderTimeToMilliseconds = (value: number, unit: 'minutes' | 'hours' | 'days'): number => {
@@ -249,6 +260,22 @@ export const EventDialog: React.FC<EventDialogProps> = ({
   const [scheduledPublicationDatetime, setScheduledPublicationDatetime] = useState('');
   const [scheduledPublicationOffset, setScheduledPublicationOffset] = useState(
     settings.eventDefaults.scheduledPublicationOffset
+  );
+
+  // Training syllabus state
+  const [syllabusMissions, setSyllabusMissions] = useState<TrainingSyllabusMission[]>([]);
+  const [selectedMissionId, setSelectedMissionId] = useState<string>(initialData?.syllabusMissionId || '');
+  const [inheritedReferences, setInheritedReferences] = useState<ReferenceMaterial[]>([]);
+  const [trainingObjectives, setTrainingObjectives] = useState<Array<{
+    id: string;
+    objective_text: string;
+    scope_level: string;
+    display_order: number;
+  }>>([]);
+
+  // Reference materials state (for training events)
+  const [referenceMaterials, setReferenceMaterials] = useState<ReferenceMaterial[]>(
+    initialData?.referenceMaterials || []
   );
 
   // Image state
@@ -408,6 +435,101 @@ export const EventDialog: React.FC<EventDialogProps> = ({
     }
   }, [selectedCycle?.participants, initialData?.participants]);
 
+  // Load syllabus missions when cycle has a syllabus
+  useEffect(() => {
+    if (selectedCycle?.syllabusId && selectedCycle?.type === 'Training') {
+      const loadMissions = async () => {
+        const { data, error } = await supabase
+          .from('training_syllabus_missions')
+          .select('*')
+          .eq('syllabus_id', selectedCycle?.syllabusId ?? '')
+          .order('mission_number') as any;
+
+        if (!error && data) {
+          setSyllabusMissions(data);
+
+          // Auto-select next mission for new events (not editing)
+          if (!initialData?.id && selectedCycle.id) {
+            // Find the highest mission number already used in this cycle
+            const { data: cycleEvents } = await supabase
+              .from('events')
+              .select('syllabus_mission_id')
+              .eq('cycle_id', selectedCycle.id)
+              .not('syllabus_mission_id', 'is', null);
+
+            if (cycleEvents && data.length > 0) {
+              // Get mission numbers for all used missions
+              const usedMissionIds = new Set(cycleEvents.map(e => e.syllabus_mission_id));
+
+              // Find the first unused mission
+              const nextMission = data.find((m: any) => !usedMissionIds.has(m.id));
+
+              if (nextMission) {
+                setSelectedMissionId(nextMission.id);
+              }
+            } else if (data.length > 0) {
+              // No events yet, select first mission
+              setSelectedMissionId(data[0].id);
+            }
+          }
+        }
+      };
+      loadMissions();
+    } else {
+      setSyllabusMissions([]);
+      setSelectedMissionId('');
+    }
+  }, [selectedCycle?.syllabusId, selectedCycle?.type, selectedCycle?.id, initialData?.id]);
+
+  // Load inherited references when mission is selected
+  useEffect(() => {
+    if (selectedMissionId && selectedCycle?.syllabusId) {
+      const loadInheritedRefs = async () => {
+        const { data, error} = await supabase
+          .from('training_syllabus_missions')
+          .select('reference_materials, training_syllabi(reference_materials)')
+          .eq('id', selectedMissionId)
+          .single();
+
+        if (!error && data) {
+          const syllabusRefs = (data.training_syllabi as any)?.reference_materials || [];
+          const missionRefs = Array.isArray(data.reference_materials) ? data.reference_materials : [];
+
+          // Merge and deduplicate by URL
+          const merged = [...syllabusRefs, ...missionRefs];
+          const unique = merged.filter((ref, index, self) =>
+            index === self.findIndex((r) => r.url === ref.url)
+          );
+
+          setInheritedReferences(unique);
+        }
+      };
+      loadInheritedRefs();
+    } else {
+      setInheritedReferences([]);
+    }
+  }, [selectedMissionId, selectedCycle?.syllabusId]);
+
+  // Load training objectives when mission is selected
+  useEffect(() => {
+    if (selectedMissionId) {
+      const loadObjectives = async () => {
+        const { data, error } = await supabase
+          .from('syllabus_training_objectives')
+          .select('id, objective_text, scope_level, display_order')
+          .eq('syllabus_mission_id', selectedMissionId)
+          .order('display_order');
+
+        if (!error && data) {
+          setTrainingObjectives(data as any);
+        }
+      };
+      loadObjectives();
+    } else {
+      setTrainingObjectives([]);
+    }
+  }, [selectedMissionId]);
+
   // Initialize and sync scheduled publication datetime when event datetime changes
   useEffect(() => {
     if (datetime && scheduledPublicationEnabled) {
@@ -536,11 +658,9 @@ export const EventDialog: React.FC<EventDialogProps> = ({
   useEffect(() => {
     const loadScheduledPublication = async () => {
       if (!initialData?.id) {
-        console.log('[LOAD-SCHEDULED-DEBUG] No initialData.id, skipping load');
         return;
       }
 
-      console.log('[LOAD-SCHEDULED-DEBUG] Loading scheduled publication for event:', initialData.id);
       try {
         const { data, error } = await supabase
           .from('scheduled_event_publications')
@@ -549,27 +669,20 @@ export const EventDialog: React.FC<EventDialogProps> = ({
           .eq('sent', false)
           .single();
 
-        console.log('[LOAD-SCHEDULED-DEBUG] Query result:', { data, error });
-
         if (data && !error) {
-          console.log('[LOAD-SCHEDULED-DEBUG] Setting scheduled publication enabled, datetime:', data.scheduled_time);
           setScheduledPublicationEnabled(true);
           // Convert UTC scheduled time to local timezone for the input field
           const localTime = utcToTimezoneLocal(data.scheduled_time, timezone);
-          console.log('[LOAD-SCHEDULED-DEBUG] Converted to local time:', localTime);
           setScheduledPublicationDatetime(localTime);
 
           // Calculate offset from scheduled time and event start time
           if (datetime) {
             const offset = datetimeToOffset(localTime, datetime, timezone);
-            console.log('[LOAD-SCHEDULED-DEBUG] Calculated offset:', offset);
             setScheduledPublicationOffset(offset);
           }
-        } else {
-          console.log('[LOAD-SCHEDULED-DEBUG] No scheduled publication found or error occurred');
         }
       } catch (error) {
-        console.error('[LOAD-SCHEDULED-DEBUG] Failed to load scheduled publication:', error);
+        console.error('Failed to load scheduled publication:', error);
       }
     };
 
@@ -706,12 +819,20 @@ export const EventDialog: React.FC<EventDialogProps> = ({
   };
 
   // Workflow navigation and validation
-  const steps: Array<{ key: WorkflowStep; title: string; description: string }> = [
-    { key: 'details', title: 'Event Details', description: 'Basic event information' },
-    { key: 'participants', title: 'Participants', description: 'Who can participate' },
-    { key: 'reminders', title: 'Reminders', description: 'Notification settings' },
-    { key: 'publish', title: 'Publish', description: 'Publication settings' }
-  ];
+  const steps: Array<{ key: WorkflowStep; title: string; description: string }> = selectedCycle?.type === 'Training'
+    ? [
+        { key: 'details', title: 'Event Details', description: 'Basic event information' },
+        { key: 'training', title: 'Training Details', description: 'Mission and objectives' },
+        { key: 'participants', title: 'Participants', description: 'Who can participate' },
+        { key: 'reminders', title: 'Reminders', description: 'Notification settings' },
+        { key: 'publish', title: 'Publish', description: 'Publication settings' }
+      ]
+    : [
+        { key: 'details', title: 'Event Details', description: 'Basic event information' },
+        { key: 'participants', title: 'Participants', description: 'Who can participate' },
+        { key: 'reminders', title: 'Reminders', description: 'Notification settings' },
+        { key: 'publish', title: 'Publish', description: 'Publication settings' }
+      ];
 
   const currentStepIndex = steps.findIndex(step => step.key === currentStep);
   const isFirstStep = currentStepIndex === 0;
@@ -735,7 +856,11 @@ export const EventDialog: React.FC<EventDialogProps> = ({
           return { isValid: false, errorMessage: 'End time must be after start time' };
         }
         return { isValid: true };
-        
+
+      case 'training':
+        // Training step validation (optional - no required fields)
+        return { isValid: true };
+
       case 'participants':
         // No specific validation required for participants step
         return { isValid: true };
@@ -1049,7 +1174,10 @@ export const EventDialog: React.FC<EventDialogProps> = ({
           scheduledTime: timezoneLocalToUtc(scheduledPublicationDatetime, timezone)
         } : {
           enabled: false
-        }
+        },
+        // Training workflow fields (Phase 2-3)
+        referenceMaterials: referenceMaterials.length > 0 ? referenceMaterials : undefined,
+        syllabusMissionId: selectedMissionId || undefined
       }, shouldPublish);
     } catch (error) {
       setError(error instanceof Error ? error.message : 'An error occurred while saving the event');
@@ -1202,7 +1330,9 @@ export const EventDialog: React.FC<EventDialogProps> = ({
             fontWeight: 600,
             color: '#0F172A'
           }}>
-            {initialData ? 'Edit Event' : 'Create New Event'}
+            {selectedCycle?.type === 'Training'
+              ? (initialData ? 'Edit Training Event' : 'Create New Training Event')
+              : (initialData ? 'Edit Event' : 'Create New Event')}
           </h2>
           <button
             onClick={onCancel}
@@ -1492,6 +1622,92 @@ export const EventDialog: React.FC<EventDialogProps> = ({
                     ))}
                   </div>
               </div>
+            </div>
+          )}
+
+          {currentStep === 'training' && (
+            <div>
+              {/* Syllabus Mission Selector */}
+              {syllabusMissions.length > 0 && (
+                <div style={{ marginBottom: '20px' }}>
+                  <label style={{
+                    display: 'block',
+                    marginBottom: '8px',
+                    fontSize: '14px',
+                    fontWeight: 500,
+                    color: '#64748B'
+                  }}>
+                    Syllabus Mission (Optional)
+                  </label>
+                  <select
+                    value={selectedMissionId}
+                    onChange={(e) => setSelectedMissionId(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '8px',
+                      border: '1px solid #CBD5E1',
+                      borderRadius: '4px',
+                      fontSize: '14px',
+                      boxSizing: 'border-box',
+                      height: '35px',
+                      appearance: 'menulist'
+                    }}
+                  >
+                    <option value="">No mission</option>
+                    {syllabusMissions.map(mission => (
+                      <option key={mission.id} value={mission.id}>
+                        Mission {mission.mission_number}: {mission.mission_name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {/* Training Objectives */}
+              {selectedMissionId && trainingObjectives.length > 0 && (
+                <div style={{ marginBottom: '20px' }}>
+                  <label style={{
+                    display: 'block',
+                    marginBottom: '8px',
+                    fontSize: '14px',
+                    fontWeight: 500,
+                    color: '#64748B'
+                  }}>
+                    Training Objectives (DLOs)
+                  </label>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    {trainingObjectives.map((objective) => (
+                      <div
+                        key={objective.id}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'flex-start',
+                          gap: '12px',
+                          padding: '12px',
+                          backgroundColor: '#F9FAFB',
+                          borderRadius: '6px',
+                          border: '1px solid #E5E7EB'
+                        }}
+                      >
+                        <CheckSquare
+                          size={20}
+                          style={{ color: '#64748B', flexShrink: 0, marginTop: '2px' }}
+                        />
+                        <p style={{ fontSize: '14px', color: '#374151', lineHeight: '1.6', margin: 0 }}>
+                          {objective.objective_text}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Reference Materials Section */}
+              <ReferenceMaterialsInput
+                value={referenceMaterials}
+                onChange={setReferenceMaterials}
+                inheritedMaterials={inheritedReferences}
+              />
             </div>
           )}
 

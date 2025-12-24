@@ -192,6 +192,7 @@ export const fetchCycles = async (discordGuildId?: string) => {
       restrictedTo: dbCycle.restricted_to || [],
       participants: Array.isArray(dbCycle.participants) ? dbCycle.participants as string[] : [], // Get participants from database
       discordGuildId: dbCycle.discord_guild_id || undefined,
+      syllabusId: dbCycle.syllabus_id || undefined,
       creator: {
         boardNumber: dbCycle.creator_board_number || '',
         callsign: dbCycle.creator_call_sign || '',
@@ -209,24 +210,31 @@ export const createCycle = async (cycle: Omit<Cycle, 'id' | 'creator'> & { disco
     return { cycle: null, error: userError || new Error('User not authenticated') };
   }
   // Map from frontend format to database format
+  const insertData: any = {
+    name: cycle.name,
+    description: cycle.description,
+    start_date: cycle.startDate,
+    end_date: cycle.endDate,
+    type: cycle.type,
+    status: cycle.status,
+    restricted_to: cycle.restrictedTo,
+    participants: cycle.participants || [], // Store participants in database
+    discord_guild_id: cycle.discordGuildId || '', // Add Discord guild ID with empty string fallback
+    creator_id: user.id,
+    // Optional user profile info
+    creator_call_sign: user.user_metadata?.callsign,
+    creator_board_number: user.user_metadata?.board_number,
+    creator_billet: user.user_metadata?.billet
+  };
+
+  // Training workflow field (Phase 3) - only include if provided (null means no syllabus)
+  if (cycle.syllabusId !== undefined) {
+    insertData.syllabus_id = cycle.syllabusId || null;
+  }
+
   const { data, error } = await supabase
     .from('cycles')
-    .insert({
-      name: cycle.name,
-      description: cycle.description,
-      start_date: cycle.startDate,
-      end_date: cycle.endDate,
-      type: cycle.type,
-      status: cycle.status,
-      restricted_to: cycle.restrictedTo,
-      participants: cycle.participants || [], // Store participants in database
-      discord_guild_id: cycle.discordGuildId || '', // Add Discord guild ID with empty string fallback
-      creator_id: user.id,
-      // Optional user profile info
-      creator_call_sign: user.user_metadata?.callsign,
-      creator_board_number: user.user_metadata?.board_number,
-      creator_billet: user.user_metadata?.billet
-    })
+    .insert(insertData)
     .select()
     .single();
 
@@ -245,6 +253,7 @@ export const createCycle = async (cycle: Omit<Cycle, 'id' | 'creator'> & { disco
     type: data.type as CycleType,
     status: data.status as 'active' | 'completed' | 'upcoming',
     restrictedTo: data.restricted_to || [],
+    syllabusId: data.syllabus_id || undefined,
     creator: {
       boardNumber: data.creator_board_number || '',
       callsign: data.creator_call_sign || '',
@@ -268,6 +277,11 @@ export const updateCycle = async (cycleId: string, updates: Partial<Omit<Cycle, 
   if (updates.restrictedTo !== undefined) dbUpdates.restricted_to = updates.restrictedTo;
   if (updates.participants !== undefined) dbUpdates.participants = updates.participants;
 
+  // Training workflow field (Phase 3) - only include if provided (null means clear the field)
+  if (updates.syllabusId !== undefined) {
+    dbUpdates.syllabus_id = updates.syllabusId || null;
+  }
+
   // Debug: Check user permissions before update
   console.log('[DEBUG] Attempting to update cycle:', { cycleId, updates: dbUpdates });
 
@@ -286,7 +300,7 @@ export const updateCycle = async (cycleId: string, updates: Partial<Omit<Cycle, 
     throw new Error('User not authenticated');
   }
 
-  const { data: permTest, error: permError } = await supabase
+  const { data: permTest, error: permError } = await (supabase as any)
     .rpc('user_can_manage_cycle', {
       user_auth_id: userId,
       cycle_participants: existingCycle?.participants || null
@@ -361,7 +375,9 @@ export const fetchEvents = async (cycleId?: string) => {
     creator_billet,
     event_settings,
     created_at,
-    updated_at
+    updated_at,
+    syllabus_mission_id,
+    reference_materials
   `);
   // If a cycle ID is provided, filter events for that cycle
   if (cycleId) {
@@ -426,7 +442,10 @@ export const fetchEvents = async (cycleId?: string) => {
         accepted: [],
         declined: [],
         tentative: []
-      }
+      },
+      // Training workflow fields (Phase 2-3)
+      syllabusMissionId: dbEvent.syllabus_mission_id || undefined,
+      referenceMaterials: (Array.isArray(dbEvent.reference_materials) ? dbEvent.reference_materials : []) as any
     };
   });
 
@@ -530,7 +549,7 @@ export const createEvent = async (event: Omit<Event, 'id' | 'creator' | 'attenda
 
 
   // Map from frontend format to database format
-  const insertData = {
+  const insertData: any = {
     name: event.title, // Frontend uses 'title', DB field is 'name'
     description: event.description,
     start_datetime: event.datetime, // Frontend uses 'datetime', DB uses 'start_datetime'
@@ -547,6 +566,14 @@ export const createEvent = async (event: Omit<Event, 'id' | 'creator' | 'attenda
     creator_board_number: creatorBoardNumber,
     creator_billet: creatorBillet
   };
+
+  // Training workflow fields (Phase 2) - only include if provided
+  if (event.referenceMaterials !== undefined) {
+    insertData.reference_materials = event.referenceMaterials;
+  }
+  if (event.syllabusMissionId !== undefined) {
+    insertData.syllabus_mission_id = event.syllabusMissionId;
+  }
 
   console.log('[CREATE-EVENT] User attempting insert:', {
     userId: user.id,
@@ -593,7 +620,10 @@ export const createEvent = async (event: Omit<Event, 'id' | 'creator' | 'attenda
       accepted: [],
       declined: [],
       tentative: []
-    }
+    },
+    // Training workflow fields (Phase 2-3)
+    syllabusMissionId: data.syllabus_mission_id || undefined,
+    referenceMaterials: (Array.isArray(data.reference_materials) ? data.reference_materials : []) as any
   };
 
   return { event: newEvent, error: null };
@@ -704,6 +734,14 @@ export const updateEvent = async (eventId: string, updates: Partial<Omit<Event, 
   // Preserve discord_event_id during updates
   if ((updates as any).discord_event_id !== undefined) dbUpdates.discord_event_id = (updates as any).discord_event_id;
   // No restricted_to in the DB schema
+
+  // Training workflow fields (Phase 2) - only include if provided
+  if (updates.referenceMaterials !== undefined) {
+    dbUpdates.reference_materials = updates.referenceMaterials;
+  }
+  if ((updates as any).syllabusMissionId !== undefined) {
+    dbUpdates.syllabus_mission_id = (updates as any).syllabusMissionId;
+  }
 
   // Check if we have any updates to apply
   console.log('[UPDATE-EVENT] dbUpdates before check:', dbUpdates);
@@ -833,7 +871,10 @@ export const updateEvent = async (eventId: string, updates: Partial<Omit<Event, 
       callsign: '',
       billet: ''
     },
-    attendance
+    attendance,
+    // Training workflow fields (Phase 2-3)
+    syllabusMissionId: data.syllabus_mission_id || undefined,
+    referenceMaterials: (Array.isArray(data.reference_materials) ? data.reference_materials : []) as any
   };
 
   return { event: updatedEvent, error: null };

@@ -262,7 +262,7 @@ export const updateMission = async (
       if (error.code === 'PGRST116') {
         console.warn('Mission update blocked by RLS - clearing permission cache');
         try {
-          await supabase.rpc('clear_user_permission_cache' as any);
+          await (supabase as any).rpc('clear_user_permission_cache');
         } catch (cacheError) {
           console.error('Failed to clear permission cache:', cacheError);
         }

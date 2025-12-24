@@ -203,7 +203,7 @@ async function findMatchingPilot(discordData: DiscordUserData | null): Promise<{
     // First try to match by Discord ID using SECURITY DEFINER function to bypass RLS
     // This is necessary because new users don't have pilot_id set yet, which causes
     // the RLS policies to block access to the pilots table
-    const { data: pilotIdResult, error: functionError } = await supabase
+    const { data: pilotIdResult, error: functionError } = await (supabase as any)
       .rpc('find_pilot_by_discord_id', { p_discord_id: discordData.id });
 
     if (functionError) {

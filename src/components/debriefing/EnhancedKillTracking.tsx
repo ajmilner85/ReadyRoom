@@ -93,7 +93,7 @@ const EnhancedKillTracking: React.FC<EnhancedKillTrackingProps> = ({
     try {
       const poolData = await killTrackingService.getMissionUnitPool(missionDebriefingId);
 
-      setUnitPool(poolData as UnitPoolItem[]);
+      setUnitPool(poolData as unknown as UnitPoolItem[]);
       // Initialize empty kill records for each pilot
       const initialKills: Record<string, UnitKill[]> = {};
       pilots.forEach(pilot => {

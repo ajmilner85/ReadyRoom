@@ -9,6 +9,8 @@ interface EventsListProps {
   onNewEvent: () => void;
   onEditEvent?: (event: Event) => void;
   onDeleteEvent?: (event: Event) => void;
+  onRemoveAll?: () => void;
+  showRemoveAll?: boolean;
 }
 
 const EventsList: React.FC<EventsListProps> = ({
@@ -17,7 +19,9 @@ const EventsList: React.FC<EventsListProps> = ({
   onEventSelect,
   onNewEvent,
   onEditEvent,
-  onDeleteEvent
+  onDeleteEvent,
+  onRemoveAll,
+  showRemoveAll = false
 }) => {
   const [hoveredEvent, setHoveredEvent] = useState<string | null>(null);
 
@@ -196,7 +200,7 @@ const EventsList: React.FC<EventsListProps> = ({
         {renderEventGroup(pastEvents, 'Previous Events')}
       </div>
 
-      {/* Add Event Button */}
+      {/* Footer with Add Event Button and Remove All Button */}
       <div style={{
         display: 'flex',
         justifyContent: 'center',
@@ -206,6 +210,41 @@ const EventsList: React.FC<EventsListProps> = ({
         zIndex: 5,
         borderTop: '1px solid #E2E8F0'
       }}>
+        {/* Remove All Button - positioned on the left */}
+        {showRemoveAll && onRemoveAll && (
+          <button
+            onClick={onRemoveAll}
+            style={{
+              position: 'absolute',
+              left: '18px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              padding: '6px 12px',
+              backgroundColor: 'white',
+              border: '1px solid #E5E7EB',
+              borderRadius: '6px',
+              cursor: 'pointer',
+              fontSize: '14px',
+              color: '#64748B',
+              transition: 'all 0.2s',
+              fontWeight: 500
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = '#F9FAFB';
+              e.currentTarget.style.borderColor = '#CBD5E1';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = 'white';
+              e.currentTarget.style.borderColor = '#E5E7EB';
+            }}
+          >
+            <Trash2 size={16} />
+            <span>Remove All</span>
+          </button>
+        )}
+
+        {/* Add Event Button - centered */}
         <button
           onClick={onNewEvent}
           style={{

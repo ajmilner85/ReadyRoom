@@ -52,6 +52,9 @@ export interface AppSettings {
     groupBySquadron: boolean;
     showNoResponse: boolean;
 
+    // Reference Materials
+    defaultReferenceMaterialTypes: string[];
+
     // Scheduled Publication
     scheduledPublicationEnabledByDefault: boolean;
     scheduledPublicationOffset: {
@@ -109,6 +112,15 @@ const defaultSettings: AppSettings = {
     groupResponsesByQualification: true,
     groupBySquadron: true,
     showNoResponse: true,
+
+    // Reference materials default
+    defaultReferenceMaterialTypes: [
+      'Student Reference Sheet',
+      'Briefing Slides',
+      'Video Tutorial',
+      'Syllabus',
+      'NATOPS Reference'
+    ],
 
     // Scheduled publication defaults
     scheduledPublicationEnabledByDefault: false,

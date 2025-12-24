@@ -623,6 +623,82 @@ const EventSettings: React.FC<EventSettingsProps> = ({ error, setError }) => {
           </div>
         </div>
 
+        {/* Reference Materials Section */}
+        <div style={sectionStyle}>
+          <h3 style={{ fontSize: '18px', fontWeight: 600, color: '#0F172A', margin: '0 0 16px 0' }}>
+            Training Reference Materials
+          </h3>
+          <div>
+            <label style={fieldLabelStyle}>Reference Material Types</label>
+            <p style={{ fontSize: '12px', color: '#64748B', margin: '4px 0 12px 0', fontFamily: 'Inter' }}>
+              Define reference material types that will appear in the dropdown when adding custom references to training syllabi or events (in addition to an "Other" option)
+            </p>
+            {(appSettings.eventDefaults.defaultReferenceMaterialTypes || []).map((type, index) => (
+              <div key={index} style={{ marginBottom: '8px', display: 'flex', gap: '8px', alignItems: 'center' }}>
+                <input
+                  type="text"
+                  value={type}
+                  onChange={(e) => {
+                    const newTypes = [...(appSettings.eventDefaults.defaultReferenceMaterialTypes || [])];
+                    newTypes[index] = e.target.value;
+                    handleSettingChange('defaultReferenceMaterialTypes', newTypes);
+                  }}
+                  style={{
+                    flex: 1,
+                    padding: '8px 12px',
+                    border: '1px solid #D1D5DB',
+                    borderRadius: '6px',
+                    fontSize: '14px',
+                    fontFamily: 'Inter'
+                  }}
+                  placeholder={`Reference Type ${index + 1}`}
+                />
+                {(appSettings.eventDefaults.defaultReferenceMaterialTypes || []).length > 1 && (
+                  <button
+                    onClick={() => {
+                      const newTypes = (appSettings.eventDefaults.defaultReferenceMaterialTypes || []).filter((_, i) => i !== index);
+                      handleSettingChange('defaultReferenceMaterialTypes', newTypes);
+                    }}
+                    style={{
+                      padding: '8px 12px',
+                      border: 'none',
+                      backgroundColor: '#FEE2E2',
+                      color: '#DC2626',
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      fontSize: '14px',
+                      fontFamily: 'Inter',
+                      fontWeight: 500
+                    }}
+                  >
+                    Remove
+                  </button>
+                )}
+              </div>
+            ))}
+            <button
+              onClick={() => {
+                const newTypes = [...(appSettings.eventDefaults.defaultReferenceMaterialTypes || []), ''];
+                handleSettingChange('defaultReferenceMaterialTypes', newTypes);
+              }}
+              style={{
+                padding: '8px 16px',
+                border: '1px solid #3B82F6',
+                backgroundColor: '#EFF6FF',
+                color: '#3B82F6',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                fontSize: '14px',
+                fontFamily: 'Inter',
+                fontWeight: 500,
+                marginTop: '8px'
+              }}
+            >
+              + Add Type
+            </button>
+          </div>
+        </div>
+
         </div>
       </div>
     </div>

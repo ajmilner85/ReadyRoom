@@ -45,7 +45,7 @@ class KillTrackingService {
       throw new Error(`Failed to record kills: ${error.message}`);
     }
 
-    return data as PilotKill;
+    return data as unknown as PilotKill;
   }
 
   /**
@@ -70,7 +70,7 @@ class KillTrackingService {
       throw new Error(`Failed to update kills: ${error.message}`);
     }
 
-    return data as PilotKill;
+    return data as unknown as PilotKill;
   }
 
   /**
@@ -93,7 +93,7 @@ class KillTrackingService {
       throw new Error(`Failed to get kills: ${error.message}`);
     }
 
-    return data as PilotKill[];
+    return data as unknown as PilotKill[];
   }
 
   /**
@@ -117,7 +117,7 @@ class KillTrackingService {
       throw new Error(`Failed to get pilot kills: ${error.message}`);
     }
 
-    return data as PilotKill;
+    return data as unknown as PilotKill;
   }
 
   /**
@@ -168,7 +168,7 @@ class KillTrackingService {
    * Get mission unit pool - units available for kill tracking in this mission
    */
   async getMissionUnitPool(missionDebriefingId: string) {
-    const { data, error } = await supabase
+    const { data, error } = await (supabase as any)
       .from('mission_unit_type_pool')
       .select(`
         id,
@@ -206,7 +206,7 @@ class KillTrackingService {
     console.log('Adding units to pool:', { missionDebriefingId, unitTypeIds });
 
     // Call the database function to add units to the JSONB pool
-    const { data, error } = await supabase.rpc('add_units_to_pool', {
+    const { data, error } = await (supabase as any).rpc('add_units_to_pool', {
       p_mission_debriefing_id: missionDebriefingId,
       p_unit_type_ids: unitTypeIds
     });
@@ -224,7 +224,7 @@ class KillTrackingService {
    * Remove unit from mission pool
    */
   async removeUnitFromPool(poolId: string) {
-    const { error } = await supabase
+    const { error } = await (supabase as any)
       .from('mission_unit_type_pool')
       .delete()
       .eq('id', poolId);
