@@ -230,6 +230,7 @@ export type Database = {
           restricted_to: string[] | null
           start_date: string
           status: string
+          syllabus_id: string | null
           type: string
           updated_at: string
         }
@@ -248,6 +249,7 @@ export type Database = {
           restricted_to?: string[] | null
           start_date: string
           status: string
+          syllabus_id?: string | null
           type: string
           updated_at?: string
         }
@@ -266,47 +268,56 @@ export type Database = {
           restricted_to?: string[] | null
           start_date?: string
           status?: string
+          syllabus_id?: string | null
           type?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "cycles_syllabus_id_fkey"
+            columns: ["syllabus_id"]
+            isOneToOne: false
+            referencedRelation: "training_syllabi"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       dcs_unit_types: {
         Row: {
           category: string
-          created_at: string
+          created_at: string | null
           display_name: string
           id: string
-          is_active: boolean
+          is_active: boolean | null
           kill_category: string
           source: string
           sub_category: string | null
           type_name: string
-          updated_at: string
+          updated_at: string | null
         }
         Insert: {
           category: string
-          created_at?: string
+          created_at?: string | null
           display_name: string
           id?: string
-          is_active?: boolean
+          is_active?: boolean | null
           kill_category: string
           source?: string
           sub_category?: string | null
           type_name: string
-          updated_at?: string
+          updated_at?: string | null
         }
         Update: {
           category?: string
-          created_at?: string
+          created_at?: string | null
           display_name?: string
           id?: string
-          is_active?: boolean
+          is_active?: boolean | null
           kill_category?: string
           source?: string
           sub_category?: string | null
           type_name?: string
-          updated_at?: string
+          updated_at?: string | null
         }
         Relationships: []
       }
@@ -474,8 +485,10 @@ export type Database = {
           mission_id: string | null
           name: string
           participants: Json | null
+          reference_materials: Json | null
           start_datetime: string
           status: string | null
+          syllabus_mission_id: string | null
           track_qualifications: boolean | null
           type: string | null
           updated_at: string | null
@@ -501,8 +514,10 @@ export type Database = {
           mission_id?: string | null
           name: string
           participants?: Json | null
+          reference_materials?: Json | null
           start_datetime: string
           status?: string | null
+          syllabus_mission_id?: string | null
           track_qualifications?: boolean | null
           type?: string | null
           updated_at?: string | null
@@ -528,8 +543,10 @@ export type Database = {
           mission_id?: string | null
           name?: string
           participants?: Json | null
+          reference_materials?: Json | null
           start_datetime?: string
           status?: string | null
+          syllabus_mission_id?: string | null
           track_qualifications?: boolean | null
           type?: string | null
           updated_at?: string | null
@@ -554,6 +571,13 @@ export type Database = {
             columns: ["mission_id"]
             isOneToOne: false
             referencedRelation: "missions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "events_syllabus_mission_id_fkey"
+            columns: ["syllabus_mission_id"]
+            isOneToOne: false
+            referencedRelation: "training_syllabus_missions"
             referencedColumns: ["id"]
           },
         ]
@@ -642,6 +666,7 @@ export type Database = {
         Row: {
           created_at: string
           created_by: string | null
+          discord_thread_ids: Json | null
           finalized_at: string | null
           finalized_by: string | null
           id: string
@@ -652,11 +677,13 @@ export type Database = {
           tacview_file_url: string | null
           tacview_uploaded_at: string | null
           tacview_uploaded_by: string | null
+          unit_type_pool: Json
           updated_at: string
         }
         Insert: {
           created_at?: string
           created_by?: string | null
+          discord_thread_ids?: Json | null
           finalized_at?: string | null
           finalized_by?: string | null
           id?: string
@@ -667,11 +694,13 @@ export type Database = {
           tacview_file_url?: string | null
           tacview_uploaded_at?: string | null
           tacview_uploaded_by?: string | null
+          unit_type_pool?: Json
           updated_at?: string
         }
         Update: {
           created_at?: string
           created_by?: string | null
+          discord_thread_ids?: Json | null
           finalized_at?: string | null
           finalized_by?: string | null
           id?: string
@@ -682,6 +711,7 @@ export type Database = {
           tacview_file_url?: string | null
           tacview_uploaded_at?: string | null
           tacview_uploaded_by?: string | null
+          unit_type_pool?: Json
           updated_at?: string
         }
         Relationships: [
@@ -711,55 +741,6 @@ export type Database = {
             columns: ["tacview_uploaded_by"]
             isOneToOne: false
             referencedRelation: "user_profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      mission_unit_type_pool: {
-        Row: {
-          added_at: string
-          added_by: string | null
-          id: string
-          kill_category: string
-          mission_debriefing_id: string
-          unit_type_id: string
-        }
-        Insert: {
-          added_at?: string
-          added_by?: string | null
-          id?: string
-          kill_category: string
-          mission_debriefing_id: string
-          unit_type_id: string
-        }
-        Update: {
-          added_at?: string
-          added_by?: string | null
-          id?: string
-          kill_category?: string
-          mission_debriefing_id?: string
-          unit_type_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "mission_unit_type_pool_added_by_fkey"
-            columns: ["added_by"]
-            isOneToOne: false
-            referencedRelation: "user_profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "mission_unit_type_pool_mission_debriefing_id_fkey"
-            columns: ["mission_debriefing_id"]
-            isOneToOne: false
-            referencedRelation: "mission_debriefings"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "mission_unit_type_pool_unit_type_id_fkey"
-            columns: ["unit_type_id"]
-            isOneToOne: false
-            referencedRelation: "dcs_unit_types"
             referencedColumns: ["id"]
           },
         ]
@@ -924,6 +905,7 @@ export type Database = {
           carrier_id: string | null
           color_palette: Json | null
           deactivated_date: string | null
+          debriefing_settings: Json | null
           designation: string
           discord_integration: Json | null
           established_date: string | null
@@ -941,6 +923,7 @@ export type Database = {
           carrier_id?: string | null
           color_palette?: Json | null
           deactivated_date?: string | null
+          debriefing_settings?: Json | null
           designation: string
           discord_integration?: Json | null
           established_date?: string | null
@@ -958,6 +941,7 @@ export type Database = {
           carrier_id?: string | null
           color_palette?: Json | null
           deactivated_date?: string | null
+          debriefing_settings?: Json | null
           designation?: string
           discord_integration?: Json | null
           established_date?: string | null
@@ -999,6 +983,7 @@ export type Database = {
           color_palette: Json | null
           created_at: string | null
           deactivated_date: string | null
+          debriefing_settings: Json | null
           designation: string | null
           discord_integration: Json | null
           established_date: string | null
@@ -1013,6 +998,7 @@ export type Database = {
           color_palette?: Json | null
           created_at?: string | null
           deactivated_date?: string | null
+          debriefing_settings?: Json | null
           designation?: string | null
           discord_integration?: Json | null
           established_date?: string | null
@@ -1027,6 +1013,7 @@ export type Database = {
           color_palette?: Json | null
           created_at?: string | null
           deactivated_date?: string | null
+          debriefing_settings?: Json | null
           designation?: string | null
           discord_integration?: Json | null
           established_date?: string | null
@@ -1144,51 +1131,42 @@ export type Database = {
       }
       pilot_kills: {
         Row: {
-          aircraft_status: string | null
           air_to_air_kills: number
           air_to_ground_kills: number
+          aircraft_status: string | null
           created_at: string
           flight_debrief_id: string
           id: string
-          kill_count: number
-          kills_detail: Json
+          kills_detail: Json | null
           mission_id: string
           pilot_id: string
-          pilot_mission_status: string
           pilot_status: string | null
-          unit_type_id: string | null
           updated_at: string
         }
         Insert: {
-          aircraft_status?: string | null
           air_to_air_kills?: number
           air_to_ground_kills?: number
+          aircraft_status?: string | null
           created_at?: string
           flight_debrief_id: string
           id?: string
-          kill_count?: number
-          kills_detail?: Json
+          kills_detail?: Json | null
           mission_id: string
           pilot_id: string
-          pilot_mission_status?: string
           pilot_status?: string | null
-          unit_type_id?: string | null
           updated_at?: string
         }
         Update: {
-          aircraft_status?: string | null
           air_to_air_kills?: number
           air_to_ground_kills?: number
+          aircraft_status?: string | null
           created_at?: string
           flight_debrief_id?: string
           id?: string
-          kill_count?: number
-          kills_detail?: Json
+          kills_detail?: Json | null
           mission_id?: string
           pilot_id?: string
-          pilot_mission_status?: string
           pilot_status?: string | null
-          unit_type_id?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -1204,13 +1182,6 @@ export type Database = {
             columns: ["pilot_id"]
             isOneToOne: false
             referencedRelation: "pilots"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "pilot_kills_unit_type_id_fkey"
-            columns: ["unit_type_id"]
-            isOneToOne: false
-            referencedRelation: "dcs_unit_types"
             referencedColumns: ["id"]
           },
         ]
@@ -1644,26 +1615,23 @@ export type Database = {
       }
       roles: {
         Row: {
-          compatible_statuses: string[]
           created_at: string | null
+          exclusivity_scope: Database["public"]["Enums"]["exclusivity_scope"]
           id: string
-          isExclusive: boolean
           name: string
           order: number
         }
         Insert: {
-          compatible_statuses?: string[]
           created_at?: string | null
+          exclusivity_scope?: Database["public"]["Enums"]["exclusivity_scope"]
           id?: string
-          isExclusive?: boolean
           name: string
           order: number
         }
         Update: {
-          compatible_statuses?: string[]
           created_at?: string | null
+          exclusivity_scope?: Database["public"]["Enums"]["exclusivity_scope"]
           id?: string
-          isExclusive?: boolean
           name?: string
           order?: number
         }
@@ -1755,6 +1723,44 @@ export type Database = {
         }
         Relationships: []
       }
+      syllabus_training_objectives: {
+        Row: {
+          created_at: string | null
+          display_order: number | null
+          id: string
+          objective_text: string
+          scope_level: string
+          syllabus_mission_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          display_order?: number | null
+          id?: string
+          objective_text: string
+          scope_level: string
+          syllabus_mission_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          display_order?: number | null
+          id?: string
+          objective_text?: string
+          scope_level?: string
+          syllabus_mission_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "syllabus_training_objectives_syllabus_mission_id_fkey"
+            columns: ["syllabus_mission_id"]
+            isOneToOne: false
+            referencedRelation: "training_syllabus_missions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       teams: {
         Row: {
           active: boolean
@@ -1790,6 +1796,85 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: []
+      }
+      training_syllabi: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          description: string | null
+          id: string
+          name: string
+          reference_materials: Json | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          name: string
+          reference_materials?: Json | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          name?: string
+          reference_materials?: Json | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "training_syllabi_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      training_syllabus_missions: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          id: string
+          mission_name: string
+          mission_number: number
+          reference_materials: Json | null
+          syllabus_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          mission_name: string
+          mission_number: number
+          reference_materials?: Json | null
+          syllabus_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          mission_name?: string
+          mission_number?: number
+          reference_materials?: Json | null
+          syllabus_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "training_syllabus_missions_syllabus_id_fkey"
+            columns: ["syllabus_id"]
+            isOneToOne: false
+            referencedRelation: "training_syllabi"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_permission_cache: {
         Row: {
@@ -1922,305 +2007,10 @@ export type Database = {
       }
     }
     Functions: {
-      add_event_thread_id: {
-        Args: {
-          p_channel_id: string
-          p_event_id: string
-          p_guild_id: string
-          p_message_id: string
-          p_squadron_id: string
-          p_thread_id: string
-        }
-        Returns: boolean
-      }
-      add_units_to_pool: {
-        Args: {
-          p_mission_debriefing_id: string
-          p_unit_type_ids: string[]
-          p_added_by?: string
-        }
-        Returns: {
-          added_count: number
-          duplicate_count: number
-        }[]
-      }
-      add_pilot_qualification: {
-        Args: {
-          p_achieved_date?: string
-          p_expiry_date?: string
-          p_notes?: string
-          p_pilot_id: string
-          p_qualification_id: string
-        }
-        Returns: string
-      }
-      atomic_attendance_upsert: {
-        Args: {
-          p_discord_event_id: string
-          p_discord_id: string
-          p_discord_username: string
-          p_user_response: string
-        }
-        Returns: {
-          created_at: string
-          discord_event_id: string
-          discord_id: string
-          discord_username: string
-          id: string
-          updated_at: string
-          user_response: string
-        }[]
-      }
-      bulk_add_pilot_qualifications: {
-        Args: {
-          p_achieved_date?: string
-          p_pilot_ids: string[]
-          p_qualification_id: string
-        }
-        Returns: {
-          new_record_id: string
-          pilot_id: string
-          qualification_id: string
-          was_updated: boolean
-        }[]
-      }
-      check_admin_permissions: {
-        Args: { p_auth_user_id: string }
-        Returns: {
-          has_admin_permissions: boolean
-          permission_count: number
-          user_profile_id: string
-        }[]
-      }
-      check_squadrons_use_threads: {
-        Args: { p_squadron_ids: string[] }
-        Returns: boolean
-      }
-      clean_expired_permission_cache: { Args: never; Returns: number }
-      cleanup_expired_interactions: { Args: never; Returns: undefined }
-      clear_user_permission_cache: { Args: never; Returns: undefined }
-      debug_permission_check: {
-        Args: { permission_name: string; user_auth_id: string }
-        Returns: {
-          result: string
-          step: string
-        }[]
-      }
-      debug_scope_matching: {
-        Args: { user_auth_id: string }
-        Returns: {
-          check_type: string
-          details: string
-          matches: boolean
-          perm_value: string
-          user_value: string
-        }[]
-      }
-      debug_user_permissions: {
-        Args: { user_auth_id: string }
-        Returns: {
-          step_data: string
-          step_name: string
-          step_result: string
-        }[]
-      }
-      find_pilot_by_discord_id: {
-        Args: { p_discord_id: string }
-        Returns: string
-      }
-      get_event_no_response_users: {
-        Args: { discord_message_id: string }
-        Returns: {
-          board_number: string
-          callsign: string
-          discord_id: string
-          discord_username: string
-        }[]
-      }
-      get_event_no_response_users_by_uuid: {
-        Args: { event_uuid: string }
-        Returns: {
-          board_number: string
-          callsign: string
-          discord_id: string
-          discord_username: string
-        }[]
-      }
-      get_event_thread_ids: {
-        Args: { p_event_id: string }
-        Returns: {
-          channel_id: string
-          created_at: string
-          guild_id: string
-          message_id: string
-          squadron_id: string
-          thread_id: string
-        }[]
-      }
-      get_latest_event_responses: {
-        Args: { event_id: string }
-        Returns: {
-          created_at: string
-          discord_event_id: string
-          discord_id: string
-          discord_username: string
-          id: string
-          updated_at: string
-          user_response: string
-        }[]
-      }
-      get_pilot_qualification_history: {
-        Args: { p_pilot_id: string; p_qualification_id: string }
-        Returns: {
-          achieved_date: string
-          expiry_date: string
-          id: string
-          is_current: boolean
-          notes: string
-          superseded_at: string
-        }[]
-      }
-      get_thread_id_for_channel: {
-        Args: { p_channel_id: string; p_event_id: string; p_guild_id: string }
-        Returns: string
-      }
-      get_user_bases_hash: { Args: { p_user_id: string }; Returns: string }
-      grant_admin_permissions: {
-        Args: { p_auth_user_id: string }
-        Returns: string
-      }
-      invalidate_user_permissions: {
-        Args: { p_user_id: string }
-        Returns: undefined
-      }
-      is_valid_scope_for_permission: {
-        Args: { p_permission_id: string; p_requested_scope: string }
-        Returns: boolean
-      }
-      populate_user_permission_cache: {
-        Args: { target_user_id?: string }
-        Returns: undefined
-      }
-      release_reminder_lock: { Args: { lock_key: number }; Returns: boolean }
-      revoke_admin_permissions: {
-        Args: { p_auth_user_id: string }
-        Returns: string
-      }
-      show_limit: { Args: never; Returns: number }
-      show_trgm: { Args: { "": string }; Returns: string[] }
-      test_event_view_debug: {
-        Args: { test_event_id: string; test_user_auth_id: string }
-        Returns: {
-          step: string
-          value: string
-        }[]
-      }
-      test_user_permissions: { Args: { user_auth_id: string }; Returns: string }
-      try_acquire_reminder_lock: {
-        Args: { lock_key: number }
-        Returns: boolean
-      }
-      update_event_settings: {
-        Args: { p_event_id: string; p_event_settings: Json }
-        Returns: Json
-      }
-      update_squadron_timezone: {
-        Args: { new_timezone: string }
-        Returns: undefined
-      }
-      user_can_manage_assignment: {
-        Args: { target_pilot_id: string; user_auth_id: string }
-        Returns: boolean
-      }
-      user_can_manage_cycle:
-        | {
-            Args: { cycle_participants?: Json; user_auth_id: string }
-            Returns: boolean
-          }
-        | {
-            Args: { cycle_type: string; user_auth_id: string }
-            Returns: boolean
-          }
-      user_can_manage_cycle_debug_return: {
-        Args: { cycle_participants?: Json; user_auth_id: string }
-        Returns: boolean
-      }
-      user_can_manage_cycle_with_logging: {
-        Args: { cycle_participants?: Json; user_auth_id: string }
-        Returns: boolean
-      }
-      user_can_manage_squadron: {
-        Args: { squadron_id: string; user_auth_id: string }
-        Returns: boolean
-      }
-      user_can_view_assignment: {
-        Args: { target_pilot_id: string; user_auth_id: string }
-        Returns: boolean
-      }
-      user_can_view_cycle:
-        | {
-            Args: { cycle_participants: Json; user_auth_id: string }
-            Returns: boolean
-          }
-        | {
-            Args: { cycle_squadron_id: string; user_auth_id: string }
-            Returns: boolean
-          }
-      user_can_view_debrief: {
-        Args: {
-          target_flight_id?: string
-          target_mission_id: string
-          user_auth_id: string
-        }
-        Returns: boolean
-      }
-      user_can_view_event: {
-        Args: { target_event_id: string; user_auth_id: string }
-        Returns: boolean
-      }
-      user_can_view_mission: {
-        Args: { target_mission_id: string; user_auth_id: string }
-        Returns: boolean
-      }
-      user_can_view_pilot: {
-        Args: { target_pilot_id: string; user_auth_id: string }
-        Returns: boolean
-      }
-      user_can_view_squadron: {
-        Args: { squadron_id: string; user_auth_id: string }
-        Returns: boolean
-      }
-      user_can_view_wing: {
-        Args: { user_auth_id: string; wing_id: string }
-        Returns: boolean
-      }
-      user_has_event_permission: {
-        Args: {
-          permission_name: string
-          target_event_id?: string
-          user_auth_id: string
-        }
-        Returns: boolean
-      }
-      user_has_global_org_permission: {
-        Args: { user_auth_id: string }
-        Returns: boolean
-      }
-      user_has_manage_change_log_permission: {
-        Args: { check_user_id: string }
-        Returns: boolean
-      }
-      user_has_roster_permission: {
-        Args: {
-          permission_name: string
-          target_pilot_id?: string
-          user_auth_id: string
-        }
-        Returns: boolean
-      }
+      [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      exclusivity_scope: "none" | "squadron" | "wing"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -2228,25 +2018,23 @@ export type Database = {
   }
 }
 
-type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
-
-type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
+type DefaultSchema = Database[Extract<keyof Database, "public">]
 
 export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
-    | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals
-  }
-    ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
-        DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
+    | { schema: keyof Database },
+  TableName extends DefaultSchemaTableNameOrOptions extends { schema: keyof Database }
+    // @ts-ignore - Type indexing error in auto-generated code
+    ? keyof (Database[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+        // @ts-ignore - Type indexing error in auto-generated code
+        Database[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
     : never = never,
-> = DefaultSchemaTableNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals
-}
-  ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
-      DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
+> = DefaultSchemaTableNameOrOptions extends { schema: keyof Database }
+  // @ts-ignore - Type indexing error in auto-generated code
+  ? (Database[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+      // @ts-ignore - Type indexing error in auto-generated code
+      Database[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
       Row: infer R
     }
     ? R
@@ -2264,16 +2052,14 @@ export type Tables<
 export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
-    | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals
-  }
-    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    | { schema: keyof Database },
+  TableName extends DefaultSchemaTableNameOrOptions extends { schema: keyof Database }
+    // @ts-ignore - Type indexing error in auto-generated code
+    ? keyof Database[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
     : never = never,
-> = DefaultSchemaTableNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals
-}
-  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+> = DefaultSchemaTableNameOrOptions extends { schema: keyof Database }
+  // @ts-ignore - Type indexing error in auto-generated code
+  ? Database[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
       Insert: infer I
     }
     ? I
@@ -2289,16 +2075,14 @@ export type TablesInsert<
 export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
-    | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals
-  }
-    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    | { schema: keyof Database },
+  TableName extends DefaultSchemaTableNameOrOptions extends { schema: keyof Database }
+    // @ts-ignore - Type indexing error in auto-generated code
+    ? keyof Database[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
     : never = never,
-> = DefaultSchemaTableNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals
-}
-  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+> = DefaultSchemaTableNameOrOptions extends { schema: keyof Database }
+  // @ts-ignore - Type indexing error in auto-generated code
+  ? Database[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
       Update: infer U
     }
     ? U
@@ -2314,39 +2098,22 @@ export type TablesUpdate<
 export type Enums<
   DefaultSchemaEnumNameOrOptions extends
     | keyof DefaultSchema["Enums"]
-    | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals
-  }
-    ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
+    | { schema: keyof Database },
+  EnumName extends DefaultSchemaEnumNameOrOptions extends { schema: keyof Database }
+    // @ts-ignore - Type indexing error in auto-generated code
+    ? keyof Database[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
     : never = never,
-> = DefaultSchemaEnumNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals
-}
-  ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
+> = DefaultSchemaEnumNameOrOptions extends { schema: keyof Database }
+  // @ts-ignore - Type indexing error in auto-generated code
+  ? Database[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
   : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
     ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
     : never
 
-export type CompositeTypes<
-  PublicCompositeTypeNameOrOptions extends
-    | keyof DefaultSchema["CompositeTypes"]
-    | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals
-  }
-    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
-> = PublicCompositeTypeNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals
-}
-  ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
-  : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
-    ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
-    : never
-
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      exclusivity_scope: ["none", "squadron", "wing"],
+    },
   },
 } as const

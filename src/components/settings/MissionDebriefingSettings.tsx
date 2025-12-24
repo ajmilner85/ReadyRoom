@@ -138,7 +138,7 @@ const MissionDebriefingSettings: React.FC<MissionDebriefingSettingsProps> = ({ s
       if (wingError) throw wingError;
 
       if (wingData && 'debriefing_settings' in wingData && wingData.debriefing_settings) {
-        setWingSettings(wingData.debriefing_settings as WingDebriefingSettings);
+        setWingSettings(wingData.debriefing_settings as unknown as WingDebriefingSettings);
       }
     } catch (err: any) {
       console.error('Error loading debriefing settings:', err);

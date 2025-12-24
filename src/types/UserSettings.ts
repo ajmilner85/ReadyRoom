@@ -64,6 +64,7 @@ export interface UserPreferences {
     sendRemindersToTentative?: boolean;
     groupResponsesByQualification?: boolean;
     groupBySquadron?: boolean;
+    defaultReferenceMaterialTypes?: string[];
   };
 }
 
@@ -115,7 +116,14 @@ export const defaultUserSettings: UserSettings = {
       sendRemindersToAccepted: true,
       sendRemindersToTentative: true,
       groupResponsesByQualification: true,
-      groupBySquadron: true
+      groupBySquadron: true,
+      defaultReferenceMaterialTypes: [
+        'Student Reference Sheet',
+        'Briefing Slides',
+        'Video Tutorial',
+        'Syllabus',
+        'NATOPS Reference'
+      ]
     }
   }
 };

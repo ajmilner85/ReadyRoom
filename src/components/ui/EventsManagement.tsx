@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { usePageLoading } from '../../context/PageLoadingContext';
+import { useAppSettings } from '../../context/AppSettingsContext';
 import StandardPageLoader from './StandardPageLoader';
 import EventsList from './events/EventsList';
 import EventDetails from './events/EventDetails';
@@ -8,6 +9,7 @@ import EventDialog from './events/EventDialog';
 import CyclesList from './events/CyclesList';
 import CycleDialog from './events/CycleDialog';
 import { DeleteDivisionDialog } from './dialogs/DeleteDivisionDialog';
+import { Trash2 } from 'lucide-react';
 import type { Event, Cycle, CycleType } from '../../types/EventTypes';
 import { supabase, fetchCycles, createCycle, updateCycle, deleteCycle, 
          fetchEvents, createEvent, updateEvent, deleteEvent } from '../../utils/supabaseClient';
@@ -25,6 +27,7 @@ const CARD_WIDTH = '550px';
 
 const EventsManagement: React.FC = () => {
   const { setPageLoading } = usePageLoading();
+  const { settings } = useAppSettings();
   
   // State for data
   const [events, setEvents] = useState<Event[]>([]);
@@ -56,7 +59,11 @@ const EventsManagement: React.FC = () => {
   const [showEventDialog, setShowEventDialog] = useState(false);
   const [showCycleDialog, setShowCycleDialog] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  
+  const [showDeleteAllEventsDialog, setShowDeleteAllEventsDialog] = useState(false);
+  const [deleteAllConfirmText, setDeleteAllConfirmText] = useState('');
+  const [isDeletingAllEvents, setIsDeletingAllEvents] = useState(false);
+  const [isSavingCycle, setIsSavingCycle] = useState(false);
+
   const [eventToDelete, setEventToDelete] = useState<Event | null>(null);
   const [cycleToDelete, setCycleToDelete] = useState<Cycle | null>(null);
   const [isDeleteCycle, setIsDeleteCycle] = useState(false);
@@ -438,10 +445,12 @@ const EventsManagement: React.FC = () => {
     scheduledPublication?: {
       enabled: boolean;
       scheduledTime?: string;
-      
+
     };
+    referenceMaterials?: Array<{ type: string; name: string; url: string }>;
+    syllabusMissionId?: string;
   }, shouldPublish: boolean = false) => {
-    
+
     let createTimeoutId: NodeJS.Timeout | undefined;
     let imageTimeoutId: NodeJS.Timeout | undefined;
     let publishTimeoutId: NodeJS.Timeout | undefined;
@@ -686,8 +695,10 @@ const EventsManagement: React.FC = () => {
     scheduledPublication?: {
       enabled: boolean;
       scheduledTime?: string;
-      
+
     };
+    referenceMaterials?: Array<{ type: string; name: string; url: string }>;
+    syllabusMissionId?: string;
   }, shouldPublish: boolean = false) => {
 
     if (!editingEvent) return;
@@ -1066,7 +1077,99 @@ const EventsManagement: React.FC = () => {
       checkEventMission(selectedEvent.id);
     }
   }, [selectedEvent?.id]);
-  
+
+  // Helper function to create events for a training cycle
+  const createEventsForCycle = async (
+    cycleId: string,
+    cycleData: {
+      name: string;
+      startDate: string;
+      endDate: string;
+      syllabusId?: string;
+      restrictedTo?: string[];
+      participants?: string[];
+    }
+  ) => {
+    if (!cycleData.syllabusId) return;
+
+    try {
+      // Load syllabus missions with week numbers
+      const { data: missions, error: missionsError } = await supabase
+        .from('training_syllabus_missions')
+        .select('id, week_number, mission_name')
+        .eq('syllabus_id', cycleData.syllabusId)
+        .order('week_number') as any;
+
+      if (missionsError || !missions) {
+        console.error('Failed to load syllabus missions:', missionsError);
+        return;
+      }
+
+      // Calculate total weeks based on cycle dates
+      // Parse dates as local dates to avoid timezone offset issues
+      const [startYear, startMonth, startDay] = cycleData.startDate.split('-').map(Number);
+      const [endYear, endMonth, endDay] = cycleData.endDate.split('-').map(Number);
+      const startDate = new Date(startYear, startMonth - 1, startDay);
+      const endDate = new Date(endYear, endMonth - 1, endDay);
+      const diffTime = Math.abs(endDate.getTime() - startDate.getTime());
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+      const totalWeeks = Math.ceil(diffDays / 7);
+
+      // Get default time from settings
+      const defaultTime = settings.eventDefaults.defaultStartTime || '20:30';
+      const [hours, minutes] = defaultTime.split(':').map(Number);
+
+      // Create events for each week
+      for (let weekNum = 0; weekNum < totalWeeks; weekNum++) {
+        // Calculate event date (same day of week as start date)
+        const eventDate = new Date(startDate);
+        eventDate.setDate(startDate.getDate() + (weekNum * 7));
+        eventDate.setHours(hours, minutes, 0, 0);
+
+        // Find mission for this week (if any)
+        const mission = missions.find((m: any) => m.week_number === weekNum);
+
+        // Create event
+        const eventTitle = `${cycleData.name} - Week ${weekNum}`;
+
+        const eventData = {
+          title: eventTitle,
+          description: mission ? `Training Mission: ${mission.mission_name}` : '',
+          datetime: eventDate.toISOString(),
+          endDatetime: new Date(eventDate.getTime() + (settings.eventDefaults.defaultDurationHours * 60 + settings.eventDefaults.defaultDurationMinutes) * 60000).toISOString(),
+          eventType: 'Hop' as const,
+          cycleId: cycleId,
+          status: 'upcoming' as const,
+          restrictedTo: cycleData.restrictedTo || [],
+          participants: cycleData.participants || [],
+          trackQualifications: !!mission, // Only track qualifications if there's a mission assigned
+          syllabusMissionId: mission?.id,
+          referenceMaterials: [],
+          eventSettings: {
+            timezone: settings.eventDefaults.referenceTimezone || 'America/New_York',
+            showNoResponse: settings.eventDefaults.showNoResponse,
+            groupBySquadron: settings.eventDefaults.groupBySquadron,
+            firstReminderTime: settings.eventDefaults.firstReminderTime,
+            secondReminderTime: settings.eventDefaults.secondReminderTime,
+            firstReminderEnabled: settings.eventDefaults.firstReminderEnabled,
+            secondReminderEnabled: settings.eventDefaults.secondReminderEnabled,
+            firstReminderRecipients: settings.eventDefaults.firstReminderRecipients,
+            secondReminderRecipients: settings.eventDefaults.secondReminderRecipients,
+            sendRemindersToAccepted: settings.eventDefaults.sendRemindersToAccepted,
+            sendRemindersToTentative: settings.eventDefaults.sendRemindersToTentative,
+            initialNotificationRoles: settings.eventDefaults.initialNotificationRoles || [],
+            groupResponsesByQualification: settings.eventDefaults.groupResponsesByQualification
+          }
+        };
+
+        await createEvent(eventData);
+      }
+    } catch (err: any) {
+      console.error('Failed to create events for cycle:', err);
+      throw err;
+    }
+  };
+
   // Cycle handlers
   const handleCreateCycle = async (cycleData: {
     name: string;
@@ -1075,13 +1178,16 @@ const EventsManagement: React.FC = () => {
     endDate: string;
     type: CycleType;
     restrictedTo?: string[];
+    syllabusId?: string;
+    autoCreateEvents?: boolean;
   }) => {
+    setIsSavingCycle(true);
     try {
       // Determine status based on dates
       const now = new Date();
       const startDate = new Date(cycleData.startDate);
       const endDate = new Date(cycleData.endDate);
-      
+
       let status: 'active' | 'completed' | 'upcoming';
       if (now >= startDate && now <= endDate) {
         status = 'active';
@@ -1092,19 +1198,33 @@ const EventsManagement: React.FC = () => {
       }
 
       // Include the Discord guild ID with the cycle data
-      const { error } = await createCycle({
+      const { cycle, error } = await createCycle({
         ...cycleData,
         status,
         discordGuildId: discordGuildId || undefined
       });
-      
+
       if (error) throw error;
-      
+
+      // If auto-create events is enabled, create events for the syllabus
+      if (cycleData.autoCreateEvents && cycle && cycleData.syllabusId) {
+        await createEventsForCycle(cycle.id, cycleData);
+      }
+
       // Reload cycles to get the latest data
       await loadCycles();
+
+      // If events were created, reload them too
+      if (cycleData.autoCreateEvents && cycle) {
+        await loadEvents(cycle.id);
+        setSelectedCycle(cycle);
+      }
+
       setShowCycleDialog(false);
     } catch (err: any) {
       setError(`Failed to create cycle: ${err.message}`);
+    } finally {
+      setIsSavingCycle(false);
     }
   };
 
@@ -1115,15 +1235,18 @@ const EventsManagement: React.FC = () => {
     endDate: string;
     type: CycleType;
     restrictedTo?: string[];
+    syllabusId?: string;
+    autoCreateEvents?: boolean;
   }) => {
     if (!editingCycle) return;
-    
+
+    setIsSavingCycle(true);
     try {
       // Determine status based on dates
       const now = new Date();
       const startDate = new Date(cycleData.startDate);
       const endDate = new Date(cycleData.endDate);
-      
+
       let status: 'active' | 'completed' | 'upcoming';
       if (now >= startDate && now <= endDate) {
         status = 'active';
@@ -1137,30 +1260,80 @@ const EventsManagement: React.FC = () => {
         ...cycleData,
         status
       });
-      
+
       if (error) throw error;
-      
+
+      // If auto-create events is enabled, create events for the syllabus
+      if (cycleData.autoCreateEvents && cycle && cycleData.syllabusId) {
+        await createEventsForCycle(cycle.id, cycleData);
+      }
+
       // Reload cycles to get the latest data
       await loadCycles();
-      
+
       // If this was the selected cycle, update the selection
       if (selectedCycle?.id === editingCycle.id) {
         setSelectedCycle(cycle);
         // Also reload events to reflect any changes in cycle relationship
         await loadEvents(cycle?.id);
       }
-      
+
       setEditingCycle(null);
       setShowCycleDialog(false);
     } catch (err: any) {
       setError(`Failed to update cycle: ${err.message}`);
+    } finally {
+      setIsSavingCycle(false);
+    }
+  };
+
+  const handleDeleteAllEvents = async () => {
+    if (!selectedCycle) return;
+    if (deleteAllConfirmText.toLowerCase() !== 'yes') {
+      setError('Please type "yes" to confirm deletion');
+      return;
+    }
+
+    setIsDeletingAllEvents(true);
+    try {
+      // Get all events for the selected cycle
+      const cycleEvents = filteredEvents;
+
+      // Delete each event
+      for (const event of cycleEvents) {
+        // Try to delete Discord messages first
+        try {
+          const { errors } = await deleteMultiChannelEvent(event);
+          if (errors.length > 0) {
+            console.warn(`Warning: Some Discord deletions failed for event ${event.id}:`, errors);
+          }
+        } catch (discordError) {
+          console.warn(`Failed to delete Discord messages for event ${event.id}:`, discordError);
+        }
+
+        // Delete the event from database
+        const { error } = await deleteEvent(event.id);
+        if (error) {
+          console.error(`Failed to delete event ${event.id}:`, error);
+        }
+      }
+
+      // Reload events
+      await loadEvents(selectedCycle.id);
+      setSelectedEvent(null);
+      setShowDeleteAllEventsDialog(false);
+      setDeleteAllConfirmText('');
+    } catch (err: any) {
+      setError(`Failed to delete all events: ${err.message}`);
+    } finally {
+      setIsDeletingAllEvents(false);
     }
   };
 
   const handleDeleteCycle = (cycle: Cycle) => {
     // Check if there are events associated with this cycle
     const hasAssociatedEvents = events.some(event => event.cycleId === cycle.id);
-    
+
     if (hasAssociatedEvents) {
       // Show an error or confirmation to delete associated events as well
       setError("Cannot delete a cycle with associated events. Please delete the events first.");
@@ -1467,6 +1640,8 @@ const EventsManagement: React.FC = () => {
                     }}
                     onEditEvent={handleEditEventClick}
                     onDeleteEvent={handleDeleteEvent}
+                    onRemoveAll={() => setShowDeleteAllEventsDialog(true)}
+                    showRemoveAll={selectedCycle !== null && filteredEvents.length > 0}
                   />
                 </div>
               </div>
@@ -1504,7 +1679,7 @@ const EventsManagement: React.FC = () => {
                   textTransform: 'uppercase',
                   display: 'block',
                   textAlign: 'center'
-                }}>Event Details</span>
+                }}>{selectedEvent && selectedCycle?.type === 'Training' ? 'Training Event Details' : 'Event Details'}</span>
               </div>
               {/* Content */}
               <div style={{ flex: 1, overflow: 'hidden' }}>
@@ -1703,7 +1878,9 @@ const EventsManagement: React.FC = () => {
             additionalImageUrls: editingEvent.additionalImageUrls || [],
             trackQualifications: (editingEvent as any).trackQualifications || false,
             eventSettings: editingEvent.eventSettings, // Include event settings for editing
-            isPublished: !!(editingEvent.discordEventId || editingEvent.discord_event_id) // Flag to indicate if event is already published
+            isPublished: !!(editingEvent.discordEventId || editingEvent.discord_event_id), // Flag to indicate if event is already published
+            referenceMaterials: editingEvent.referenceMaterials, // Training workflow: reference materials
+            syllabusMissionId: editingEvent.syllabusMissionId // Training workflow: syllabus mission
           } : undefined}
           squadrons={squadrons}
           selectedCycle={selectedCycle ?? undefined}
@@ -1719,6 +1896,8 @@ const EventsManagement: React.FC = () => {
           }}
           squadrons={squadrons}
           initialData={editingCycle ?? undefined}
+          hasEvents={editingCycle ? events.some(e => e.cycleId === editingCycle.id) : false}
+          isSaving={isSavingCycle}
         />
       )}
 
@@ -1740,7 +1919,136 @@ const EventsManagement: React.FC = () => {
           )}
         />
       )}
-      
+
+      {/* Delete All Events Confirmation Dialog */}
+      {showDeleteAllEventsDialog && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000
+        }}>
+          <div style={{
+            backgroundColor: 'white',
+            borderRadius: '8px',
+            padding: '24px',
+            maxWidth: '500px',
+            width: '90%',
+            boxShadow: '0 10px 25px rgba(0, 0, 0, 0.3)'
+          }}>
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '12px',
+              marginBottom: '16px'
+            }}>
+              <Trash2 size={24} style={{ color: '#EF4444' }} />
+              <h2 style={{
+                fontSize: '20px',
+                fontWeight: 600,
+                color: '#1E293B',
+                margin: 0
+              }}>
+                Delete All Events
+              </h2>
+            </div>
+            <p style={{
+              fontSize: '14px',
+              color: '#64748B',
+              marginBottom: '16px',
+              lineHeight: '1.6'
+            }}>
+              This will permanently delete all {filteredEvents.length} event{filteredEvents.length !== 1 ? 's' : ''} in the selected cycle.
+              This action cannot be undone.
+            </p>
+            <p style={{
+              fontSize: '14px',
+              color: '#1E293B',
+              marginBottom: '8px',
+              fontWeight: 500
+            }}>
+              Type <span style={{ fontWeight: 700, color: '#EF4444' }}>yes</span> to confirm:
+            </p>
+            <input
+              type="text"
+              value={deleteAllConfirmText}
+              onChange={(e) => setDeleteAllConfirmText(e.target.value)}
+              placeholder="Type 'yes' to confirm"
+              autoFocus
+              style={{
+                width: '100%',
+                padding: '10px',
+                border: '1px solid #CBD5E1',
+                borderRadius: '6px',
+                fontSize: '14px',
+                marginBottom: '20px',
+                boxSizing: 'border-box'
+              }}
+            />
+            <div style={{
+              display: 'flex',
+              gap: '12px',
+              justifyContent: 'flex-end'
+            }}>
+              <button
+                onClick={() => {
+                  setShowDeleteAllEventsDialog(false);
+                  setDeleteAllConfirmText('');
+                }}
+                style={{
+                  padding: '10px 20px',
+                  backgroundColor: 'white',
+                  border: '1px solid #CBD5E1',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  fontWeight: 500,
+                  color: '#64748B'
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteAllEvents}
+                disabled={deleteAllConfirmText.toLowerCase() !== 'yes' || isDeletingAllEvents}
+                style={{
+                  padding: '10px 20px',
+                  backgroundColor: deleteAllConfirmText.toLowerCase() === 'yes' ? '#EF4444' : '#CBD5E1',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: (deleteAllConfirmText.toLowerCase() === 'yes' && !isDeletingAllEvents) ? 'pointer' : 'not-allowed',
+                  fontSize: '14px',
+                  fontWeight: 500,
+                  opacity: deleteAllConfirmText.toLowerCase() === 'yes' ? 1 : 0.6,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px'
+                }}
+              >
+                {isDeletingAllEvents && (
+                  <div style={{
+                    width: '16px',
+                    height: '16px',
+                    border: '2px solid rgba(255, 255, 255, 0.3)',
+                    borderTop: '2px solid white',
+                    borderRadius: '50%',
+                    animation: 'spin 0.6s linear infinite'
+                  }} />
+                )}
+                {isDeletingAllEvents ? 'Deleting...' : 'Delete All Events'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Add keyframes for loading spinner animation */}
       <style dangerouslySetInnerHTML={{ __html: `
         @keyframes spin {

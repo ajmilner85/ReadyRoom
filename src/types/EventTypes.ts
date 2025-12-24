@@ -3,12 +3,38 @@ import type { EventSettings } from '../utils/supabaseClient';
 export type CycleType = 'Training' | 'Cruise-WorkUp' | 'Cruise-Mission' | 'Other';
 export type EventType = 'Hop' | 'Evolution' | 'Episode' | 'Re-attack' | 'Free Fly' | 'Foothold' | 'Pretense' | 'Other';
 
+export interface ReferenceMaterial {
+  type: string;
+  name: string;
+  url: string;
+}
+
+export interface TrainingSyllabus {
+  id: string;
+  name: string;
+  description: string;
+  reference_materials?: ReferenceMaterial[];
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface TrainingSyllabusMission {
+  id: string;
+  syllabus_id: string;
+  mission_number: number;
+  mission_name: string;
+  description?: string;
+  reference_materials?: ReferenceMaterial[];
+  created_at?: string;
+  updated_at?: string;
+}
+
 export interface Cycle {
   id: string;
   name: string;
   description: string;
   startDate: string;
-  endDate: string; 
+  endDate: string;
   type: CycleType;
   status: 'active' | 'completed' | 'upcoming';
   creator: {
@@ -19,6 +45,7 @@ export interface Cycle {
   restrictedTo?: string[];
   participants?: string[]; // Array of squadron IDs that participate in this cycle
   discordGuildId?: string; // Legacy field for backward compatibility
+  syllabusId?: string; // Optional training syllabus for Training cycles
 }
 
 export interface Event {
@@ -45,6 +72,9 @@ export interface Event {
     trackQualifications?: boolean; // Whether to group responses by qualification
     // Event-specific settings (stored in event_settings JSONB column)
     eventSettings?: EventSettings;
+    // Training workflow fields
+    syllabusMissionId?: string; // Optional syllabus mission for training events
+    referenceMaterials?: ReferenceMaterial[]; // Event-specific reference materials
     creator: {
       boardNumber: string;
       callsign: string;

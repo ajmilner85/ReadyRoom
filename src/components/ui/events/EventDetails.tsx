@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Card } from '../card';
-import { Check, Send, Users, Bell, Clock, Calendar, Settings } from 'lucide-react';
+import { Check, Send, Users, Bell, Clock, Calendar, Settings, CheckSquare } from 'lucide-react';
 import type { Event } from '../../../types/EventTypes';
 import { publishEventFromCycle, updateEventMultipleDiscordIds } from '../../../utils/discordService';
 import { fetchEvents, supabase } from '../../../utils/supabaseClient';
@@ -50,6 +50,13 @@ const EventDetails: React.FC<EventDetailsProps> = ({
   const [serverConnectivity, ] = useState<'connected' | 'pending' | 'error'>('connected');
   const [sendingReminder, setSendingReminder] = useState(false);
   const [scheduledPublication, setScheduledPublication] = useState<{scheduled_time: string} | null>(null);
+  const [trainingObjectives, setTrainingObjectives] = useState<Array<{
+    id: string;
+    objective_text: string;
+    scope_level: string;
+    display_order: number;
+  }>>([]);
+
   // Set initial image preview from event data
   useEffect(() => {
     const eventObj = event as any; // Cast to access non-standard properties
@@ -126,6 +133,35 @@ const EventDetails: React.FC<EventDetailsProps> = ({
     loadSquadrons();
     loadReminders();
     loadScheduledPublication();
+
+    // Load training objectives if event has a syllabus mission
+    const loadObjectives = async () => {
+      const eventObj = event as any;
+      const syllabusMissionId = event.syllabusMissionId || eventObj.syllabus_mission_id;
+
+      if (syllabusMissionId) {
+        try {
+          const { data, error } = await supabase
+            .from('syllabus_training_objectives')
+            .select('id, objective_text, scope_level, display_order')
+            .eq('syllabus_mission_id', syllabusMissionId)
+            .order('display_order');
+
+          if (data && !error) {
+            setTrainingObjectives(data as any);
+          } else {
+            setTrainingObjectives([]);
+          }
+        } catch (error) {
+          console.error('Failed to load training objectives:', error);
+          setTrainingObjectives([]);
+        }
+      } else {
+        setTrainingObjectives([]);
+      }
+    };
+
+    loadObjectives();
   }, [event]);
 
   // Debug logging for event status
@@ -735,6 +771,39 @@ const EventDetails: React.FC<EventDetailsProps> = ({
           {event.description || 'No description provided'}
         </div>
       </Card>
+
+      {/* Training Objectives - only for events with syllabus missions */}
+      {trainingObjectives.length > 0 && (
+        <Card className="p-4" style={{ marginBottom: '10px' }}>
+          <h2 style={{ fontSize: '18px', fontWeight: 600, color: '#1E293B', marginBottom: '16px' }}>
+            Training Objectives (DLOs)
+          </h2>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {trainingObjectives.map((objective) => (
+              <div
+                key={objective.id}
+                style={{
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  gap: '12px',
+                  padding: '12px',
+                  backgroundColor: '#F9FAFB',
+                  borderRadius: '6px',
+                  border: '1px solid #E5E7EB'
+                }}
+              >
+                <CheckSquare
+                  size={20}
+                  style={{ color: '#64748B', flexShrink: 0, marginTop: '2px' }}
+                />
+                <p style={{ fontSize: '14px', color: '#374151', lineHeight: '1.6', margin: 0 }}>
+                  {objective.objective_text}
+                </p>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
 
       {/* Event Settings */}
       <Card className="p-4" style={{ marginBottom: '10px' }}>

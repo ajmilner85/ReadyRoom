@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { X } from 'lucide-react';
-import { CycleType } from '../../../types/EventTypes';
+import { CycleType, TrainingSyllabus } from '../../../types/EventTypes';
 import { Squadron } from '../../../types/OrganizationTypes';
+import { supabase } from '../../../utils/supabaseClient';
 
 interface CycleDialogProps {
   onSave: (cycleData: {
@@ -12,6 +13,8 @@ interface CycleDialogProps {
     type: CycleType;
     restrictedTo?: string[];
     participants?: string[];
+    syllabusId?: string;
+    autoCreateEvents?: boolean;
   }) => void;
   onCancel: () => void;
   squadrons: Squadron[];
@@ -23,14 +26,19 @@ interface CycleDialogProps {
     type: CycleType;
     restrictedTo?: string[];
     participants?: string[];
+    syllabusId?: string;
   };
+  hasEvents?: boolean;
+  isSaving?: boolean;
 }
 
 export const CycleDialog: React.FC<CycleDialogProps> = ({
   onSave,
   onCancel,
   squadrons,
-  initialData
+  initialData,
+  hasEvents = false,
+  isSaving = false
 }) => {
   const [name, setName] = useState(initialData?.name || '');
   const [description, setDescription] = useState(initialData?.description || '');
@@ -41,10 +49,60 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
   const [participants, setParticipatingSquadrons] = useState<string[]>(initialData?.participants || []);
   const [weekCount, setWeekCount] = useState<number>(1);
   const [error, setError] = useState('');
-  
+
+  // Training syllabus state
+  // Initialize with a placeholder if we have an initial syllabus ID
+  const [syllabi, setSyllabi] = useState<TrainingSyllabus[]>(
+    initialData?.syllabusId
+      ? [{ id: initialData.syllabusId, name: 'Loading...', description: '' }]
+      : []
+  );
+  const [selectedSyllabusId, setSelectedSyllabusId] = useState<string>(initialData?.syllabusId || '');
+  const [autoCreateEvents, setAutoCreateEvents] = useState<boolean>(false);
+
   // Add refs to track which field was last changed
-  const lastChanged = useRef<'weeks' | 'endDate' | null>(null);
-  
+  const lastChanged = useRef<'weeks' | 'endDate' | 'syllabus' | null>(null);
+
+  // Load syllabi when component mounts if type is Training
+  useEffect(() => {
+    if (type === 'Training') {
+      const loadSyllabi = async () => {
+        const { data, error } = await supabase
+          .from('training_syllabi')
+          .select('id, name, description')
+          .order('name') as any;
+
+        if (!error && data) {
+          setSyllabi(data);
+        }
+      };
+      loadSyllabi();
+    }
+  }, [type]);
+
+  // Auto-update week count when syllabus is selected
+  useEffect(() => {
+    if (selectedSyllabusId && lastChanged.current === 'syllabus') {
+      const loadMissionCount = async () => {
+        const { data, error } = await supabase
+          .from('training_syllabus_missions')
+          .select('week_number')
+          .eq('syllabus_id', selectedSyllabusId)
+          .order('week_number', { ascending: false })
+          .limit(1) as any;
+
+        if (!error && data && data.length > 0) {
+          // Get highest week number and add 1 for Week 0
+          const highestWeek = data[0].week_number;
+          const totalWeeks = highestWeek + 1; // +1 for Week 0 (no mission week)
+          setWeekCount(totalWeeks);
+          lastChanged.current = 'weeks'; // Trigger end date recalculation
+        }
+      };
+      loadMissionCount();
+    }
+  }, [selectedSyllabusId]);
+
   // Initialize week count when component loads with initial data
   useEffect(() => {
     if (initialData?.startDate && initialData?.endDate) {
@@ -158,7 +216,9 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
       endDate,
       type,
       restrictedTo: restrictedTo.length > 0 ? restrictedTo : undefined,
-      participants: participants.length > 0 ? participants : undefined
+      participants: participants.length > 0 ? participants : undefined,
+      syllabusId: type === 'Training' ? (selectedSyllabusId || undefined) : undefined,
+      autoCreateEvents: !hasEvents && autoCreateEvents // Only for cycles with no events
     });
   };
 
@@ -251,45 +311,148 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
               />
             </div>
 
-            <div style={{ marginBottom: '16px' }}>
-              <label style={{
-                display: 'block',
-                marginBottom: '8px',
-                fontSize: '14px',
-                fontWeight: 500,
-                color: '#64748B'
-              }}>
-                Cycle Type
-              </label>
-              <select
-                value={type}
-                onChange={(e) => setType(e.target.value as CycleType)}
-                style={{
-                  width: '100%',
-                  padding: '8px', // Changed to 8px uniform padding
-                  border: '1px solid #CBD5E1',
-                  borderRadius: '4px',
+            <div style={{ marginBottom: '16px', display: 'flex', gap: '16px' }}>
+              <div style={{ flex: '1' }}>
+                <label style={{
+                  display: 'block',
+                  marginBottom: '8px',
                   fontSize: '14px',
-                  boxSizing: 'border-box',
-                  height: '35px', // Fixed height
-                  lineHeight: '19px', // Adjusted line height for new padding
-                  appearance: 'menulist' // Ensure native dropdown styling
-                }}
-              >
-                {cycleTypes.map(cycleType => (
-                  <option 
-                    key={cycleType} 
-                    value={cycleType}
+                  fontWeight: 500,
+                  color: '#64748B'
+                }}>
+                  Cycle Type
+                </label>
+                <select
+                  value={type}
+                  onChange={(e) => setType(e.target.value as CycleType)}
+                  style={{
+                    width: '100%',
+                    padding: '8px',
+                    border: '1px solid #CBD5E1',
+                    borderRadius: '4px',
+                    fontSize: '14px',
+                    boxSizing: 'border-box',
+                    height: '35px',
+                    lineHeight: '19px',
+                    appearance: 'menulist'
+                  }}
+                >
+                  {cycleTypes.map(cycleType => (
+                    <option
+                      key={cycleType}
+                      value={cycleType}
+                      style={{
+                        padding: '8px',
+                        whiteSpace: 'normal'
+                      }}
+                    >
+                      {cycleType.replace('-', ' - ')}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Training Syllabus Selector - only show for Training type */}
+              {type === 'Training' && (
+                <div style={{ flex: '1' }}>
+                  <label style={{
+                    display: 'block',
+                    marginBottom: '8px',
+                    fontSize: '14px',
+                    fontWeight: 500,
+                    color: '#64748B'
+                  }}>
+                    Training Syllabus (Optional)
+                  </label>
+                  <select
+                    value={selectedSyllabusId}
+                    onChange={(e) => {
+                      setSelectedSyllabusId(e.target.value);
+                      lastChanged.current = 'syllabus';
+                    }}
                     style={{
+                      width: '100%',
                       padding: '8px',
-                      whiteSpace: 'normal'
+                      border: '1px solid #CBD5E1',
+                      borderRadius: '4px',
+                      fontSize: '14px',
+                      boxSizing: 'border-box',
+                      height: '35px',
+                      lineHeight: '19px',
+                      appearance: 'menulist'
                     }}
                   >
-                    {cycleType.replace('-', ' - ')}
-                  </option>
-                ))}
-              </select>
+                    <option value="">No syllabus</option>
+                    {syllabi.map(syllabus => (
+                      <option key={syllabus.id} value={syllabus.id}>
+                        {syllabus.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
             </div>
+
+            {/* Auto-create Events Toggle - show for new cycles OR cycles with no events */}
+            {!hasEvents && type === 'Training' && selectedSyllabusId && (
+              <div style={{
+                marginBottom: '16px',
+                padding: '12px',
+                backgroundColor: '#F8FAFC',
+                border: '1px solid #E2E8F0',
+                borderRadius: '6px'
+              }}>
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '12px'
+                }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{
+                      fontSize: '14px',
+                      fontWeight: 500,
+                      color: '#0F172A',
+                      marginBottom: '4px'
+                    }}>
+                      Automatically Create Events
+                    </div>
+                    <div style={{
+                      fontSize: '13px',
+                      color: '#64748B'
+                    }}>
+                      Create weekly training events for each mission in the selected syllabus
+                    </div>
+                  </div>
+                  <div
+                    onClick={() => setAutoCreateEvents(!autoCreateEvents)}
+                    style={{
+                      width: '44px',
+                      height: '24px',
+                      backgroundColor: autoCreateEvents ? '#3B82F6' : '#E5E7EB',
+                      borderRadius: '12px',
+                      position: 'relative',
+                      cursor: 'pointer',
+                      transition: 'background-color 0.2s ease',
+                      flexShrink: 0
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: '20px',
+                        height: '20px',
+                        backgroundColor: 'white',
+                        borderRadius: '50%',
+                        position: 'absolute',
+                        top: '2px',
+                        left: autoCreateEvents ? '22px' : '2px',
+                        transition: 'left 0.2s ease',
+                        boxShadow: '0 2px 4px rgba(0, 0, 0, 0.2)'
+                      }}
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
 
             <div style={{ marginBottom: '16px', display: 'flex', gap: '16px' }}>
               <div style={{ flex: '1' }}>
@@ -703,21 +866,47 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
             </button>
             <button
               type="submit"
+              disabled={isSaving}
               style={{
                 padding: '8px 16px',
                 border: 'none',
                 borderRadius: '4px',
                 backgroundColor: '#2563EB',
                 color: 'white',
-                cursor: 'pointer',
-                fontSize: '14px'
+                cursor: isSaving ? 'not-allowed' : 'pointer',
+                fontSize: '14px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                opacity: isSaving ? 0.7 : 1
               }}
             >
-              {initialData ? 'Update Cycle' : 'Create Cycle'}
+              {isSaving && (
+                <div style={{
+                  width: '16px',
+                  height: '16px',
+                  border: '2px solid rgba(255, 255, 255, 0.3)',
+                  borderTop: '2px solid white',
+                  borderRadius: '50%',
+                  animation: 'spin 0.6s linear infinite'
+                }} />
+              )}
+              {isSaving
+                ? 'Saving...'
+                : (initialData ? 'Update Cycle' : 'Create Cycle')
+              }
             </button>
           </div>
         </form>
       </div>
+
+      {/* Add keyframes for loading spinner animation */}
+      <style dangerouslySetInnerHTML={{ __html: `
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+      `}} />
     </>
   );
 };

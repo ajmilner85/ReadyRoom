@@ -227,7 +227,7 @@ async function canAssignRole(
     }
     
     // If role is exclusive, check if it's already assigned to someone else
-    if (role.isExclusive) {
+    if (role.exclusivity_scope && role.exclusivity_scope !== 'none') {
       const { data: assignedRoles } = await supabase
         .from('pilot_roles')
         .select('pilot_id')
@@ -545,7 +545,7 @@ export async function processPilotMatches(matches: DiscordPilotMatch[]): Promise
             // Check if this status can have roles (Command or Staff only)
             if (statusData && (statusData.name === 'Command' || statusData.name === 'Staff')) {
               // Check if this role is exclusive and already assigned
-              if (roleData && roleData.isExclusive) {
+              if (roleData && roleData.exclusivity_scope && roleData.exclusivity_scope !== 'none') {
                 const { data: assignedRoles } = await supabase
                   .from('pilot_roles')
                   .select('pilot_id')
