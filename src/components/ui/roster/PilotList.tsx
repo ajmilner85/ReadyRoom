@@ -1,4 +1,4 @@
-import React, { useRef, useMemo, useCallback } from 'react';
+import React, { useRef, useMemo, useCallback, useState } from 'react';
 import { Pilot } from '../../../types/PilotTypes';
 import { Status } from '../../../utils/statusService';
 import { Standing } from '../../../utils/standingService';
@@ -8,6 +8,7 @@ import { Qualification } from '../../../utils/qualificationService';
 import { pilotListStyles, rosterStyles } from '../../../styles/RosterManagementStyles';
 import FilterDrawer, { QualificationFilterMode } from './FilterDrawer';
 import PilotListItem from './PilotListItem';
+import { ArrowUpDown } from 'lucide-react';
 
 interface PilotListProps {
   pilots: Pilot[];
@@ -72,6 +73,10 @@ const PilotList: React.FC<PilotListProps> = ({
 }) => {
   const rosterContentRef = useRef<HTMLDivElement>(null);
   const rosterListRef = useRef<HTMLDivElement>(null);
+
+  // Sort state
+  const [sortBy, setSortBy] = useState<'role' | 'boardNumber' | 'callsign'>('role');
+  const [sortBySquadron, setSortBySquadron] = useState<boolean>(true);
 
   // Filter pilots by all selected filters (only when filters are enabled) - memoized for performance
   const filteredPilots = useMemo(() => filtersEnabled ? pilots.filter(pilot => {
@@ -179,26 +184,44 @@ const PilotList: React.FC<PilotListProps> = ({
   // Helper function to sort pilots by role order, then alphabetically by callsign
   const sortPilotsByRoleAndCallsign = useCallback((pilots: Pilot[]) => {
     return [...pilots].sort((a, b) => {
-      // Get the primary role for each pilot (first role in their roles array)
-      const aRole = a.roles?.[0]?.role;
-      const bRole = b.roles?.[0]?.role;
-
-      // If both have roles, sort by role order
-      if (aRole && bRole) {
-        const roleComparison = aRole.order - bRole.order;
-        if (roleComparison !== 0) {
-          return roleComparison;
-        }
+      // First sort by squadron ID if enabled
+      if (sortBySquadron) {
+        const squadronA = a.currentSquadron?.id || '';
+        const squadronB = b.currentSquadron?.id || '';
+        const squadronCompare = squadronA.localeCompare(squadronB);
+        if (squadronCompare !== 0) return squadronCompare;
       }
 
-      // If only one has a role, prioritize the one with a role (lower role.order means higher priority)
-      if (aRole && !bRole) return -1;
-      if (!aRole && bRole) return 1;
+      // Then apply secondary sort
+      if (sortBy === 'boardNumber') {
+        const numA = parseInt(a.boardNumber || '0') || 0;
+        const numB = parseInt(b.boardNumber || '0') || 0;
+        return numA - numB;
+      } else if (sortBy === 'callsign') {
+        return a.callsign.localeCompare(b.callsign);
+      } else {
+        // sortBy === 'role' (default behavior)
+        // Get the primary role for each pilot (first role in their roles array)
+        const aRole = a.roles?.[0]?.role;
+        const bRole = b.roles?.[0]?.role;
 
-      // If roles are the same (or both have no role), sort alphabetically by callsign
-      return a.callsign.localeCompare(b.callsign);
+        // If both have roles, sort by role order
+        if (aRole && bRole) {
+          const roleComparison = aRole.order - bRole.order;
+          if (roleComparison !== 0) {
+            return roleComparison;
+          }
+        }
+
+        // If only one has a role, prioritize the one with a role (lower role.order means higher priority)
+        if (aRole && !bRole) return -1;
+        if (!aRole && bRole) return 1;
+
+        // If roles are the same (or both have no role), sort alphabetically by callsign
+        return a.callsign.localeCompare(b.callsign);
+      }
     });
-  }, []);
+  }, [sortBy, sortBySquadron]);
 
   // Build a flat array of all visible pilots in display order for multi-select
   const visiblePilotsInOrder = useMemo(() => {
@@ -258,10 +281,97 @@ const PilotList: React.FC<PilotListProps> = ({
     [inactivePilots]
   );
 
+  // Render sort controls
+  const renderSortControls = () => (
+    <div style={{
+      display: 'flex',
+      gap: '8px',
+      marginBottom: '16px',
+      justifyContent: 'flex-end',
+      paddingRight: '12px'
+    }}>
+      <span style={{ fontSize: '12px', color: '#6B7280', marginRight: '4px', alignSelf: 'center' }}>
+        Sort by:
+      </span>
+      <button
+        type="button"
+        onClick={() => setSortBySquadron(!sortBySquadron)}
+        style={{
+          padding: '4px 12px',
+          backgroundColor: sortBySquadron ? '#2563EB' : 'white',
+          color: sortBySquadron ? 'white' : '#6B7280',
+          border: `1px solid ${sortBySquadron ? '#2563EB' : '#D1D5DB'}`,
+          borderRadius: '4px',
+          cursor: 'pointer',
+          fontSize: '12px',
+          fontWeight: 500,
+          display: 'flex',
+          alignItems: 'center',
+          gap: '4px',
+          transition: 'all 0.2s ease'
+        }}
+      >
+        <ArrowUpDown size={12} />
+        Squadron
+      </button>
+      <button
+        type="button"
+        onClick={() => setSortBy('role')}
+        style={{
+          padding: '4px 12px',
+          backgroundColor: sortBy === 'role' ? '#2563EB' : 'white',
+          color: sortBy === 'role' ? 'white' : '#6B7280',
+          border: `1px solid ${sortBy === 'role' ? '#2563EB' : '#D1D5DB'}`,
+          borderRadius: '4px',
+          cursor: 'pointer',
+          fontSize: '12px',
+          fontWeight: 500,
+          transition: 'all 0.2s ease'
+        }}
+      >
+        Role
+      </button>
+      <button
+        type="button"
+        onClick={() => setSortBy('boardNumber')}
+        style={{
+          padding: '4px 12px',
+          backgroundColor: sortBy === 'boardNumber' ? '#2563EB' : 'white',
+          color: sortBy === 'boardNumber' ? 'white' : '#6B7280',
+          border: `1px solid ${sortBy === 'boardNumber' ? '#2563EB' : '#D1D5DB'}`,
+          borderRadius: '4px',
+          cursor: 'pointer',
+          fontSize: '12px',
+          fontWeight: 500,
+          transition: 'all 0.2s ease'
+        }}
+      >
+        Board Number
+      </button>
+      <button
+        type="button"
+        onClick={() => setSortBy('callsign')}
+        style={{
+          padding: '4px 12px',
+          backgroundColor: sortBy === 'callsign' ? '#2563EB' : 'white',
+          color: sortBy === 'callsign' ? 'white' : '#6B7280',
+          border: `1px solid ${sortBy === 'callsign' ? '#2563EB' : '#D1D5DB'}`,
+          borderRadius: '4px',
+          cursor: 'pointer',
+          fontSize: '12px',
+          fontWeight: 500,
+          transition: 'all 0.2s ease'
+        }}
+      >
+        Callsign
+      </button>
+    </div>
+  );
+
   return (
     <div ref={rosterListRef} style={pilotListStyles.container}>
       {/* Filter drawer */}
-      <FilterDrawer 
+      <FilterDrawer
         squadrons={squadrons}
         statuses={statuses}
         standings={standings}
@@ -282,7 +392,10 @@ const PilotList: React.FC<PilotListProps> = ({
         setQualificationFilters={setQualificationFilters}
         setFiltersEnabled={setFiltersEnabled}
       />
-      
+
+      {/* Sort Controls */}
+      {renderSortControls()}
+
       <div 
         ref={rosterContentRef}
         style={pilotListStyles.content}

@@ -194,18 +194,27 @@ export class PermissionCacheService {
       // Convert auth_user_id to user_profiles.id for the lookup
       const userProfileId = await this.getUserProfileId(userId);
       if (!userProfileId) {
+        console.log('getFromDatabaseCache: No user profile ID found for auth user:', userId);
         return null;
       }
+
+      console.log('getFromDatabaseCache: Fetching cache for user_id:', userProfileId);
 
       const { data, error } = await supabase
         .from('user_permission_cache' as any)
         .select('*')
         .eq('user_id', userProfileId)
         .single();
-      
+
       if (error || !data) {
+        console.log('getFromDatabaseCache: No cache found or error:', error);
         return null;
       }
+
+      console.log('getFromDatabaseCache: Successfully loaded cache with permissions:', {
+        access_my_training: (data as any).permissions?.access_my_training,
+        access_training_management: (data as any).permissions?.access_training_management
+      });
       
       return {
         userId: userId, // Return the original auth_user_id for consistency
@@ -256,7 +265,13 @@ export class PermissionCacheService {
         return;
       }
 
-      console.log('Storing permission cache to database:', { userProfileId, expiresAt: cacheEntry.expiresAt });
+      console.log('Storing permission cache to database:', {
+        userProfileId,
+        expiresAt: cacheEntry.expiresAt,
+        access_my_training: cacheEntry.permissions.access_my_training,
+        access_training_management: cacheEntry.permissions.access_training_management,
+        permissionsKeys: Object.keys(cacheEntry.permissions)
+      });
 
       const { data, error } = await supabase
         .from('user_permission_cache' as any)
@@ -456,7 +471,16 @@ export class PermissionCacheService {
       canVoteInPolls: false,
       canManageChangeLog: false,
       canReactToPosts: false,
-      
+
+      // Training permissions
+      manage_training_syllabi: false,
+      manage_training_debriefs: false,
+      manage_training_enrollments: false,
+      view_all_training_progress: false,
+      lock_unlock_missions: false,
+      access_my_training: false,
+      access_training_management: false,
+
       bases: [],
       calculatedAt: new Date(),
       expiresAt: new Date(Date.now() + PERMISSION_CACHE_CONFIG.DURATION_MS)

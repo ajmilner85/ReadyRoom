@@ -103,7 +103,8 @@ export const StatusesSection: React.FC<StatusesSectionProps> = ({
           border: '1px solid #E5E7EB',
           borderRadius: '8px',
           overflow: 'hidden',
-          backgroundColor: 'white'
+          backgroundColor: 'white',
+          width: '594px'
         }}>
           {/* Header Row */}
           <div style={{
@@ -118,8 +119,8 @@ export const StatusesSection: React.FC<StatusesSectionProps> = ({
             fontFamily: 'Inter'
           }}>
             <div style={{ width: '24px' }}></div>
-            <div style={{ flex: '0 0 300px', padding: '12px' }}>Status Name</div>
-            <div style={{ flex: '0 0 150px', padding: '12px', textAlign: 'center' }}>Active</div>
+            <div style={{ width: '300px', padding: '12px' }}>Status Name</div>
+            <div style={{ width: '150px', padding: '12px', textAlign: 'center' }}>Active</div>
             <div style={{ width: '120px', padding: '12px', textAlign: 'center' }}>Actions</div>
           </div>
 
@@ -136,6 +137,7 @@ export const StatusesSection: React.FC<StatusesSectionProps> = ({
                   key={status.id}
                   status={status}
                   onEditClick={() => {
+                    setIsAddingStatus(false);
                     setEditingStatusId(status.id);
                     setEditingStatusName(status.name);
                     setEditingStatusIsActive(status.isActive);
@@ -157,7 +159,10 @@ export const StatusesSection: React.FC<StatusesSectionProps> = ({
           padding: '4px 0'
         }}>
           <button
-            onClick={() => setIsAddingStatus(true)}
+            onClick={() => {
+              setEditingStatusId(null);
+              setIsAddingStatus(true);
+            }}
             disabled={loading}
             style={{
               width: '119px',
@@ -199,7 +204,9 @@ export const StatusesSection: React.FC<StatusesSectionProps> = ({
           padding: '16px',
           border: '1px solid #E5E7EB',
           borderRadius: '8px',
-          backgroundColor: '#F9FAFB'
+          backgroundColor: '#F9FAFB',
+          width: '594px',
+          boxSizing: 'border-box'
         }}>
           <h4 style={{ fontSize: '14px', fontWeight: 600, color: '#0F172A', margin: '0 0 12px 0' }}>
             Add New Status
@@ -215,7 +222,7 @@ export const StatusesSection: React.FC<StatusesSectionProps> = ({
                 onChange={(e) => setNewStatusName(e.target.value)}
                 placeholder="e.g., Active, Reserve, Inactive"
                 style={{
-                  width: '100%',
+                  width: 'calc(100% - 24px)',
                   padding: '8px 12px',
                   border: '1px solid #D1D5DB',
                   borderRadius: '6px',
@@ -226,7 +233,7 @@ export const StatusesSection: React.FC<StatusesSectionProps> = ({
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
               <label style={{ fontSize: '13px', fontWeight: 500, color: '#374151' }}>
-                Active by default
+                Pilots with this status are considered active
               </label>
               {renderToggle(newStatusIsActive, () => setNewStatusIsActive(!newStatusIsActive))}
             </div>
@@ -281,7 +288,9 @@ export const StatusesSection: React.FC<StatusesSectionProps> = ({
           padding: '16px',
           border: '1px solid #E5E7EB',
           borderRadius: '8px',
-          backgroundColor: '#F9FAFB'
+          backgroundColor: '#F9FAFB',
+          width: '594px',
+          boxSizing: 'border-box'
         }}>
           <h4 style={{ fontSize: '14px', fontWeight: 600, color: '#0F172A', margin: '0 0 12px 0' }}>
             Edit Status
@@ -296,7 +305,7 @@ export const StatusesSection: React.FC<StatusesSectionProps> = ({
                 value={editingStatusName}
                 onChange={(e) => setEditingStatusName(e.target.value)}
                 style={{
-                  width: '100%',
+                  width: 'calc(100% - 24px)',
                   padding: '8px 12px',
                   border: '1px solid #D1D5DB',
                   borderRadius: '6px',
@@ -307,7 +316,7 @@ export const StatusesSection: React.FC<StatusesSectionProps> = ({
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
               <label style={{ fontSize: '13px', fontWeight: 500, color: '#374151' }}>
-                Active
+                Pilots with this status are considered active
               </label>
               {renderToggle(editingStatusIsActive, () => setEditingStatusIsActive(!editingStatusIsActive))}
             </div>

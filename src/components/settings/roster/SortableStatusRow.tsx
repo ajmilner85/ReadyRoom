@@ -92,7 +92,7 @@ export const SortableStatusRow: React.FC<SortableStatusRowProps> = ({
 
       {/* Status Name Column */}
       <div style={{
-        flex: '0 0 300px',
+        width: '300px',
         padding: '5px 12px',
         display: 'flex',
         alignItems: 'center',
@@ -106,7 +106,7 @@ export const SortableStatusRow: React.FC<SortableStatusRowProps> = ({
 
       {/* Active Toggle Column */}
       <div style={{
-        flex: '0 0 150px',
+        width: '150px',
         padding: '5px 12px',
         display: 'flex',
         alignItems: 'center',

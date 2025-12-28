@@ -412,10 +412,19 @@ export class PermissionCalculator {
       finalize_debriefs: [],
       delegate_debriefs: [],
 
+      // Training Management (global only)
+      manage_training_syllabi: false,
+      manage_training_debriefs: false,
+      manage_training_enrollments: false,
+      view_all_training_progress: false,
+      lock_unlock_missions: false,
+      access_my_training: false,
+      access_training_management: false,
+
       // Component level (mixed)
       canSyncWithDiscord: [],
       canViewOwnProfile: false,
-      
+
       // Developer (global only)
       access_developer_settings: false,
       
@@ -622,6 +631,29 @@ export class PermissionCalculator {
       // DCS Reference Data permissions (global only)
       case 'manage_dcs_reference_data':
         permissions.manage_dcs_reference_data = true;
+        break;
+
+      // Training Management permissions (global only)
+      case 'manage_training_syllabi':
+        permissions.manage_training_syllabi = true;
+        break;
+      case 'manage_training_debriefs':
+        permissions.manage_training_debriefs = true;
+        break;
+      case 'manage_training_enrollments':
+        permissions.manage_training_enrollments = true;
+        break;
+      case 'view_all_training_progress':
+        permissions.view_all_training_progress = true;
+        break;
+      case 'lock_unlock_missions':
+        permissions.lock_unlock_missions = true;
+        break;
+      case 'access_my_training':
+        permissions.access_my_training = true;
+        break;
+      case 'access_training_management':
+        permissions.access_training_management = true;
         break;
     }
   }

@@ -1,8 +1,15 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { X } from 'lucide-react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { X, Users, Trash2, ArrowUpDown } from 'lucide-react';
 import { CycleType, TrainingSyllabus } from '../../../types/EventTypes';
 import { Squadron } from '../../../types/OrganizationTypes';
 import { supabase } from '../../../utils/supabaseClient';
+import { enrollPilots, removeEnrollment, getCycleEnrollments, getSuggestedEnrollments, type EnrolledPilot } from '../../../utils/trainingEnrollmentService';
+import PilotIDBadgeSm from '../PilotIDBadgeSm';
+import FilterDrawer, { QualificationFilterMode } from '../roster/FilterDrawer';
+import { Status } from '../../../utils/statusService';
+import { Standing } from '../../../utils/standingService';
+import { Role } from '../../../utils/roleService';
+import { Qualification, getBatchPilotQualifications } from '../../../utils/qualificationService';
 
 interface CycleDialogProps {
   onSave: (cycleData: {
@@ -18,6 +25,11 @@ interface CycleDialogProps {
   }) => void;
   onCancel: () => void;
   squadrons: Squadron[];
+  statuses: Status[];
+  standings: Standing[];
+  roles: Role[];
+  qualifications: Qualification[];
+  cycleId?: string; // For editing existing cycles
   initialData?: {
     name: string;
     description: string;
@@ -36,6 +48,11 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
   onSave,
   onCancel,
   squadrons,
+  statuses,
+  standings,
+  roles,
+  qualifications,
+  cycleId,
   initialData,
   hasEvents = false,
   isSaving = false
@@ -60,8 +77,193 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
   const [selectedSyllabusId, setSelectedSyllabusId] = useState<string>(initialData?.syllabusId || '');
   const [autoCreateEvents, setAutoCreateEvents] = useState<boolean>(false);
 
+  // Tab state (only show tabs for editing Training cycles)
+  const showTabs = !!cycleId && type === 'Training';
+  const [activeTab, setActiveTab] = useState<'details' | 'enrollments'>('details');
+
+  // Enrollment state
+  const [enrolledPilots, setEnrolledPilots] = useState<EnrolledPilot[]>([]);
+  const [suggestedPilots, setSuggestedPilots] = useState<EnrolledPilot[]>([]);
+  const [allPilots, setAllPilots] = useState<EnrolledPilot[]>([]);
+  const [loadingEnrollments, setLoadingEnrollments] = useState(false);
+  const [enrollmentError, setEnrollmentError] = useState<string | null>(null);
+  const [initialEnrollmentLoadComplete, setInitialEnrollmentLoadComplete] = useState(false);
+  const [hoveredPilotId, setHoveredPilotId] = useState<string | null>(null);
+  const [sortBy, setSortBy] = useState<'boardNumber' | 'callsign'>('callsign');
+  const [sortBySquadron, setSortBySquadron] = useState<boolean>(true);
+
+  // Filter state
+  const [selectedSquadronIds, setSelectedSquadronIds] = useState<string[]>([]);
+  const [selectedStatusIds, setSelectedStatusIds] = useState<string[]>([]);
+  const [selectedStandingIds, setSelectedStandingIds] = useState<string[]>([]);
+  const [selectedRoleIds, setSelectedRoleIds] = useState<string[]>([]);
+  const [qualificationFilters, setQualificationFilters] = useState<Record<string, QualificationFilterMode>>({});
+  const [filtersEnabled, setFiltersEnabled] = useState<boolean>(true);
+
   // Add refs to track which field was last changed
   const lastChanged = useRef<'weeks' | 'endDate' | 'syllabus' | null>(null);
+
+  // Build qualifications map for FilterDrawer from EnrolledPilot data
+  const enrolledPilotQualifications = useMemo(() => {
+    const qualMap: Record<string, any[]> = {};
+    [...enrolledPilots, ...suggestedPilots, ...allPilots].forEach(pilot => {
+      if (pilot.qualifications && pilot.qualifications.length > 0) {
+        qualMap[pilot.pilot_id] = pilot.qualifications;
+      }
+    });
+    return qualMap;
+  }, [enrolledPilots, suggestedPilots, allPilots]);
+
+  // Filter pilots helper function
+  const filterPilots = (pilots: EnrolledPilot[]): EnrolledPilot[] => {
+    if (!filtersEnabled) return pilots;
+
+    return pilots.filter(pilot => {
+      // Squadron filter
+      if (selectedSquadronIds.length > 0) {
+        if (!pilot.squadron?.id) {
+          if (!selectedSquadronIds.includes('unassigned')) return false;
+        } else {
+          if (!selectedSquadronIds.includes(pilot.squadron.id)) return false;
+        }
+      }
+
+      // Status filter
+      if (selectedStatusIds.length > 0 && pilot.currentStatus) {
+        if (!selectedStatusIds.includes(pilot.currentStatus.id)) return false;
+      }
+
+      // Standing filter
+      if (selectedStandingIds.length > 0 && pilot.currentStanding) {
+        if (!selectedStandingIds.includes(pilot.currentStanding.id)) return false;
+      }
+
+      // Role filter
+      if (selectedRoleIds.length > 0) {
+        const hasRole = pilot.roles?.some(r => selectedRoleIds.includes(r.role.id));
+        if (!hasRole) return false;
+      }
+
+      // Qualification filter
+      const qualIds = Object.keys(qualificationFilters);
+      if (qualIds.length > 0) {
+        for (const qualId of qualIds) {
+          const mode = qualificationFilters[qualId];
+          const hasQual = pilot.qualifications?.some(q => q.qualification.id === qualId);
+
+          if (mode === 'include' && !hasQual) return false;
+          if (mode === 'exclude' && hasQual) return false;
+        }
+      }
+
+      return true;
+    });
+  };
+
+  // Sort pilots helper function
+  const sortPilots = (pilots: EnrolledPilot[]): EnrolledPilot[] => {
+    return [...pilots].sort((a, b) => {
+      // First sort by squadron ID if enabled
+      if (sortBySquadron) {
+        const squadronA = a.squadron?.id || '';
+        const squadronB = b.squadron?.id || '';
+        const squadronCompare = squadronA.localeCompare(squadronB);
+        if (squadronCompare !== 0) return squadronCompare;
+      }
+
+      // Then sort by board number or callsign
+      if (sortBy === 'boardNumber') {
+        const numA = parseInt(a.board_number || '0') || 0;
+        const numB = parseInt(b.board_number || '0') || 0;
+        return numA - numB;
+      } else {
+        // Sort by callsign
+        return a.callsign.localeCompare(b.callsign);
+      }
+    });
+  };
+
+  // Render sort controls
+  const renderSortControls = () => (
+    <div style={{
+      display: 'flex',
+      gap: '8px',
+      marginBottom: '16px',
+      justifyContent: 'flex-end'
+    }}>
+      <span style={{ fontSize: '12px', color: '#6B7280', marginRight: '4px', alignSelf: 'center' }}>
+        Sort by:
+      </span>
+      <button
+        type="button"
+        onClick={() => setSortBySquadron(!sortBySquadron)}
+        style={{
+          padding: '4px 12px',
+          backgroundColor: sortBySquadron ? '#2563EB' : 'white',
+          color: sortBySquadron ? 'white' : '#6B7280',
+          border: `1px solid ${sortBySquadron ? '#2563EB' : '#D1D5DB'}`,
+          borderRadius: '4px',
+          cursor: 'pointer',
+          fontSize: '12px',
+          fontWeight: 500,
+          display: 'flex',
+          alignItems: 'center',
+          gap: '4px',
+          transition: 'all 0.2s ease'
+        }}
+      >
+        <ArrowUpDown size={12} />
+        Squadron
+      </button>
+      <button
+        type="button"
+        onClick={() => setSortBy('boardNumber')}
+        style={{
+          padding: '4px 12px',
+          backgroundColor: sortBy === 'boardNumber' ? '#2563EB' : 'white',
+          color: sortBy === 'boardNumber' ? 'white' : '#6B7280',
+          border: `1px solid ${sortBy === 'boardNumber' ? '#2563EB' : '#D1D5DB'}`,
+          borderRadius: '4px',
+          cursor: 'pointer',
+          fontSize: '12px',
+          fontWeight: 500,
+          display: 'flex',
+          alignItems: 'center',
+          gap: '4px',
+          transition: 'all 0.2s ease'
+        }}
+      >
+        <ArrowUpDown size={12} />
+        Board Number
+      </button>
+      <button
+        type="button"
+        onClick={() => setSortBy('callsign')}
+        style={{
+          padding: '4px 12px',
+          backgroundColor: sortBy === 'callsign' ? '#2563EB' : 'white',
+          color: sortBy === 'callsign' ? 'white' : '#6B7280',
+          border: `1px solid ${sortBy === 'callsign' ? '#2563EB' : '#D1D5DB'}`,
+          borderRadius: '4px',
+          cursor: 'pointer',
+          fontSize: '12px',
+          fontWeight: 500,
+          display: 'flex',
+          alignItems: 'center',
+          gap: '4px',
+          transition: 'all 0.2s ease'
+        }}
+      >
+        <ArrowUpDown size={12} />
+        Callsign
+      </button>
+    </div>
+  );
+
+  // Update selectedSyllabusId when initialData changes (e.g., when dialog reopens with fresh data)
+  useEffect(() => {
+    setSelectedSyllabusId(initialData?.syllabusId || '');
+  }, [initialData?.syllabusId]);
 
   // Load syllabi when component mounts if type is Training
   useEffect(() => {
@@ -102,6 +304,219 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
       loadMissionCount();
     }
   }, [selectedSyllabusId]);
+
+  // Load all enrollment data when dialog opens for Training cycles
+  useEffect(() => {
+    if (cycleId && type === 'Training') {
+      loadEnrollmentData();
+    } else {
+      // For non-Training cycles or new cycles, mark as complete immediately
+      setInitialEnrollmentLoadComplete(true);
+    }
+  }, [cycleId, type]);
+
+  const loadEnrollmentData = async () => {
+    if (!cycleId) return;
+
+    setLoadingEnrollments(true);
+    setEnrollmentError(null);
+
+    try {
+      // Load currently enrolled pilots
+      const enrolled = await getCycleEnrollments(cycleId);
+      setEnrolledPilots(enrolled);
+
+      const enrolledIds = new Set(enrolled.map(p => p.pilot_id));
+
+      // Load suggested pilots based on syllabus rules (only if syllabus is selected)
+      let suggested: EnrolledPilot[] = [];
+      if (selectedSyllabusId) {
+        suggested = await getSuggestedEnrollments(selectedSyllabusId);
+        // Filter out already enrolled pilots
+        const filteredSuggestions = suggested.filter(p => !enrolledIds.has(p.pilot_id));
+        setSuggestedPilots(filteredSuggestions);
+      } else {
+        setSuggestedPilots([]);
+      }
+
+      // Load all pilots for the "Add Pilot" section
+      const { data: allActivePilots, error: pilotsError } = await supabase
+        .from('pilots')
+        .select('id, callsign, boardNumber')
+        .order('callsign');
+
+      if (pilotsError) throw pilotsError;
+
+      const allPilotIds = (allActivePilots || []).map((p: any) => p.id);
+
+      // Load all pilot data in parallel (same as getCycleEnrollments)
+      const [assignmentsData, statusesData, standingsData, rolesData, qualificationsDataMap] = await Promise.all([
+        supabase.from('pilot_assignments').select('pilot_id, org_squadrons(id, tail_code, insignia_url, color_palette)').in('pilot_id', allPilotIds).is('end_date', null),
+        supabase.from('pilot_statuses').select('pilot_id, statuses(id, name, isActive)').in('pilot_id', allPilotIds).is('end_date', null),
+        supabase.from('pilot_standings').select('pilot_id, standings(id, name)').in('pilot_id', allPilotIds).is('end_date', null),
+        supabase.from('pilot_roles').select('pilot_id, roles(id, name, exclusivity_scope)').in('pilot_id', allPilotIds).is('end_date', null),
+        getBatchPilotQualifications(allPilotIds)
+      ]);
+
+      // Build maps
+      const squadronMap = new Map();
+      (assignmentsData.data || []).forEach((assignment: any) => {
+        if (assignment.org_squadrons) {
+          squadronMap.set(assignment.pilot_id, {
+            id: assignment.org_squadrons.id,
+            tail_code: assignment.org_squadrons.tail_code,
+            insignia_url: assignment.org_squadrons.insignia_url,
+            primary_color: assignment.org_squadrons.color_palette?.primary || '#000000'
+          });
+        }
+      });
+
+      const statusMap = new Map();
+      (statusesData.data || []).forEach((ps: any) => {
+        if (ps.statuses) {
+          statusMap.set(ps.pilot_id, {
+            id: ps.statuses.id,
+            name: ps.statuses.name,
+            isActive: ps.statuses.isActive
+          });
+        }
+      });
+
+      const standingMap = new Map();
+      (standingsData.data || []).forEach((ps: any) => {
+        if (ps.standings) {
+          standingMap.set(ps.pilot_id, {
+            id: ps.standings.id,
+            name: ps.standings.name
+          });
+        }
+      });
+
+      const rolesMap = new Map<string, any[]>();
+      (rolesData.data || []).forEach((pr: any) => {
+        if (pr.roles) {
+          const existing = rolesMap.get(pr.pilot_id) || [];
+          existing.push({
+            role: {
+              id: pr.roles.id,
+              name: pr.roles.name,
+              exclusivity_scope: pr.roles.exclusivity_scope
+            }
+          });
+          rolesMap.set(pr.pilot_id, existing);
+        }
+      });
+
+      // Convert qualificationsDataMap to the format expected by EnrolledPilot
+      // getBatchPilotQualifications returns Record<pilot_id, array of pilot_qualifications>
+      // We need to convert to Map with correct structure
+      const qualificationsMap = new Map<string, any[]>();
+      Object.entries(qualificationsDataMap).forEach(([pilotId, quals]) => {
+        if (quals && quals.length > 0) {
+          const formatted = quals.map((pq: any) => ({
+            qualification: {
+              id: pq.qualification.id,
+              type: pq.qualification.name,
+              code: pq.qualification.code,
+              color: pq.qualification.color
+            }
+          }));
+          qualificationsMap.set(pilotId, formatted);
+        }
+      });
+
+      // Filter out enrolled and suggested pilots
+      const suggestedIds = new Set(suggested.map(p => p.pilot_id));
+      const allFiltered = (allActivePilots || [])
+        .filter((p: any) => !enrolledIds.has(p.id) && !suggestedIds.has(p.id))
+        .map((p: any) => {
+          const status = statusMap.get(p.id);
+          return {
+            pilot_id: p.id,
+            board_number: p.boardNumber,
+            callsign: p.callsign,
+            squadron: squadronMap.get(p.id) || null,
+            enrollment_id: '',
+            status: 'active' as const,
+            enrolled_at: new Date().toISOString(),
+            currentStatus: status || null,
+            currentStanding: standingMap.get(p.id) || null,
+            roles: rolesMap.get(p.id) || [],
+            qualifications: qualificationsMap.get(p.id) || [],
+            isActive: status?.isActive ?? false
+          };
+        });
+
+      setAllPilots(allFiltered);
+    } catch (err: any) {
+      console.error('Error loading enrollment data:', err);
+      setEnrollmentError(err.message || 'Failed to load enrollment data');
+    } finally {
+      setLoadingEnrollments(false);
+      setInitialEnrollmentLoadComplete(true);
+    }
+  };
+
+  const handleEnrollPilot = async (pilotId: string) => {
+    if (!cycleId) return;
+
+    try {
+      // Find the pilot in suggested list or all pilots list
+      const pilotToEnroll = suggestedPilots.find(p => p.pilot_id === pilotId) || allPilots.find(p => p.pilot_id === pilotId);
+      if (!pilotToEnroll) return;
+
+      // Optimistically update UI - move from suggested/all to enrolled
+      setSuggestedPilots(prev => prev.filter(p => p.pilot_id !== pilotId));
+      setAllPilots(prev => prev.filter(p => p.pilot_id !== pilotId));
+      setEnrolledPilots(prev => [...prev, { ...pilotToEnroll, enrollment_id: 'temp-' + pilotId }]);
+
+      // Get the user profile ID (not auth ID)
+      const { data: userData } = await supabase.auth.getUser();
+      let userProfileId = null;
+
+      if (userData.user) {
+        const { data: profile } = await supabase
+          .from('user_profiles')
+          .select('id')
+          .eq('auth_user_id', userData.user.id)
+          .single();
+
+        userProfileId = profile?.id || null;
+      }
+
+      // Actually enroll in database
+      await enrollPilots(cycleId, [pilotId], userProfileId);
+
+      // Refresh to get the real enrollment_id from database
+      const enrolled = await getCycleEnrollments(cycleId);
+      setEnrolledPilots(enrolled);
+    } catch (err: any) {
+      console.error('Error enrolling pilot:', err);
+      setEnrollmentError(err.message || 'Failed to enroll pilot');
+      // Revert optimistic update on error
+      await loadEnrollmentData();
+    }
+  };
+
+  const handleRemoveEnrollment = async (enrollmentId: string) => {
+    try {
+      // Find the pilot being removed
+      const pilotToRemove = enrolledPilots.find(p => p.enrollment_id === enrollmentId);
+      if (!pilotToRemove) return;
+
+      // Optimistically update UI - move from enrolled to suggested
+      setEnrolledPilots(prev => prev.filter(p => p.enrollment_id !== enrollmentId));
+      setSuggestedPilots(prev => [...prev, { ...pilotToRemove, enrollment_id: '' }]);
+
+      // Actually remove from database
+      await removeEnrollment(enrollmentId);
+    } catch (err: any) {
+      console.error('Error removing enrollment:', err);
+      setEnrollmentError(err.message || 'Failed to remove enrollment');
+      // Revert optimistic update on error
+      await loadEnrollmentData();
+    }
+  };
 
   // Initialize week count when component loads with initial data
   useEffect(() => {
@@ -244,12 +659,30 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
         top: '50%',
         left: '50%',
         transform: 'translate(-50%, -50%)',
-        width: '600px',
+        width: '663px',
         backgroundColor: '#FFFFFF',
         boxShadow: '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)',
         borderRadius: '8px',
         zIndex: 1001
       }}>
+        {/* Show loading state until enrollment data is loaded */}
+        {!initialEnrollmentLoadComplete ? (
+          <div style={{ padding: '60px 24px', textAlign: 'center' }}>
+            <div style={{ fontSize: '14px', color: '#6B7280', marginBottom: '16px' }}>
+              Loading cycle data...
+            </div>
+            <div style={{
+              width: '32px',
+              height: '32px',
+              border: '3px solid #E5E7EB',
+              borderTop: '3px solid #2563EB',
+              borderRadius: '50%',
+              animation: 'spin 0.8s linear infinite',
+              margin: '0 auto'
+            }} />
+          </div>
+        ) : (
+          <>
         <div style={{
           display: 'flex',
           justifyContent: 'space-between',
@@ -262,7 +695,7 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
             fontWeight: 600,
             color: '#0F172A'
           }}>
-            {initialData ? 'Edit Cycle' : 'Create New Cycle'}
+            {initialData ? `Edit ${type} Cycle` : `Create New ${type} Cycle`}
           </h2>
           <button
             onClick={onCancel}
@@ -281,8 +714,61 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
           </button>
         </div>
 
+        {/* Tabs - only show for editing Training cycles with a syllabus */}
+        {showTabs && (
+          <div style={{
+            display: 'flex',
+            borderBottom: '1px solid #E2E8F0',
+            backgroundColor: '#F8FAFC'
+          }}>
+            <button
+              type="button"
+              onClick={() => setActiveTab('details')}
+              style={{
+                flex: 1,
+                padding: '12px 16px',
+                border: 'none',
+                backgroundColor: 'transparent',
+                color: activeTab === 'details' ? '#2563EB' : '#64748B',
+                fontWeight: activeTab === 'details' ? 600 : 500,
+                fontSize: '14px',
+                cursor: 'pointer',
+                borderBottom: activeTab === 'details' ? '2px solid #2563EB' : 'none',
+                transition: 'all 0.2s'
+              }}
+            >
+              Training Cycle Details
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('enrollments')}
+              style={{
+                flex: 1,
+                padding: '12px 16px',
+                border: 'none',
+                backgroundColor: 'transparent',
+                color: activeTab === 'enrollments' ? '#2563EB' : '#64748B',
+                fontWeight: activeTab === 'enrollments' ? 600 : 500,
+                fontSize: '14px',
+                cursor: 'pointer',
+                borderBottom: activeTab === 'enrollments' ? '2px solid #2563EB' : 'none',
+                transition: 'all 0.2s',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '6px'
+              }}
+            >
+              <Users size={16} />
+              Enrolled Students ({enrolledPilots.length})
+            </button>
+          </div>
+        )}
+
         <form onSubmit={handleSubmit}>
-          <div style={{ padding: '24px' }}>
+          {/* Details Tab Content */}
+          {activeTab === 'details' && (
+          <div style={{ padding: '24px', height: '900px', overflowY: 'auto' }}>
             <div style={{ marginBottom: '16px' }}>
               <label style={{
                 display: 'block',
@@ -324,7 +810,16 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
                 </label>
                 <select
                   value={type}
-                  onChange={(e) => setType(e.target.value as CycleType)}
+                  onChange={(e) => {
+                    const newType = e.target.value as CycleType;
+                    // Warn if changing away from Training when enrollments exist
+                    if (type === 'Training' && newType !== 'Training' && enrolledPilots.length > 0) {
+                      if (!window.confirm(`This training cycle has ${enrolledPilots.length} enrolled student(s). Changing the cycle type will prevent managing enrollments. Are you sure?`)) {
+                        return;
+                      }
+                    }
+                    setType(newType);
+                  }}
                   style={{
                     width: '100%',
                     padding: '8px',
@@ -824,7 +1319,7 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
                   borderRadius: '4px',
                   fontSize: '14px',
                   minHeight: '120px',
-                  resize: 'vertical',
+                  resize: 'none',
                   boxSizing: 'border-box'
                 }}
                 placeholder="Enter cycle description"
@@ -841,6 +1336,332 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
               </div>
             )}
           </div>
+          )}
+
+          {/* Enrollments Tab Content */}
+          {activeTab === 'enrollments' && (
+            <div style={{ paddingTop: '16px', paddingLeft: '24px', paddingRight: '24px', paddingBottom: '0', height: '900px', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+              {enrollmentError && (
+                <div style={{
+                  color: '#EF4444',
+                  fontSize: '14px',
+                  marginBottom: '16px',
+                  padding: '12px',
+                  backgroundColor: '#FEE2E2',
+                  border: '1px solid #FECACA',
+                  borderRadius: '6px'
+                }}>
+                  {enrollmentError}
+                </div>
+              )}
+
+              {loadingEnrollments ? (
+                <div style={{ textAlign: 'center', padding: '40px', color: '#6B7280' }}>
+                  Loading enrollment data...
+                </div>
+              ) : (
+                <>
+                  {/* Filter Drawer */}
+                  <FilterDrawer
+                    squadrons={squadrons as any}
+                    statuses={statuses}
+                    standings={standings}
+                    roles={roles}
+                    qualifications={qualifications}
+                    pilots={[...enrolledPilots, ...suggestedPilots, ...allPilots] as any[]}
+                    allPilotQualifications={enrolledPilotQualifications}
+                    selectedSquadronIds={selectedSquadronIds}
+                    selectedStatusIds={selectedStatusIds}
+                    selectedStandingIds={selectedStandingIds}
+                    selectedRoleIds={selectedRoleIds}
+                    qualificationFilters={qualificationFilters}
+                    filtersEnabled={filtersEnabled}
+                    setSelectedSquadronIds={setSelectedSquadronIds}
+                    setSelectedStatusIds={setSelectedStatusIds}
+                    setSelectedStandingIds={setSelectedStandingIds}
+                    setSelectedRoleIds={setSelectedRoleIds}
+                    setQualificationFilters={setQualificationFilters}
+                    setFiltersEnabled={setFiltersEnabled}
+                  />
+
+                  {/* Sort Controls */}
+                  {renderSortControls()}
+
+                  {/* Scrollable content area */}
+                  <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden' }}>
+                    {/* Currently Enrolled Students */}
+                    <div style={{ marginBottom: '32px' }}>
+                    <h3 style={{ fontSize: '14px', fontWeight: 600, color: '#374151', marginBottom: '12px', textTransform: 'uppercase' }}>
+                      Enrolled Students ({enrolledPilots.length})
+                    </h3>
+                    {enrolledPilots.length === 0 ? (
+                      <div style={{ padding: '20px', backgroundColor: '#F9FAFB', borderRadius: '6px', color: '#6B7280', fontSize: '14px', textAlign: 'center' }}>
+                        No students enrolled yet
+                      </div>
+                    ) : (
+                      <div style={{ display: 'flex', flexDirection: 'column' }}>
+                        {sortPilots(enrolledPilots).map(pilot => (
+                          <div
+                            key={pilot.pilot_id}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              height: '24px',
+                              marginBottom: '10px',
+                              cursor: 'pointer',
+                              backgroundColor: hoveredPilotId === pilot.pilot_id ? 'rgba(100, 116, 139, 0.1)' : 'transparent',
+                              transition: 'background-color 0.2s ease',
+                              borderRadius: '8px',
+                              padding: '2px 10px',
+                              gap: '12px'
+                            }}
+                            onMouseEnter={() => setHoveredPilotId(pilot.pilot_id)}
+                            onMouseLeave={() => setHoveredPilotId(null)}
+                          >
+                            <div style={{ marginLeft: '-20px' }}>
+                              <PilotIDBadgeSm
+                                squadronTailCode={pilot.squadron?.tail_code}
+                                boardNumber={pilot.board_number ?? undefined}
+                                squadronInsigniaUrl={pilot.squadron?.insignia_url ?? undefined}
+                              />
+                            </div>
+                            <span style={{
+                              fontSize: '16px',
+                              fontWeight: 700,
+                              color: pilot.squadron?.primary_color || '#374151',
+                              flex: '0 0 120px'
+                            }}>
+                              {pilot.callsign}
+                            </span>
+                            <div style={{ marginLeft: 'auto' }}>
+                              {hoveredPilotId === pilot.pilot_id && (
+                                <button
+                                  type="button"
+                                  onClick={() => pilot.enrollment_id && handleRemoveEnrollment(pilot.enrollment_id)}
+                                  style={{
+                                    padding: '4px',
+                                    backgroundColor: 'transparent',
+                                    color: '#DC2626',
+                                    border: 'none',
+                                    borderRadius: '4px',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center'
+                                  }}
+                                >
+                                  <Trash2 size={16} />
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Suggested Students */}
+                  {suggestedPilots.length > 0 && (
+                    <div style={{ marginBottom: '32px' }}>
+                      <h3 style={{ fontSize: '14px', fontWeight: 600, color: '#374151', marginBottom: '4px', textTransform: 'uppercase' }}>
+                        Suggested Students ({suggestedPilots.length})
+                      </h3>
+                      <div style={{ fontSize: '12px', color: '#6B7280', marginBottom: '12px' }}>
+                        Based on syllabus auto-enrollment rules
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column' }}>
+                        {sortPilots(suggestedPilots).map(pilot => (
+                          <div
+                            key={pilot.pilot_id}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              height: '24px',
+                              marginBottom: '10px',
+                              cursor: 'pointer',
+                              backgroundColor: hoveredPilotId === `suggested-${pilot.pilot_id}` ? 'rgba(100, 116, 139, 0.1)' : 'transparent',
+                              transition: 'background-color 0.2s ease',
+                              borderRadius: '8px',
+                              padding: '2px 10px',
+                              gap: '12px'
+                            }}
+                            onMouseEnter={() => setHoveredPilotId(`suggested-${pilot.pilot_id}`)}
+                            onMouseLeave={() => setHoveredPilotId(null)}
+                            onClick={() => handleEnrollPilot(pilot.pilot_id)}
+                          >
+                            <div style={{ marginLeft: '-20px' }}>
+                              <PilotIDBadgeSm
+                                squadronTailCode={pilot.squadron?.tail_code}
+                                boardNumber={pilot.board_number ?? undefined}
+                                squadronInsigniaUrl={pilot.squadron?.insignia_url ?? undefined}
+                              />
+                            </div>
+                            <span style={{
+                              fontSize: '16px',
+                              fontWeight: 700,
+                              color: pilot.squadron?.primary_color || '#374151',
+                              flex: '0 0 120px'
+                            }}>
+                              {pilot.callsign}
+                            </span>
+                            {hoveredPilotId === `suggested-${pilot.pilot_id}` && (
+                              <div style={{ marginLeft: 'auto', fontSize: '12px', color: '#6B7280' }}>
+                                Click to enroll
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Add Any Pilot */}
+                  {allPilots.length > 0 && (() => {
+                    const filteredAll = filterPilots(allPilots);
+                    const activePilots = sortPilots(filteredAll.filter((p: any) => p.isActive));
+                    const inactivePilots = sortPilots(filteredAll.filter((p: any) => !p.isActive));
+
+                    return (
+                      <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
+                        <h3 style={{ fontSize: '14px', fontWeight: 600, color: '#374151', marginBottom: '4px', textTransform: 'uppercase' }}>
+                          Add Pilot ({allPilots.length})
+                        </h3>
+                        <div style={{ fontSize: '12px', color: '#6B7280', marginBottom: '12px' }}>
+                          Other pilots not suggested by enrollment rules
+                        </div>
+                        <div style={{
+                          display: 'flex',
+                          flexDirection: 'column',
+                          flex: 1,
+                          overflowY: 'auto',
+                          paddingRight: '10px',
+                          paddingBottom: '16px',
+                          minHeight: 0
+                        }}>
+                          {/* Active Pilots */}
+                          {activePilots.map((pilot: any) => (
+                            <div
+                              key={pilot.pilot_id}
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                height: '24px',
+                                marginBottom: '10px',
+                                cursor: 'pointer',
+                                backgroundColor: hoveredPilotId === `all-${pilot.pilot_id}` ? 'rgba(100, 116, 139, 0.1)' : 'transparent',
+                                transition: 'background-color 0.2s ease',
+                                borderRadius: '8px',
+                                padding: '2px 10px',
+                                gap: '12px'
+                              }}
+                              onMouseEnter={() => setHoveredPilotId(`all-${pilot.pilot_id}`)}
+                              onMouseLeave={() => setHoveredPilotId(null)}
+                              onClick={() => handleEnrollPilot(pilot.pilot_id)}
+                            >
+                              <div style={{ marginLeft: '-20px' }}>
+                                <PilotIDBadgeSm
+                                  squadronTailCode={pilot.squadron?.tail_code}
+                                  boardNumber={pilot.board_number}
+                                  squadronInsigniaUrl={pilot.squadron?.insignia_url}
+                                />
+                              </div>
+                              <span style={{
+                                fontSize: '16px',
+                                fontWeight: 700,
+                                color: pilot.squadron?.primary_color || '#374151',
+                                flex: '0 0 120px'
+                              }}>
+                                {pilot.callsign}
+                              </span>
+                              {hoveredPilotId === `all-${pilot.pilot_id}` && (
+                                <div style={{ marginLeft: 'auto', fontSize: '12px', color: '#6B7280' }}>
+                                  Click to enroll
+                                </div>
+                              )}
+                            </div>
+                          ))}
+
+                          {/* Divider between Active and Inactive */}
+                          {inactivePilots.length > 0 && (
+                            <div style={{
+                              position: 'relative',
+                              textAlign: 'center',
+                              margin: '20px 0'
+                            }}>
+                              <div style={{
+                                position: 'absolute',
+                                left: 0,
+                                right: 0,
+                                top: '50%',
+                                height: '1px',
+                                backgroundColor: '#E2E8F0'
+                              }} />
+                              <span style={{
+                                position: 'relative',
+                                backgroundColor: '#FFFFFF',
+                                padding: '0 16px',
+                                color: '#A0AEC0',
+                                fontSize: '12px',
+                                fontFamily: 'Inter',
+                                fontWeight: 300,
+                                textTransform: 'uppercase'
+                              }}>
+                                Inactive ({inactivePilots.length})
+                              </span>
+                            </div>
+                          )}
+
+                          {/* Inactive Pilots */}
+                          {inactivePilots.map((pilot: any) => (
+                            <div
+                              key={pilot.pilot_id}
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                height: '24px',
+                                marginBottom: '10px',
+                                cursor: 'pointer',
+                                backgroundColor: hoveredPilotId === `all-${pilot.pilot_id}` ? 'rgba(100, 116, 139, 0.1)' : 'transparent',
+                                transition: 'background-color 0.2s ease',
+                                borderRadius: '8px',
+                                padding: '2px 10px',
+                                gap: '12px'
+                              }}
+                              onMouseEnter={() => setHoveredPilotId(`all-${pilot.pilot_id}`)}
+                              onMouseLeave={() => setHoveredPilotId(null)}
+                              onClick={() => handleEnrollPilot(pilot.pilot_id)}
+                            >
+                              <div style={{ marginLeft: '-20px' }}>
+                                <PilotIDBadgeSm
+                                  squadronTailCode={pilot.squadron?.tail_code}
+                                  boardNumber={pilot.board_number}
+                                  squadronInsigniaUrl={pilot.squadron?.insignia_url}
+                                />
+                              </div>
+                              <span style={{
+                                fontSize: '16px',
+                                fontWeight: 700,
+                                color: pilot.squadron?.primary_color || '#374151',
+                                flex: '0 0 120px'
+                              }}>
+                                {pilot.callsign}
+                              </span>
+                              {hoveredPilotId === `all-${pilot.pilot_id}` && (
+                                <div style={{ marginLeft: 'auto', fontSize: '12px', color: '#6B7280' }}>
+                                  Click to enroll
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })()}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
 
           <div style={{
             display: 'flex',
@@ -862,42 +1683,46 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
                 fontSize: '14px'
               }}
             >
-              Cancel
+              {activeTab === 'enrollments' ? 'Close' : 'Cancel'}
             </button>
-            <button
-              type="submit"
-              disabled={isSaving}
-              style={{
-                padding: '8px 16px',
-                border: 'none',
-                borderRadius: '4px',
-                backgroundColor: '#2563EB',
-                color: 'white',
-                cursor: isSaving ? 'not-allowed' : 'pointer',
-                fontSize: '14px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                opacity: isSaving ? 0.7 : 1
-              }}
-            >
-              {isSaving && (
-                <div style={{
-                  width: '16px',
-                  height: '16px',
-                  border: '2px solid rgba(255, 255, 255, 0.3)',
-                  borderTop: '2px solid white',
-                  borderRadius: '50%',
-                  animation: 'spin 0.6s linear infinite'
-                }} />
-              )}
-              {isSaving
-                ? 'Saving...'
-                : (initialData ? 'Update Cycle' : 'Create Cycle')
-              }
-            </button>
+            {activeTab === 'details' && (
+              <button
+                type="submit"
+                disabled={isSaving}
+                style={{
+                  padding: '8px 16px',
+                  border: 'none',
+                  borderRadius: '4px',
+                  backgroundColor: '#2563EB',
+                  color: 'white',
+                  cursor: isSaving ? 'not-allowed' : 'pointer',
+                  fontSize: '14px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  opacity: isSaving ? 0.7 : 1
+                }}
+              >
+                {isSaving && (
+                  <div style={{
+                    width: '16px',
+                    height: '16px',
+                    border: '2px solid rgba(255, 255, 255, 0.3)',
+                    borderTop: '2px solid white',
+                    borderRadius: '50%',
+                    animation: 'spin 0.6s linear infinite'
+                  }} />
+                )}
+                {isSaving
+                  ? 'Saving...'
+                  : (initialData ? 'Update Cycle' : 'Create Cycle')
+                }
+              </button>
+            )}
           </div>
         </form>
+          </>
+        )}
       </div>
 
       {/* Add keyframes for loading spinner animation */}

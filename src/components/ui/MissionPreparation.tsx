@@ -22,6 +22,10 @@ import type { AssignedPilot, AssignedPilotsRecord } from '../../types/MissionPre
 import AutoAssignConfigModal, { type AutoAssignConfig } from './mission prep/AutoAssignConfig';
 import { getUserSettings } from '../../utils/userSettingsService';
 import NoFlightsWarningDialog from './dialogs/NoFlightsWarningDialog';
+import { getAllStatuses, Status } from '../../utils/statusService';
+import { getAllStandings, Standing } from '../../utils/standingService';
+import { getAllRoles, Role } from '../../utils/roleService';
+import { getAllQualifications, Qualification } from '../../utils/qualificationService';
 
 // Define the structure for the polled attendance data
 interface RealtimeAttendanceRecord {
@@ -43,7 +47,7 @@ interface MissionPreparationProps {
   onPrepFlightsChange?: (flights: any[]) => void;
 }
 
-const CARD_WIDTH = '550px';
+const CARD_WIDTH = '605px';
 
 const MissionPreparation: React.FC<MissionPreparationProps> = ({ 
   onTransferToMission,
@@ -116,6 +120,12 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
   const [isAutoAssignConfigOpen, setIsAutoAssignConfigOpen] = useState(false);
   const [showNoFlightsDialog, setShowNoFlightsDialog] = useState(false);
 
+  // Filter data state
+  const [statuses, setStatuses] = useState<Status[]>([]);
+  const [standings, setStandings] = useState<Standing[]>([]);
+  const [roles, setRoles] = useState<Role[]>([]);
+  const [qualificationsData, setQualificationsData] = useState<Qualification[]>([]);
+
   // Wrapper for setAssignedPilots to handle React setState signature
   const setAssignedPilotsWrapper = useCallback((pilots: AssignedPilotsRecord | ((prev: AssignedPilotsRecord) => AssignedPilotsRecord)) => {
     
@@ -142,6 +152,27 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
     prepFlights,
     onPrepFlightsChange
   );
+
+  // Fetch filter data on mount
+  useEffect(() => {
+    const fetchFilterData = async () => {
+      try {
+        const [statusesResult, standingsResult, rolesResult, qualificationsResult] = await Promise.all([
+          getAllStatuses(),
+          getAllStandings(),
+          getAllRoles(),
+          getAllQualifications()
+        ]);
+        setStatuses(statusesResult.data || []);
+        setStandings(standingsResult.data || []);
+        setRoles(rolesResult.data || []);
+        setQualificationsData(qualificationsResult.data || []);
+      } catch (error) {
+        console.error('Error fetching filter data:', error);
+      }
+    };
+    fetchFilterData();
+  }, []);
 
   // Use custom hook for drag and drop functionality
   const { draggedPilot, dragSource, handleDragStart, handleDragEnd } = useDragDrop({
@@ -551,6 +582,11 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
                 onClearAssignments={handleClearAssignments}
                 pilotQualifications={allPilotQualifications}
                 realtimeAttendanceData={realtimeAttendanceData}
+                squadrons={squadrons as any}
+                statuses={statuses}
+                standings={standings}
+                roles={roles}
+                qualifications={qualificationsData}
               />
               <FlightAssignments
                 width={CARD_WIDTH}
@@ -580,7 +616,7 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
                   onTransferToMission={onTransferToMission}
                   flights={prepFlights}
                   extractedFlights={extractedFlights}
-                  squadrons={squadrons}
+                  squadrons={squadrons as any}
                 />
               </div>
             </>
