@@ -11,7 +11,7 @@ import CycleDialog from './events/CycleDialog';
 import { DeleteDivisionDialog } from './dialogs/DeleteDivisionDialog';
 import { Trash2 } from 'lucide-react';
 import type { Event, Cycle, CycleType } from '../../types/EventTypes';
-import { supabase, fetchCycles, createCycle, updateCycle, deleteCycle, 
+import { supabase, fetchCycles, createCycle, updateCycle, deleteCycle,
          fetchEvents, createEvent, updateEvent, deleteEvent } from '../../utils/supabaseClient';
 import { deleteMultiChannelEvent, updateMultiChannelEvent } from '../../utils/discordService';
 import { uploadMultipleEventImages } from '../../utils/eventImageService';
@@ -21,6 +21,10 @@ import { getAllSquadrons } from '../../utils/organizationService';
 import { Squadron } from '../../types/OrganizationTypes';
 import { createMission, getMissionByEventId } from '../../utils/missionService';
 import type { Mission } from '../../types/MissionTypes';
+import { getAllStatuses, Status } from '../../utils/statusService';
+import { getAllStandings, Standing } from '../../utils/standingService';
+import { getAllRoles, Role } from '../../utils/roleService';
+import { getAllQualifications, Qualification } from '../../utils/qualificationService';
 
 // Standard card width matching MissionPreparation component
 const CARD_WIDTH = '550px';
@@ -33,6 +37,10 @@ const EventsManagement: React.FC = () => {
   const [events, setEvents] = useState<Event[]>([]);
   const [cycles, setCycles] = useState<Cycle[]>([]);
   const [squadrons, setSquadrons] = useState<Squadron[]>([]);
+  const [statuses, setStatuses] = useState<Status[]>([]);
+  const [standings, setStandings] = useState<Standing[]>([]);
+  const [roles, setRoles] = useState<Role[]>([]);
+  const [qualificationsData, setQualificationsData] = useState<Qualification[]>([]);
   const [loading, setLoading] = useState({
     cycles: false,
     events: false,
@@ -84,6 +92,7 @@ const EventsManagement: React.FC = () => {
       loadCycles();
     });
     loadSquadrons();
+    loadFilterData();
   }, []);
 
   // Load squadrons function
@@ -100,6 +109,24 @@ const EventsManagement: React.FC = () => {
       setError(err.message);
     } finally {
       setLoading(prev => ({ ...prev, squadrons: false }));
+    }
+  };
+
+  // Load filter data function
+  const loadFilterData = async () => {
+    try {
+      const [statusesResult, standingsResult, rolesResult, qualificationsResult] = await Promise.all([
+        getAllStatuses(),
+        getAllStandings(),
+        getAllRoles(),
+        getAllQualifications()
+      ]);
+      setStatuses(statusesResult.data || []);
+      setStandings(standingsResult.data || []);
+      setRoles(rolesResult.data || []);
+      setQualificationsData(qualificationsResult.data || []);
+    } catch (error) {
+      console.error('Error fetching filter data:', error);
     }
   };
 
@@ -1895,6 +1922,11 @@ const EventsManagement: React.FC = () => {
             setEditingCycle(null);
           }}
           squadrons={squadrons}
+          statuses={statuses}
+          standings={standings}
+          roles={roles}
+          qualifications={qualificationsData}
+          cycleId={editingCycle?.id}
           initialData={editingCycle ?? undefined}
           hasEvents={editingCycle ? events.some(e => e.cycleId === editingCycle.id) : false}
           isSaving={isSavingCycle}

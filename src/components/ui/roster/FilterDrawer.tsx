@@ -53,19 +53,18 @@ const FilterDrawer: React.FC<FilterDrawerProps> = ({
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
 
-  // Helper functions for getting active filter data
-  const getActiveSquadrons = () => squadrons.filter(s => selectedSquadronIds.includes(s.id));
-  const getActiveStatuses = () => statuses.filter(s => selectedStatusIds.includes(s.id));
-  const getActiveStandings = () => standings.filter(s => selectedStandingIds.includes(s.id));
-  const getActiveRoles = () => roles.filter(r => selectedRoleIds.includes(r.id));
-  const getActiveQualifications = () => qualifications.filter(q => qualificationFilters[q.id] !== undefined);
-
   // Helper functions for calculating pilot counts
   const getSquadronPilotCount = (squadronId: string) => {
     if (squadronId === 'unassigned') {
-      return pilots.filter(pilot => !pilot.currentSquadron?.id).length;
+      return pilots.filter(pilot => {
+        const squad = (pilot as any).currentSquadron || (pilot as any).squadron;
+        return !squad?.id;
+      }).length;
     }
-    return pilots.filter(pilot => pilot.currentSquadron?.id === squadronId).length;
+    return pilots.filter(pilot => {
+      const squad = (pilot as any).currentSquadron || (pilot as any).squadron;
+      return squad?.id === squadronId;
+    }).length;
   };
 
   const getStatusPilotCount = (statusId: string) => {
@@ -83,31 +82,15 @@ const FilterDrawer: React.FC<FilterDrawerProps> = ({
   };
 
   const getQualificationPilotCount = (qualificationId: string) => {
-    return pilots.filter(pilot => 
-      allPilotQualifications[pilot.id]?.some(pq => pq.qualification?.id === qualificationId)
-    ).length;
-  };
-
-  const removeSquadron = (id: string) => {
-    setSelectedSquadronIds(selectedSquadronIds.filter(i => i !== id));
-  };
-
-  const removeStatus = (id: string) => {
-    setSelectedStatusIds(selectedStatusIds.filter(i => i !== id));
-  };
-
-  const removeStanding = (id: string) => {
-    setSelectedStandingIds(selectedStandingIds.filter(i => i !== id));
-  };
-
-  const removeRole = (id: string) => {
-    setSelectedRoleIds(selectedRoleIds.filter(i => i !== id));
-  };
-
-  const removeQualification = (id: string) => {
-    const newFilters = { ...qualificationFilters };
-    delete newFilters[id];
-    setQualificationFilters(newFilters);
+    return pilots.filter(pilot => {
+      const pilotId = (pilot as any).id || (pilot as any).pilot_id;
+      // Check in allPilotQualifications map
+      if (allPilotQualifications[pilotId]?.some(pq => pq.qualification?.id === qualificationId)) {
+        return true;
+      }
+      // Also check if pilot has qualifications array directly (EnrolledPilot structure)
+      return (pilot as any).qualifications?.some((q: any) => q.qualification?.id === qualificationId);
+    }).length;
   };
 
   const clearAllFilters = () => {
@@ -152,7 +135,7 @@ const FilterDrawer: React.FC<FilterDrawerProps> = ({
 
   // Create combined squadron list with "Unassigned" option at the bottom
   const squadronsWithUnassigned = [
-    ...squadrons,
+    ...(Array.isArray(squadrons) ? squadrons : []),
     {
       id: 'unassigned',
       designation: 'Unassigned',
@@ -163,7 +146,8 @@ const FilterDrawer: React.FC<FilterDrawerProps> = ({
 
   return (
     <div style={{
-      backgroundColor: '#FFFFFF'
+      backgroundColor: '#FFFFFF',
+      overflow: 'visible'
     }}>
       {/* Drawer header with active filters */}
       <div
@@ -175,7 +159,7 @@ const FilterDrawer: React.FC<FilterDrawerProps> = ({
           transition: 'all 0.2s ease'
         }}
       >
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: hasActiveFilters ? '8px' : '0' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             {/* Filter icon */}
             <div style={{
@@ -249,72 +233,23 @@ const FilterDrawer: React.FC<FilterDrawerProps> = ({
             </svg>
           </div>
         </div>
-
-        {/* Active filter badges */}
-        {hasActiveFilters && (
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
-            {getActiveSquadrons().map(squadron => (
-              <FilterBadge
-                key={`squadron-${squadron.id}`}
-                label={squadron.designation}
-                onRemove={() => removeSquadron(squadron.id)}
-                color="#3B82F6"
-              />
-            ))}
-            {getActiveStatuses().map(status => (
-              <FilterBadge
-                key={`status-${status.id}`}
-                label={status.name}
-                onRemove={() => removeStatus(status.id)}
-                color={status.isActive ? '#10B981' : '#EF4444'}
-              />
-            ))}
-            {getActiveStandings().map(standing => (
-              <FilterBadge
-                key={`standing-${standing.id}`}
-                label={standing.name}
-                onRemove={() => removeStanding(standing.id)}
-                color="#8B5CF6"
-              />
-            ))}
-            {getActiveRoles().map(role => (
-              <FilterBadge
-                key={`role-${role.id}`}
-                label={role.name}
-                onRemove={() => removeRole(role.id)}
-                color={role.exclusivity_scope && role.exclusivity_scope !== 'none' ? '#F59E0B' : '#6B7280'}
-              />
-            ))}
-            {getActiveQualifications().map(qual => {
-              const mode = qualificationFilters[qual.id];
-              return (
-                <QualificationFilterBadge
-                  key={`qual-${qual.id}`}
-                  label={qual.code}
-                  mode={mode}
-                  onRemove={() => removeQualification(qual.id)}
-                  color={qual.color || '#6B7280'}
-                />
-              );
-            })}
-          </div>
-        )}
       </div>
 
       {/* Expandable content */}
       {isExpanded && (
         <div style={{
           padding: '16px',
-          animation: 'slideDown 0.2s ease-out'
+          overflow: 'visible'
         }}>
           {/* Two column layout */}
           <div style={{
             display: 'grid',
             gridTemplateColumns: '1fr 1fr',
-            gap: '24px'
+            gap: '24px',
+            overflow: 'visible'
           }}>
             {/* Left Column */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', overflow: 'visible' }}>
               {/* Squadron Filter */}
               <FilterSection 
                 title="Squadron"
@@ -432,16 +367,16 @@ const FilterDrawer: React.FC<FilterDrawerProps> = ({
             </div>
             
             {/* Right Column */}
-            <div>
+            <div style={{ overflow: 'visible' }}>
               {/* Qualification Filter */}
-              <QualificationFilterSection 
+              <QualificationFilterSection
                 title="Qualification"
-                qualifications={qualifications}
+                qualifications={Array.isArray(qualifications) ? qualifications : []}
                 qualificationFilters={qualificationFilters}
                 onToggle={toggleQualification}
                 onSelectAll={() => {
                   const newFilters: Record<string, QualificationFilterMode> = {};
-                  qualifications.forEach(q => newFilters[q.id] = 'include');
+                  (Array.isArray(qualifications) ? qualifications : []).forEach(q => newFilters[q.id] = 'include');
                   setQualificationFilters(newFilters);
                 }}
                 onClearAll={() => setQualificationFilters({})}
@@ -467,101 +402,6 @@ const FilterDrawer: React.FC<FilterDrawerProps> = ({
     </div>
   );
 };
-
-// Filter badge component with removal
-const FilterBadge: React.FC<{
-  label: string;
-  onRemove: () => void;
-  color: string;
-}> = ({ label, onRemove, color }) => (
-  <div style={{
-    display: 'flex',
-    alignItems: 'center',
-    backgroundColor: color + '20',
-    border: '1px solid ' + color + '40',
-    borderRadius: '12px',
-    padding: '2px 6px',
-    gap: '4px',
-    fontSize: '11px',
-    fontFamily: 'Inter'
-  }}>
-    <span style={{ color: color, fontWeight: 500 }}>{label}</span>
-    <button
-      onClick={(e) => {
-        e.stopPropagation();
-        onRemove();
-      }}
-      style={{
-        background: 'none',
-        border: 'none',
-        color: color,
-        cursor: 'pointer',
-        fontSize: '10px',
-        padding: '0',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        width: '12px',
-        height: '12px'
-      }}
-    >
-      ×
-    </button>
-  </div>
-);
-
-// Qualification filter badge with mode indicator
-const QualificationFilterBadge: React.FC<{
-  label: string;
-  mode: QualificationFilterMode;
-  onRemove: () => void;
-  color: string;
-}> = ({ label, mode, onRemove, color }) => {
-  const backgroundColor = mode === 'include' ? color + '20' : '#FEF2F2';
-  const borderColor = mode === 'include' ? color + '40' : '#FECACA';
-  const textColor = mode === 'include' ? color : '#DC2626';
-  
-  return (
-    <div style={{
-      display: 'flex',
-      alignItems: 'center',
-      backgroundColor,
-      border: '1px solid ' + borderColor,
-      borderRadius: '12px',
-      padding: '2px 6px',
-      gap: '4px',
-      fontSize: '11px',
-      fontFamily: 'Inter'
-    }}>
-      <span style={{ fontSize: '8px', color: textColor, fontWeight: 'bold' }}>
-        {mode === 'include' ? '✓' : '✕'}
-      </span>
-      <span style={{ color: textColor, fontWeight: 500 }}>{label}</span>
-      <button
-        onClick={(e) => {
-          e.stopPropagation();
-          onRemove();
-        }}
-        style={{
-          background: 'none',
-          border: 'none',
-          color: textColor,
-          cursor: 'pointer',
-          fontSize: '10px',
-          padding: '0',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          width: '12px',
-          height: '12px'
-        }}
-      >
-        ×
-      </button>
-    </div>
-  );
-};
-
 // Multi-select dropdown component
 const MultiSelectDropdown: React.FC<{
   title: string;
@@ -572,6 +412,7 @@ const MultiSelectDropdown: React.FC<{
   renderItem: (item: any) => React.ReactNode;
 }> = ({ title, items, selectedIds, setSelectedIds, getDisplayName, renderItem }) => {
   const [isOpen, setIsOpen] = useState(false);
+  const safeItems = Array.isArray(items) ? items : [];
 
   const toggleItem = (id: string) => {
     if (selectedIds.includes(id)) {
@@ -581,21 +422,21 @@ const MultiSelectDropdown: React.FC<{
     }
   };
 
-  const selectAll = () => setSelectedIds(items.map(i => i.id));
+  const selectAll = () => setSelectedIds(safeItems.map(i => i.id));
   const clearAll = () => setSelectedIds([]);
 
   const getDisplayText = () => {
     if (selectedIds.length === 0) return `No ${title.toLowerCase()} selected`;
-    if (selectedIds.length === items.length) return `All ${title.toLowerCase()}`;
+    if (selectedIds.length === safeItems.length) return `All ${title.toLowerCase()}`;
     if (selectedIds.length === 1) {
-      const item = items.find(i => i.id === selectedIds[0]);
+      const item = safeItems.find(i => i.id === selectedIds[0]);
       return item ? getDisplayName(item) : '1 selected';
     }
     return `${selectedIds.length} selected`;
   };
 
   return (
-    <div style={{ position: 'relative' }}>
+    <div style={{ position: 'relative', overflow: 'visible' }}>
       <div style={{
         display: 'flex',
         justifyContent: 'space-between',
@@ -646,7 +487,8 @@ const MultiSelectDropdown: React.FC<{
           maxHeight: '200px',
           overflowY: 'auto',
           zIndex: 1000,
-          boxShadow: '0px 4px 6px -1px rgba(0, 0, 0, 0.1)'
+          boxShadow: '0px 4px 6px -1px rgba(0, 0, 0, 0.1)',
+          marginTop: '4px'
         }}>
           <div style={{ padding: '8px', borderBottom: '1px solid #E2E8F0', display: 'flex', gap: '8px' }}>
             <button onClick={selectAll} style={{
@@ -663,7 +505,7 @@ const MultiSelectDropdown: React.FC<{
             </button>
           </div>
           
-          {items.map(item => (
+          {safeItems.map(item => (
             <div
               key={item.id}
               onClick={() => toggleItem(item.id)}
@@ -809,7 +651,7 @@ const FilterSection: React.FC<{
       </div>
     </div>
     <div style={{
-      maxHeight: '200px',
+      maxHeight: '300px',
       overflowY: 'auto',
       border: '1px solid #E5E7EB',
       borderRadius: '4px',
@@ -857,8 +699,11 @@ const QualificationFilterSection: React.FC<{
   onSelectAll: () => void;
   onClearAll: () => void;
   getQualificationPilotCount: (id: string) => number;
-}> = ({ title, qualifications, qualificationFilters, onToggle, onSelectAll, onClearAll, getQualificationPilotCount }) => (
-  <div>
+}> = ({ title, qualifications, qualificationFilters, onToggle, onSelectAll, onClearAll, getQualificationPilotCount }) => {
+  const safeQualifications = Array.isArray(qualifications) ? qualifications : [];
+
+  return (
+  <div style={{ overflow: 'visible' }}>
     <div style={{
       display: 'flex',
       justifyContent: 'space-between',
@@ -890,13 +735,13 @@ const QualificationFilterSection: React.FC<{
       </div>
     </div>
     <div style={{
-      maxHeight: '200px',
+      maxHeight: '300px',
       overflowY: 'auto',
       border: '1px solid #E5E7EB',
       borderRadius: '4px',
       padding: '4px'
     }}>
-      {qualifications.map(qual => {
+      {safeQualifications.map(qual => {
         const mode = qualificationFilters[qual.id];
         const isActive = mode !== undefined;
         
@@ -955,6 +800,7 @@ const QualificationFilterSection: React.FC<{
       })}
     </div>
   </div>
-);
+  );
+};
 
 export default FilterDrawer;

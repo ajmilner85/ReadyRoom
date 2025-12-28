@@ -140,6 +140,7 @@ export class PermissionService {
       settings: [],
       missionPrep: [],
       debriefing: [],
+      training: [],
       other: []
     };
 
@@ -174,6 +175,9 @@ export class PermissionService {
           break;
         case 'debriefing':
           grouped.debriefing.push(permission);
+          break;
+        case 'Training':
+          grouped.training.push(permission);
           break;
         default:
           grouped.other.push(permission);

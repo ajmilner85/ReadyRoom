@@ -1,14 +1,19 @@
 // filepath: c:\Users\ajmil\OneDrive\Desktop\pri-fly\src\components\ui\mission prep\AvailablePilots.tsx
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { Card } from '../card';
 import QualificationBadge from '../QualificationBadge';
-import { Filter, ClipboardCheck, Settings, X, HelpCircle, MessageCircleOff } from 'lucide-react';
+import { ClipboardCheck, Settings, X, HelpCircle, MessageCircleOff, ArrowUpDown } from 'lucide-react';
 import { useDraggable } from '@dnd-kit/core';
 import type { Pilot, QualificationType } from '../../../types/PilotTypes';
 import type { Event } from '../../../types/EventTypes';
 import type { AssignedPilot } from '../../../types/MissionPrepTypes';
 import { updateRollCallResponse, syncRollCallResponses } from '../../../utils/rollCallUtils';
 import { useAppSettings } from '../../../context/AppSettingsContext';
+import FilterDrawer, { QualificationFilterMode } from '../roster/FilterDrawer';
+import { Squadron } from '../../../utils/squadronService';
+import { Status } from '../../../utils/statusService';
+import { Standing } from '../../../utils/standingService';
+import { Role } from '../../../utils/roleService';
+import { Qualification } from '../../../utils/qualificationService';
 
 // Define the structure for the polled attendance data (matching MissionPreparation)
 interface RealtimeAttendanceRecord {
@@ -29,6 +34,12 @@ interface AvailablePilotsProps {
   onClearAssignments: () => void;
   pilotQualifications?: Record<string, any[]>;
   realtimeAttendanceData: RealtimeAttendanceRecord[];
+  // FilterDrawer props
+  squadrons: Squadron[];
+  statuses: Status[];
+  standings: Standing[];
+  roles: Role[];
+  qualifications: Qualification[];
 }
 
 // These should match the updated QualificationType
@@ -354,19 +365,36 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
   pilots,
   selectedEvent,
   assignedPilots = {},
-  setAssignedPilots, // *** Destructure the new prop ***
+  setAssignedPilots,
   onAutoAssign,
-  onAutoAssignSettings, // *** Destructure the new settings prop ***
+  onAutoAssignSettings,
   onClearAssignments,
   pilotQualifications = {},
-  realtimeAttendanceData
+  realtimeAttendanceData,
+  squadrons,
+  statuses,
+  standings,
+  roles,
+  qualifications
 }) => {
   const { settings } = useAppSettings();
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [showOnlyAttending, setShowOnlyAttending] = useState(false);
   const [selectedQualifications, setSelectedQualifications] = useState<QualificationType[]>([]);
   const [isRollCallMode, setIsRollCallMode] = useState(false);
-  const [rollCallResponses, setRollCallResponses] = useState<Record<string, 'Present' | 'Absent' | 'Tentative'>>({});  // Handle Roll Call response
+  const [rollCallResponses, setRollCallResponses] = useState<Record<string, 'Present' | 'Absent' | 'Tentative'>>({});
+
+  // Sort state
+  const [sortBy, setSortBy] = useState<'callsign' | 'boardNumber'>('callsign');
+  const [sortBySquadron, setSortBySquadron] = useState<boolean>(true);
+
+  // Filter state
+  const [selectedSquadronIds, setSelectedSquadronIds] = useState<string[]>([]);
+  const [selectedStatusIds, setSelectedStatusIds] = useState<string[]>([]);
+  const [selectedStandingIds, setSelectedStandingIds] = useState<string[]>([]);
+  const [selectedRoleIds, setSelectedRoleIds] = useState<string[]>([]);
+  const [qualificationFilters, setQualificationFilters] = useState<Record<string, QualificationFilterMode>>({});
+  const [filtersEnabled, setFiltersEnabled] = useState<boolean>(true);  // Handle Roll Call response
   const handleRollCallResponse = async (pilotId: string, response: 'Present' | 'Absent' | 'Tentative') => {
     // console.log(`[ROLL-CALL-DEBUG] handleRollCallResponse called for pilotId: ${pilotId}, response: ${response}`); // LOGGING
     // Determine if this is a toggle (same response clicked twice) or new selection
@@ -504,13 +532,6 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
   }, [pilotQualifications]);
 
   // Toggle a qualification for filtering
-  const toggleQualification = (qual: QualificationType) => {
-    setSelectedQualifications(prev =>
-      prev.includes(qual)
-        ? prev.filter(q => q !== qual)
-        : [...prev, qual]
-    );
-  };
 
   // Check if a pilot has a specific qualification
   const hasDatabaseQualification = (pilotIdOrBoardNumber: string, qualType: QualificationType) => {
@@ -561,8 +582,57 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
   // Filter pilots based on attendance and selected qualifications
   const filteredPilots = useMemo(() => {
     let filtered = [...pilotsWithAttendanceStatus];
-    
-    // Filter by attendance if that option is selected
+
+    // Apply FilterDrawer filters only when filters are enabled
+    if (filtersEnabled) {
+      // Squadron filter
+      if (selectedSquadronIds.length > 0) {
+        filtered = filtered.filter(pilot => {
+          if (!pilot.currentSquadron?.id) {
+            return selectedSquadronIds.includes('unassigned');
+          } else {
+            return selectedSquadronIds.includes(pilot.currentSquadron.id);
+          }
+        });
+      }
+
+      // Status filter
+      if (selectedStatusIds.length > 0) {
+        filtered = filtered.filter(pilot => {
+          return pilot.currentStatus?.id && selectedStatusIds.includes(pilot.currentStatus.id);
+        });
+      }
+
+      // Standing filter
+      if (selectedStandingIds.length > 0) {
+        filtered = filtered.filter(pilot => {
+          return pilot.currentStanding?.id && selectedStandingIds.includes(pilot.currentStanding.id);
+        });
+      }
+
+      // Role filter
+      if (selectedRoleIds.length > 0) {
+        filtered = filtered.filter(pilot => {
+          return pilot.roles?.some(role => role.role?.id && selectedRoleIds.includes(role.role.id));
+        });
+      }
+
+      // Qualification filter (from FilterDrawer)
+      const activeQualFilters = Object.entries(qualificationFilters);
+      if (activeQualFilters.length > 0) {
+        filtered = filtered.filter(pilot => {
+          const pilotId = pilot.id;
+          const pilotQuals = pilotQualifications[pilotId] || [];
+
+          return activeQualFilters.every(([qualId, mode]) => {
+            const hasQual = pilotQuals.some((pq: any) => pq.qualification?.id === qualId);
+            return mode === 'include' ? hasQual : !hasQual;
+          });
+        });
+      }
+    }
+
+    // Filter by attendance if that option is selected (legacy filter - still works)
     if (showOnlyAttending && selectedEvent) {
       if (realtimeAttendanceData.length > 0) {
         const attendingDiscordIds = realtimeAttendanceData
@@ -570,7 +640,6 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
           .map(record => record.discord_id);
 
         filtered = filtered.filter(pilot => {
-          // Use discord_id (numeric ID) to match against attendance data
           const discordId = (pilot as any).discord_id;
           return discordId && attendingDiscordIds.includes(discordId);
         });
@@ -578,8 +647,8 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
         filtered = [];
       }
     }
-    
-    // Filter by selected qualifications
+
+    // Filter by selected qualifications (legacy filter - still works for qualification badges)
     if (selectedQualifications.length > 0) {
       filtered = filtered.filter(pilot => {
         const pilotIdKey = pilot.id || pilot.boardNumber;
@@ -588,9 +657,26 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
       });
     }
     
-    // Sort alphabetically by callsign
-    return filtered.sort((a, b) => (a.callsign || '').localeCompare(b.callsign || ''));
-  }, [pilotsWithAttendanceStatus, selectedEvent, showOnlyAttending, selectedQualifications, pilotQualifications, hasDatabaseQualification, realtimeAttendanceData]);
+    // Sort pilots
+    return filtered.sort((a, b) => {
+      // First sort by squadron ID if enabled
+      if (sortBySquadron) {
+        const squadronA = a.currentSquadron?.id || '';
+        const squadronB = b.currentSquadron?.id || '';
+        const squadronCompare = squadronA.localeCompare(squadronB);
+        if (squadronCompare !== 0) return squadronCompare;
+      }
+
+      // Then sort by board number or callsign
+      if (sortBy === 'boardNumber') {
+        const numA = parseInt(a.boardNumber || '0') || 0;
+        const numB = parseInt(b.boardNumber || '0') || 0;
+        return numA - numB;
+      } else {
+        return (a.callsign || '').localeCompare(b.callsign || '');
+      }
+    });
+  }, [pilotsWithAttendanceStatus, selectedEvent, showOnlyAttending, selectedQualifications, pilotQualifications, hasDatabaseQualification, realtimeAttendanceData, sortBy, sortBySquadron, filtersEnabled, selectedSquadronIds, selectedStatusIds, selectedStandingIds, selectedRoleIds, qualificationFilters]);
 
   // Check if a pilot is assigned to a flight
   const isPilotAssignedToFlight = (pilot: Pilot): { isAssigned: boolean; flightId?: string } => {
@@ -819,36 +905,93 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
   useEffect(() => {
     // Force re-render of the entire list when roll call responses change
     // console.log('[ROLL-CALL-DEBUG] Roll call responses updated, refreshing pilot list');
-    
+
     // No need to do anything else - the state change will trigger a re-render
   }, [rollCallResponses]);
 
-  return (
-    <div className="pilots-container" style={{
-      width,
-      maxWidth: width,
-      overflow: 'visible',
-      position: 'relative',
-      padding: '10px',
-      margin: '-10px',
-      paddingBottom: '20px',
-      height: '100%'
+  // Render sort controls
+  const renderSortControls = () => (
+    <div style={{
+      display: 'flex',
+      gap: '8px',
+      marginBottom: '12px',
+      justifyContent: 'flex-end'
     }}>
-      <Card 
+      <span style={{ fontSize: '12px', color: '#6B7280', marginRight: '4px', alignSelf: 'center' }}>
+        Sort by:
+      </span>
+      <button
+        type="button"
+        onClick={() => setSortBySquadron(!sortBySquadron)}
         style={{
-          width: '100%',
-          height: '100%',
-          backgroundColor: '#FFFFFF',
-          boxShadow: '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)',
-          borderRadius: '8px',
-          padding: '24px',
+          padding: '4px 12px',
+          backgroundColor: sortBySquadron ? '#2563EB' : 'white',
+          color: sortBySquadron ? 'white' : '#6B7280',
+          border: `1px solid ${sortBySquadron ? '#2563EB' : '#D1D5DB'}`,
+          borderRadius: '4px',
+          cursor: 'pointer',
+          fontSize: '12px',
+          fontWeight: 500,
           display: 'flex',
-          flexDirection: 'column',
-          position: 'relative',
-          overflow: 'visible',
-          boxSizing: 'border-box'
+          alignItems: 'center',
+          gap: '4px',
+          transition: 'all 0.2s ease'
         }}
       >
+        <ArrowUpDown size={12} />
+        Squadron
+      </button>
+      <button
+        type="button"
+        onClick={() => setSortBy('boardNumber')}
+        style={{
+          padding: '4px 12px',
+          backgroundColor: sortBy === 'boardNumber' ? '#2563EB' : 'white',
+          color: sortBy === 'boardNumber' ? 'white' : '#6B7280',
+          border: `1px solid ${sortBy === 'boardNumber' ? '#2563EB' : '#D1D5DB'}`,
+          borderRadius: '4px',
+          cursor: 'pointer',
+          fontSize: '12px',
+          fontWeight: 500,
+          transition: 'all 0.2s ease'
+        }}
+      >
+        Board Number
+      </button>
+      <button
+        type="button"
+        onClick={() => setSortBy('callsign')}
+        style={{
+          padding: '4px 12px',
+          backgroundColor: sortBy === 'callsign' ? '#2563EB' : 'white',
+          color: sortBy === 'callsign' ? 'white' : '#6B7280',
+          border: `1px solid ${sortBy === 'callsign' ? '#2563EB' : '#D1D5DB'}`,
+          borderRadius: '4px',
+          cursor: 'pointer',
+          fontSize: '12px',
+          fontWeight: 500,
+          transition: 'all 0.2s ease'
+        }}
+      >
+        Callsign
+      </button>
+    </div>
+  );
+
+  return (
+    <div style={{
+      width,
+      backgroundColor: '#FFFFFF',
+      boxShadow: '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)',
+      borderRadius: '8px',
+      padding: '24px',
+      display: 'flex',
+      flexDirection: 'column',
+      position: 'relative',
+      overflow: 'hidden',
+      height: '100%',
+      boxSizing: 'border-box'
+    }}>
         <div style={{
           width: '100%',
           textAlign: 'center',
@@ -867,78 +1010,31 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
           </span>
         </div>
 
-        <div className="mb-4">
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '4px'
-          }}>
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '4px',
-              flex: 1
-            }}>
-              {allQualifications.map(qual => (
-                <button
-                  key={qual}
-                  onClick={() => toggleQualification(qual)}
-                  disabled={isRollCallMode}
-                  style={{
-                    padding: 0,
-                    background: 'none',
-                    border: 'none',
-                    cursor: isRollCallMode ? 'default' : 'pointer',
-                    opacity: isRollCallMode ? 0.3 : (selectedQualifications.length === 0 || selectedQualifications.includes(qual) ? 1 : 0.3),
-                    transition: 'opacity 0.2s ease'
-                  }}
-                >
-                  <QualificationBadge type={qual} />
-                </button>
-              ))}
-            </div>
-            <div style={{ position: 'relative', display: 'inline-block' }}>
-              <button
-                onClick={() => setShowOnlyAttending(!showOnlyAttending)}
-                disabled={!selectedEvent || isRollCallMode}
-                title={
-                  isRollCallMode ? "Exit Roll Call mode to use filter" :
-                  selectedEvent 
-                    ? (showOnlyAttending 
-                      ? "Show all pilots" 
-                      : "Show only pilots attending event") 
-                    : "Select an event to filter by attendance"
-                }
-                style={{
-                  padding: '4px',
-                  borderRadius: '4px',
-                  cursor: (selectedEvent && !isRollCallMode) ? 'pointer' : 'not-allowed',
-                  background: showOnlyAttending ? '#EFF6FF' : 'white',
-                  boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-                  border: showOnlyAttending ? '1px solid #2563EB' : '1px solid transparent',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  transition: 'all 0.1s ease',
-                  color: showOnlyAttending ? '#2563EB' : selectedEvent ? '#64748B' : '#A1A1AA',
-                  opacity: (selectedEvent && !isRollCallMode) ? 1 : 0.6,
-                }}
-                onMouseEnter={(e) => {
-                  if (selectedEvent && !isRollCallMode) {
-                    e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.15)';
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  if (selectedEvent && !isRollCallMode) {
-                    e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
-                  }
-                }}
-              >
-                <Filter size={16} />
-              </button>
-            </div>
-          </div>
-        </div>
+        {/* Filter Drawer */}
+        <FilterDrawer
+          squadrons={squadrons}
+          statuses={statuses}
+          standings={standings}
+          roles={roles}
+          qualifications={qualifications}
+          pilots={pilots}
+          allPilotQualifications={pilotQualifications}
+          selectedSquadronIds={selectedSquadronIds}
+          selectedStatusIds={selectedStatusIds}
+          selectedStandingIds={selectedStandingIds}
+          selectedRoleIds={selectedRoleIds}
+          qualificationFilters={qualificationFilters}
+          filtersEnabled={filtersEnabled}
+          setSelectedSquadronIds={setSelectedSquadronIds}
+          setSelectedStatusIds={setSelectedStatusIds}
+          setSelectedStandingIds={setSelectedStandingIds}
+          setSelectedRoleIds={setSelectedRoleIds}
+          setQualificationFilters={setQualificationFilters}
+          setFiltersEnabled={setFiltersEnabled}
+        />
+
+        {/* Sort Controls */}
+        {renderSortControls()}
 
         <div 
           ref={scrollContainerRef}
@@ -1238,7 +1334,6 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
               </svg>              Unassign All
             </button>
           </div>
-      </Card>
     </div>
   );
 };

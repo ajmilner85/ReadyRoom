@@ -185,7 +185,15 @@ export function usePermissions() {
     canAccessFlights: state.permissions?.canAccessFlights || false,
     canAccessSettings: state.permissions?.canAccessSettings || false,
     canAccessReports: state.permissions?.canAccessReports || false,
-    canAccessMissionDebriefing: state.permissions?.canAccessMissionDebriefing || false
+    canAccessMissionDebriefing: state.permissions?.canAccessMissionDebriefing || false,
+
+    // Training permissions
+    manage_training_syllabi: state.permissions?.manage_training_syllabi || false,
+    manage_training_debriefs: state.permissions?.manage_training_debriefs || false,
+    view_all_training_progress: state.permissions?.view_all_training_progress || false,
+    lock_unlock_missions: state.permissions?.lock_unlock_missions || false,
+    access_my_training: state.permissions?.access_my_training || false,
+    access_training_management: state.permissions?.access_training_management || false
   };
 }
 
@@ -237,7 +245,9 @@ export function useSimplePermissions() {
     canAccessFlights,
     canAccessSettings,
     canAccessReports,
-    canAccessMissionDebriefing
+    canAccessMissionDebriefing,
+    access_my_training,
+    access_training_management
   } = usePermissions();
 
   return {
@@ -250,6 +260,8 @@ export function useSimplePermissions() {
     canAccessSettings,
     canAccessReports,
     canAccessMissionDebriefing,
+    access_my_training,
+    access_training_management,
 
     // Generic permission check
     hasPermission,

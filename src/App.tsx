@@ -37,6 +37,9 @@ const Reports = React.lazy(() => import('./components/reports/Reports'));
 const Home = React.lazy(() => import('./components/ui/Home'));
 const ClearCache = React.lazy(() => import('./pages/ClearCache'));
 const Debriefing = React.lazy(() => import('./components/debriefing/Debriefing'));
+const MyTraining = React.lazy(() => import('./components/training/MyTraining'));
+const TrainingManagement = React.lazy(() => import('./components/training/TrainingManagement'));
+const SyllabusEditor = React.lazy(() => import('./components/training/SyllabusEditor'));
 
 const App: React.FC = () => {
   const { user } = useAuth();
@@ -61,6 +64,8 @@ const App: React.FC = () => {
     if (path === '/mission-coordination') return 'flights';
     if (path === '/mission-prep') return 'mission-prep';
     if (path === '/debriefing') return 'debriefing';
+    if (path === '/my-training') return 'my-training';
+    if (path.startsWith('/training-management')) return 'training-management';
     if (path === '/reports') return 'reports';
     if (path === '/settings') return 'admin';
     return 'home'; // default to home
@@ -510,6 +515,27 @@ const App: React.FC = () => {
               <PermissionGuardedRoute requiredPermission="access_mission_debriefing">
                 <Suspense fallback={<StandardPageLoader message="Loading debriefing..." />}>
                   <Debriefing />
+                </Suspense>
+              </PermissionGuardedRoute>
+            } />
+            <Route path="/my-training" element={
+              <PermissionGuardedRoute requiredPermission="access_my_training">
+                <Suspense fallback={<StandardPageLoader message="Loading training..." />}>
+                  <MyTraining />
+                </Suspense>
+              </PermissionGuardedRoute>
+            } />
+            <Route path="/training-management" element={
+              <PermissionGuardedRoute requiredPermission="access_training_management">
+                <Suspense fallback={<StandardPageLoader message="Loading training management..." />}>
+                  <TrainingManagement />
+                </Suspense>
+              </PermissionGuardedRoute>
+            } />
+            <Route path="/training-management/syllabus/:syllabusId" element={
+              <PermissionGuardedRoute requiredPermission="access_training_management">
+                <Suspense fallback={<StandardPageLoader message="Loading syllabus editor..." />}>
+                  <SyllabusEditor />
                 </Suspense>
               </PermissionGuardedRoute>
             } />

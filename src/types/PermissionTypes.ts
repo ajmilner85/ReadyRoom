@@ -1,7 +1,7 @@
 // Enhanced Permission System Types
 // This file defines all types for the new inheritance-based permission system
 
-export type PermissionCategory = 'navigation' | 'roster' | 'events' | 'settings' | 'mission_prep' | 'debriefing' | 'other';
+export type PermissionCategory = 'navigation' | 'roster' | 'events' | 'settings' | 'mission_prep' | 'debriefing' | 'training' | 'other';
 
 export type ScopeType = 'global' | 'squadron' | 'wing';
 
@@ -94,6 +94,15 @@ export interface UserPermissions {
   finalize_debriefs: PermissionScopeContext[];
   delegate_debriefs: PermissionScopeContext[];
 
+  // Training Management (mixed scope types)
+  manage_training_syllabi: boolean;              // Global only
+  manage_training_debriefs: boolean;             // Global only
+  manage_training_enrollments: boolean;          // Global only
+  view_all_training_progress: boolean;           // Global only
+  lock_unlock_missions: boolean;                 // Global only
+  access_my_training: boolean;                   // Global only
+  access_training_management: boolean;           // Global only
+
   // Component-level permissions (mixed)
   canSyncWithDiscord: PermissionScopeContext[];
   canViewOwnProfile: boolean;                    // Global only
@@ -164,6 +173,7 @@ export interface GroupedPermissions {
   settings: AppPermission[];
   missionPrep: AppPermission[];
   debriefing: AppPermission[];
+  training: AppPermission[];
   other: AppPermission[];
 }
 
@@ -251,6 +261,7 @@ export const PERMISSION_CATEGORIES: Record<PermissionCategory, string> = {
   settings: 'Settings',
   mission_prep: 'Mission Preparation',
   debriefing: 'Mission Debriefing',
+  training: 'Training Management',
   other: 'Other'
 };
 
