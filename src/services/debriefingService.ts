@@ -394,7 +394,8 @@ class DebriefingService {
         events!missions_event_id_fkey(
           id,
           name,
-          start_datetime
+          start_datetime,
+          participants
         )
       `)
       .eq('id', missionId)

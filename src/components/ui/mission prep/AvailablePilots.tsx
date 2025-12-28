@@ -1036,18 +1036,17 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
         {/* Sort Controls */}
         {renderSortControls()}
 
-        <div 
+        <div
           ref={scrollContainerRef}
-          className="pilots-scroll-container" 
-          style={{ 
+          className="pilots-scroll-container"
+          style={{
             flex: 1,
             overflowY: 'auto',
             overflowX: 'hidden',
             width: '100%',
             position: 'relative',
-            padding: '0 10px',
-            boxSizing: 'border-box',
-            margin: '0 -10px'
+            padding: '0',
+            boxSizing: 'border-box'
           }}
         >          {groupedPilots.order.map((groupName: string) => {
             const pilotsInGroup = groupedPilots.groups[groupName] || [];

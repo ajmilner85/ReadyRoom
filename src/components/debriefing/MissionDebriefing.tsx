@@ -244,10 +244,20 @@ const MissionDebriefing: React.FC = () => {
         squadronId = existingDebrief.squadron_id;
         console.log('[PARSE-FLIGHTS] Using squadron from existing debrief:', squadronId);
       } else {
-        // Fallback to callsign lookup (first match if multiple squadrons share callsign)
-        const flightSquadron = squadrons.find(s => s.callsigns?.includes(flight.callsign));
+        // Get participating squadron IDs from the event
+        const participatingSquadronIds = mission.events?.participants || [];
+        console.log('[PARSE-FLIGHTS] Participating squadron IDs:', participatingSquadronIds);
+
+        // Fallback to callsign lookup - filter by participating squadrons to resolve ambiguity
+        const matchingSquadrons = squadrons.filter(s => s.callsigns?.includes(flight.callsign));
+        console.log('[PARSE-FLIGHTS] All squadrons matching callsign:', matchingSquadrons.map(s => ({ id: s.id, name: s.name })));
+
+        // Prefer squadrons that are actually participating in this event
+        const participatingMatch = matchingSquadrons.find(s => participatingSquadronIds.includes(s.id));
+        const flightSquadron = participatingMatch || matchingSquadrons[0]; // Fallback to first match if none participating
+
         squadronId = flightSquadron?.id || flight.squadron_id || '';
-        console.log('[PARSE-FLIGHTS] Flight callsign:', flight.callsign, 'mapped to squadron:', flightSquadron?.name, 'id:', squadronId);
+        console.log('[PARSE-FLIGHTS] Flight callsign:', flight.callsign, 'mapped to squadron:', flightSquadron?.name, 'id:', squadronId, 'isParticipating:', !!participatingMatch);
       }
 
       // Generate flight number based on callsign

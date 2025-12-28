@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 // import { Save } from 'lucide-react';
 import type { AppPermission, PermissionRule, BasisOption, BasisType, GroupedPermissions } from '../../types/PermissionTypes';
 import { PERMISSION_CATEGORIES } from '../../types/PermissionTypes';
@@ -537,63 +538,54 @@ export const PermissionMatrix: React.FC<PermissionMatrixProps> = ({
         </div>
       </div>
       
-      {/* Save/Cancel Controls */}
-      {hasUnsavedChanges && (
-        <div style={{
-          position: 'absolute',
-          bottom: '24px',
-          left: '50%',
-          transform: 'translateX(-50%)',
-          backgroundColor: 'white',
-          border: '1px solid #E5E7EB',
-          borderRadius: '8px',
-          boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
-          padding: '16px 32px',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '24px',
-          zIndex: 50,
-          whiteSpace: 'nowrap'
-        }}>
+      {/* Save/Cancel Controls - rendered in header via portal */}
+      {hasUnsavedChanges && createPortal(
+        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
           <div style={{
             fontSize: '14px',
-            color: '#6B7280'
+            color: '#6B7280',
+            fontFamily: 'Inter'
           }}>
             You have unsaved changes
           </div>
-          <div style={{ display: 'flex', gap: '12px' }}>
-            <button
-              onClick={handleCancelChanges}
-              disabled={isSaving}
-              style={{
-                padding: '8px 16px',
-                border: '1px solid #D1D5DB',
-                borderRadius: '4px',
-                backgroundColor: 'white',
-                color: '#6B7280',
-                cursor: 'pointer',
-                fontSize: '14px'
-              }}
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleSaveChanges}
-              disabled={isSaving}
-              style={{
-                padding: '8px 16px',
-                border: 'none',
-                borderRadius: '4px',
-                backgroundColor: '#2563EB',
-                color: 'white',
-                cursor: 'pointer',
-                fontSize: '14px'
-              }}
-            >
-              {isSaving ? 'Saving...' : 'Save Changes'}
-            </button>
-          </div>
-        </div>
+          <button
+            onClick={handleCancelChanges}
+            disabled={isSaving}
+            style={{
+              padding: '8px 16px',
+              border: '1px solid #D1D5DB',
+              borderRadius: '4px',
+              backgroundColor: 'white',
+              color: '#6B7280',
+              cursor: isSaving ? 'not-allowed' : 'pointer',
+              fontSize: '14px',
+              fontFamily: 'Inter',
+              fontWeight: 500,
+              transition: 'all 0.2s ease'
+            }}
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSaveChanges}
+            disabled={isSaving}
+            style={{
+              padding: '8px 16px',
+              border: 'none',
+              borderRadius: '4px',
+              backgroundColor: '#2563EB',
+              color: 'white',
+              cursor: isSaving ? 'not-allowed' : 'pointer',
+              fontSize: '14px',
+              fontFamily: 'Inter',
+              fontWeight: 500,
+              transition: 'all 0.2s ease'
+            }}
+          >
+            {isSaving ? 'Saving...' : 'Save Changes'}
+          </button>
+        </div>,
+        document.getElementById('permission-save-buttons')!
       )}
     </div>
   );

@@ -119,12 +119,18 @@ const PermissionsSettings: React.FC = () => {
       {/* Fixed Header */}
       <div style={{ padding: '40px 40px 0 40px', flexShrink: 0 }}>
         <div style={{ maxWidth: '1200px', margin: '0 auto', borderBottom: '1px solid #E2E8F0', paddingBottom: '24px' }}>
-          <h2 style={{ fontSize: '24px', fontWeight: 600, margin: 0, color: '#0F172A' }}>
-            Permissions Management
-          </h2>
-          <p style={{ fontSize: '14px', color: '#64748B', margin: '8px 0 0 0', fontFamily: 'Inter' }}>
-            Manage user permissions and access control for your squadron.
-          </p>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <div>
+              <h2 style={{ fontSize: '24px', fontWeight: 600, margin: 0, color: '#0F172A' }}>
+                Permissions Management
+              </h2>
+              <p style={{ fontSize: '14px', color: '#64748B', margin: '8px 0 0 0', fontFamily: 'Inter' }}>
+                Manage user permissions and access control for your squadron.
+              </p>
+            </div>
+            {/* Save/Cancel Buttons Container - receives state from PermissionMatrix */}
+            <div id="permission-save-buttons"></div>
+          </div>
         </div>
       </div>
 
