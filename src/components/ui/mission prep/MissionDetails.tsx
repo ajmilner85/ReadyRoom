@@ -154,7 +154,7 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
     }
   };
 
-  // Filter events by selected cycle and sort by date (newest first)
+  // Filter events by selected cycle and sort by date (soonest first)
   const filteredAndSortedEvents = [...events]
     .filter(event => !selectedCycle || event.cycleId === selectedCycle.id)
     .sort((a, b) => {
@@ -166,7 +166,7 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
       if (isNaN(dateA)) return 1;
       if (isNaN(dateB)) return -1;
 
-      return dateB - dateA;
+      return dateA - dateB;
     });
 
   // Auto-select most recent event when cycle changes or events load
