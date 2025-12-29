@@ -422,8 +422,8 @@ export async function publishEventFromCycle(event: Event): Promise<MultiChannelP
  * @returns Response containing success status and Discord message ID
  */
 async function publishToSpecificChannel(
-  event: Event, 
-  guildId: string, 
+  event: Event,
+  guildId: string,
   channelId: string,
   notificationRoles?: Array<{ id: string; name: string }>
 ): Promise<PublishEventResponse> {
@@ -435,13 +435,27 @@ async function publishToSpecificChannel(
       const endDate = new Date(startDate.getTime() + 60 * 60 * 1000); // Add 1 hour
       endTime = endDate.toISOString();
     }
-    
+
     // Generate a unique request ID for tracking
     // const requestId = `publish-${event.id}-${guildId}-${channelId}-${Date.now()}`;
     // console.log(`[MULTI-DISCORD-DEBUG] Making direct API call ${requestId} to guild ${guildId}, channel ${channelId}`);
-    
+
+    // Construct the title: "{Cycle Name} - {Event Name}" if part of a cycle, otherwise just event name
+    let title = event.title;
+    if (event.cycleId) {
+      const { data: cycleData } = await supabase
+        .from('cycles')
+        .select('name')
+        .eq('id', event.cycleId)
+        .single();
+
+      if (cycleData?.name) {
+        title = `${cycleData.name} - ${event.title}`;
+      }
+    }
+
     const requestBody = {
-      title: event.title,
+      title: title,
       description: event.description,
       startTime: startTime,
       endTime: endTime,
@@ -564,7 +578,21 @@ export async function publishEventToDiscord(event: Event): Promise<PublishEventR
         }
 
         // console.log(`[DEBUG] Request ${requestId}: Sending publish request to server with guild ID: ${guildId} and channel ID: ${channelId}`);
-  
+
+        // Construct the title: "{Cycle Name} - {Event Name}" if part of a cycle, otherwise just event name
+        let title = event.title;
+        if (event.cycleId) {
+          const { data: cycleData } = await supabase
+            .from('cycles')
+            .select('name')
+            .eq('id', event.cycleId)
+            .single();
+
+          if (cycleData?.name) {
+            title = `${cycleData.name} - ${event.title}`;
+          }
+        }
+
         // Set a reasonable timeout for the fetch call
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
@@ -576,7 +604,7 @@ export async function publishEventToDiscord(event: Event): Promise<PublishEventR
             ...headers,
             'X-Request-ID': requestId // Add a request ID for tracking
           },          body: JSON.stringify({
-            title: event.title,
+            title: title,
             description: event.description,
             startTime: startTime,
             endTime: endTime,
