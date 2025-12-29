@@ -155,7 +155,7 @@ const BoardNumberModal: React.FC<BoardNumberModalProps> = ({ isOpen, onClose, on
     backgroundColor: '#FFFFFF',
     borderRadius: '8px',
     padding: '16px 24px 24px 24px',
-    maxWidth: '800px',
+    maxWidth: '950px',
     width: '90%',
     maxHeight: '80vh',
     overflow: 'auto',
@@ -193,7 +193,7 @@ const BoardNumberModal: React.FC<BoardNumberModalProps> = ({ isOpen, onClose, on
 
   const columnsContainerStyle: React.CSSProperties = {
     display: 'grid',
-    gridTemplateColumns: 'repeat(6, 1fr)',
+    gridTemplateColumns: 'repeat(6, minmax(140px, 1fr))',
     gap: '16px',
   };
 
