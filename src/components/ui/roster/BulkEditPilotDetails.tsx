@@ -29,6 +29,10 @@ interface BulkEditPilotDetailsProps {
   onBulkRemoveQualification: (qualificationId: string) => Promise<void>;
   onBulkAddTeam: (teamId: string, startDate: string) => Promise<void>;
   onBulkRemoveTeam: (teamId: string) => Promise<void>;
+  onBulkAddEnrollment?: (cycleId: string) => Promise<void>;
+  onBulkRemoveEnrollment?: (enrollmentId: string) => Promise<void>;
+  allPilotEnrollments?: Record<string, any[]>;
+  availableTrainingCycles?: any[];
   onBulkDeletePilots: () => Promise<void>;
   onBulkClearDiscord: () => Promise<void>;
 }
@@ -50,6 +54,15 @@ interface CommonTeam {
   scope: 'global' | 'wing' | 'squadron';
   earliestJoined: string;
   latestJoined: string;
+}
+
+interface CommonEnrollment {
+  enrollmentId: string;
+  cycleId: string;
+  cycleName: string;
+  status: 'active' | 'completed' | 'dropped' | 'graduated';
+  earliestEnrolled: string;
+  latestEnrolled: string;
 }
 
 interface ConfirmationDialogProps {
@@ -190,11 +203,16 @@ const BulkEditPilotDetails: React.FC<BulkEditPilotDetailsProps> = ({
   onBulkRemoveQualification,
   onBulkAddTeam,
   onBulkRemoveTeam,
+  onBulkAddEnrollment,
+  onBulkRemoveEnrollment,
+  allPilotEnrollments = {},
+  availableTrainingCycles = [],
   onBulkDeletePilots,
   onBulkClearDiscord
 }) => {
   const [showAddQualDialog, setShowAddQualDialog] = useState(false);
   const [showAddTeamDialog, setShowAddTeamDialog] = useState(false);
+  const [showAddEnrollmentDialog, setShowAddEnrollmentDialog] = useState(false);
 
   // Track pending changes
   const [pendingStatusId, setPendingStatusId] = useState<string>('');
@@ -205,10 +223,12 @@ const BulkEditPilotDetails: React.FC<BulkEditPilotDetailsProps> = ({
   const [achievedDate, setAchievedDate] = useState(new Date().toISOString().split('T')[0]);
   const [selectedTeam, setSelectedTeam] = useState('');
   const [teamStartDate, setTeamStartDate] = useState(new Date().toISOString().split('T')[0]);
+  const [selectedCycle, setSelectedCycle] = useState('');
   const [confirmDialog, setConfirmDialog] = useState<{
-    type: 'delete_pilots' | 'clear_discord' | 'remove_qualification' | 'remove_team';
+    type: 'delete_pilots' | 'clear_discord' | 'remove_qualification' | 'remove_team' | 'remove_enrollment';
     qualificationId?: string;
     teamId?: string;
+    enrollmentId?: string;
   } | null>(null);
 
   const exportButtonStyle = {
@@ -339,6 +359,59 @@ const BulkEditPilotDetails: React.FC<BulkEditPilotDetailsProps> = ({
     return Array.from(teamMap.values());
   }, [selectedPilots, allPilotTeams]);
 
+  // Calculate common training enrollments
+  const commonEnrollments = useMemo((): CommonEnrollment[] => {
+    if (selectedPilots.length === 0) return [];
+
+    // Get enrollments for first pilot
+    const firstPilotEnrollments = allPilotEnrollments[selectedPilots[0].id] || [];
+    const enrollmentMap = new Map<string, CommonEnrollment>();
+
+    // Only consider active enrollments
+    firstPilotEnrollments
+      .filter((e: any) => e.status === 'active')
+      .forEach((e: any) => {
+        if (e.cycle_id) {
+          enrollmentMap.set(e.cycle_id, {
+            enrollmentId: e.id,
+            cycleId: e.cycle_id,
+            cycleName: e.cycles?.name || 'Unknown Cycle',
+            status: e.status,
+            earliestEnrolled: e.enrolled_at,
+            latestEnrolled: e.enrolled_at
+          });
+        }
+      });
+
+    // Check each other pilot to find common enrollments
+    for (let i = 1; i < selectedPilots.length; i++) {
+      const pilotEnrollments = allPilotEnrollments[selectedPilots[i].id] || [];
+      const pilotActiveCycleIds = new Set(
+        pilotEnrollments.filter((e: any) => e.status === 'active').map((e: any) => e.cycle_id)
+      );
+
+      // Remove cycles not present in this pilot
+      for (const [cycleId, commonEnrollment] of enrollmentMap.entries()) {
+        if (!pilotActiveCycleIds.has(cycleId)) {
+          enrollmentMap.delete(cycleId);
+        } else {
+          // Update date ranges
+          const pilotEnrollment = pilotEnrollments.find((e: any) => e.cycle_id === cycleId && e.status === 'active');
+          if (pilotEnrollment) {
+            if (pilotEnrollment.enrolled_at < commonEnrollment.earliestEnrolled) {
+              commonEnrollment.earliestEnrolled = pilotEnrollment.enrolled_at;
+            }
+            if (pilotEnrollment.enrolled_at > commonEnrollment.latestEnrolled) {
+              commonEnrollment.latestEnrolled = pilotEnrollment.enrolled_at;
+            }
+          }
+        }
+      }
+    }
+
+    return Array.from(enrollmentMap.values());
+  }, [selectedPilots, allPilotEnrollments]);
+
   // Calculate common Discord roles
   const hasDiscordLinked = selectedPilots.every(p => p.discordUsername);
 
@@ -367,6 +440,15 @@ const BulkEditPilotDetails: React.FC<BulkEditPilotDetailsProps> = ({
     setShowAddTeamDialog(false);
     setSelectedTeam('');
     setTeamStartDate(new Date().toISOString().split('T')[0]);
+  };
+
+  const handleAddEnrollment = async () => {
+    if (!selectedCycle || !onBulkAddEnrollment) return;
+
+    await onBulkAddEnrollment(selectedCycle);
+
+    setShowAddEnrollmentDialog(false);
+    setSelectedCycle('');
   };
 
   const handleStatusChange = (statusId: string) => {
@@ -754,6 +836,212 @@ const BulkEditPilotDetails: React.FC<BulkEditPilotDetailsProps> = ({
               No qualifications common to all selected pilots
             </div>
           )}
+        </Card>
+
+        {/* Common Training Enrollments */}
+        <Card className="p-4">
+          <h2 className="text-lg font-semibold mb-4" style={pilotDetailsStyles.sectionTitle}>
+            Common Training Enrollments
+          </h2>
+
+          {/* Table and Button Container */}
+          <div style={{ width: 'fit-content' }}>
+            <div style={{ marginBottom: '16px' }}>
+              <button
+                onClick={() => setShowAddEnrollmentDialog(true)}
+                disabled={!onBulkAddEnrollment || availableTrainingCycles.length === 0}
+                style={{
+                  ...exportButtonStyle,
+                  backgroundColor: !onBulkAddEnrollment || availableTrainingCycles.length === 0 ? '#93C5FD' : '#3B82F6',
+                  color: '#FFFFFF',
+                  border: 'none',
+                  cursor: !onBulkAddEnrollment || availableTrainingCycles.length === 0 ? 'not-allowed' : 'pointer',
+                  opacity: !onBulkAddEnrollment || availableTrainingCycles.length === 0 ? 0.6 : 1
+                }}
+                onMouseEnter={(e) => {
+                  if (onBulkAddEnrollment && availableTrainingCycles.length > 0) {
+                    e.currentTarget.style.backgroundColor = '#2563EB';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (onBulkAddEnrollment && availableTrainingCycles.length > 0) {
+                    e.currentTarget.style.backgroundColor = '#3B82F6';
+                  }
+                }}
+              >
+                <Plus size={16} />
+                Bulk Add Training Enrollment
+              </button>
+            </div>
+
+            {commonEnrollments.length > 0 ? (
+              <div style={{ border: '1px solid #E5E7EB', borderRadius: '6px', backgroundColor: '#FFFFFF' }}>
+              {/* Table Header */}
+              <div style={{
+                display: 'flex',
+                backgroundColor: '#F9FAFB',
+                borderBottom: '1px solid #E5E7EB',
+                borderRadius: '6px 6px 0 0'
+              }}>
+                <div style={{
+                  padding: '8px 12px',
+                  fontSize: '12px',
+                  fontWeight: 500,
+                  color: '#6B7280',
+                  textTransform: 'uppercase',
+                  width: '300px',
+                  borderRight: '1px solid #E5E7EB'
+                }}>
+                  Cycle / Training
+                </div>
+                <div style={{
+                  padding: '8px 12px',
+                  fontSize: '12px',
+                  fontWeight: 500,
+                  color: '#6B7280',
+                  textTransform: 'uppercase',
+                  width: '100px',
+                  borderRight: '1px solid #E5E7EB',
+                  textAlign: 'center'
+                }}>
+                  Status
+                </div>
+                <div style={{
+                  padding: '8px 12px',
+                  fontSize: '12px',
+                  fontWeight: 500,
+                  color: '#6B7280',
+                  textTransform: 'uppercase',
+                  width: '220px',
+                  borderRight: '1px solid #E5E7EB',
+                  textAlign: 'center'
+                }}>
+                  Enrolled
+                </div>
+                <div style={{
+                  width: '30px',
+                  padding: '8px 12px'
+                }}>
+                </div>
+              </div>
+
+              {/* Table Body */}
+              {commonEnrollments.map((enrollment, index) => (
+                <div
+                  key={enrollment.cycleId}
+                  style={{
+                    display: 'flex',
+                    borderBottom: index < commonEnrollments.length - 1 ? '1px solid #F3F4F6' : 'none',
+                    backgroundColor: '#FFFFFF',
+                    height: '34px'
+                  }}
+                >
+                  {/* Cycle Name Column */}
+                  <div style={{
+                    padding: '5px 12px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    width: '300px',
+                    borderRight: '1px solid #F3F4F6'
+                  }}>
+                    <span style={{
+                      fontSize: '14px',
+                      fontWeight: 500,
+                      color: '#111827'
+                    }}>
+                      {enrollment.cycleName}
+                    </span>
+                  </div>
+
+                  {/* Status Column */}
+                  <div style={{
+                    padding: '5px 12px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: '100px',
+                    borderRight: '1px solid #F3F4F6'
+                  }}>
+                    <span style={{
+                      display: 'inline-block',
+                      padding: '2px 8px',
+                      borderRadius: '4px',
+                      fontSize: '12px',
+                      fontWeight: 500,
+                      color: '#FFFFFF',
+                      backgroundColor: '#10B981',
+                      textTransform: 'capitalize'
+                    }}>
+                      {enrollment.status}
+                    </span>
+                  </div>
+
+                  {/* Enrolled Date Column */}
+                  <div style={{
+                    padding: '5px 12px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: '220px',
+                    borderRight: '1px solid #F3F4F6',
+                    flexDirection: 'column',
+                    gap: '2px'
+                  }}>
+                    <span style={{
+                      fontSize: '13px',
+                      color: '#6B7280'
+                    }}>
+                      {enrollment.earliestEnrolled === enrollment.latestEnrolled
+                        ? new Date(enrollment.earliestEnrolled).toLocaleDateString()
+                        : `${new Date(enrollment.earliestEnrolled).toLocaleDateString()} - ${new Date(enrollment.latestEnrolled).toLocaleDateString()}`}
+                    </span>
+                  </div>
+
+                  {/* Actions Column */}
+                  <div style={{
+                    width: '30px',
+                    padding: '5px 12px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}>
+                    <button
+                      onClick={() => setConfirmDialog({ type: 'remove_enrollment', enrollmentId: enrollment.enrollmentId })}
+                      title="Remove enrollment from all selected pilots"
+                      style={{
+                        width: '16px',
+                        height: '16px',
+                        padding: '0',
+                        borderRadius: '4px',
+                        background: 'none',
+                        border: 'none',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        cursor: 'pointer',
+                        color: '#9CA3AF'
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.color = '#EF4444';
+                        e.currentTarget.style.backgroundColor = '#FEF2F2';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.color = '#9CA3AF';
+                        e.currentTarget.style.backgroundColor = 'transparent';
+                      }}
+                    >
+                      <X size={12} strokeWidth={2.5} />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div style={{ color: '#9CA3AF', fontSize: '14px', textAlign: 'center', padding: '16px' }}>
+              No training enrollments common to all selected pilots
+            </div>
+          )}
+          </div>
         </Card>
 
         {/* Common Teams */}
@@ -1281,6 +1569,100 @@ const BulkEditPilotDetails: React.FC<BulkEditPilotDetailsProps> = ({
           </div>
         )}
 
+        {showAddEnrollmentDialog && (
+          <div
+            style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              backgroundColor: 'rgba(0, 0, 0, 0.5)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              zIndex: 1000
+            }}
+            onClick={() => setShowAddEnrollmentDialog(false)}
+          >
+            <div
+              style={{
+                backgroundColor: '#FFFFFF',
+                borderRadius: '8px',
+                padding: '24px',
+                minWidth: '500px',
+                maxWidth: '600px',
+                boxShadow: '0 10px 25px rgba(0, 0, 0, 0.1)'
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h3 style={{ fontSize: '18px', fontWeight: 600, marginBottom: '20px', color: '#1F2937' }}>
+                Enroll {selectedPilots.length} Pilot{selectedPilots.length > 1 ? 's' : ''} in Training
+              </h3>
+
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{ display: 'block', fontSize: '14px', fontWeight: 500, color: '#64748B', marginBottom: '8px' }}>
+                  Training Cycle *
+                </label>
+                <select
+                  value={selectedCycle}
+                  onChange={(e) => setSelectedCycle(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '8px 12px',
+                    border: '1px solid #D1D5DB',
+                    borderRadius: '6px',
+                    fontSize: '14px',
+                    backgroundColor: 'white',
+                    boxSizing: 'border-box'
+                  }}
+                >
+                  <option value="">Select a training cycle</option>
+                  {availableTrainingCycles
+                    .filter(cycle => cycle.type === 'Training')
+                    .map(cycle => (
+                      <option key={cycle.id} value={cycle.id}>
+                        {cycle.name} ({cycle.status})
+                      </option>
+                    ))}
+                </select>
+              </div>
+
+              <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+                <button
+                  onClick={() => setShowAddEnrollmentDialog(false)}
+                  style={{
+                    padding: '8px 16px',
+                    backgroundColor: '#FFFFFF',
+                    color: '#6B7280',
+                    border: '1px solid #D1D5DB',
+                    borderRadius: '6px',
+                    fontSize: '14px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleAddEnrollment}
+                  disabled={!selectedCycle}
+                  style={{
+                    padding: '8px 16px',
+                    backgroundColor: !selectedCycle ? '#9CA3AF' : '#3B82F6',
+                    color: '#FFFFFF',
+                    border: 'none',
+                    borderRadius: '6px',
+                    fontSize: '14px',
+                    cursor: !selectedCycle ? 'not-allowed' : 'pointer'
+                  }}
+                >
+                  Enroll {selectedPilots.length} Pilot{selectedPilots.length > 1 ? 's' : ''}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         <ConfirmationDialog
           isOpen={confirmDialog?.type === 'remove_team'}
           title="Remove Team"
@@ -1289,6 +1671,20 @@ const BulkEditPilotDetails: React.FC<BulkEditPilotDetailsProps> = ({
           onConfirm={async () => {
             if (confirmDialog?.teamId) {
               await onBulkRemoveTeam(confirmDialog.teamId);
+            }
+            setConfirmDialog(null);
+          }}
+          onCancel={() => setConfirmDialog(null)}
+        />
+
+        <ConfirmationDialog
+          isOpen={confirmDialog?.type === 'remove_enrollment'}
+          title="Remove Training Enrollment"
+          message={`Are you sure you want to remove this training enrollment from all ${selectedPilots.length} selected pilot${selectedPilots.length > 1 ? 's' : ''}?`}
+          confirmText="Remove"
+          onConfirm={async () => {
+            if (confirmDialog?.enrollmentId && onBulkRemoveEnrollment) {
+              await onBulkRemoveEnrollment(confirmDialog.enrollmentId);
             }
             setConfirmDialog(null);
           }}

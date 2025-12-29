@@ -109,30 +109,36 @@ const EventDetails: React.FC<EventDetailsProps> = ({
       }
     };
 
-    // Load scheduled publication
-    const loadScheduledPublication = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('scheduled_event_publications')
-          .select('scheduled_time')
-          .eq('event_id', event.id)
-          .eq('sent', false)
-          .single();
+    // Use scheduled publication data from event prop if available, otherwise fetch
+    const eventObj = event as any;
+    if (eventObj.scheduledPublicationTime) {
+      setScheduledPublication({ scheduled_time: eventObj.scheduledPublicationTime });
+    } else {
+      // Fallback to fetching if not included in event prop
+      const loadScheduledPublication = async () => {
+        try {
+          const { data, error } = await supabase
+            .from('scheduled_event_publications')
+            .select('scheduled_time')
+            .eq('event_id', event.id)
+            .eq('sent', false)
+            .single();
 
-        if (data && !error) {
-          setScheduledPublication(data);
-        } else {
+          if (data && !error) {
+            setScheduledPublication(data);
+          } else {
+            setScheduledPublication(null);
+          }
+        } catch (error) {
+          console.error('Failed to load scheduled publication:', error);
           setScheduledPublication(null);
         }
-      } catch (error) {
-        console.error('Failed to load scheduled publication:', error);
-        setScheduledPublication(null);
-      }
-    };
+      };
+      loadScheduledPublication();
+    }
 
     loadSquadrons();
     loadReminders();
-    loadScheduledPublication();
 
     // Load training objectives if event has a syllabus mission
     const loadObjectives = async () => {

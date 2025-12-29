@@ -204,7 +204,7 @@ export class PermissionCacheService {
         .from('user_permission_cache' as any)
         .select('*')
         .eq('user_id', userProfileId)
-        .single();
+        .maybeSingle();
 
       if (error || !data) {
         console.log('getFromDatabaseCache: No cache found or error:', error);
