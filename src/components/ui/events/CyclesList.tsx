@@ -21,12 +21,28 @@ const CyclesList: React.FC<CyclesListProps> = ({
 }) => {
   const [hoveredCycle, setHoveredCycle] = useState<string | null>(null);
 
+  // Create a pseudo-cycle for standalone events
+  const standalonePseudoCycle: Cycle = {
+    id: 'standalone',
+    name: 'Standalone Events',
+    description: 'Events not part of any cycle',
+    startDate: '',
+    endDate: '',
+    type: 'Other',
+    status: 'active',
+    creator: {
+      boardNumber: '',
+      callsign: '',
+      billet: ''
+    }
+  };
+
   // Group cycles by status
   const now = new Date();
   const { activeCycles, upcomingCycles, completedCycles } = cycles.reduce((acc, cycle) => {
     const startDate = new Date(cycle.startDate);
     const endDate = new Date(cycle.endDate);
-    
+
     if (now >= startDate && now <= endDate) {
       acc.activeCycles.push(cycle);
     } else if (now < startDate) {
@@ -95,7 +111,14 @@ const CyclesList: React.FC<CyclesListProps> = ({
               padding: '12px',
               position: 'relative'
             }}
-            onClick={() => onCycleSelect(cycle)}
+            onClick={() => {
+              // Toggle selection: if clicking the selected cycle, deselect it (pass null)
+              if (selectedCycle?.id === cycle.id) {
+                onCycleSelect(null as any);
+              } else {
+                onCycleSelect(cycle);
+              }
+            }}
             onMouseEnter={() => setHoveredCycle(cycle.id)}
             onMouseLeave={() => setHoveredCycle(null)}
           >
@@ -200,6 +223,36 @@ const CyclesList: React.FC<CyclesListProps> = ({
       }}
     >
       <div style={{ flex: 1, overflowY: 'auto', padding: '0 20px 10px 10px', marginBottom: '8px' }}>
+        {/* Render standalone events pseudo-cycle at the top */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            marginBottom: '10px',
+            cursor: 'pointer',
+            backgroundColor: selectedCycle?.id === 'standalone' ? '#EFF6FF' : hoveredCycle === 'standalone' ? 'rgba(100, 116, 139, 0.1)' : 'transparent',
+            borderRadius: '8px',
+            padding: '12px',
+            position: 'relative'
+          }}
+          onClick={() => {
+            // Toggle selection: if clicking the selected cycle, deselect it
+            if (selectedCycle?.id === 'standalone') {
+              onCycleSelect(null as any);
+            } else {
+              onCycleSelect(standalonePseudoCycle);
+            }
+          }}
+          onMouseEnter={() => setHoveredCycle('standalone')}
+          onMouseLeave={() => setHoveredCycle(null)}
+        >
+          <div style={{ flex: 1 }}>
+            <span style={{ fontSize: '16px', fontWeight: 700, color: '#0F172A', marginBottom: '4px' }}>
+              {standalonePseudoCycle.name}
+            </span>
+          </div>
+        </div>
+
         {renderCycleGroup(activeCycles, 'Active Cycles')}
         {renderCycleGroup(upcomingCycles, 'Upcoming Cycles')}
         {renderCycleGroup(completedCycles, 'Completed Cycles')}

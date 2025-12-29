@@ -660,7 +660,11 @@ export const updateEvent = async (eventId: string, updates: Partial<Omit<Event, 
   if (updates.endDatetime !== undefined) dbUpdates.end_datetime = updates.endDatetime; // Frontend uses 'endDatetime', DB uses 'end_datetime'
   if (updates.status !== undefined) dbUpdates.status = updates.status;
   if ((updates as any).eventType !== undefined) dbUpdates.event_type = (updates as any).eventType;
-  if ((updates as any).cycleId !== undefined) dbUpdates.cycle_id = (updates as any).cycleId;
+  // Handle cycleId - allow null/undefined to clear the cycle
+  if ('cycleId' in (updates as any)) {
+    console.log('[UPDATE-EVENT] Setting cycle_id to:', (updates as any).cycleId);
+    dbUpdates.cycle_id = (updates as any).cycleId || null;
+  }
   if ((updates as any).discordEventId !== undefined) dbUpdates.discord_event_id = (updates as any).discordEventId;
   if (updates.participants !== undefined) dbUpdates.participants = updates.participants;
   // track_qualifications field not in current database schema

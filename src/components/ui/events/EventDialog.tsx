@@ -104,6 +104,7 @@ interface EventDialogProps {
     };
     referenceMaterials?: ReferenceMaterial[];
     syllabusMissionId?: string;
+    cycleId?: string;
   };
   squadrons?: Array<{ id: string; name: string; designation: string; insignia_url?: string | null }>;
   selectedCycle?: {
@@ -112,6 +113,7 @@ interface EventDialogProps {
     syllabusId?: string;
     type?: string;
   };
+  cycles?: Array<{ id: string; name: string; type: string }>;
 }
 
 type WorkflowStep = 'details' | 'training' | 'participants' | 'reminders' | 'publish';
@@ -135,19 +137,21 @@ export const EventDialog: React.FC<EventDialogProps> = ({
   onCancel,
   initialData,
   squadrons = [],
-  selectedCycle
-}) => {  
+  selectedCycle,
+  cycles = []
+}) => {
   const { settings } = useAppSettings();
-  
+
   // Ref to track if we've loaded default notification roles (prevents re-loading when user removes roles)
   const hasLoadedDefaultsRef = React.useRef(false);
-  
+
   // Workflow state
   const [currentStep, setCurrentStep] = useState<WorkflowStep>('details');
   const [completedSteps, setCompletedSteps] = useState<Set<WorkflowStep>>(new Set());
-  
+
   // Form data state
   const [title, setTitle] = useState(initialData?.title || '');
+  const [cycleId, setCycleId] = useState<string | undefined>(initialData?.cycleId || selectedCycle?.id);
   const [description, setDescription] = useState(initialData?.description || '');
   const [datetime, setDatetime] = useState('');
   const [timezone, setTimezone] = useState(
@@ -1177,8 +1181,9 @@ export const EventDialog: React.FC<EventDialogProps> = ({
         },
         // Training workflow fields (Phase 2-3)
         referenceMaterials: referenceMaterials.length > 0 ? referenceMaterials : undefined,
-        syllabusMissionId: selectedMissionId || undefined
-      }, shouldPublish);
+        syllabusMissionId: selectedMissionId || undefined,
+        cycleId
+      } as any, shouldPublish);
     } catch (error) {
       setError(error instanceof Error ? error.message : 'An error occurred while saving the event');
     } finally {
@@ -1362,33 +1367,68 @@ export const EventDialog: React.FC<EventDialogProps> = ({
         }}>
           {currentStep === 'details' && (
             <div>
-              
-              <div style={{ marginBottom: '16px' }}>
-                <label style={{
-                  display: 'block',
-                  marginBottom: '8px',
-                  fontSize: '14px',
-                  fontWeight: 500,
-                  color: '#64748B'
-                }}>
-                  Event Title
-                </label>
-                <input
-                  type="text"
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '8px',
-                    border: '1px solid #CBD5E1',
-                    borderRadius: '4px',
+
+              <div style={{ marginBottom: '16px', display: 'flex', gap: '12px' }}>
+                <div style={{ flex: '0 0 60%' }}>
+                  <label style={{
+                    display: 'block',
+                    marginBottom: '8px',
                     fontSize: '14px',
-                    boxSizing: 'border-box',
-                    height: '35px',
-                    lineHeight: '19px'
-                  }}
-                  placeholder="Enter event title"
-                />
+                    fontWeight: 500,
+                    color: '#64748B'
+                  }}>
+                    Event Title
+                  </label>
+                  <input
+                    type="text"
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '8px',
+                      border: '1px solid #CBD5E1',
+                      borderRadius: '4px',
+                      fontSize: '14px',
+                      boxSizing: 'border-box',
+                      height: '35px',
+                      lineHeight: '19px'
+                    }}
+                    placeholder="Enter event title"
+                  />
+                </div>
+                <div style={{ flex: '0 0 calc(40% - 12px)' }}>
+                  <label style={{
+                    display: 'block',
+                    marginBottom: '8px',
+                    fontSize: '14px',
+                    fontWeight: 500,
+                    color: '#64748B'
+                  }}>
+                    Cycle
+                  </label>
+                  <select
+                    value={cycleId || ''}
+                    onChange={(e) => setCycleId(e.target.value || undefined)}
+                    style={{
+                      width: '100%',
+                      padding: '8px',
+                      border: '1px solid #CBD5E1',
+                      borderRadius: '4px',
+                      fontSize: '14px',
+                      boxSizing: 'border-box',
+                      height: '35px',
+                      backgroundColor: 'white',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <option value="">Standalone</option>
+                    {cycles.map(cycle => (
+                      <option key={cycle.id} value={cycle.id}>
+                        {cycle.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
 
               <div style={{ marginBottom: '16px' }}>

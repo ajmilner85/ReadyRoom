@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { Edit2, Trash2 } from 'lucide-react';
-import type { Event } from '../../../types/EventTypes';
+import { Edit2, Trash2, CornerDownRight } from 'lucide-react';
+import type { Event, Cycle } from '../../../types/EventTypes';
 
 interface EventsListProps {
   events: Event[];
+  cycles: Cycle[];
   selectedEvent: Event | null;
   onEventSelect: (event: Event) => void;
   onNewEvent: () => void;
@@ -11,35 +12,70 @@ interface EventsListProps {
   onDeleteEvent?: (event: Event) => void;
   onRemoveAll?: () => void;
   showRemoveAll?: boolean;
+  showCycleIndicator?: boolean;
 }
 
 const EventsList: React.FC<EventsListProps> = ({
   events,
+  cycles,
   selectedEvent,
   onEventSelect,
   onNewEvent,
   onEditEvent,
   onDeleteEvent,
   onRemoveAll,
-  showRemoveAll = false
+  showRemoveAll = false,
+  showCycleIndicator = false
 }) => {
   const [hoveredEvent, setHoveredEvent] = useState<string | null>(null);
 
-  // Group events by upcoming/past
+  // Group events by active/upcoming/past
   const now = new Date();
-  const { upcomingEvents, pastEvents } = events.reduce((acc, event) => {
+  const { activeEvents, upcomingEvents, pastEvents } = events.reduce((acc, event) => {
     const eventDate = new Date(event.datetime);
-    if (eventDate >= now) {
+    const eventEndDate = event.endDatetime ? new Date(event.endDatetime) : eventDate;
+
+    // Active: event has started but not yet ended
+    if (eventDate <= now && eventEndDate >= now) {
+      acc.activeEvents.push(event);
+    } else if (eventDate > now) {
       acc.upcomingEvents.push(event);
     } else {
       acc.pastEvents.push(event);
     }
     return acc;
-  }, { upcomingEvents: [] as Event[], pastEvents: [] as Event[] });
+  }, { activeEvents: [] as Event[], upcomingEvents: [] as Event[], pastEvents: [] as Event[] });
 
-  // Sort both arrays by date
+  // Sort arrays by date
+  activeEvents.sort((a, b) => new Date(a.datetime).getTime() - new Date(b.datetime).getTime());
   upcomingEvents.sort((a, b) => new Date(a.datetime).getTime() - new Date(b.datetime).getTime());
   pastEvents.sort((a, b) => new Date(b.datetime).getTime() - new Date(a.datetime).getTime());
+
+  // Extract "Next Events" from upcomingEvents (one per cycle or standalone)
+  const nextEvents: Event[] = [];
+  const remainingUpcomingEvents: Event[] = [];
+  const seenCycles = new Set<string>();
+
+  if (showCycleIndicator) {
+    // When showing all events, group next events by cycle
+    upcomingEvents.forEach(event => {
+      if (event.cycleId) {
+        // Event is part of a cycle
+        if (!seenCycles.has(event.cycleId)) {
+          nextEvents.push(event);
+          seenCycles.add(event.cycleId);
+        } else {
+          remainingUpcomingEvents.push(event);
+        }
+      } else {
+        // Standalone event - add to next events
+        nextEvents.push(event);
+      }
+    });
+  } else {
+    // When showing events from a single cycle, don't separate next events
+    remainingUpcomingEvents.push(...upcomingEvents);
+  }
 
   const renderEventGroup = (events: Event[], groupTitle: string) => {
     if (events.length === 0) return null;
@@ -98,8 +134,26 @@ const EventsList: React.FC<EventsListProps> = ({
             onMouseEnter={() => setHoveredEvent(event.id)}
             onMouseLeave={() => setHoveredEvent(null)}
           >
-            <div style={{ flex: 1 }}>
-              <span style={{ fontSize: '16px', fontWeight: 700, color: '#0F172A', marginBottom: '4px' }}>
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '2px' }}>
+              {/* Show cycle name if event is part of a cycle */}
+              {event.cycleId && (() => {
+                const cycle = cycles.find(c => c.id === event.cycleId);
+                return cycle ? (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    {showCycleIndicator && (
+                      <CornerDownRight size={14} style={{ color: '#9CA3AF', flexShrink: 0 }} />
+                    )}
+                    <span style={{ fontSize: '12px', color: '#9CA3AF', fontWeight: 400 }}>
+                      {cycle.name}
+                    </span>
+                  </div>
+                ) : null;
+              })()}
+              <span style={{
+                fontSize: '16px',
+                fontWeight: 700,
+                color: showCycleIndicator && !event.cycleId ? '#3B82F6' : '#0F172A'
+              }}>
                 {event.title}
               </span>
             </div>
@@ -196,7 +250,9 @@ const EventsList: React.FC<EventsListProps> = ({
       }}
     >
       <div style={{ flex: 1, overflowY: 'auto', padding: '0 20px 10px 10px', marginBottom: '8px' }}>
-        {renderEventGroup(upcomingEvents, 'Upcoming')}
+        {renderEventGroup(activeEvents, 'Active')}
+        {showCycleIndicator && renderEventGroup(nextEvents, 'Next Events')}
+        {renderEventGroup(showCycleIndicator ? remainingUpcomingEvents : upcomingEvents, 'Upcoming Events')}
         {renderEventGroup(pastEvents, 'Previous Events')}
       </div>
 

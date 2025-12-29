@@ -154,9 +154,25 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
     }
   };
 
-  // Filter events by selected cycle and sort by date (soonest first)
+  // Filter events by selected cycle and sort by date (most recent first)
   const filteredAndSortedEvents = [...events]
-    .filter(event => !selectedCycle || event.cycleId === selectedCycle.id)
+    .filter(event => {
+      // If no cycle is selected in the dropdown (user chose "Standalone Events" or hasn't selected anything yet)
+      // For "Standalone Events", selectedCycle will be null but we're intentionally showing standalone events
+      // We need to check if the user selected "Standalone Events" explicitly
+      const standaloneSelected = selectedCycle === null && events.some(e => !e.cycleId);
+
+      if (standaloneSelected) {
+        // Show only events without a cycle
+        return !event.cycleId;
+      } else if (selectedCycle) {
+        // Show only events for the selected cycle
+        return event.cycleId === selectedCycle.id;
+      } else {
+        // No cycle selected and no standalone events exist, show nothing
+        return false;
+      }
+    })
     .sort((a, b) => {
       const dateA = new Date(a.datetime).getTime();
       const dateB = new Date(b.datetime).getTime();
@@ -166,7 +182,8 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
       if (isNaN(dateA)) return 1;
       if (isNaN(dateB)) return -1;
 
-      return dateA - dateB;
+      // Sort most recent first (reverse chronological)
+      return dateB - dateA;
     });
 
   // Auto-select most recent event when cycle changes or events load
@@ -181,15 +198,16 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
       eventsCount: events.length
     });
 
-    if (selectedCycle && filteredAndSortedEvents.length > 0) {
+    if (filteredAndSortedEvents.length > 0) {
       // If current selected event is not in the filtered list, select the most recent one
-      if (!selectedEvent || selectedEvent.cycleId !== selectedCycle.id) {
+      const eventStillValid = selectedEvent && filteredAndSortedEvents.some(e => e.id === selectedEvent.id);
+      if (!eventStillValid) {
         console.log('🎯 MissionDetails: Auto-selecting most recent event:', filteredAndSortedEvents[0]);
         onEventSelect(filteredAndSortedEvents[0]);
       }
-    } else if (!selectedCycle && selectedEvent) {
-      // If no cycle selected, clear event selection
-      console.log('🎯 MissionDetails: Clearing event selection (no cycle selected)');
+    } else if (selectedEvent) {
+      // If no events in the filtered list, clear event selection
+      console.log('🎯 MissionDetails: Clearing event selection (no events in filter)');
       onEventSelect(null);
     }
   }, [selectedCycle?.id, filteredAndSortedEvents.length, events.length]);
@@ -987,10 +1005,14 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
             </label>
             <select
               className="w-full"
-              value={selectedCycle?.id || ''}
+              value={selectedCycle?.id || 'standalone'}
               onChange={(e) => {
-                const cycle = cycles.find(c => c.id === e.target.value);
-                setSelectedCycle(cycle || null);
+                if (e.target.value === 'standalone') {
+                  setSelectedCycle(null);
+                } else {
+                  const cycle = cycles.find(c => c.id === e.target.value);
+                  setSelectedCycle(cycle || null);
+                }
               }}
               disabled={cyclesLoading}
               style={{
@@ -1005,6 +1027,7 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
               }}
             >
               <option value="">Select a cycle</option>
+              <option value="standalone">Standalone Events</option>
               {cycles.map(cycle => (
                 <option key={cycle.id} value={cycle.id}>
                   {cycle.name}
@@ -1030,7 +1053,7 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
                 const event = filteredAndSortedEvents.find(evt => evt.id === e.target.value);
                 onEventSelect(event || null);
               }}
-              disabled={!selectedCycle || filteredAndSortedEvents.length === 0}
+              disabled={filteredAndSortedEvents.length === 0}
               style={{
                 width: '100%',
                 padding: '8px 12px',
@@ -1038,12 +1061,12 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
                 borderRadius: '4px',
                 fontSize: '14px',
                 boxSizing: 'border-box',
-                backgroundColor: (!selectedCycle || filteredAndSortedEvents.length === 0) ? '#F8FAFC' : '#FFFFFF',
-                cursor: (!selectedCycle || filteredAndSortedEvents.length === 0) ? 'not-allowed' : 'pointer'
+                backgroundColor: filteredAndSortedEvents.length === 0 ? '#F8FAFC' : '#FFFFFF',
+                cursor: filteredAndSortedEvents.length === 0 ? 'not-allowed' : 'pointer'
               }}
             >
               <option value="">
-                {!selectedCycle ? 'Select a cycle first' : filteredAndSortedEvents.length === 0 ? 'No events in this cycle' : 'Select an event'}
+                {filteredAndSortedEvents.length === 0 ? 'No events available' : 'Select an event'}
               </option>
               {filteredAndSortedEvents.map(event => {
                 const eventDate = new Date(event.datetime);
