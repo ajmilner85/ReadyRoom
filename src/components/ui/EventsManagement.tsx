@@ -151,7 +151,7 @@ const EventsManagement: React.FC = () => {
 
   // Subscribe to events table changes to detect when scheduled publications are processed
   useEffect(() => {
-    if (!selectedCycle?.id) return;
+    if (!selectedCycle?.id || selectedCycle.id === 'standalone') return;
 
     console.log('[EVENTS-REALTIME] Setting up subscription for cycle:', selectedCycle.id);
 
@@ -186,7 +186,7 @@ const EventsManagement: React.FC = () => {
 
   // Polling fallback: Check for scheduled publication updates
   useEffect(() => {
-    if (!selectedCycle?.id) return;
+    if (!selectedCycle?.id || selectedCycle.id === 'standalone') return;
 
     let pollInterval: NodeJS.Timeout | null = null;
     let isPollingActive = false;
@@ -340,8 +340,11 @@ const EventsManagement: React.FC = () => {
   const loadEvents = async (cycleId?: string): Promise<Event[]> => {
     setLoading(prev => ({ ...prev, events: true }));
     try {
+      // Handle standalone pseudo-cycle - fetch all events without filtering by cycle
+      const cycleIdForFetch = cycleId === 'standalone' ? undefined : cycleId;
+
       // Fetch events for the cycle without Discord guild ID filtering (supports multi-squadron publishing)
-      const { events: fetchedEvents, error } = await fetchEvents(cycleId);
+      const { events: fetchedEvents, error } = await fetchEvents(cycleIdForFetch);
       if (error) {
         throw error;
       }
@@ -379,15 +382,41 @@ const EventsManagement: React.FC = () => {
       // Create a properly ordered and filtered list of events
       setEvents(eventsWithDiscordIds);
 
-      // Auto-select the latest event if there are events and we have a selected cycle
+      // Auto-select the first event in the list (by display order) if there are events and we have a selected cycle
       if (eventsWithDiscordIds.length > 0 && cycleId) {
-        // Find the latest event by datetime (descending order)
-        const sortedEvents = [...eventsWithDiscordIds].sort((a, b) => 
-          new Date(b.datetime).getTime() - new Date(a.datetime).getTime()
-        );
-        
-        // Select the latest event (first in sorted array)
-        setSelectedEvent(sortedEvents[0]);
+        // For standalone, filter to only standalone events
+        const eventsToConsider = cycleId === 'standalone'
+          ? eventsWithDiscordIds.filter(e => !e.cycleId)
+          : eventsWithDiscordIds;
+
+        if (eventsToConsider.length > 0) {
+          // Sort to match EventsList display order: active first (asc), then upcoming (asc), then past (desc)
+          const now = new Date();
+          const categorized = eventsToConsider.reduce((acc, event) => {
+            const eventDate = new Date(event.datetime);
+            const eventEndDate = event.endDatetime ? new Date(event.endDatetime) : eventDate;
+
+            if (eventDate <= now && eventEndDate >= now) {
+              acc.active.push(event);
+            } else if (eventDate > now) {
+              acc.upcoming.push(event);
+            } else {
+              acc.past.push(event);
+            }
+            return acc;
+          }, { active: [] as Event[], upcoming: [] as Event[], past: [] as Event[] });
+
+          // Sort each category
+          categorized.active.sort((a: Event, b: Event) => new Date(a.datetime).getTime() - new Date(b.datetime).getTime());
+          categorized.upcoming.sort((a: Event, b: Event) => new Date(a.datetime).getTime() - new Date(b.datetime).getTime());
+          categorized.past.sort((a: Event, b: Event) => new Date(b.datetime).getTime() - new Date(a.datetime).getTime());
+
+          // Select the first event in display order
+          const firstEvent = categorized.active[0] || categorized.upcoming[0] || categorized.past[0];
+          if (firstEvent) {
+            setSelectedEvent(firstEvent);
+          }
+        }
       } else if (selectedEvent) {
         // If we had a selected event and it's still in the list, update it
         const updatedSelectedEvent = eventsWithDiscordIds.find(e => e.id === selectedEvent.id);
@@ -476,33 +505,38 @@ const EventsManagement: React.FC = () => {
     };
     referenceMaterials?: Array<{ type: string; name: string; url: string }>;
     syllabusMissionId?: string;
+    cycleId?: string;
   }, shouldPublish: boolean = false) => {
 
     let createTimeoutId: NodeJS.Timeout | undefined;
     let imageTimeoutId: NodeJS.Timeout | undefined;
     let publishTimeoutId: NodeJS.Timeout | undefined;
-    
+
     try {
+      // Use cycle from eventData if provided, otherwise fall back to selectedCycle
+      const cycleId = eventData.cycleId || selectedCycle?.id;
+      const cycle = cycleId ? cycles.find(c => c.id === cycleId) : undefined;
+
       // Determine event type based on cycle
       let eventType: any = undefined; // Using any to avoid TypeScript error
-      if (selectedCycle) {
-        if (selectedCycle.type === 'Training') {
+      if (cycle) {
+        if (cycle.type === 'Training') {
           eventType = 'Hop';
-        } else if (selectedCycle.type === 'Cruise-WorkUp') {
+        } else if (cycle.type === 'Cruise-WorkUp') {
           eventType = 'Evolution';
-        } else if (selectedCycle.type === 'Cruise-Mission') {
+        } else if (cycle.type === 'Cruise-Mission') {
           eventType = 'Episode';
         }
-      }      
+      }
       // Create the event first without image with timeout protection
       const createEventPromise = createEvent({
         ...eventData,
         status: 'upcoming',
-        cycleId: selectedCycle?.id,
+        cycleId: cycleId,
         eventType,
         discordGuildId: discordGuildId || undefined,
         // Use event-level participants if provided, otherwise inherit from cycle
-        participants: eventData.participants || selectedCycle?.participants
+        participants: eventData.participants || cycle?.participants
       });
       
       const createTimeoutPromise = new Promise((_, reject) => {
@@ -726,6 +760,7 @@ const EventsManagement: React.FC = () => {
     };
     referenceMaterials?: Array<{ type: string; name: string; url: string }>;
     syllabusMissionId?: string;
+    cycleId?: string;
   }, shouldPublish: boolean = false) => {
 
     if (!editingEvent) return;
@@ -761,9 +796,16 @@ const EventsManagement: React.FC = () => {
       };
 
       // First update the database (don't update discord_event_id to preserve JSONB structure)
+      console.log('[HANDLE-EDIT-EVENT-DEBUG] cycleId being saved:', eventData.cycleId);
+      console.log('[HANDLE-EDIT-EVENT-DEBUG] Full update payload:', {
+        ...eventData,
+        event_settings: eventSettingsToSave,
+        cycleId: eventData.cycleId
+      });
       const { error } = await updateEvent(editingEvent.id, {
         ...eventData,
-        event_settings: eventSettingsToSave
+        event_settings: eventSettingsToSave,
+        cycleId: eventData.cycleId // Explicitly pass cycleId to ensure it's updated
         // Don't override discord_event_id - let it stay as JSONB in database
       });
       if (error) throw error;
@@ -1448,6 +1490,15 @@ const EventsManagement: React.FC = () => {
     setShowCycleDialog(true);
   };
 
+  const handleCycleSelect = (cycle: Cycle | null) => {
+    setSelectedCycle(cycle);
+    // Only clear selected event if we're deselecting (cycle is null)
+    // If selecting a cycle, let loadEvents auto-select the first event
+    if (cycle === null) {
+      setSelectedEvent(null);
+    }
+  };
+
   // Clear any error message after 5 seconds
   useEffect(() => {
     if (error) {
@@ -1466,10 +1517,18 @@ const EventsManagement: React.FC = () => {
     if (loading.initial) return;
 
     if (selectedCycle) {
-      const filtered = events.filter(event => event.cycleId === selectedCycle.id);
-      setFilteredEvents(filtered);
+      if (selectedCycle.id === 'standalone') {
+        // Show only standalone events (events without a cycleId)
+        const filtered = events.filter(event => !event.cycleId);
+        setFilteredEvents(filtered);
+      } else {
+        // Show events for the selected cycle
+        const filtered = events.filter(event => event.cycleId === selectedCycle.id);
+        setFilteredEvents(filtered);
+      }
     } else {
-      setFilteredEvents([]); // Don't show any events if no cycle is selected
+      // Show ALL events when no cycle is selected
+      setFilteredEvents(events);
     }
   }, [events, selectedCycle, loading.initial]);
 
@@ -1596,7 +1655,7 @@ const EventsManagement: React.FC = () => {
                   <CyclesList
                     cycles={cycles}
                     selectedCycle={selectedCycle}
-                    onCycleSelect={setSelectedCycle}
+                    onCycleSelect={handleCycleSelect}
                     onNewCycle={() => {
                       setEditingCycle(null);
                       setShowCycleDialog(true);
@@ -1653,12 +1712,22 @@ const EventsManagement: React.FC = () => {
                     textTransform: 'uppercase',
                     display: 'block',
                     textAlign: 'center'
-                  }}>Events</span>
+                  }}>
+                    {selectedCycle
+                      ? selectedCycle.name
+                      : filteredEvents.length === 0
+                        ? 'Events'
+                        : filteredEvents.every(e => !e.cycleId)
+                          ? 'Standalone Events'
+                          : 'All Events'
+                    }
+                  </span>
                 </div>
                 {/* Content */}
                 <div style={{ flex: 1, overflow: 'hidden' }}>
                   <EventsList
                     events={filteredEvents}
+                    cycles={cycles}
                     selectedEvent={selectedEvent}
                     onEventSelect={setSelectedEvent}
                     onNewEvent={() => {
@@ -1669,6 +1738,7 @@ const EventsManagement: React.FC = () => {
                     onDeleteEvent={handleDeleteEvent}
                     onRemoveAll={() => setShowDeleteAllEventsDialog(true)}
                     showRemoveAll={selectedCycle !== null && filteredEvents.length > 0}
+                    showCycleIndicator={selectedCycle === null}
                   />
                 </div>
               </div>
@@ -1907,10 +1977,12 @@ const EventsManagement: React.FC = () => {
             eventSettings: editingEvent.eventSettings, // Include event settings for editing
             isPublished: !!(editingEvent.discordEventId || editingEvent.discord_event_id), // Flag to indicate if event is already published
             referenceMaterials: editingEvent.referenceMaterials, // Training workflow: reference materials
-            syllabusMissionId: editingEvent.syllabusMissionId // Training workflow: syllabus mission
+            syllabusMissionId: editingEvent.syllabusMissionId, // Training workflow: syllabus mission
+            cycleId: editingEvent.cycleId // Include cycle ID for editing
           } : undefined}
           squadrons={squadrons}
           selectedCycle={selectedCycle ?? undefined}
+          cycles={cycles}
         />
       )}
 

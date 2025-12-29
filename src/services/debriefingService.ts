@@ -351,7 +351,8 @@ class DebriefingService {
     console.log('[DEBRIEF-SERVICE] Mapped missions with squadron_ids:', JSON.stringify(missions.slice(0, 2), null, 2));
 
     // Filter by cycle if specified
-    if (cycleId) {
+    // Note: cycleId can be null to explicitly filter for standalone events (no cycle)
+    if (cycleId !== undefined) {
       missions = missions.filter((m) => m.cycle_id === cycleId);
     }
 

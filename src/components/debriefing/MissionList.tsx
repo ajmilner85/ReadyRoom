@@ -22,6 +22,7 @@ interface MissionListItem {
 
 interface MissionListProps {
   missions: MissionListItem[];
+  allMissions: MissionListItem[];
   cycles: Array<{ id: string; name: string }>;
   squadrons: Squadron[];
   selectedMission: MissionListItem | null;
@@ -45,6 +46,7 @@ interface MissionListProps {
 
 const MissionList: React.FC<MissionListProps> = ({
   missions,
+  allMissions,
   cycles,
   squadrons,
   selectedMission,
@@ -116,7 +118,7 @@ const MissionList: React.FC<MissionListProps> = ({
     <div style={missionListStyles.container}>
       {/* Filter Drawer */}
       <MissionFilterDrawer
-        missions={missions}
+        missions={allMissions}
         cycles={cycles}
         squadrons={squadrons}
         selectedCycleId={selectedCycleId}

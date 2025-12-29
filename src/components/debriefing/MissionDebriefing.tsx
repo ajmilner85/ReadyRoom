@@ -45,6 +45,7 @@ const MissionDebriefing: React.FC = () => {
 
   // Data state
   const [missions, setMissions] = useState<MissionListItem[]>([]);
+  const [allMissions, setAllMissions] = useState<MissionListItem[]>([]); // Unfiltered missions for accurate counts
   const [cycles, setCycles] = useState<Array<{ id: string; name: string }>>([]);
   const [squadrons, setSquadrons] = useState<Squadron[]>([]);
   const [loading, setLoading] = useState(true);
@@ -134,8 +135,14 @@ const MissionDebriefing: React.FC = () => {
       setError(null);
 
       const wingId = userProfile?.pilot?.currentSquadron?.wing_id;
-      const cycleId = selectedCycleId || undefined;
-      const missions = await debriefingService.getDebriefableMissions(wingId, cycleId);
+
+      // Always load all missions for accurate filter counts
+      const allMissionsData = await debriefingService.getDebriefableMissions(wingId, undefined);
+      setAllMissions(allMissionsData || []);
+
+      // Handle standalone events filter
+      const cycleId = selectedCycleId === 'standalone' ? null : (selectedCycleId || undefined);
+      const missions = await debriefingService.getDebriefableMissions(wingId, cycleId ?? undefined);
 
       setMissions(missions || []);
 
@@ -466,6 +473,7 @@ const MissionDebriefing: React.FC = () => {
           {/* Left column - Mission List */}
           <MissionList
             missions={missions}
+            allMissions={allMissions}
             cycles={cycles}
             squadrons={squadrons}
             selectedMission={selectedMission}

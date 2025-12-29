@@ -72,6 +72,10 @@ const MissionFilterDrawer: React.FC<MissionFilterDrawerProps> = ({
 
   // Count missions per cycle
   const getCycleMissionCount = (cycleId: string) => {
+    if (cycleId === 'standalone') {
+      // Count missions without a cycle
+      return safeMissions.filter(m => !m.cycle_id).length;
+    }
     return safeMissions.filter(m => m.cycle_id === cycleId).length;
   };
 
@@ -87,9 +91,6 @@ const MissionFilterDrawer: React.FC<MissionFilterDrawerProps> = ({
     }).length;
   };
 
-  const getActiveSquadrons = () => safeSquadrons.filter(s => selectedSquadronIds.includes(s.id));
-  const getActiveCycle = () => safeCycles.find(c => c.id === selectedCycleId);
-
   const hasActiveFilters =
     selectedCycleId !== '' ||
     selectedSquadronIds.length > 0 ||
@@ -103,28 +104,6 @@ const MissionFilterDrawer: React.FC<MissionFilterDrawerProps> = ({
     setSelectedStatus('');
     setStartDate('');
     setEndDate('');
-  };
-
-  const removeFilter = (type: 'cycle' | 'squadron' | 'status' | 'startDate' | 'endDate', value?: string) => {
-    switch (type) {
-      case 'cycle':
-        setSelectedCycleId('');
-        break;
-      case 'squadron':
-        if (value) {
-          setSelectedSquadronIds(selectedSquadronIds.filter(id => id !== value));
-        }
-        break;
-      case 'status':
-        setSelectedStatus('');
-        break;
-      case 'startDate':
-        setStartDate('');
-        break;
-      case 'endDate':
-        setEndDate('');
-        break;
-    }
   };
 
   return (
@@ -213,48 +192,6 @@ const MissionFilterDrawer: React.FC<MissionFilterDrawerProps> = ({
             </svg>
           </div>
         </div>
-
-        {/* Active filter badges */}
-        {hasActiveFilters && (
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
-            {getActiveCycle() && (
-              <FilterBadge
-                label={`Cycle: ${getActiveCycle()?.name}`}
-                onRemove={() => removeFilter('cycle')}
-                color="#8B5CF6"
-              />
-            )}
-            {getActiveSquadrons().map(squadron => (
-              <FilterBadge
-                key={squadron.id}
-                label={squadron.designation}
-                onRemove={() => removeFilter('squadron', squadron.id)}
-                color="#3B82F6"
-              />
-            ))}
-            {selectedStatus && (
-              <FilterBadge
-                label={MISSION_OUTCOMES.find(s => s.value === selectedStatus)?.label || ''}
-                onRemove={() => removeFilter('status')}
-                color="#10B981"
-              />
-            )}
-            {startDate && (
-              <FilterBadge
-                label={`From: ${new Date(startDate).toLocaleDateString()}`}
-                onRemove={() => removeFilter('startDate')}
-                color="#F59E0B"
-              />
-            )}
-            {endDate && (
-              <FilterBadge
-                label={`To: ${new Date(endDate).toLocaleDateString()}`}
-                onRemove={() => removeFilter('endDate')}
-                color="#F59E0B"
-              />
-            )}
-          </div>
-        )}
       </div>
 
       {/* Expandable content */}
@@ -399,6 +336,7 @@ const MissionFilterDrawer: React.FC<MissionFilterDrawerProps> = ({
                 title="Cycle"
                 options={[
                   { value: '', label: 'All Cycles' },
+                  { value: 'standalone', label: 'Standalone Events' },
                   ...safeCycles.map(cycle => ({
                     value: cycle.id,
                     label: cycle.name
@@ -623,44 +561,5 @@ const Checkbox: React.FC<{ isSelected: boolean }> = ({ isSelected }) => (
 );
 
 // Filter badge component
-const FilterBadge: React.FC<{ label: string; onRemove: () => void; color: string }> = ({ label, onRemove, color }) => (
-  <div
-    style={{
-      display: 'inline-flex',
-      alignItems: 'center',
-      gap: '4px',
-      padding: '3px 8px',
-      backgroundColor: color + '15',
-      border: `1px solid ${color}40`,
-      borderRadius: '4px',
-      fontSize: '11px',
-      fontFamily: 'Inter',
-      fontWeight: 500,
-      color: color
-    }}
-  >
-    <span>{label}</span>
-    <button
-      onClick={(e) => {
-        e.stopPropagation();
-        onRemove();
-      }}
-      style={{
-        background: 'none',
-        border: 'none',
-        padding: 0,
-        cursor: 'pointer',
-        display: 'flex',
-        alignItems: 'center',
-        color: color
-      }}
-    >
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <line x1="18" y1="6" x2="6" y2="18"></line>
-        <line x1="6" y1="6" x2="18" y2="18"></line>
-      </svg>
-    </button>
-  </div>
-);
 
 export default MissionFilterDrawer;
