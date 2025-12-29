@@ -882,7 +882,7 @@ export const DiscordPilotsDialog: React.FC<DiscordPilotsDialogProps> = ({
               </div>
               
                     
-              <div ref={tableContainerRef} style={{ height: '800px', border: '1px solid #E5E7EB', borderRadius: '6px', position: 'relative', overflow: 'visible' }}>
+              <div ref={tableContainerRef} style={{ height: '800px', border: '1px solid #E5E7EB', borderRadius: '6px', position: 'relative' }}>
                 <div style={{ overflowX: 'auto', overflowY: 'auto', height: '100%', position: 'relative' }}>
                 <table style={{
                   width: '100%',

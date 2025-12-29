@@ -14,6 +14,7 @@ import SquadronSelector from './SquadronSelector';
 import { Squadron } from '../../../utils/squadronService';
 import QualificationsManager from './QualificationsManager';
 import TeamsManager from './TeamsManager';
+import TrainingEnrollmentsManager from '../../training/TrainingEnrollmentsManager';
 import QualificationBadge from '../QualificationBadge';
 import { Save, X, Trash2, Wrench, List } from 'lucide-react';
 import type { Team, PilotTeam } from '../../../types/TeamTypes';
@@ -86,6 +87,10 @@ interface PilotDetailsProps {
   isAddingTeam: boolean;
   updatingQualifications: boolean;
   updatingTeams: boolean;
+  pilotEnrollments?: any[];
+  availableTrainingCycles?: any[];
+  loadingEnrollments?: boolean;
+  updatingEnrollments?: boolean;
   setSelectedQualification: (id: string) => void;
   setQualificationAchievedDate: (date: string) => void;
   setSelectedTeam: (id: string) => void;
@@ -98,6 +103,8 @@ interface PilotDetailsProps {
   handleRemoveQualification: (id: string) => void;
   handleAddTeam: () => void;
   handleRemoveTeam: (id: string) => void;
+  handleAddEnrollment?: (cycleId: string) => Promise<void>;
+  handleRemoveEnrollment?: (enrollmentId: string) => Promise<void>;
   handleDeletePilot?: (pilotId: string) => void;
   handleSavePilotChanges?: (pilot: Pilot) => Promise<{ success: boolean; error?: string }>;
   onQualificationAdded?: (pilotId: string, qualificationData: any[]) => void;
@@ -134,6 +141,10 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
   isAddingTeam,
   updatingQualifications,
   updatingTeams,
+  pilotEnrollments = [],
+  availableTrainingCycles = [],
+  loadingEnrollments = false,
+  updatingEnrollments = false,
   setSelectedQualification,
   setQualificationAchievedDate,
   setSelectedTeam,
@@ -142,6 +153,8 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
   handleRemoveQualification,
   handleAddTeam,
   handleRemoveTeam,
+  handleAddEnrollment,
+  handleRemoveEnrollment,
   handleDeletePilot,
   handleSavePilotChanges,
   onQualificationAdded,
@@ -1560,6 +1573,23 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
           </div>
         )}
 
+        {isNewPilot && (
+          <Card className="p-4" style={{ marginTop: '24px' }}>
+            <h2 className="text-lg font-semibold mb-4" style={pilotDetailsStyles.sectionTitle}>
+              Training Enrollments
+            </h2>
+
+            <TrainingEnrollmentsManager
+              pilotEnrollments={pilotEnrollments}
+              availableTrainingCycles={availableTrainingCycles}
+              onAddEnrollment={handleAddEnrollment || (async () => {})}
+              onRemoveEnrollment={handleRemoveEnrollment || (async () => {})}
+              isLoading={loadingEnrollments}
+              isUpdating={updatingEnrollments}
+            />
+          </Card>
+        )}
+
         {!isNewPilot && (
           <Card className="p-4" style={{ marginTop: '24px' }}>
             <h2 className="text-lg font-semibold mb-4" style={pilotDetailsStyles.sectionTitle}>
@@ -1588,6 +1618,21 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
                 setQualificationAchievedDate={setQualificationAchievedDate}
                 handleAddQualification={handleAddQualification}
                 handleRemoveQualification={handleRemoveQualification}
+              />
+            </Card>
+
+            <Card className="p-4">
+              <h2 className="text-lg font-semibold mb-4" style={pilotDetailsStyles.sectionTitle}>
+                Training Enrollments
+              </h2>
+
+              <TrainingEnrollmentsManager
+                pilotEnrollments={pilotEnrollments}
+                availableTrainingCycles={availableTrainingCycles}
+                onAddEnrollment={handleAddEnrollment || (async () => {})}
+                onRemoveEnrollment={handleRemoveEnrollment || (async () => {})}
+                isLoading={loadingEnrollments}
+                isUpdating={updatingEnrollments}
               />
             </Card>
 

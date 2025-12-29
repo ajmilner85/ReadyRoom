@@ -354,7 +354,23 @@ const EventsManagement: React.FC = () => {
       const storedMap = localStorage.getItem('eventDiscordMessageIds');
       const eventDiscordMap = storedMap ? JSON.parse(storedMap) : {};
       
-      // Attach Discord message IDs to events
+      // Fetch scheduled publications for all events in a single query
+      const eventIds = fetchedEvents.map(e => e.id);
+      const { data: scheduledPubs } = await supabase
+        .from('scheduled_event_publications')
+        .select('event_id, scheduled_time')
+        .in('event_id', eventIds)
+        .eq('sent', false);
+
+      // Create a map of event_id -> scheduled_time for quick lookup
+      const scheduledPubMap = new Map<string, string>();
+      if (scheduledPubs) {
+        scheduledPubs.forEach(pub => {
+          scheduledPubMap.set(pub.event_id, pub.scheduled_time);
+        });
+      }
+
+      // Attach Discord message IDs and scheduled publication data to events
       const eventsWithDiscordIds = fetchedEvents.map(event => {
         // Cast to any to access potential database fields that might not be in the TypeScript type
         const eventObj = event as any;
@@ -365,8 +381,8 @@ const EventsManagement: React.FC = () => {
         } else if (typeof eventObj.discord_event_id === 'string') {
           discordMessageId = eventObj.discord_event_id;
         }
-        
-        
+
+
         // Remove the problematic JSONB field from the spread to prevent React rendering issues
         const { discord_event_id: _, ...eventWithoutDiscordEventId } = eventObj;
 
@@ -374,7 +390,9 @@ const EventsManagement: React.FC = () => {
           ...eventWithoutDiscordEventId,
           // Store the ID in both potential field names for maximum compatibility (as strings only)
           discordMessageId: typeof discordMessageId === 'string' ? discordMessageId : undefined,
-          discord_event_id: typeof discordMessageId === 'string' ? discordMessageId : undefined
+          discord_event_id: typeof discordMessageId === 'string' ? discordMessageId : undefined,
+          // Attach scheduled publication data if it exists
+          scheduledPublicationTime: scheduledPubMap.get(event.id)
           // Note: eventSettings is already mapped by fetchEvents (supabaseClient.ts), no need to map again
         };
       });

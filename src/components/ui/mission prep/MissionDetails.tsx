@@ -154,7 +154,7 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
     }
   };
 
-  // Filter events by selected cycle and sort by date (most recent first)
+  // Filter events by selected cycle and sort by date (chronological, earliest first)
   const filteredAndSortedEvents = [...events]
     .filter(event => {
       // If no cycle is selected in the dropdown (user chose "Standalone Events" or hasn't selected anything yet)
@@ -182,11 +182,11 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
       if (isNaN(dateA)) return 1;
       if (isNaN(dateB)) return -1;
 
-      // Sort most recent first (reverse chronological)
-      return dateB - dateA;
+      // Sort chronologically (earliest first) for mission preparation
+      return dateA - dateB;
     });
 
-  // Auto-select most recent event when cycle changes or events load
+  // Auto-select earliest upcoming event when cycle changes or events load
   useEffect(() => {
     console.log('🔍 MissionDetails: Event selection effect triggered:', {
       hasCycle: !!selectedCycle,
@@ -199,11 +199,16 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
     });
 
     if (filteredAndSortedEvents.length > 0) {
-      // If current selected event is not in the filtered list, select the most recent one
+      // If current selected event is not in the filtered list, select the earliest upcoming event
       const eventStillValid = selectedEvent && filteredAndSortedEvents.some(e => e.id === selectedEvent.id);
       if (!eventStillValid) {
-        console.log('🎯 MissionDetails: Auto-selecting most recent event:', filteredAndSortedEvents[0]);
-        onEventSelect(filteredAndSortedEvents[0]);
+        // Find the earliest upcoming event (first event in the future)
+        const now = new Date();
+        const upcomingEvent = filteredAndSortedEvents.find(event => new Date(event.datetime) > now);
+        // If there's an upcoming event, select it; otherwise select the first event
+        const eventToSelect = upcomingEvent || filteredAndSortedEvents[0];
+        console.log('🎯 MissionDetails: Auto-selecting earliest upcoming event:', eventToSelect);
+        onEventSelect(eventToSelect);
       }
     } else if (selectedEvent) {
       // If no events in the filtered list, clear event selection

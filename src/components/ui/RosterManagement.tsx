@@ -36,6 +36,12 @@ import {
   assignPilotToTeam,
   removePilotFromTeam
 } from '../../utils/teamService';
+import {
+  getPilotEnrollmentHistory,
+  enrollPilots,
+  removeEnrollment
+} from '../../utils/trainingEnrollmentService';
+import { fetchCycles } from '../../utils/supabaseClient';
 import { dateInputToLocalDate } from '../../utils/dateUtils';
 import { rosterStyles } from '../../styles/RosterManagementStyles';
 import PilotList from './roster/PilotList';
@@ -159,6 +165,14 @@ const RosterManagement: React.FC = () => {
   );
   const [isAddingTeam, setIsAddingTeam] = useState(false);
   const [updatingTeams, setUpdatingTeams] = useState(false);
+
+  // Training enrollment management state
+  const [allPilotEnrollments, setAllPilotEnrollments] = useState<Record<string, any[]>>({});
+  const [pilotEnrollments, setPilotEnrollments] = useState<any[]>([]);
+  const [availableTrainingCycles, setAvailableTrainingCycles] = useState<any[]>([]);
+  const [loadingEnrollments, setLoadingEnrollments] = useState(false);
+  const [updatingEnrollments, setUpdatingEnrollments] = useState(false);
+  const [pendingNewPilotEnrollments, setPendingNewPilotEnrollments] = useState<string[]>([]); // Store cycle IDs for new pilot
 
   const rosterListRef = useRef<HTMLDivElement>(null);
   const pilotDetailsRef = useRef<HTMLDivElement>(null);
@@ -380,6 +394,8 @@ const RosterManagement: React.FC = () => {
     setNewPilot(blankFormData);
     setSelectedPilot(blankPilot);
     setSelectedPilots([]); // Clear bulk selection when adding new pilot
+    setSaveError(null); // Clear any previous error messages
+    setPendingNewPilotEnrollments([]); // Clear any pending enrollments
   };
 
   // Validate board number
@@ -602,19 +618,78 @@ const RosterManagement: React.FC = () => {
         } else {
         }
       }
-      
+
+      // Step 4: Create pending training enrollments if any
+      if (pendingNewPilotEnrollments.length > 0) {
+        try {
+          // Get user_profiles.id from auth_user_id (not auth.uid!)
+          const { data: { user } } = await supabase.auth.getUser();
+          const authUserId = user?.id;
+
+          let enrolledByProfileId: string | null = null;
+          if (authUserId) {
+            const { data: profile } = await supabase
+              .from('user_profiles')
+              .select('id')
+              .eq('auth_user_id', authUserId)
+              .single();
+            enrolledByProfileId = profile?.id || null;
+          }
+
+          console.log('Creating pending enrollments for new pilot:', {
+            pilotId: data.id,
+            cycleIds: pendingNewPilotEnrollments,
+            enrolledBy: enrolledByProfileId
+          });
+
+          await enrollPilots(pendingNewPilotEnrollments[0], [data.id], enrolledByProfileId);
+
+          // If there are multiple enrollments, create them one by one
+          for (let i = 1; i < pendingNewPilotEnrollments.length; i++) {
+            await enrollPilots(pendingNewPilotEnrollments[i], [data.id], enrolledByProfileId);
+          }
+
+          console.log('Successfully created all pending enrollments');
+        } catch (enrollErr: any) {
+          console.error('❌ Failed to create enrollments:', enrollErr);
+          setSaveError(prev => prev ? prev + ' Enrollment creation failed.' : 'Pilot created but enrollment creation failed. Please enroll manually.');
+        }
+      }
+
       // Refresh pilots to get the new one with correct status and standing data
       if (data) {
         await refreshPilots();
-        
-        // Find and select the newly created pilot
-        setTimeout(() => {
-          const createdPilot = pilots.find(p => p.callsign === data.callsign);
+
+        // Find and select the newly created pilot from fresh data
+        // Note: We need to fetch the pilot list again to ensure we have the updated data
+        const { data: freshPilots, error: fetchError } = await getAllPilots();
+
+        if (!fetchError && freshPilots) {
+          const createdPilot = freshPilots.find(p => p.id === data.id || p.callsign === data.callsign);
           if (createdPilot) {
-            setSelectedPilot(createdPilot);
+            // Convert to Pilot format matching the interface requirements
+            const pilotToSelect: Pilot = {
+              id: createdPilot.id,
+              discord_id: (createdPilot as any).discord_id,
+              discord_username: createdPilot.discord_username || undefined,
+              callsign: createdPilot.callsign,
+              boardNumber: createdPilot.boardNumber.toString(),
+              status: (createdPilot.currentStatus?.name as any) || 'Provisional',
+              billet: '',
+              qualifications: [],
+              discordUsername: createdPilot.discord_username || '',
+              currentStatus: createdPilot.currentStatus || undefined,
+              currentStanding: createdPilot.currentStanding || undefined,
+              currentSquadron: (createdPilot as any).currentSquadron || undefined,
+              roles: (createdPilot as any).roles || undefined
+            };
+
+            // Select the pilot - this will trigger the useEffect to fetch qualifications, teams, enrollments
+            setSelectedPilot(pilotToSelect);
+            setSelectedPilots([pilotToSelect]);
           }
-        }, 100);
-        
+        }
+
         // Reset states
         setIsAddingNewPilot(false);
         setNewPilot({
@@ -630,6 +705,7 @@ const RosterManagement: React.FC = () => {
           qualifications: []
         });
         setBoardNumberError(null);
+        setPendingNewPilotEnrollments([]); // Clear pending enrollments
         
       } else {
         // If no data returned, just refresh the full list
@@ -692,6 +768,7 @@ const RosterManagement: React.FC = () => {
     setSelectedPilot(null);
     setSaveError(null);
     setBoardNumberError(null);
+    setPendingNewPilotEnrollments([]); // Clear pending enrollments on cancel
   };
 
   // Function to handle pilot status change
@@ -1382,6 +1459,31 @@ const RosterManagement: React.FC = () => {
     }
   };
 
+  // Function to fetch all pilot enrollments for bulk edit
+  const fetchAllPilotEnrollments = async (pilotIds: string[]) => {
+    try {
+      const enrollmentsMap: Record<string, any[]> = {};
+
+      // Fetch enrollments for each pilot
+      await Promise.all(
+        pilotIds.map(async (pilotId) => {
+          try {
+            const actualPilotId = await getActualPilotId(pilotId);
+            const enrollments = await getPilotEnrollmentHistory(actualPilotId);
+            enrollmentsMap[pilotId] = enrollments || [];
+          } catch (err) {
+            console.error(`Error fetching enrollments for pilot ${pilotId}:`, err);
+            enrollmentsMap[pilotId] = [];
+          }
+        })
+      );
+
+      setAllPilotEnrollments(enrollmentsMap);
+    } catch (err: any) {
+      console.error('Error fetching all pilot enrollments:', err);
+    }
+  };
+
   // Callback for when a qualification is added via repair dialog
   const handleQualificationAddedViaRepair = (pilotId: string, qualificationData: any[]) => {
 
@@ -1573,6 +1675,131 @@ const RosterManagement: React.FC = () => {
       setPilotTeams([]);
     } finally {
       setLoadingTeams(false);
+    }
+  };
+
+  // Function to fetch all available training cycles
+  const fetchAvailableTrainingCycles = async () => {
+    try {
+      const cyclesResponse = await fetchCycles();
+      if (cyclesResponse.error) {
+        throw new Error(cyclesResponse.error.message);
+      }
+      if (cyclesResponse.cycles) {
+        // Filter for training cycles only
+        const trainingCycles = cyclesResponse.cycles.filter((cycle: any) => cycle.type === 'Training');
+        setAvailableTrainingCycles(trainingCycles);
+      }
+    } catch (err: any) {
+      console.error('Error fetching training cycles:', err);
+    }
+  };
+
+  // Function to fetch a pilot's enrollment history
+  const fetchPilotEnrollments = async (pilotId: string) => {
+    setLoadingEnrollments(true);
+
+    try {
+      // Get the actual UUID
+      const actualPilotId = await getActualPilotId(pilotId);
+
+      // Fetch enrollments
+      const enrollments = await getPilotEnrollmentHistory(actualPilotId);
+
+      setPilotEnrollments(enrollments || []);
+    } catch (err: any) {
+      console.error('Error fetching pilot enrollments:', err);
+      setPilotEnrollments([]);
+    } finally {
+      setLoadingEnrollments(false);
+    }
+  };
+
+  // Function to add a pilot to a training cycle
+  const handleAddEnrollment = async (cycleId: string) => {
+    if (!cycleId) return;
+
+    // If adding a new pilot, just store the cycle ID for later
+    if (isAddingNewPilot) {
+      setPendingNewPilotEnrollments(prev => [...prev, cycleId]);
+      console.log('Pending enrollment added for new pilot:', cycleId);
+      return;
+    }
+
+    // For existing pilots, enroll immediately
+    if (!selectedPilot) return;
+
+    setUpdatingEnrollments(true);
+
+    try {
+      // Get the actual UUID
+      const actualPilotId = await getActualPilotId(selectedPilot.id);
+
+      // Get current user's user_profile ID for enrolled_by (not auth.uid!)
+      const { data: { user } } = await supabase.auth.getUser();
+      const authUserId = user?.id;
+
+      // Get user_profiles.id from auth_user_id
+      let enrolledByProfileId: string | null = null;
+      if (authUserId) {
+        const { data: profile } = await supabase
+          .from('user_profiles')
+          .select('id')
+          .eq('auth_user_id', authUserId)
+          .single();
+        enrolledByProfileId = profile?.id || null;
+      }
+
+      console.log('Enrolling pilot in training cycle:', {
+        pilotId: actualPilotId,
+        cycleId,
+        enrolledBy: enrolledByProfileId
+      });
+
+      // Enroll pilot
+      await enrollPilots(cycleId, [actualPilotId], enrolledByProfileId);
+
+      // Refresh enrollments
+      await fetchPilotEnrollments(selectedPilot.id);
+
+      console.log('Successfully enrolled pilot');
+    } catch (err: any) {
+      console.error('Error enrolling pilot:', err);
+    } finally {
+      setUpdatingEnrollments(false);
+    }
+  };
+
+  // Function to remove a pilot from a training enrollment
+  const handleRemoveEnrollment = async (enrollmentId: string) => {
+    if (!enrollmentId) return;
+
+    // If adding a new pilot, remove from pending list
+    if (isAddingNewPilot) {
+      setPendingNewPilotEnrollments(prev => prev.filter(id => id !== enrollmentId));
+      console.log('Pending enrollment removed for new pilot:', enrollmentId);
+      return;
+    }
+
+    // For existing pilots, remove from database
+    if (!selectedPilot) return;
+
+    setUpdatingEnrollments(true);
+
+    try {
+      console.log('Removing enrollment:', enrollmentId);
+
+      // Remove enrollment
+      await removeEnrollment(enrollmentId);
+
+      // Refresh enrollments
+      await fetchPilotEnrollments(selectedPilot.id);
+
+      console.log('Successfully removed enrollment');
+    } catch (err: any) {
+      console.error('Error removing enrollment:', err);
+    } finally {
+      setUpdatingEnrollments(false);
     }
   };
 
@@ -2016,6 +2243,108 @@ const RosterManagement: React.FC = () => {
     }
   };
 
+  const handleBulkAddEnrollment = async (cycleId: string) => {
+    if (!cycleId || selectedPilots.length === 0) return;
+
+    // Check permission
+    const canBulkEdit = hasPermission('canBulkEditRoster');
+    if (!canBulkEdit) {
+      console.error('Permission denied: bulk_edit_roster');
+      return;
+    }
+
+    try {
+      setUpdatingEnrollments(true);
+
+      // Get user_profiles.id from auth_user_id (not auth.uid!)
+      const { data: { user } } = await supabase.auth.getUser();
+      const authUserId = user?.id;
+
+      let enrolledByProfileId: string | null = null;
+      if (authUserId) {
+        const { data: profile } = await supabase
+          .from('user_profiles')
+          .select('id')
+          .eq('auth_user_id', authUserId)
+          .single();
+        enrolledByProfileId = profile?.id || null;
+      }
+
+      // Get actual pilot IDs
+      const pilotIds = await Promise.all(
+        selectedPilots.map(pilot => getActualPilotId(pilot.id))
+      );
+
+      console.log('Bulk enrolling pilots in training cycle:', {
+        pilotCount: pilotIds.length,
+        cycleId,
+        enrolledBy: enrolledByProfileId
+      });
+
+      // Enroll all pilots
+      await enrollPilots(cycleId, pilotIds, enrolledByProfileId);
+
+      // Refresh pilots to show updated enrollments
+      await refreshPilots();
+
+      console.log('Successfully enrolled pilots');
+    } catch (error) {
+      console.error('Error enrolling pilots:', error);
+      alert('Error enrolling pilots in training');
+    } finally {
+      setUpdatingEnrollments(false);
+    }
+  };
+
+  const handleBulkRemoveEnrollment = async (enrollmentId: string) => {
+    if (!enrollmentId || selectedPilots.length === 0) return;
+
+    // Check permission
+    const canBulkEdit = hasPermission('canBulkEditRoster');
+    if (!canBulkEdit) {
+      console.error('Permission denied: bulk_edit_roster');
+      return;
+    }
+
+    try {
+      setUpdatingEnrollments(true);
+
+      // For each pilot, find their enrollment record and remove it
+      const operations = selectedPilots.map(async (pilot) => {
+        const actualPilotId = await getActualPilotId(pilot.id);
+        const enrollments = await getPilotEnrollmentHistory(actualPilotId);
+
+        if (enrollments) {
+          // Find the enrollment for this cycle (match by cycle_id from the first pilot's enrollment)
+          // Note: enrollmentId here actually refers to a specific enrollment, but we want to remove
+          // all enrollments from selected pilots for the same cycle
+          const firstEnrollment = enrollments.find((e: any) => e.id === enrollmentId);
+          if (firstEnrollment) {
+            // Find this pilot's enrollment for the same cycle
+            const pilotEnrollment = enrollments.find(
+              (e: any) => e.cycle_id === firstEnrollment.cycle_id && e.status === 'active'
+            );
+            if (pilotEnrollment) {
+              return removeEnrollment(pilotEnrollment.id);
+            }
+          }
+        }
+      });
+
+      await Promise.all(operations);
+
+      // Refresh pilots to show updated enrollments
+      await refreshPilots();
+
+      console.log('Successfully removed enrollments');
+    } catch (error) {
+      console.error('Error removing enrollments:', error);
+      alert('Error removing enrollment from pilots');
+    } finally {
+      setUpdatingEnrollments(false);
+    }
+  };
+
   const handleBulkClearDiscord = async () => {
     if (selectedPilots.length === 0) return;
 
@@ -2345,6 +2674,13 @@ const RosterManagement: React.FC = () => {
           console.error('Error fetching teams (continuing anyway):', teamsErr);
         }
 
+        // Fetch training cycles with timeout
+        try {
+          await withTimeout(fetchAvailableTrainingCycles(), 8000);
+        } catch (cyclesErr) {
+          console.error('Error fetching training cycles (continuing anyway):', cyclesErr);
+        }
+
         // Fetch pilots with timeout
         try {
           await withTimeout(refreshPilots(), 10000);
@@ -2396,6 +2732,7 @@ const RosterManagement: React.FC = () => {
     if (pilots.length > 0) {
       fetchAllPilotQualifications();
       fetchAllPilotTeams();
+      fetchAllPilotEnrollments(pilots.map(p => p.id));
     }
   }, [pilots]);
 
@@ -2405,10 +2742,12 @@ const RosterManagement: React.FC = () => {
       fetchPilotRoles(selectedPilot.id);
       fetchPilotQualifications(selectedPilot.id);
       fetchPilotTeams(selectedPilot.id);
+      fetchPilotEnrollments(selectedPilot.id);
     } else {
       setPilotRoles([]);
       setPilotQualifications([]);
       setPilotTeams([]);
+      setPilotEnrollments([]);
     }
   }, [selectedPilot]);
 
@@ -2428,6 +2767,27 @@ const RosterManagement: React.FC = () => {
     }
   }, [selectedPilot]);
 
+  // Convert pending enrollments to display format for new pilot
+  const newPilotEnrollmentsForDisplay = useMemo(() => {
+    if (!isAddingNewPilot) return [];
+
+    return pendingNewPilotEnrollments.map(cycleId => {
+      const cycle = availableTrainingCycles.find(c => c.id === cycleId);
+      return {
+        id: cycleId, // Use cycleId as the id for removal
+        cycle_id: cycleId,
+        pilot_id: '',
+        enrolled_at: new Date().toISOString(),
+        status: 'active' as const,
+        cycles: cycle ? {
+          name: cycle.name,
+          start_date: cycle.startDate,
+          end_date: cycle.endDate
+        } : undefined
+      };
+    });
+  }, [isAddingNewPilot, pendingNewPilotEnrollments, availableTrainingCycles]);
+
   // Memoized PilotDetails components for performance optimization
   const memoizedNewPilotDetails = useMemo(() => (
     <PilotDetails
@@ -2441,6 +2801,8 @@ const RosterManagement: React.FC = () => {
       pilotQualifications={pilotQualifications}
       availableTeams={availableTeams}
       pilotTeams={pilotTeams}
+      pilotEnrollments={newPilotEnrollmentsForDisplay}
+      availableTrainingCycles={availableTrainingCycles}
       loadingRoles={loadingRoles}
       updatingRoles={updatingRoles}
       updatingStatus={updatingStatus}
@@ -2448,6 +2810,8 @@ const RosterManagement: React.FC = () => {
       updatingSquadron={updatingSquadron}
       loadingQualifications={loadingQualifications}
       loadingTeams={loadingTeams}
+      loadingEnrollments={loadingEnrollments}
+      updatingEnrollments={updatingEnrollments}
       disabledRoles={disabledRoles}
       selectedQualification={selectedQualification}
       qualificationAchievedDate={qualificationAchievedDate}
@@ -2469,6 +2833,8 @@ const RosterManagement: React.FC = () => {
       handleRemoveQualification={handleRemoveQualification}
       handleAddTeam={handleAddTeam}
       handleRemoveTeam={handleRemoveTeam}
+      handleAddEnrollment={handleAddEnrollment}
+      handleRemoveEnrollment={handleRemoveEnrollment}
       handleDeletePilot={handleDeletePilot}
       handleSavePilotChanges={handleSavePilotChanges}
       isNewPilot={true}
@@ -2479,7 +2845,7 @@ const RosterManagement: React.FC = () => {
       saveError={saveError}
       boardNumberError={boardNumberError}
     />
-  ), [selectedPilot, statuses, standings, roles, pilotRoles, squadrons, availableQualifications, pilotQualifications, availableTeams, pilotTeams, loadingRoles, updatingRoles, updatingStatus, updatingStanding, updatingSquadron, loadingQualifications, loadingTeams, disabledRoles, selectedQualification, qualificationAchievedDate, selectedTeam, teamStartDate, isAddingQualification, isAddingTeam, updatingQualifications, updatingTeams, handleRoleChange, handleSquadronChange, handleAddQualification, handleRemoveQualification, handleAddTeam, handleRemoveTeam, handleDeletePilot, handleSavePilotChanges, handleClearDiscord, handleNewPilotChange, handleSaveNewPilot, handleCancelAddPilot, isSavingNewPilot, saveError, boardNumberError]);
+  ), [selectedPilot, statuses, standings, roles, pilotRoles, squadrons, availableQualifications, pilotQualifications, availableTeams, pilotTeams, newPilotEnrollmentsForDisplay, availableTrainingCycles, loadingRoles, updatingRoles, updatingStatus, updatingStanding, updatingSquadron, loadingQualifications, loadingTeams, loadingEnrollments, updatingEnrollments, disabledRoles, selectedQualification, qualificationAchievedDate, selectedTeam, teamStartDate, isAddingQualification, isAddingTeam, updatingQualifications, updatingTeams, handleRoleChange, handleSquadronChange, handleAddQualification, handleRemoveQualification, handleAddTeam, handleRemoveTeam, handleAddEnrollment, handleRemoveEnrollment, handleDeletePilot, handleSavePilotChanges, handleClearDiscord, handleNewPilotChange, handleSaveNewPilot, handleCancelAddPilot, isSavingNewPilot, saveError, boardNumberError]);
 
   const memoizedSelectedPilotDetails = useMemo(() => (
     <PilotDetails
@@ -2493,6 +2859,8 @@ const RosterManagement: React.FC = () => {
       pilotQualifications={pilotQualifications}
       availableTeams={availableTeams}
       pilotTeams={pilotTeams}
+      pilotEnrollments={pilotEnrollments}
+      availableTrainingCycles={availableTrainingCycles}
       loadingRoles={loadingRoles}
       updatingRoles={updatingRoles}
       updatingStatus={updatingStatus}
@@ -2500,6 +2868,8 @@ const RosterManagement: React.FC = () => {
       updatingSquadron={updatingSquadron}
       loadingQualifications={loadingQualifications}
       loadingTeams={loadingTeams}
+      loadingEnrollments={loadingEnrollments}
+      updatingEnrollments={updatingEnrollments}
       disabledRoles={disabledRoles}
       selectedQualification={selectedQualification}
       qualificationAchievedDate={qualificationAchievedDate}
@@ -2521,13 +2891,15 @@ const RosterManagement: React.FC = () => {
       handleRemoveQualification={handleRemoveQualification}
       handleAddTeam={handleAddTeam}
       handleRemoveTeam={handleRemoveTeam}
+      handleAddEnrollment={handleAddEnrollment}
+      handleRemoveEnrollment={handleRemoveEnrollment}
       handleDeletePilot={handleDeletePilot}
       handleSavePilotChanges={handleSavePilotChanges}
       isNewPilot={false}
       onQualificationAdded={handleQualificationAddedViaRepair}
       onTeamAdded={handleTeamAddedViaRepair}
     />
-  ), [selectedPilot, statuses, standings, roles, pilotRoles, squadrons, availableQualifications, pilotQualifications, availableTeams, pilotTeams, loadingRoles, updatingRoles, updatingStatus, updatingStanding, updatingSquadron, loadingQualifications, loadingTeams, disabledRoles, selectedQualification, qualificationAchievedDate, selectedTeam, teamStartDate, isAddingQualification, isAddingTeam, updatingQualifications, updatingTeams, handleStatusChange, handleStandingChange, handleRoleChange, handleSquadronChange, handleAddQualification, handleRemoveQualification, handleAddTeam, handleRemoveTeam, handleDeletePilot, handleSavePilotChanges, handleQualificationAddedViaRepair, handleTeamAddedViaRepair]);
+  ), [selectedPilot, statuses, standings, roles, pilotRoles, squadrons, availableQualifications, pilotQualifications, availableTeams, pilotTeams, pilotEnrollments, availableTrainingCycles, loadingRoles, updatingRoles, updatingStatus, updatingStanding, updatingSquadron, loadingQualifications, loadingTeams, loadingEnrollments, updatingEnrollments, disabledRoles, selectedQualification, qualificationAchievedDate, selectedTeam, teamStartDate, isAddingQualification, isAddingTeam, updatingQualifications, updatingTeams, handleStatusChange, handleStandingChange, handleRoleChange, handleSquadronChange, handleAddQualification, handleRemoveQualification, handleAddTeam, handleRemoveTeam, handleAddEnrollment, handleRemoveEnrollment, handleDeletePilot, handleSavePilotChanges, handleQualificationAddedViaRepair, handleTeamAddedViaRepair]);
 
   return (
     <div style={rosterStyles.container}>
@@ -2714,6 +3086,8 @@ const RosterManagement: React.FC = () => {
                 allPilotQualifications={allPilotQualifications}
                 availableTeams={availableTeams}
                 allPilotTeams={allPilotTeams}
+                allPilotEnrollments={allPilotEnrollments}
+                availableTrainingCycles={availableTrainingCycles}
                 onBulkStatusChange={handleBulkStatusChange}
                 onBulkStandingChange={handleBulkStandingChange}
                 onBulkSquadronChange={handleBulkSquadronChange}
@@ -2721,6 +3095,8 @@ const RosterManagement: React.FC = () => {
                 onBulkRemoveQualification={handleBulkRemoveQualification}
                 onBulkAddTeam={handleBulkAddTeam}
                 onBulkRemoveTeam={handleBulkRemoveTeam}
+                onBulkAddEnrollment={handleBulkAddEnrollment}
+                onBulkRemoveEnrollment={handleBulkRemoveEnrollment}
                 onBulkDeletePilots={handleBulkDeletePilots}
                 onBulkClearDiscord={handleBulkClearDiscord}
               />

@@ -70,12 +70,16 @@ export const useMissionPrepData = () => {
       }
       
       if (allEvents && allEvents.length > 0) {
-        // Events are already sorted in reverse chronological order by the query
-        setEvents(allEvents);
-        
+        // Sort events chronologically (oldest to newest) for Mission Preparation
+        // This is opposite of Events Management which shows newest first
+        const sortedEvents = [...allEvents].sort((a, b) =>
+          new Date(a.datetime).getTime() - new Date(b.datetime).getTime()
+        );
+        setEvents(sortedEvents);
+
         // Priority 1: If URL has eventId, select that event
         if (urlEventId) {
-          const urlEvent = allEvents.find(event => event.id === urlEventId);
+          const urlEvent = sortedEvents.find(event => event.id === urlEventId);
           if (urlEvent) {
             setSelectedEventWrapper(urlEvent);
             // Clear URL parameter after selection (optional)
@@ -83,21 +87,25 @@ export const useMissionPrepData = () => {
           } else {
             console.warn('Event ID from URL not found in events list:', urlEventId);
           }
-        } 
+        }
         // Priority 2: Validate that the currently selected event still exists in the fetched events
         else if (selectedEvent) {
-          const eventStillExists = allEvents.find(event => event.id === selectedEvent.id);
+          const eventStillExists = sortedEvents.find(event => event.id === selectedEvent.id);
           if (!eventStillExists) {
             // The previously selected event no longer exists, clear the selection
             setSelectedEventWrapper(null);
           }
-        } 
+        }
         // Priority 3: Only auto-select an event if this is truly the first time (no localStorage entry exists)
         else {
           // Check if localStorage has ever been set (even if it was set to null)
           const hasStoredSelection = localStorage.getItem(STORAGE_KEYS.SELECTED_EVENT) !== null;
-          if (!hasStoredSelection && allEvents.length > 0) {
-            setSelectedEventWrapper(allEvents[0]);
+          if (!hasStoredSelection && sortedEvents.length > 0) {
+            // Find the earliest upcoming event (first event in the future)
+            const now = new Date();
+            const upcomingEvent = sortedEvents.find(event => new Date(event.datetime) > now);
+            // If there's an upcoming event, select it; otherwise select the first event
+            setSelectedEventWrapper(upcomingEvent || sortedEvents[0]);
           }
         }
       } else {
