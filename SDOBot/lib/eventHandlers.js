@@ -406,7 +406,7 @@ function setupDiscordEventHandlers(supabase, upsertEventAttendance, getEventByDi
       const { event: dbEvent } = await getEventByDiscordId(eventId);
       if (dbEvent) {
         const correctTimezone = await fetchSquadronTimezone(dbEvent.id);
-        embedData = extractEmbedDataFromDatabaseEvent(dbEvent, correctTimezone);
+        embedData = await extractEmbedDataFromDatabaseEvent(dbEvent, correctTimezone);
       }
     } catch (error) {
       console.error('Error fetching embed data:', error);
@@ -456,13 +456,13 @@ function setupDiscordEventHandlers(supabase, upsertEventAttendance, getEventByDi
 
     const finalEventTime = freshEventTime;
 
-    const updatedEmbed = createEventEmbed(
-      embedData.title, 
-      embedData.description, 
+    const updatedEmbed = await createEventEmbed(
+      embedData.title,
+      embedData.description,
       finalEventTime,
       eventData,
-      embedData.creatorInfo, 
-      embedData.imageData, 
+      embedData.creatorInfo,
+      embedData.imageData,
       embedData.eventOptions
     );
     

@@ -280,7 +280,7 @@ class CountdownUpdateManager {
 
         // Extract embed data
         const correctTimezone = await this.fetchSquadronTimezone(eventData.id);
-        const embedData = this.extractEmbedDataFromDatabaseEvent(eventData, correctTimezone);
+        const embedData = await this.extractEmbedDataFromDatabaseEvent(eventData, correctTimezone);
         console.log(`[COUNTDOWN-TIMEZONE-FIX] Using timezone ${correctTimezone} for event ${eventData.id}`);
 
         // Fetch no-response users if showNoResponse is enabled
@@ -314,7 +314,7 @@ class CountdownUpdateManager {
           currentResponses.noResponse = [];
         }
 
-        const updatedEmbed = createEventEmbed(
+        const updatedEmbed = await createEventEmbed(
           embedData.title,
           embedData.description,
           embedData.eventTime,

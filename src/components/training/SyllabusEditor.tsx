@@ -3,6 +3,8 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../../utils/supabaseClient';
 import { ArrowLeft, Save, Plus, Trash2, GripVertical, Edit2 } from 'lucide-react';
+import ReferenceMaterialsInput from '../ui/events/ReferenceMaterialsInput';
+import type { ReferenceMaterial } from '../../types/EventTypes';
 
 interface Mission {
   id?: string;
@@ -11,6 +13,7 @@ interface Mission {
   description?: string;
   week_number: number;
   objectives: Objective[];
+  reference_materials?: ReferenceMaterial[];
 }
 
 interface Objective {
@@ -114,6 +117,7 @@ const SyllabusEditor: React.FC = () => {
           mission_name: mission.mission_name,
           description: mission.description,
           week_number: mission.week_number || 1,
+          reference_materials: Array.isArray(mission.reference_materials) ? mission.reference_materials : [],
           objectives: (objectivesData || []).map((obj: any) => ({
             id: obj.id,
             scope_level: obj.scope_level,
@@ -184,7 +188,8 @@ const SyllabusEditor: React.FC = () => {
           mission_number: mission.mission_number,
           mission_name: mission.mission_name,
           description: mission.description,
-          week_number: startWeek + index
+          week_number: startWeek + index,
+          reference_materials: mission.reference_materials || []
         };
 
         if (mission.id) {
@@ -295,7 +300,8 @@ const SyllabusEditor: React.FC = () => {
         mission_name: '',
         description: '',
         week_number: missions.length > 0 ? Math.max(...missions.map(m => m.week_number)) + 1 : 0,
-        objectives: []
+        objectives: [],
+        reference_materials: []
       }
     });
     setShowEventDialog(true);
@@ -309,20 +315,128 @@ const SyllabusEditor: React.FC = () => {
     setShowEventDialog(true);
   };
 
-  const handleSaveEvent = () => {
+  const handleSaveEvent = async () => {
     if (!editingMission) return;
-
-    const updatedMissions = [...missions];
-    if (editingMission.index === -1) {
-      updatedMissions.push(editingMission.mission);
-    } else {
-      updatedMissions[editingMission.index] = editingMission.mission;
+    if (isCreating) {
+      // If creating a new syllabus, just update local state
+      const updatedMissions = [...missions];
+      if (editingMission.index === -1) {
+        updatedMissions.push(editingMission.mission);
+      } else {
+        updatedMissions[editingMission.index] = editingMission.mission;
+      }
+      setMissions(updatedMissions);
+      setHasUnsavedChanges(true);
+      setShowEventDialog(false);
+      setEditingMission(null);
+      return;
     }
 
-    setMissions(updatedMissions);
-    setHasUnsavedChanges(true);
-    setShowEventDialog(false);
-    setEditingMission(null);
+    // For existing syllabus, save to database immediately
+    setSaving(true);
+    try {
+      const mission = editingMission.mission;
+      const missionIndex = editingMission.index;
+      const startWeek = syllabus.starts_at_week_zero ? 0 : 1;
+
+      if (missionIndex === -1) {
+        // Insert new mission
+        const missionData = {
+          syllabus_id: syllabusId,
+          mission_number: mission.mission_number,
+          mission_name: mission.mission_name,
+          description: mission.description,
+          week_number: startWeek + missions.length,
+          reference_materials: mission.reference_materials || []
+        };
+
+        const { data: newMission, error: insertError } = await supabase
+          .from('training_syllabus_missions')
+          .insert(missionData)
+          .select()
+          .single();
+
+        if (insertError) throw insertError;
+
+        // Insert objectives for new mission
+        if (mission.objectives.length > 0) {
+          const objectivesData = mission.objectives.map((obj, idx) => ({
+            syllabus_mission_id: newMission.id,
+            scope_level: obj.scope_level,
+            objective_text: obj.objective_text,
+            display_order: idx
+          }));
+
+          const { error: objError } = await supabase
+            .from('syllabus_training_objectives')
+            .insert(objectivesData);
+
+          if (objError) throw objError;
+        }
+
+        // Reload syllabus to get fresh data
+        await loadSyllabus();
+      } else {
+        // Update existing mission
+        const missionData = {
+          mission_number: mission.mission_number,
+          mission_name: mission.mission_name,
+          description: mission.description,
+          reference_materials: mission.reference_materials || []
+        };
+
+        const { error: updateError } = await supabase
+          .from('training_syllabus_missions')
+          .update(missionData)
+          .eq('id', mission.id);
+
+        if (updateError) throw updateError;
+
+        // Update/insert objectives - we'll let the reload handle showing the current state
+        // This is safer than trying to delete and risks losing data
+        const objectivesToUpdate = mission.objectives.filter(obj => obj.id);
+        const objectivesToInsert = mission.objectives.filter(obj => !obj.id);
+
+        if (objectivesToUpdate.length > 0) {
+          for (const obj of objectivesToUpdate) {
+            const { error } = await supabase
+              .from('syllabus_training_objectives')
+              .update({
+                scope_level: obj.scope_level,
+                objective_text: obj.objective_text,
+                display_order: mission.objectives.findIndex(o => o.id === obj.id)
+              })
+              .eq('id', obj.id);
+            if (error) throw error;
+          }
+        }
+
+        if (objectivesToInsert.length > 0) {
+          const insertData = objectivesToInsert.map(obj => ({
+            syllabus_mission_id: mission.id,
+            scope_level: obj.scope_level,
+            objective_text: obj.objective_text,
+            display_order: mission.objectives.indexOf(obj)
+          }));
+
+          const { error } = await supabase
+            .from('syllabus_training_objectives')
+            .insert(insertData);
+
+          if (error) throw error;
+        }
+
+        // Reload syllabus to get fresh data
+        await loadSyllabus();
+      }
+
+      setShowEventDialog(false);
+      setEditingMission(null);
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleCancelEvent = () => {
@@ -951,7 +1065,7 @@ const SyllabusEditor: React.FC = () => {
                 />
               </div>
 
-              <div style={{ borderTop: '1px solid #E5E7EB', paddingTop: '16px' }}>
+              <div style={{ borderTop: '1px solid #E5E7EB', paddingTop: '16px', marginBottom: '24px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
                   <h3 style={{ fontSize: '14px', fontWeight: 600, color: '#6B7280', textTransform: 'uppercase', margin: 0 }}>
                     Objectives ({editingMission.mission.objectives.length})
@@ -1073,6 +1187,25 @@ const SyllabusEditor: React.FC = () => {
                     No objectives yet. Click "Add Objective" to create one.
                   </div>
                 )}
+              </div>
+
+              {/* Reference Materials Section */}
+              <div style={{ borderTop: '1px solid #E5E7EB', paddingTop: '16px' }}>
+                <h3 style={{ fontSize: '14px', fontWeight: 600, color: '#6B7280', textTransform: 'uppercase', marginBottom: '12px' }}>
+                  Reference Materials
+                </h3>
+                <ReferenceMaterialsInput
+                  value={editingMission.mission.reference_materials || []}
+                  onChange={(materials) => {
+                    setEditingMission({
+                      ...editingMission,
+                      mission: {
+                        ...editingMission.mission,
+                        reference_materials: materials
+                      }
+                    });
+                  }}
+                />
               </div>
             </div>
 

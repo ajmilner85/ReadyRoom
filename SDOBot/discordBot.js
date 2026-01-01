@@ -103,8 +103,9 @@ async function fetchSquadronTimezone(eventId) {
 
 /**
  * Extract complete embed data from database event record
+ * NOW ASYNC - Fetches training data if this is a training event
  */
-function extractEmbedDataFromDatabaseEvent(dbEvent, overrideTimezone = null) {
+async function extractEmbedDataFromDatabaseEvent(dbEvent, overrideTimezone = null) {
   let imageData = null;
   if (dbEvent.image_url) {
     if (typeof dbEvent.image_url === 'object') {
@@ -137,10 +138,10 @@ function extractEmbedDataFromDatabaseEvent(dbEvent, overrideTimezone = null) {
   let timezone = overrideTimezone || 'America/New_York';
   if (!overrideTimezone && dbEvent.event_settings) {
     try {
-      const settings = typeof dbEvent.event_settings === 'string' 
-        ? JSON.parse(dbEvent.event_settings) 
+      const settings = typeof dbEvent.event_settings === 'string'
+        ? JSON.parse(dbEvent.event_settings)
         : dbEvent.event_settings;
-      
+
       if (settings.timezone) {
         timezone = settings.timezone;
       }
@@ -156,6 +157,67 @@ function extractEmbedDataFromDatabaseEvent(dbEvent, overrideTimezone = null) {
     eventType: dbEvent.event_type || null,
     timezone: timezone
   };
+
+  // Fetch training data if this is a training event
+  if (dbEvent.syllabus_mission_id) {
+    try {
+      console.log(`[TRAINING-DATA-FETCH] Event ${dbEvent.id} is a training event, fetching training data...`);
+
+      // Fetch syllabus mission data including reference materials
+      const { data: missionData, error: missionError } = await supabase
+        .from('training_syllabus_missions')
+        .select('mission_name, week_number, syllabus_id, reference_materials')
+        .eq('id', dbEvent.syllabus_mission_id)
+        .single();
+
+      if (!missionError && missionData) {
+        // Fetch syllabus name and reference materials
+        const { data: syllabusData } = await supabase
+          .from('training_syllabi')
+          .select('name, reference_materials')
+          .eq('id', missionData.syllabus_id)
+          .single();
+
+        // Fetch DLOs
+        const { data: dlos } = await supabase
+          .from('syllabus_training_objectives')
+          .select('objective_text, scope_level, display_order')
+          .eq('syllabus_mission_id', dbEvent.syllabus_mission_id)
+          .order('display_order');
+
+        // Fetch training enrollees for this cycle
+        const { data: enrollees } = await supabase
+          .from('training_enrollments')
+          .select('pilot_id')
+          .eq('cycle_id', dbEvent.cycle_id)
+          .eq('status', 'active');
+
+        // Merge reference materials: syllabus -> mission -> event
+        const syllabusRefs = syllabusData?.reference_materials || [];
+        const missionRefs = missionData.reference_materials || [];
+        const eventRefs = dbEvent.reference_materials || [];
+
+        // Combine and deduplicate by URL
+        const allRefs = [...syllabusRefs, ...missionRefs, ...eventRefs];
+        const uniqueRefs = allRefs.filter((ref, index, self) =>
+          index === self.findIndex((r) => r.url === ref.url)
+        );
+
+        eventOptions.trainingData = {
+          syllabusName: syllabusData?.name,
+          weekNumber: missionData.week_number,
+          missionName: missionData.mission_name,
+          dlos: dlos || [],
+          referenceMaterials: uniqueRefs,
+          enrollees: enrollees || []
+        };
+
+        console.log(`[TRAINING-DATA-FETCH] Successfully fetched training data for event ${dbEvent.id}, references: ${uniqueRefs.length} (syllabus: ${syllabusRefs.length}, mission: ${missionRefs.length}, event: ${eventRefs.length})`);
+      }
+    } catch (trainingError) {
+      console.warn(`[TRAINING-DATA-FETCH] Error fetching training data for event ${dbEvent.id}:`, trainingError.message);
+    }
+  }
 
   const parseDateTime = (dateTimeString) => {
     if (!dateTimeString) return new Date();
@@ -190,7 +252,7 @@ async function loadEventResponses() {
   try {
     const { data, error } = await supabase
       .from('events')
-      .select('id, name, description, start_datetime, end_datetime, discord_event_id, image_url, creator_board_number, creator_call_sign, creator_billet, event_settings, track_qualifications, event_type')
+      .select('id, name, description, start_datetime, end_datetime, discord_event_id, image_url, creator_board_number, creator_call_sign, creator_billet, event_settings, track_qualifications, event_type, syllabus_mission_id, cycle_id, reference_materials')
       .not('discord_event_id', 'is', null);
     
     if (error) {
@@ -230,8 +292,8 @@ async function loadEventResponses() {
           ? event.discord_event_id[0].guildId
           : null,
         channelId: channelId,
-        images: event.image_url ? extractEmbedDataFromDatabaseEvent(event).imageData : null,
-        creator: extractEmbedDataFromDatabaseEvent(event).creatorInfo,
+        images: event.image_url ? (await extractEmbedDataFromDatabaseEvent(event)).imageData : null,
+        creator: (await extractEmbedDataFromDatabaseEvent(event)).creatorInfo,
         imageUrl: event.image_url || null,
         accepted: [],
         declined: [],

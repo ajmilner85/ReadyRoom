@@ -739,8 +739,11 @@ export const updateEvent = async (eventId: string, updates: Partial<Omit<Event, 
   if ((updates as any).discord_event_id !== undefined) dbUpdates.discord_event_id = (updates as any).discord_event_id;
   // No restricted_to in the DB schema
 
-  // Training workflow fields (Phase 2) - only include if provided
+  // Training workflow fields (Phase 2) - always include if provided (even empty arrays)
+  console.log('[UPDATE-EVENT] referenceMaterials check:', updates.referenceMaterials, 'is undefined?', updates.referenceMaterials === undefined);
   if (updates.referenceMaterials !== undefined) {
+    console.log('[UPDATE-EVENT] Adding reference_materials to dbUpdates:', updates.referenceMaterials);
+    // Always update reference_materials, even if it's an empty array (allows deletion)
     dbUpdates.reference_materials = updates.referenceMaterials;
   }
   if ((updates as any).syllabusMissionId !== undefined) {
