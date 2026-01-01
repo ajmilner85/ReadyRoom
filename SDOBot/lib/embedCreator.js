@@ -219,6 +219,11 @@ async function createEventEmbed(title, description, eventTime, responses = {}, c
       trainingMetadata += `**${td.syllabusName || 'Training'} Week ${weekDisplay} - ${td.missionName || 'Mission'}**\n\n`;
     }
 
+    // Add description if present
+    if (description) {
+      trainingMetadata += `**Description:**\n${description}\n\n`;
+    }
+
     // Add DLOs if present
     if (td.dlos && td.dlos.length > 0) {
       trainingMetadata += `**Desired Learning Objectives:**\n`;
@@ -231,22 +236,22 @@ async function createEventEmbed(title, description, eventTime, responses = {}, c
     // Add reference materials if present
     if (td.referenceMaterials && td.referenceMaterials.length > 0) {
       trainingMetadata += `**Reference Materials:**\n`;
-      td.referenceMaterials.forEach(ref => {
+      trainingMetadata += `>>> `;
+      td.referenceMaterials.forEach((ref, index) => {
         const docType = ref.type || 'Document';
         const docName = ref.name || ref.title || 'Untitled';
+        if (index > 0) trainingMetadata += '\n';
         if (ref.url || ref.link) {
-          trainingMetadata += `• *${docType}*: [${docName}](${ref.url || ref.link})\n`;
+          trainingMetadata += `*${docType}*: [${docName}](${ref.url || ref.link})`;
         } else {
-          trainingMetadata += `• *${docType}*: ${docName}\n`;
+          trainingMetadata += `*${docType}*: ${docName}`;
         }
       });
-      trainingMetadata += `\n\n`;  // Extra newline for spacing before Event Time
+      trainingMetadata += `\n\n`;  // Close the block quote
     }
 
-    // Combine training metadata with original description
-    if (trainingMetadata) {
-      fullDescription = trainingMetadata + (description ? `**Description:**\n${description}` : '');
-    }
+    // Set full description to just the training metadata (description already included above)
+    fullDescription = trainingMetadata;
   }
 
   if (fullDescription && fullDescription.trim().length > 0) {
@@ -394,6 +399,36 @@ async function createEventEmbed(title, description, eventTime, responses = {}, c
           embed.addFields(...fields);
         }
       }
+
+      // Add Mission Support section for training events (after Other Participants)
+      if (shouldTrackQualifications) {
+        const missionSupportResult = generateMissionSupportSection(accepted);
+
+        if (missionSupportResult && missionSupportResult.hasSupportPilots) {
+          const { columns } = missionSupportResult;
+
+          // Build fields with proper alignment
+          const fields = columns.flatMap((column, colIndex) => {
+            if (column.length > 0) {
+              return column.map((field, fieldIndex) => {
+                // Add header to first field of first column, empty space to others
+                let fieldName = field.name;
+                if (colIndex === 0 && fieldIndex === 0) {
+                  fieldName = `<:awacs:1229253561528090664> **Mission Support**\n${field.name}`;
+                } else if (fieldIndex === 0 && colIndex > 0) {
+                  fieldName = `\u200B\n${field.name}`;
+                }
+                return { name: fieldName, value: field.value, inline: true };
+              });
+            } else {
+              // Empty column with matching spacing
+              return [{ name: colIndex === 0 ? `<:awacs:1229253561528090664> **Mission Support**\n\u200B` : `\u200B\n\u200B`, value: '>>> -', inline: true }];
+            }
+          });
+
+          embed.addFields(...fields);
+        }
+      }
     } else {
       // Regular (non-training) events with squadron grouping
       const squadronGroups = organizeBySquadron(accepted, tentative, declined);
@@ -471,8 +506,8 @@ async function createEventEmbed(title, description, eventTime, responses = {}, c
         }
       });
 
-      // Add Mission Support section (ONLY accepted pilots, NOT for training events)
-      if (shouldTrackQualifications && !isTrainingEvent) {
+      // Add Mission Support section (ONLY accepted pilots)
+      if (shouldTrackQualifications) {
         const missionSupportResult = generateMissionSupportSection(accepted);
 
         if (missionSupportResult && missionSupportResult.hasSupportPilots) {
@@ -500,11 +535,6 @@ async function createEventEmbed(title, description, eventTime, responses = {}, c
           embed.addFields(...fields);
         }
       }
-    }
-
-    // Add spacer before Tentative section (only for non-training events with accepted users or mission support)
-    if (accepted.length > 0 && !isTrainingEvent) {
-      embed.addFields({ name: '\u200B', value: '\u200B', inline: false });
     }
 
     // Add Tentative, Declined, and No Response sections at the end (in 3-column layout if showNoResponse)
@@ -577,8 +607,8 @@ async function createEventEmbed(title, description, eventTime, responses = {}, c
         );
       }
 
-      // Add Mission Support section (ONLY accepted pilots, not for training events)
-      if (!isTrainingEvent) {
+      // Add Mission Support section (ONLY accepted pilots)
+      {
         const missionSupportResult = generateMissionSupportSection(accepted);
 
         if (missionSupportResult && missionSupportResult.hasSupportPilots) {
@@ -611,11 +641,6 @@ async function createEventEmbed(title, description, eventTime, responses = {}, c
       embed.addFields(
         { name: 'All Pilots', value: acceptedText, inline: false }
       );
-    }
-
-    // Add spacer before Tentative section (only for non-training events with accepted users or mission support)
-    if (accepted.length > 0 && !isTrainingEvent) {
-      embed.addFields({ name: '\u200B', value: '\u200B', inline: false });
     }
 
     // Add Tentative, Declined, and No Response sections at the end (in 3-column layout if showNoResponse)
