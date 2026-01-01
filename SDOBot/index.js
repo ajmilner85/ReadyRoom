@@ -423,18 +423,18 @@ app.post('/api/events/publish', async (req, res) => {
       try {
         const { data: eventData, error: eventError } = await supabase
           .from('events')
-          .select('track_qualifications, event_type, event_settings, creator_call_sign, creator_board_number, creator_billet, participants')
+          .select('track_qualifications, event_type, event_settings, creator_call_sign, creator_board_number, creator_billet, participants, syllabus_mission_id, cycle_id, reference_materials')
           .eq('id', eventId)
           .single();
-        
+
         if (!eventError && eventData) {
           // Extract participating squadrons for threading decision
           participatingSquadrons = Array.isArray(eventData.participants) ? eventData.participants : [];
           console.log(`[THREADING] Event ${eventId} has ${participatingSquadrons.length} participating squadrons:`, participatingSquadrons);
-          
+
           // Extract event settings (groupBySquadron, timezone, etc.)
           const eventSettings = eventData.event_settings || {};
-          
+
           eventOptions = {
             trackQualifications: eventData.track_qualifications || eventSettings.groupResponsesByQualification || false,
             eventType: eventData.event_type || null,
@@ -443,6 +443,65 @@ app.post('/api/events/publish', async (req, res) => {
             participatingSquadrons: participatingSquadrons, // Pass to Discord bot
             initialNotificationRoles: eventSettings.initialNotificationRoles || [] // For @mentions on initial publication
           };
+
+          // Fetch training data if this is a training event
+          if (eventData.syllabus_mission_id) {
+            try {
+              // Fetch syllabus mission data
+              const { data: missionData, error: missionError } = await supabase
+                .from('training_syllabus_missions')
+                .select('mission_name, week_number, syllabus_id, reference_materials')
+                .eq('id', eventData.syllabus_mission_id)
+                .single();
+
+              if (!missionError && missionData) {
+                // Fetch syllabus name and reference materials
+                const { data: syllabusData } = await supabase
+                  .from('training_syllabi')
+                  .select('name, reference_materials')
+                  .eq('id', missionData.syllabus_id)
+                  .single();
+
+                // Fetch DLOs
+                const { data: dlos } = await supabase
+                  .from('syllabus_training_objectives')
+                  .select('objective_text, scope_level, display_order')
+                  .eq('syllabus_mission_id', eventData.syllabus_mission_id)
+                  .order('display_order');
+
+                // Fetch training enrollees for this cycle
+                const { data: enrollees } = await supabase
+                  .from('training_enrollments')
+                  .select('pilot_id')
+                  .eq('cycle_id', eventData.cycle_id)
+                  .eq('status', 'active');
+
+                // Merge reference materials: syllabus -> mission -> event
+                const syllabusRefs = syllabusData?.reference_materials || [];
+                const missionRefs = missionData.reference_materials || [];
+                const eventRefs = eventData.reference_materials || [];
+
+                // Combine and deduplicate by URL
+                const allRefs = [...syllabusRefs, ...missionRefs, ...eventRefs];
+                const uniqueRefs = allRefs.filter((ref, index, self) =>
+                  index === self.findIndex((r) => r.url === ref.url)
+                );
+
+                eventOptions.trainingData = {
+                  syllabusName: syllabusData?.name,
+                  weekNumber: missionData.week_number,
+                  missionName: missionData.mission_name,
+                  dlos: dlos || [],
+                  referenceMaterials: uniqueRefs,
+                  enrollees: enrollees || []
+                };
+
+                console.log(`[TRAINING-EVENT] Fetched training data for event ${eventId}:`, eventOptions.trainingData);
+              }
+            } catch (trainingError) {
+              console.warn('[WARNING] Could not fetch training data:', trainingError.message);
+            }
+          }
           
           // Use creator info from database if available
           if (eventData.creator_call_sign || eventData.creator_board_number) {
@@ -630,20 +689,79 @@ app.put('/api/events/:messageId/edit', async (req, res) => {
     try {
       const { data: eventData, error: eventError } = await supabase
         .from('events')
-        .select('track_qualifications, event_type, event_settings')
+        .select('track_qualifications, event_type, event_settings, syllabus_mission_id, cycle_id, reference_materials')
         .or(`discord_event_id.eq.${messageId},discord_event_id.cs.[{"messageId":"${messageId}"}]`)
         .single();
-      
+
       if (!eventError && eventData) {
         // Extract event settings (groupBySquadron, timezone, etc.)
         const eventSettings = eventData.event_settings || {};
-        
+
         eventOptions = {
           trackQualifications: eventData.track_qualifications || eventSettings.groupResponsesByQualification || false,
           eventType: eventData.event_type || null,
           groupBySquadron: eventSettings.groupBySquadron || false,
           showNoResponse: eventSettings.showNoResponse || false
         };
+
+        // Fetch training data if this is a training event
+        if (eventData.syllabus_mission_id && eventData.cycle_id) {
+          try {
+            // Fetch syllabus mission data
+            const { data: missionData, error: missionError } = await supabase
+              .from('training_syllabus_missions')
+              .select('mission_name, week_number, syllabus_id, reference_materials')
+              .eq('id', eventData.syllabus_mission_id)
+              .single();
+
+            if (!missionError && missionData) {
+              // Fetch syllabus name and reference materials
+              const { data: syllabusData } = await supabase
+                .from('training_syllabi')
+                .select('name, reference_materials')
+                .eq('id', missionData.syllabus_id)
+                .single();
+
+              // Fetch DLOs
+              const { data: dlos } = await supabase
+                .from('syllabus_training_objectives')
+                .select('objective_text, scope_level, display_order')
+                .eq('syllabus_mission_id', eventData.syllabus_mission_id)
+                .order('display_order');
+
+              // Fetch training enrollees for this cycle
+              const { data: enrollees } = await supabase
+                .from('training_enrollments')
+                .select('pilot_id')
+                .eq('cycle_id', eventData.cycle_id)
+                .eq('status', 'active');
+
+              // Merge reference materials: syllabus -> mission -> event
+              const syllabusRefs = syllabusData?.reference_materials || [];
+              const missionRefs = missionData.reference_materials || [];
+              const eventRefs = eventData.reference_materials || [];
+
+              // Combine and deduplicate by URL
+              const allRefs = [...syllabusRefs, ...missionRefs, ...eventRefs];
+              const uniqueRefs = allRefs.filter((ref, index, self) =>
+                index === self.findIndex((r) => r.url === ref.url)
+              );
+
+              eventOptions.trainingData = {
+                syllabusName: syllabusData?.name,
+                weekNumber: missionData.week_number,
+                missionName: missionData.mission_name,
+                dlos: dlos || [],
+                referenceMaterials: uniqueRefs,
+                enrollees: enrollees || []
+              };
+
+              console.log(`[TRAINING-EVENT-EDIT] Fetched training data for edit:`, eventOptions.trainingData);
+            }
+          } catch (trainingError) {
+            console.warn('[WARNING] Could not fetch training data for edit:', trainingError.message);
+          }
+        }
       }
     } catch (error) {
       console.warn('[WARNING] Could not fetch event options for edit:', error.message);

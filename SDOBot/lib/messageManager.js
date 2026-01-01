@@ -79,7 +79,7 @@ async function publishEventToDiscord(title, description, eventTime, guildId, cha
       }
     }
 
-    const eventEmbed = createEventEmbed(title, description, eventTime, initialResponses, creator, imageData, eventOptions);
+    const eventEmbed = await createEventEmbed(title, description, eventTime, initialResponses, creator, imageData, eventOptions);
     const buttons = createAttendanceButtons();
     
     const additionalEmbeds = createAdditionalImageEmbeds(imageData, 'https://readyroom.app');
@@ -141,7 +141,7 @@ async function editEventMessage(messageId, title, description, eventTime, guildI
       const message = await eventsChannel.messages.fetch(messageId);
       if (message) {
         const imageData = images || (imageUrl ? { imageUrl } : null);
-        const eventEmbed = createEventEmbed(title, description, eventTime, existingResponses, creator, imageData, eventOptions);
+        const eventEmbed = await createEventEmbed(title, description, eventTime, existingResponses, creator, imageData, eventOptions);
 
         const additionalEmbeds = createAdditionalImageEmbeds(imageData, 'https://readyroom.app');
         const allEmbeds = [eventEmbed, ...additionalEmbeds];

@@ -441,24 +441,26 @@ export const EventDialog: React.FC<EventDialogProps> = ({
 
   // Load syllabus missions when cycle has a syllabus
   useEffect(() => {
-    if (selectedCycle?.syllabusId && selectedCycle?.type === 'Training') {
+    const currentEventCycle = selectedCycle || (cycleId ? cycles?.find(c => c.id === cycleId) : null);
+
+    if (currentEventCycle && 'syllabusId' in currentEventCycle && currentEventCycle.syllabusId && currentEventCycle.type === 'Training') {
       const loadMissions = async () => {
         const { data, error } = await supabase
           .from('training_syllabus_missions')
           .select('*')
-          .eq('syllabus_id', selectedCycle?.syllabusId ?? '')
+          .eq('syllabus_id', currentEventCycle.syllabusId ?? '')
           .order('mission_number') as any;
 
         if (!error && data) {
           setSyllabusMissions(data);
 
           // Auto-select next mission for new events (not editing)
-          if (!initialData?.id && selectedCycle.id) {
+          if (!initialData?.id && currentEventCycle.id) {
             // Find the highest mission number already used in this cycle
             const { data: cycleEvents } = await supabase
               .from('events')
               .select('syllabus_mission_id')
-              .eq('cycle_id', selectedCycle.id)
+              .eq('cycle_id', currentEventCycle.id)
               .not('syllabus_mission_id', 'is', null);
 
             if (cycleEvents && data.length > 0) {
@@ -483,11 +485,13 @@ export const EventDialog: React.FC<EventDialogProps> = ({
       setSyllabusMissions([]);
       setSelectedMissionId('');
     }
-  }, [selectedCycle?.syllabusId, selectedCycle?.type, selectedCycle?.id, initialData?.id]);
+  }, [selectedCycle?.syllabusId, selectedCycle?.type, selectedCycle?.id, initialData?.id, cycleId, cycles]);
 
   // Load inherited references when mission is selected
   useEffect(() => {
-    if (selectedMissionId && selectedCycle?.syllabusId) {
+    const currentEventCycle = selectedCycle || (cycleId ? cycles?.find(c => c.id === cycleId) : null);
+
+    if (selectedMissionId && currentEventCycle && 'syllabusId' in currentEventCycle && currentEventCycle.syllabusId) {
       const loadInheritedRefs = async () => {
         const { data, error} = await supabase
           .from('training_syllabus_missions')
@@ -512,7 +516,7 @@ export const EventDialog: React.FC<EventDialogProps> = ({
     } else {
       setInheritedReferences([]);
     }
-  }, [selectedMissionId, selectedCycle?.syllabusId]);
+  }, [selectedMissionId, selectedCycle?.syllabusId, cycleId, cycles]);
 
   // Load training objectives when mission is selected
   useEffect(() => {
@@ -822,8 +826,14 @@ export const EventDialog: React.FC<EventDialogProps> = ({
     setDurationMinutes(clamped);
   };
 
+  // Determine if this event is a training event based on its cycle type
+  // Check selectedCycle first (for new events or when cycle is already selected)
+  // Otherwise, look up the event's cycle from the cycles array (for editing events from All Events view)
+  const eventCycle = selectedCycle || (cycleId ? cycles?.find(c => c.id === cycleId) : null);
+  const isTrainingEvent = eventCycle?.type === 'Training';
+
   // Workflow navigation and validation
-  const steps: Array<{ key: WorkflowStep; title: string; description: string }> = selectedCycle?.type === 'Training'
+  const steps: Array<{ key: WorkflowStep; title: string; description: string }> = isTrainingEvent
     ? [
         { key: 'details', title: 'Event Details', description: 'Basic event information' },
         { key: 'training', title: 'Training Details', description: 'Mission and objectives' },
@@ -1180,7 +1190,7 @@ export const EventDialog: React.FC<EventDialogProps> = ({
           enabled: false
         },
         // Training workflow fields (Phase 2-3)
-        referenceMaterials: referenceMaterials.length > 0 ? referenceMaterials : undefined,
+        referenceMaterials: referenceMaterials, // Always pass array, even if empty, to allow deletion
         syllabusMissionId: selectedMissionId || undefined,
         cycleId
       } as any, shouldPublish);
@@ -1335,7 +1345,7 @@ export const EventDialog: React.FC<EventDialogProps> = ({
             fontWeight: 600,
             color: '#0F172A'
           }}>
-            {selectedCycle?.type === 'Training'
+            {isTrainingEvent
               ? (initialData ? 'Edit Training Event' : 'Create New Training Event')
               : (initialData ? 'Edit Event' : 'Create New Event')}
           </h2>

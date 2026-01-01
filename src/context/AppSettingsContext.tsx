@@ -117,9 +117,8 @@ const defaultSettings: AppSettings = {
     defaultReferenceMaterialTypes: [
       'Student Reference Sheet',
       'Briefing Slides',
-      'Video Tutorial',
-      'Syllabus',
-      'NATOPS Reference'
+      'Video',
+      'Document'
     ],
 
     // Scheduled publication defaults

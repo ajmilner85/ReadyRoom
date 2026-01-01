@@ -10,7 +10,7 @@ import CyclesList from './events/CyclesList';
 import CycleDialog from './events/CycleDialog';
 import { DeleteDivisionDialog } from './dialogs/DeleteDivisionDialog';
 import { Trash2 } from 'lucide-react';
-import type { Event, Cycle, CycleType } from '../../types/EventTypes';
+import type { Event, Cycle, CycleType, ReferenceMaterial } from '../../types/EventTypes';
 import { supabase, fetchCycles, createCycle, updateCycle, deleteCycle,
          fetchEvents, createEvent, updateEvent, deleteEvent } from '../../utils/supabaseClient';
 import { deleteMultiChannelEvent, updateMultiChannelEvent } from '../../utils/discordService';
@@ -823,7 +823,9 @@ const EventsManagement: React.FC = () => {
       const { error } = await updateEvent(editingEvent.id, {
         ...eventData,
         event_settings: eventSettingsToSave,
-        cycleId: eventData.cycleId // Explicitly pass cycleId to ensure it's updated
+        cycleId: eventData.cycleId, // Explicitly pass cycleId to ensure it's updated
+        referenceMaterials: eventData.referenceMaterials, // Explicitly pass referenceMaterials
+        syllabusMissionId: eventData.syllabusMissionId // Explicitly pass syllabusMissionId
         // Don't override discord_event_id - let it stay as JSONB in database
       });
       if (error) throw error;
@@ -928,6 +930,9 @@ const EventsManagement: React.FC = () => {
             endDatetime: eventData.endDatetime?.includes('T') ? eventData.endDatetime : `${eventData.endDatetime}:00.000Z`,
             // Map database field to Event interface field
             cycleId: freshEventData.cycle_id,
+            // Map reference materials from database - cast to proper type (via unknown for type safety)
+            referenceMaterials: (Array.isArray(freshEventData.reference_materials) ? freshEventData.reference_materials : []) as unknown as ReferenceMaterial[],
+            syllabusMissionId: freshEventData.syllabus_mission_id,
             // Ensure creator field is properly mapped from raw database fields
             creator: {
               boardNumber: freshEventData.creator_board_number || '',

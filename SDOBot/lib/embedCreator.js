@@ -10,10 +10,10 @@ const { formatInTimeZone } = require('date-fns-tz');
 /**
  * Create event message embed with NEW mission support separation
  */
-function createEventEmbed(title, description, eventTime, responses = {}, creator = null, images = null, eventOptions = {}) {
+async function createEventEmbed(title, description, eventTime, responses = {}, creator = null, images = null, eventOptions = {}) {
   // VERSION SENTINEL
-  console.log(`[CODE-VERSION-SENTINEL] createEventEmbed v3.1 - Added No Response Support`);
-  console.log(`[CODE-VERSION-SENTINEL] Event: ${title}, trackQuals: ${eventOptions.trackQualifications}, groupSquad: ${eventOptions.groupBySquadron}, showNoResponse: ${eventOptions.showNoResponse}`);
+  console.log(`[CODE-VERSION-SENTINEL] createEventEmbed v3.2 - Added Training Event Support`);
+  console.log(`[CODE-VERSION-SENTINEL] Event: ${title}, trackQuals: ${eventOptions.trackQualifications}, groupSquad: ${eventOptions.groupBySquadron}, showNoResponse: ${eventOptions.showNoResponse}, isTraining: ${!!eventOptions.trainingData}`);
 
   const accepted = responses.accepted || [];
   const declined = responses.declined || [];
@@ -42,19 +42,32 @@ function createEventEmbed(title, description, eventTime, responses = {}, creator
   };
   
   // MODIFIED: groupByQualifications - now returns structured data for accepted only
-  const groupByQualifications = (entries, isTraining = false) => {
+  const groupByQualifications = (entries, isTraining = false, trainingEnrollees = []) => {
     if (entries.length === 0) return { flightLead: [], sectionLead: [], wingman: [] };
-    
+
     if (isTraining) {
+      // For training events, group by: Trainee, IP, Other Participants
+      const traineeIds = new Set(trainingEnrollees.map(e => e.pilot_id));
+
+      const trainees = entries.filter(entry => {
+        const pilotId = entry.pilotRecord?.id;
+        return pilotId && traineeIds.has(pilotId);
+      });
+
       const ips = entries.filter(entry => {
         const qualifications = entry.pilotRecord?.qualifications || [];
-        return qualifications.includes('Instructor Pilot');
+        const pilotId = entry.pilotRecord?.id;
+        return qualifications.includes('Instructor Pilot') && (!pilotId || !traineeIds.has(pilotId));
       });
-      
-      const ipIds = new Set(ips.map(ip => ip.userId || ip.discordId));
-      const trainees = entries.filter(entry => !ipIds.has(entry.userId || entry.discordId));
-      
-      return { ips, trainees };
+
+      const traineeIdSet = new Set(trainees.map(t => t.userId || t.discordId));
+      const ipIdSet = new Set(ips.map(ip => ip.userId || ip.discordId));
+      const otherParticipants = entries.filter(entry => {
+        const id = entry.userId || entry.discordId;
+        return !traineeIdSet.has(id) && !ipIdSet.has(id);
+      });
+
+      return { trainees, ips, otherParticipants };
     }
     
     // Standard grouping - PRIMARY qualifications only
@@ -184,17 +197,70 @@ function createEventEmbed(title, description, eventTime, responses = {}, creator
 
   const shouldTrackQualifications = eventOptions.trackQualifications || false;
   const shouldGroupBySquadron = eventOptions.groupBySquadron || false;
-  const isTrainingEvent = eventOptions.eventType === 'Hop' || title.toLowerCase().includes('training');
+  const isTrainingEvent = !!eventOptions.trainingData;
+  const trainingEnrollees = eventOptions.trainingData?.enrollees || [];
 
   console.log(`[EVENT-TYPE-DEBUG] Event "${title}": eventType=${eventOptions.eventType}, isTrainingEvent=${isTrainingEvent}, shouldTrackQualifications=${shouldTrackQualifications}, shouldGroupBySquadron=${shouldGroupBySquadron}`);
-  
+
   // Create embed
   const embed = new EmbedBuilder()
     .setColor(0x0099FF)
     .setTitle(title);
-  
-  if (description && description.trim().length > 0) {
-    embed.setDescription(description);
+
+  // Add training metadata if this is a training event
+  let fullDescription = description || '';
+  if (isTrainingEvent && eventOptions.trainingData) {
+    const td = eventOptions.trainingData;
+    let trainingMetadata = '';
+
+    // Add syllabus/week/mission heading
+    if (td.syllabusName || td.weekNumber !== undefined || td.missionName) {
+      const weekDisplay = td.weekNumber !== null && td.weekNumber !== undefined ? td.weekNumber : '?';
+      trainingMetadata += `**${td.syllabusName || 'Training'} Week ${weekDisplay} - ${td.missionName || 'Mission'}**\n\n`;
+    }
+
+    // Add DLOs if present
+    if (td.dlos && td.dlos.length > 0) {
+      trainingMetadata += `**Desired Learning Objectives:**\n`;
+      td.dlos.forEach(dlo => {
+        trainingMetadata += `• ${dlo.objective_text}\n`;
+      });
+      trainingMetadata += `\n`;
+    }
+
+    // Add reference materials if present
+    if (td.referenceMaterials && td.referenceMaterials.length > 0) {
+      trainingMetadata += `**Reference Materials:**\n`;
+      td.referenceMaterials.forEach(ref => {
+        const docType = ref.type || 'Document';
+        const docName = ref.name || ref.title || 'Untitled';
+        if (ref.url || ref.link) {
+          trainingMetadata += `• *${docType}*: [${docName}](${ref.url || ref.link})\n`;
+        } else {
+          trainingMetadata += `• *${docType}*: ${docName}\n`;
+        }
+      });
+      trainingMetadata += `\n\n`;  // Extra newline for spacing before Event Time
+    }
+
+    // Combine training metadata with original description
+    if (trainingMetadata) {
+      fullDescription = trainingMetadata + (description ? `**Description:**\n${description}` : '');
+    }
+  }
+
+  if (fullDescription && fullDescription.trim().length > 0) {
+    // Discord has a 4096 character limit for descriptions
+    const maxLength = 4090;
+    if (fullDescription.length > maxLength) {
+      fullDescription = fullDescription.substring(0, maxLength) + '...';
+    }
+    embed.setDescription(fullDescription);
+  }
+
+  // Add spacing field if this is a training event (creates visual gap between description and Event Time)
+  if (isTrainingEvent && eventOptions.trainingData && (eventOptions.trainingData.dlos?.length > 0 || eventOptions.trainingData.referenceMaterials?.length > 0)) {
+    embed.addFields({ name: '\u200B', value: '\u200B', inline: false });
   }
 
   // Add event time if provided
@@ -202,13 +268,13 @@ function createEventEmbed(title, description, eventTime, responses = {}, creator
     const startTime = eventTime.start;
     const endTime = eventTime.end;
     const eventTimezone = eventOptions?.timezone || 'America/New_York';
-    
+
     const formattedDate = formatInTimeZone(startTime, eventTimezone, "EEEE, MMMM d, yyyy");
     const formattedStartTime = formatInTimeZone(startTime, eventTimezone, "h:mm a zzz");
     const formattedEndTime = formatInTimeZone(endTime, eventTimezone, "h:mm a zzz");
-    
+
     const timeString = `${formattedDate} ${formattedStartTime} - ${formattedEndTime}`;
-    
+
     const nowUtc = new Date();
     let countdownString;
     
@@ -244,116 +310,200 @@ function createEventEmbed(title, description, eventTime, responses = {}, creator
     );
   } else if (shouldGroupBySquadron) {
     console.log(`[EMBED-STRUCTURE] Building with squadron grouping`);
-    
-    const squadronGroups = organizeBySquadron(accepted, tentative, declined);
 
-    // REMOVED: Attending header
+    if (isTrainingEvent) {
+      // Training events: Trainee and IP are squadron-agnostic, only Other Participants are grouped by squadron
+      console.log(`[EMBED-STRUCTURE] Training event with squadron grouping - Trainees/IPs squadron-agnostic`);
 
-    // Add each squadron's ACCEPTED pilots only
-    squadronGroups.forEach(group => {
-      const { squadron } = group;
+      const grouped = groupByQualifications(accepted, isTrainingEvent, trainingEnrollees);
 
-      // DEFENSIVE: Always render squadrons if they have ANY responses (accepted, tentative, declined)
-      // This prevents squadrons from disappearing during countdown updates if data fetch is incomplete
-      const hasAnyResponses = group.accepted.length > 0 || group.tentative.length > 0 || group.declined.length > 0;
+      // Row 1: Trainee | IP (squadron-agnostic)
+      const traineeText = formatQualGroup(grouped.trainees || []);
+      const ipText = formatQualGroup(grouped.ips || []);
 
-      if (!hasAnyResponses) {
-        console.log(`[EMBED-SQUADRON-SKIP] Skipping squadron ${squadron?.designation || 'unknown'} - no responses at all`);
-        return; // Only skip if squadron has NO responses whatsoever
-      }
+      embed.addFields(
+        { name: `<:SkyHawk:1244846070526115972> *Trainee (${(grouped.trainees || []).length})*`, value: traineeText, inline: true },
+        { name: `<:Hornet:541484781515440128> *IP (${(grouped.ips || []).length})*`, value: ipText, inline: true },
+        { name: '\u200B', value: '\u200B', inline: true }
+      );
 
-      if (group.accepted.length === 0) {
-        console.log(`[EMBED-SQUADRON-WARN] Squadron ${squadron?.designation || 'unknown'} has ${group.tentative.length} tentative and ${group.declined.length} declined but NO accepted pilots - still rendering to prevent disappearance`);
-      }
+      // Row 2+: Other Participants grouped by squadron (3 per row)
+      if (grouped.otherParticipants && grouped.otherParticipants.length > 0) {
+        const otherBySquadron = {};
+        grouped.otherParticipants.forEach(entry => {
+          const squadronId = entry.pilotRecord?.squadron?.id || 'no-squadron';
+          const squadron = entry.pilotRecord?.squadron;
 
-      const acceptedCount = group.accepted.length;
-      
-      let squadronHeader;
-      if (squadron) {
-        let discordIntegration = squadron.discord_integration;
-        if (typeof discordIntegration === 'string') {
-          try {
-            discordIntegration = JSON.parse(discordIntegration);
-          } catch (e) {
-            console.warn(`[EMOJI-DEBUG] Failed to parse discord_integration for ${squadron.designation}`);
+          if (!otherBySquadron[squadronId]) {
+            otherBySquadron[squadronId] = { squadron, pilots: [] };
           }
-        }
-
-        const emojiData = discordIntegration?.emoji;
-        let emojiString = '';
-
-        if (emojiData) {
-          if (typeof emojiData === 'string') {
-            if (emojiData.startsWith(':') && emojiData.includes(':')) {
-              emojiString = `<${emojiData}> `;
-            } else {
-              emojiString = `${emojiData} `;
-            }
-          } else if (emojiData.id && emojiData.name) {
-            const animated = emojiData.animated ? 'a' : '';
-            emojiString = `<${animated}:${emojiData.name}:${emojiData.id}> `;
-          }
-        }
-
-        squadronHeader = `${emojiString}**${squadron.designation}** *(${acceptedCount})*`;
-      } else {
-        squadronHeader = `**No Squadron** *(${acceptedCount})*`;
-      }
-
-      if (shouldTrackQualifications) {
-        // Show Flight Lead | Section Lead | Wingman columns with Hornet emojis in field names
-        const grouped = groupByQualifications(group.accepted, isTrainingEvent);
-
-        const flText = formatQualGroup(grouped.flightLead || []);
-        const slText = formatQualGroup(grouped.sectionLead || []);
-        const wmText = formatQualGroup(grouped.wingman || []);
-
-        embed.addFields(
-          { name: `${squadronHeader}\n*Flight Lead (${(grouped.flightLead || []).length})*`, value: flText, inline: true },
-          { name: `\u200B\n*Section Lead (${(grouped.sectionLead || []).length})*`, value: slText, inline: true },
-          { name: `\u200B\n*Wingman (${(grouped.wingman || []).length})*`, value: wmText, inline: true }
-        );
-      } else {
-        // Show all pilots without qualification grouping
-        const allPilots = createBlockQuote(group.accepted);
-        embed.addFields(
-          { name: squadronHeader, value: allPilots, inline: false }
-        );
-      }
-    });
-
-    // Add Mission Support section (ONLY accepted pilots)
-    if (shouldTrackQualifications) {
-      const missionSupportResult = generateMissionSupportSection(accepted);
-      
-      if (missionSupportResult && missionSupportResult.hasSupportPilots) {
-        const { columns } = missionSupportResult;
-        
-        // Build fields with proper alignment
-        const fields = columns.flatMap((column, colIndex) => {
-          if (column.length > 0) {
-            return column.map((field, fieldIndex) => {
-              // Add header to first field of first column, empty space to others
-              let fieldName = field.name;
-              if (colIndex === 0 && fieldIndex === 0) {
-                fieldName = `<:awacs:1229253561528090664> **Mission Support**\n${field.name}`;
-              } else if (fieldIndex === 0 && colIndex > 0) {
-                fieldName = `\u200B\n${field.name}`;
-              }
-              return { name: fieldName, value: field.value, inline: true };
-            });
-          } else {
-            // Empty column with matching spacing
-            return [{ name: colIndex === 0 ? `<:awacs:1229253561528090664> **Mission Support**\n\u200B` : `\u200B\n\u200B`, value: '>>> -', inline: true }];
-          }
+          otherBySquadron[squadronId].pilots.push(entry);
         });
-        
-        embed.addFields(...fields);
+
+        // Create rows of 3 squadrons each
+        const squadronEntries = Object.values(otherBySquadron);
+        for (let i = 0; i < squadronEntries.length; i += 3) {
+          const row = squadronEntries.slice(i, i + 3);
+          const fields = row.map((squadEntry) => {
+            const { squadron, pilots } = squadEntry;
+
+            let squadronHeader;
+            if (squadron) {
+              let discordIntegration = squadron.discord_integration;
+              if (typeof discordIntegration === 'string') {
+                try {
+                  discordIntegration = JSON.parse(discordIntegration);
+                } catch (e) {
+                  console.warn(`[EMOJI-DEBUG] Failed to parse discord_integration`);
+                }
+              }
+
+              const emojiData = discordIntegration?.emoji;
+              let emojiString = '';
+
+              if (emojiData) {
+                if (typeof emojiData === 'string') {
+                  if (emojiData.startsWith(':') && emojiData.includes(':')) {
+                    emojiString = `<${emojiData}> `;
+                  } else {
+                    emojiString = `${emojiData} `;
+                  }
+                } else if (emojiData.id && emojiData.name) {
+                  const animated = emojiData.animated ? 'a' : '';
+                  emojiString = `<${animated}:${emojiData.name}:${emojiData.id}> `;
+                }
+              }
+
+              squadronHeader = `${emojiString}${squadron.designation}`;
+            } else {
+              squadronHeader = 'No Squadron';
+            }
+
+            return {
+              name: `*${squadronHeader} (${pilots.length})*`,
+              value: formatQualGroup(pilots),
+              inline: true
+            };
+          });
+
+          // Pad to 3 columns
+          while (fields.length < 3) {
+            fields.push({ name: '\u200B', value: '\u200B', inline: true });
+          }
+
+          embed.addFields(...fields);
+        }
+      }
+    } else {
+      // Regular (non-training) events with squadron grouping
+      const squadronGroups = organizeBySquadron(accepted, tentative, declined);
+
+      // Add each squadron's ACCEPTED pilots only
+      squadronGroups.forEach(group => {
+        const { squadron } = group;
+
+        // DEFENSIVE: Always render squadrons if they have ANY responses (accepted, tentative, declined)
+        // This prevents squadrons from disappearing during countdown updates if data fetch is incomplete
+        const hasAnyResponses = group.accepted.length > 0 || group.tentative.length > 0 || group.declined.length > 0;
+
+        if (!hasAnyResponses) {
+          console.log(`[EMBED-SQUADRON-SKIP] Skipping squadron ${squadron?.designation || 'unknown'} - no responses at all`);
+          return; // Only skip if squadron has NO responses whatsoever
+        }
+
+        if (group.accepted.length === 0) {
+          console.log(`[EMBED-SQUADRON-WARN] Squadron ${squadron?.designation || 'unknown'} has ${group.tentative.length} tentative and ${group.declined.length} declined but NO accepted pilots - still rendering to prevent disappearance`);
+        }
+
+        const acceptedCount = group.accepted.length;
+
+        let squadronHeader;
+        if (squadron) {
+          let discordIntegration = squadron.discord_integration;
+          if (typeof discordIntegration === 'string') {
+            try {
+              discordIntegration = JSON.parse(discordIntegration);
+            } catch (e) {
+              console.warn(`[EMOJI-DEBUG] Failed to parse discord_integration for ${squadron.designation}`);
+            }
+          }
+
+          const emojiData = discordIntegration?.emoji;
+          let emojiString = '';
+
+          if (emojiData) {
+            if (typeof emojiData === 'string') {
+              if (emojiData.startsWith(':') && emojiData.includes(':')) {
+                emojiString = `<${emojiData}> `;
+              } else {
+                emojiString = `${emojiData} `;
+              }
+            } else if (emojiData.id && emojiData.name) {
+              const animated = emojiData.animated ? 'a' : '';
+              emojiString = `<${animated}:${emojiData.name}:${emojiData.id}> `;
+            }
+          }
+
+          squadronHeader = `${emojiString}**${squadron.designation}** *(${acceptedCount})*`;
+        } else {
+          squadronHeader = `**No Squadron** *(${acceptedCount})*`;
+        }
+
+        if (shouldTrackQualifications) {
+          // Regular event: Show Flight Lead | Section Lead | Wingman columns
+          const grouped = groupByQualifications(group.accepted, isTrainingEvent, trainingEnrollees);
+
+          const flText = formatQualGroup(grouped.flightLead || []);
+          const slText = formatQualGroup(grouped.sectionLead || []);
+          const wmText = formatQualGroup(grouped.wingman || []);
+
+          embed.addFields(
+            { name: `${squadronHeader}\n*Flight Lead (${(grouped.flightLead || []).length})*`, value: flText, inline: true },
+            { name: `\u200B\n*Section Lead (${(grouped.sectionLead || []).length})*`, value: slText, inline: true },
+            { name: `\u200B\n*Wingman (${(grouped.wingman || []).length})*`, value: wmText, inline: true }
+          );
+        } else {
+          // Show all pilots without qualification grouping
+          const allPilots = createBlockQuote(group.accepted);
+          embed.addFields(
+            { name: squadronHeader, value: allPilots, inline: false }
+          );
+        }
+      });
+
+      // Add Mission Support section (ONLY accepted pilots, NOT for training events)
+      if (shouldTrackQualifications && !isTrainingEvent) {
+        const missionSupportResult = generateMissionSupportSection(accepted);
+
+        if (missionSupportResult && missionSupportResult.hasSupportPilots) {
+          const { columns } = missionSupportResult;
+
+          // Build fields with proper alignment
+          const fields = columns.flatMap((column, colIndex) => {
+            if (column.length > 0) {
+              return column.map((field, fieldIndex) => {
+                // Add header to first field of first column, empty space to others
+                let fieldName = field.name;
+                if (colIndex === 0 && fieldIndex === 0) {
+                  fieldName = `<:awacs:1229253561528090664> **Mission Support**\n${field.name}`;
+                } else if (fieldIndex === 0 && colIndex > 0) {
+                  fieldName = `\u200B\n${field.name}`;
+                }
+                return { name: fieldName, value: field.value, inline: true };
+              });
+            } else {
+              // Empty column with matching spacing
+              return [{ name: colIndex === 0 ? `<:awacs:1229253561528090664> **Mission Support**\n\u200B` : `\u200B\n\u200B`, value: '>>> -', inline: true }];
+            }
+          });
+
+          embed.addFields(...fields);
+        }
       }
     }
 
-    // Add spacer before Tentative section (only if there are accepted users or mission support)
-    if (accepted.length > 0) {
+    // Add spacer before Tentative section (only for non-training events with accepted users or mission support)
+    if (accepted.length > 0 && !isTrainingEvent) {
       embed.addFields({ name: '\u200B', value: '\u200B', inline: false });
     }
 
@@ -392,44 +542,68 @@ function createEventEmbed(title, description, eventTime, responses = {}, creator
     // REMOVED: Attending header
 
     if (shouldTrackQualifications) {
-      // Show Flight Lead | Section Lead | Wingman columns
-      const grouped = groupByQualifications(accepted, isTrainingEvent);
-      
-      const flText = formatQualGroup(grouped.flightLead);
-      const slText = formatQualGroup(grouped.sectionLead);
-      const wmText = formatQualGroup(grouped.wingman);
+      if (isTrainingEvent) {
+        // Training event: Show Trainee | IP columns
+        const grouped = groupByQualifications(accepted, isTrainingEvent, trainingEnrollees);
 
-      embed.addFields(
-        { name: '*Flight Lead (' + grouped.flightLead.length + ')*', value: flText, inline: true },
-        { name: '*Section Lead (' + grouped.sectionLead.length + ')*', value: slText, inline: true },
-        { name: '*Wingman (' + grouped.wingman.length + ')*', value: wmText, inline: true }
-      );
+        const traineeText = formatQualGroup(grouped.trainees || []);
+        const ipText = formatQualGroup(grouped.ips || []);
 
-      // Add Mission Support section (ONLY accepted pilots)
-      const missionSupportResult = generateMissionSupportSection(accepted);
-      
-      if (missionSupportResult && missionSupportResult.hasSupportPilots) {
-        const { columns } = missionSupportResult;
-        
-        // Build field array dynamically
-        const missionSupportFields = [];
-        columns.forEach((column, index) => {
-          if (column.length > 0) {
-            column.forEach(field => {
-              missionSupportFields.push({ name: field.name, value: field.value, inline: true });
-            });
-          } else {
-            // Empty column
-            missionSupportFields.push({ name: '\u200B', value: '>>> -', inline: true });
-          }
-        });
-        
-        // Add header in first field
-        if (missionSupportFields.length > 0) {
-          missionSupportFields[0].name = `<:awacs:1229253561528090664> **Mission Support**\n${missionSupportFields[0].name}`;
+        embed.addFields(
+          { name: '<:SkyHawk:1244846070526115972> *Trainee (' + (grouped.trainees || []).length + ')*', value: traineeText, inline: true },
+          { name: '<:Hornet:541484781515440128> *IP (' + (grouped.ips || []).length + ')*', value: ipText, inline: true },
+          { name: '\u200B', value: '\u200B', inline: true }
+        );
+
+        // Other Participants - show with heading only if squadron grouping is disabled
+        if (grouped.otherParticipants && grouped.otherParticipants.length > 0) {
+          const otherText = formatQualGroup(grouped.otherParticipants);
+          embed.addFields(
+            { name: `**Other Participants** (${grouped.otherParticipants.length})`, value: otherText, inline: false }
+          );
         }
-        
-        embed.addFields(...missionSupportFields);
+      } else {
+        // Regular event: Show Flight Lead | Section Lead | Wingman columns
+        const grouped = groupByQualifications(accepted, isTrainingEvent, trainingEnrollees);
+
+        const flText = formatQualGroup(grouped.flightLead);
+        const slText = formatQualGroup(grouped.sectionLead);
+        const wmText = formatQualGroup(grouped.wingman);
+
+        embed.addFields(
+          { name: '*Flight Lead (' + grouped.flightLead.length + ')*', value: flText, inline: true },
+          { name: '*Section Lead (' + grouped.sectionLead.length + ')*', value: slText, inline: true },
+          { name: '*Wingman (' + grouped.wingman.length + ')*', value: wmText, inline: true }
+        );
+      }
+
+      // Add Mission Support section (ONLY accepted pilots, not for training events)
+      if (!isTrainingEvent) {
+        const missionSupportResult = generateMissionSupportSection(accepted);
+
+        if (missionSupportResult && missionSupportResult.hasSupportPilots) {
+          const { columns } = missionSupportResult;
+
+          // Build field array dynamically
+          const missionSupportFields = [];
+          columns.forEach((column, index) => {
+            if (column.length > 0) {
+              column.forEach(field => {
+                missionSupportFields.push({ name: field.name, value: field.value, inline: true });
+              });
+            } else {
+              // Empty column
+              missionSupportFields.push({ name: '\u200B', value: '>>> -', inline: true });
+            }
+          });
+
+          // Add header in first field
+          if (missionSupportFields.length > 0) {
+            missionSupportFields[0].name = `<:awacs:1229253561528090664> **Mission Support**\n${missionSupportFields[0].name}`;
+          }
+
+          embed.addFields(...missionSupportFields);
+        }
       }
     } else {
       // Show all accepted pilots without grouping
@@ -439,8 +613,8 @@ function createEventEmbed(title, description, eventTime, responses = {}, creator
       );
     }
 
-    // Add spacer before Tentative section (only if there are accepted users or mission support)
-    if (accepted.length > 0) {
+    // Add spacer before Tentative section (only for non-training events with accepted users or mission support)
+    if (accepted.length > 0 && !isTrainingEvent) {
       embed.addFields({ name: '\u200B', value: '\u200B', inline: false });
     }
 
