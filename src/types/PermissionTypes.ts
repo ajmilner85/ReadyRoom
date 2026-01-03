@@ -97,6 +97,7 @@ export interface UserPermissions {
   // Training Management (mixed scope types)
   manage_training_syllabi: boolean;              // Global only
   manage_training_debriefs: boolean;             // Global only
+  submit_training_debriefs: boolean;             // Global only
   manage_training_enrollments: boolean;          // Global only
   view_all_training_progress: boolean;           // Global only
   lock_unlock_missions: boolean;                 // Global only

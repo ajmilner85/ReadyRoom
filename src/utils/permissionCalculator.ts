@@ -415,6 +415,7 @@ export class PermissionCalculator {
       // Training Management (global only)
       manage_training_syllabi: false,
       manage_training_debriefs: false,
+      submit_training_debriefs: false,
       manage_training_enrollments: false,
       view_all_training_progress: false,
       lock_unlock_missions: false,
@@ -639,6 +640,9 @@ export class PermissionCalculator {
         break;
       case 'manage_training_debriefs':
         permissions.manage_training_debriefs = true;
+        break;
+      case 'submit_training_debriefs':
+        permissions.submit_training_debriefs = true;
         break;
       case 'manage_training_enrollments':
         permissions.manage_training_enrollments = true;

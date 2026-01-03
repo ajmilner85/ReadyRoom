@@ -4,8 +4,11 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../utils/supabaseClient';
 import { BookOpen, Plus, Edit, Trash2, Users } from 'lucide-react';
 import PTRGrid from './PTRGrid';
+import GradingDialog from './GradingDialog';
 import { useComponentPermissions } from '../../hooks/usePermissions';
 import { getCycleEnrollmentCount } from '../../utils/trainingEnrollmentService';
+import { PTRCellData } from '../../types/TrainingTypes';
+import { useAuth } from '../../context/AuthContext';
 
 const CARD_WIDTH = '550px';
 
@@ -28,6 +31,7 @@ interface TrainingCycle {
 const TrainingManagement: React.FC = () => {
   const navigate = useNavigate();
   const { isVisible } = useComponentPermissions();
+  const { userProfile } = useAuth();
   const [syllabi, setSyllabi] = useState<Syllabus[]>([]);
   const [cycles, setCycles] = useState<TrainingCycle[]>([]);
   const [selectedSyllabusId, setSelectedSyllabusId] = useState<string | undefined>();
@@ -37,6 +41,8 @@ const TrainingManagement: React.FC = () => {
   const [deleteConfirmSyllabusId, setDeleteConfirmSyllabusId] = useState<string | null>(null);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [enrollmentCounts, setEnrollmentCounts] = useState<Record<string, number>>({});
+  const [gradingDialogCell, setGradingDialogCell] = useState<PTRCellData | null>(null);
+  const [ptrGridKey, setPtrGridKey] = useState(0);
 
   useEffect(() => {
     loadSyllabi();
@@ -140,6 +146,19 @@ const TrainingManagement: React.FC = () => {
       setDeleteConfirmSyllabusId(null);
       setDeleteConfirmText('');
     }
+  };
+
+  const handleCellClick = (cellData: PTRCellData) => {
+    setGradingDialogCell(cellData);
+  };
+
+  const handleGradingDialogClose = () => {
+    setGradingDialogCell(null);
+  };
+
+  const handleGradingDialogSave = () => {
+    // Refresh the PTR grid by updating the key
+    setPtrGridKey(prev => prev + 1);
   };
 
   if (loading) {
@@ -345,8 +364,10 @@ const TrainingManagement: React.FC = () => {
               <div style={{ flex: 1, overflowY: 'auto', padding: '16px' }}>
                 {selectedCycleId && cycles.find(c => c.id === selectedCycleId)?.syllabus_id ? (
                   <PTRGrid
+                    key={ptrGridKey}
                     syllabusId={cycles.find(c => c.id === selectedCycleId)!.syllabus_id!}
                     cycleId={selectedCycleId}
+                    onCellClick={handleCellClick}
                   />
                 ) : selectedCycleId ? (
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', textAlign: 'center', color: '#6B7280' }}>
@@ -445,6 +466,17 @@ const TrainingManagement: React.FC = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Grading Dialog */}
+      {gradingDialogCell && selectedCycleId && (
+        <GradingDialog
+          cellData={gradingDialogCell}
+          cycleId={selectedCycleId}
+          onClose={handleGradingDialogClose}
+          onSave={handleGradingDialogSave}
+          currentUserPilotId={userProfile?.pilotId}
+        />
       )}
     </div>
   );

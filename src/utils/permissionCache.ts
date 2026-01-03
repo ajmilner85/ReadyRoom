@@ -458,6 +458,7 @@ export class PermissionCacheService {
       edit_debriefs: [],
       finalize_debriefs: [],
       delegate_debriefs: [],
+      submit_training_debriefs: false,
 
       canSyncWithDiscord: [],
       manage_dcs_reference_data: false,

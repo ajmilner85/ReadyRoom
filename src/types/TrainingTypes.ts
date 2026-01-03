@@ -269,3 +269,108 @@ export interface TrainingRoadmapMission {
     result: 'all_sat' | 'some_unsat' | 'incomplete';
   };
 }
+
+// PTR Grading Types
+
+export interface DLOGrade {
+  objectiveId: string;
+  grade: 'SAT' | 'UNSAT' | null;
+  notes?: string;
+}
+
+export interface TrainingGrade {
+  id: string;
+  studentId: string;
+  syllabusMissionId: string;
+  cycleId: string;
+  eventId?: string;
+  isMakeupFlight: boolean;
+  makeupNotes?: string;
+  attemptNumber: number;
+  gradedByPilotId: string;
+  assignedIpPilotId?: string;
+  ipMismatchAcknowledged: boolean;
+  overallGrade: 'SAT' | 'UNSAT';
+  overallNotes?: string;
+  dloGrades: DLOGrade[];
+  flightDate: string;
+  gradedAt: string;
+  updatedAt: string;
+  createdAt: string;
+
+  // Expanded data (from joins)
+  student?: {
+    id: string;
+    callsign: string;
+    boardNumber: string;
+  };
+  gradedByPilot?: {
+    id: string;
+    callsign: string;
+  };
+  assignedIpPilot?: {
+    id: string;
+    callsign: string;
+  };
+  event?: {
+    id: string;
+    title: string;
+    datetime: string;
+  };
+}
+
+// For PTR Grid cell display
+export interface PTRCellData {
+  weekNumber: number;
+  missionNumber: number | null;
+  syllabusMissionId: string;
+  studentId: string;
+
+  // Attendance (from roll_call_response)
+  wasPresent: boolean;
+  wasAssignedToFlight: boolean;  // For warning if present but not assigned
+
+  // Grade data (from latest SAT attempt, or latest UNSAT if no SAT)
+  hasGrade: boolean;
+  latestGrade?: 'SAT' | 'UNSAT';
+  attemptCount: number;
+  latestAttemptId?: string;
+
+  // Event context
+  eventId?: string;
+  eventDate?: string;
+  assignedIpCallsign?: string;
+}
+
+// For grading dialog
+export interface GradingDialogData {
+  studentId: string;
+  studentCallsign: string;
+  studentBoardNumber: string;
+
+  syllabusMissionId: string;
+  missionNumber: number;
+  missionName: string;
+  weekNumber: number;
+
+  cycleId: string;
+  eventId?: string;
+  eventTitle?: string;
+  eventDate?: string;
+
+  assignedIpPilotId?: string;
+  assignedIpCallsign?: string;
+
+  wasPresent: boolean;
+  wasAssignedToFlight: boolean;
+
+  // DLOs to grade (Individual scope only)
+  objectives: Array<{
+    id: string;
+    objectiveText: string;
+    displayOrder: number;
+  }>;
+
+  // Existing attempts (for viewing history / creating new attempt)
+  existingAttempts: TrainingGrade[];
+}
