@@ -1,9 +1,11 @@
 // @ts-nocheck
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../utils/supabaseClient';
-import { Download } from 'lucide-react';
+import { Download, BookOpen, CheckCircle2, ExternalLink, FileText } from 'lucide-react';
 import PilotIDBadgeSm from '../ui/PilotIDBadgeSm';
 import { PTRCellData } from '../../types/TrainingTypes';
+import type { ReferenceMaterial } from '../../types/EventTypes';
+import { useNavigate } from 'react-router-dom';
 
 interface PTRGridProps {
   syllabusId: string;
@@ -26,6 +28,12 @@ interface WeekInfo {
   weekNumber: number;
   missionNumber: number | null;
   syllabusMissionId: string;
+  missionName?: string;
+  objectives?: Array<{ id: string; objectiveText: string }>;
+  referenceMaterials?: Array<{ material: ReferenceMaterial; isInherited: boolean }>;
+  eventName?: string;
+  eventDate?: string;
+  eventId?: string;
 }
 
 interface StudentRow {
@@ -34,6 +42,7 @@ interface StudentRow {
 }
 
 const PTRGrid: React.FC<PTRGridProps> = ({ syllabusId, cycleId, onCellClick }) => {
+  const navigate = useNavigate();
   const [studentRows, setStudentRows] = useState<StudentRow[]>([]);
   const [weekInfo, setWeekInfo] = useState<WeekInfo[]>([]);
   const [loading, setLoading] = useState(true);
@@ -41,10 +50,30 @@ const PTRGrid: React.FC<PTRGridProps> = ({ syllabusId, cycleId, onCellClick }) =
   const [hoveredRow, setHoveredRow] = useState<string | null>(null);
   const [hoveredCol, setHoveredCol] = useState<number | null>(null);
   const [sortBy, setSortBy] = useState<'boardNumber' | 'callsign'>('boardNumber');
+  const [hoveredWeekPopup, setHoveredWeekPopup] = useState<number | null>(null);
+  const [clickedWeekPopup, setClickedWeekPopup] = useState<number | null>(null);
 
   useEffect(() => {
     loadPTRData();
   }, [syllabusId, cycleId]);
+
+  // Handle click outside for popup
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (clickedWeekPopup === null) return;
+      const target = event.target as HTMLElement;
+      if (!target.closest('[data-week-popup]') && !target.closest('[data-week-header]')) {
+        setClickedWeekPopup(null);
+        setHoveredWeekPopup(null);
+      }
+    };
+    if (clickedWeekPopup !== null) {
+      setTimeout(() => {
+        document.addEventListener('mousedown', handleClickOutside);
+      }, 0);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [clickedWeekPopup]);
 
   const loadPTRData = async () => {
     try {
@@ -114,35 +143,76 @@ const PTRGrid: React.FC<PTRGridProps> = ({ syllabusId, cycleId, onCellClick }) =
         enrollment_status: enrollment.status
       }));
 
-      // Load week numbers and mission numbers from syllabus missions
+      // Load week numbers and mission numbers from syllabus missions with objectives and references
       const { data: missionsData, error: missionsError } = await supabase
         .from('training_syllabus_missions')
-        .select('id, week_number, mission_number')
+        .select('id, week_number, mission_number, mission_name, reference_materials, training_syllabi!inner(reference_materials)')
         .eq('syllabus_id', syllabusId)
         .order('week_number');
 
       if (missionsError) throw missionsError;
 
-      // Build week info with mission IDs and numbers
-      const weekMap = new Map<number, { missionNumber: number | null; syllabusMissionId: string }>();
+      // Load objectives for all missions
+      const missionIds = (missionsData || []).map((m: any) => m.id);
+      let objectivesData: any[] = [];
+      if (missionIds.length > 0) {
+        const { data: objData, error: objError } = await supabase
+          .from('syllabus_training_objectives')
+          .select('id, syllabus_mission_id, objective_text, scope_level')
+          .in('syllabus_mission_id', missionIds)
+          .eq('scope_level', 'Individual')
+          .order('display_order');
+
+        if (!objError && objData) {
+          objectivesData = objData;
+        }
+      }
+
+      // Build objectives map
+      const objectivesMap = new Map<string, Array<{ id: string; objectiveText: string }>>();
+      objectivesData.forEach((obj: any) => {
+        if (!objectivesMap.has(obj.syllabus_mission_id)) {
+          objectivesMap.set(obj.syllabus_mission_id, []);
+        }
+        objectivesMap.get(obj.syllabus_mission_id)?.push({
+          id: obj.id,
+          objectiveText: obj.objective_text
+        });
+      });
+
+      // Build week info with mission IDs, numbers, objectives, and references
+      const weekMap = new Map<number, {
+        missionNumber: number | null;
+        syllabusMissionId: string;
+        missionName: string;
+        objectives: Array<{ id: string; objectiveText: string }>;
+        referenceMaterials: Array<{ material: ReferenceMaterial; isInherited: boolean }>;
+      }>();
+
       (missionsData || []).forEach((mission: any) => {
         if (!weekMap.has(mission.week_number)) {
+          // Merge syllabus and mission references - both are inherited (show book icon)
+          const syllabusRefs = mission.training_syllabi?.reference_materials || [];
+          const missionRefs = mission.reference_materials || [];
+
+          const syllabusRefsWithFlag = syllabusRefs.map((ref: ReferenceMaterial) => ({ material: ref, isInherited: true }));
+          const missionRefsWithFlag = missionRefs.map((ref: ReferenceMaterial) => ({ material: ref, isInherited: true }));
+          const allRefsWithFlag = [...syllabusRefsWithFlag, ...missionRefsWithFlag];
+
+          // Deduplicate by URL
+          const uniqueRefs = allRefsWithFlag.filter((item, index, self) =>
+            index === self.findIndex((r) => r.material.url === item.material.url)
+          );
+
           weekMap.set(mission.week_number, {
             missionNumber: mission.mission_number,
-            syllabusMissionId: mission.id
+            syllabusMissionId: mission.id,
+            missionName: mission.mission_name,
+            objectives: objectivesMap.get(mission.id) || [],
+            referenceMaterials: uniqueRefs
           });
         }
       });
-
-      const weeks: WeekInfo[] = Array.from(weekMap.entries())
-        .map(([weekNumber, data]) => ({
-          weekNumber,
-          missionNumber: data.missionNumber,
-          syllabusMissionId: data.syllabusMissionId
-        }))
-        .sort((a, b) => a.weekNumber - b.weekNumber);
-
-      setWeekInfo(weeks.length > 0 ? weeks : []);
 
       // Load events for this cycle
       const { data: eventsData, error: eventsError } = await supabase
@@ -158,6 +228,25 @@ const PTRGrid: React.FC<PTRGridProps> = ({ syllabusId, cycleId, onCellClick }) =
       (eventsData || []).forEach((event: any) => {
         missionToEvent.set(event.syllabus_mission_id, event);
       });
+
+      const weeks: WeekInfo[] = Array.from(weekMap.entries())
+        .map(([weekNumber, data]) => {
+          const event = missionToEvent.get(data.syllabusMissionId);
+          return {
+            weekNumber,
+            missionNumber: data.missionNumber,
+            syllabusMissionId: data.syllabusMissionId,
+            missionName: data.missionName,
+            objectives: data.objectives,
+            referenceMaterials: data.referenceMaterials,
+            eventName: event?.name,
+            eventDate: event?.start_datetime,
+            eventId: event?.id
+          };
+        })
+        .sort((a, b) => a.weekNumber - b.weekNumber);
+
+      setWeekInfo(weeks.length > 0 ? weeks : []);
 
       // Load attendance for all events
       const eventIds = (eventsData || []).map((e: any) => e.id);
@@ -455,25 +544,233 @@ const PTRGrid: React.FC<PTRGridProps> = ({ syllabusId, cycleId, onCellClick }) =
                     <span style={{ fontSize: '10px' }}>▼</span>
                   </button>
                 </th>
-                {weekInfo.map((week) => (
-                  <th
-                    key={week.weekNumber}
-                    style={{
-                      padding: '12px 16px 2px',
-                      textAlign: 'center',
-                      fontSize: '12px',
-                      fontWeight: 500,
-                      color: '#6B7280',
-                      textTransform: 'uppercase',
-                      backgroundColor: hoveredCol === week.weekNumber ? '#F3F4F6' : '#F9FAFB',
-                      whiteSpace: 'nowrap',
-                      width: '90px',
-                      transition: 'background-color 0.1s'
-                    }}
-                  >
-                    Week {week.weekNumber}
-                  </th>
-                ))}
+                {weekInfo.map((week) => {
+                  const hasContent = week.eventId || week.missionName || (week.referenceMaterials && week.referenceMaterials.length > 0);
+                  const showPopup = hasContent && (hoveredWeekPopup === week.weekNumber || clickedWeekPopup === week.weekNumber);
+
+                  return (
+                    <th
+                      key={week.weekNumber}
+                      data-week-header
+                      style={{
+                        padding: '12px 16px 2px',
+                        textAlign: 'center',
+                        fontSize: '12px',
+                        fontWeight: 500,
+                        color: '#6B7280',
+                        textTransform: 'uppercase',
+                        backgroundColor: hoveredCol === week.weekNumber ? '#F3F4F6' : '#F9FAFB',
+                        whiteSpace: 'nowrap',
+                        width: '90px',
+                        transition: 'background-color 0.1s',
+                        position: 'relative',
+                        cursor: hasContent ? 'pointer' : 'default'
+                      }}
+                      onMouseEnter={() => hasContent && clickedWeekPopup !== week.weekNumber && setHoveredWeekPopup(week.weekNumber)}
+                      onMouseLeave={() => clickedWeekPopup !== week.weekNumber && setHoveredWeekPopup(null)}
+                      onClick={(e) => {
+                        if (hasContent) {
+                          e.stopPropagation();
+                          setClickedWeekPopup(clickedWeekPopup === week.weekNumber ? null : week.weekNumber);
+                        }
+                      }}
+                    >
+                      Week {week.weekNumber}
+
+                      {/* Hover area extension */}
+                      {showPopup && (
+                        <div style={{
+                          position: 'absolute',
+                          left: '50%',
+                          transform: 'translateX(-50%)',
+                          top: '100%',
+                          width: '8px',
+                          height: '8px',
+                          pointerEvents: 'auto',
+                          zIndex: 1002
+                        }} />
+                      )}
+
+                      {/* Popup */}
+                      {showPopup && (
+                        <div
+                          data-week-popup
+                          style={{
+                            position: 'absolute',
+                            left: '50%',
+                            transform: 'translateX(-50%)',
+                            top: 'calc(100% + 8px)',
+                            backgroundColor: '#FFFFFF',
+                            border: '1px solid #E5E7EB',
+                            borderRadius: '8px',
+                            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+                            padding: '12px',
+                            minWidth: '300px',
+                            maxWidth: '400px',
+                            zIndex: 1003,
+                            pointerEvents: 'auto',
+                            textAlign: 'left',
+                            textTransform: 'none'
+                          }}
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          {/* Header */}
+                          {week.eventName && (
+                            <div style={{ marginBottom: '16px', paddingBottom: '12px', borderBottom: '1px solid #E5E7EB' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
+                                <div style={{ fontSize: '16px', fontWeight: 600, color: '#000000' }}>
+                                  {week.eventName}
+                                </div>
+                                {week.eventId && (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      navigate(`/events?cycle=${cycleId}&event=${week.eventId}`);
+                                    }}
+                                    style={{
+                                      background: 'none',
+                                      border: 'none',
+                                      cursor: 'pointer',
+                                      padding: '4px',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      color: '#9CA3AF'
+                                    }}
+                                    title="Go to Event"
+                                  >
+                                    <ExternalLink size={16} />
+                                  </button>
+                                )}
+                              </div>
+                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                  <span style={{ fontSize: '14px', fontWeight: 500, color: '#6B7280' }}>
+                                    {week.missionNumber !== null ? `H${String(week.missionNumber).padStart(2, '0')}` : ''}
+                                  </span>
+                                  <span style={{ fontSize: '14px', fontWeight: 500, color: '#000000' }}>
+                                    {week.missionName}
+                                  </span>
+                                </div>
+                                {week.eventId && (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      navigate(`/mission-preparation?cycle=${cycleId}&event=${week.eventId}`);
+                                    }}
+                                    style={{
+                                      background: 'none',
+                                      border: 'none',
+                                      cursor: 'pointer',
+                                      padding: '4px',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      color: '#9CA3AF'
+                                    }}
+                                    title="Go to Mission Preparation"
+                                  >
+                                    <FileText size={16} />
+                                  </button>
+                                )}
+                              </div>
+                              {week.eventDate && (
+                                <div style={{ fontSize: '13px', color: '#6B7280' }}>
+                                  {new Date(week.eventDate).toLocaleDateString('en-US', {
+                                    weekday: 'short',
+                                    month: 'short',
+                                    day: 'numeric',
+                                    year: 'numeric',
+                                    hour: 'numeric',
+                                    minute: '2-digit'
+                                  })}
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          {week.objectives && week.objectives.length > 0 && (
+                            <div style={{ marginBottom: week.referenceMaterials && week.referenceMaterials.length > 0 ? '12px' : '0' }}>
+                              <div style={{
+                                fontSize: '13px',
+                                fontWeight: 600,
+                                color: '#1F2937',
+                                marginBottom: '8px'
+                              }}>
+                                Desired Learning Objectives
+                              </div>
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                {week.objectives.map((obj) => (
+                                  <div key={obj.id} style={{
+                                    display: 'flex',
+                                    alignItems: 'flex-start',
+                                    gap: '8px'
+                                  }}>
+                                    <CheckCircle2 size={16} style={{ color: '#9CA3AF', marginTop: '2px', flexShrink: 0 }} />
+                                    <span style={{
+                                      fontSize: '13px',
+                                      color: '#6B7280',
+                                      lineHeight: '1.4'
+                                    }}>
+                                      {obj.objectiveText}
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {week.referenceMaterials && week.referenceMaterials.length > 0 && (
+                            <div>
+                              <div style={{
+                                fontSize: '13px',
+                                fontWeight: 600,
+                                color: '#1F2937',
+                                marginBottom: '8px'
+                              }}>
+                                Reference Materials
+                              </div>
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                {week.referenceMaterials.map((item, idx) => (
+                                  <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <div style={{ flexShrink: 0, width: '16px' }}>
+                                      {item.isInherited && (
+                                        <BookOpen size={16} style={{ color: '#6B7280' }} />
+                                      )}
+                                    </div>
+                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                      <div style={{
+                                        fontSize: '12px',
+                                        color: '#1F2937',
+                                        marginBottom: '2px'
+                                      }}>
+                                        {item.material.type}
+                                      </div>
+                                      <a
+                                        href={item.material.url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        style={{
+                                          fontSize: '14px',
+                                          color: '#3B82F6',
+                                          textDecoration: 'none',
+                                          display: 'block',
+                                          overflow: 'hidden',
+                                          textOverflow: 'ellipsis',
+                                          whiteSpace: 'nowrap'
+                                        }}
+                                      >
+                                        {item.material.name}
+                                      </a>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </th>
+                  );
+                })}
               </tr>
               {/* Hop Number Row */}
               <tr style={{ backgroundColor: '#F9FAFB', borderBottom: '1px solid #E5E7EB' }}>
@@ -487,24 +784,34 @@ const PTRGrid: React.FC<PTRGridProps> = ({ syllabusId, cycleId, onCellClick }) =
                   width: '220px'
                 }}>
                 </th>
-                {weekInfo.map((week) => (
-                  <th
-                    key={week.weekNumber}
-                    style={{
-                      padding: '2px 16px 12px',
-                      textAlign: 'center',
-                      fontSize: '11px',
-                      fontWeight: 400,
-                      color: '#4B5563',
-                      backgroundColor: hoveredCol === week.weekNumber ? '#F3F4F6' : '#F9FAFB',
-                      whiteSpace: 'nowrap',
-                      width: '90px',
-                      transition: 'background-color 0.1s'
-                    }}
-                  >
-                    {week.missionNumber !== null ? `H${String(week.missionNumber).padStart(2, '0')}` : ''}
-                  </th>
-                ))}
+                {weekInfo.map((week) => {
+                  return (
+                    <th
+                      key={week.weekNumber}
+                      data-week-header
+                      style={{
+                        padding: '2px 16px 12px',
+                        textAlign: 'center',
+                        fontSize: '11px',
+                        fontWeight: 400,
+                        color: '#4B5563',
+                        backgroundColor: hoveredCol === week.weekNumber ? '#F3F4F6' : '#F9FAFB',
+                        whiteSpace: 'nowrap',
+                        width: '90px',
+                        transition: 'background-color 0.1s',
+                        cursor: 'pointer'
+                      }}
+                      onMouseEnter={() => clickedWeekPopup !== week.weekNumber && setHoveredWeekPopup(week.weekNumber)}
+                      onMouseLeave={() => clickedWeekPopup !== week.weekNumber && setHoveredWeekPopup(null)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setClickedWeekPopup(clickedWeekPopup === week.weekNumber ? null : week.weekNumber);
+                      }}
+                    >
+                      {week.missionNumber !== null ? `H${String(week.missionNumber).padStart(2, '0')}` : ''}
+                    </th>
+                  );
+                })}
               </tr>
             </thead>
             <tbody>

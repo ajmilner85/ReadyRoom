@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Card } from '../card';
-import { Check, Send, Users, Bell, Clock, Calendar, Settings, CheckSquare } from 'lucide-react';
+import { Check, Send, Users, Bell, Clock, Calendar, Settings, CheckCircle2 } from 'lucide-react';
 import type { Event } from '../../../types/EventTypes';
 import { publishEventFromCycle, updateEventMultipleDiscordIds } from '../../../utils/discordService';
 import { fetchEvents, supabase } from '../../../utils/supabaseClient';
@@ -798,9 +798,9 @@ const EventDetails: React.FC<EventDetailsProps> = ({
                   border: '1px solid #E5E7EB'
                 }}
               >
-                <CheckSquare
-                  size={20}
-                  style={{ color: '#64748B', flexShrink: 0, marginTop: '2px' }}
+                <CheckCircle2
+                  size={16}
+                  style={{ color: '#9CA3AF', flexShrink: 0, marginTop: '2px' }}
                 />
                 <p style={{ fontSize: '14px', color: '#374151', lineHeight: '1.6', margin: 0 }}>
                   {objective.objective_text}
