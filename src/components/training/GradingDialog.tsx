@@ -1,11 +1,12 @@
 // @ts-nocheck
 import React, { useState, useEffect } from 'react';
-import { X, AlertTriangle, Edit2, Trash2, Plus, ChevronRight, ArrowUpDown } from 'lucide-react';
+import { X, AlertTriangle, Edit2, Trash2, Plus, ChevronRight, ArrowUpDown, BookOpen } from 'lucide-react';
 import { supabase } from '../../utils/supabaseClient';
 import { GradingDialogData, TrainingGrade, DLOGrade, PTRCellData } from '../../types/TrainingTypes';
 import PilotIDBadgeSm from '../ui/PilotIDBadgeSm';
 import { useAppSettings } from '../../context/AppSettingsContext';
 import { ConfirmationDialog } from '../ui/dialogs/ConfirmationDialog';
+import type { ReferenceMaterial } from '../../types/EventTypes';
 
 interface GradingDialogProps {
   cellData: PTRCellData;
@@ -28,6 +29,7 @@ const GradingDialog: React.FC<GradingDialogProps> = ({
   const [dialogData, setDialogData] = useState<GradingDialogData | null>(null);
   const [selectedAttemptIndex, setSelectedAttemptIndex] = useState<number>(-1);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [hoveredAttemptIndex, setHoveredAttemptIndex] = useState<number | null>(null);
 
   // Form state
@@ -52,18 +54,46 @@ const GradingDialog: React.FC<GradingDialogProps> = ({
   const [instructorSortBy, setInstructorSortBy] = useState<'boardNumber' | 'callsign'>('callsign');
   const [hoveredInstructorId, setHoveredInstructorId] = useState<string | null>(null);
 
+  // Reference materials state
+  const [referenceMaterials, setReferenceMaterials] = useState<Array<{ material: ReferenceMaterial; isInherited: boolean }>>([]);
+  const [showReferencesPopup, setShowReferencesPopup] = useState(false);
+  const [isReferencesHovered, setIsReferencesHovered] = useState(false);
+
   useEffect(() => {
     loadDialogData();
   }, [cellData, cycleId]);
+
+  // Close references popup when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (!showReferencesPopup) return;
+
+      const target = event.target as HTMLElement;
+      // Check if click is outside the popup and button
+      if (!target.closest('[data-references-popup]') && !target.closest('[data-references-button]')) {
+        setShowReferencesPopup(false);
+        setIsReferencesHovered(false); // Clear hover state to prevent it from reopening
+      }
+    };
+
+    if (showReferencesPopup) {
+      // Use timeout to avoid the same click that opened the popup from closing it
+      setTimeout(() => {
+        document.addEventListener('mousedown', handleClickOutside);
+      }, 0);
+
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [showReferencesPopup]);
 
   const loadDialogData = async () => {
     try {
       setLoading(true);
 
-      // Get mission details
+      // Get mission details with reference materials
       const { data: missionData, error: missionError } = await supabase
         .from('training_syllabus_missions')
-        .select('id, mission_number, mission_name, week_number')
+        .select('id, mission_number, mission_name, week_number, reference_materials, training_syllabi(reference_materials)')
         .eq('id', cellData.syllabusMissionId)
         .single();
 
@@ -109,19 +139,38 @@ const GradingDialog: React.FC<GradingDialogProps> = ({
         squadronPrimaryColor: activeSquadronAssignment?.org_squadrons?.color_palette?.primary
       });
 
+      // Merge reference materials from syllabus, mission, and event
+      const syllabusRefs = (missionData.training_syllabi as any)?.reference_materials || [];
+      const missionRefs = Array.isArray(missionData.reference_materials) ? missionData.reference_materials : [];
+
       // Get event details if exists
       let eventData = null;
+      let eventRefs: ReferenceMaterial[] = [];
       if (cellData.eventId) {
         const { data: event, error: eventError} = await supabase
           .from('events')
-          .select('id, name, start_datetime')
+          .select('id, name, start_datetime, reference_materials')
           .eq('id', cellData.eventId)
           .single();
 
         if (!eventError && event) {
           eventData = event;
+          eventRefs = Array.isArray(event.reference_materials) ? event.reference_materials : [];
         }
       }
+
+      // Merge reference materials and track which are inherited
+      const inheritedRefs = [...syllabusRefs, ...missionRefs].map(ref => ({ material: ref, isInherited: true }));
+      const eventRefsWithFlag = eventRefs.map(ref => ({ material: ref, isInherited: false }));
+      const allRefsWithFlag = [...inheritedRefs, ...eventRefsWithFlag];
+
+      // Deduplicate by URL
+      const uniqueRefs = allRefsWithFlag.filter((item, index, self) =>
+        index === self.findIndex((r) => r.material.url === item.material.url)
+      );
+
+      console.log('Reference materials loaded:', { syllabusRefs, missionRefs, eventRefs, uniqueRefs });
+      setReferenceMaterials(uniqueRefs);
 
       // Get Individual scope objectives for this mission
       const { data: objectivesData, error: objectivesError } = await supabase
@@ -660,6 +709,20 @@ const GradingDialog: React.FC<GradingDialogProps> = ({
   const hasUnsatDlos = dloGrades.some(dlo => dlo.grade === 'UNSAT');
   const canSave = overallGrade && (!hasIpMismatch || ipMismatchAcknowledged);
 
+  // Check for unsaved changes
+  const hasUnsavedChanges = overallGrade !== null ||
+    overallNotes.trim() !== '' ||
+    dloGrades.some(dlo => dlo.grade !== null) ||
+    Object.values(dloNotes).some(note => note.trim() !== '');
+
+  const handleCancelClick = () => {
+    if (hasUnsavedChanges) {
+      setShowCancelConfirm(true);
+    } else {
+      onClose();
+    }
+  };
+
   return (
     <div
       style={{
@@ -675,7 +738,6 @@ const GradingDialog: React.FC<GradingDialogProps> = ({
         zIndex: 1000,
         padding: '20px'
       }}
-      onClick={onClose}
     >
       <div
         style={{
@@ -716,6 +778,168 @@ const GradingDialog: React.FC<GradingDialogProps> = ({
               Week {dialogData.weekNumber} - H{String(dialogData.missionNumber).padStart(2, '0')}: {dialogData.missionName}
             </div>
           </div>
+
+          {/* Reference Materials Button - positioned to the right */}
+          {referenceMaterials.length > 0 && (
+            <div
+              data-references-button
+              style={{ position: 'absolute', right: '70px', top: '24px' }}
+              onMouseEnter={() => !showReferencesPopup && setIsReferencesHovered(true)}
+              onMouseLeave={() => !showReferencesPopup && setIsReferencesHovered(false)}
+            >
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowReferencesPopup(!showReferencesPopup);
+                }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: '32px',
+                  height: '32px',
+                  backgroundColor: '#F1F5F9',
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  color: '#64748B',
+                  padding: 0
+                }}
+              >
+                <BookOpen size={18} />
+              </button>
+
+              {/* Hover area extension to popup */}
+              {(isReferencesHovered && !showReferencesPopup) && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    top: '100%',
+                    right: 0,
+                    width: '100%',
+                    height: '8px',
+                    pointerEvents: 'auto'
+                  }}
+                />
+              )}
+
+              {/* Hover popup */}
+              {(isReferencesHovered && !showReferencesPopup) && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    top: '100%',
+                    right: 0,
+                    marginTop: '8px',
+                    backgroundColor: '#FFFFFF',
+                    borderRadius: '6px',
+                    padding: '12px',
+                    minWidth: '300px',
+                    maxWidth: '400px',
+                    zIndex: 10000,
+                    boxShadow: '0 10px 25px rgba(0, 0, 0, 0.2)',
+                    pointerEvents: 'auto',
+                    border: '1px solid #E2E8F0'
+                  }}
+                >
+                  <div style={{ fontSize: '13px', fontWeight: 600, color: '#1F2937', marginBottom: '8px' }}>
+                    Reference Materials
+                  </div>
+                  {referenceMaterials.map((item, idx) => (
+                    <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: idx < referenceMaterials.length - 1 ? '8px' : '0' }}>
+                      {item.isInherited && (
+                        <div style={{ flexShrink: 0 }}>
+                          <BookOpen size={16} style={{ color: '#6B7280' }} />
+                        </div>
+                      )}
+                      {!item.isInherited && (
+                        <div style={{ width: '16px', flexShrink: 0 }} />
+                      )}
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: '12px', color: '#1F2937', marginBottom: '2px' }}>
+                          {item.material.type}
+                        </div>
+                        <a
+                          href={item.material.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{
+                            fontSize: '14px',
+                            color: '#3B82F6',
+                            textDecoration: 'none',
+                            display: 'block',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap'
+                          }}
+                        >
+                          {item.material.name}
+                        </a>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Clicked popup - stays open */}
+              {showReferencesPopup && (
+                <div
+                  data-references-popup
+                  style={{
+                    position: 'absolute',
+                    top: '100%',
+                    right: 0,
+                    marginTop: '8px',
+                    backgroundColor: '#FFFFFF',
+                    borderRadius: '6px',
+                    padding: '12px',
+                    minWidth: '300px',
+                    maxWidth: '400px',
+                    zIndex: 10000,
+                    boxShadow: '0 10px 25px rgba(0, 0, 0, 0.2)',
+                    border: '1px solid #E2E8F0'
+                  }}
+                >
+                  <div style={{ fontSize: '13px', fontWeight: 600, color: '#1F2937', marginBottom: '8px' }}>
+                    Reference Materials
+                  </div>
+                  {referenceMaterials.map((item, idx) => (
+                    <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: idx < referenceMaterials.length - 1 ? '8px' : '0' }}>
+                      {item.isInherited && (
+                        <div style={{ flexShrink: 0 }}>
+                          <BookOpen size={16} style={{ color: '#6B7280' }} />
+                        </div>
+                      )}
+                      {!item.isInherited && (
+                        <div style={{ width: '16px', flexShrink: 0 }} />
+                      )}
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: '12px', color: '#1F2937', marginBottom: '2px' }}>
+                          {item.material.type}
+                        </div>
+                        <a
+                          href={item.material.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{
+                            fontSize: '14px',
+                            color: '#3B82F6',
+                            textDecoration: 'none',
+                            display: 'block',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap'
+                          }}
+                        >
+                          {item.material.name}
+                        </a>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
           <button
             onClick={onClose}
@@ -851,7 +1075,6 @@ const GradingDialog: React.FC<GradingDialogProps> = ({
                   }}
                   style={{
                     marginLeft: 'auto',
-                    marginRight: '16px',
                     padding: '6px',
                     backgroundColor: 'white',
                     border: '1px solid #E2E8F0',
@@ -860,7 +1083,8 @@ const GradingDialog: React.FC<GradingDialogProps> = ({
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    transition: 'all 0.15s ease'
+                    transition: 'all 0.15s ease',
+                    flexShrink: 0
                   }}
                   onMouseEnter={(e) => {
                     e.currentTarget.style.backgroundColor = '#F1F5F9';
@@ -1383,7 +1607,7 @@ const GradingDialog: React.FC<GradingDialogProps> = ({
           >
             <div style={{ display: 'flex', gap: '12px' }}>
               <button
-                onClick={onClose}
+                onClick={handleCancelClick}
                 disabled={saving}
                 style={{
                   padding: '10px 20px',
@@ -1429,6 +1653,17 @@ const GradingDialog: React.FC<GradingDialogProps> = ({
         cancelText="Cancel"
         type="danger"
         icon="trash"
+      />
+
+      <ConfirmationDialog
+        isOpen={showCancelConfirm}
+        onConfirm={onClose}
+        onCancel={() => setShowCancelConfirm(false)}
+        title="Discard Changes"
+        message="You have unsaved changes. Are you sure you want to discard them?"
+        confirmText="Discard"
+        cancelText="Keep Editing"
+        type="warning"
       />
 
       {/* Instructor Selection Dialog */}
