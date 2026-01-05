@@ -559,15 +559,27 @@ const PTRGrid: React.FC<PTRGridProps> = ({ syllabusId, cycleId, onCellClick }) =
                         fontWeight: 500,
                         color: '#6B7280',
                         textTransform: 'uppercase',
-                        backgroundColor: hoveredCol === week.weekNumber ? '#F3F4F6' : '#F9FAFB',
+                        backgroundColor: (hoveredCol === week.weekNumber || clickedWeekPopup === week.weekNumber) ? '#E5E7EB' : '#F9FAFB',
                         whiteSpace: 'nowrap',
                         width: '90px',
                         transition: 'background-color 0.1s',
                         position: 'relative',
                         cursor: hasContent ? 'pointer' : 'default'
                       }}
-                      onMouseEnter={() => hasContent && clickedWeekPopup !== week.weekNumber && setHoveredWeekPopup(week.weekNumber)}
-                      onMouseLeave={() => clickedWeekPopup !== week.weekNumber && setHoveredWeekPopup(null)}
+                      onMouseEnter={() => {
+                        if (hasContent) {
+                          setHoveredCol(week.weekNumber);
+                          if (clickedWeekPopup === null) {
+                            setHoveredWeekPopup(week.weekNumber);
+                          }
+                        }
+                      }}
+                      onMouseLeave={() => {
+                        setHoveredCol(null);
+                        if (clickedWeekPopup === null) {
+                          setHoveredWeekPopup(null);
+                        }
+                      }}
                       onClick={(e) => {
                         if (hasContent) {
                           e.stopPropagation();
@@ -585,7 +597,7 @@ const PTRGrid: React.FC<PTRGridProps> = ({ syllabusId, cycleId, onCellClick }) =
                           transform: 'translateX(-50%)',
                           top: '100%',
                           width: '8px',
-                          height: '8px',
+                          height: '30px',
                           pointerEvents: 'auto',
                           zIndex: 1002
                         }} />
@@ -599,7 +611,7 @@ const PTRGrid: React.FC<PTRGridProps> = ({ syllabusId, cycleId, onCellClick }) =
                             position: 'absolute',
                             left: '50%',
                             transform: 'translateX(-50%)',
-                            top: 'calc(100% + 8px)',
+                            top: 'calc(100% + 30px)',
                             backgroundColor: '#FFFFFF',
                             border: '1px solid #E5E7EB',
                             borderRadius: '8px',
@@ -795,14 +807,24 @@ const PTRGrid: React.FC<PTRGridProps> = ({ syllabusId, cycleId, onCellClick }) =
                         fontSize: '11px',
                         fontWeight: 400,
                         color: '#4B5563',
-                        backgroundColor: hoveredCol === week.weekNumber ? '#F3F4F6' : '#F9FAFB',
+                        backgroundColor: (hoveredCol === week.weekNumber || clickedWeekPopup === week.weekNumber) ? '#E5E7EB' : '#F9FAFB',
                         whiteSpace: 'nowrap',
                         width: '90px',
                         transition: 'background-color 0.1s',
                         cursor: 'pointer'
                       }}
-                      onMouseEnter={() => clickedWeekPopup !== week.weekNumber && setHoveredWeekPopup(week.weekNumber)}
-                      onMouseLeave={() => clickedWeekPopup !== week.weekNumber && setHoveredWeekPopup(null)}
+                      onMouseEnter={() => {
+                        setHoveredCol(week.weekNumber);
+                        if (clickedWeekPopup === null) {
+                          setHoveredWeekPopup(week.weekNumber);
+                        }
+                      }}
+                      onMouseLeave={() => {
+                        setHoveredCol(null);
+                        if (clickedWeekPopup === null) {
+                          setHoveredWeekPopup(null);
+                        }
+                      }}
                       onClick={(e) => {
                         e.stopPropagation();
                         setClickedWeekPopup(clickedWeekPopup === week.weekNumber ? null : week.weekNumber);

@@ -14,8 +14,8 @@
  * - Production CORS configuration for Vercel frontend
  * 
  * DEPLOYMENT CONTEXT:
- * - This file combines both server/index.js and Discord bot functionality
- * - Used exclusively for Fly.io production deployment
+ * - Combined Express API and Discord bot in one service
+ * - Used for both Fly.io production deployment and local development
  * - Includes complete API surface that frontend depends on
  * - Configured for production environment with proper CORS origins
  */
@@ -53,7 +53,8 @@ const {
   shouldUseThreadsForEvent,
   createThreadFromMessage,
   getExistingThreadFromMessage,
-  deleteThread
+  deleteThread,
+  switchDiscordBot
 } = require('./discordBot');
 
 // Import Supabase client (path adjusted for SDOBot directory)
@@ -142,14 +143,102 @@ app.post('/api/settings/timezone', async (req, res) => {
   }
 });
 
+// API endpoint to switch Discord bot token (local development only)
+if (process.env.NODE_ENV !== 'production') {
+  app.post('/api/discord/switch-bot', async (req, res) => {
+    try {
+      const { tokenType } = req.body;
+
+      if (!tokenType || !['development', 'production'].includes(tokenType)) {
+        return res.status(400).json({ error: 'Valid tokenType (development or production) is required' });
+      }
+
+      console.log(`[BOT-SWITCH] Switching to ${tokenType} Discord bot token...`);
+
+      // Get the actual bot token from environment variables
+      const botToken = tokenType === 'production'
+        ? process.env.BOT_TOKEN_PROD || process.env.BOT_TOKEN
+        : process.env.BOT_TOKEN_DEV;
+
+      if (!botToken) {
+        const error = `${tokenType} bot token not found in environment variables`;
+        console.error(`[BOT-SWITCH] ${error}`);
+        return res.status(500).json({ error });
+      }
+
+      // Call the bot switching function
+      const result = await switchDiscordBot(botToken);
+
+      if (result.success) {
+        console.log(`[BOT-SWITCH] Successfully switched to ${tokenType} Discord bot: ${result.botInfo?.username}#${result.botInfo?.discriminator}`);
+        res.json({
+          success: true,
+          message: `Discord bot switched to ${tokenType} successfully`,
+          tokenType: tokenType,
+          botInfo: result.botInfo
+        });
+      } else {
+        console.error(`[BOT-SWITCH] Failed to switch Discord bot:`, result.error);
+        res.status(500).json({
+          error: result.error || 'Failed to switch Discord bot token'
+        });
+      }
+    } catch (error) {
+      console.error('[BOT-SWITCH] Error switching Discord bot token:', error);
+      res.status(500).json({
+        error: error.message || 'Failed to switch Discord bot token'
+      });
+    }
+  });
+}
+
 // Initialize Discord bot and client connection
 (async function() {
   try {
     console.log('Initializing Discord bot and client connection...');
     await initializeDiscordBot();
     
-    // Login the persistent client
-    await discordClient.login(process.env.BOT_TOKEN);
+    // In local development, check database for bot token preference and switch if needed
+    if (process.env.NODE_ENV !== 'production') {
+      try {
+        // Get user profiles with bot token preferences
+        const { data: userProfiles, error } = await supabase
+          .from('user_profiles')
+          .select('settings, pilot_id, auth_user_id')
+          .not('pilot_id', 'is', null)
+          .order('updated_at', { ascending: false });
+
+        if (!error && userProfiles && userProfiles.length > 0) {
+          console.log(`[STARTUP] Found ${userProfiles.length} user profiles with pilot_id`);
+
+          // Find the most recently updated profile with a bot token preference
+          const profileWithPreference = userProfiles.find(p => p.settings?.developer?.discordBotToken);
+
+          if (profileWithPreference) {
+            const tokenType = profileWithPreference.settings.developer.discordBotToken;
+            console.log(`[STARTUP] Found bot token preference: ${tokenType} from user ${profileWithPreference.auth_user_id}`);
+
+            const botToken = tokenType === 'production'
+              ? process.env.BOT_TOKEN_PROD || process.env.BOT_TOKEN
+              : process.env.BOT_TOKEN_DEV;
+
+            if (botToken && botToken !== process.env.BOT_TOKEN) {
+              console.log(`[STARTUP] Switching to ${tokenType} Discord bot from user settings...`);
+              await switchDiscordBot(botToken);
+            } else {
+              console.log(`[STARTUP] Using default bot token (${tokenType} token not found or same as default)`);
+            }
+          } else {
+            console.log('[STARTUP] No bot token preference found in any user profile, using default BOT_TOKEN');
+          }
+        } else {
+          console.log('[STARTUP] No user profiles found, using default BOT_TOKEN');
+        }
+      } catch (dbError) {
+        console.warn('[STARTUP] Could not read bot token preference from database, using default:', dbError.message);
+      }
+    }
+    
     console.log('Discord client connection established successfully');
     
     // Log that the bot has been restarted (useful for debugging)
@@ -2465,6 +2554,381 @@ async function markReminderAsSent(reminderId) {
   }
 }
 
+// Helper function to convert UUID to integer for advisory lock
+// Uses first 16 hex characters (64 bits) of UUID as lock key
+function uuidToLockKey(uuid) {
+  // Remove dashes and take first 16 hex chars (64 bits)
+  const hex = uuid.replace(/-/g, '').substring(0, 16);
+  // Convert to BigInt then to Number (PostgreSQL bigint is 64-bit signed integer)
+  // We need to ensure it fits in signed 64-bit range (-2^63 to 2^63-1)
+  const value = BigInt('0x' + hex);
+  // Convert to signed by checking if high bit is set
+  const maxInt64 = BigInt('0x7FFFFFFFFFFFFFFF');
+  if (value > maxInt64) {
+    return Number(value - BigInt('0x10000000000000000'));
+  }
+  return Number(value);
+}
+
+// Process scheduled event publications
+async function processScheduledPublications() {
+  try {
+    console.log('[SCHEDULED-PUBLICATIONS] Checking for pending publications...');
+
+    const now = new Date().toISOString();
+    const { data: pendingPublications, error: fetchError} = await supabase
+      .from('scheduled_event_publications')
+      .select(`
+        id,
+        event_id,
+        scheduled_time,
+        events (
+          id,
+          name,
+          description,
+          start_datetime,
+          end_datetime,
+          participants,
+          event_settings,
+          image_url,
+          discord_event_id
+        )
+      `)
+      .eq('sent', false)
+      .lte('scheduled_time', now)
+      .order('scheduled_time', { ascending: true });
+
+    if (fetchError) {
+      console.error('[SCHEDULED-PUBLICATIONS] Error fetching pending publications:', fetchError);
+      return { processed: 0, errors: [{ publicationId: 'fetch', error: fetchError }] };
+    }
+
+    if (!pendingPublications || pendingPublications.length === 0) {
+      console.log('[SCHEDULED-PUBLICATIONS] No pending publications found');
+      return { processed: 0, errors: [] };
+    }
+
+    console.log(`[SCHEDULED-PUBLICATIONS] Found ${pendingPublications.length} pending publications`);
+
+    let processed = 0;
+    let skipped = 0;
+    const errors = [];
+
+    // Generate instance ID for debugging
+    const instanceId = process.env.INSTANCE_ID || `pid-${process.pid}-${Math.random().toString(36).substring(7)}`;
+
+    // Process each publication with distributed locking
+    for (const publication of pendingPublications) {
+      const lockKey = uuidToLockKey(publication.id);
+      let lockAcquired = false;
+
+      try {
+        // Try to acquire advisory lock for this publication
+        const { data: lockResult, error: lockError } = await supabase
+          .rpc('try_acquire_reminder_lock', { lock_key: lockKey });
+
+        if (lockError) {
+          console.error(`[SCHEDULED-PUBLICATIONS] Instance ${instanceId}: Error acquiring lock for publication ${publication.id}:`, lockError);
+          errors.push({ publicationId: publication.id, error: lockError });
+          continue;
+        }
+
+        if (!lockResult) {
+          // Lock is held by another bot instance
+          console.log(`[SCHEDULED-PUBLICATIONS] Instance ${instanceId}: Publication ${publication.id} is being processed by another instance, skipping`);
+          skipped++;
+          continue;
+        }
+
+        lockAcquired = true;
+        console.log(`[SCHEDULED-PUBLICATIONS] Instance ${instanceId}: ACQUIRED LOCK for publication ${publication.id}`);
+
+        // Validate event data exists
+        if (!publication.events) {
+          console.error(`[SCHEDULED-PUBLICATIONS] Event data not found for publication ${publication.id}`);
+          errors.push({ publicationId: publication.id, error: 'Event data not found' });
+          continue;
+        }
+
+        const event = publication.events;
+        console.log(`[SCHEDULED-PUBLICATIONS] Publishing event "${event.name}" (ID: ${event.id})`);
+
+        // Check if event is already published (has discord_event_id)
+        if (event.discord_event_id && (Array.isArray(event.discord_event_id) ? event.discord_event_id.length > 0 : event.discord_event_id)) {
+          console.log(`[SCHEDULED-PUBLICATIONS] Event ${event.id} is already published, marking scheduled publication as sent and skipping`);
+
+          // Mark this scheduled publication as sent to prevent re-publishing
+          await supabase
+            .from('scheduled_event_publications')
+            .update({ sent: true, updated_at: new Date().toISOString() })
+            .eq('id', publication.id);
+
+          processed++;
+          continue;
+        }
+
+        // Get participating squadrons
+        const participatingSquadrons = event.participants || [];
+        if (participatingSquadrons.length === 0) {
+          console.warn(`[SCHEDULED-PUBLICATIONS] Event ${event.id} has no participating squadrons, skipping`);
+          errors.push({ publicationId: publication.id, error: 'No participating squadrons' });
+          continue;
+        }
+
+        // Get event settings for initial notification roles
+        let initialNotificationRoles = [];
+        if (event.event_settings) {
+          try {
+            const settings = typeof event.event_settings === 'string'
+              ? JSON.parse(event.event_settings)
+              : event.event_settings;
+            initialNotificationRoles = settings.initialNotificationRoles || [];
+          } catch (error) {
+            console.warn('[SCHEDULED-PUBLICATIONS] Failed to parse event settings:', error);
+          }
+        }
+
+        // Build unique channels map to deduplicate publications to the same channel
+        const uniqueChannels = new Map();
+
+        for (const squadronId of participatingSquadrons) {
+          // Get Discord integration for this squadron from org_squadrons
+          const { data: squadronData, error: squadronError } = await supabase
+            .from('org_squadrons')
+            .select('discord_integration')
+            .eq('id', squadronId)
+            .single();
+
+          if (squadronError || !squadronData?.discord_integration) {
+            console.warn(`[SCHEDULED-PUBLICATIONS] No Discord integration found for squadron ${squadronId}`);
+            continue;
+          }
+
+          const integration = squadronData.discord_integration;
+          const guildId = integration.selectedGuildId;
+
+          // Find the events channel from discordChannels array
+          const eventsChannel = integration.discordChannels?.find(ch => ch.type === 'events');
+          const channelId = eventsChannel?.id;
+
+          if (!guildId || !channelId) {
+            console.warn(`[SCHEDULED-PUBLICATIONS] Incomplete Discord integration for squadron ${squadronId} (guildId: ${guildId}, channelId: ${channelId})`);
+            continue;
+          }
+
+          // Create unique key for guild+channel combination
+          const channelKey = `${guildId}:${channelId}`;
+
+          if (uniqueChannels.has(channelKey)) {
+            // Add this squadron to existing channel entry
+            const existing = uniqueChannels.get(channelKey);
+            existing.squadronIds.push(squadronId);
+          } else {
+            // Create new channel entry
+            uniqueChannels.set(channelKey, {
+              guildId,
+              channelId,
+              squadronIds: [squadronId]
+            });
+          }
+        }
+
+        console.log(`[SCHEDULED-PUBLICATIONS] Found ${uniqueChannels.size} unique channels for ${participatingSquadrons.length} squadrons`);
+
+        // Publish to each unique channel once
+        let publishedCount = 0;
+        const publishedChannels = []; // Collect all successful publications
+
+        for (const [channelKey, channelInfo] of uniqueChannels) {
+          // Publish event to Discord
+          const eventOptions = {
+            trackQualifications: event.event_settings?.trackQualifications || false,
+            eventType: event.event_settings?.eventType || 'Episode',
+            participatingSquadrons: event.participants || [],
+            initialNotificationRoles: initialNotificationRoles || [],
+            groupBySquadron: event.event_settings?.groupBySquadron || false,
+            showNoResponse: event.event_settings?.showNoResponse || false
+          };
+
+          // Format the event time object with start and end dates
+          const eventTime = {
+            start: new Date(event.start_datetime),
+            end: event.end_datetime ? new Date(event.end_datetime) : new Date(new Date(event.start_datetime).getTime() + (60 * 60 * 1000))
+          };
+
+          // Extract image URL - handle both string and object formats
+          let imageUrl = null;
+          if (event.image_url) {
+            if (typeof event.image_url === 'string') {
+              imageUrl = event.image_url;
+            } else if (typeof event.image_url === 'object') {
+              // If it's an object, try to extract the URL from common properties
+              imageUrl = event.image_url.url || event.image_url.headerImage || event.image_url.imageUrl || null;
+              console.log(`[SCHEDULED-PUBLICATIONS] image_url is object, extracted: ${imageUrl || 'FAILED TO EXTRACT'}`);
+              console.log(`[SCHEDULED-PUBLICATIONS] image_url object keys:`, Object.keys(event.image_url));
+            }
+          }
+
+          console.log(`[SCHEDULED-PUBLICATIONS] Using imageUrl: ${imageUrl || 'NOT SET'}`);
+
+          const publishResult = await publishEventToDiscord(
+            event.name,
+            event.description,
+            eventTime,
+            channelInfo.guildId,
+            channelInfo.channelId,
+            imageUrl,
+            null, // creator parameter (can be enhanced later)
+            null, // images parameter
+            eventOptions,
+            null // Do NOT pass eventId - let server handle database update
+          );
+
+          if (publishResult.success) {
+            console.log(`[SCHEDULED-PUBLICATIONS] Successfully published event to channel ${channelInfo.channelId}, messageId: ${publishResult.messageId}`);
+            publishedCount++;
+            
+            // Add a result for each squadron that shares this channel
+            for (const squadronId of channelInfo.squadronIds) {
+              publishedChannels.push({
+                messageId: publishResult.messageId,
+                guildId: publishResult.guildId,
+                channelId: publishResult.channelId,
+                squadronId: squadronId
+              });
+            }
+          } else {
+            console.error(`[SCHEDULED-PUBLICATIONS] Failed to publish to channel ${channelInfo.channelId}:`, publishResult.error);
+            // Add errors for all squadrons that share this failed channel
+            for (const squadronId of channelInfo.squadronIds) {
+              errors.push({
+                publicationId: publication.id,
+                squadronId,
+                error: publishResult.error
+              });
+            }
+          }
+        }
+
+        if (publishedCount > 0) {
+          // Update event with Discord message IDs using the same structure as updateEventMultipleDiscordIds
+          console.log(`[SCHEDULED-PUBLICATIONS] Updating event ${event.id} with ${publishedChannels.length} Discord publications:`, publishedChannels);
+
+          const { error: updateError } = await supabase
+            .from('events')
+            .update({ discord_event_id: publishedChannels })
+            .eq('id', event.id);
+
+          if (updateError) {
+            console.error(`[SCHEDULED-PUBLICATIONS] Failed to update event with Discord IDs:`, updateError);
+          } else {
+            console.log(`[SCHEDULED-PUBLICATIONS] Successfully updated event ${event.id} with Discord message IDs`);
+          }
+
+          // Mark publication as sent
+          await supabase
+            .from('scheduled_event_publications')
+            .update({ sent: true, updated_at: new Date().toISOString() })
+            .eq('id', publication.id);
+
+          processed++;
+          console.log(`[SCHEDULED-PUBLICATIONS] Successfully published event ${event.id} to ${publishedCount} squadron(s)`);
+        } else {
+          console.error(`[SCHEDULED-PUBLICATIONS] Failed to publish event ${event.id} to any squadrons`);
+          errors.push({ publicationId: publication.id, error: 'Failed to publish to any squadrons' });
+        }
+
+      } catch (error) {
+        console.error(`[SCHEDULED-PUBLICATIONS] Error processing publication ${publication.id}:`, error);
+        errors.push({ publicationId: publication.id, error });
+      } finally {
+        // Always release the lock if we acquired it
+        if (lockAcquired) {
+          try {
+            const { error: unlockError } = await supabase
+              .rpc('release_reminder_lock', { lock_key: lockKey });
+
+            if (unlockError) {
+              console.warn(`[SCHEDULED-PUBLICATIONS] Error releasing lock for publication ${publication.id}:`, unlockError);
+            } else {
+              console.log(`[SCHEDULED-PUBLICATIONS] Released lock for publication ${publication.id}`);
+            }
+          } catch (unlockError) {
+            console.warn(`[SCHEDULED-PUBLICATIONS] Failed to release lock for publication ${publication.id}:`, unlockError);
+          }
+        }
+      }
+    }
+
+    console.log(`[SCHEDULED-PUBLICATIONS] Completed: ${processed} processed, ${skipped} skipped (locked by other instances), ${errors.length} errors`);
+    return { processed, skipped, errors };
+  } catch (error) {
+    console.error('[SCHEDULED-PUBLICATIONS] Error in processScheduledPublications:', error);
+    return { processed: 0, skipped: 0, errors: [{ publicationId: 'general', error }] };
+  }
+}
+
+// Process concluded events and remove response buttons
+async function processConcludedEvents() {
+  try {
+    console.log('[CONCLUDED-EVENTS] Checking for concluded events...');
+
+    const now = new Date().toISOString();
+
+    // Find events that have concluded but haven't had buttons removed yet
+    const { data: concludedEvents, error: fetchError } = await supabase
+      .from('events')
+      .select('id, name, end_datetime, discord_event_id, buttons_removed')
+      .lte('end_datetime', now)
+      .neq('buttons_removed', true)
+      .not('discord_event_id', 'is', null);
+
+    if (fetchError) {
+      console.error('[CONCLUDED-EVENTS] Error fetching concluded events:', fetchError);
+      return { processed: 0, errors: [fetchError] };
+    }
+
+    if (!concludedEvents || concludedEvents.length === 0) {
+      console.log('[CONCLUDED-EVENTS] No concluded events found');
+      return { processed: 0, errors: [] };
+    }
+
+    console.log(`[CONCLUDED-EVENTS] Found ${concludedEvents.length} concluded events with buttons to remove`);
+
+    let processed = 0;
+    const errors = [];
+
+    for (const event of concludedEvents) {
+      try {
+        // NOTE: Button removal and "Event Finished" text is handled by the Discord bot's
+        // countdown manager in SDOBot. The server-side processor only marks events as
+        // processed in the database so they don't get checked repeatedly.
+        // The actual Discord message updates happen in SDOBot/lib/countdownManager.js
+
+        console.log(`[CONCLUDED-EVENTS] Marking event "${event.name}" as processed (Discord bot will handle final updates)`);
+
+        // Mark event as having buttons removed (Discord bot will actually remove them)
+        await supabase
+          .from('events')
+          .update({ buttons_removed: true })
+          .eq('id', event.id);
+
+        processed++;
+        console.log(`[CONCLUDED-EVENTS] Processed concluded event "${event.name}" (${event.id})`);
+      } catch (error) {
+        console.error(`[CONCLUDED-EVENTS] Error processing event ${event.id}:`, error);
+        errors.push({ eventId: event.id, error });
+      }
+    }
+
+    console.log(`[CONCLUDED-EVENTS] Completed: ${processed} processed, ${errors.length} errors`);
+    return { processed, errors };
+  } catch (error) {
+    console.error('[CONCLUDED-EVENTS] Error in processConcludedEvents:', error);
+    return { processed: 0, errors: [{ error }] };
+  }
+}
+
 // Process mission status updates based on event timing
 async function processMissionStatusUpdates() {
   try {
@@ -2569,6 +3033,16 @@ function startReminderProcessor() {
     console.error('Error in initial reminder processing:', error);
   });
 
+  // Process scheduled publications immediately
+  processScheduledPublications().catch(error => {
+    console.error('Error in initial scheduled publications processing:', error);
+  });
+
+  // Process concluded events immediately
+  processConcludedEvents().catch(error => {
+    console.error('Error in initial concluded events processing:', error);
+  });
+
   // Process mission status updates immediately
   processMissionStatusUpdates().catch(error => {
     console.error('Error in initial mission status updates processing:', error);
@@ -2578,6 +3052,12 @@ function startReminderProcessor() {
   reminderIntervalId = setInterval(() => {
     processReminders().catch(error => {
       console.error('Error in scheduled reminder processing:', error);
+    });
+    processScheduledPublications().catch(error => {
+      console.error('Error in scheduled publications processing:', error);
+    });
+    processConcludedEvents().catch(error => {
+      console.error('Error in scheduled concluded events processing:', error);
     });
     processMissionStatusUpdates().catch(error => {
       console.error('Error in scheduled mission status updates processing:', error);
