@@ -22,8 +22,47 @@ async function upsertEventAttendance({
   userResponse
 }) {
   try {
-    // Simple insert - let each legitimate user interaction create a new record
-    // This preserves the complete audit trail of user responses
+    // Check for existing record within debounce window (60 seconds)
+    // This prevents mis-clicks from creating duplicate records while preserving audit trail for intentional changes
+    const debounceWindowMs = 60 * 1000;
+    const cutoffTime = new Date(Date.now() - debounceWindowMs).toISOString();
+    
+    const { data: recentRecord, error: fetchError } = await supabase
+      .from('discord_event_attendance')
+      .select('*')
+      .eq('discord_id', discordUserId)
+      .eq('discord_event_id', discordEventId)
+      .gte('created_at', cutoffTime)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    
+    if (fetchError) {
+      console.error('Error checking for recent attendance:', fetchError);
+      return { error: fetchError };
+    }
+    
+    // If recent record exists (within 60s), UPDATE it (debounce mis-clicks)
+    if (recentRecord) {
+      const { data, error } = await supabase
+        .from('discord_event_attendance')
+        .update({
+          user_response: userResponse,
+          discord_username: discordUsername,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', recentRecord.id)
+        .select();
+      
+      if (error) {
+        console.error('Error updating attendance:', error);
+        return { error };
+      }
+      console.log(`Updated recent response for ${discordUsername} (debounced within 60s)`);
+      return { data };
+    }
+    
+    // Otherwise, INSERT new record (preserves audit trail for intentional changes)
     const { data, error } = await supabase
       .from('discord_event_attendance')
       .insert({
@@ -33,12 +72,12 @@ async function upsertEventAttendance({
         user_response: userResponse
       })
       .select();
-
+    
     if (error) {
       console.error('Error inserting attendance:', error);
       return { error };
     }
-
+    
     console.log(`Successfully recorded ${userResponse} response for ${discordUsername}`);
     return { data };
   } catch (error) {
