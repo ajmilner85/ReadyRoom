@@ -5,6 +5,7 @@ import { getPilotByDiscordId } from '../../../utils/pilotService';
 import type { Pilot } from '../../../types/PilotTypes';
 import { fetchCycles } from '../../../utils/supabaseClient';
 import { getBatchPilotQualifications, getAllQualifications } from '../../../utils/qualificationService';
+import { getCycleEnrollments } from '../../../utils/trainingEnrollmentService';
 
 interface EventAttendanceProps {
   event: Event | null;
@@ -46,6 +47,7 @@ const EventAttendance: React.FC<EventAttendanceProps> = ({ event }) => {
   const [pollInterval, setPollInterval] = useState<NodeJS.Timeout | null>(null);
   const [cycles, setCycles] = useState<Cycle[]>([]);
   const [qualificationConfigs, setQualificationConfigs] = useState<any[]>([]);
+  const [enrolledTraineePilotIds, setEnrolledTraineePilotIds] = useState<Set<string>>(new Set());
 
   // Load qualification configs once on component mount
   useEffect(() => {
@@ -189,6 +191,33 @@ const EventAttendance: React.FC<EventAttendanceProps> = ({ event }) => {
     loadCycles();
   }, []);
 
+  // Load enrolled trainees when event's cycle changes
+  useEffect(() => {
+    const loadEnrolledTrainees = async () => {
+      if (!event?.cycleId) {
+        setEnrolledTraineePilotIds(new Set());
+        return;
+      }
+
+      const cycle = cycles.find(c => c.id === event.cycleId);
+      if (cycle?.type !== 'Training') {
+        setEnrolledTraineePilotIds(new Set());
+        return;
+      }
+
+      try {
+        const enrollments = await getCycleEnrollments(event.cycleId);
+        const enrolledIds = new Set(enrollments.map(e => e.pilot_id));
+        setEnrolledTraineePilotIds(enrolledIds);
+      } catch (error) {
+        console.error('Failed to load training enrollments:', error);
+        setEnrolledTraineePilotIds(new Set());
+      }
+    };
+
+    loadEnrolledTrainees();
+  }, [event?.cycleId, cycles]);
+
   // Start polling when event changes
   useEffect(() => {
     // Clear existing interval if any
@@ -218,6 +247,29 @@ const EventAttendance: React.FC<EventAttendanceProps> = ({ event }) => {
     };
   }, [event?.id]);
 
+  // Sort qualification groups based on event type
+  const sortQualificationGroups = (groups: [string, AttendanceData[]][]) => {
+    const isTrainingEvent = event?.eventType === 'Hop' ||
+                            (event?.cycleId && cycles.find(c => c.id === event.cycleId)?.type === 'Training');
+
+    return groups.sort(([nameA], [nameB]) => {
+      if (isTrainingEvent) {
+        // Custom order: Instructor Pilots → Trainee → Squadron groups (alphabetical)
+        if (nameA === 'Instructor Pilots') return -1;
+        if (nameB === 'Instructor Pilots') return 1;
+        if (nameA === 'Trainee') return -1;
+        if (nameB === 'Trainee') return 1;
+        // Both are squadron names, sort alphabetically
+        return nameA.localeCompare(nameB);
+      }
+
+      // For non-training events, sort by qualification order
+      const qualA = qualificationConfigs.find(q => q.name === nameA);
+      const qualB = qualificationConfigs.find(q => q.name === nameB);
+      return (qualA?.order ?? 999) - (qualB?.order ?? 999);
+    });
+  };
+
   // Separate attendees with and without pilot records, with qualification grouping
   const getAttendeesByStatus = (status: 'accepted' | 'declined' | 'tentative'): {
     attendeesWithPilots: AttendanceData[];
@@ -242,21 +294,53 @@ const EventAttendance: React.FC<EventAttendanceProps> = ({ event }) => {
                               (event?.cycleId && cycles.find(c => c.id === event.cycleId)?.type === 'Training');
       
       if (isTrainingEvent) {
-        // Training events: Group by IP and Trainee
-        const instructorPilots = attendeesWithPilots.filter(a => 
+        // Training events: Group by IP, Enrolled Trainees, and Squadron
+        const instructorPilots = attendeesWithPilots.filter(a =>
           a.pilotRecord?.qualifications?.some((q: any) => q.type === 'Instructor Pilot')
         );
-        
-        const trainees = attendeesWithPilots.filter(a => 
-          !a.pilotRecord?.qualifications?.some((q: any) => q.type === 'Instructor Pilot')
+
+        const enrolledTrainees = attendeesWithPilots.filter(a =>
+          !a.pilotRecord?.qualifications?.some((q: any) => q.type === 'Instructor Pilot') &&
+          a.pilotRecord?.id && enrolledTraineePilotIds.has(a.pilotRecord.id)
         );
 
-        return { 
+        // Non-IP, non-enrolled pilots grouped by squadron
+        const otherPilots = attendeesWithPilots.filter(a =>
+          !a.pilotRecord?.qualifications?.some((q: any) => q.type === 'Instructor Pilot') &&
+          (!a.pilotRecord?.id || !enrolledTraineePilotIds.has(a.pilotRecord.id))
+        );
+
+        // Group by squadron_id, but use designation as the key for display
+        const squadronGroups: Record<string, AttendanceData[]> = {};
+        const squadronDesignations: Record<string, string> = {}; // Map squadron_id → designation
+
+        otherPilots.forEach(pilot => {
+          const squadronId = pilot.pilotRecord?.currentSquadron?.id || 'no-squadron';
+          const designation = pilot.pilotRecord?.currentSquadron?.designation || 'No Squadron';
+
+          // Store the designation for this squadron_id
+          if (!squadronDesignations[squadronId]) {
+            squadronDesignations[squadronId] = designation;
+          }
+
+          if (!squadronGroups[squadronId]) squadronGroups[squadronId] = [];
+          squadronGroups[squadronId].push(pilot);
+        });
+
+        // Convert squadron groups to use designation as keys for display
+        const displayGroups: Record<string, AttendanceData[]> = {};
+        Object.entries(squadronGroups).forEach(([squadronId, pilots]) => {
+          const designation = squadronDesignations[squadronId];
+          displayGroups[designation] = pilots;
+        });
+
+        return {
           attendeesWithPilots: [], // Empty for standard display
           attendeesWithoutPilots,
           qualificationGroups: {
             'Instructor Pilots': instructorPilots,
-            'Trainees': trainees
+            'Trainee': enrolledTrainees,
+            ...displayGroups
           }
         };
       } else {
@@ -486,16 +570,11 @@ const EventAttendance: React.FC<EventAttendanceProps> = ({ event }) => {
         {/* Pilots with records - either grouped by qualification or standard list */}
         {(() => {
           const statusData = getAttendeesByStatus('accepted');
-          
+
           // If qualification groups exist, render them
           if (statusData.qualificationGroups) {
-            // Sort qualification groups by their order in the qualifications table
-            const sortedGroups = Object.entries(statusData.qualificationGroups).sort(([nameA], [nameB]) => {
-              const qualA = qualificationConfigs.find(q => q.name === nameA);
-              const qualB = qualificationConfigs.find(q => q.name === nameB);
-              return (qualA?.order ?? 999) - (qualB?.order ?? 999);
-            });
-            
+            const sortedGroups = sortQualificationGroups(Object.entries(statusData.qualificationGroups));
+
             return sortedGroups.map(([groupName, pilots], index) =>
               renderQualificationGroup(pilots, groupName, index)
             );
@@ -636,16 +715,11 @@ const EventAttendance: React.FC<EventAttendanceProps> = ({ event }) => {
         {/* Pilots with records - either grouped by qualification or standard list */}
         {(() => {
           const statusData = getAttendeesByStatus('tentative');
-          
+
           // If qualification groups exist, render them
           if (statusData.qualificationGroups) {
-            // Sort qualification groups by their order in the qualifications table
-            const sortedGroups = Object.entries(statusData.qualificationGroups).sort(([nameA], [nameB]) => {
-              const qualA = qualificationConfigs.find(q => q.name === nameA);
-              const qualB = qualificationConfigs.find(q => q.name === nameB);
-              return (qualA?.order ?? 999) - (qualB?.order ?? 999);
-            });
-            
+            const sortedGroups = sortQualificationGroups(Object.entries(statusData.qualificationGroups));
+
             return sortedGroups.map(([groupName, pilots], index) =>
               renderQualificationGroup(pilots, groupName, index)
             );
@@ -786,16 +860,11 @@ const EventAttendance: React.FC<EventAttendanceProps> = ({ event }) => {
         {/* Pilots with records - either grouped by qualification or standard list */}
         {(() => {
           const statusData = getAttendeesByStatus('declined');
-          
+
           // If qualification groups exist, render them
           if (statusData.qualificationGroups) {
-            // Sort qualification groups by their order in the qualifications table
-            const sortedGroups = Object.entries(statusData.qualificationGroups).sort(([nameA], [nameB]) => {
-              const qualA = qualificationConfigs.find(q => q.name === nameA);
-              const qualB = qualificationConfigs.find(q => q.name === nameB);
-              return (qualA?.order ?? 999) - (qualB?.order ?? 999);
-            });
-            
+            const sortedGroups = sortQualificationGroups(Object.entries(statusData.qualificationGroups));
+
             return sortedGroups.map(([groupName, pilots], index) =>
               renderQualificationGroup(pilots, groupName, index)
             );
