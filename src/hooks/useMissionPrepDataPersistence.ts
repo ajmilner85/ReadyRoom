@@ -546,7 +546,12 @@ export const useMissionPrepDataPersistence = (
     // Save to database with shorter delay for flights (immediate user feedback)
     if (selectedEvent && !skipSave) {
       // If no mission exists but we have flights to save, trigger mission creation
+      // ONLY if we're not still loading the mission (to avoid race condition)
       if (!mission && flights.length > 0) {
+        if (missionLoading) {
+          console.log('⏳ Persistence: Mission still loading, deferring flight save');
+          return;
+        }
         console.log('📝 Triggering mission creation for flight assignments in event:', selectedEvent.id);
         // Set a flag to trigger mission creation in a separate effect
         setNeedsMissionCreation(true);
