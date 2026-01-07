@@ -74,6 +74,7 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
   const [formData, setFormData] = useState<{
     name: string;
     designation: string;
+    squadron_type: 'operational' | 'training';
     established_date: string;
     deactivated_date: string;
     insignia_url: string;
@@ -94,6 +95,7 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
   }>({
     name: '',
     designation: '',
+    squadron_type: 'operational',
     established_date: '',
     deactivated_date: '',
     insignia_url: '',
@@ -149,6 +151,7 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
         setFormData({
           name: entity.name || '',
           designation: ('designation' in entity ? entity.designation : '') || '',
+          squadron_type: ('squadron_type' in entity ? entity.squadron_type : 'operational') || 'operational',
           established_date: ('established_date' in entity ? entity.established_date : '') || '',
           deactivated_date: ('deactivated_date' in entity ? entity.deactivated_date : '') || '',
           insignia_url: ('insignia_url' in entity ? entity.insignia_url : '') || '',
@@ -221,6 +224,7 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
         setFormData({
           name: '',
           designation: '',
+          squadron_type: 'operational',
           established_date: '',
           deactivated_date: '',
           insignia_url: '',
@@ -552,6 +556,7 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
           ...baseData,
           wing_id: formData.wing_id,
           designation: formData.designation.trim(),
+          squadron_type: formData.squadron_type,
           tail_code: formData.tail_code || null,
           carrier_id: formData.carrier_id || null,
           callsigns: formData.callsigns ? JSON.parse(formData.callsigns) : null,
@@ -1055,39 +1060,74 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
 
           {/* Designation Field (Wings and Squadrons) */}
           {(entityType === 'wing' || entityType === 'squadron') && (
-            <div style={{ marginBottom: '16px' }}>
-              <label style={{
-                display: 'block',
-                marginBottom: '8px',
-                fontSize: '14px',
-                fontWeight: 500,
-                color: '#64748B'
-              }}>
-                Designation {entityType === 'squadron' ? '*' : ''}
-              </label>
-              <input
-                type="text"
-                value={formData.designation}
-                onChange={(e) => handleInputChange('designation', e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '8px',
-                  border: `1px solid ${errors.designation ? '#EF4444' : '#CBD5E1'}`,
-                  borderRadius: '4px',
+            <div style={{ marginBottom: '16px', display: 'flex', gap: '16px' }}>
+              {/* Designation Input */}
+              <div style={{ flex: 1 }}>
+                <label style={{
+                  display: 'block',
+                  marginBottom: '8px',
                   fontSize: '14px',
-                  boxSizing: 'border-box',
-                  height: '35px',
-                  lineHeight: '19px'
-                }}
-                placeholder={`Enter ${entityType} designation`}
-              />
-              {errors.designation && (
-                <div style={{
-                  color: '#EF4444',
-                  fontSize: '12px',
-                  marginTop: '4px'
+                  fontWeight: 500,
+                  color: '#64748B'
                 }}>
-                  {errors.designation}
+                  Designation {entityType === 'squadron' ? '*' : ''}
+                </label>
+                <input
+                  type="text"
+                  value={formData.designation}
+                  onChange={(e) => handleInputChange('designation', e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '8px',
+                    border: `1px solid ${errors.designation ? '#EF4444' : '#CBD5E1'}`,
+                    borderRadius: '4px',
+                    fontSize: '14px',
+                    boxSizing: 'border-box',
+                    height: '35px',
+                    lineHeight: '19px'
+                  }}
+                  placeholder={`Enter ${entityType} designation`}
+                />
+                {errors.designation && (
+                  <div style={{
+                    color: '#EF4444',
+                    fontSize: '12px',
+                    marginTop: '4px'
+                  }}>
+                    {errors.designation}
+                  </div>
+                )}
+              </div>
+
+              {/* Squadron Type Dropdown (squadrons only) */}
+              {entityType === 'squadron' && (
+                <div style={{ width: '140px' }}>
+                  <label style={{
+                    display: 'block',
+                    marginBottom: '8px',
+                    fontSize: '14px',
+                    fontWeight: 500,
+                    color: '#64748B'
+                  }}>
+                    Type
+                  </label>
+                  <select
+                    value={formData.squadron_type}
+                    onChange={(e) => handleInputChange('squadron_type', e.target.value as 'operational' | 'training')}
+                    style={{
+                      width: '100%',
+                      padding: '8px',
+                      border: '1px solid #CBD5E1',
+                      borderRadius: '4px',
+                      fontSize: '14px',
+                      boxSizing: 'border-box',
+                      height: '35px',
+                      backgroundColor: 'white'
+                    }}
+                  >
+                    <option value="operational">Operational</option>
+                    <option value="training">Training</option>
+                  </select>
                 </div>
               )}
             </div>
