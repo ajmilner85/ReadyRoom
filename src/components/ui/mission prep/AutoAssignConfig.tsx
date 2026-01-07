@@ -8,18 +8,25 @@ export interface AutoAssignConfig {
   squadronCohesion: 'enforced' | 'prioritized' | 'ignore';
   assignUnqualified: boolean;
   nonStandardCallsigns: 'ignore' | 'fillLast' | 'fillInSequence' | 'fillFirst';
+
+  // Training-specific options
+  trainingMode?: boolean;
+  ipToTraineeRatio?: '1:1' | '1:2' | '1:3' | '2:1' | '2:2' | '3:1';
+  nonTraineeHandling?: 'exclude' | 'segregate' | 'integrate';
 }
 
 interface AutoAssignConfigModalProps {
   isOpen: boolean;
   onCancel: () => void;
   onSave: (config: AutoAssignConfig) => void;
+  isTrainingEvent?: boolean; // Indicates if the current event is a training event
 }
 
 const AutoAssignConfigModal: React.FC<AutoAssignConfigModalProps> = ({
   isOpen,
   onCancel,
-  onSave
+  onSave,
+  isTrainingEvent = false
 }) => {
   // Load settings from user preferences or use defaults
   const getStoredConfig = async (): Promise<AutoAssignConfig> => {
@@ -33,7 +40,10 @@ const AutoAssignConfigModal: React.FC<AutoAssignConfigModalProps> = ({
           flightFillingPriority: config.flightFillingPriority || 'breadth',
           squadronCohesion: config.squadronCohesion || 'enforced',
           assignUnqualified: config.assignUnqualified || false,
-          nonStandardCallsigns: config.nonStandardCallsigns || 'ignore'
+          nonStandardCallsigns: config.nonStandardCallsigns || 'ignore',
+          trainingMode: isTrainingEvent,
+          ipToTraineeRatio: config.ipToTraineeRatio || '2:2',
+          nonTraineeHandling: config.nonTraineeHandling || 'segregate'
         };
       }
     } catch (error) {
@@ -45,7 +55,10 @@ const AutoAssignConfigModal: React.FC<AutoAssignConfigModalProps> = ({
       flightFillingPriority: 'breadth',
       squadronCohesion: 'enforced',
       assignUnqualified: false,
-      nonStandardCallsigns: 'ignore'
+      nonStandardCallsigns: 'ignore',
+      trainingMode: isTrainingEvent,
+      ipToTraineeRatio: '2:2',
+      nonTraineeHandling: 'segregate'
     };
   };
 
@@ -55,15 +68,23 @@ const AutoAssignConfigModal: React.FC<AutoAssignConfigModalProps> = ({
     flightFillingPriority: 'breadth',
     squadronCohesion: 'enforced',
     assignUnqualified: false,
-    nonStandardCallsigns: 'ignore'
+    nonStandardCallsigns: 'ignore',
+    trainingMode: isTrainingEvent,
+    ipToTraineeRatio: '2:2',
+    nonTraineeHandling: 'segregate'
   });
 
   // Reload settings when modal opens
   React.useEffect(() => {
     if (isOpen) {
-      getStoredConfig().then(setConfig);
+      getStoredConfig().then(loadedConfig => {
+        setConfig({
+          ...loadedConfig,
+          trainingMode: isTrainingEvent
+        });
+      });
     }
-  }, [isOpen]);
+  }, [isOpen, isTrainingEvent]);
 
   const handleSave = async () => {
     try {
@@ -232,7 +253,75 @@ const AutoAssignConfigModal: React.FC<AutoAssignConfigModalProps> = ({
             Auto-Assignment Configuration
           </h2>
 
+          {/* Training Mode Banner */}
+          {config.trainingMode && (
+            <div style={{
+              padding: '12px 16px',
+              backgroundColor: '#EFF6FF',
+              border: '1px solid #BFDBFE',
+              borderRadius: '6px',
+              marginBottom: '24px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px'
+            }}>
+              <span style={{ fontSize: '16px' }}>ℹ️</span>
+              <span style={{
+                fontSize: '13px',
+                color: '#1E40AF',
+                fontWeight: 500,
+                lineHeight: '1.4'
+              }}>
+                Training mode detected - Using IP-to-trainee pairing logic
+              </span>
+            </div>
+          )}
+
           <div style={{ display: 'flex', flexDirection: 'column' }}>
+            {/* Training-Specific Options */}
+            {config.trainingMode && (
+              <>
+                <OptionRow
+                  title="IP to Trainee Ratio"
+                  description="IP:Trainee configuration per flight. Format is IPs:Trainees (e.g., 2:2 means 2 IPs + 2 trainees)"
+                >
+                  <ToggleBadge
+                    options={[
+                      { value: '1:1', label: '1:1' },
+                      { value: '1:2', label: '1:2' },
+                      { value: '1:3', label: '1:3' },
+                      { value: '2:1', label: '2:1' },
+                      { value: '2:2', label: '2:2' },
+                      { value: '3:1', label: '3:1' }
+                    ]}
+                    selected={config.ipToTraineeRatio || '2:2'}
+                    onChange={(value) => setConfig({ ...config, ipToTraineeRatio: value as '1:1' | '1:2' | '1:3' | '2:1' | '2:2' | '3:1' })}
+                  />
+                </OptionRow>
+
+                <OptionRow
+                  title="Non-Trainee Handling"
+                  description="How to handle pilots who are neither IPs nor trainees"
+                >
+                  <ToggleBadge
+                    options={[
+                      { value: 'exclude', label: 'Exclude' },
+                      { value: 'segregate', label: 'Segregate' },
+                      { value: 'integrate', label: 'Integrate' }
+                    ]}
+                    selected={config.nonTraineeHandling || 'segregate'}
+                    onChange={(value) => setConfig({ ...config, nonTraineeHandling: value as 'exclude' | 'segregate' | 'integrate' })}
+                  />
+                </OptionRow>
+
+                <div style={{
+                  height: '1px',
+                  backgroundColor: '#E5E7EB',
+                  margin: '16px 0'
+                }} />
+              </>
+            )}
+
             {/* Assignment Scope */}
             <OptionRow
               title="Assignment Scope"

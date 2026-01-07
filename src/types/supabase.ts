@@ -913,6 +913,7 @@ export type Database = {
           insignia_url: string | null
           name: string
           settings: Json | null
+          squadron_type: string | null
           tail_code: string | null
           updated_at: string | null
           wing_id: string
@@ -931,6 +932,7 @@ export type Database = {
           insignia_url?: string | null
           name: string
           settings?: Json | null
+          squadron_type?: string | null
           tail_code?: string | null
           updated_at?: string | null
           wing_id?: string
@@ -949,6 +951,7 @@ export type Database = {
           insignia_url?: string | null
           name?: string
           settings?: Json | null
+          squadron_type?: string | null
           tail_code?: string | null
           updated_at?: string | null
           wing_id?: string

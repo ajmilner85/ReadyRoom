@@ -50,7 +50,8 @@ export async function getOptimizedSquadronMapping(pilots: Pilot[]): Promise<{
           carrier_id,
           callsigns,
           discord_integration,
-          updated_at
+          updated_at,
+          squadron_type
         )
       `)
       .in('pilot_id', pilotIds)
@@ -77,7 +78,8 @@ export async function getOptimizedSquadronMapping(pilots: Pilot[]): Promise<{
         carrier_id,
         callsigns,
         discord_integration,
-        updated_at
+        updated_at,
+        squadron_type
       `);
     
     // Try to add airframe data if the column exists
@@ -98,6 +100,7 @@ export async function getOptimizedSquadronMapping(pilots: Pilot[]): Promise<{
           airframe_id,
           discord_integration,
           updated_at,
+          squadron_type,
           airframe:ref_aircraft_types(id, designation, name)
         `);
     } catch (e) {

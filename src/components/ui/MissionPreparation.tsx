@@ -118,6 +118,7 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
 
   const [realtimeAttendanceData, setRealtimeAttendanceData] = useState<RealtimeAttendanceRecord[]>([]);
   const [isAutoAssignConfigOpen, setIsAutoAssignConfigOpen] = useState(false);
+  const [isTrainingEvent, setIsTrainingEvent] = useState(false);
   const [showNoFlightsDialog, setShowNoFlightsDialog] = useState(false);
 
   // Filter data state
@@ -249,7 +250,10 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
           flightFillingPriority: config.flightFillingPriority || 'breadth',
           squadronCohesion: config.squadronCohesion || 'enforced',
           assignUnqualified: config.assignUnqualified || false,
-          nonStandardCallsigns: config.nonStandardCallsigns || 'ignore'
+          nonStandardCallsigns: config.nonStandardCallsigns || 'ignore',
+          trainingMode: isTrainingEvent,
+          ipToTraineeRatio: config.ipToTraineeRatio || '2:2',
+          nonTraineeHandling: config.nonTraineeHandling || 'segregate'
         };
       }
     } catch (error) {
@@ -261,7 +265,10 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
       flightFillingPriority: 'breadth',
       squadronCohesion: 'enforced',
       assignUnqualified: false,
-      nonStandardCallsigns: 'ignore'
+      nonStandardCallsigns: 'ignore',
+      trainingMode: isTrainingEvent,
+      ipToTraineeRatio: '2:2',
+      nonTraineeHandling: 'segregate'
     };
   };
 
@@ -300,7 +307,8 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
         assignedPilots,
         allPilotQualifications,
         config,
-        pilotSquadronMap
+        pilotSquadronMap,
+        selectedEvent?.cycleId // Pass cycle ID for training enrollment detection
       );
 
 
@@ -397,6 +405,36 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
     };
   }, [selectedEvent?.id]);
   // --- END NEW POLLING LOGIC ---
+
+  // Detect if selected event is a training event
+  useEffect(() => {
+    const detectTrainingEvent = async () => {
+      if (!selectedEvent?.cycleId) {
+        setIsTrainingEvent(false);
+        return;
+      }
+
+      try {
+        const { supabase } = await import('../../utils/supabaseClient');
+        const { data, error } = await supabase
+          .from('cycles')
+          .select('type')
+          .eq('id', selectedEvent.cycleId)
+          .single();
+
+        if (!error && data) {
+          setIsTrainingEvent(data.type === 'Training');
+        } else {
+          setIsTrainingEvent(false);
+        }
+      } catch (err) {
+        console.error('Error detecting training event:', err);
+        setIsTrainingEvent(false);
+      }
+    };
+
+    detectTrainingEvent();
+  }, [selectedEvent?.cycleId]);
 
   // --- BEGIN EFFECT TO UPDATE ASSIGNED PILOTS ---
   useEffect(() => {
@@ -640,6 +678,7 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
         isOpen={isAutoAssignConfigOpen}
         onCancel={handleAutoAssignSettingsCancel}
         onSave={handleAutoAssignSettingsSave}
+        isTrainingEvent={isTrainingEvent}
       />
 
       {/* No Flights Warning Dialog */}

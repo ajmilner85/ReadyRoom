@@ -44,8 +44,8 @@ export const AddFlightDialog: React.FC<AddFlightDialogProps> = ({
     const currentCount = (squadronFlights[callsign] || 0) + (otherFlights[callsign] || 0);
     const existingCount = existingCallsigns.filter(c => c === callsign).length;
     
-    if (currentCount + existingCount >= 4) {
-      setError(`Cannot create more than 4 flights with callsign ${callsign}`);
+    if (currentCount + existingCount >= 6) {
+      setError(`Cannot create more than 6 flights with callsign ${callsign}`);
       return;
     }
     
@@ -64,8 +64,8 @@ export const AddFlightDialog: React.FC<AddFlightDialogProps> = ({
     const currentCount = (squadronFlights[callsign] || 0) + (otherFlights[callsign] || 0);
     const existingCount = existingCallsigns.filter(c => c === callsign).length;
     
-    if (currentCount + existingCount >= 4) {
-      setError(`Cannot create more than 4 flights with callsign ${callsign}`);
+    if (currentCount + existingCount >= 6) {
+      setError(`Cannot create more than 6 flights with callsign ${callsign}`);
       return;
     }
     

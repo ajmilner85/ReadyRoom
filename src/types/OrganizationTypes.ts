@@ -67,6 +67,7 @@ export interface Squadron {
   established_date: string | null;
   deactivated_date: string | null;
   designation: string;
+  squadron_type: 'operational' | 'training';
   insignia_url: string | null;
   carrier_id: string | null;
   tail_code: string | null;

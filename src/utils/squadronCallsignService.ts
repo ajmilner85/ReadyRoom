@@ -4,6 +4,7 @@ export interface SquadronCallsignMapping {
   squadronId: string;
   designation: string;
   callsigns: string[];
+  squadronType: 'operational' | 'training';
 }
 
 /**
@@ -14,7 +15,7 @@ export async function getSquadronCallsignMappings(): Promise<{ data: SquadronCal
   try {
     const { data, error } = await supabase
       .from('org_squadrons')
-      .select('id, designation, callsigns');
+      .select('id, designation, callsigns, squadron_type');
 
     if (error) {
       console.error('Error fetching squadron callsigns:', error);
@@ -30,11 +31,12 @@ export async function getSquadronCallsignMappings(): Promise<{ data: SquadronCal
     const mappings: SquadronCallsignMapping[] = data.map(squadron => ({
       squadronId: squadron.id,
       designation: squadron.designation || 'Unknown Squadron',
-      callsigns: Array.isArray(squadron.callsigns) ? squadron.callsigns.filter((c): c is string => typeof c === 'string') : []
+      callsigns: Array.isArray(squadron.callsigns) ? squadron.callsigns.filter((c): c is string => typeof c === 'string') : [],
+      squadronType: (squadron.squadron_type as 'operational' | 'training') || 'operational'
     }));
 
     console.log(`✅ Fetched ${mappings.length} squadron callsign mappings:`, 
-      mappings.map(m => `${m.designation}: [${m.callsigns.join(', ')}]`)
+      mappings.map(m => `${m.designation} (${m.squadronType}): [${m.callsigns.join(', ')}]`)
     );
 
     return { data: mappings, error: null };

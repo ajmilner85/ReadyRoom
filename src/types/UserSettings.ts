@@ -21,6 +21,10 @@ export interface UserPreferences {
       squadronCohesion?: 'enforced' | 'prioritized' | 'ignore';
       assignUnqualified?: boolean;
       nonStandardCallsigns?: 'ignore' | 'fillLast' | 'fillInSequence' | 'fillFirst';
+      // Training-specific options
+      trainingMode?: boolean;
+      ipToTraineeRatio?: '1:1' | '1:2' | '1:3' | '2:1' | '2:2' | '3:1';
+      nonTraineeHandling?: 'exclude' | 'segregate' | 'integrate';
     };
   };
 

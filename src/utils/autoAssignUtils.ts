@@ -207,7 +207,8 @@ export const autoAssignPilots = async (
   assignedPilots: Record<string, AssignedPilot[]>,
   allPilotQualifications: Record<string, any[]>,
   config: AutoAssignConfig,
-  pilotSquadronMap?: Record<string, any>
+  pilotSquadronMap?: Record<string, any>,
+  cycleId?: string
 ): Promise<{
   newAssignments: Record<string, AssignedPilot[]>,
   suggestedMissionCommander: MissionCommanderInfo | null
@@ -259,7 +260,8 @@ export const autoAssignPilots = async (
     squadronCallsigns = Array.from(uniqueSquadrons.values()).map(squadron => ({
       squadronId: squadron.id,
       designation: squadron.designation || 'Unknown Squadron',
-      callsigns: Array.isArray(squadron.callsigns) ? squadron.callsigns.filter((c: any) => typeof c === 'string') : []
+      callsigns: Array.isArray(squadron.callsigns) ? squadron.callsigns.filter((c: any) => typeof c === 'string') : [],
+      squadronType: (squadron.squadron_type as 'operational' | 'training') || 'operational'
     }));
     
   } else {
@@ -312,21 +314,26 @@ export const autoAssignPilots = async (
   })), null, 2));
 
   // Execute assignment strategy
-  console.log(`[STRATEGY-DEBUG] Using ${config.flightFillingPriority} strategy`);
-  if (config.flightFillingPriority === 'depth') {
-    console.log('[STRATEGY-DEBUG] Executing depth-first assignment');
-    await executeDepthFirstAssignment(flightOrder, availablePilotPool, newAssignments, allPilotQualifications, squadronCallsigns, config, pilotSquadronMap);
+  if (config.trainingMode) {
+    console.log('[STRATEGY-DEBUG] Using training mode IP-to-trainee assignment');
+    await executeTrainingAssignment(flightOrder, availablePilotPool, newAssignments, allPilotQualifications, squadronCallsigns, config, pilotSquadronMap, cycleId);
   } else {
-    console.log('[STRATEGY-DEBUG] Executing breadth-first assignment');
-    await executeBreadthFirstAssignment(flightOrder, availablePilotPool, newAssignments, allPilotQualifications, squadronCallsigns, config, pilotSquadronMap);
+    console.log(`[STRATEGY-DEBUG] Using ${config.flightFillingPriority} strategy`);
+    if (config.flightFillingPriority === 'depth') {
+      console.log('[STRATEGY-DEBUG] Executing depth-first assignment');
+      await executeDepthFirstAssignment(flightOrder, availablePilotPool, newAssignments, allPilotQualifications, squadronCallsigns, config, pilotSquadronMap);
+    } else {
+      console.log('[STRATEGY-DEBUG] Executing breadth-first assignment');
+      await executeBreadthFirstAssignment(flightOrder, availablePilotPool, newAssignments, allPilotQualifications, squadronCallsigns, config, pilotSquadronMap);
+    }
   }
 
-  // Pass 2: Singleton Consolidation - Only run for depth-first (breadth-first intentionally creates balanced flights)
-  if (config.flightFillingPriority === 'depth') {
+  // Pass 2: Singleton Consolidation - Only run for depth-first (breadth-first and training intentionally create balanced flights)
+  if (config.flightFillingPriority === 'depth' && !config.trainingMode) {
     console.log('[CONSOLIDATION-DEBUG] Running singleton consolidation for depth-first strategy');
     await consolidateSingletonFlights(flightOrder, newAssignments, squadronCallsigns, config, pilotSquadronMap);
   } else {
-    console.log('[CONSOLIDATION-DEBUG] Skipping singleton consolidation for breadth-first strategy (intentionally balanced)');
+    console.log('[CONSOLIDATION-DEBUG] Skipping singleton consolidation (breadth-first or training mode)');
   }
 
   // Find mission commander candidate
@@ -406,6 +413,382 @@ async function executeDepthFirstAssignment(
       }
     }
   }
+}
+
+/**
+ * Execute training assignment strategy
+ * Pairs IPs (Instructor Pilots) with trainees at specified ratio
+ */
+async function executeTrainingAssignment(
+  flightOrder: Flight[],
+  availablePilotPool: Pilot[],
+  newAssignments: Record<string, AssignedPilot[]>,
+  allPilotQualifications: Record<string, any[]>,
+  squadronCallsigns: SquadronCallsignMapping[],
+  config: AutoAssignConfig,
+  pilotSquadronMap?: Record<string, any>,
+  cycleId?: string
+): Promise<void> {
+  console.log('[TRAINING-ASSIGN-DEBUG] Starting training assignment');
+  console.log('[TRAINING-ASSIGN-DEBUG] Squadron mappings:', squadronCallsigns.map(s => ({
+    designation: s.designation,
+    callsigns: s.callsigns,
+    squadronType: s.squadronType
+  })));
+
+  // Separate flights into training squadron flights and operational squadron flights
+  const trainingSquadronFlights: Flight[] = [];
+  const operationalSquadronFlights: Flight[] = [];
+  
+  for (const flight of flightOrder) {
+    const flightSquadron = getSquadronForCallsign(flight.callsign, squadronCallsigns);
+    console.log(`[TRAINING-ASSIGN-DEBUG] Flight ${flight.callsign}: squadron=${flightSquadron?.designation || 'none'}, squadronType=${flightSquadron?.squadronType || 'none'}`);
+    
+    if (flightSquadron?.squadronType === 'training') {
+      trainingSquadronFlights.push(flight);
+      console.log(`[TRAINING-ASSIGN-DEBUG] → Classified as TRAINING squadron flight`);
+    } else {
+      operationalSquadronFlights.push(flight);
+      console.log(`[TRAINING-ASSIGN-DEBUG] → Classified as OPERATIONAL squadron flight`);
+    }
+  }
+
+  console.log(`[TRAINING-ASSIGN-DEBUG] Flight split: ${trainingSquadronFlights.length} training squadron flights, ${operationalSquadronFlights.length} operational squadron flights`);
+
+  // If no training squadrons are configured, fall back to using all flights for training
+  const flightsForTraining = trainingSquadronFlights.length > 0 ? trainingSquadronFlights : flightOrder;
+  const flightsForNonTrainees = trainingSquadronFlights.length > 0 ? operationalSquadronFlights : flightOrder;
+
+  console.log(`[TRAINING-ASSIGN-DEBUG] Using ${flightsForTraining.length} flights for IP/trainee assignment, ${flightsForNonTrainees.length} flights available for non-trainees`);
+
+  // Fetch training enrollment if cycleId is provided
+  let enrolledTraineeIds = new Set<string>();
+  if (cycleId && config.trainingMode) {
+    try {
+      const { getCycleEnrollments } = await import('./trainingEnrollmentService');
+      const enrollments = await getCycleEnrollments(cycleId);
+      enrollments.forEach(enrollment => {
+        if (enrollment.status === 'active') {
+          enrolledTraineeIds.add(enrollment.pilot_id);
+        }
+      });
+      console.log(`[TRAINING-ASSIGN-DEBUG] Found ${enrolledTraineeIds.size} enrolled trainees in cycle`);
+    } catch (error) {
+      console.error('[TRAINING-ASSIGN-DEBUG] Failed to fetch cycle enrollments:', error);
+    }
+  }
+
+  // Helper to check if pilot is an IP
+  const isIP = (pilot: Pilot): boolean => {
+    const quals = allPilotQualifications[pilot.id] || allPilotQualifications[pilot.boardNumber] || [];
+    return quals.some(qual => {
+      const qualName = qual.qualification?.name?.toLowerCase() || '';
+      return qualName.includes('instructor pilot');
+    });
+  };
+
+  // Separate IPs, trainees, and non-trainees
+  const ips = availablePilotPool.filter(isIP);
+  const nonIPs = availablePilotPool.filter(pilot => !isIP(pilot));
+
+  // Trainees are determined by enrollment in the training cycle (if available)
+  // Otherwise fall back to qualification-based detection
+  let trainees: Pilot[];
+  let nonTrainees: Pilot[];
+
+  if (enrolledTraineeIds.size > 0) {
+    // Use enrollment data to determine trainees
+    trainees = nonIPs.filter(pilot =>
+      enrolledTraineeIds.has(pilot.id) || enrolledTraineeIds.has(pilot.boardNumber)
+    );
+    nonTrainees = nonIPs.filter(pilot =>
+      !enrolledTraineeIds.has(pilot.id) && !enrolledTraineeIds.has(pilot.boardNumber)
+    );
+    console.log('[TRAINING-ASSIGN-DEBUG] Using enrollment-based trainee detection');
+  } else {
+    // Fallback: Non-trainees are pilots who have qualifications beyond basic (FL, SL, MC, LSO, etc.)
+    trainees = nonIPs.filter(pilot => {
+      const quals = allPilotQualifications[pilot.id] || allPilotQualifications[pilot.boardNumber] || [];
+      // If they have any leadership qualification, they're not a trainee
+      const hasLeadershipQual = quals.some(qual => {
+        const qualName = qual.qualification?.name?.toLowerCase() || '';
+        return qualName.includes('flight lead') ||
+               qualName.includes('section lead') ||
+               qualName.includes('mission commander') ||
+               qualName.includes('strike lead') ||
+               qualName.includes('lso');
+      });
+      return !hasLeadershipQual;
+    });
+    nonTrainees = nonIPs.filter(pilot => !trainees.includes(pilot));
+    console.log('[TRAINING-ASSIGN-DEBUG] Using qualification-based trainee detection (fallback)');
+  }
+
+  console.log(`[TRAINING-ASSIGN-DEBUG] Found ${ips.length} IPs, ${trainees.length} trainees, and ${nonTrainees.length} non-trainees`);
+
+  // In 'exclude' mode, remove non-trainees from the pilot pool entirely
+  const nonTraineeMode = config.nonTraineeHandling || 'exclude';
+  if (nonTraineeMode === 'exclude' && nonTrainees.length > 0) {
+    console.log(`[TRAINING-ASSIGN-DEBUG] Exclude mode: Removing ${nonTrainees.length} non-trainees from pilot pool`);
+    // Remove non-trainees by filtering them out of the available pool
+    // We'll only work with IPs and trainees
+  }
+
+  // Check attendance filter (Present only, or Present + Tentative)
+  const attendanceFilter = config.includeTentative ? ['Present', 'Tentative', 'accepted', 'tentative'] : ['Present', 'accepted'];
+
+  const filterByAttendance = (pilots: Pilot[]) => pilots.filter(pilot => {
+    const rollCall = pilot.rollCallStatus;
+    const discord = pilot.attendanceStatus;
+
+    // Prioritize roll call over Discord
+    if (rollCall) {
+      return attendanceFilter.includes(rollCall);
+    }
+    return discord && attendanceFilter.includes(discord);
+  });
+
+  const availableIPs = filterByAttendance(ips);
+  const availableTrainees = filterByAttendance(trainees);
+  const availableNonTrainees = filterByAttendance(nonTrainees);
+
+  console.log(`[TRAINING-ASSIGN-DEBUG] After attendance filter: ${availableIPs.length} IPs, ${availableTrainees.length} trainees, ${availableNonTrainees.length} non-trainees`);
+
+  // Parse the ratio (e.g., "1:2" → 1 IP, 2 trainees per flight or "2:2" → 2 IPs, 2 trainees per flight)
+  const ratio = config.ipToTraineeRatio || '1:2';
+  const [ipsPerFlight, traineesPerFlight] = ratio.split(':').map(n => parseInt(n));
+
+  console.log(`[TRAINING-ASSIGN-DEBUG] Using ratio ${ratio} (${ipsPerFlight} IPs + ${traineesPerFlight} trainees per flight)`);
+
+  // Sort IPs by billet seniority (highest seniority first)
+  const sortedIPs = availableIPs.sort((a, b) => {
+    const orderA = getBilletOrder(a);
+    const orderB = getBilletOrder(b);
+    return orderA - orderB; // Lower order = higher seniority
+  });
+
+  // Sort trainees by board number (lower board number = more senior)
+  const sortedTrainees = [...availableTrainees].sort((a, b) => {
+    const boardA = parseInt(a.boardNumber) || 9999;
+    const boardB = parseInt(b.boardNumber) || 9999;
+    return boardA - boardB;
+  });
+
+  let traineeIndex = 0;
+  let ipIndex = 0;
+  let flightIndex = 0;
+  const unassignedIPs: Pilot[] = []; // Track IPs that didn't get trainees
+
+  // Define position assignments based on ratio
+  // For multi-IP flights: -1 and -3 are IPs, -2 and -4 are flexible (IP or trainee)
+  const getPositionAssignments = (ipsNeeded: number, traineesNeeded: number): { ipPositions: string[], traineePositions: string[] } => {
+    if (ipsNeeded === 1) {
+      // Single IP: always at -1, trainees at -2, -3, -4
+      return { ipPositions: ['1'], traineePositions: ['2', '3', '4'].slice(0, traineesNeeded) };
+    } else if (ipsNeeded === 2) {
+      // Two IPs: -1 and -3, trainees at -2 and -4
+      return { ipPositions: ['1', '3'], traineePositions: traineesNeeded === 1 ? ['2'] : ['2', '4'] };
+    } else if (ipsNeeded === 3) {
+      // Three IPs: -1, -3, and -2 (or -4), trainee at -4 (or -2)
+      return { ipPositions: ['1', '3', '2'], traineePositions: ['4'] };
+    }
+    return { ipPositions: [], traineePositions: [] };
+  };
+
+  const { ipPositions, traineePositions } = getPositionAssignments(ipsPerFlight, traineesPerFlight);
+
+  // Assign flights with the configured IP:Trainee ratio (use training squadron flights preferentially)
+  while (flightIndex < flightsForTraining.length) {
+    // Check if we have enough IPs and trainees for this flight
+    if (ipIndex + ipsPerFlight > sortedIPs.length) {
+      console.log('[TRAINING-ASSIGN-DEBUG] Not enough IPs remaining for another flight');
+      // Add remaining IPs to unassigned pool
+      for (let i = ipIndex; i < sortedIPs.length; i++) {
+        unassignedIPs.push(sortedIPs[i]);
+      }
+      break;
+    }
+
+    if (traineeIndex >= sortedTrainees.length) {
+      console.log('[TRAINING-ASSIGN-DEBUG] No more trainees available');
+      // Add remaining IPs to unassigned pool
+      for (let i = ipIndex; i < sortedIPs.length; i++) {
+        unassignedIPs.push(sortedIPs[i]);
+      }
+      break;
+    }
+
+    const flight = flightsForTraining[flightIndex];
+    const flightSquadron = getSquadronForCallsign(flight.callsign, squadronCallsigns);
+    const startTraineeIndex = traineeIndex;
+    const flightIPs: Pilot[] = [];
+    const flightTrainees: Pilot[] = [];
+    let allIPsCanAssign = true;
+
+    // Collect IPs for this flight
+    for (let i = 0; i < ipsPerFlight; i++) {
+      const ip = sortedIPs[ipIndex + i];
+
+      // Check squadron cohesion for IP
+      if (config.squadronCohesion === 'enforced' && flightSquadron && pilotSquadronMap) {
+        const ipSquadron = pilotSquadronMap[ip.id] || pilotSquadronMap[ip.boardNumber];
+        if (!ipSquadron || ipSquadron.id !== flightSquadron.squadronId) {
+          console.log(`[TRAINING-ASSIGN-DEBUG] IP ${ip.callsign} squadron mismatch for flight ${flight.callsign}`);
+          allIPsCanAssign = false;
+          break;
+        }
+      }
+
+      flightIPs.push(ip);
+    }
+
+    // If not all IPs can be assigned, skip this flight
+    if (!allIPsCanAssign) {
+      flightIndex++;
+      continue;
+    }
+
+    // Try to assign trainees
+    let assignedTraineesCount = 0;
+    let attemptsWithoutSuccess = 0;
+    const maxAttempts = sortedTrainees.length;
+
+    while (assignedTraineesCount < traineesPerFlight &&
+           traineeIndex < sortedTrainees.length &&
+           attemptsWithoutSuccess < maxAttempts) {
+      const trainee = sortedTrainees[traineeIndex];
+
+      // Check squadron cohesion for trainee
+      let canAssignTrainee = true;
+      if (config.squadronCohesion === 'enforced' && flightSquadron && pilotSquadronMap) {
+        const traineeSquadron = pilotSquadronMap[trainee.id] || pilotSquadronMap[trainee.boardNumber];
+        canAssignTrainee = traineeSquadron && traineeSquadron.id === flightSquadron.squadronId;
+      }
+
+      traineeIndex++;
+
+      if (canAssignTrainee) {
+        flightTrainees.push(trainee);
+        assignedTraineesCount++;
+        attemptsWithoutSuccess = 0;
+      } else {
+        console.log(`[TRAINING-ASSIGN-DEBUG] Skipping trainee ${trainee.callsign} - squadron mismatch`);
+        attemptsWithoutSuccess++;
+      }
+    }
+
+    // If we got at least one trainee, assign the flight
+    if (assignedTraineesCount > 0) {
+      // Assign IPs
+      flightIPs.forEach((ip, idx) => {
+        assignPilot(ip, flight, ipPositions[idx], newAssignments);
+        console.log(`[TRAINING-ASSIGN-DEBUG] Assigned IP ${ip.callsign} to ${flight.callsign}-${ipPositions[idx]}`);
+      });
+
+      // Assign trainees
+      flightTrainees.forEach((trainee, idx) => {
+        assignPilot(trainee, flight, traineePositions[idx], newAssignments);
+        console.log(`[TRAINING-ASSIGN-DEBUG] Assigned trainee ${trainee.callsign} to ${flight.callsign}-${traineePositions[idx]}`);
+      });
+
+      console.log(`[TRAINING-ASSIGN-DEBUG] Flight ${flight.callsign} complete: ${flightIPs.length} IPs + ${assignedTraineesCount} trainees`);
+      ipIndex += ipsPerFlight;
+      flightIndex++;
+    } else {
+      // No trainees assigned - add these IPs to unassigned pool and stop
+      console.log(`[TRAINING-ASSIGN-DEBUG] No trainees could be assigned - stopping IP assignment`);
+      for (let i = ipIndex; i < sortedIPs.length; i++) {
+        unassignedIPs.push(sortedIPs[i]);
+      }
+      traineeIndex = startTraineeIndex;
+      break;
+    }
+  }
+
+  console.log(`[TRAINING-ASSIGN-DEBUG] IP/Trainee pairing complete. ${unassignedIPs.length} IPs remain unassigned`);
+
+  // Handle non-trainees based on configuration
+  console.log(`[TRAINING-ASSIGN-DEBUG] Non-trainee mode: ${nonTraineeMode}`);
+  console.log(`[TRAINING-ASSIGN-DEBUG] Unassigned IPs: ${unassignedIPs.length} [${unassignedIPs.map(p => p.callsign).join(', ')}]`);
+  console.log(`[TRAINING-ASSIGN-DEBUG] Available non-trainees: ${availableNonTrainees.length} [${availableNonTrainees.map(p => p.callsign).join(', ')}]`);
+  console.log(`[TRAINING-ASSIGN-DEBUG] Training flights available: ${flightsForTraining.length} [${flightsForTraining.map(f => f.callsign).join(', ')}]`);
+  console.log(`[TRAINING-ASSIGN-DEBUG] Operational flights available: ${flightsForNonTrainees.length} [${flightsForNonTrainees.map(f => f.callsign).join(', ')}]`);
+  console.log(`[TRAINING-ASSIGN-DEBUG] Flight index after IP/trainee assignment: ${flightIndex}`);
+
+  if (nonTraineeMode === 'exclude') {
+    // Do nothing - IPs and trainees only
+    console.log('[TRAINING-ASSIGN-DEBUG] Excluding non-trainees and unassigned IPs from assignment');
+  } else if (nonTraineeMode === 'segregate') {
+    // Strictly segregate: Training squadron flights ONLY get IP+trainee pairs
+    // ALL other pilots (unassigned IPs + non-trainees) go to operational squadron flights
+    console.log('[TRAINING-ASSIGN-DEBUG] Segregating: training flights complete with IP+trainee pairs, ALL remaining pilots go to operational flights');
+
+    // Combine unassigned IPs and non-trainees for assignment to operational flights
+    const pilotsForOperationalFlights = [...unassignedIPs, ...availableNonTrainees];
+    
+    // Assign ALL remaining pilots (unassigned IPs + non-trainees) to operational squadron flights ONLY
+    if (flightsForNonTrainees.length > 0 && pilotsForOperationalFlights.length > 0) {
+      console.log(`[TRAINING-ASSIGN-DEBUG] Assigning ${pilotsForOperationalFlights.length} pilots (${unassignedIPs.length} unassigned IPs + ${availableNonTrainees.length} non-trainees) to ${flightsForNonTrainees.length} operational squadron flights`);
+      console.log(`[TRAINING-ASSIGN-DEBUG] Pilots being assigned: [${pilotsForOperationalFlights.map(p => p.callsign).join(', ')}]`);
+      console.log(`[TRAINING-ASSIGN-DEBUG] Operational flights: [${flightsForNonTrainees.map(f => f.callsign).join(', ')}]`);
+      await executeBreadthFirstAssignment(
+        flightsForNonTrainees,
+        pilotsForOperationalFlights,
+        newAssignments,
+        allPilotQualifications,
+        squadronCallsigns,
+        { ...config, trainingMode: false },
+        pilotSquadronMap
+      );
+    } else if (flightsForNonTrainees.length === 0 && pilotsForOperationalFlights.length > 0) {
+      console.log(`[TRAINING-ASSIGN-DEBUG] No operational squadron flights available - ${pilotsForOperationalFlights.length} pilots will remain unassigned`);
+    }
+  } else if (nonTraineeMode === 'integrate') {
+    // Fill open slots in existing flights with non-trainees
+    console.log('[TRAINING-ASSIGN-DEBUG] Integrating non-trainees into existing flights');
+
+    let nonTraineeIndex = 0;
+    const sortedNonTrainees = [...availableNonTrainees].sort((a, b) => {
+      const orderA = getBilletOrder(a);
+      const orderB = getBilletOrder(b);
+      return orderA - orderB;
+    });
+
+    // Go through each flight that has IP/trainee assignments and fill gaps
+    for (let i = 0; i < flightIndex && i < flightsForTraining.length; i++) {
+      const flight = flightsForTraining[i];
+      const currentAssignments = newAssignments[flight.id] || [];
+      const occupiedPositions = currentAssignments.map(p => p.dashNumber);
+
+      // Find open positions (1-4)
+      const allPositions = ['1', '2', '3', '4'];
+      const openPositions = allPositions.filter(pos => !occupiedPositions.includes(pos));
+
+      // Fill open positions with non-trainees
+      for (const position of openPositions) {
+        if (nonTraineeIndex >= sortedNonTrainees.length) break;
+
+        const nonTrainee = sortedNonTrainees[nonTraineeIndex];
+        const flightSquadron = getSquadronForCallsign(flight.callsign, squadronCallsigns);
+
+        // Check squadron cohesion
+        let canAssign = true;
+        if (config.squadronCohesion === 'enforced' && flightSquadron && pilotSquadronMap) {
+          const pilotSquadron = pilotSquadronMap[nonTrainee.id] || pilotSquadronMap[nonTrainee.boardNumber];
+          canAssign = pilotSquadron && pilotSquadron.id === flightSquadron.squadronId;
+        }
+
+        if (canAssign) {
+          assignPilot(nonTrainee, flight, position, newAssignments);
+          console.log(`[TRAINING-ASSIGN-DEBUG] Integrated non-trainee ${nonTrainee.callsign} to ${flight.callsign}-${position}`);
+        }
+
+        nonTraineeIndex++;
+      }
+    }
+  }
+
+  console.log('[TRAINING-ASSIGN-DEBUG] Training assignment complete');
 }
 
 /**
@@ -529,6 +912,10 @@ function buildGatesForPosition(
 ): AssignmentGate[] {
   const gates: AssignmentGate[] = [];
   const attendanceOptions = config.includeTentative ? ['accepted', 'tentative'] : ['accepted'];
+  
+  // For training squadrons, always treat as if squadron cohesion is not enforced
+  const isTrainingSquadron = flightSquadron?.squadronType === 'training';
+  const effectiveCohesion = isTrainingSquadron ? 'prioritized' : config.squadronCohesion;
 
   if (position === '-1') {
     // Gate 1: Mission Commander + Same Squadron (for all modes)
@@ -539,7 +926,7 @@ function buildGatesForPosition(
     });
 
     // Gate 2: Mission Commander + Any Squadron (for prioritized/ignore modes)
-    if (config.squadronCohesion !== 'enforced') {
+    if (effectiveCohesion !== 'enforced') {
       gates.push({
         attendance: attendanceOptions,
         squadron: null,
@@ -555,7 +942,7 @@ function buildGatesForPosition(
     });
 
     // Gate 4: Flight Lead + Any Squadron (for prioritized/ignore modes)
-    if (config.squadronCohesion !== 'enforced') {
+    if (effectiveCohesion !== 'enforced') {
       gates.push({
         attendance: attendanceOptions,
         squadron: null,
@@ -572,7 +959,7 @@ function buildGatesForPosition(
       });
 
       // Gate 6: Unqualified + Any Squadron (for prioritized/ignore modes)
-      if (config.squadronCohesion !== 'enforced') {
+      if (effectiveCohesion !== 'enforced') {
         gates.push({
           attendance: attendanceOptions,
           squadron: null,
@@ -588,7 +975,7 @@ function buildGatesForPosition(
       qualifications: ['Section Lead']
     });
 
-    if (config.squadronCohesion !== 'enforced') {
+    if (effectiveCohesion !== 'enforced') {
       gates.push({
         attendance: attendanceOptions,
         squadron: null,
@@ -603,7 +990,7 @@ function buildGatesForPosition(
         qualifications: null
       });
 
-      if (config.squadronCohesion !== 'enforced') {
+      if (effectiveCohesion !== 'enforced') {
         gates.push({
           attendance: attendanceOptions,
           squadron: null,
@@ -619,7 +1006,7 @@ function buildGatesForPosition(
       qualifications: 'NOT_OVERQUALIFIED'
     });
 
-    if (config.squadronCohesion !== 'enforced') {
+    if (effectiveCohesion !== 'enforced') {
       gates.push({
         attendance: attendanceOptions,
         squadron: null,
@@ -634,7 +1021,7 @@ function buildGatesForPosition(
       qualifications: null
     });
 
-    if (config.squadronCohesion !== 'enforced') {
+    if (effectiveCohesion !== 'enforced') {
       gates.push({
         attendance: attendanceOptions,
         squadron: null,
