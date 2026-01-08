@@ -57,18 +57,13 @@ const {
   switchDiscordBot
 } = require('./discordBot');
 
+// Import Discord client getter
+const { getClient } = require('./lib/discordClient');
+
 // Import Supabase client (path adjusted for SDOBot directory)
 const { supabase, getEventByDiscordId } = require('./supabaseClient');
 
 // Note: We'll implement reminder processing directly here to avoid ES6/CommonJS module issues
-
-// Import Discord.js for guild member operations
-const { Client, GatewayIntentBits } = require('discord.js');
-
-// Add Discord client for caching at the top level
-const discordClient = new Client({
-  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.GuildMembers]
-});
 
 // Cache for Discord server channels to avoid redundant fetches
 const channelCache = {
@@ -1328,6 +1323,9 @@ app.get('/api/discord/servers/:guildId/channels', async (req, res) => {
       });
     }
     
+    // Get the authenticated Discord client
+    const discordClient = getClient();
+    
     // Wait for client to be ready if not already
     if (!discordClient.isReady()) {
       await new Promise((resolve) => {
@@ -2082,11 +2080,12 @@ async function processIndividualReminder(reminder) {
             end_date,
             statuses!inner(isActive)
           ),
-          pilot_assignments!inner(squadron_id)
+          pilot_assignments!inner(squadron_id, end_date)
         `)
         .in('pilot_assignments.squadron_id', participatingSquadronIds)
         .eq('pilot_statuses.statuses.isActive', true)
         .is('pilot_statuses.end_date', null)
+        .is('pilot_assignments.end_date', null)  // Only get active (non-ended) squadron assignments
         .not('discord_id', 'is', null);
 
       // Filter for users who haven't responded and include squadron info
@@ -2096,10 +2095,17 @@ async function processIndividualReminder(reminder) {
           discord_id: pilot.discord_id,
           discord_username: pilot.discord_username,
           user_response: 'no_response',
-          squadron_id: pilot.pilot_assignments?.[0]?.squadron_id // Include squadron for filtering later
+          // Find the active assignment (end_date is null) - defensive in case query returns multiple
+          squadron_id: pilot.pilot_assignments?.find(a => a.end_date === null)?.squadron_id || pilot.pilot_assignments?.[0]?.squadron_id
         }));
 
       console.log(`[REMINDER-${reminder.id}] Found ${noResponseUsers.length} no-response users`);
+
+      // Debug logging for no-response users to help diagnose squadron assignment issues
+      noResponseUsers.forEach(user => {
+        console.log(`[REMINDER-NO-RESPONSE] ${user.discord_username} -> squadron ${user.squadron_id?.substring(0, 8) || 'NONE'}`);
+      });
+
       attendanceData = [...attendanceData, ...noResponseUsers];
     }
   }
@@ -2260,9 +2266,18 @@ ${formattedTime}`;
 
 async function sendReminderToDiscordChannels(event, message, attendanceData = []) {
   if (Array.isArray(event.discord_event_id)) {
+    // Track which pilots have been mentioned to handle orphaned pilots later
+    const mentionedPilots = new Set();
+    let firstPublication = null;  // Store first publication for fallback
+
     // Multi-channel event
     for (const publication of event.discord_event_id) {
       try {
+        // Store first publication for orphaned pilot fallback
+        if (!firstPublication) {
+          firstPublication = publication;
+        }
+
         // Filter attendanceData to only include pilots from this publication's squadron
         const squadronAttendance = attendanceData.filter(user =>
           user.squadron_id === publication.squadronId
@@ -2275,6 +2290,9 @@ async function sendReminderToDiscordChannels(event, message, attendanceData = []
           console.log(`[REMINDER-SQUADRON] No recipients for squadron ${publication.squadronId}, skipping`);
           continue;
         }
+
+        // Track mentioned pilots for orphan detection
+        squadronAttendance.forEach(user => mentionedPilots.add(user.discord_id));
 
         // Deduplicate users by discord_id to avoid duplicate mentions
         const uniqueUsers = new Map();
@@ -2524,6 +2542,40 @@ async function sendReminderToDiscordChannels(event, message, attendanceData = []
         
       } catch (error) {
         console.error(`[REMINDER] Failed to send reminder to guild ${publication.guildId}, channel ${publication.channelId}:`, error);
+      }
+    }
+
+    // Handle orphaned pilots - users who should be notified but weren't included in any squadron publication
+    // This can happen if their squadron_id doesn't match any publication (e.g., squadron has no Discord channel)
+    const orphanedPilots = attendanceData.filter(user => !mentionedPilots.has(user.discord_id));
+    if (orphanedPilots.length > 0 && firstPublication) {
+      console.log(`[REMINDER-ORPHANED] Found ${orphanedPilots.length} pilots without matching publication, mentioning in first channel`);
+      orphanedPilots.forEach(user => {
+        console.log(`[REMINDER-ORPHANED] - ${user.discord_username} (squadron_id: ${user.squadron_id})`);
+      });
+
+      try {
+        // Create Discord mentions for orphaned pilots
+        const orphanMentions = orphanedPilots
+          .map(user => `<@${user.discord_id}>`)
+          .join(' ');
+
+        const orphanMessage = `${orphanMentions}\n${message}`;
+
+        // Send to first publication's channel/thread
+        let targetChannelId = firstPublication.threadId && firstPublication.threadId !== 'DISABLED'
+          ? firstPublication.threadId
+          : firstPublication.channelId;
+
+        if (firstPublication.threadId && firstPublication.threadId !== 'DISABLED') {
+          await postMessageToThread(targetChannelId, firstPublication.guildId, orphanMessage);
+          console.log(`[REMINDER-ORPHANED] Sent orphaned pilot reminder to thread ${targetChannelId}`);
+        } else {
+          await sendReminderMessage(firstPublication.guildId, targetChannelId, orphanMessage);
+          console.log(`[REMINDER-ORPHANED] Sent orphaned pilot reminder to channel ${targetChannelId}`);
+        }
+      } catch (orphanError) {
+        console.error(`[REMINDER-ORPHANED] Failed to send orphaned pilot reminder:`, orphanError);
       }
     }
   } else if (event.discord_event_id) {

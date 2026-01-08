@@ -288,13 +288,17 @@ const SquadronDiscordSettings: React.FC<SquadronDiscordSettingsProps> = ({
 
   // Load channels when guild is selected
   useEffect(() => {
+    console.log('[CHANNELS] useEffect triggered, selectedGuildId:', selectedGuildId);
     if (selectedGuildId) {
       const fetchChannels = async () => {
+        console.log('[CHANNELS] Starting to fetch channels for guild:', selectedGuildId);
         setLoadingChannels(true);
         setError(null);
         try {
           const response = await getServerChannels(selectedGuildId);
+          console.log('[CHANNELS] Response received:', response);
           if (response.success && response.channels) {
+            console.log('[CHANNELS] Raw channels:', response.channels);
             // Filter to only show text channels and sort them alphabetically
             const textChannels = (response.channels || [])
               .filter(channel => {
@@ -311,19 +315,24 @@ const SquadronDiscordSettings: React.FC<SquadronDiscordSettingsProps> = ({
               }))
               .sort((a, b) => a.name.localeCompare(b.name));
             
+            console.log('[CHANNELS] Filtered text channels:', textChannels);
             setAvailableChannels(textChannels);
           } else {
+            console.error('[CHANNELS] Response not successful:', response);
             setError(response.error || 'Failed to fetch Discord channels');
           }
         } catch (err: any) {
+          console.error('[CHANNELS] Error fetching channels:', err);
           setError(err.message || 'Error fetching Discord channels');
         } finally {
+          console.log('[CHANNELS] Setting loadingChannels to false');
           setLoadingChannels(false);
         }
       };
 
       fetchChannels();
     } else {
+      console.log('[CHANNELS] No selectedGuildId, clearing channels');
       setAvailableChannels([]);
     }
   }, [selectedGuildId]);
