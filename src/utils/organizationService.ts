@@ -269,29 +269,19 @@ export async function createWing(wing: NewWing): Promise<{ data: Wing | null; er
 
 export async function updateWing(id: string, updates: UpdateWing): Promise<{ data: Wing | null; error: any }> {
   try {
+    console.log('updateWing called with id:', id, 'updates:', updates);
+
     const { data, error } = await supabase
       .from('org_wings')
       .update(updates)
       .eq('id', id)
-      .select(`
-        *,
-        group:group_id (
-          id,
-          name,
-          established_date,
-          deactivated_date,
-          insignia_url,
-          command:command_id (
-            id,
-            name
-          )
-        )
-      `)
+      .select('*')
       .single();
 
+    console.log('updateWing result - data:', data, 'error:', error);
     return { data: data as Wing | null, error };
   } catch (error) {
-    console.error('Error updating wing:', error);
+    console.error('Error updating wing (caught exception):', error);
     return { data: null, error };
   }
 }

@@ -234,7 +234,9 @@ const OrganizationSettings: React.FC<OrganizationSettingsProps> = ({ error, setE
             }
             break;
           case 'wing':
+            console.log('About to call updateWing with:', modalState.entity.id, data);
             result = await updateWing(modalState.entity.id, data as NewWing);
+            console.log('updateWing returned:', result);
             if (result.data) {
               setWings(wings.map(w => w.id === modalState.entity!.id ? result.data! : w));
             }
@@ -791,101 +793,131 @@ const OrganizationSettings: React.FC<OrganizationSettingsProps> = ({ error, setE
                         borderRadius: '8px',
                         backgroundColor: !isEntityActive(wing) ? '#F8FAFC' : '#FFFFFF',
                         opacity: !isEntityActive(wing) ? 0.6 : 1,
-                        position: 'relative'
+                        position: 'relative',
+                        display: 'flex',
+                        gap: '12px',
+                        alignItems: 'flex-start'
                       }}
                     >
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontWeight: 500, fontSize: '14px', color: '#0F172A', fontFamily: 'Inter', marginBottom: '2px' }}>
-                            {wing.designation}
-                          </div>
-                          <div style={{ fontSize: '13px', color: '#64748B', fontFamily: 'Inter' }}>
-                            {wing.name}
-                          </div>
+                      {/* Wing Insignia */}
+                      {wing.insignia_url ? (
+                        <div style={{
+                          width: '48px',
+                          height: '48px',
+                          backgroundImage: `url(${wing.insignia_url})`,
+                          backgroundSize: 'contain',
+                          backgroundRepeat: 'no-repeat',
+                          backgroundPosition: 'center',
+                          flexShrink: 0
+                        }} />
+                      ) : (
+                        <div style={{
+                          width: '48px',
+                          height: '48px',
+                          backgroundColor: '#E5E7EB',
+                          borderRadius: '6px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          flexShrink: 0
+                        }}>
+                          <span style={{ fontSize: '20px', color: '#9CA3AF' }}>?</span>
                         </div>
-                        <div style={{ display: 'flex', gap: '4px', marginLeft: '8px' }}>
-                          <button
-                            onClick={() => handleEditEntity(wing, 'wing')}
-                            style={{
-                              padding: '4px',
-                              borderRadius: '4px',
-                              cursor: 'pointer',
-                              background: 'white',
-                              boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-                              border: 'none',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              transition: 'all 0.1s ease',
-                              color: '#64748B',
-                              width: '24px',
-                              height: '24px'
-                            }}
-                            title="Edit"
-                            onMouseEnter={(e) => {
-                              e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.15)';
-                              e.currentTarget.style.background = '#F8FAFC';
-                            }}
-                            onMouseLeave={(e) => {
-                              e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
-                              e.currentTarget.style.background = 'white';
-                            }}
-                          >
-                            <Edit size={14} />
-                          </button>
-                          <button
-                            onClick={() => handleDeleteEntity(wing, 'wing')}
-                            style={{
-                              padding: '4px',
-                              borderRadius: '4px',
-                              cursor: 'pointer',
-                              background: 'white',
-                              boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-                              border: 'none',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              transition: 'all 0.1s ease',
-                              color: '#64748B',
-                              width: '24px',
-                              height: '24px'
-                            }}
-                            title="Delete"
-                            onMouseEnter={(e) => {
-                              e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.15)';
-                              e.currentTarget.style.background = '#FEF2F2';
-                              e.currentTarget.style.color = '#DC2626';
-                            }}
-                            onMouseLeave={(e) => {
-                              e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
-                              e.currentTarget.style.background = 'white';
-                              e.currentTarget.style.color = '#64748B';
-                            }}
-                          >
-                            <Trash size={14} />
-                          </button>
+                      )}
+
+                      {/* Wing Info */}
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontWeight: 600, fontSize: '14px', color: '#0F172A', fontFamily: 'Inter', marginBottom: '2px' }}>
+                          {wing.designation}
                         </div>
+                        <div style={{ fontSize: '13px', color: '#64748B', fontFamily: 'Inter', marginBottom: '8px' }}>
+                          {wing.name}
+                        </div>
+                        {wing.group && (
+                          <div style={{ fontSize: '11px', color: '#94A3B8', fontFamily: 'Inter', marginBottom: '4px' }}>
+                            {wing.group.command?.name ? `${wing.group.command.name} > ` : ''}{wing.group.name}
+                          </div>
+                        )}
+                        {wing.tail_code && (
+                          <div style={{ fontSize: '11px', color: '#94A3B8', fontFamily: 'Inter', marginBottom: '4px' }}>
+                            Tail Code: {wing.tail_code}
+                          </div>
+                        )}
+                        {wing.established_date && (
+                          <div style={{ fontSize: '11px', color: '#94A3B8', fontFamily: 'Inter', fontStyle: 'italic' }}>
+                            Est. {new Date(wing.established_date).getFullYear()}
+                          </div>
+                        )}
+                        {!isEntityActive(wing) && (
+                          <div style={{ fontSize: '11px', color: '#DC2626', fontFamily: 'Inter', marginTop: '4px' }}>
+                            Deactivated
+                          </div>
+                        )}
                       </div>
-                      {wing.group && (
-                        <div style={{ fontSize: '11px', color: '#94A3B8', fontFamily: 'Inter', marginBottom: '4px' }}>
-                          {wing.group.command?.name ? `${wing.group.command.name} > ` : ''}{wing.group.name}
-                        </div>
-                      )}
-                      {wing.tail_code && (
-                        <div style={{ fontSize: '11px', color: '#94A3B8', fontFamily: 'Inter', marginBottom: '4px' }}>
-                          Tail Code: {wing.tail_code}
-                        </div>
-                      )}
-                      {wing.established_date && (
-                        <div style={{ fontSize: '11px', color: '#94A3B8', fontFamily: 'Inter', fontStyle: 'italic' }}>
-                          Est. {new Date(wing.established_date).getFullYear()}
-                        </div>
-                      )}
-                      {!isEntityActive(wing) && (
-                        <div style={{ fontSize: '11px', color: '#DC2626', fontFamily: 'Inter', marginTop: '4px' }}>
-                          Deactivated
-                        </div>
-                      )}
+
+                      {/* Action Buttons */}
+                      <div style={{ display: 'flex', gap: '4px', marginLeft: '8px' }}>
+                        <button
+                          onClick={() => handleEditEntity(wing, 'wing')}
+                          style={{
+                            padding: '4px',
+                            borderRadius: '4px',
+                            cursor: 'pointer',
+                            background: 'white',
+                            boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                            border: 'none',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            transition: 'all 0.1s ease',
+                            color: '#64748B',
+                            width: '24px',
+                            height: '24px'
+                          }}
+                          title="Edit"
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.15)';
+                            e.currentTarget.style.background = '#F8FAFC';
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
+                            e.currentTarget.style.background = 'white';
+                          }}
+                        >
+                          <Edit size={14} />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteEntity(wing, 'wing')}
+                          style={{
+                            padding: '4px',
+                            borderRadius: '4px',
+                            cursor: 'pointer',
+                            background: 'white',
+                            boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                            border: 'none',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            transition: 'all 0.1s ease',
+                            color: '#64748B',
+                            width: '24px',
+                            height: '24px'
+                          }}
+                          title="Delete"
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.15)';
+                            e.currentTarget.style.background = '#FEF2F2';
+                            e.currentTarget.style.color = '#DC2626';
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
+                            e.currentTarget.style.background = 'white';
+                            e.currentTarget.style.color = '#64748B';
+                          }}
+                        >
+                          <Trash size={14} />
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>
