@@ -109,8 +109,6 @@ async function createEventEmbed(title, description, eventTime, responses = {}, c
 
   // MODIFIED: Mission Support Section Generator - ONLY accepted pilots with >>> block quote
   const generateMissionSupportSection = (entries) => {
-    console.log(`[MISSION-SUPPORT-SENTINEL] generateMissionSupportSection called with ${entries.length} entries`);
-    
     const auxiliaryQualifications = ['Mission Commander', 'JTAC', 'Landing Signals Officer'];
     const supportMap = new Map();
 
@@ -118,10 +116,9 @@ async function createEventEmbed(title, description, eventTime, responses = {}, c
 
     entries.forEach(entry => {
       const qualifications = entry.pilotRecord?.qualifications || [];
-      
+
       auxiliaryQualifications.forEach(qual => {
         if (qualifications.includes(qual)) {
-          console.log(`[MISSION-SUPPORT-SENTINEL] Adding ${entry.displayName} to ${qual}`);
           supportMap.get(qual).push(entry);
         }
       });
