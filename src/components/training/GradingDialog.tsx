@@ -775,7 +775,7 @@ const GradingDialog: React.FC<GradingDialogProps> = ({
               Trainee Grading Form
             </h2>
             <div style={{ fontSize: '14px', color: '#64748B' }}>
-              Week {dialogData.weekNumber} - H{String(dialogData.missionNumber).padStart(2, '0')}: {dialogData.missionName}
+              Week {dialogData.weekNumber}{dialogData.missionNumber !== null ? ` - H${String(dialogData.missionNumber).padStart(2, '0')}` : ''}: {dialogData.missionName}
             </div>
           </div>
 
