@@ -1607,6 +1607,9 @@ app.post('/api/discord/post-image', async (req, res) => {
       console.log(`[POST-IMAGE] Posting image to Discord - Guild: ${guildId}, Channel: ${channelId}, Message: ${message || 'No message'}, Role mentions: ${roles.length}`);
 
       try {
+        // Get the Discord client
+        const discordClient = getClient();
+        
         // Wait for Discord client to be ready
         if (!discordClient.isReady()) {
           await new Promise((resolve) => {
@@ -2007,15 +2010,32 @@ async function processIndividualReminder(reminder) {
 
   // Query for users with specific responses (if any response types selected)
   if (responseTypes.length > 0) {
-    const { data: respondedUsers, error: attendanceError } = await supabase
+    // Get ALL attendance records for the event (will deduplicate after)
+    // This ensures we respect the pilot's MOST RECENT response, not any historical response
+    const { data: allAttendance, error: attendanceError } = await supabase
       .from('discord_event_attendance')
-      .select('discord_id, discord_username, user_response')
+      .select('discord_id, discord_username, user_response, updated_at')
       .in('discord_event_id', discordEventIds)
-      .in('user_response', responseTypes);
+      .order('updated_at', { ascending: false });
 
     if (attendanceError) {
       throw new Error(`Could not fetch attendance data: ${attendanceError.message}`);
     }
+
+    // Deduplicate: keep only the most recent response per pilot
+    // This prevents duplicate mentions and respects response changes (e.g., accepted → declined)
+    const latestResponseByPilot = new Map();
+    (allAttendance || []).forEach(record => {
+      if (!latestResponseByPilot.has(record.discord_id)) {
+        latestResponseByPilot.set(record.discord_id, record);
+      }
+    });
+
+    // Filter to only the desired response types AFTER deduplication
+    const respondedUsers = Array.from(latestResponseByPilot.values())
+      .filter(record => responseTypes.includes(record.user_response));
+
+    console.log(`[REMINDER-${reminder.id}] Found ${allAttendance?.length || 0} total attendance records, ${latestResponseByPilot.size} unique pilots, ${respondedUsers.length} matching response types`);
 
     // Get squadron assignments for these users
     if (respondedUsers && respondedUsers.length > 0) {
@@ -2822,6 +2842,34 @@ async function processScheduledPublications() {
           }
 
           console.log(`[SCHEDULED-PUBLICATIONS] Using imageUrl: ${imageUrl || 'NOT SET'}`);
+
+          // Fresh check: does event already have a post in this channel?
+          // This prevents duplicate posts if a manual publish happened concurrently
+          const { data: freshEvent } = await supabase
+            .from('events')
+            .select('discord_event_id')
+            .eq('id', event.id)
+            .single();
+
+          if (freshEvent?.discord_event_id) {
+            const existingPost = freshEvent.discord_event_id.find(
+              pub => pub.channelId === channelInfo.channelId
+            );
+            if (existingPost) {
+              console.log(`[SCHEDULED-PUBLICATIONS] Event already has post in channel ${channelInfo.channelId}, reusing messageId ${existingPost.messageId}`);
+              // Reuse existing messageId instead of publishing again
+              for (const squadronId of channelInfo.squadronIds) {
+                publishedChannels.push({
+                  messageId: existingPost.messageId,
+                  guildId: existingPost.guildId || channelInfo.guildId,
+                  channelId: existingPost.channelId,
+                  squadronId: squadronId
+                });
+              }
+              publishedCount++;
+              continue; // Skip to next channel
+            }
+          }
 
           const publishResult = await publishEventToDiscord(
             event.name,

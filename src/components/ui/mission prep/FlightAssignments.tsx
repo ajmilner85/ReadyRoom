@@ -1045,6 +1045,14 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
       ctx.textAlign = 'right';
       const rightX = width - padding - 10;
 
+      // Debug: Log the selected event's date
+      console.log('[FLIGHT-IMAGE-DEBUG] Generating image for event:', {
+        eventId: selectedEvent?.id,
+        eventTitle: selectedEvent?.title,
+        eventDatetime: selectedEvent?.datetime,
+        parsedDate: selectedEvent?.datetime ? new Date(selectedEvent.datetime).toISOString() : null
+      });
+
       // Event name (bold, same size as squadron name) with wrapping if needed
       const eventName = selectedEvent?.title || 'Event';
       ctx.font = 'bold 16px Arial, sans-serif';
