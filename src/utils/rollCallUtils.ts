@@ -68,52 +68,73 @@ export const updateRollCallResponse = async (
     return;
   }
 
+  console.log(`[ROLL-CALL-DB] Updating roll call for ${pilotName}: discordEventId=${discordEventId}, discordId=${discordId}, response=${response}`);
+
   try {
-    // Check if there's an existing roll call record for this user/event
+    // Check if there's ANY existing attendance record for this user/event (not just roll call ones)
     const { data: existingRecords, error: fetchError } = await supabase
       .from('discord_event_attendance')
       .select('*')
       .eq('discord_event_id', discordEventId)
-      .eq('discord_id', discordId)
-      .not('roll_call_response', 'is', null);
+      .eq('discord_id', discordId);
 
     if (fetchError) {
-      console.error('Error checking for existing roll call record:', fetchError);
+      console.error('Error checking for existing attendance record:', fetchError);
       return;
     }
 
-    const existingRollCallRecord = existingRecords && existingRecords.length > 0 ? existingRecords[0] : null;
+    console.log(`[ROLL-CALL-DB] Found ${existingRecords?.length || 0} existing records for ${pilotName}`);
+
+    const existingRecord = existingRecords && existingRecords.length > 0 ? existingRecords[0] : null;
 
     if (response === null) {
-      // Unselecting - DELETE the roll call record if it exists
-      if (existingRollCallRecord) {
-        const { error: deleteError } = await supabase
-          .from('discord_event_attendance')
-          .delete()
-          .eq('id', existingRollCallRecord.id);
+      // Unselecting - Update the roll_call_response to null (don't delete if it's a Discord RSVP record)
+      if (existingRecord) {
+        if (existingRecord.user_response === 'roll_call') {
+          // This was a manual roll call record, safe to delete
+          const { error: deleteError } = await supabase
+            .from('discord_event_attendance')
+            .delete()
+            .eq('id', existingRecord.id);
 
-        if (deleteError) {
-          console.error('Error deleting roll call record:', deleteError);
+          if (deleteError) {
+            console.error('Error deleting roll call record:', deleteError);
+          } else {
+            console.log(`[ROLL-CALL-DB] Deleted roll call record for ${pilotName}`);
+          }
         } else {
-          console.log(`Deleted roll call record for ${pilotName}`);
+          // This is a Discord RSVP record, just clear the roll_call_response
+          const { error: updateError } = await supabase
+            .from('discord_event_attendance')
+            .update({
+              roll_call_response: null,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', existingRecord.id);
+
+          if (updateError) {
+            console.error('Error clearing roll call response:', updateError);
+          } else {
+            console.log(`[ROLL-CALL-DB] Cleared roll call response for ${pilotName}`);
+          }
         }
       } else {
-        console.log(`No roll call record to delete for ${pilotName}`);
+        console.log(`[ROLL-CALL-DB] No record to clear for ${pilotName}`);
       }
-    } else if (existingRollCallRecord) {
-      // Update existing roll call record
+    } else if (existingRecord) {
+      // Update existing record with roll call response
       const { error: updateError } = await supabase
         .from('discord_event_attendance')
         .update({
           roll_call_response: response,
           updated_at: new Date().toISOString()
         })
-        .eq('id', existingRollCallRecord.id);
+        .eq('id', existingRecord.id);
 
       if (updateError) {
         console.error('Error updating roll call record:', updateError);
       } else {
-        console.log(`Updated roll call record for ${pilotName} to ${response}`);
+        console.log(`[ROLL-CALL-DB] Updated roll call record for ${pilotName} to ${response}`);
       }
     } else {
       // Insert new roll call record
@@ -130,7 +151,7 @@ export const updateRollCallResponse = async (
       if (insertError) {
         console.error('Error inserting roll call record:', insertError);
       } else {
-        console.log(`Inserted roll call record for ${pilotName}: ${response}`);
+        console.log(`[ROLL-CALL-DB] Inserted roll call record for ${pilotName}: ${response}`);
       }
     }
   } catch (error) {

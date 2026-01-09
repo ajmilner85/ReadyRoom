@@ -149,13 +149,73 @@ const GradingDialog: React.FC<GradingDialogProps> = ({
       if (cellData.eventId) {
         const { data: event, error: eventError} = await supabase
           .from('events')
-          .select('id, name, start_datetime, reference_materials')
+          .select('id, name, start_datetime, reference_materials, discord_event_id')
           .eq('id', cellData.eventId)
           .single();
 
         if (!eventError && event) {
           eventData = event;
           eventRefs = Array.isArray(event.reference_materials) ? event.reference_materials : [];
+        }
+      }
+
+      // Re-fetch fresh attendance status from database (not relying on potentially stale cellData)
+      let wasPresent = false;
+      let wasAssignedToFlight = false;
+
+      if (cellData.eventId) {
+        // The discord_event_id field is a JSONB array of objects with structure:
+        // [{ guildId, threadId, channelId, messageId, squadronId, reminderMessageIds }, ...]
+        // The messageId is what's used as the discord_event_id for attendance tracking
+        const rawDiscordEventId = eventData?.discord_event_id;
+        
+        // Extract all messageIds from the discord_event_id array
+        const discordEventIds: string[] = [];
+        if (Array.isArray(rawDiscordEventId)) {
+          rawDiscordEventId.forEach((item: any) => {
+            if (item && item.messageId) {
+              discordEventIds.push(String(item.messageId));
+            }
+          });
+        } else if (typeof rawDiscordEventId === 'string' && rawDiscordEventId.length > 0) {
+          discordEventIds.push(rawDiscordEventId);
+        }
+        
+        const manualDiscordEventId = `manual-${cellData.eventId}`;
+        
+        // Always include the manual ID as a fallback
+        const discordEventIdsToQuery = [...discordEventIds, manualDiscordEventId];
+        
+        console.log('[GRADING-DEBUG] Checking attendance for student:', {
+          studentId: cellData.studentId,
+          studentDiscordId: studentData.discord_id,
+          eventId: cellData.eventId,
+          discordEventIdsToQuery,
+          manualDiscordEventId
+        });
+
+        if (studentData.discord_id) {
+          const { data: attendanceData, error: attendanceError } = await supabase
+            .from('discord_event_attendance')
+            .select('discord_event_id, roll_call_response')
+            .in('discord_event_id', discordEventIdsToQuery)
+            .eq('discord_id', studentData.discord_id)
+            .not('roll_call_response', 'is', null);
+
+          console.log('[GRADING-DEBUG] Attendance query result:', { attendanceData, attendanceError });
+
+          if (attendanceData && attendanceData.length > 0) {
+            // Log each attendance record for debugging
+            attendanceData.forEach((record, idx) => {
+              console.log(`[GRADING-DEBUG] Attendance record ${idx}:`, {
+                discord_event_id: record.discord_event_id,
+                roll_call_response: record.roll_call_response
+              });
+            });
+            // Check if any record shows Present
+            wasPresent = attendanceData.some(record => record.roll_call_response === 'Present');
+            console.log('[GRADING-DEBUG] wasPresent calculated as:', wasPresent);
+          }
         }
       }
 
@@ -196,7 +256,7 @@ const GradingDialog: React.FC<GradingDialogProps> = ({
 
       if (gradesError) console.error('Error loading grades:', gradesError);
 
-      // Determine assigned IP from flight assignments
+      // Determine assigned IP from flight assignments and check if student is assigned
       let assignedIpPilotId = null;
       let assignedIpCallsign = cellData.assignedIpCallsign;
 
@@ -214,14 +274,22 @@ const GradingDialog: React.FC<GradingDialogProps> = ({
         if (missionAssignments?.pilot_assignments) {
           const assignments = missionAssignments.pilot_assignments;
 
+          // Note: Database stores assignments with snake_case fields (pilot_id, dash_number)
+          // but some may have camelCase (id, dashNumber) if saved in UI format
           Object.entries(assignments).forEach(([flightId, pilots]: [string, any]) => {
             if (!Array.isArray(pilots)) return;
 
-            const studentInFlight = pilots.find((p: any) => p.id === cellData.studentId);
+            // Check for student using both formats: pilot_id (db) or id (UI)
+            const studentInFlight = pilots.find((p: any) => 
+              (p.pilot_id === cellData.studentId) || (p.id === cellData.studentId)
+            );
             if (studentInFlight) {
-              const flightLead = pilots.find((p: any) => p.dashNumber === "1");
+              wasAssignedToFlight = true; // Student is assigned to a flight
+              console.log('[GRADING-DEBUG] Student found in flight:', flightId);
+              // Find flight lead using both formats: dash_number (db) or dashNumber (UI)
+              const flightLead = pilots.find((p: any) => p.dash_number === "1" || p.dashNumber === "1");
               if (flightLead) {
-                assignedIpPilotId = flightLead.id;
+                assignedIpPilotId = flightLead.pilot_id || flightLead.id;
                 assignedIpCallsign = flightLead.callsign;
               }
             }
@@ -324,8 +392,8 @@ const GradingDialog: React.FC<GradingDialogProps> = ({
         eventDate: eventData?.start_datetime,
         assignedIpPilotId,
         assignedIpCallsign,
-        wasPresent: cellData.wasPresent,
-        wasAssignedToFlight: cellData.wasAssignedToFlight,
+        wasPresent,           // Use fresh value from database
+        wasAssignedToFlight,  // Use fresh value from flight assignments
         objectives: (objectivesData || []).map((obj: any) => ({
           id: obj.id,
           objectiveText: obj.objective_text,
@@ -707,7 +775,7 @@ const GradingDialog: React.FC<GradingDialogProps> = ({
   const hasIpMismatch = currentUserPilotId !== dialogData.assignedIpPilotId && dialogData.assignedIpPilotId;
   const hasUngradedDlos = dloGrades.some(dlo => dlo.grade === null);
   const hasUnsatDlos = dloGrades.some(dlo => dlo.grade === 'UNSAT');
-  const canSave = overallGrade && (!hasIpMismatch || ipMismatchAcknowledged);
+  const canSave = overallGrade !== null;
 
   // Check for unsaved changes
   const hasUnsavedChanges = overallGrade !== null ||
@@ -1101,32 +1169,6 @@ const GradingDialog: React.FC<GradingDialogProps> = ({
             </div>
           </div>
 
-          {hasIpMismatch && !isReadOnly && (
-            <div style={{
-              padding: '12px',
-              backgroundColor: '#FEF3C7',
-              border: '1px solid #F59E0B',
-              borderRadius: '6px',
-              marginBottom: '12px',
-              display: 'inline-block'
-            }}>
-              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', marginBottom: '8px' }}>
-                <AlertTriangle size={16} style={{ color: '#F59E0B', marginTop: '2px', flexShrink: 0 }} />
-                <div style={{ fontSize: '14px', color: '#92400E' }}>
-                  You are not the assigned IP for this trainee. The assigned IP is {dialogData.assignedIpCallsign}.
-                </div>
-              </div>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px', color: '#374151', cursor: 'pointer' }}>
-                <input
-                  type="checkbox"
-                  checked={ipMismatchAcknowledged}
-                  onChange={(e) => setIpMismatchAcknowledged(e.target.checked)}
-                  disabled={isReadOnly}
-                />
-                I acknowledge that I am not the assigned IP and am authorized to grade this trainee.
-              </label>
-            </div>
-          )}
 
           {/* Attempt Selector */}
           <div style={{ marginBottom: '24px' }}>
@@ -1599,13 +1641,36 @@ const GradingDialog: React.FC<GradingDialogProps> = ({
               padding: '16px 24px',
               borderTop: '1px solid #E5E7EB',
               display: 'flex',
-              justifyContent: 'flex-end',
+              justifyContent: 'space-between',
+              alignItems: 'center',
               gap: '12px',
               backgroundColor: '#F9FAFB',
               flexShrink: 0
             }}
           >
-            <div style={{ display: 'flex', gap: '12px' }}>
+            {/* Warning message on the left */}
+            {hasIpMismatch && (
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                flex: 1,
+                padding: '10px 12px',
+                backgroundColor: '#FEF3C7',
+                border: '1px solid #F59E0B',
+                borderRadius: '6px',
+                height: '40px',
+                boxSizing: 'border-box'
+              }}>
+                <AlertTriangle size={16} style={{ color: '#F59E0B', flexShrink: 0 }} />
+                <div style={{ fontSize: '13px', color: '#92400E', lineHeight: '1.4' }}>
+                  You were not the assigned IP for this trainee. Please verify you have selected the correct trainee before submitting this form.
+                </div>
+              </div>
+            )}
+
+            {/* Buttons on the right */}
+            <div style={{ display: 'flex', gap: '12px', flexShrink: 0 }}>
               <button
                 onClick={handleCancelClick}
                 disabled={saving}
