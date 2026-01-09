@@ -1,483 +1,205 @@
 // @ts-nocheck
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { supabase } from '../../utils/supabaseClient';
-import { BookOpen, Plus, Edit, Trash2, Users } from 'lucide-react';
-import PTRGrid from './PTRGrid';
-import GradingDialog from './GradingDialog';
-import { useComponentPermissions } from '../../hooks/usePermissions';
-import { getCycleEnrollmentCount } from '../../utils/trainingEnrollmentService';
-import { PTRCellData } from '../../types/TrainingTypes';
-import { useAuth } from '../../context/AuthContext';
+import { usePageLoading } from '../../context/PageLoadingContext';
+import { Card } from '../ui/card';
+import { BookOpen, Users } from 'lucide-react';
 
-const CARD_WIDTH = '550px';
+// Import training subpages
+import SyllabusManagement from './SyllabusManagement';
+import PilotTrainingRecords from './PilotTrainingRecords';
 
-interface Syllabus {
-  id: string;
-  name: string;
-  description?: string;
-  aircraft_type?: string;
-  estimated_hours?: number;
+// Define the types of training pages
+type TrainingPage = 'syllabi' | 'records';
+
+interface TrainingNavItem {
+  id: TrainingPage;
+  icon: React.ReactNode;
+  label: string;
 }
 
-interface TrainingCycle {
-  id: string;
-  name: string;
-  start_date: string;
-  end_date: string | null;
-  syllabus_id: string;
+interface TrainingNavSection {
+  title: string;
+  items: TrainingNavItem[];
 }
+
+// Navigation sections for the training sidebar
+const trainingNavSections: TrainingNavSection[] = [
+  {
+    title: 'Training Management',
+    items: [
+      {
+        id: 'records',
+        icon: <Users size={20} />,
+        label: 'Pilot Training Records'
+      },
+      {
+        id: 'syllabi',
+        icon: <BookOpen size={20} />,
+        label: 'Syllabus Management'
+      }
+    ]
+  }
+];
 
 const TrainingManagement: React.FC = () => {
-  const navigate = useNavigate();
-  const { isVisible } = useComponentPermissions();
-  const { userProfile } = useAuth();
-  const [syllabi, setSyllabi] = useState<Syllabus[]>([]);
-  const [cycles, setCycles] = useState<TrainingCycle[]>([]);
-  const [selectedSyllabusId, setSelectedSyllabusId] = useState<string | undefined>();
-  const [selectedCycleId, setSelectedCycleId] = useState<string | undefined>();
-  const [loading, setLoading] = useState(true);
+  const { setPageLoading } = usePageLoading();
+  const [activeTrainingPage, setActiveTrainingPage] = useState<TrainingPage>('records');
   const [error, setError] = useState<string | null>(null);
-  const [deleteConfirmSyllabusId, setDeleteConfirmSyllabusId] = useState<string | null>(null);
-  const [deleteConfirmText, setDeleteConfirmText] = useState('');
-  const [enrollmentCounts, setEnrollmentCounts] = useState<Record<string, number>>({});
-  const [gradingDialogCell, setGradingDialogCell] = useState<PTRCellData | null>(null);
-  const [ptrGridKey, setPtrGridKey] = useState(0);
 
+  // Clear page loading immediately since training loads fast
   useEffect(() => {
-    loadSyllabi();
-    loadCycles();
-  }, []);
+    setPageLoading('training', false);
+  }, [setPageLoading]);
 
-  const loadSyllabi = async () => {
-    try {
-      setLoading(true);
-      const { data, error: syllabusError } = await supabase
-        .from('training_syllabi')
-        .select('*')
-        .order('name');
+  // Navigate between training pages
+  const handleTrainingNavigate = (page: TrainingPage) => {
+    setActiveTrainingPage(page);
+  };
 
-      if (syllabusError) throw syllabusError;
-
-      setSyllabi(data || []);
-      if (data && data.length > 0 && !selectedSyllabusId) {
-        setSelectedSyllabusId(data[0].id);
-      }
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
+  // Render content based on active training page
+  const renderTrainingContent = () => {
+    switch (activeTrainingPage) {
+      case 'syllabi':
+        return <SyllabusManagement error={error} setError={setError} />;
+      case 'records':
+        return <PilotTrainingRecords error={error} setError={setError} />;
+      default:
+        return <div>Select a training page</div>;
     }
   };
 
-  const loadCycles = async () => {
-    try {
-      const { data, error: cyclesError } = await supabase
-        .from('cycles')
-        .select('*')
-        .eq('type', 'Training')
-        .order('start_date', { ascending: false });
+  // Training navigation item
+  const TrainingNavItem: React.FC<{ item: TrainingNavItem; active: boolean; onClick: () => void }> = ({
+    item,
+    active,
+    onClick
+  }) => {
+    const [isHovered, setIsHovered] = React.useState(false);
 
-      if (cyclesError) throw cyclesError;
-
-      setCycles(data || []);
-      if (data && data.length > 0 && !selectedCycleId) {
-        setSelectedCycleId(data[0].id);
-      }
-
-      // Load enrollment counts for all cycles
-      if (data && data.length > 0) {
-        loadEnrollmentCounts(data.map(c => c.id));
-      }
-    } catch (err: any) {
-      console.error('Error loading training cycles:', err);
-      setError(err.message);
-    }
-  };
-
-  const loadEnrollmentCounts = async (cycleIds: string[]) => {
-    try {
-      const counts: Record<string, number> = {};
-      await Promise.all(
-        cycleIds.map(async (cycleId) => {
-          const count = await getCycleEnrollmentCount(cycleId);
-          counts[cycleId] = count;
-        })
-      );
-      setEnrollmentCounts(counts);
-    } catch (err: any) {
-      console.error('Error loading enrollment counts:', err);
-    }
-  };
-
-  const handleDeleteClick = (syllabusId: string) => {
-    setDeleteConfirmSyllabusId(syllabusId);
-    setDeleteConfirmText('');
-  };
-
-  const handleCancelDelete = () => {
-    setDeleteConfirmSyllabusId(null);
-    setDeleteConfirmText('');
-  };
-
-  const handleConfirmDelete = async () => {
-    if (deleteConfirmText.toLowerCase() !== 'yes' || !deleteConfirmSyllabusId) return;
-
-    try {
-      const { error: deleteError } = await supabase
-        .from('training_syllabi')
-        .delete()
-        .eq('id', deleteConfirmSyllabusId);
-
-      if (deleteError) throw deleteError;
-
-      // Clear selection if deleted syllabus was selected
-      if (selectedSyllabusId === deleteConfirmSyllabusId) {
-        setSelectedSyllabusId(undefined);
-      }
-
-      // Reload syllabi list
-      await loadSyllabi();
-
-      setDeleteConfirmSyllabusId(null);
-      setDeleteConfirmText('');
-    } catch (err: any) {
-      setError(err.message);
-      setDeleteConfirmSyllabusId(null);
-      setDeleteConfirmText('');
-    }
-  };
-
-  const handleCellClick = (cellData: PTRCellData) => {
-    setGradingDialogCell(cellData);
-  };
-
-  const handleGradingDialogClose = () => {
-    setGradingDialogCell(null);
-  };
-
-  const handleGradingDialogSave = () => {
-    // Refresh the PTR grid by updating the key
-    setPtrGridKey(prev => prev + 1);
-  };
-
-  if (loading) {
     return (
-      <div style={{ backgroundColor: '#F0F4F8', minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', boxSizing: 'border-box', padding: '20px' }}>
-        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 'calc(100vh - 40px)', width: '100%' }}>
-          <div style={{ backgroundColor: 'white', boxShadow: '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)', borderRadius: '8px', padding: '40px 80px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '20px' }}>
-            Loading training management...
-          </div>
-        </div>
+      <div
+        onClick={onClick}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          paddingLeft: '16px',
+          paddingRight: '16px',
+          cursor: 'pointer',
+          fontFamily: 'Inter',
+          fontSize: '14px',
+          fontWeight: active ? 500 : 400,
+          transition: 'all 0.2s ease',
+          borderRadius: '6px',
+          marginBottom: '5px',
+          height: '32px',
+          gap: '5px',
+          backgroundColor: active ? '#82728C' : isHovered ? '#F1F5F9' : 'transparent',
+          color: active ? 'white' : '#64748B'
+        }}
+      >
+        <div>{item.icon}</div>
+        <div>{item.label}</div>
       </div>
     );
-  }
+  };
 
   return (
-    <div style={{ backgroundColor: '#F0F4F8', minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', boxSizing: 'border-box', padding: '20px', overflow: 'visible' }}>
+    <div
+      style={{
+        backgroundColor: '#F0F4F8',
+        height: '100vh',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        padding: '20px 20px 20px 20px',
+        boxSizing: 'border-box',
+        fontFamily: 'Inter, sans-serif',
+      }}
+    >
       {error && (
         <div style={{ position: 'fixed', top: '20px', right: '20px', backgroundColor: '#FEE2E2', color: '#B91C1C', padding: '12px 16px', borderRadius: '4px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)', zIndex: 1000 }}>
           {error}
         </div>
       )}
 
-      <div style={{ display: 'flex', gap: '20px', justifyContent: 'center', minHeight: 'calc(100vh - 40px)', position: 'relative', zIndex: 1, maxWidth: '2240px', width: 'min(100%, 2240px)', boxSizing: 'border-box', overflow: 'visible', padding: '15px', margin: '-15px' }}>
-
-        {/* Syllabi List Card */}
-        <div style={{ width: CARD_WIDTH, minWidth: '350px', height: 'calc(100vh - 40px)', boxSizing: 'border-box', overflowY: 'visible' }}>
-          <div style={{ backgroundColor: 'white', boxShadow: '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)', borderRadius: '8px', height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-            <div style={{ padding: '16px 24px 8px' }}>
-              <span style={{ fontFamily: 'Inter', fontStyle: 'normal', fontWeight: 300, fontSize: '20px', lineHeight: '24px', color: '#64748B', textTransform: 'uppercase', display: 'block', textAlign: 'center' }}>
-                TRAINING SYLLABI
-              </span>
-            </div>
-            <div style={{ flex: 1, overflowY: 'auto', padding: '0px' }}>
-              {syllabi.length > 0 ? (
-                <div style={{ padding: '16px' }}>
-                  {syllabi.map((syllabus) => (
-                    <div
-                      key={syllabus.id}
-                      style={{
-                        padding: '16px',
-                        backgroundColor: selectedSyllabusId === syllabus.id ? '#EFF6FF' : '#FFFFFF',
-                        border: selectedSyllabusId === syllabus.id ? '2px solid #3B82F6' : '1px solid #E5E7EB',
-                        borderRadius: '8px',
-                        marginBottom: '12px',
-                        cursor: 'pointer',
-                        transition: 'all 0.2s'
-                      }}
-                      onClick={() => setSelectedSyllabusId(syllabus.id)}
-                    >
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
-                        <div style={{ flex: 1 }}>
-                          <div style={{ fontSize: '16px', fontWeight: 600, color: '#374151', marginBottom: '4px' }}>
-                            {syllabus.name}
-                          </div>
-                          {syllabus.description && (
-                            <div style={{ fontSize: '13px', color: '#6B7280', marginBottom: '8px' }}>
-                              {syllabus.description}
-                            </div>
-                          )}
-                          <div style={{ display: 'flex', gap: '16px', fontSize: '12px', color: '#9CA3AF' }}>
-                            {syllabus.aircraft_type && (
-                              <span>Aircraft: {syllabus.aircraft_type}</span>
-                            )}
-                            {syllabus.estimated_hours && (
-                              <span>Est. Hours: {syllabus.estimated_hours}</span>
-                            )}
-                          </div>
-                        </div>
-                        <div style={{ display: 'flex', gap: '8px' }}>
-                          <button
-                            style={{
-                              padding: '6px 12px',
-                              backgroundColor: 'transparent',
-                              border: '1px solid #D1D5DB',
-                              borderRadius: '6px',
-                              fontSize: '12px',
-                              fontWeight: 500,
-                              color: '#374151',
-                              cursor: 'pointer',
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '6px'
-                            }}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              navigate(`/training-management/syllabus/${syllabus.id}`);
-                            }}
-                          >
-                            <Edit size={14} />
-                            Edit
-                          </button>
-                          {isVisible('manage_training_syllabi') && (
-                            <button
-                              style={{
-                                padding: '6px',
-                                backgroundColor: 'transparent',
-                                border: '1px solid #FCA5A5',
-                                borderRadius: '6px',
-                                fontSize: '12px',
-                                fontWeight: 500,
-                                color: '#EF4444',
-                                cursor: 'pointer',
-                                display: 'flex',
-                                alignItems: 'center'
-                              }}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleDeleteClick(syllabus.id);
-                              }}
-                            >
-                              <Trash2 size={14} />
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', padding: '40px 20px', textAlign: 'center' }}>
-                  <BookOpen size={48} style={{ color: '#9CA3AF', marginBottom: '16px' }} />
-                  <p style={{ color: '#6B7280', marginBottom: '16px' }}>No training syllabi created yet</p>
-                  <button
-                    style={{
-                      padding: '10px 20px',
-                      backgroundColor: '#3B82F6',
-                      border: 'none',
-                      borderRadius: '6px',
-                      fontSize: '14px',
-                      fontWeight: 500,
-                      color: 'white',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '8px'
-                    }}
-                    onClick={() => navigate('/training-management/syllabus/new')}
-                  >
-                    <Plus size={16} />
-                    Create Your First Syllabus
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* PTR Grid Card */}
-        <div style={{ flex: 1, minWidth: '650px', height: 'calc(100vh - 40px)', boxSizing: 'border-box', overflowY: 'visible' }}>
-          <div style={{ backgroundColor: 'white', boxShadow: '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)', borderRadius: '8px', height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-            <div style={{ padding: '16px 24px 8px' }}>
-              <span style={{ fontFamily: 'Inter', fontStyle: 'normal', fontWeight: 300, fontSize: '20px', lineHeight: '24px', color: '#64748B', textTransform: 'uppercase', display: 'block', textAlign: 'center' }}>
-                PILOT TRAINING RECORD
-              </span>
-            </div>
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-              {/* Cycle Selector */}
-              <div style={{ padding: '16px', borderBottom: '1px solid #E5E7EB' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                  <label style={{ fontSize: '14px', fontWeight: 500, color: '#374151' }}>
-                    Training Cycle
-                  </label>
-                  {selectedCycleId && (
-                    <div style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '6px',
-                      padding: '4px 10px',
-                      backgroundColor: '#EFF6FF',
-                      border: '1px solid #BFDBFE',
-                      borderRadius: '12px',
-                      fontSize: '13px',
-                      color: '#1E40AF',
-                      fontWeight: 500
-                    }}>
-                      <Users size={14} />
-                      {enrollmentCounts[selectedCycleId] ?? 0} enrolled
-                    </div>
-                  )}
-                </div>
-                <select
-                  value={selectedCycleId || ''}
-                  onChange={(e) => setSelectedCycleId(e.target.value)}
-                  style={{
-                    padding: '8px 12px',
-                    border: '1px solid #D1D5DB',
-                    borderRadius: '6px',
-                    fontSize: '14px',
-                    width: '100%',
-                    backgroundColor: 'white'
-                  }}
-                >
-                  <option value="">Select a training cycle</option>
-                  {cycles.map(cycle => (
-                    <option key={cycle.id} value={cycle.id}>
-                      {cycle.name} ({new Date(cycle.start_date).toLocaleDateString('en-US', { timeZone: 'UTC' })})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* PTR Grid Content */}
-              <div style={{ flex: 1, overflowY: 'auto', padding: '16px' }}>
-                {selectedCycleId && cycles.find(c => c.id === selectedCycleId)?.syllabus_id ? (
-                  <PTRGrid
-                    key={ptrGridKey}
-                    syllabusId={cycles.find(c => c.id === selectedCycleId)!.syllabus_id!}
-                    cycleId={selectedCycleId}
-                    onCellClick={handleCellClick}
-                  />
-                ) : selectedCycleId ? (
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', textAlign: 'center', color: '#6B7280' }}>
-                    This training cycle has no syllabus assigned.
-                  </div>
-                ) : (
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', textAlign: 'center', color: '#6B7280' }}>
-                    Select a training cycle to view the PTR Grid
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-
-      </div>
-
-      {/* Delete Confirmation Dialog */}
-      {deleteConfirmSyllabusId && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: 'rgba(0, 0, 0, 0.5)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 1002
-        }}>
-          <div style={{
-            backgroundColor: 'white',
+      <div style={{
+        maxWidth: '1920px',
+        width: '100%',
+        margin: '0 auto',
+        height: 'calc(100vh - 40px)',
+        display: 'flex',
+        flexDirection: 'column'
+      }}>
+        {/* Main training card with navigation and content */}
+        <Card
+          className="bg-white rounded-lg shadow-md overflow-hidden"
+          style={{
+            boxShadow: '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)',
             borderRadius: '8px',
-            width: '90%',
-            maxWidth: '500px',
-            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
-          }}>
-            <div style={{ padding: '24px' }}>
-              <h2 style={{ fontSize: '18px', fontWeight: 600, marginBottom: '12px', margin: 0 }}>
-                Delete Syllabus
-              </h2>
-              <p style={{ color: '#6B7280', fontSize: '14px', marginTop: '8px', marginBottom: '16px' }}>
-                Are you sure you want to delete this syllabus? This will permanently delete all associated missions and objectives. This action cannot be undone.
-              </p>
-              <p style={{ color: '#374151', fontSize: '14px', fontWeight: 500, marginBottom: '8px' }}>
-                Type <strong>yes</strong> to confirm deletion:
-              </p>
-              <input
-                type="text"
-                value={deleteConfirmText}
-                onChange={(e) => setDeleteConfirmText(e.target.value)}
-                placeholder="Type 'yes' to confirm"
-                style={{
-                  width: '100%',
-                  padding: '8px 12px',
-                  border: '1px solid #D1D5DB',
-                  borderRadius: '6px',
-                  fontSize: '14px',
-                  boxSizing: 'border-box'
-                }}
-              />
+            backgroundColor: '#FFFFFF',
+            height: 'calc(100vh - 40px)',
+            display: 'flex',
+            flexDirection: 'column',
+            overflow: 'hidden'
+          }}
+        >
+          <div className="flex" style={{ flex: 1, overflow: 'hidden' }}>
+            {/* Training navigation sidebar */}
+            <div
+              className="w-64"
+              style={{
+                backgroundColor: '#FFFFFF',
+                padding: '40px 24px 24px 24px',
+                display: 'flex',
+                flexDirection: 'column',
+                borderRight: '1px solid #E5E7EB'
+              }}
+            >
+              <div style={{ overflowY: 'auto', flex: 1 }}>
+                {trainingNavSections.map((section) => (
+                  <div key={section.title} style={{ marginBottom: '32px' }}>
+                    {/* Section Title */}
+                    <h3 style={{
+                      fontSize: '12px',
+                      fontWeight: 600,
+                      color: '#9CA3AF',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.05em',
+                      marginBottom: '12px',
+                      fontFamily: 'Inter'
+                    }}>
+                      {section.title}
+                    </h3>
+
+                    {/* Section Items */}
+                    {section.items.map((item) => (
+                      <TrainingNavItem
+                        key={item.id}
+                        item={item}
+                        active={activeTrainingPage === item.id}
+                        onClick={() => handleTrainingNavigate(item.id)}
+                      />
+                    ))}
+                  </div>
+                ))}
+              </div>
             </div>
 
-            <div style={{ padding: '16px 24px', borderTop: '1px solid #E5E7EB', display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
-              <button
-                onClick={handleCancelDelete}
-                style={{
-                  padding: '8px 16px',
-                  backgroundColor: 'white',
-                  border: '1px solid #D1D5DB',
-                  borderRadius: '6px',
-                  cursor: 'pointer',
-                  fontSize: '14px',
-                  fontWeight: 500
-                }}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleConfirmDelete}
-                disabled={deleteConfirmText.toLowerCase() !== 'yes'}
-                style={{
-                  padding: '8px 16px',
-                  backgroundColor: deleteConfirmText.toLowerCase() === 'yes' ? '#EF4444' : '#FCA5A5',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '6px',
-                  cursor: deleteConfirmText.toLowerCase() === 'yes' ? 'pointer' : 'not-allowed',
-                  fontSize: '14px',
-                  fontWeight: 500
-                }}
-              >
-                Delete Syllabus
-              </button>
+            {/* Main content area */}
+            <div
+              className="flex-1 overflow-auto"
+              style={{
+                fontFamily: 'Inter',
+                minWidth: 0
+              }}
+            >
+              {renderTrainingContent()}
             </div>
           </div>
-        </div>
-      )}
-
-      {/* Grading Dialog */}
-      {gradingDialogCell && selectedCycleId && (
-        <GradingDialog
-          cellData={gradingDialogCell}
-          cycleId={selectedCycleId}
-          onClose={handleGradingDialogClose}
-          onSave={handleGradingDialogSave}
-          currentUserPilotId={userProfile?.pilotId}
-        />
-      )}
+        </Card>
+      </div>
     </div>
   );
 };

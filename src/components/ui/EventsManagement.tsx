@@ -25,6 +25,7 @@ import { getAllStatuses, Status } from '../../utils/statusService';
 import { getAllStandings, Standing } from '../../utils/standingService';
 import { getAllRoles, Role } from '../../utils/roleService';
 import { getAllQualifications, Qualification } from '../../utils/qualificationService';
+import { enrollPilots } from '../../utils/trainingEnrollmentService';
 
 // Standard card width matching MissionPreparation component
 const CARD_WIDTH = '550px';
@@ -68,6 +69,7 @@ const EventsManagement: React.FC = () => {
   const [showCycleDialog, setShowCycleDialog] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showDeleteAllEventsDialog, setShowDeleteAllEventsDialog] = useState(false);
+  const [showCycleHasEventsDialog, setShowCycleHasEventsDialog] = useState(false);
   const [deleteAllConfirmText, setDeleteAllConfirmText] = useState('');
   const [isDeletingAllEvents, setIsDeletingAllEvents] = useState(false);
   const [isSavingCycle, setIsSavingCycle] = useState(false);
@@ -1204,7 +1206,7 @@ const EventsManagement: React.FC = () => {
       const startDate = new Date(startYear, startMonth - 1, startDay);
       const endDate = new Date(endYear, endMonth - 1, endDay);
       const diffTime = Math.abs(endDate.getTime() - startDate.getTime());
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
       const totalWeeks = Math.ceil(diffDays / 7);
 
       // Get default time from settings
@@ -1221,8 +1223,10 @@ const EventsManagement: React.FC = () => {
         // Find mission for this week (if any)
         const mission = missions.find((m: any) => m.week_number === weekNum);
 
-        // Create event
-        const eventTitle = `${cycleData.name} - Week ${weekNum}`;
+        // Create event title - use mission name if available, otherwise just week number
+        const eventTitle = mission
+          ? `Week ${weekNum} - ${mission.mission_name}`
+          : `Week ${weekNum}`;
 
         const eventData = {
           title: eventTitle,
@@ -1272,6 +1276,7 @@ const EventsManagement: React.FC = () => {
     restrictedTo?: string[];
     syllabusId?: string;
     autoCreateEvents?: boolean;
+    stagedEnrollmentIds?: string[];
   }) => {
     setIsSavingCycle(true);
     try {
@@ -1297,6 +1302,26 @@ const EventsManagement: React.FC = () => {
       });
 
       if (error) throw error;
+
+      // Handle race condition: enroll staged pilots AFTER cycle is created
+      if (cycle && cycleData.stagedEnrollmentIds && cycleData.stagedEnrollmentIds.length > 0) {
+        // Get the user profile ID (not auth ID)
+        const { data: userData } = await supabase.auth.getUser();
+        let userProfileId = null;
+
+        if (userData.user) {
+          const { data: profile } = await supabase
+            .from('user_profiles')
+            .select('id')
+            .eq('auth_user_id', userData.user.id)
+            .single();
+
+          userProfileId = profile?.id || null;
+        }
+
+        // Enroll all staged pilots
+        await enrollPilots(cycle.id, cycleData.stagedEnrollmentIds, userProfileId);
+      }
 
       // If auto-create events is enabled, create events for the syllabus
       if (cycleData.autoCreateEvents && cycle && cycleData.syllabusId) {
@@ -1427,11 +1452,12 @@ const EventsManagement: React.FC = () => {
     const hasAssociatedEvents = events.some(event => event.cycleId === cycle.id);
 
     if (hasAssociatedEvents) {
-      // Show an error or confirmation to delete associated events as well
-      setError("Cannot delete a cycle with associated events. Please delete the events first.");
+      // Show an error dialog instead of banner
+      setCycleToDelete(cycle);
+      setShowCycleHasEventsDialog(true);
       return;
     }
-    
+
     setCycleToDelete(cycle);
     setIsDeleteCycle(true);
     setShowDeleteDialog(true);
@@ -2037,14 +2063,80 @@ const EventsManagement: React.FC = () => {
             setCycleToDelete(null);
           }}
           sectionTitle={isDeleteCycle ? "Cycle" : "Event"}
-          divisionLabel={isDeleteCycle 
-            ? cycleToDelete?.name || "" 
+          divisionLabel={isDeleteCycle
+            ? cycleToDelete?.name || ""
             : eventToDelete?.title || ""}
           isPublished={!isDeleteCycle && !!(
-            eventToDelete?.discordEventId || 
+            eventToDelete?.discordEventId ||
             eventToDelete?.discord_event_id
           )}
         />
+      )}
+
+      {/* Cycle Has Events Error Dialog */}
+      {showCycleHasEventsDialog && cycleToDelete && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000
+        }}>
+          <div style={{
+            backgroundColor: 'white',
+            borderRadius: '8px',
+            padding: '24px',
+            maxWidth: '500px',
+            width: '90%',
+            boxShadow: '0 10px 25px rgba(0, 0, 0, 0.3)'
+          }}>
+            <h2 style={{
+              fontSize: '20px',
+              fontWeight: 600,
+              color: '#1E293B',
+              marginBottom: '16px',
+              margin: 0
+            }}>
+              Cannot Delete Cycle
+            </h2>
+            <p style={{
+              fontSize: '14px',
+              color: '#64748B',
+              marginBottom: '20px',
+              lineHeight: '1.6'
+            }}>
+              The cycle <span style={{ fontWeight: 600, color: '#1E293B' }}>"{cycleToDelete.name}"</span> has associated events and cannot be deleted. Please delete the events first, then try deleting the cycle again.
+            </p>
+            <div style={{
+              display: 'flex',
+              justifyContent: 'flex-end'
+            }}>
+              <button
+                onClick={() => {
+                  setShowCycleHasEventsDialog(false);
+                  setCycleToDelete(null);
+                }}
+                style={{
+                  padding: '10px 20px',
+                  backgroundColor: '#2563EB',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  fontSize: '14px',
+                  fontWeight: 500,
+                  cursor: 'pointer'
+                }}
+              >
+                OK
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Delete All Events Confirmation Dialog */}

@@ -71,7 +71,8 @@ export async function getSuggestedEnrollments(syllabusId: string): Promise<Enrol
     const statusRules = rules.filter(r => r.type === 'status');
     const qualificationRules = rules.filter(r => r.type === 'qualification');
 
-    let pilotIds = new Set<string>();
+    // Get pilot IDs for each rule type (these will be intersected)
+    const ruleSets: Set<string>[] = [];
 
     // Run all rule queries in parallel for better performance
     await Promise.all([
@@ -92,7 +93,11 @@ export async function getSuggestedEnrollments(syllabusId: string): Promise<Enrol
               .in('standing_id', standingIds)
               .is('end_date', null);
 
-            pilotStandings?.forEach(ps => pilotIds.add(ps.pilot_id));
+            if (pilotStandings && pilotStandings.length > 0) {
+              const pilotSet = new Set<string>();
+              pilotStandings.forEach(ps => pilotSet.add(ps.pilot_id));
+              ruleSets.push(pilotSet);
+            }
           }
         }
       })(),
@@ -114,7 +119,11 @@ export async function getSuggestedEnrollments(syllabusId: string): Promise<Enrol
               .in('status_id', statusIds)
               .is('end_date', null);
 
-            pilotStatuses?.forEach(ps => pilotIds.add(ps.pilot_id));
+            if (pilotStatuses && pilotStatuses.length > 0) {
+              const pilotSet = new Set<string>();
+              pilotStatuses.forEach(ps => pilotSet.add(ps.pilot_id));
+              ruleSets.push(pilotSet);
+            }
           }
         }
       })(),
@@ -122,25 +131,53 @@ export async function getSuggestedEnrollments(syllabusId: string): Promise<Enrol
       // Get pilots matching qualification rules
       (async () => {
         if (qualificationRules.length > 0) {
-          const qualTypes = qualificationRules.map(r => r.value);
-          const { data: qualifications } = await supabase
+          const qualNames = qualificationRules.map(r => r.value);
+          const { data: qualifications, error: qualError } = await supabase
             .from('qualifications')
             .select('id')
-            .in('type', qualTypes);
+            .in('name', qualNames);
+
+          if (qualError) {
+            console.error('Error fetching qualifications:', qualError);
+            return;
+          }
 
           if (qualifications && qualifications.length > 0) {
             const qualIds = qualifications.map(q => q.id);
-            const { data: pilotQuals } = await supabase
+            const { data: pilotQuals, error: pilotQualsError } = await supabase
               .from('pilot_qualifications')
               .select('pilot_id')
-              .in('qualification_id', qualIds)
-              .is('end_date', null);
+              .in('qualification_id', qualIds);
 
-            pilotQuals?.forEach(pq => pilotIds.add(pq.pilot_id));
+            if (pilotQualsError) {
+              console.error('Error fetching pilot qualifications:', pilotQualsError);
+              return;
+            }
+
+            if (pilotQuals && pilotQuals.length > 0) {
+              const pilotSet = new Set<string>();
+              pilotQuals.forEach(pq => pilotSet.add(pq.pilot_id));
+              ruleSets.push(pilotSet);
+            }
           }
         }
       })()
     ]);
+
+    // If any rule returned no pilots, no pilots can match all rules
+    if (ruleSets.length !== rules.length) {
+      return [];
+    }
+
+    if (ruleSets.length === 0) {
+      return [];
+    }
+
+    // Intersect all rule sets - only pilots in ALL sets qualify
+    let pilotIds = ruleSets[0];
+    for (let i = 1; i < ruleSets.length; i++) {
+      pilotIds = new Set([...pilotIds].filter(id => ruleSets[i].has(id)));
+    }
 
     if (pilotIds.size === 0) {
       return [];

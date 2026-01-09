@@ -23,9 +23,15 @@ interface Objective {
   display_order: number;
 }
 
-const SyllabusEditor: React.FC = () => {
-  const { syllabusId } = useParams<{ syllabusId: string }>();
+interface SyllabusEditorProps {
+  syllabusId?: string;
+  onBack?: () => void;
+}
+
+const SyllabusEditor: React.FC<SyllabusEditorProps> = ({ syllabusId: propSyllabusId, onBack }) => {
+  const { syllabusId: paramSyllabusId } = useParams<{ syllabusId: string }>();
   const navigate = useNavigate();
+  const syllabusId = propSyllabusId || paramSyllabusId;
   const isCreating = syllabusId === 'new';
 
   const [syllabus, setSyllabus] = useState({
@@ -48,7 +54,7 @@ const SyllabusEditor: React.FC = () => {
   // Auto-enrollment options
   const [standings, setStandings] = useState<Array<{ id: string; name: string }>>([]);
   const [statuses, setStatuses] = useState<Array<{ id: string; name: string }>>([]);
-  const [qualifications, setQualifications] = useState<Array<{ id: string; type: string }>>([]);
+  const [qualifications, setQualifications] = useState<Array<{ id: string; name: string }>>([]);
 
   useEffect(() => {
     if (!isCreating && syllabusId) {
@@ -62,7 +68,7 @@ const SyllabusEditor: React.FC = () => {
       const [standingsData, statusesData, qualificationsData] = await Promise.all([
         supabase.from('standings').select('id, name').order('name'),
         supabase.from('statuses').select('id, name').order('name'),
-        supabase.from('qualifications').select('id, type').order('type')
+        supabase.from('qualifications').select('id, name').eq('active', true).order('name')
       ]);
 
       if (standingsData.data) setStandings(standingsData.data);
@@ -510,13 +516,21 @@ const SyllabusEditor: React.FC = () => {
     if (hasUnsavedChanges) {
       setShowUnsavedWarning(true);
     } else {
-      navigate('/training-management');
+      if (onBack) {
+        onBack();
+      } else {
+        navigate('/training-management');
+      }
     }
   };
 
   const handleConfirmLeave = () => {
     setShowUnsavedWarning(false);
-    navigate('/training-management');
+    if (onBack) {
+      onBack();
+    } else {
+      navigate('/training-management');
+    }
   };
 
   const handleCancelLeave = () => {
@@ -728,7 +742,7 @@ const SyllabusEditor: React.FC = () => {
                     <option key={s.id} value={s.name}>{s.name}</option>
                   ))}
                   {rule.type === 'qualification' && qualifications.map(q => (
-                    <option key={q.id} value={q.type}>{q.type}</option>
+                    <option key={q.id} value={q.name}>{q.name}</option>
                   ))}
                 </select>
 
@@ -980,7 +994,7 @@ const SyllabusEditor: React.FC = () => {
             </div>
 
             <div style={{ padding: '24px' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '150px 1fr', gap: '24px', marginBottom: '24px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '140px 1fr', gap: '16px', marginBottom: '24px' }}>
                 <div>
                   <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: 500 }}>
                     Mission Number
@@ -1005,7 +1019,8 @@ const SyllabusEditor: React.FC = () => {
                       padding: '8px 12px',
                       border: '1px solid #D1D5DB',
                       borderRadius: '6px',
-                      fontSize: '14px'
+                      fontSize: '14px',
+                      boxSizing: 'border-box'
                     }}
                   />
                 </div>
@@ -1031,7 +1046,8 @@ const SyllabusEditor: React.FC = () => {
                       padding: '8px 12px',
                       border: '1px solid #D1D5DB',
                       borderRadius: '6px',
-                      fontSize: '14px'
+                      fontSize: '14px',
+                      boxSizing: 'border-box'
                     }}
                   />
                 </div>
@@ -1060,7 +1076,8 @@ const SyllabusEditor: React.FC = () => {
                     border: '1px solid #D1D5DB',
                     borderRadius: '6px',
                     fontSize: '14px',
-                    resize: 'none'
+                    resize: 'none',
+                    boxSizing: 'border-box'
                   }}
                 />
               </div>

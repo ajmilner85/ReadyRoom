@@ -22,6 +22,7 @@ interface CycleDialogProps {
     participants?: string[];
     syllabusId?: string;
     autoCreateEvents?: boolean;
+    stagedEnrollmentIds?: string[];
   }) => void;
   onCancel: () => void;
   squadrons: Squadron[];
@@ -77,8 +78,8 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
   const [selectedSyllabusId, setSelectedSyllabusId] = useState<string>(initialData?.syllabusId || '');
   const [autoCreateEvents, setAutoCreateEvents] = useState<boolean>(false);
 
-  // Tab state (only show tabs for editing Training cycles)
-  const showTabs = !!cycleId && type === 'Training';
+  // Tab state (show tabs for Training cycles with syllabus selected OR when editing)
+  const showTabs = type === 'Training' && (!!cycleId || !!selectedSyllabusId);
   const [activeTab, setActiveTab] = useState<'details' | 'enrollments'>('details');
 
   // Enrollment state
@@ -91,6 +92,9 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
   const [hoveredPilotId, setHoveredPilotId] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<'boardNumber' | 'callsign'>('callsign');
   const [sortBySquadron, setSortBySquadron] = useState<boolean>(true);
+
+  // Staged enrollments for new cycles (before cycle is created)
+  const [stagedEnrollmentIds, setStagedEnrollmentIds] = useState<string[]>([]);
 
   // Filter state
   const [selectedSquadronIds, setSelectedSquadronIds] = useState<string[]>([]);
@@ -307,32 +311,38 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
 
   // Load all enrollment data when dialog opens for Training cycles
   useEffect(() => {
-    if (cycleId && type === 'Training') {
+    if (type === 'Training' && (cycleId || selectedSyllabusId)) {
       loadEnrollmentData();
     } else {
-      // For non-Training cycles or new cycles, mark as complete immediately
+      // For non-Training cycles or cycles without syllabus, mark as complete immediately
       setInitialEnrollmentLoadComplete(true);
     }
-  }, [cycleId, type]);
+  }, [cycleId, type, selectedSyllabusId]);
 
   const loadEnrollmentData = async () => {
-    if (!cycleId) return;
-
     setLoadingEnrollments(true);
     setEnrollmentError(null);
 
     try {
-      // Load currently enrolled pilots
-      const enrolled = await getCycleEnrollments(cycleId);
-      setEnrolledPilots(enrolled);
+      let enrolled: EnrolledPilot[] = [];
+      let enrolledIds: Set<string>;
 
-      const enrolledIds = new Set(enrolled.map(p => p.pilot_id));
+      // Load currently enrolled pilots (only if editing existing cycle)
+      if (cycleId) {
+        enrolled = await getCycleEnrollments(cycleId);
+        setEnrolledPilots(enrolled);
+        enrolledIds = new Set(enrolled.map(p => p.pilot_id));
+      } else {
+        // For new cycles, use staged enrollment IDs
+        // Don't clear enrolledPilots here - they're already set from handleEnrollPilot calls
+        enrolledIds = new Set(stagedEnrollmentIds);
+      }
 
       // Load suggested pilots based on syllabus rules (only if syllabus is selected)
       let suggested: EnrolledPilot[] = [];
       if (selectedSyllabusId) {
         suggested = await getSuggestedEnrollments(selectedSyllabusId);
-        // Filter out already enrolled pilots
+        // Filter out already enrolled/staged pilots
         const filteredSuggestions = suggested.filter(p => !enrolledIds.has(p.pilot_id));
         setSuggestedPilots(filteredSuggestions);
       } else {
@@ -458,8 +468,6 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
   };
 
   const handleEnrollPilot = async (pilotId: string) => {
-    if (!cycleId) return;
-
     try {
       // Find the pilot in suggested list or all pilots list
       const pilotToEnroll = suggestedPilots.find(p => p.pilot_id === pilotId) || allPilots.find(p => p.pilot_id === pilotId);
@@ -468,28 +476,36 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
       // Optimistically update UI - move from suggested/all to enrolled
       setSuggestedPilots(prev => prev.filter(p => p.pilot_id !== pilotId));
       setAllPilots(prev => prev.filter(p => p.pilot_id !== pilotId));
-      setEnrolledPilots(prev => [...prev, { ...pilotToEnroll, enrollment_id: 'temp-' + pilotId }]);
 
-      // Get the user profile ID (not auth ID)
-      const { data: userData } = await supabase.auth.getUser();
-      let userProfileId = null;
+      if (!cycleId) {
+        // For new cycles, add to staged enrollments
+        setStagedEnrollmentIds(prev => [...prev, pilotId]);
+        setEnrolledPilots(prev => [...prev, { ...pilotToEnroll, enrollment_id: 'staged-' + pilotId }]);
+      } else {
+        // For existing cycles, enroll immediately in database
+        setEnrolledPilots(prev => [...prev, { ...pilotToEnroll, enrollment_id: 'temp-' + pilotId }]);
 
-      if (userData.user) {
-        const { data: profile } = await supabase
-          .from('user_profiles')
-          .select('id')
-          .eq('auth_user_id', userData.user.id)
-          .single();
+        // Get the user profile ID (not auth ID)
+        const { data: userData } = await supabase.auth.getUser();
+        let userProfileId = null;
 
-        userProfileId = profile?.id || null;
+        if (userData.user) {
+          const { data: profile } = await supabase
+            .from('user_profiles')
+            .select('id')
+            .eq('auth_user_id', userData.user.id)
+            .single();
+
+          userProfileId = profile?.id || null;
+        }
+
+        // Actually enroll in database
+        await enrollPilots(cycleId, [pilotId], userProfileId);
+
+        // Refresh to get the real enrollment_id from database
+        const enrolled = await getCycleEnrollments(cycleId);
+        setEnrolledPilots(enrolled);
       }
-
-      // Actually enroll in database
-      await enrollPilots(cycleId, [pilotId], userProfileId);
-
-      // Refresh to get the real enrollment_id from database
-      const enrolled = await getCycleEnrollments(cycleId);
-      setEnrolledPilots(enrolled);
     } catch (err: any) {
       console.error('Error enrolling pilot:', err);
       setEnrollmentError(err.message || 'Failed to enroll pilot');
@@ -508,8 +524,15 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
       setEnrolledPilots(prev => prev.filter(p => p.enrollment_id !== enrollmentId));
       setSuggestedPilots(prev => [...prev, { ...pilotToRemove, enrollment_id: '' }]);
 
-      // Actually remove from database
-      await removeEnrollment(enrollmentId);
+      // Check if this is a staged enrollment (starts with 'staged-') or a real one
+      if (enrollmentId.startsWith('staged-')) {
+        // For staged enrollments, just remove from staged list
+        const pilotId = enrollmentId.replace('staged-', '');
+        setStagedEnrollmentIds(prev => prev.filter(id => id !== pilotId));
+      } else {
+        // For real enrollments, remove from database
+        await removeEnrollment(enrollmentId);
+      }
     } catch (err: any) {
       console.error('Error removing enrollment:', err);
       setEnrollmentError(err.message || 'Failed to remove enrollment');
@@ -526,7 +549,7 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
       if (!isNaN(start.getTime()) && !isNaN(end.getTime())) {
         // Calculate weeks between the two dates
         const diffTime = Math.abs(end.getTime() - start.getTime());
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1; // +1 to include both start and end date
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
         const calculatedWeeks = Math.ceil(diffDays / 7);
         setWeekCount(calculatedWeeks > 0 ? calculatedWeeks : 1);
       }
@@ -541,7 +564,7 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
       if (!isNaN(start.getTime()) && !isNaN(end.getTime())) {
         // Calculate weeks between the two dates
         const diffTime = Math.abs(end.getTime() - start.getTime());
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1; // +1 to include both start and end date
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
         const calculatedWeeks = Math.ceil(diffDays / 7);
         setWeekCount(calculatedWeeks > 0 ? calculatedWeeks : 1);
       }
@@ -602,7 +625,7 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!name.trim()) {
       setError('Please enter a cycle name');
       return;
@@ -633,7 +656,8 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
       restrictedTo: restrictedTo.length > 0 ? restrictedTo : undefined,
       participants: participants.length > 0 ? participants : undefined,
       syllabusId: type === 'Training' ? (selectedSyllabusId || undefined) : undefined,
-      autoCreateEvents: !hasEvents && autoCreateEvents // Only for cycles with no events
+      autoCreateEvents: !hasEvents && autoCreateEvents, // Only for cycles with no events
+      stagedEnrollmentIds: stagedEnrollmentIds.length > 0 ? stagedEnrollmentIds : undefined
     });
   };
 
@@ -760,7 +784,7 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
               }}
             >
               <Users size={16} />
-              Enrolled Students ({enrolledPilots.length})
+              Enrolled Students ({cycleId ? enrolledPilots.length : stagedEnrollmentIds.length})
             </button>
           </div>
         )}
@@ -1392,9 +1416,9 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
                     {/* Currently Enrolled Students */}
                     <div style={{ marginBottom: '32px' }}>
                     <h3 style={{ fontSize: '14px', fontWeight: 600, color: '#374151', marginBottom: '12px', textTransform: 'uppercase' }}>
-                      Enrolled Students ({enrolledPilots.length})
+                      Enrolled Students ({cycleId ? enrolledPilots.length : stagedEnrollmentIds.length})
                     </h3>
-                    {enrolledPilots.length === 0 ? (
+                    {(cycleId ? enrolledPilots.length : stagedEnrollmentIds.length) === 0 ? (
                       <div style={{ padding: '20px', backgroundColor: '#F9FAFB', borderRadius: '6px', color: '#6B7280', fontSize: '14px', textAlign: 'center' }}>
                         No students enrolled yet
                       </div>
@@ -1683,42 +1707,40 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
                 fontSize: '14px'
               }}
             >
-              {activeTab === 'enrollments' ? 'Close' : 'Cancel'}
+              Cancel
             </button>
-            {activeTab === 'details' && (
-              <button
-                type="submit"
-                disabled={isSaving}
-                style={{
-                  padding: '8px 16px',
-                  border: 'none',
-                  borderRadius: '4px',
-                  backgroundColor: '#2563EB',
-                  color: 'white',
-                  cursor: isSaving ? 'not-allowed' : 'pointer',
-                  fontSize: '14px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  opacity: isSaving ? 0.7 : 1
-                }}
-              >
-                {isSaving && (
-                  <div style={{
-                    width: '16px',
-                    height: '16px',
-                    border: '2px solid rgba(255, 255, 255, 0.3)',
-                    borderTop: '2px solid white',
-                    borderRadius: '50%',
-                    animation: 'spin 0.6s linear infinite'
-                  }} />
-                )}
-                {isSaving
-                  ? 'Saving...'
-                  : (initialData ? 'Update Cycle' : 'Create Cycle')
-                }
-              </button>
-            )}
+            <button
+              type="submit"
+              disabled={isSaving}
+              style={{
+                padding: '8px 16px',
+                border: 'none',
+                borderRadius: '4px',
+                backgroundColor: '#2563EB',
+                color: 'white',
+                cursor: isSaving ? 'not-allowed' : 'pointer',
+                fontSize: '14px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                opacity: isSaving ? 0.7 : 1
+              }}
+            >
+              {isSaving && (
+                <div style={{
+                  width: '16px',
+                  height: '16px',
+                  border: '2px solid rgba(255, 255, 255, 0.3)',
+                  borderTop: '2px solid white',
+                  borderRadius: '50%',
+                  animation: 'spin 0.6s linear infinite'
+                }} />
+              )}
+              {isSaving
+                ? 'Saving...'
+                : (initialData ? 'Update Cycle' : 'Create Cycle')
+              }
+            </button>
           </div>
         </form>
           </>
