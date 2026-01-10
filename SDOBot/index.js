@@ -2332,99 +2332,98 @@ async function sendReminderToDiscordChannels(event, message, attendanceData = []
         let createdThreadId = null;
         let targetChannelId = publication.channelId; // Default to main channel
 
-        // Check if thread already exists for this publication
-        if (publication.threadId) {
-          // Check if threading was previously disabled due to failure - try to recover
-          if (publication.threadId === 'DISABLED') {
-            console.log(`[REMINDER-THREAD] Threading was marked DISABLED, attempting to fetch existing thread`);
+        // CRITICAL FIX: Check if ANY publication in this event has a thread (not just current one)
+        // This ensures all reminders use the same thread, even if event has duplicate posts in same channel
+        const existingThread = event.discord_event_id.find(
+          pub => pub.threadId && pub.threadId !== 'DISABLED'
+        );
 
-            // Try to fetch the existing thread that was created with the original event post
+        let needsDatabaseUpdate = false;
+
+        if (existingThread) {
+          // Reuse existing thread from any publication
+          console.log(`[REMINDER-THREAD] Found existing thread ${existingThread.threadId} from another publication, reusing for all reminders`);
+          targetChannelId = existingThread.threadId;
+
+          // Update THIS publication to also reference the thread (if not already set)
+          if (!publication.threadId || publication.threadId === 'DISABLED') {
+            console.log(`[REMINDER-THREAD] Updating publication ${publication.messageId} to reference shared thread`);
+            publication.threadId = existingThread.threadId;
+            needsDatabaseUpdate = true;
+          }
+        } else if (publication.threadId) {
+          // This publication has a threadId but existingThread didn't find it (shouldn't happen, defensive)
+          if (publication.threadId === 'DISABLED') {
+            // Try to recover from DISABLED state by checking FIRST message (not current)
+            console.log(`[REMINDER-THREAD] Threading was marked DISABLED, attempting to recover from FIRST message`);
+
+            const firstPublication = event.discord_event_id[0];
             const existingThreadResult = await getExistingThreadFromMessage(
-              publication.messageId,
-              publication.guildId,
-              publication.channelId
+              firstPublication.messageId,  // <-- Check first message, not current
+              firstPublication.guildId,
+              firstPublication.channelId
             );
 
             if (existingThreadResult.success) {
-              console.log(`[REMINDER-THREAD] Found existing thread ${existingThreadResult.threadId}, will use it instead of channel`);
+              console.log(`[REMINDER-THREAD] Recovered thread ${existingThreadResult.threadId} from first message`);
               targetChannelId = existingThreadResult.threadId;
 
-              // Update database to store the thread ID we found
-              try {
-                const updatedPublications = event.discord_event_id.map(pub =>
-                  pub.messageId === publication.messageId
-                    ? { ...pub, threadId: existingThreadResult.threadId }
-                    : pub
-                );
-
-                await supabase
-                  .from('events')
-                  .update({ discord_event_id: updatedPublications })
-                  .eq('id', event.id);
-
-                console.log(`[REMINDER-THREAD] Updated database with recovered thread ID ${existingThreadResult.threadId}`);
-              } catch (updateError) {
-                console.warn(`[REMINDER-THREAD] Failed to update database with recovered thread ID:`, updateError.message);
-              }
+              // Update ALL publications with recovered thread
+              event.discord_event_id.forEach(pub => {
+                pub.threadId = existingThreadResult.threadId;
+              });
+              needsDatabaseUpdate = true;
             } else {
-              console.log(`[REMINDER-THREAD] Could not find existing thread, posting to channel`);
+              console.log(`[REMINDER-THREAD] Could not recover thread, posting to channel`);
               targetChannelId = publication.channelId;
             }
           } else {
             // Thread already exists, use it
-            console.log(`[REMINDER-THREAD] Thread already exists for this event: ${publication.threadId}`);
+            console.log(`[REMINDER-THREAD] Using stored thread ${publication.threadId}`);
             targetChannelId = publication.threadId;
           }
         } else {
-          // No thread exists yet, check if we should create one
-          console.log(`[REMINDER-THREAD] No thread exists yet, checking if thread should be created for event "${event.name}"`);
-          
+          // No thread exists yet - create one from the FIRST messageId
+          console.log(`[REMINDER-THREAD] No thread exists yet for event ${event.id}, checking if we should create one`);
+
           // Get participating squadrons from the publication
           const participatingSquadrons = publication.squadronId ? [publication.squadronId] : [];
           const threadDecision = await shouldUseThreadsForEvent(participatingSquadrons, publication.guildId, publication.channelId);
-          
+
           if (threadDecision.shouldUseThreads) {
-            console.log(`[REMINDER-THREAD] Creating thread from original event post for event "${event.name}"`);
-            
+            // ALWAYS use the FIRST publication's messageId to create thread
+            // This prevents issues where multiple messages try to create their own threads
+            const firstPublication = event.discord_event_id[0];
+
+            console.log(`[REMINDER-THREAD] Creating thread from FIRST messageId: ${firstPublication.messageId} for event "${event.name}"`);
+
             const threadResult = await createThreadFromMessage(
-              publication.messageId,
+              firstPublication.messageId,  // <-- Always use first messageId
               event.name, // Thread name = event name
-              publication.guildId,
-              publication.channelId,
+              firstPublication.guildId,
+              firstPublication.channelId,
               threadDecision.autoArchiveDuration
             );
 
             if (threadResult.success) {
-              console.log(`[REMINDER-THREAD] Thread created successfully: ${threadResult.threadId}`);
+              console.log(`[REMINDER-THREAD] Thread created successfully: ${threadResult.threadId}, storing in ALL publications`);
               createdThreadId = threadResult.threadId;
               targetChannelId = threadResult.threadId; // Send reminder to the new thread
 
-              // Update the database to store the thread ID for future reminders
-              try {
-                // Find the publication entry and update it with thread ID
-                const updatedPublications = event.discord_event_id.map(pub =>
-                  pub.messageId === publication.messageId
-                    ? { ...pub, threadId: threadResult.threadId }
-                    : pub
-                );
+              // Store threadId in ALL publications for this event
+              event.discord_event_id.forEach(pub => {
+                pub.threadId = threadResult.threadId;
+              });
+              needsDatabaseUpdate = true;
+            } else if (threadResult.error === 'The message already has a thread' || threadResult.alreadyExists) {
+              // Thread already exists for first message, try to fetch it
+              console.log(`[REMINDER-THREAD] Thread already exists for first message, fetching...`);
 
-                await supabase
-                  .from('events')
-                  .update({ discord_event_id: updatedPublications })
-                  .eq('id', event.id);
-
-                console.log(`[REMINDER-THREAD] Updated event ${event.id} with thread ID ${threadResult.threadId}`);
-              } catch (updateError) {
-                console.warn(`[REMINDER-THREAD] Failed to update event with thread ID:`, updateError.message);
-              }
-            } else if (threadResult.error === 'The message already has a thread') {
-              // Thread already exists! Fetch the existing thread ID and use it
-              console.log(`[REMINDER-THREAD] Thread already exists, fetching existing thread ID`);
-
+              const firstPublication = event.discord_event_id[0];
               const existingThreadResult = await getExistingThreadFromMessage(
-                publication.messageId,
-                publication.guildId,
-                publication.channelId
+                firstPublication.messageId,
+                firstPublication.guildId,
+                firstPublication.channelId
               );
 
               if (existingThreadResult.success) {
@@ -2432,66 +2431,28 @@ async function sendReminderToDiscordChannels(event, message, attendanceData = []
                 createdThreadId = existingThreadResult.threadId;
                 targetChannelId = existingThreadResult.threadId; // Send reminder to the existing thread
 
-                // Update the database to store the thread ID for future reminders
-                try {
-                  const updatedPublications = event.discord_event_id.map(pub =>
-                    pub.messageId === publication.messageId
-                      ? { ...pub, threadId: existingThreadResult.threadId }
-                      : pub
-                  );
-
-                  await supabase
-                    .from('events')
-                    .update({ discord_event_id: updatedPublications })
-                    .eq('id', event.id);
-
-                  console.log(`[REMINDER-THREAD] Updated event ${event.id} with existing thread ID ${existingThreadResult.threadId}`);
-                } catch (updateError) {
-                  console.warn(`[REMINDER-THREAD] Failed to update event with thread ID:`, updateError.message);
-                }
+                // Store in ALL publications
+                event.discord_event_id.forEach(pub => {
+                  pub.threadId = existingThreadResult.threadId;
+                });
+                needsDatabaseUpdate = true;
               } else {
-                console.error(`[REMINDER-THREAD] Failed to fetch existing thread: ${existingThreadResult.error}`);
-                // Fall back to posting in the channel
+                // Failed to fetch thread, mark all as DISABLED
+                console.error(`[REMINDER-THREAD] Failed to fetch existing thread: ${existingThreadResult.error}, marking as DISABLED`);
+                event.discord_event_id.forEach(pub => {
+                  pub.threadId = 'DISABLED';
+                });
+                needsDatabaseUpdate = true;
                 targetChannelId = publication.channelId;
               }
             } else {
-              console.warn(`[REMINDER-THREAD] Thread creation failed: ${threadResult.error}`);
-              // Store DISABLED sentinel to prevent future retry attempts
-              console.log(`[REMINDER-THREAD] Storing threadId='DISABLED' to prevent future thread creation attempts`);
+              // Failed to create thread, mark as DISABLED in all publications
+              console.warn(`[REMINDER-THREAD] Thread creation failed: ${threadResult.error}, marking ALL publications as DISABLED`);
 
-              try {
-                // Read latest event data first to avoid race conditions
-                const { data: latestEventData, error: fetchError } = await supabase
-                  .from('events')
-                  .select('discord_event_id')
-                  .eq('id', event.id)
-                  .single();
-
-                if (fetchError || !latestEventData) {
-                  console.error(`[REMINDER-THREAD] Failed to fetch latest event data:`, fetchError);
-                } else {
-                  const updatedPublications = latestEventData.discord_event_id.map(pub =>
-                    (pub.guildId === publication.guildId && pub.channelId === publication.channelId)
-                      ? { ...pub, threadId: 'DISABLED' }
-                      : pub
-                  );
-
-                  const { error: updateError } = await supabase
-                    .from('events')
-                    .update({ discord_event_id: updatedPublications })
-                    .eq('id', event.id);
-
-                  if (updateError) {
-                    console.error(`[REMINDER-THREAD] Failed to store DISABLED status:`, updateError);
-                  } else {
-                    console.log(`[REMINDER-THREAD] Successfully stored threadId='DISABLED' for future reminders`);
-                    // Update in-memory event object
-                    event.discord_event_id = updatedPublications;
-                  }
-                }
-              } catch (error) {
-                console.error(`[REMINDER-THREAD] Error storing DISABLED status:`, error);
-              }
+              event.discord_event_id.forEach(pub => {
+                pub.threadId = 'DISABLED';
+              });
+              needsDatabaseUpdate = true;
 
               // Continue with channel posting
               targetChannelId = publication.channelId;
@@ -2501,7 +2462,21 @@ async function sendReminderToDiscordChannels(event, message, attendanceData = []
             targetChannelId = publication.channelId;
           }
         }
-        
+
+        // Update database if we modified any threadId values
+        if (needsDatabaseUpdate) {
+          console.log(`[REMINDER-THREAD] Updating database with shared threadId across all publications`);
+          try {
+            await supabase
+              .from('events')
+              .update({ discord_event_id: event.discord_event_id })
+              .eq('id', event.id);
+            console.log(`[REMINDER-THREAD] Successfully updated database`);
+          } catch (updateError) {
+            console.warn(`[REMINDER-THREAD] Failed to update database:`, updateError.message);
+          }
+        }
+
         // Send the reminder message with squadron-specific mentions
         let reminderResult;
         if (targetChannelId !== publication.channelId) {
