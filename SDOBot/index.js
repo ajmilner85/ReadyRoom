@@ -1211,6 +1211,10 @@ app.get('/api/events/discord/:discordMessageId', async (req, res) => {
 });
 
 // New endpoint to fetch Discord guild members
+// Cache for guild members with 5 minute expiration
+const guildMembersCache = new Map();
+const GUILD_MEMBERS_CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+
 app.get('/api/discord/guild-members', async (req, res) => {
   try {
     // console.log('[DEBUG] Received request to fetch Discord guild members');
@@ -1222,6 +1226,13 @@ app.get('/api/discord/guild-members', async (req, res) => {
       return res.status(400).json({
         error: 'Guild ID is required. Please check your Discord integration settings.'
       });
+    }
+
+    // Check cache first
+    const cached = guildMembersCache.get(guildId);
+    if (cached && (Date.now() - cached.timestamp) < GUILD_MEMBERS_CACHE_DURATION) {
+      console.log(`[DISCORD-API] Returning cached members for guild ${guildId} (${cached.members.length} members)`);
+      return res.json({ members: cached.members });
     }
 
     // console.log(`[DEBUG] Fetching members for guild ID: ${guildId}`);
@@ -1247,8 +1258,26 @@ app.get('/api/discord/guild-members', async (req, res) => {
     }
       // console.log(`[DEBUG] Found guild: ${guild.name} (${guild.id})`);
 
-    // Fetch all members
-    await guild.members.fetch();
+    // Fetch all members with timeout and proper options
+    const fetchTimeout = 45000; // 45 seconds - Discord.js default is 30s
+    const fetchPromise = guild.members.fetch({
+      force: false, // Don't force refresh from API if already cached
+      time: 40000   // Discord.js internal timeout - set to 40s (must be less than our timeout)
+    });
+    const timeoutPromise = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('Discord member fetch timed out after 45 seconds')), fetchTimeout)
+    );
+
+    try {
+      await Promise.race([fetchPromise, timeoutPromise]);
+    } catch (error) {
+      // If fetch fails but we have cached members, return those instead of erroring
+      if (guild.members.cache.size > 0) {
+        console.log(`[DISCORD-API] Fetch failed but returning ${guild.members.cache.size} cached members for guild ${guildId}`);
+      } else {
+        throw error; // Re-throw if we have no cached members at all
+      }
+    }
 
     // Map guild members to a simpler structure, exclude bots
     const members = guild.members.cache
@@ -1262,6 +1291,12 @@ app.get('/api/discord/guild-members', async (req, res) => {
       }));
 
     // console.log(`[DEBUG] Fetched ${members.length} guild members (after filtering out bots)`);
+
+    // Cache the result
+    guildMembersCache.set(guildId, {
+      members,
+      timestamp: Date.now()
+    });
 
     res.json({ members });
   } catch (error) {

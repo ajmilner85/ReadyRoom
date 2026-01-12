@@ -206,9 +206,18 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
     setLocalPilotQualifications(pilotQualifications);
   }, [pilotQualifications]);
 
+  // Update edited pilot whenever selectedPilot changes (for real-time preview)
   useEffect(() => {
     if (selectedPilot) {
       setEditedPilot({ ...selectedPilot });
+    } else {
+      setEditedPilot(null);
+    }
+  }, [selectedPilot]);
+
+  // Load Discord data only when pilot ID changes, not on every field update
+  useEffect(() => {
+    if (selectedPilot) {
       setIsEdited(false);
       setSelectedDiscordId(selectedPilot.discord_id || '');
       loadDiscordRoles();
@@ -219,13 +228,12 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
         loadQualificationsCache();
       }
     } else {
-      setEditedPilot(null);
       setDiscordMember(null);
       setDiscordRoles([]);
       setSelectedDiscordId('');
     }
     setEditError(null);
-  }, [selectedPilot]);
+  }, [selectedPilot?.id]); // Only re-run when pilot ID changes
   
   const loadQualificationsCache = async () => {
     try {
