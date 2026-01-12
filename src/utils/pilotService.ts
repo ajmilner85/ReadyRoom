@@ -660,63 +660,14 @@ export async function updatePilot(id: string, updates: UpdatePilot): Promise<{ d
 
 /**
  * Delete a pilot by ID
+ * All related records (statuses, standings, roles, assignments, qualifications)
+ * are automatically deleted via CASCADE foreign key constraints
  * @param id The ID of the pilot to delete
  */
 export async function deletePilot(id: string): Promise<{ success: boolean; error: any }> {
   try {
-    
-    // Delete all foreign key references first to avoid constraint violations
-    const { error: statusError } = await supabase
-      .from('pilot_statuses')
-      .delete()
-      .eq('pilot_id', id);
-    
-    if (statusError) {
-      console.error('❌ Error deleting pilot statuses:', statusError);
-      return { success: false, error: statusError };
-    }
-
-    const { error: standingError } = await supabase
-      .from('pilot_standings')
-      .delete()
-      .eq('pilot_id', id);
-    
-    if (standingError) {
-      console.error('❌ Error deleting pilot standings:', standingError);
-      return { success: false, error: standingError };
-    }
-
-    const { error: rolesError } = await supabase
-      .from('pilot_roles')
-      .delete()
-      .eq('pilot_id', id);
-    
-    if (rolesError) {
-      console.error('❌ Error deleting pilot roles:', rolesError);
-      return { success: false, error: rolesError };
-    }
-
-    const { error: assignmentsError } = await supabase
-      .from('pilot_assignments')
-      .delete()
-      .eq('pilot_id', id);
-    
-    if (assignmentsError) {
-      console.error('❌ Error deleting pilot assignments:', assignmentsError);
-      return { success: false, error: assignmentsError };
-    }
-
-    const { error: qualificationsError } = await supabase
-      .from('pilot_qualifications')
-      .delete()
-      .eq('pilot_id', id);
-    
-    if (qualificationsError) {
-      console.error('❌ Error deleting pilot qualifications:', qualificationsError);
-      return { success: false, error: qualificationsError };
-    }
-
-    // Finally delete the pilot record itself
+    // Delete the pilot record - CASCADE will automatically delete all related records
+    // This ensures RLS policies can still check the pilot's squadron assignment
     const { error: pilotError } = await supabase
       .from('pilots')
       .delete()
