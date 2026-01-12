@@ -4,6 +4,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../../utils/supabaseClient';
 import { ArrowLeft, Save, Plus, Trash2, GripVertical, Edit2 } from 'lucide-react';
 import ReferenceMaterialsInput from '../ui/events/ReferenceMaterialsInput';
+import CriteriaBlockEditor, { CriteriaBlock } from './CriteriaBlockEditor';
 import type { ReferenceMaterial } from '../../types/EventTypes';
 
 interface Mission {
@@ -38,7 +39,8 @@ const SyllabusEditor: React.FC<SyllabusEditorProps> = ({ syllabusId: propSyllabu
     name: '',
     description: '',
     starts_at_week_zero: false,
-    auto_enrollment_rules: [] as Array<{ type: 'standing' | 'status' | 'qualification'; value: string }>
+    auto_enrollment_rules: [] as CriteriaBlock[],
+    instructor_qualification_rules: [] as CriteriaBlock[]
   });
 
   const [missions, setMissions] = useState<Mission[]>([]);
@@ -50,6 +52,9 @@ const SyllabusEditor: React.FC<SyllabusEditorProps> = ({ syllabusId: propSyllabu
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [showUnsavedWarning, setShowUnsavedWarning] = useState(false);
   const [deleteConfirmIndex, setDeleteConfirmIndex] = useState<number | null>(null);
+
+  // Tab state for the syllabus editor
+  const [activeTab, setActiveTab] = useState<'missions' | 'student-enrollment' | 'instructor-qualifications'>('missions');
 
   // Auto-enrollment options
   const [standings, setStandings] = useState<Array<{ id: string; name: string }>>([]);
@@ -93,11 +98,25 @@ const SyllabusEditor: React.FC<SyllabusEditorProps> = ({ syllabusId: propSyllabu
 
       if (syllabusError) throw syllabusError;
 
+      // Convert legacy flat rules to block format if needed
+      const convertToBlockFormat = (rules: any): CriteriaBlock[] => {
+        if (!rules || !Array.isArray(rules) || rules.length === 0) {
+          return [];
+        }
+        // Check if already in block format (has 'criteria' key)
+        if (rules[0]?.criteria) {
+          return rules as CriteriaBlock[];
+        }
+        // Legacy flat format - convert to single block
+        return [{ criteria: rules }];
+      };
+
       setSyllabus({
         name: syllabusData.name,
         description: syllabusData.description || '',
         starts_at_week_zero: syllabusData.starts_at_week_zero || false,
-        auto_enrollment_rules: syllabusData.auto_enrollment_rules || []
+        auto_enrollment_rules: convertToBlockFormat(syllabusData.auto_enrollment_rules),
+        instructor_qualification_rules: convertToBlockFormat(syllabusData.instructor_qualification_rules)
       });
 
       const { data: missionsData, error: missionsError } = await supabase
@@ -159,7 +178,8 @@ const SyllabusEditor: React.FC<SyllabusEditorProps> = ({ syllabusId: propSyllabu
             name: syllabus.name,
             description: syllabus.description,
             starts_at_week_zero: syllabus.starts_at_week_zero,
-            auto_enrollment_rules: syllabus.auto_enrollment_rules
+            auto_enrollment_rules: syllabus.auto_enrollment_rules,
+            instructor_qualification_rules: syllabus.instructor_qualification_rules
           })
           .select()
           .single();
@@ -173,7 +193,8 @@ const SyllabusEditor: React.FC<SyllabusEditorProps> = ({ syllabusId: propSyllabu
             name: syllabus.name,
             description: syllabus.description,
             starts_at_week_zero: syllabus.starts_at_week_zero,
-            auto_enrollment_rules: syllabus.auto_enrollment_rules
+            auto_enrollment_rules: syllabus.auto_enrollment_rules,
+            instructor_qualification_rules: syllabus.instructor_qualification_rules
           })
           .eq('id', syllabusId);
 
@@ -450,31 +471,14 @@ const SyllabusEditor: React.FC<SyllabusEditorProps> = ({ syllabusId: propSyllabu
     setEditingMission(null);
   };
 
-  const handleAddEnrollmentRule = () => {
-    setSyllabus({
-      ...syllabus,
-      auto_enrollment_rules: [...syllabus.auto_enrollment_rules, { type: 'standing', value: '' }]
-    });
+  // Handlers for criteria block changes
+  const handleStudentEnrollmentRulesChange = (blocks: CriteriaBlock[]) => {
+    setSyllabus({ ...syllabus, auto_enrollment_rules: blocks });
     setHasUnsavedChanges(true);
   };
 
-  const handleRemoveEnrollmentRule = (index: number) => {
-    const updated = syllabus.auto_enrollment_rules.filter((_, i) => i !== index);
-    setSyllabus({ ...syllabus, auto_enrollment_rules: updated });
-    setHasUnsavedChanges(true);
-  };
-
-  const handleRuleTypeChange = (index: number, type: 'standing' | 'status' | 'qualification') => {
-    const updated = [...syllabus.auto_enrollment_rules];
-    updated[index] = { type, value: '' };
-    setSyllabus({ ...syllabus, auto_enrollment_rules: updated });
-    setHasUnsavedChanges(true);
-  };
-
-  const handleRuleValueChange = (index: number, value: string) => {
-    const updated = [...syllabus.auto_enrollment_rules];
-    updated[index] = { ...updated[index], value };
-    setSyllabus({ ...syllabus, auto_enrollment_rules: updated });
+  const handleInstructorQualificationRulesChange = (blocks: CriteriaBlock[]) => {
+    setSyllabus({ ...syllabus, instructor_qualification_rules: blocks });
     setHasUnsavedChanges(true);
   };
 
@@ -690,105 +694,69 @@ const SyllabusEditor: React.FC<SyllabusEditorProps> = ({ syllabusId: propSyllabu
         </div>
       </div>
 
-      {/* Auto-Enrollment Rules */}
-      <div style={{ padding: '24px', backgroundColor: 'white', border: '1px solid #E5E7EB', borderRadius: '8px', marginBottom: '24px' }}>
-        <div style={{ marginBottom: '20px' }}>
-          <h3 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '8px', color: '#6B7280', textTransform: 'uppercase' }}>
-            Auto-Enrollment Rules
-          </h3>
-          <p style={{ fontSize: '13px', color: '#6B7280', margin: 0 }}>
-            Define criteria to automatically suggest pilots for enrollment when creating training cycles. Rules are suggestions only and require confirmation.
-          </p>
+      {/* Tabs */}
+      <div style={{ marginBottom: '24px' }}>
+        <div style={{ display: 'flex', borderBottom: '1px solid #E5E7EB' }}>
+          {(['missions', 'student-enrollment', 'instructor-qualifications'] as const).map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              style={{
+                padding: '12px 20px',
+                border: 'none',
+                backgroundColor: 'transparent',
+                cursor: 'pointer',
+                fontSize: '14px',
+                fontWeight: 500,
+                color: activeTab === tab ? '#2563EB' : '#6B7280',
+                borderBottom: activeTab === tab ? '2px solid #2563EB' : '2px solid transparent',
+                marginBottom: '-1px',
+                transition: 'color 0.2s, border-color 0.2s'
+              }}
+            >
+              {tab === 'missions' && `Missions (${missions.length})`}
+              {tab === 'student-enrollment' && 'Student Enrollment'}
+              {tab === 'instructor-qualifications' && 'Instructor Qualifications'}
+            </button>
+          ))}
         </div>
-
-        {syllabus.auto_enrollment_rules.length > 0 && (
-          <div style={{ marginBottom: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            {syllabus.auto_enrollment_rules.map((rule, index) => (
-              <div key={index} style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-                <select
-                  value={rule.type}
-                  onChange={(e) => handleRuleTypeChange(index, e.target.value as 'standing' | 'status' | 'qualification')}
-                  style={{
-                    padding: '8px 12px',
-                    border: '1px solid #D1D5DB',
-                    borderRadius: '6px',
-                    fontSize: '14px',
-                    backgroundColor: 'white',
-                    width: '150px'
-                  }}
-                >
-                  <option value="standing">Standing</option>
-                  <option value="status">Status</option>
-                  <option value="qualification">Qualification</option>
-                </select>
-
-                <select
-                  value={rule.value}
-                  onChange={(e) => handleRuleValueChange(index, e.target.value)}
-                  style={{
-                    padding: '8px 12px',
-                    border: '1px solid #D1D5DB',
-                    borderRadius: '6px',
-                    fontSize: '14px',
-                    backgroundColor: 'white',
-                    flex: 1
-                  }}
-                >
-                  <option value="">Select {rule.type}...</option>
-                  {rule.type === 'standing' && standings.map(s => (
-                    <option key={s.id} value={s.name}>{s.name}</option>
-                  ))}
-                  {rule.type === 'status' && statuses.map(s => (
-                    <option key={s.id} value={s.name}>{s.name}</option>
-                  ))}
-                  {rule.type === 'qualification' && qualifications.map(q => (
-                    <option key={q.id} value={q.name}>{q.name}</option>
-                  ))}
-                </select>
-
-                <button
-                  onClick={() => handleRemoveEnrollmentRule(index)}
-                  style={{
-                    padding: '8px',
-                    backgroundColor: '#FEE2E2',
-                    color: '#DC2626',
-                    border: '1px solid #FECACA',
-                    borderRadius: '6px',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center'
-                  }}
-                  title="Remove rule"
-                >
-                  <Trash2 size={16} />
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-
-        <button
-          onClick={handleAddEnrollmentRule}
-          style={{
-            padding: '8px 12px',
-            backgroundColor: '#EFF6FF',
-            color: '#2563EB',
-            border: '1px solid #BFDBFE',
-            borderRadius: '6px',
-            cursor: 'pointer',
-            fontSize: '14px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px'
-          }}
-        >
-          <Plus size={16} />
-          Add Enrollment Rule
-        </button>
       </div>
 
-      {/* Events */}
+      {/* Tab Content */}
+      {activeTab === 'student-enrollment' && (
+        <div style={{ padding: '24px', backgroundColor: 'white', border: '1px solid #E5E7EB', borderRadius: '8px', marginBottom: '24px' }}>
+          <CriteriaBlockEditor
+            blocks={syllabus.auto_enrollment_rules}
+            onChange={handleStudentEnrollmentRulesChange}
+            standings={standings}
+            statuses={statuses}
+            qualifications={qualifications}
+            title="Student Auto-Enrollment Rules"
+            description="Define criteria to automatically suggest students for enrollment when creating training cycles. Criteria within a block use AND logic. Multiple blocks use OR logic. Rules are suggestions only and require confirmation."
+            blockLabel="Student Criteria Block"
+            addBlockLabel="Add Student Criteria Block"
+          />
+        </div>
+      )}
+
+      {activeTab === 'instructor-qualifications' && (
+        <div style={{ padding: '24px', backgroundColor: 'white', border: '1px solid #E5E7EB', borderRadius: '8px', marginBottom: '24px' }}>
+          <CriteriaBlockEditor
+            blocks={syllabus.instructor_qualification_rules}
+            onChange={handleInstructorQualificationRulesChange}
+            standings={standings}
+            statuses={statuses}
+            qualifications={qualifications}
+            title="Instructor Qualification Rules"
+            description="Define criteria for pilots who are qualified to instruct this syllabus. Criteria within a block use AND logic. Multiple blocks use OR logic. Qualified instructors will be suggested when creating training cycles."
+            blockLabel="Instructor Criteria Block"
+            addBlockLabel="Add Instructor Criteria Block"
+          />
+        </div>
+      )}
+
+      {/* Events - only show when Missions tab is active */}
+      {activeTab === 'missions' && (
       <div style={{ marginBottom: '24px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
@@ -962,7 +930,7 @@ const SyllabusEditor: React.FC<SyllabusEditorProps> = ({ syllabusId: propSyllabu
           )}
         </div>
       </div>
-      </div>
+      )}
 
       {/* Event Dialog Modal */}
       {showEventDialog && editingMission && (
@@ -1390,6 +1358,7 @@ const SyllabusEditor: React.FC<SyllabusEditorProps> = ({ syllabusId: propSyllabu
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 };

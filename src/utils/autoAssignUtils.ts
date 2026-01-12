@@ -463,6 +463,7 @@ async function executeTrainingAssignment(
 
   // Fetch training enrollment if cycleId is provided
   let enrolledTraineeIds = new Set<string>();
+  let enrolledInstructorIds = new Set<string>();
   if (cycleId && config.trainingMode) {
     try {
       const { getCycleEnrollments } = await import('./trainingEnrollmentService');
@@ -473,13 +474,28 @@ async function executeTrainingAssignment(
         }
       });
       console.log(`[TRAINING-ASSIGN-DEBUG] Found ${enrolledTraineeIds.size} enrolled trainees in cycle`);
+
+      // Fetch instructor enrollments
+      const { getCycleInstructorEnrollments } = await import('./instructorEnrollmentService');
+      const instructorEnrollments = await getCycleInstructorEnrollments(cycleId);
+      instructorEnrollments.forEach(enrollment => {
+        if (enrollment.status === 'active') {
+          enrolledInstructorIds.add(enrollment.pilot_id);
+        }
+      });
+      console.log(`[TRAINING-ASSIGN-DEBUG] Found ${enrolledInstructorIds.size} enrolled instructors in cycle`);
     } catch (error) {
       console.error('[TRAINING-ASSIGN-DEBUG] Failed to fetch cycle enrollments:', error);
     }
   }
 
-  // Helper to check if pilot is an IP
+  // Helper to check if pilot is an IP - now uses instructor enrollment instead of qualification
   const isIP = (pilot: Pilot): boolean => {
+    // If we have instructor enrollments, use those
+    if (enrolledInstructorIds.size > 0) {
+      return enrolledInstructorIds.has(pilot.id) || enrolledInstructorIds.has(pilot.boardNumber);
+    }
+    // Fallback to qualification-based detection for backward compatibility
     const quals = allPilotQualifications[pilot.id] || allPilotQualifications[pilot.boardNumber] || [];
     return quals.some(qual => {
       const qualName = qual.qualification?.name?.toLowerCase() || '';

@@ -27,17 +27,10 @@ async function getDiscordEnvironment(): Promise<'development' | 'production'> {
 //          import.meta.env.VITE_API_URL?.includes('localhost');
 // }
 
-// Helper function to get the appropriate API base URL based on Discord environment
-async function getDiscordApiBaseUrl(): Promise<string> {
-  const environment = await getDiscordEnvironment();
-
-  // If using production Discord bot, connect to production server
-  // If using development Discord bot, connect to local development server
-  if (environment === 'production') {
-    return 'https://readyroom.fly.dev';
-  } else {
-    return import.meta.env.VITE_API_URL || 'http://localhost:3001';
-  }
+// Helper function to get the appropriate API base URL
+// This should ALWAYS use VITE_API_URL - backend and bot connections are decoupled
+function getDiscordApiBaseUrl(): string {
+  return import.meta.env.VITE_API_URL || 'http://localhost:3001';
 }
 
 // Helper function to add Discord environment to API request headers
@@ -116,8 +109,8 @@ export async function fetchDiscordGuildMembers(squadronId?: string): Promise<Dis
       throw new Error('Discord server not configured. Please set up Discord integration in settings first.');
     }
     
-    // Get dynamic API base URL and headers based on Discord environment setting
-    const baseUrl = await getDiscordApiBaseUrl();
+    // Get API base URL (always uses VITE_API_URL) and headers with Discord environment
+    const baseUrl = getDiscordApiBaseUrl();
     const headers = await getDiscordHeaders();
     
     // Call the server endpoint that will use the Discord API with the specific guild ID
