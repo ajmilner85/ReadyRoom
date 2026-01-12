@@ -49,23 +49,10 @@ async function getDiscordEnvironment(): Promise<'development' | 'production'> {
 //          import.meta.env.VITE_API_URL?.includes('localhost');
 // }
 
-// Helper function to get the appropriate API base URL based on Discord environment
-async function getDiscordApiBaseUrl(): Promise<string> {
-  // Always use VITE_API_URL if set (allows local dev with production bot)
-  // Otherwise fall back to environment-based routing
-  if (import.meta.env.VITE_API_URL) {
-    return import.meta.env.VITE_API_URL;
-  }
-
-  const environment = await getDiscordEnvironment();
-
-  // If using production Discord bot, connect to production server
-  // If using development Discord bot, connect to local development server
-  if (environment === 'production') {
-    return 'https://readyroom.fly.dev';
-  } else {
-    return 'http://localhost:3001';
-  }
+// Helper function to get the appropriate API base URL
+// This should ALWAYS use VITE_API_URL - backend and bot connections are decoupled
+function getDiscordApiBaseUrl(): string {
+  return import.meta.env.VITE_API_URL || 'http://localhost:3001';
 }
 
 // Helper function to add Discord environment to API request headers
@@ -113,7 +100,7 @@ export async function fetchDiscordGuildMember(guildId: string, userId: string): 
     // console.log(`[DISCORD-MEMBER-DEBUG] Fetching member info for user ${userId} in guild ${guildId}`);
     
     const headers = await getDiscordHeaders();
-    const baseUrl = await getDiscordApiBaseUrl();
+    const baseUrl = getDiscordApiBaseUrl();
     const response = await fetch(`${baseUrl}/api/discord/guild/${guildId}/member/${userId}`, {
       method: 'GET',
       headers
@@ -159,7 +146,7 @@ export async function fetchDiscordGuildRoles(guildId: string): Promise<{
     // console.log(`[DISCORD-ROLES-DEBUG] Fetching guild roles for guild ${guildId}`);
     
     const headers = await getDiscordHeaders();
-    const baseUrl = await getDiscordApiBaseUrl();
+    const baseUrl = getDiscordApiBaseUrl();
     const response = await fetch(`${baseUrl}/api/discord/guild/${guildId}/roles`, {
       method: 'GET',
       headers
@@ -477,7 +464,7 @@ async function publishToSpecificChannel(
     };
     
     const headers = await getDiscordHeaders();
-    const baseUrl = await getDiscordApiBaseUrl();
+    const baseUrl = getDiscordApiBaseUrl();
     const response = await fetch(`${baseUrl}/api/events/publish`, {
       method: 'POST',
       headers,
@@ -597,7 +584,7 @@ export async function publishEventToDiscord(event: Event): Promise<PublishEventR
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
         const headers = await getDiscordHeaders();
-        const baseUrl = await getDiscordApiBaseUrl();
+        const baseUrl = getDiscordApiBaseUrl();
         const response = await fetch(`${baseUrl}/api/events/publish`, {
           method: 'POST',
           headers: {
@@ -805,7 +792,7 @@ export async function getAvailableDiscordServers(): Promise<{
     // console.log('[DEBUG] Fetching available Discord servers');
     
     const headers = await getDiscordHeaders();
-    const baseUrl = await getDiscordApiBaseUrl();
+    const baseUrl = getDiscordApiBaseUrl();
     const response = await fetch(`${baseUrl}/api/discord/servers`, {
       method: 'GET',
       headers
@@ -848,7 +835,7 @@ export async function getServerChannels(guildId: string): Promise<{
     // console.log(`[DEBUG] Fetching channels for Discord server ID: ${guildId}`);
     
     const headers = await getDiscordHeaders();
-    const baseUrl = await getDiscordApiBaseUrl();
+    const baseUrl = getDiscordApiBaseUrl();
     const response = await fetch(`${baseUrl}/api/discord/servers/${guildId}/channels`, {
       method: 'GET',
       headers
@@ -1084,7 +1071,7 @@ async function deleteDiscordMessageFromChannel(messageId: string, guildId: strin
     // console.log(`[DEBUG] Sending delete request to: http://localhost:3001/api/events/${messageId}?guildId=${guildId}&channelId=${channelId}`);
     
     const headers = await getDiscordHeaders();
-    const baseUrl = await getDiscordApiBaseUrl();
+    const baseUrl = getDiscordApiBaseUrl();
     const response = await fetch(`${baseUrl}/api/events/${messageId}?guildId=${guildId}&channelId=${channelId}`, {
       method: 'DELETE',
       headers
@@ -1264,7 +1251,7 @@ export async function deleteDiscordMessage(eventOrMessageId: Event | string, gui
     }
     
     // Build the URL with optional guild ID as a query parameter
-    const baseUrl = await getDiscordApiBaseUrl();
+    const baseUrl = getDiscordApiBaseUrl();
     let url = `${baseUrl}/api/events/${discordMessageId}`;
     const queryParams = [];
     
@@ -1319,7 +1306,7 @@ export async function deleteDiscordMessage(eventOrMessageId: Event | string, gui
  */
 export async function getEventAttendanceFromDiscord(discordMessageId: string): Promise<DiscordAttendanceResponse> {
   try {
-    const baseUrl = await getDiscordApiBaseUrl();
+    const baseUrl = getDiscordApiBaseUrl();
     const response = await fetch(`${baseUrl}/api/events/${discordMessageId}/attendance`, {
       method: 'GET',
       headers: {
@@ -1447,7 +1434,7 @@ async function editDiscordMessageInChannel(messageId: string, event: Event, guil
       'event.image_url': (event as any).image_url
     });
 
-    const baseUrl = await getDiscordApiBaseUrl();
+    const baseUrl = getDiscordApiBaseUrl();
     const response = await fetch(`${baseUrl}/api/events/${messageId}/edit`, {
       method: 'PUT',
       headers: {

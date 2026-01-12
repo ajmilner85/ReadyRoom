@@ -410,28 +410,36 @@ export async function createPilotWithStatusAndStanding(
       .from('pilots')
       .select(`
         id,
-        pilot_statuses!inner (
-          statuses!inner (
+        pilot_statuses!left (
+          statuses (
             name
           )
         )
       `)
-      .eq('boardNumber', pilotData.boardNumber)
-      .is('pilot_statuses.end_date', null);
+      .eq('boardNumber', pilotData.boardNumber);
 
     // Filter out pilots with Retired or Removed status
-    const activePilots = existingPilots?.filter(p =>
-      !p.pilot_statuses?.some((ps: any) =>
+    // Keep pilots with no status (might be orphaned/in-progress) or active statuses
+    const activePilots = existingPilots?.filter(p => {
+      const activeStatuses = (p.pilot_statuses || []).filter((ps: any) => ps.end_date === null);
+
+      // If no active statuses, consider it active (might be in-progress creation)
+      if (activeStatuses.length === 0) {
+        return true;
+      }
+
+      // If has active statuses, only exclude if all are Retired/Removed
+      return !activeStatuses.every((ps: any) =>
         ps.statuses?.name === 'Retired' || ps.statuses?.name === 'Removed'
-      )
-    );
+      );
+    });
 
     const existingPilot = activePilots && activePilots.length > 0 ? activePilots[0] : null;
 
     if (existingPilot) {
-      return { 
-        data: null, 
-        error: { message: `Pilot with board number ${pilotData.boardNumber} already exists` } 
+      return {
+        data: null,
+        error: { message: `Pilot with board number ${pilotData.boardNumber} already exists` }
       };
     }
 

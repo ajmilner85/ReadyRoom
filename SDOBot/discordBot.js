@@ -192,6 +192,13 @@ async function extractEmbedDataFromDatabaseEvent(dbEvent, overrideTimezone = nul
           .eq('cycle_id', dbEvent.cycle_id)
           .eq('status', 'active');
 
+        // Fetch instructor enrollees for this cycle
+        const { data: instructorEnrollees } = await supabase
+          .from('training_instructor_enrollments')
+          .select('pilot_id')
+          .eq('cycle_id', dbEvent.cycle_id)
+          .eq('status', 'active');
+
         // Merge reference materials: syllabus -> mission -> event
         const syllabusRefs = syllabusData?.reference_materials || [];
         const missionRefs = missionData.reference_materials || [];
@@ -209,7 +216,8 @@ async function extractEmbedDataFromDatabaseEvent(dbEvent, overrideTimezone = nul
           missionName: missionData.mission_name,
           dlos: dlos || [],
           referenceMaterials: uniqueRefs,
-          enrollees: enrollees || []
+          enrollees: enrollees || [],
+          instructorEnrollees: instructorEnrollees || []
         };
 
         console.log(`[TRAINING-DATA-FETCH] Successfully fetched training data for event ${dbEvent.id}, references: ${uniqueRefs.length} (syllabus: ${syllabusRefs.length}, mission: ${missionRefs.length}, event: ${eventRefs.length})`);

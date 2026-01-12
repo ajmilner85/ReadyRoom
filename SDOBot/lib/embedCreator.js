@@ -42,22 +42,25 @@ async function createEventEmbed(title, description, eventTime, responses = {}, c
   };
   
   // MODIFIED: groupByQualifications - now returns structured data for accepted only
-  const groupByQualifications = (entries, isTraining = false, trainingEnrollees = []) => {
+  // Now uses instructor enrollments instead of IP qualification
+  const groupByQualifications = (entries, isTraining = false, trainingEnrollees = [], instructorEnrollees = []) => {
     if (entries.length === 0) return { flightLead: [], sectionLead: [], wingman: [] };
 
     if (isTraining) {
-      // For training events, group by: Trainee, IP, Other Participants
+      // For training events, group by: Trainee, IP (enrolled instructors), Other Participants
       const traineeIds = new Set(trainingEnrollees.map(e => e.pilot_id));
+      const instructorIds = new Set(instructorEnrollees.map(e => e.pilot_id));
 
       const trainees = entries.filter(entry => {
         const pilotId = entry.pilotRecord?.id;
         return pilotId && traineeIds.has(pilotId);
       });
 
+      // IPs are now pilots enrolled as instructors for this cycle (not based on qualification)
       const ips = entries.filter(entry => {
-        const qualifications = entry.pilotRecord?.qualifications || [];
         const pilotId = entry.pilotRecord?.id;
-        return qualifications.includes('Instructor Pilot') && (!pilotId || !traineeIds.has(pilotId));
+        // Must be an enrolled instructor AND not a trainee
+        return pilotId && instructorIds.has(pilotId) && !traineeIds.has(pilotId);
       });
 
       const traineeIdSet = new Set(trainees.map(t => t.userId || t.discordId));
@@ -196,6 +199,7 @@ async function createEventEmbed(title, description, eventTime, responses = {}, c
   const shouldGroupBySquadron = eventOptions.groupBySquadron || false;
   const isTrainingEvent = !!eventOptions.trainingData;
   const trainingEnrollees = eventOptions.trainingData?.enrollees || [];
+  const instructorEnrollees = eventOptions.trainingData?.instructorEnrollees || [];
 
   console.log(`[EVENT-TYPE-DEBUG] Event "${title}": eventType=${eventOptions.eventType}, isTrainingEvent=${isTrainingEvent}, shouldTrackQualifications=${shouldTrackQualifications}, shouldGroupBySquadron=${shouldGroupBySquadron}`);
 
@@ -317,7 +321,7 @@ async function createEventEmbed(title, description, eventTime, responses = {}, c
       // Training events: Trainee and IP are squadron-agnostic, only Other Participants are grouped by squadron
       console.log(`[EMBED-STRUCTURE] Training event with squadron grouping - Trainees/IPs squadron-agnostic`);
 
-      const grouped = groupByQualifications(accepted, isTrainingEvent, trainingEnrollees);
+      const grouped = groupByQualifications(accepted, isTrainingEvent, trainingEnrollees, instructorEnrollees);
 
       // Row 1: Trainee | IP (squadron-agnostic)
       const traineeText = formatQualGroup(grouped.trainees || []);
@@ -483,7 +487,7 @@ async function createEventEmbed(title, description, eventTime, responses = {}, c
 
         if (shouldTrackQualifications) {
           // Regular event: Show Flight Lead | Section Lead | Wingman columns
-          const grouped = groupByQualifications(group.accepted, isTrainingEvent, trainingEnrollees);
+          const grouped = groupByQualifications(group.accepted, isTrainingEvent, trainingEnrollees, instructorEnrollees);
 
           const flText = formatQualGroup(grouped.flightLead || []);
           const slText = formatQualGroup(grouped.sectionLead || []);
@@ -571,7 +575,7 @@ async function createEventEmbed(title, description, eventTime, responses = {}, c
     if (shouldTrackQualifications) {
       if (isTrainingEvent) {
         // Training event: Show Trainee | IP columns
-        const grouped = groupByQualifications(accepted, isTrainingEvent, trainingEnrollees);
+        const grouped = groupByQualifications(accepted, isTrainingEvent, trainingEnrollees, instructorEnrollees);
 
         const traineeText = formatQualGroup(grouped.trainees || []);
         const ipText = formatQualGroup(grouped.ips || []);
@@ -591,7 +595,7 @@ async function createEventEmbed(title, description, eventTime, responses = {}, c
         }
       } else {
         // Regular event: Show Flight Lead | Section Lead | Wingman columns
-        const grouped = groupByQualifications(accepted, isTrainingEvent, trainingEnrollees);
+        const grouped = groupByQualifications(accepted, isTrainingEvent, trainingEnrollees, instructorEnrollees);
 
         const flText = formatQualGroup(grouped.flightLead);
         const slText = formatQualGroup(grouped.sectionLead);

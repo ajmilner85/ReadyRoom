@@ -31,23 +31,10 @@ async function getDiscordEnvironment(): Promise<'development' | 'production'> {
   return 'development';
 }
 
-// Helper function to detect if we're running in local development
-function isLocalDevelopment(): boolean {
-  // Check if we're running on localhost or if VITE_API_URL points to localhost
-  return window.location.hostname === 'localhost' ||
-         window.location.hostname === '127.0.0.1' ||
-         import.meta.env.VITE_API_URL?.includes('localhost');
-}
-
-// Helper function to get the appropriate API base URL based on deployment environment
-async function getDiscordApiBaseUrl(): Promise<string> {
-  // Use local backend if we're in local development, regardless of Discord bot choice
-  if (isLocalDevelopment()) {
-    return import.meta.env.VITE_API_URL || 'http://localhost:3001';
-  } else {
-    // Always use production backend for deployed versions (preview/production)
-    return 'https://readyroom.fly.dev';
-  }
+// Helper function to get the appropriate API base URL
+// This should ALWAYS use VITE_API_URL - backend and bot connections are decoupled
+function getDiscordApiBaseUrl(): string {
+  return import.meta.env.VITE_API_URL || 'http://localhost:3001';
 }
 
 // Helper function to add Discord environment to API request headers
@@ -152,7 +139,7 @@ export async function fetchUserDiscordRoles(
   guildId: string
 ): Promise<{ roles: UserDiscordRole[]; error?: string }> {
   try {
-    const baseUrl = await getDiscordApiBaseUrl();
+    const baseUrl = getDiscordApiBaseUrl();
     const headers = await getDiscordHeaders();
     
     // Get user's member data from backend API
@@ -231,7 +218,7 @@ export async function triggerRoleSync(userProfile: UserProfile): Promise<boolean
   }
 
   try {
-    const baseUrl = await getDiscordApiBaseUrl();
+    const baseUrl = getDiscordApiBaseUrl();
     const headers = await getDiscordHeaders();
 
     // Get all Discord servers this user has access to

@@ -560,6 +560,13 @@ app.post('/api/events/publish', async (req, res) => {
                   .eq('cycle_id', eventData.cycle_id)
                   .eq('status', 'active');
 
+                // Fetch instructor enrollees for this cycle
+                const { data: instructorEnrollees } = await supabase
+                  .from('training_instructor_enrollments')
+                  .select('pilot_id')
+                  .eq('cycle_id', eventData.cycle_id)
+                  .eq('status', 'active');
+
                 // Merge reference materials: syllabus -> mission -> event
                 const syllabusRefs = syllabusData?.reference_materials || [];
                 const missionRefs = missionData.reference_materials || [];
@@ -577,7 +584,8 @@ app.post('/api/events/publish', async (req, res) => {
                   missionName: missionData.mission_name,
                   dlos: dlos || [],
                   referenceMaterials: uniqueRefs,
-                  enrollees: enrollees || []
+                  enrollees: enrollees || [],
+                  instructorEnrollees: instructorEnrollees || []
                 };
 
                 console.log(`[TRAINING-EVENT] Fetched training data for event ${eventId}:`, eventOptions.trainingData);
@@ -820,6 +828,13 @@ app.put('/api/events/:messageId/edit', async (req, res) => {
                 .eq('cycle_id', eventData.cycle_id)
                 .eq('status', 'active');
 
+              // Fetch instructor enrollees for this cycle
+              const { data: instructorEnrollees } = await supabase
+                .from('training_instructor_enrollments')
+                .select('pilot_id')
+                .eq('cycle_id', eventData.cycle_id)
+                .eq('status', 'active');
+
               // Merge reference materials: syllabus -> mission -> event
               const syllabusRefs = syllabusData?.reference_materials || [];
               const missionRefs = missionData.reference_materials || [];
@@ -837,7 +852,8 @@ app.put('/api/events/:messageId/edit', async (req, res) => {
                 missionName: missionData.mission_name,
                 dlos: dlos || [],
                 referenceMaterials: uniqueRefs,
-                enrollees: enrollees || []
+                enrollees: enrollees || [],
+                instructorEnrollees: instructorEnrollees || []
               };
 
               console.log(`[TRAINING-EVENT-EDIT] Fetched training data for edit:`, eventOptions.trainingData);
@@ -1198,52 +1214,42 @@ app.get('/api/events/discord/:discordMessageId', async (req, res) => {
 app.get('/api/discord/guild-members', async (req, res) => {
   try {
     // console.log('[DEBUG] Received request to fetch Discord guild members');
-    
+
     // Get the guild ID from query parameters
     const { guildId } = req.query;
-    
+
     if (!guildId) {
-      return res.status(400).json({ 
-        error: 'Guild ID is required. Please check your Discord integration settings.' 
+      return res.status(400).json({
+        error: 'Guild ID is required. Please check your Discord integration settings.'
       });
     }
-    
+
     // console.log(`[DEBUG] Fetching members for guild ID: ${guildId}`);
-    
-    // Create a Discord client with required intents
-    const client = new Client({
-      intents: [
-        GatewayIntentBits.Guilds,
-        GatewayIntentBits.GuildMembers,
-        GatewayIntentBits.GuildMessages
-      ]
-    });
-    
-    // Login to Discord
-    await client.login(process.env.BOT_TOKEN);
-    
-    // Wait for client to be ready
-    await new Promise((resolve) => {
-      if (client.isReady()) resolve();
-      else client.once('ready', resolve);
-    });
-    
+
+    // Use the existing Discord client instead of creating a new one
+    const client = getClient();
+
+    if (!client || !client.isReady()) {
+      return res.status(503).json({
+        error: 'Discord bot is not ready. Please ensure the bot is running and try again.'
+      });
+    }
+
     // console.log('[DEBUG] Discord client ready, fetching guild members');
-    
+
     // Get the specific guild (server) by ID
     const guild = client.guilds.cache.get(guildId);
-    
+
     if (!guild) {
-      await client.destroy();
-      return res.status(404).json({ 
-        error: `Discord guild with ID ${guildId} not found or bot doesn't have access` 
+      return res.status(404).json({
+        error: `Discord guild with ID ${guildId} not found or bot doesn't have access`
       });
     }
       // console.log(`[DEBUG] Found guild: ${guild.name} (${guild.id})`);
-    
+
     // Fetch all members
     await guild.members.fetch();
-    
+
     // Map guild members to a simpler structure, exclude bots
     const members = guild.members.cache
       .filter(member => !member.user.bot) // Filter out bots
@@ -1254,17 +1260,14 @@ app.get('/api/discord/guild-members', async (req, res) => {
         roles: member.roles.cache.map(role => role.name).filter(name => name !== '@everyone'),
         isBot: member.user.bot
       }));
-    
+
     // console.log(`[DEBUG] Fetched ${members.length} guild members (after filtering out bots)`);
-    
-    // Destroy the client to free up resources
-    await client.destroy();
-    
+
     res.json({ members });
   } catch (error) {
     console.error('[ERROR] Error fetching Discord guild members:', error);
-    res.status(500).json({ 
-      error: error.message || 'Failed to fetch Discord guild members' 
+    res.status(500).json({
+      error: error.message || 'Failed to fetch Discord guild members'
     });
   }
 });
