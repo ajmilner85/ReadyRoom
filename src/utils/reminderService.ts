@@ -239,6 +239,7 @@ export async function getEventWithAttendanceForReminder(eventId: string): Promis
   attendance: {
     accepted: Array<{ discord_id: string; discord_username: string; board_number?: string; call_sign?: string }>;
     tentative: Array<{ discord_id: string; discord_username: string; board_number?: string; call_sign?: string }>;
+    declined: Array<{ discord_id: string; discord_username: string; board_number?: string; call_sign?: string }>;
   };
   error: any;
 }> {
@@ -257,7 +258,7 @@ export async function getEventWithAttendanceForReminder(eventId: string): Promis
     if (!eventData?.discord_event_id) {
       return {
         event: eventData,
-        attendance: { accepted: [], tentative: [] },
+        attendance: { accepted: [], tentative: [], declined: [] },
         error: null
       };
     }
@@ -276,7 +277,7 @@ export async function getEventWithAttendanceForReminder(eventId: string): Promis
       .from('discord_event_attendance')
       .select('discord_id, discord_username, user_response')
       .in('discord_event_id', discordEventIds)
-      .in('user_response', ['accepted', 'tentative']);
+      .in('user_response', ['accepted', 'tentative', 'declined']);
 
     if (attendanceError) {
       throw attendanceError;
@@ -285,7 +286,7 @@ export async function getEventWithAttendanceForReminder(eventId: string): Promis
     if (!attendanceData || attendanceData.length === 0) {
       return {
         event: eventData,
-        attendance: { accepted: [], tentative: [] },
+        attendance: { accepted: [], tentative: [], declined: [] },
         error: null
       };
     }
@@ -312,18 +313,24 @@ export async function getEventWithAttendanceForReminder(eventId: string): Promis
 
     const attendance = {
       accepted: [] as Array<{ discord_id: string; discord_username: string; board_number?: string; call_sign?: string }>,
-      tentative: [] as Array<{ discord_id: string; discord_username: string; board_number?: string; call_sign?: string }>
+      tentative: [] as Array<{ discord_id: string; discord_username: string; board_number?: string; call_sign?: string }>,
+      declined: [] as Array<{ discord_id: string; discord_username: string; board_number?: string; call_sign?: string }>
     };
 
-    // Deduplicate users and prioritize 'accepted' over 'tentative' responses
+    // Deduplicate users and prioritize responses: accepted > tentative > declined
     const userResponseMap = new Map();
-    
+
     attendanceData.forEach(record => {
       const existingResponse = userResponseMap.get(record.discord_id);
-      
-      // If user doesn't exist or this is a more definitive response (accepted > tentative)
-      if (!existingResponse || 
-          (record.user_response === 'accepted' && existingResponse.user_response === 'tentative')) {
+
+      // Priority order: accepted > tentative > declined
+      if (!existingResponse) {
+        userResponseMap.set(record.discord_id, record);
+      } else if (record.user_response === 'accepted') {
+        // Accept always overrides tentative or declined
+        userResponseMap.set(record.discord_id, record);
+      } else if (record.user_response === 'tentative' && existingResponse.user_response === 'declined') {
+        // Tentative overrides declined
         userResponseMap.set(record.discord_id, record);
       }
     });
@@ -342,6 +349,8 @@ export async function getEventWithAttendanceForReminder(eventId: string): Promis
         attendance.accepted.push(userRecord);
       } else if (record.user_response === 'tentative') {
         attendance.tentative.push(userRecord);
+      } else if (record.user_response === 'declined') {
+        attendance.declined.push(userRecord);
       }
     });
 
@@ -354,9 +363,114 @@ export async function getEventWithAttendanceForReminder(eventId: string): Promis
     console.error('Error getting event for reminder:', error);
     return {
       event: null,
-      attendance: { accepted: [], tentative: [] },
+      attendance: { accepted: [], tentative: [], declined: [] },
       error
     };
+  }
+}
+
+/**
+ * Get users who haven't responded to an event (no response)
+ * Only includes active pilots from participating squadrons
+ */
+async function getNoResponseUsers(
+  _eventId: string,
+  eventData: Event,
+  existingAttendance: {
+    accepted: Array<{ discord_id: string }>;
+    tentative: Array<{ discord_id: string }>;
+    declined: Array<{ discord_id: string }>;
+  }
+): Promise<Array<{ discord_id: string; discord_username: string; board_number?: string; call_sign?: string }>> {
+  try {
+    if (!eventData.discord_event_id) {
+      return [];
+    }
+
+    // Extract unique squadron IDs from publications
+    const squadronIds: string[] = [];
+    if (Array.isArray(eventData.discord_event_id)) {
+      eventData.discord_event_id.forEach((pub: any) => {
+        if (pub && pub.squadronId && !squadronIds.includes(pub.squadronId)) {
+          squadronIds.push(pub.squadronId);
+        }
+      });
+    }
+
+    if (squadronIds.length === 0) {
+      return [];
+    }
+
+    // Get all pilots in participating squadrons with active assignments
+    const { data: assignments, error: assignmentsError } = await supabase
+      .from('pilot_assignments')
+      .select('pilot_id, squadron_id')
+      .in('squadron_id', squadronIds)
+      .is('end_date', null);
+
+    if (assignmentsError || !assignments || assignments.length === 0) {
+      console.error('Error fetching pilot assignments for no-response:', assignmentsError);
+      return [];
+    }
+
+    const pilotIds = assignments.map((a: any) => a.pilot_id);
+
+    // Get pilot details
+    const { data: pilots, error: pilotsError } = await supabase
+      .from('pilots')
+      .select('id, discord_id, boardNumber, callsign')
+      .in('id', pilotIds);
+
+    if (pilotsError || !pilots) {
+      console.error('Error fetching pilots for no-response:', pilotsError);
+      return [];
+    }
+
+    // Get active status for these pilots via pilot_statuses -> statuses join
+    const { data: activeStatuses, error: statusError } = await supabase
+      .from('pilot_statuses')
+      .select(`
+        pilot_id,
+        statuses!inner(
+          isActive
+        )
+      `)
+      .in('pilot_id', pilotIds)
+      .eq('statuses.isActive', true)
+      .is('end_date', null);
+
+    if (statusError) {
+      console.error('Error fetching pilot statuses for no-response:', statusError);
+      return [];
+    }
+
+    // Create set of active pilot IDs
+    const activePilotIds = new Set((activeStatuses || []).map((s: any) => s.pilot_id));
+
+    // Get existing responders (all response types)
+    const existingResponders = new Set([
+      ...existingAttendance.accepted.map(r => r.discord_id),
+      ...existingAttendance.tentative.map(r => r.discord_id),
+      ...existingAttendance.declined.map(r => r.discord_id)
+    ]);
+
+    // Filter to only active non-responders
+    return (pilots as any[])
+      .filter((p: any) =>
+        p.discord_id &&
+        activePilotIds.has(p.id) &&
+        !existingResponders.has(p.discord_id)
+      )
+      .map((p: any) => ({
+        discord_id: p.discord_id,
+        discord_username: '',
+        board_number: p.boardNumber,
+        call_sign: p.callsign
+      }));
+
+  } catch (error) {
+    console.error('Error getting no-response users:', error);
+    return [];
   }
 }
 
@@ -450,10 +564,20 @@ export async function updateEventReminders(
   }
 }
 
+export interface ReminderRecipientTypes {
+  accepted: boolean;
+  tentative: boolean;
+  declined: boolean;
+  noResponse: boolean;
+}
+
 /**
  * Send a manual event reminder immediately
  */
-export async function sendEventReminder(eventId: string): Promise<{ success: boolean; error?: any; recipientCount?: number }> {
+export async function sendEventReminder(
+  eventId: string,
+  recipientTypes?: ReminderRecipientTypes
+): Promise<{ success: boolean; error?: any; recipientCount?: number }> {
   try {
     // console.log('[MANUAL-REMINDER-DEBUG] Sending manual reminder for event:', eventId);
     
@@ -471,12 +595,34 @@ export async function sendEventReminder(eventId: string): Promise<{ success: boo
     
     // Calculate time until event
     const timeUntil = calculateTimeUntilEvent(event.start_datetime);
-    
-    // Determine recipients (accepted + tentative by default)
-    const recipients = [...attendance.accepted, ...attendance.tentative];
-    
+
+    // Determine recipients based on recipientTypes parameter
+    // Default to tentative + no response if not specified
+    const types = recipientTypes || {
+      accepted: false,
+      tentative: true,
+      declined: false,
+      noResponse: true
+    };
+
+    const recipients: Array<{ discord_id: string; discord_username: string; board_number?: string; call_sign?: string }> = [];
+
+    if (types.accepted) {
+      recipients.push(...attendance.accepted);
+    }
+    if (types.tentative) {
+      recipients.push(...attendance.tentative);
+    }
+    if (types.declined) {
+      recipients.push(...attendance.declined);
+    }
+    if (types.noResponse) {
+      const noResponseUsers = await getNoResponseUsers(eventId, event, attendance);
+      recipients.push(...noResponseUsers);
+    }
+
     if (recipients.length === 0) {
-      throw new Error('No recipients found for reminder');
+      throw new Error('No recipients found for the selected response types');
     }
     
     // Transform database event to frontend Event format for proper message formatting
@@ -487,16 +633,8 @@ export async function sendEventReminder(eventId: string): Promise<{ success: boo
       name: event.name || (event as any).title
     };
     
-    // Format the reminder message
+    // Format the reminder message (without mentions - backend handles mentions with squadron filtering)
     const message = formatReminderMessage(frontendEvent, timeUntil, recipients);
-    
-    // Add Discord mentions like the automatic reminder system does
-    const discordMentions = recipients.map(user => `<@${user.discord_id}>`).join(' ');
-    const fullMessage = discordMentions ? `${discordMentions}\n${message}` : message;
-    
-    // console.log('[MANUAL-REMINDER-DEBUG] Base message:', message);
-    // console.log('[MANUAL-REMINDER-DEBUG] Discord mentions:', discordMentions);
-    // console.log('[MANUAL-REMINDER-DEBUG] Full message:', fullMessage);
     
     // Handle both single discord_event_id and multi-channel array format with deduplication
     let discordEventIds = [];
@@ -556,7 +694,7 @@ export async function sendEventReminder(eventId: string): Promise<{ success: boo
         },
         body: JSON.stringify({
           eventId: event.id,
-          message: fullMessage,
+          message: message,
           userIds: recipients.map(r => r.discord_id),
           // Send to specific guild and channel to avoid duplicates
           guildId: channelInfo.guildId,
