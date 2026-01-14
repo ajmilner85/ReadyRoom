@@ -936,21 +936,45 @@ app.put('/api/events/:messageId/edit', async (req, res) => {
         
         if (!remindersError && existingReminders && existingReminders.length > 0) {
           // console.log('[DEBUG] Event has existing reminders, rescheduling...');
-          
+
+          // Fetch event settings to get reminder recipient preferences
+          const { data: eventData } = await supabase
+            .from('events')
+            .select('event_settings')
+            .eq('id', eventId)
+            .single();
+
+          const eventSettings = eventData?.event_settings || {};
+
+          // Extract recipient settings with defaults
+          const firstRecipients = {
+            accepted: eventSettings.firstReminderRecipients?.accepted ?? false,
+            tentative: eventSettings.firstReminderRecipients?.tentative ?? true,
+            declined: eventSettings.firstReminderRecipients?.declined ?? false,
+            noResponse: eventSettings.firstReminderRecipients?.noResponse ?? true
+          };
+
+          const secondRecipients = {
+            accepted: eventSettings.secondReminderRecipients?.accepted ?? true,
+            tentative: eventSettings.secondReminderRecipients?.tentative ?? true,
+            declined: eventSettings.secondReminderRecipients?.declined ?? false,
+            noResponse: eventSettings.secondReminderRecipients?.noResponse ?? false
+          };
+
           // Cancel existing unsent reminders
           const { error: cancelError } = await supabase
             .from('event_reminders')
             .delete()
             .eq('event_id', eventId)
             .eq('sent', false);
-          
+
           if (cancelError) {
             console.error('[ERROR] Failed to cancel existing reminders:', cancelError);
           } else {
             // Create new reminders based on provided settings or fallback to 15 minutes
             const newStartTime = new Date(startTime);
             const now = new Date();
-            
+
             // Helper function to convert reminder settings to milliseconds
             const convertToMs = (value, unit) => {
               switch (unit) {
@@ -965,7 +989,7 @@ app.put('/api/events/:messageId/edit', async (req, res) => {
             if (reminders?.firstReminder?.enabled) {
               const reminderMs = convertToMs(reminders.firstReminder.value, reminders.firstReminder.unit);
               const reminderTime = new Date(newStartTime.getTime() - reminderMs);
-              
+
               if (reminderTime > now) {
                 const { error: scheduleError } = await supabase
                   .from('event_reminders')
@@ -973,20 +997,24 @@ app.put('/api/events/:messageId/edit', async (req, res) => {
                     event_id: eventId,
                     reminder_type: 'first',
                     scheduled_time: reminderTime.toISOString(),
-                    sent: false
+                    sent: false,
+                    notify_accepted: firstRecipients.accepted,
+                    notify_tentative: firstRecipients.tentative,
+                    notify_declined: firstRecipients.declined,
+                    notify_no_response: firstRecipients.noResponse
                   });
-                
+
                 if (scheduleError) {
                   console.error('[ERROR] Failed to schedule first reminder:', scheduleError);
                 }
               }
             }
-            
+
             // Schedule second reminder if enabled
             if (reminders?.secondReminder?.enabled) {
               const reminderMs = convertToMs(reminders.secondReminder.value, reminders.secondReminder.unit);
               const reminderTime = new Date(newStartTime.getTime() - reminderMs);
-              
+
               if (reminderTime > now) {
                 const { error: scheduleError } = await supabase
                   .from('event_reminders')
@@ -994,19 +1022,23 @@ app.put('/api/events/:messageId/edit', async (req, res) => {
                     event_id: eventId,
                     reminder_type: 'second',
                     scheduled_time: reminderTime.toISOString(),
-                    sent: false
+                    sent: false,
+                    notify_accepted: secondRecipients.accepted,
+                    notify_tentative: secondRecipients.tentative,
+                    notify_declined: secondRecipients.declined,
+                    notify_no_response: secondRecipients.noResponse
                   });
-                
+
                 if (scheduleError) {
                   console.error('[ERROR] Failed to schedule second reminder:', scheduleError);
                 }
               }
             }
-            
+
             // If no reminder settings provided, fallback to 15-minute default
             if (!reminders?.firstReminder?.enabled && !reminders?.secondReminder?.enabled) {
               const reminderTime = new Date(newStartTime.getTime() - (15 * 60 * 1000));
-              
+
               if (reminderTime > now) {
                 const { error: scheduleError } = await supabase
                   .from('event_reminders')
@@ -1014,9 +1046,13 @@ app.put('/api/events/:messageId/edit', async (req, res) => {
                     event_id: eventId,
                     reminder_type: 'first',
                     scheduled_time: reminderTime.toISOString(),
-                    sent: false
+                    sent: false,
+                    notify_accepted: firstRecipients.accepted,
+                    notify_tentative: firstRecipients.tentative,
+                    notify_declined: firstRecipients.declined,
+                    notify_no_response: firstRecipients.noResponse
                   });
-                
+
                 if (scheduleError) {
                   console.error('[ERROR] Failed to schedule default reminder:', scheduleError);
                 }
@@ -1478,26 +1514,27 @@ app.post('/api/reminders/send', async (req, res) => {
     let attendanceData = [];
     if (userIds && userIds.length > 0) {
       // Fetch squadron assignments for the users being reminded
-      const { data: pilotData } = await supabase
-        .from('pilots')
-        .select(`
-          discord_id,
-          pilot_assignments!inner(squadron_id, created_at)
-        `)
-        .in('discord_id', userIds)
-        .is('pilot_assignments.end_date', null)  // Only get active (non-ended) assignments
-        .order('pilot_assignments.created_at', { ascending: false });  // Most recent first
+      const { data: pilotData, error: pilotError } = await supabase
+        .from('pilot_assignments')
+        .select('pilot_id, squadron_id, created_at, pilots!inner(discord_id)')
+        .in('pilots.discord_id', userIds)
+        .is('end_date', null)
+        .order('created_at', { ascending: false });
 
-      // Create map of discord_id to squadron_id (taking most recent non-null assignment)
+      if (pilotError) {
+        console.error('[REMINDER-API] Error fetching pilot assignments:', pilotError);
+      }
+
+      // Create map of discord_id to squadron_id (taking most recent assignment)
       const squadronMap = new Map();
-      (pilotData || []).forEach(pilot => {
-        if (pilot.pilot_assignments && pilot.pilot_assignments.length > 0 && !squadronMap.has(pilot.discord_id)) {
-          const validAssignment = pilot.pilot_assignments.find(a => a.squadron_id != null);
-          if (validAssignment) {
-            squadronMap.set(pilot.discord_id, validAssignment.squadron_id);
-          }
+      (pilotData || []).forEach(assignment => {
+        const discord_id = assignment.pilots?.discord_id;
+        if (discord_id && assignment.squadron_id && !squadronMap.has(discord_id)) {
+          squadronMap.set(discord_id, assignment.squadron_id);
         }
       });
+
+      console.log(`[REMINDER-API] Found ${squadronMap.size} pilots with squadron assignments out of ${userIds.length} requested`);
 
       // Map to attendanceData format
       attendanceData = userIds.map(discord_id => ({
@@ -2076,32 +2113,69 @@ async function processIndividualReminder(reminder) {
     console.log(`[REMINDER-${reminder.id}] Found ${allAttendance?.length || 0} total attendance records, ${latestResponseByPilot.size} unique pilots, ${respondedUsers.length} matching response types`);
 
     // Get squadron assignments for these users
+    // Using a two-step query approach for reliability - Supabase nested queries with !inner
+    // and filters can have inconsistent behavior
     if (respondedUsers && respondedUsers.length > 0) {
       const discordIds = respondedUsers.map(u => u.discord_id);
 
-      const { data: pilotData } = await supabase
+      // Step 1: Get pilot IDs for these discord IDs
+      const { data: pilotIdData, error: pilotIdError } = await supabase
         .from('pilots')
-        .select(`
-          discord_id,
-          pilot_assignments!inner(squadron_id, created_at)
-        `)
-        .in('discord_id', discordIds)
-        .is('pilot_assignments.end_date', null)  // Only get active (non-ended) assignments
-        .order('pilot_assignments.created_at', { ascending: false });  // Most recent first
+        .select('id, discord_id')
+        .in('discord_id', discordIds);
 
-      // Create a map of discord_id to squadron_id
-      // Group by discord_id since we may get multiple rows per pilot if they have duplicate active assignments
+      if (pilotIdError) {
+        console.error(`[REMINDER] Error querying pilots:`, pilotIdError);
+      }
+
       const squadronMap = new Map();
-      (pilotData || []).forEach(pilot => {
-        if (pilot.pilot_assignments && pilot.pilot_assignments.length > 0) {
-          // Take the first (most recent) non-null squadron assignment
-          const validAssignment = pilot.pilot_assignments.find(a => a.squadron_id != null);
-          if (validAssignment && !squadronMap.has(pilot.discord_id)) {
-            squadronMap.set(pilot.discord_id, validAssignment.squadron_id);
-            console.log(`[REMINDER-SQUADRON-MAP] Pilot ${pilot.discord_id} mapped to active squadron ${validAssignment.squadron_id}`);
-          }
+
+      if (pilotIdData && pilotIdData.length > 0) {
+        // Create discord_id to pilot_id mapping
+        const discordToPilotId = new Map();
+        pilotIdData.forEach(p => discordToPilotId.set(p.discord_id, p.id));
+
+        const pilotIds = pilotIdData.map(p => p.id);
+
+        // Step 2: Get active assignments for these pilots
+        const { data: assignmentData, error: assignmentError } = await supabase
+          .from('pilot_assignments')
+          .select('pilot_id, squadron_id, created_at')
+          .in('pilot_id', pilotIds)
+          .is('end_date', null)  // Only active assignments
+          .order('created_at', { ascending: false });
+
+        if (assignmentError) {
+          console.error(`[REMINDER] Error querying pilot_assignments:`, assignmentError);
         }
-      });
+
+        // Build squadron map from assignments
+        // Group by pilot_id, taking the most recent (first due to order)
+        const pilotToSquadron = new Map();
+        (assignmentData || []).forEach(assignment => {
+          if (!pilotToSquadron.has(assignment.pilot_id) && assignment.squadron_id) {
+            pilotToSquadron.set(assignment.pilot_id, assignment.squadron_id);
+          }
+        });
+
+        // Map discord_id to squadron_id through pilot_id
+        discordIds.forEach(discordId => {
+          const pilotId = discordToPilotId.get(discordId);
+          if (pilotId) {
+            const squadronId = pilotToSquadron.get(pilotId);
+            if (squadronId) {
+              squadronMap.set(discordId, squadronId);
+            }
+          }
+        });
+      }
+
+      // Log only if there are missing mappings (potential issues)
+      const foundDiscordIds = new Set(squadronMap.keys());
+      const missingDiscordIds = discordIds.filter(id => !foundDiscordIds.has(id));
+      if (missingDiscordIds.length > 0) {
+        console.warn(`[REMINDER] ${missingDiscordIds.length} pilots missing squadron mappings`);
+      }
 
       // Map attendance data to include squadron_id
       attendanceData = respondedUsers.map(user => ({
@@ -2120,51 +2194,72 @@ async function processIndividualReminder(reminder) {
       .from('discord_event_attendance')
       .select('discord_id')
       .in('discord_event_id', discordEventIds);
-    
+
     const responderIds = new Set((allResponders || []).map(r => r.discord_id));
-    
+
     // Get participating squadrons from event
     const participatingSquadronIds = eventData.participants || [];
-    
+
     if (participatingSquadronIds.length > 0) {
-      // Get pilots from participating squadrons with active status
-      const { data: eligiblePilots } = await supabase
-        .from('pilots')
-        .select(`
-          discord_id,
-          discord_username,
-          pilot_statuses!inner(
-            status_id,
-            end_date,
-            statuses!inner(isActive)
-          ),
-          pilot_assignments!inner(squadron_id, end_date)
-        `)
-        .in('pilot_assignments.squadron_id', participatingSquadronIds)
-        .eq('pilot_statuses.statuses.isActive', true)
-        .is('pilot_statuses.end_date', null)
-        .is('pilot_assignments.end_date', null)  // Only get active (non-ended) squadron assignments
-        .not('discord_id', 'is', null);
+      // Two-step approach for reliability - Supabase nested queries with multiple !inner
+      // joins and filters can have inconsistent behavior
 
-      // Filter for users who haven't responded and include squadron info
-      const noResponseUsers = (eligiblePilots || [])
-        .filter(pilot => !responderIds.has(pilot.discord_id))
-        .map(pilot => ({
-          discord_id: pilot.discord_id,
-          discord_username: pilot.discord_username,
-          user_response: 'no_response',
-          // Find the active assignment (end_date is null) - defensive in case query returns multiple
-          squadron_id: pilot.pilot_assignments?.find(a => a.end_date === null)?.squadron_id || pilot.pilot_assignments?.[0]?.squadron_id
-        }));
+      // Step 1: Get active pilot assignments in participating squadrons
+      const { data: activeAssignments, error: assignmentError } = await supabase
+        .from('pilot_assignments')
+        .select('pilot_id, squadron_id')
+        .in('squadron_id', participatingSquadronIds)
+        .is('end_date', null);
 
-      console.log(`[REMINDER-${reminder.id}] Found ${noResponseUsers.length} no-response users`);
+      if (assignmentError) {
+        console.error(`[REMINDER] Error querying no-response pilot_assignments:`, assignmentError);
+      }
 
-      // Debug logging for no-response users to help diagnose squadron assignment issues
-      noResponseUsers.forEach(user => {
-        console.log(`[REMINDER-NO-RESPONSE] ${user.discord_username} -> squadron ${user.squadron_id?.substring(0, 8) || 'NONE'}`);
-      });
+      if (activeAssignments && activeAssignments.length > 0) {
+        // Build pilot_id to squadron_id map
+        const pilotSquadronMap = new Map();
+        activeAssignments.forEach(a => {
+          if (!pilotSquadronMap.has(a.pilot_id)) {
+            pilotSquadronMap.set(a.pilot_id, a.squadron_id);
+          }
+        });
 
-      attendanceData = [...attendanceData, ...noResponseUsers];
+        const pilotIds = Array.from(pilotSquadronMap.keys());
+
+        // Step 2: Get pilots with active status
+        const { data: activePilots, error: pilotError } = await supabase
+          .from('pilots')
+          .select(`
+            id,
+            discord_id,
+            discord_username,
+            pilot_statuses!inner(
+              status_id,
+              end_date,
+              statuses!inner(isActive)
+            )
+          `)
+          .in('id', pilotIds)
+          .eq('pilot_statuses.statuses.isActive', true)
+          .is('pilot_statuses.end_date', null)
+          .not('discord_id', 'is', null);
+
+        if (pilotError) {
+          console.error(`[REMINDER] Error querying no-response pilots:`, pilotError);
+        }
+
+        // Filter for users who haven't responded and include squadron info
+        const noResponseUsers = (activePilots || [])
+          .filter(pilot => !responderIds.has(pilot.discord_id))
+          .map(pilot => ({
+            discord_id: pilot.discord_id,
+            discord_username: pilot.discord_username,
+            user_response: 'no_response',
+            squadron_id: pilotSquadronMap.get(pilot.id)
+          }));
+
+        attendanceData = [...attendanceData, ...noResponseUsers];
+      }
     }
   }
 
@@ -2328,39 +2423,65 @@ async function sendReminderToDiscordChannels(event, message, attendanceData = []
     const mentionedPilots = new Set();
     let firstPublication = null;  // Store first publication for fallback
 
-    // Multi-channel event
+    // DEDUPLICATION FIX: Build unique channels map BEFORE the loop
+    // This ensures only ONE reminder is sent per unique guild:channel combination,
+    // even when multiple squadrons share the same Discord channel
+    const uniqueChannels = new Map();
+
     for (const publication of event.discord_event_id) {
+      const channelKey = `${publication.guildId}:${publication.channelId}`;
+
+      if (!uniqueChannels.has(channelKey)) {
+        uniqueChannels.set(channelKey, {
+          publication: publication,  // Use first publication for this channel as reference
+          squadronIds: [publication.squadronId],
+          allPublications: [publication]  // Track all publications for database updates
+        });
+      } else {
+        // Add squadron to existing channel entry
+        const channelInfo = uniqueChannels.get(channelKey);
+        channelInfo.squadronIds.push(publication.squadronId);
+        channelInfo.allPublications.push(publication);
+      }
+    }
+
+    // Log summary only if deduplication actually occurred
+    if (event.discord_event_id.length !== uniqueChannels.size) {
+      console.log(`[REMINDER] Deduplicated ${event.discord_event_id.length} publications to ${uniqueChannels.size} unique channels`);
+    }
+
+    // Iterate over UNIQUE channels, not individual publications
+    for (const [channelKey, channelInfo] of uniqueChannels) {
+      const { publication, squadronIds, allPublications } = channelInfo;
+
       try {
         // Store first publication for orphaned pilot fallback
         if (!firstPublication) {
           firstPublication = publication;
         }
 
-        // Filter attendanceData to only include pilots from this publication's squadron
-        const squadronAttendance = attendanceData.filter(user =>
-          user.squadron_id === publication.squadronId
+        // Aggregate attendanceData from ALL squadrons sharing this channel
+        const channelAttendance = attendanceData.filter(user =>
+          squadronIds.includes(user.squadron_id)
         );
 
-        console.log(`[REMINDER-SQUADRON] Publication for squadron ${publication.squadronId}: ${squadronAttendance.length} recipients`);
-
-        // If no recipients for this squadron, skip this publication
-        if (squadronAttendance.length === 0) {
-          console.log(`[REMINDER-SQUADRON] No recipients for squadron ${publication.squadronId}, skipping`);
+        // If no recipients for this channel, skip
+        if (channelAttendance.length === 0) {
           continue;
         }
 
         // Track mentioned pilots for orphan detection
-        squadronAttendance.forEach(user => mentionedPilots.add(user.discord_id));
+        channelAttendance.forEach(user => mentionedPilots.add(user.discord_id));
 
         // Deduplicate users by discord_id to avoid duplicate mentions
         const uniqueUsers = new Map();
-        squadronAttendance.forEach(user => {
+        channelAttendance.forEach(user => {
           if (!uniqueUsers.has(user.discord_id)) {
             uniqueUsers.set(user.discord_id, user);
           }
         });
 
-        // Create Discord mentions for this squadron only
+        // Create Discord mentions for ALL pilots in this channel (across all squadrons)
         const discordMentions = Array.from(uniqueUsers.values())
           .map(user => `<@${user.discord_id}>`)
           .join(' ');
@@ -2380,12 +2501,10 @@ async function sendReminderToDiscordChannels(event, message, attendanceData = []
 
         if (existingThread) {
           // Reuse existing thread from any publication
-          console.log(`[REMINDER-THREAD] Found existing thread ${existingThread.threadId} from another publication, reusing for all reminders`);
           targetChannelId = existingThread.threadId;
 
           // Update THIS publication to also reference the thread (if not already set)
           if (!publication.threadId || publication.threadId === 'DISABLED') {
-            console.log(`[REMINDER-THREAD] Updating publication ${publication.messageId} to reference shared thread`);
             publication.threadId = existingThread.threadId;
             needsDatabaseUpdate = true;
           }
@@ -2393,70 +2512,51 @@ async function sendReminderToDiscordChannels(event, message, attendanceData = []
           // This publication has a threadId but existingThread didn't find it (shouldn't happen, defensive)
           if (publication.threadId === 'DISABLED') {
             // Try to recover from DISABLED state by checking FIRST message (not current)
-            console.log(`[REMINDER-THREAD] Threading was marked DISABLED, attempting to recover from FIRST message`);
-
             const firstPublication = event.discord_event_id[0];
             const existingThreadResult = await getExistingThreadFromMessage(
-              firstPublication.messageId,  // <-- Check first message, not current
+              firstPublication.messageId,
               firstPublication.guildId,
               firstPublication.channelId
             );
 
             if (existingThreadResult.success) {
-              console.log(`[REMINDER-THREAD] Recovered thread ${existingThreadResult.threadId} from first message`);
               targetChannelId = existingThreadResult.threadId;
-
-              // Update ALL publications with recovered thread
               event.discord_event_id.forEach(pub => {
                 pub.threadId = existingThreadResult.threadId;
               });
               needsDatabaseUpdate = true;
             } else {
-              console.log(`[REMINDER-THREAD] Could not recover thread, posting to channel`);
               targetChannelId = publication.channelId;
             }
           } else {
             // Thread already exists, use it
-            console.log(`[REMINDER-THREAD] Using stored thread ${publication.threadId}`);
             targetChannelId = publication.threadId;
           }
         } else {
           // No thread exists yet - create one from the FIRST messageId
-          console.log(`[REMINDER-THREAD] No thread exists yet for event ${event.id}, checking if we should create one`);
-
-          // Get participating squadrons from the publication
           const participatingSquadrons = publication.squadronId ? [publication.squadronId] : [];
           const threadDecision = await shouldUseThreadsForEvent(participatingSquadrons, publication.guildId, publication.channelId);
 
           if (threadDecision.shouldUseThreads) {
-            // ALWAYS use the FIRST publication's messageId to create thread
-            // This prevents issues where multiple messages try to create their own threads
             const firstPublication = event.discord_event_id[0];
-
-            console.log(`[REMINDER-THREAD] Creating thread from FIRST messageId: ${firstPublication.messageId} for event "${event.name}"`);
-
             const threadResult = await createThreadFromMessage(
-              firstPublication.messageId,  // <-- Always use first messageId
-              event.name, // Thread name = event name
+              firstPublication.messageId,
+              event.name,
               firstPublication.guildId,
               firstPublication.channelId,
               threadDecision.autoArchiveDuration
             );
 
             if (threadResult.success) {
-              console.log(`[REMINDER-THREAD] Thread created successfully: ${threadResult.threadId}, storing in ALL publications`);
+              console.log(`[REMINDER] Thread created: ${threadResult.threadId}`);
               createdThreadId = threadResult.threadId;
-              targetChannelId = threadResult.threadId; // Send reminder to the new thread
-
-              // Store threadId in ALL publications for this event
+              targetChannelId = threadResult.threadId;
               event.discord_event_id.forEach(pub => {
                 pub.threadId = threadResult.threadId;
               });
               needsDatabaseUpdate = true;
             } else if (threadResult.error === 'The message already has a thread' || threadResult.alreadyExists) {
               // Thread already exists for first message, try to fetch it
-              console.log(`[REMINDER-THREAD] Thread already exists for first message, fetching...`);
-
               const firstPublication = event.discord_event_id[0];
               const existingThreadResult = await getExistingThreadFromMessage(
                 firstPublication.messageId,
@@ -2465,18 +2565,14 @@ async function sendReminderToDiscordChannels(event, message, attendanceData = []
               );
 
               if (existingThreadResult.success) {
-                console.log(`[REMINDER-THREAD] Found existing thread: ${existingThreadResult.threadId}`);
                 createdThreadId = existingThreadResult.threadId;
-                targetChannelId = existingThreadResult.threadId; // Send reminder to the existing thread
-
-                // Store in ALL publications
+                targetChannelId = existingThreadResult.threadId;
                 event.discord_event_id.forEach(pub => {
                   pub.threadId = existingThreadResult.threadId;
                 });
                 needsDatabaseUpdate = true;
               } else {
-                // Failed to fetch thread, mark all as DISABLED
-                console.error(`[REMINDER-THREAD] Failed to fetch existing thread: ${existingThreadResult.error}, marking as DISABLED`);
+                console.error(`[REMINDER] Failed to fetch existing thread: ${existingThreadResult.error}`);
                 event.discord_event_id.forEach(pub => {
                   pub.threadId = 'DISABLED';
                 });
@@ -2484,47 +2580,38 @@ async function sendReminderToDiscordChannels(event, message, attendanceData = []
                 targetChannelId = publication.channelId;
               }
             } else {
-              // Failed to create thread, mark as DISABLED in all publications
-              console.warn(`[REMINDER-THREAD] Thread creation failed: ${threadResult.error}, marking ALL publications as DISABLED`);
-
+              console.warn(`[REMINDER] Thread creation failed: ${threadResult.error}`);
               event.discord_event_id.forEach(pub => {
                 pub.threadId = 'DISABLED';
               });
               needsDatabaseUpdate = true;
-
-              // Continue with channel posting
               targetChannelId = publication.channelId;
             }
           } else {
-            console.log(`[REMINDER-THREAD] Threading disabled for this squadron, no thread will be created`);
             targetChannelId = publication.channelId;
           }
         }
 
         // Update database if we modified any threadId values
         if (needsDatabaseUpdate) {
-          console.log(`[REMINDER-THREAD] Updating database with shared threadId across all publications`);
           try {
             await supabase
               .from('events')
               .update({ discord_event_id: event.discord_event_id })
               .eq('id', event.id);
-            console.log(`[REMINDER-THREAD] Successfully updated database`);
           } catch (updateError) {
-            console.warn(`[REMINDER-THREAD] Failed to update database:`, updateError.message);
+            console.warn(`[REMINDER] Failed to update thread in database:`, updateError.message);
           }
         }
 
         // Send the reminder message with squadron-specific mentions
         let reminderResult;
         if (targetChannelId !== publication.channelId) {
-          // We're sending to a thread, use postMessageToThread directly
+          // We're sending to a thread
           reminderResult = await postMessageToThread(targetChannelId, publication.guildId, fullMessage);
-          console.log(`[REMINDER] Sent reminder to thread ${targetChannelId} in guild ${publication.guildId}`);
         } else {
           // No thread, use normal channel messaging
           reminderResult = await sendReminderMessage(publication.guildId, targetChannelId, fullMessage);
-          console.log(`[REMINDER] Sent reminder to channel ${targetChannelId} in guild ${publication.guildId}`);
           
           // If threading is disabled and we posted to channel, track the message ID for deletion
           if (reminderResult.success && reminderResult.messageId) {
@@ -2538,16 +2625,12 @@ async function sendReminderToDiscordChannels(event, message, attendanceData = []
                 .single();
 
               if (fetchError || !latestEventData) {
-                console.error(`[REMINDER-TRACKING] Failed to fetch latest event data:`, fetchError);
                 throw new Error('Cannot update reminderMessageIds without latest event data');
               }
 
-              // Store reminder message ID in the SPECIFIC publication for later deletion
-              // Match by all three keys to handle multi-squadron events correctly
+              // Store reminder message ID in ALL publications that share this channel
               const updatedPublications = latestEventData.discord_event_id.map(pub =>
-                (pub.guildId === publication.guildId &&
-                 pub.channelId === publication.channelId &&
-                 pub.squadronId === publication.squadronId)
+                (pub.guildId === publication.guildId && pub.channelId === publication.channelId)
                   ? {
                       ...pub,
                       reminderMessageIds: [...(pub.reminderMessageIds || []), reminderResult.messageId]
@@ -2560,55 +2643,45 @@ async function sendReminderToDiscordChannels(event, message, attendanceData = []
                 .update({ discord_event_id: updatedPublications })
                 .eq('id', event.id);
 
-              console.log(`[REMINDER-TRACKING] Stored reminder message ID ${reminderResult.messageId} for event ${event.id}, squadron ${publication.squadronId?.substring(0, 8)}`);
-
-              // Update in-memory event object to keep it in sync
               event.discord_event_id = updatedPublications;
             } catch (trackingError) {
-              console.warn(`[REMINDER-TRACKING] Failed to store reminder message ID:`, trackingError.message);
+              console.warn(`[REMINDER] Failed to store reminder message ID:`, trackingError.message);
             }
           }
         }
         
-        const threadStatus = createdThreadId ? ' (in newly created thread)' : (publication.threadId ? ' (in existing thread)' : '');
-        console.log(`[REMINDER] Sent reminder to guild ${publication.guildId}, channel ${targetChannelId}${threadStatus}`);
-        
+        // Single summary log for successful reminder
+        const threadStatus = createdThreadId ? ' (new thread)' : (publication.threadId ? ' (thread)' : '');
+        console.log(`[REMINDER] Sent to ${squadronIds.length} squadron(s)${threadStatus}`);
+
       } catch (error) {
-        console.error(`[REMINDER] Failed to send reminder to guild ${publication.guildId}, channel ${publication.channelId}:`, error);
+        console.error(`[REMINDER] Failed to send reminder to channel ${channelKey}:`, error);
       }
     }
 
     // Handle orphaned pilots - users who should be notified but weren't included in any squadron publication
-    // This can happen if their squadron_id doesn't match any publication (e.g., squadron has no Discord channel)
     const orphanedPilots = attendanceData.filter(user => !mentionedPilots.has(user.discord_id));
     if (orphanedPilots.length > 0 && firstPublication) {
-      console.log(`[REMINDER-ORPHANED] Found ${orphanedPilots.length} pilots without matching publication, mentioning in first channel`);
-      orphanedPilots.forEach(user => {
-        console.log(`[REMINDER-ORPHANED] - ${user.discord_username} (squadron_id: ${user.squadron_id})`);
-      });
+      console.log(`[REMINDER] ${orphanedPilots.length} orphaned pilots, sending to fallback channel`);
 
       try {
-        // Create Discord mentions for orphaned pilots
         const orphanMentions = orphanedPilots
           .map(user => `<@${user.discord_id}>`)
           .join(' ');
 
         const orphanMessage = `${orphanMentions}\n${message}`;
 
-        // Send to first publication's channel/thread
         let targetChannelId = firstPublication.threadId && firstPublication.threadId !== 'DISABLED'
           ? firstPublication.threadId
           : firstPublication.channelId;
 
         if (firstPublication.threadId && firstPublication.threadId !== 'DISABLED') {
           await postMessageToThread(targetChannelId, firstPublication.guildId, orphanMessage);
-          console.log(`[REMINDER-ORPHANED] Sent orphaned pilot reminder to thread ${targetChannelId}`);
         } else {
           await sendReminderMessage(firstPublication.guildId, targetChannelId, orphanMessage);
-          console.log(`[REMINDER-ORPHANED] Sent orphaned pilot reminder to channel ${targetChannelId}`);
         }
       } catch (orphanError) {
-        console.error(`[REMINDER-ORPHANED] Failed to send orphaned pilot reminder:`, orphanError);
+        console.error(`[REMINDER] Failed to send orphaned pilot reminder:`, orphanError);
       }
     }
   } else if (event.discord_event_id) {
@@ -2936,6 +3009,78 @@ async function processScheduledPublications() {
             console.error(`[SCHEDULED-PUBLICATIONS] Failed to update event with Discord IDs:`, updateError);
           } else {
             console.log(`[SCHEDULED-PUBLICATIONS] Successfully updated event ${event.id} with Discord message IDs`);
+          }
+
+          // Schedule reminders if event has reminder settings configured
+          if (event.event_settings) {
+            try {
+              const eventSettings = typeof event.event_settings === 'string'
+                ? JSON.parse(event.event_settings)
+                : event.event_settings;
+
+              const eventStartTime = new Date(event.start_datetime);
+              const now = new Date();
+
+              // Helper function to convert reminder settings to milliseconds
+              const convertToMs = (value, unit) => {
+                switch (unit) {
+                  case 'minutes': return value * 60 * 1000;
+                  case 'hours': return value * 60 * 60 * 1000;
+                  case 'days': return value * 24 * 60 * 60 * 1000;
+                  default: return value * 60 * 1000;
+                }
+              };
+
+              // Schedule first reminder if enabled
+              if (eventSettings.firstReminderEnabled) {
+                const reminderMs = convertToMs(
+                  eventSettings.firstReminderTime?.value || 15,
+                  eventSettings.firstReminderTime?.unit || 'minutes'
+                );
+                const reminderTime = new Date(eventStartTime.getTime() - reminderMs);
+
+                if (reminderTime > now) {
+                  const recipients = eventSettings.firstReminderRecipients || {};
+                  await supabase.from('event_reminders').insert({
+                    event_id: event.id,
+                    reminder_type: 'first',
+                    scheduled_time: reminderTime.toISOString(),
+                    sent: false,
+                    notify_accepted: recipients.accepted ?? false,
+                    notify_tentative: recipients.tentative ?? true,
+                    notify_declined: recipients.declined ?? false,
+                    notify_no_response: recipients.noResponse ?? true
+                  });
+                  console.log(`[SCHEDULED-PUBLICATIONS] Scheduled first reminder for ${event.id}`);
+                }
+              }
+
+              // Schedule second reminder if enabled
+              if (eventSettings.secondReminderEnabled) {
+                const reminderMs = convertToMs(
+                  eventSettings.secondReminderTime?.value || 3,
+                  eventSettings.secondReminderTime?.unit || 'days'
+                );
+                const reminderTime = new Date(eventStartTime.getTime() - reminderMs);
+
+                if (reminderTime > now) {
+                  const recipients = eventSettings.secondReminderRecipients || {};
+                  await supabase.from('event_reminders').insert({
+                    event_id: event.id,
+                    reminder_type: 'second',
+                    scheduled_time: reminderTime.toISOString(),
+                    sent: false,
+                    notify_accepted: recipients.accepted ?? true,
+                    notify_tentative: recipients.tentative ?? true,
+                    notify_declined: recipients.declined ?? false,
+                    notify_no_response: recipients.noResponse ?? false
+                  });
+                  console.log(`[SCHEDULED-PUBLICATIONS] Scheduled second reminder for ${event.id}`);
+                }
+              }
+            } catch (reminderError) {
+              console.error(`[SCHEDULED-PUBLICATIONS] Failed to schedule reminders:`, reminderError);
+            }
           }
 
           // Mark publication as sent

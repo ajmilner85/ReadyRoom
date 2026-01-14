@@ -7,6 +7,7 @@ import { fetchEvents, supabase } from '../../../utils/supabaseClient';
 import { uploadEventImage } from '../../../utils/eventImageService';
 import { getAllSquadrons } from '../../../utils/organizationService';
 import type { Squadron } from '../../../types/OrganizationTypes';
+import { SendReminderDialog, type ReminderRecipientTypes } from './SendReminderDialog';
 
 /**
  * Check if the server is available before attempting to publish
@@ -49,6 +50,7 @@ const EventDetails: React.FC<EventDetailsProps> = ({
   const [scheduledReminders, setScheduledReminders] = useState<any[]>([]);
   const [serverConnectivity, ] = useState<'connected' | 'pending' | 'error'>('connected');
   const [sendingReminder, setSendingReminder] = useState(false);
+  const [showReminderDialog, setShowReminderDialog] = useState(false);
   const [scheduledPublication, setScheduledPublication] = useState<{scheduled_time: string} | null>(null);
   const [trainingObjectives, setTrainingObjectives] = useState<Array<{
     id: string;
@@ -368,12 +370,24 @@ const EventDetails: React.FC<EventDetailsProps> = ({
               firstReminder: {
                 enabled: Boolean(event.eventSettings.firstReminderEnabled),
                 value: event.eventSettings.firstReminderTime?.value || 15,
-                unit: (event.eventSettings.firstReminderTime?.unit || 'minutes') as 'minutes' | 'hours' | 'days'
+                unit: (event.eventSettings.firstReminderTime?.unit || 'minutes') as 'minutes' | 'hours' | 'days',
+                recipients: {
+                  accepted: event.eventSettings.firstReminderRecipients?.accepted ?? false,
+                  tentative: event.eventSettings.firstReminderRecipients?.tentative ?? true,
+                  declined: event.eventSettings.firstReminderRecipients?.declined ?? false,
+                  noResponse: event.eventSettings.firstReminderRecipients?.noResponse ?? true
+                }
               },
               secondReminder: {
                 enabled: Boolean(event.eventSettings.secondReminderEnabled),
                 value: event.eventSettings.secondReminderTime?.value || 3,
-                unit: (event.eventSettings.secondReminderTime?.unit || 'days') as 'minutes' | 'hours' | 'days'
+                unit: (event.eventSettings.secondReminderTime?.unit || 'days') as 'minutes' | 'hours' | 'days',
+                recipients: {
+                  accepted: event.eventSettings.secondReminderRecipients?.accepted ?? true,
+                  tentative: event.eventSettings.secondReminderRecipients?.tentative ?? true,
+                  declined: event.eventSettings.secondReminderRecipients?.declined ?? false,
+                  noResponse: event.eventSettings.secondReminderRecipients?.noResponse ?? false
+                }
               }
             };
             
@@ -509,18 +523,25 @@ const EventDetails: React.FC<EventDetailsProps> = ({
     </svg>
   );
 
-  // Handle manual reminder send
-  const handleSendReminder = async () => {
+  // Handle manual reminder send - opens dialog
+  const handleSendReminder = () => {
     if (!event || sendingReminder) return;
-    
+    setShowReminderDialog(true);
+  };
+
+  // Handle confirmed reminder send from dialog
+  const handleConfirmSendReminder = async (recipientTypes: ReminderRecipientTypes) => {
+    if (!event || sendingReminder) return;
+
     setSendingReminder(true);
-    
+    setShowReminderDialog(false);
+
     try {
       // Import the reminder service function
       const { sendEventReminder } = await import('../../../utils/reminderService');
-      
-      const result = await sendEventReminder(event.id);
-      
+
+      const result = await sendEventReminder(event.id, recipientTypes);
+
       if (result.success) {
         setPublishMessage({
           type: 'success',
@@ -537,7 +558,7 @@ const EventDetails: React.FC<EventDetailsProps> = ({
       });
     } finally {
       setSendingReminder(false);
-      
+
       // Clear message after 5 seconds
       setTimeout(() => {
         setPublishMessage(null);
@@ -1374,6 +1395,16 @@ const EventDetails: React.FC<EventDetailsProps> = ({
           </button>
         )}
       </div>
+
+      {/* Send Reminder Dialog */}
+      {event && (
+        <SendReminderDialog
+          open={showReminderDialog}
+          onClose={() => setShowReminderDialog(false)}
+          event={{ id: event.id, name: event.title }}
+          onSend={handleConfirmSendReminder}
+        />
+      )}
     </div>
   );
 };
