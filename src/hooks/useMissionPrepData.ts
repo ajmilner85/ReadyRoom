@@ -90,10 +90,20 @@ export const useMissionPrepData = () => {
         }
         // Priority 2: Validate that the currently selected event still exists in the fetched events
         else if (selectedEvent) {
-          const eventStillExists = sortedEvents.find(event => event.id === selectedEvent.id);
-          if (!eventStillExists) {
+          const freshEvent = sortedEvents.find(event => event.id === selectedEvent.id);
+          if (!freshEvent) {
             // The previously selected event no longer exists, clear the selection
             setSelectedEventWrapper(null);
+          } else if (freshEvent.datetime !== selectedEvent.datetime ||
+                     freshEvent.title !== selectedEvent.title ||
+                     freshEvent.endDatetime !== selectedEvent.endDatetime) {
+            // Event data has changed, update to the fresh version from database
+            console.log('📅 Event data updated in database, refreshing cache:', {
+              oldDate: selectedEvent.datetime,
+              newDate: freshEvent.datetime,
+              eventName: freshEvent.title
+            });
+            setSelectedEventWrapper(freshEvent);
           }
         }
         // Priority 3: Only auto-select an event if this is truly the first time (no localStorage entry exists)
