@@ -264,19 +264,44 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
   useEffect(() => {
     // Create a stable identifier for the current initialFlights
     const initialFlightsId = initialFlights.map(f => `${f.id}:${f.callsign}`).sort().join('|');
-    
+
     // Only update if initialFlights actually changed (not just a re-render with same data)
     if (initialFlightsId !== lastInitialFlightsRef.current) {
       // console.log('FlightAssignments: initialFlights changed:', initialFlights.length, initialFlights.map(f => f.callsign));
       lastInitialFlightsRef.current = initialFlightsId;
-      
+
       const normalizedFlights = initialFlights.map(normalizeFlight);
+
+      // Auto-assign MIDS channels if any flights have empty MIDS values
+      // This ensures multi-user collaboration works correctly
+      const needsMidsAssignment = normalizedFlights.some(f => !f.midsA || !f.midsB);
+      if (needsMidsAssignment && normalizedFlights.length > 0) {
+        console.log('🔧 FlightAssignments: Auto-assigning MIDS channels for flights with empty values');
+        let midsCounter = 1;
+        normalizedFlights.forEach(flight => {
+          if (!flight.midsA || !flight.midsB) {
+            flight.midsA = midsCounter.toString();
+            flight.midsB = (midsCounter + 2).toString();
+            console.log(`  Assigned MIDS to ${flight.callsign} ${flight.flightNumber}: A=${flight.midsA}, B=${flight.midsB}`);
+            midsCounter += 3;
+          } else {
+            // For flights with existing MIDS, update the counter to continue after them
+            const existingMidsA = parseInt(flight.midsA);
+            if (!isNaN(existingMidsA)) {
+              const flightMidsBase = Math.floor((existingMidsA - 1) / 3) * 3 + 1;
+              const nextAvailable = flightMidsBase + 3;
+              midsCounter = Math.max(midsCounter, nextAvailable);
+            }
+          }
+        });
+      }
+
       setFlights(normalizedFlights);
-      
+
       // Calculate the highest creation order for future additions
       const maxCreationOrder = Math.max(...normalizedFlights.map(f => f.creationOrder), -1);
       setCreationOrderCounter(maxCreationOrder + 1);
-      
+
       // Reset the initialization flag when flights change
       initializedRef.current = normalizedFlights.length > 0;
     }
