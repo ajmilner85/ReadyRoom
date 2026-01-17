@@ -67,6 +67,9 @@ const { supabase, getEventByDiscordId } = require('./supabaseClient');
 const { processMissionStatusUpdates } = require('./processors/missionStatusProcessor');
 const { processConcludedEvents } = require('./processors/concludedEventsProcessor');
 
+// Import route modules
+const healthRoutes = require('./routes/health');
+
 // Note: We'll implement reminder processing directly here to avoid ES6/CommonJS module issues
 
 // Cache for Discord server channels to avoid redundant fetches
@@ -106,15 +109,8 @@ app.use(cors({
 }));
 app.use(bodyParser.json());
 
-// Health check endpoint
-app.get('/api/health', (req, res) => {
-  res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
-});
-
-// Also support HEAD requests for lightweight health checks
-app.head('/api/health', (req, res) => {
-  res.status(200).end();
-});
+// Register route modules
+app.use('/api', healthRoutes);
 
 // API endpoint to save reference timezone setting
 app.post('/api/settings/timezone', async (req, res) => {
