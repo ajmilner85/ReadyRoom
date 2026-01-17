@@ -89,21 +89,31 @@ export const useMissionPrepData = () => {
           }
         }
         // Priority 2: Validate that the currently selected event still exists in the fetched events
-        else if (selectedEvent) {
-          const freshEvent = sortedEvents.find(event => event.id === selectedEvent.id);
-          if (!freshEvent) {
-            // The previously selected event no longer exists, clear the selection
-            setSelectedEventWrapper(null);
-          } else if (freshEvent.datetime !== selectedEvent.datetime ||
-                     freshEvent.title !== selectedEvent.title ||
-                     freshEvent.endDatetime !== selectedEvent.endDatetime) {
-            // Event data has changed, update to the fresh version from database
-            console.log('📅 Event data updated in database, refreshing cache:', {
-              oldDate: selectedEvent.datetime,
-              newDate: freshEvent.datetime,
-              eventName: freshEvent.title
-            });
-            setSelectedEventWrapper(freshEvent);
+        // Also handle case where selectedEvent state is null but localStorage has a cached selection
+        else if (selectedEvent || localStorage.getItem(STORAGE_KEYS.SELECTED_EVENT)) {
+          // If selectedEvent is null but localStorage has a value, load it
+          const eventToValidate = selectedEvent || loadSelectedEvent();
+
+          if (eventToValidate) {
+            const freshEvent = sortedEvents.find(event => event.id === eventToValidate.id);
+            if (!freshEvent) {
+              // The previously selected event no longer exists, clear the selection
+              setSelectedEventWrapper(null);
+            } else if (freshEvent.datetime !== eventToValidate.datetime ||
+                       freshEvent.title !== eventToValidate.title ||
+                       freshEvent.endDatetime !== eventToValidate.endDatetime) {
+              // Event data has changed, update to the fresh version from database
+              console.log('📅 Event data updated in database, refreshing cache:', {
+                oldDate: eventToValidate.datetime,
+                newDate: freshEvent.datetime,
+                eventName: freshEvent.title
+              });
+              setSelectedEventWrapper(freshEvent);
+            } else if (!selectedEvent && eventToValidate) {
+              // State was null but localStorage had valid cached event, restore it
+              console.log('📅 Restoring cached event selection from localStorage:', eventToValidate.title);
+              setSelectedEventWrapper(freshEvent);
+            }
           }
         }
         // Priority 3: Only auto-select an event if this is truly the first time (no localStorage entry exists)
@@ -111,11 +121,27 @@ export const useMissionPrepData = () => {
           // Check if localStorage has ever been set (even if it was set to null)
           const hasStoredSelection = localStorage.getItem(STORAGE_KEYS.SELECTED_EVENT) !== null;
           if (!hasStoredSelection && sortedEvents.length > 0) {
-            // Find the earliest upcoming event (first event in the future)
+            // Find current ongoing event or earliest upcoming event
             const now = new Date();
-            const upcomingEvent = sortedEvents.find(event => new Date(event.datetime) > now);
-            // If there's an upcoming event, select it; otherwise select the first event
-            setSelectedEventWrapper(upcomingEvent || sortedEvents[0]);
+            const currentOrUpcomingEvent = sortedEvents.find(event => {
+              const eventStart = new Date(event.datetime);
+              const eventEnd = event.endDatetime ? new Date(event.endDatetime) : null;
+
+              // Event is ongoing (started but not ended)
+              if (eventStart <= now && (!eventEnd || eventEnd >= now)) {
+                return true;
+              }
+
+              // Event is upcoming (hasn't started yet)
+              if (eventStart > now) {
+                return true;
+              }
+
+              return false;
+            });
+
+            // If there's a current/upcoming event, select it; otherwise select the first event
+            setSelectedEventWrapper(currentOrUpcomingEvent || sortedEvents[0]);
           }
         }
       } else {
