@@ -8,6 +8,7 @@ import type { Mission } from '../../../types/MissionTypes';
 import { Trash2 } from 'lucide-react';
 import { useMissionPrepData } from '../../../hooks/useMissionPrepData';
 import { useAppSettings } from '../../../context/AppSettingsContext';
+import { authFetch } from '../../../utils/authFetch';
 import aircraftIconSvg from '../../../assets/Aircraft Icon.svg';
 import clockIconSvg from '../../../assets/Clock.svg';
 
@@ -42,6 +43,7 @@ interface LocalSquadron {
   name: string;
   designation: string;
   callsigns: any;
+  squadron_type?: 'operational' | 'training';
   discord_integration?: {
     selectedGuildId?: string;
     discordChannels?: Array<{
@@ -218,7 +220,7 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
     try {
       // Add timestamp to URL to prevent caching without using CORS-restricted headers
       const timestamp = Date.now();
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/discord/flight-posts/${selectedEvent.id}?_t=${timestamp}`, {
+      const response = await authFetch(`${import.meta.env.VITE_API_URL}/api/discord/flight-posts/${selectedEvent.id}?_t=${timestamp}`, {
         cache: 'no-cache'  // Browser-level cache control (doesn't trigger CORS preflight)
       });
       const data = await response.json();
@@ -1435,7 +1437,7 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
   // Save flight post record to database
   const saveFlightPostRecord = useCallback(async (eventId: string, squadronId: string, guildId: string, channelId: string, messageId: string, isUpdate: boolean = false) => {
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/discord/save-flight-post`, {
+      const response = await authFetch(`${import.meta.env.VITE_API_URL}/api/discord/save-flight-post`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1498,7 +1500,7 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
       });
 
       // Send to the backend API for Discord message update
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/discord/update-image/${existingPost.messageId}`, {
+      const response = await authFetch(`${import.meta.env.VITE_API_URL}/api/discord/update-image/${existingPost.messageId}`, {
         method: 'PUT',
         body: formData,
       });
@@ -1576,7 +1578,7 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
       console.log(`Publishing to Discord - Squadron: ${squadronGroup.squadron.name}, Guild: ${discordIntegration.selectedGuildId}, Channel: ${briefingChannel.id} (${briefingChannel.name})`);
 
       // Send to the backend API for Discord posting
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/discord/post-image`, {
+      const response = await authFetch(`${import.meta.env.VITE_API_URL}/api/discord/post-image`, {
         method: 'POST',
         body: formData,
       });
@@ -1605,6 +1607,16 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
       return true;
     } catch (error) {
       console.error('Error posting to Discord:', error);
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+
+      // Show user-friendly error message
+      if (errorMsg.includes('Authentication session expired')) {
+        alert('Your session has expired. The page will refresh to log you back in.');
+        window.location.reload();
+      } else {
+        alert(`Failed to post flight assignments to Discord:\n\n${errorMsg}\n\nThis could be due to:\n- Network connection issues\n- Discord bot not connected\n- Missing Discord server permissions\n\nPlease try again or contact an administrator if the problem persists.`);
+      }
+
       return false;
     }
   }, [selectedEvent, saveFlightPostRecord, formatStepTime]);
@@ -1630,20 +1642,30 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
     try {
       const squadronGroups = await groupFlightsBySquadron();
 
-      console.log('Squadron groups for publishing:', squadronGroups.map(sg => ({
+      // Sort squadron groups: operational squadrons first, then training squadrons
+      const sortedSquadronGroups = [...squadronGroups].sort((a, b) => {
+        const aType = a.squadron.squadron_type || 'operational'; // Default to operational if not set
+        const bType = b.squadron.squadron_type || 'operational';
+
+        // 'operational' comes before 'training' alphabetically, so we can use localeCompare
+        return aType.localeCompare(bType);
+      });
+
+      console.log('Squadron groups for publishing:', sortedSquadronGroups.map(sg => ({
         name: sg.squadron.name,
         id: sg.squadron.id,
+        type: sg.squadron.squadron_type,
         hasDiscordIntegration: !!sg.squadron.discord_integration,
         hasBriefingChannel: !!sg.squadron.discord_integration?.discordChannels?.find((ch: any) => ch.type === 'briefing'),
         flightCount: sg.flights.length
       })));
 
-      if (squadronGroups.length === 0) {
+      if (sortedSquadronGroups.length === 0) {
         alert('No squadrons found with matching callsigns. Please ensure squadrons have their callsigns configured in Organization > Squadron Settings.');
         return;
       }
 
-      const publishPromises = squadronGroups.map(async (squadronGroup) => {
+      const publishPromises = sortedSquadronGroups.map(async (squadronGroup) => {
         try {
           let revision = 1; // Default for new posts
           let existingPost = null;
@@ -1731,10 +1753,10 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
       } else {
         if (skippedResults.length > 0 && failedResults.length === 0) {
           const skippedMessage = skippedResults.map((r: any) => r.squadron).join(', ');
-          console.log(`Skipped all ${skippedResults.length} squadron${skippedResults.length > 1 ? 's' : ''} (no Discord config): ${skippedMessage}`);
+          alert(`Unable to ${action === 'update' ? 'update' : 'publish'} flight assignments.\n\nThe following squadrons don't have Discord integration configured:\n${skippedMessage}\n\nPlease configure Discord channels in Organization > Squadron Settings.`);
         } else {
           const failedMessage = failedResults.map((r: any) => `${r.squadron}: ${r.error}`).join('\n');
-          console.error(`Failed to ${action} flight assignments:\n${failedMessage}`);
+          alert(`Failed to ${action === 'update' ? 'update' : 'publish'} flight assignments to Discord:\n\n${failedMessage}`);
         }
       }
 
@@ -1742,7 +1764,8 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
       setExistingPosts([]);
     } catch (error) {
       console.error(`Error ${action === 'update' ? 'updating' : 'publishing'} to Discord:`, error);
-      alert(`An unexpected error occurred while ${action === 'update' ? 'updating' : 'publishing'} to Discord.`);
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+      alert(`An unexpected error occurred while ${action === 'update' ? 'updating' : 'publishing'} flight assignments to Discord:\n\n${errorMsg}\n\nPlease check your network connection and try again.`);
     }
   }, [existingPosts, groupFlightsBySquadron, generateFlightAssignmentImage, publishToDiscordChannel, updateExistingDiscordMessage]);
 
