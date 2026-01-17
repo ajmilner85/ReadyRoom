@@ -68,6 +68,7 @@ const MissionDebriefing: React.FC = () => {
   const [missionFlights, setMissionFlights] = useState<FlightInfo[]>([]);
   const [missionDebriefId, setMissionDebriefId] = useState<string | null>(null);
   const [flightDebriefs, setFlightDebriefs] = useState<Map<string, FlightDebrief>>(new Map());
+  const [aarOperationalOnly, setAarOperationalOnly] = useState<boolean>(true); // Default to true
 
   // Form state
   const [showDebriefForm, setShowDebriefForm] = useState(false);
@@ -172,6 +173,27 @@ const MissionDebriefing: React.FC = () => {
       const fullMission = await debriefingService.getMissionWithFlights(mission.id);
       console.log('[MISSION-SELECT] Full mission data:', fullMission);
       setMissionDetails(fullMission);
+
+      // Load AAR setting from event if mission is linked to an event
+      if (fullMission?.event_id) {
+        const { data: eventData, error: eventError } = await supabase
+          .from('events')
+          .select('event_settings')
+          .eq('id', fullMission.event_id)
+          .single();
+
+        if (!eventError && eventData && eventData.event_settings) {
+          const settings = eventData.event_settings as any;
+          // Use event setting if defined, otherwise default to true
+          setAarOperationalOnly(settings.aarOperationalOnly !== undefined ? settings.aarOperationalOnly : true);
+        } else {
+          // No event or no settings, use default
+          setAarOperationalOnly(true);
+        }
+      } else {
+        // No linked event, use default
+        setAarOperationalOnly(true);
+      }
 
       // Get or create mission debrief
       const debrief = await debriefingService.getOrCreateDebrief(mission.id);
@@ -504,6 +526,7 @@ const MissionDebriefing: React.FC = () => {
             showDebriefForm={showDebriefForm}
             selectedFlight={selectedFlight}
             canSubmitAAR={canSubmitAAR}
+            aarOperationalOnly={aarOperationalOnly}
             onSubmitAAR={handleSubmitAAR}
             onCloseForm={handleCloseForm}
             onFormSuccess={handleFormSuccess}

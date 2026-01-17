@@ -45,6 +45,7 @@ interface MissionDetailsProps {
   showDebriefForm: boolean;
   selectedFlight: FlightInfo | null;
   canSubmitAAR: (flight: FlightInfo) => boolean;
+  aarOperationalOnly: boolean; // Filter to show only operational squadron flights
   onSubmitAAR: (flight: FlightInfo) => void;
   onCloseForm: () => void;
   onFormSuccess: () => void;
@@ -61,6 +62,7 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
   showDebriefForm,
   selectedFlight,
   canSubmitAAR,
+  aarOperationalOnly,
   onSubmitAAR,
   onCloseForm,
   onFormSuccess,
@@ -121,6 +123,15 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
     missionFlights.forEach(flight => {
       if (!flight.squadronId) return;
 
+      // Filter by squadron type if aarOperationalOnly is enabled
+      if (aarOperationalOnly) {
+        const squadron = squadrons.find(s => s.id === flight.squadronId);
+        // Skip training squadrons when aarOperationalOnly is true
+        if (squadron?.squadron_type === 'training') {
+          return;
+        }
+      }
+
       if (!grouped.has(flight.squadronId)) {
         grouped.set(flight.squadronId, []);
       }
@@ -128,7 +139,7 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
     });
 
     return grouped;
-  }, [missionFlights]);
+  }, [missionFlights, aarOperationalOnly, squadrons]);
 
   if (!selectedMission) {
     return (

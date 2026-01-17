@@ -4,6 +4,7 @@ export interface Squadron {
   name: string;
   designation: string;
   wing_id: string;
+  squadron_type?: 'operational' | 'training';
   tail_code?: string | null;
   established_date?: string | null;
   deactivated_date?: string | null;

@@ -699,6 +699,27 @@ const EventSettings: React.FC<EventSettingsProps> = ({ error, setError }) => {
           </div>
         </div>
 
+        {/* Mission Debriefing Section */}
+        <div style={sectionStyle}>
+          <h3 style={{ fontSize: '18px', fontWeight: 600, color: '#0F172A', margin: '0 0 16px 0' }}>
+            Mission Debriefing
+          </h3>
+          
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ flex: 1, marginRight: '16px' }}>
+              <label style={fieldLabelStyle}>After Action Reports required for Operational squadrons only by default</label>
+              <p style={{ fontSize: '12px', color: '#64748B', margin: '4px 0 0 0', fontFamily: 'Inter' }}>
+                When enabled, the Mission Debriefing page will only show AAR sections for operational (non-training) squadrons by default for new events. This setting can be overridden per-event on the Participants tab.
+              </p>
+            </div>
+            <div style={{ flexShrink: 0 }}>
+              {renderToggle(appSettings.eventDefaults.aarOperationalOnlyByDefault, (enabled) =>
+                handleSettingChange('aarOperationalOnlyByDefault', enabled)
+              )}
+            </div>
+          </div>
+        </div>
+
         </div>
       </div>
     </div>
