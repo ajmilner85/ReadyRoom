@@ -65,6 +65,7 @@ const { supabase, getEventByDiscordId } = require('./supabaseClient');
 
 // Import background processors
 const { processMissionStatusUpdates } = require('./processors/missionStatusProcessor');
+const { processConcludedEvents } = require('./processors/concludedEventsProcessor');
 
 // Note: We'll implement reminder processing directly here to avoid ES6/CommonJS module issues
 
@@ -3126,67 +3127,6 @@ async function processScheduledPublications() {
   } catch (error) {
     console.error('[SCHEDULED-PUBLICATIONS] Error in processScheduledPublications:', error);
     return { processed: 0, skipped: 0, errors: [{ publicationId: 'general', error }] };
-  }
-}
-
-// Process concluded events and remove response buttons
-async function processConcludedEvents() {
-  try {
-    console.log('[CONCLUDED-EVENTS] Checking for concluded events...');
-
-    const now = new Date().toISOString();
-
-    // Find events that have concluded but haven't had buttons removed yet
-    const { data: concludedEvents, error: fetchError } = await supabase
-      .from('events')
-      .select('id, name, end_datetime, discord_event_id, buttons_removed')
-      .lte('end_datetime', now)
-      .neq('buttons_removed', true)
-      .not('discord_event_id', 'is', null);
-
-    if (fetchError) {
-      console.error('[CONCLUDED-EVENTS] Error fetching concluded events:', fetchError);
-      return { processed: 0, errors: [fetchError] };
-    }
-
-    if (!concludedEvents || concludedEvents.length === 0) {
-      console.log('[CONCLUDED-EVENTS] No concluded events found');
-      return { processed: 0, errors: [] };
-    }
-
-    console.log(`[CONCLUDED-EVENTS] Found ${concludedEvents.length} concluded events with buttons to remove`);
-
-    let processed = 0;
-    const errors = [];
-
-    for (const event of concludedEvents) {
-      try {
-        // NOTE: Button removal and "Event Finished" text is handled by the Discord bot's
-        // countdown manager in SDOBot. The server-side processor only marks events as
-        // processed in the database so they don't get checked repeatedly.
-        // The actual Discord message updates happen in SDOBot/lib/countdownManager.js
-
-        console.log(`[CONCLUDED-EVENTS] Marking event "${event.name}" as processed (Discord bot will handle final updates)`);
-
-        // Mark event as having buttons removed (Discord bot will actually remove them)
-        await supabase
-          .from('events')
-          .update({ buttons_removed: true })
-          .eq('id', event.id);
-
-        processed++;
-        console.log(`[CONCLUDED-EVENTS] Processed concluded event "${event.name}" (${event.id})`);
-      } catch (error) {
-        console.error(`[CONCLUDED-EVENTS] Error processing event ${event.id}:`, error);
-        errors.push({ eventId: event.id, error });
-      }
-    }
-
-    console.log(`[CONCLUDED-EVENTS] Completed: ${processed} processed, ${errors.length} errors`);
-    return { processed, errors };
-  } catch (error) {
-    console.error('[CONCLUDED-EVENTS] Error in processConcludedEvents:', error);
-    return { processed: 0, errors: [{ error }] };
   }
 }
 
