@@ -519,6 +519,7 @@ export const createEvent = async (event: Omit<Event, 'id' | 'creator' | 'attenda
     groupResponsesByQualification: event.trackQualifications || false,
     groupBySquadron: (event as any).groupBySquadron || false,
     showNoResponse: (event as any).showNoResponse || false,
+    aarOperationalOnly: (event as any).aarOperationalOnly !== undefined ? (event as any).aarOperationalOnly : true,
     firstReminderEnabled: event.reminders?.firstReminder?.enabled || false,
     firstReminderTime: {
       value: event.reminders?.firstReminder?.value || 15,
@@ -691,6 +692,7 @@ export const updateEvent = async (eventId: string, updates: Partial<Omit<Event, 
     if (updates.trackQualifications !== undefined) eventSettings.groupResponsesByQualification = updates.trackQualifications;
     if ((updates as any).groupBySquadron !== undefined) eventSettings.groupBySquadron = (updates as any).groupBySquadron;
     if ((updates as any).showNoResponse !== undefined) eventSettings.showNoResponse = (updates as any).showNoResponse;
+    if ((updates as any).aarOperationalOnly !== undefined) eventSettings.aarOperationalOnly = (updates as any).aarOperationalOnly;
     if (updates.eventSettings?.groupResponsesByQualification !== undefined) eventSettings.groupResponsesByQualification = updates.eventSettings.groupResponsesByQualification;
     if (updates.eventSettings?.groupBySquadron !== undefined) eventSettings.groupBySquadron = updates.eventSettings.groupBySquadron;
     if (updates.eventSettings?.showNoResponse !== undefined) eventSettings.showNoResponse = updates.eventSettings.showNoResponse;
@@ -1066,6 +1068,7 @@ export interface EventSettings {
   groupResponsesByQualification?: boolean;
   groupBySquadron?: boolean;
   showNoResponse?: boolean;
+  aarOperationalOnly?: boolean; // Show only operational squadron flights in AAR section
   firstReminderEnabled?: boolean;
   firstReminderTime?: {
     value: number;

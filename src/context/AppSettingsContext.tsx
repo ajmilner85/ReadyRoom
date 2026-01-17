@@ -61,6 +61,9 @@ export interface AppSettings {
       value: number;
       unit: 'minutes' | 'hours' | 'days';
     };
+
+    // Mission Debriefing
+    aarOperationalOnlyByDefault: boolean; // Whether AAR should show only operational squadron flights by default
   };
 }
 
@@ -123,7 +126,10 @@ const defaultSettings: AppSettings = {
 
     // Scheduled publication defaults
     scheduledPublicationEnabledByDefault: false,
-    scheduledPublicationOffset: { value: 4, unit: 'days' }
+    scheduledPublicationOffset: { value: 15, unit: 'minutes' },
+
+    // Mission debriefing defaults
+    aarOperationalOnlyByDefault: true // Show only operational squadron AARs by default
   }
 };
 

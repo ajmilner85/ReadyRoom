@@ -23,6 +23,7 @@ interface EventDialogProps {
     trackQualifications?: boolean;
     groupBySquadron?: boolean;
     showNoResponse?: boolean;
+    aarOperationalOnly?: boolean;
     timezone?: string;
     reminders?: {
       firstReminder?: {
@@ -75,6 +76,7 @@ interface EventDialogProps {
       groupResponsesByQualification?: boolean;
       groupBySquadron?: boolean;
       showNoResponse?: boolean;
+      aarOperationalOnly?: boolean;
       firstReminderEnabled?: boolean;
       firstReminderTime?: {
         value: number;
@@ -183,6 +185,12 @@ export const EventDialog: React.FC<EventDialogProps> = ({
     initialData?.eventSettings?.showNoResponse !== undefined
       ? initialData.eventSettings.showNoResponse
       : settings.eventDefaults.showNoResponse
+  );
+
+  const [aarOperationalOnly, setAarOperationalOnly] = useState(
+    initialData?.eventSettings?.aarOperationalOnly !== undefined
+      ? initialData.eventSettings.aarOperationalOnly
+      : settings.eventDefaults.aarOperationalOnlyByDefault
   );
 
   // Reminder settings state - prioritize event settings over app defaults
@@ -1157,6 +1165,7 @@ export const EventDialog: React.FC<EventDialogProps> = ({
         trackQualifications,
         groupBySquadron,
         showNoResponse,
+        aarOperationalOnly,
         timezone,
         reminders: {
           firstReminder: {
@@ -2114,6 +2123,53 @@ export const EventDialog: React.FC<EventDialogProps> = ({
                         boxShadow: '0 2px 4px rgba(0, 0, 0, 0.2)'
                       }}
                     />
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ marginBottom: '16px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div style={{ flex: 1, marginRight: '16px' }}>
+                    <label style={{
+                      fontSize: '14px',
+                      fontWeight: 500,
+                      color: '#64748B',
+                      marginBottom: '4px',
+                      display: 'block'
+                    }}>
+                      After Action Reports required for Operational (non-Training) squadrons only
+                    </label>
+                    <p style={{ fontSize: '12px', color: '#64748B', margin: '0', fontFamily: 'Inter' }}>
+                      When enabled, only flights from operational squadrons will appear in the AAR section on the Mission Debriefing page.
+                    </p>
+                  </div>
+                  <div style={{ flexShrink: 0 }}>
+                    <div
+                      onClick={() => setAarOperationalOnly(!aarOperationalOnly)}
+                      style={{
+                        width: '44px',
+                        height: '24px',
+                        backgroundColor: aarOperationalOnly ? '#3B82F6' : '#E5E7EB',
+                        borderRadius: '12px',
+                        position: 'relative',
+                        cursor: 'pointer',
+                        transition: 'background-color 0.2s ease'
+                      }}
+                    >
+                      <div
+                        style={{
+                          width: '20px',
+                          height: '20px',
+                          backgroundColor: 'white',
+                          borderRadius: '50%',
+                          position: 'absolute',
+                          top: '2px',
+                          left: aarOperationalOnly ? '22px' : '2px',
+                          transition: 'left 0.2s ease',
+                          boxShadow: '0 2px 4px rgba(0, 0, 0, 0.2)'
+                        }}
+                      />
+                    </div>
                   </div>
                 </div>
               </div>
