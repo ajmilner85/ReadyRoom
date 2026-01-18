@@ -53,19 +53,14 @@ const {
 // Import Supabase client (path adjusted for SDOBot directory)
 const { supabase, getEventByDiscordId } = require('./supabaseClient');
 
-// Import background processors
-const { processMissionStatusUpdates } = require('./processors/missionStatusProcessor');
-const { processConcludedEvents } = require('./processors/concludedEventsProcessor');
-const { processReminders } = require('./processors/reminderProcessor');
-const { processScheduledPublications } = require('./processors/scheduledPublicationProcessor');
+// Import processor orchestrator (manages all background processors)
+const { startProcessorOrchestrator } = require('./processors/processorOrchestrator');
 
 // Import route modules
 const healthRoutes = require('./routes/health');
 const settingsRoutes = require('./routes/settings');
 const discordHelpersRoutes = require('./routes/discordHelpers');
 const flightPostsRoutes = require('./routes/flightPosts');
-
-// Note: We'll implement reminder processing directly here to avoid ES6/CommonJS module issues
 
 const app = express();
 const PORT = process.env.SERVER_PORT || 3001;
@@ -1275,56 +1270,11 @@ app.post('/api/reminders/send', async (req, res) => {
   }
 });
 
-// Start reminder processor
-let reminderIntervalId = null;
-
-function startReminderProcessor() {
-  console.log('Starting server-side reminder processor...');
-
-  // Process reminders immediately
-  processReminders().catch(error => {
-    console.error('Error in initial reminder processing:', error);
-  });
-
-  // Process scheduled publications immediately
-  processScheduledPublications().catch(error => {
-    console.error('Error in initial scheduled publications processing:', error);
-  });
-
-  // Process concluded events immediately
-  processConcludedEvents().catch(error => {
-    console.error('Error in initial concluded events processing:', error);
-  });
-
-  // Process mission status updates immediately
-  processMissionStatusUpdates().catch(error => {
-    console.error('Error in initial mission status updates processing:', error);
-  });
-
-  // Then process every 1 minute
-  reminderIntervalId = setInterval(() => {
-    processReminders().catch(error => {
-      console.error('Error in scheduled reminder processing:', error);
-    });
-    processScheduledPublications().catch(error => {
-      console.error('Error in scheduled publications processing:', error);
-    });
-    processConcludedEvents().catch(error => {
-      console.error('Error in scheduled concluded events processing:', error);
-    });
-    processMissionStatusUpdates().catch(error => {
-      console.error('Error in scheduled mission status updates processing:', error);
-    });
-  }, 60000); // 1 minute = 60000ms
-
-  console.log('Reminder processor started (checking every 1 minute)');
-}
-
 // Start server - listen on 0.0.0.0 for Fly.io
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`ReadyRoom Combined Server running on 0.0.0.0:${PORT}`);
   console.log('Server ready to accept connections from Fly.io proxy');
-  
-  // Start the reminder processor
-  startReminderProcessor();
+
+  // Start the processor orchestrator (handles all background jobs)
+  startProcessorOrchestrator();
 });
