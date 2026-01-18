@@ -380,15 +380,38 @@ const MissionDebriefing: React.FC = () => {
 
   // Check if user can submit AAR for a specific flight
   const canSubmitAAR = (flight: FlightInfo): boolean => {
-    console.log('[CAN-SUBMIT] userProfile:', {
-      hasPilot: !!userProfile?.pilot,
-      hasPermissions: !!userProfile?.permissions,
-      permissionKeys: userProfile?.permissions ? Object.keys(userProfile.permissions) : [],
-      edit_debriefs: userProfile?.permissions?.edit_debriefs
-    });
+    // Comprehensive logging for debugging permission issues
+    const debugInfo = {
+      user: {
+        hasPilot: !!userProfile?.pilot,
+        pilotId: userProfile?.pilot?.id,
+        pilotCallsign: userProfile?.pilot?.callsign,
+        pilotBoardNumber: userProfile?.pilot?.boardNumber,
+        hasCurrentSquadron: !!userProfile?.pilot?.currentSquadron,
+        currentSquadronId: userProfile?.pilot?.currentSquadron?.id,
+        currentSquadronWingId: userProfile?.pilot?.currentSquadron?.wing_id,
+      },
+      flight: {
+        flightId: flight.flightId,
+        callsign: flight.callsign,
+        flightNumber: flight.flightNumber,
+        squadronId: flight.squadronId,
+        flightLeadPilotId: flight.flightLeadPilotId,
+        flightLeadCallsign: flight.flightLeadCallsign,
+      },
+      permissions: {
+        hasPermissions: !!userProfile?.permissions,
+        edit_debriefs: userProfile?.permissions?.edit_debriefs,
+        edit_debriefs_type: typeof userProfile?.permissions?.edit_debriefs,
+        edit_debriefs_isArray: Array.isArray(userProfile?.permissions?.edit_debriefs),
+      },
+      squadronsLoaded: squadrons.length,
+    };
+    
+    console.log('[CAN-SUBMIT] Debug info for flight:', flight.callsign, flight.flightNumber, debugInfo);
 
     if (!userProfile?.pilot) {
-      console.log('[CAN-SUBMIT] No user profile/pilot');
+      console.log('[CAN-SUBMIT] DENIED - No user profile/pilot');
       return false;
     }
 
@@ -398,11 +421,22 @@ const MissionDebriefing: React.FC = () => {
     if (!userProfile.permissions?.edit_debriefs) {
       // No permission - check if user is flight lead (legacy behavior)
       const canSubmit = flight.flightLeadPilotId === pilotId;
-      console.log('[CAN-SUBMIT] No edit_debriefs permission, checking if flight lead:', canSubmit);
+      console.log('[CAN-SUBMIT] No edit_debriefs permission, flight lead check:', canSubmit);
       return canSubmit;
     }
 
-    const editDebriefs = userProfile.permissions.edit_debriefs;
+    let editDebriefs = userProfile.permissions.edit_debriefs;
+
+    // Handle case where permissions might be a JSON string (double-encoded)
+    if (typeof editDebriefs === 'string') {
+      console.log('[CAN-SUBMIT] WARNING: edit_debriefs is a string, attempting to parse');
+      try {
+        editDebriefs = JSON.parse(editDebriefs);
+      } catch (e) {
+        console.error('[CAN-SUBMIT] Failed to parse edit_debriefs string:', e);
+        return flight.flightLeadPilotId === pilotId;
+      }
+    }
 
     // If boolean (legacy), grant access if true
     if (typeof editDebriefs === 'boolean') {
@@ -458,8 +492,8 @@ const MissionDebriefing: React.FC = () => {
           });
           if (match) {
             console.log('[CAN-SUBMIT] ✓ Squadron scope - GRANTED');
+            return true;
           }
-          return match;
         }
 
         // Flight scope grants access only if user is the flight lead
@@ -472,8 +506,8 @@ const MissionDebriefing: React.FC = () => {
           });
           if (isLead) {
             console.log('[CAN-SUBMIT] ✓ Flight scope - GRANTED');
+            return true;
           }
-          return isLead;
         }
 
         console.log('[CAN-SUBMIT] ✗ No match for scope type:', scope.type);

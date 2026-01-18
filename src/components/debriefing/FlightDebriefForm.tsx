@@ -56,12 +56,6 @@ const FlightDebriefForm: React.FC<FlightDebriefFormProps> = ({
   const [pilots, setPilots] = useState<Array<{ id: string; callsign: string; boardNumber: number }>>([]);
   const [squadron, setSquadron] = useState<Squadron | null>(null);
 
-  // Get flight lead dash number for display
-  const flightLeadDashNumber = React.useMemo(() => {
-    const flightLead = pilotAssignments.find(a => a.pilot_id === flightLeadPilotId);
-    return flightLead?.dash_number || '1';
-  }, [pilotAssignments, flightLeadPilotId]);
-
   // Get flight lead info for display
   const flightLeadInfo = React.useMemo(() => {
     const pilot = pilots.find(p => p.id === flightLeadPilotId);
@@ -438,7 +432,7 @@ const FlightDebriefForm: React.FC<FlightDebriefFormProps> = ({
                 margin: 0
               }}
             >
-              {flightName} {flightLeadDashNumber}
+              {flightName}
             </h2>
             {flightLeadInfo && (
               <div style={{ fontSize: '16px', color: '#64748B' }}>
