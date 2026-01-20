@@ -445,7 +445,11 @@ export const fetchEvents = async (cycleId?: string) => {
       },
       // Training workflow fields (Phase 2-3)
       syllabusMissionId: dbEvent.syllabus_mission_id || undefined,
-      referenceMaterials: (Array.isArray(dbEvent.reference_materials) ? dbEvent.reference_materials : []) as any
+      referenceMaterials: (Array.isArray(dbEvent.reference_materials) ? dbEvent.reference_materials : []) as any,
+      // Attendance report inclusion setting (from event_settings JSONB)
+      includeInAttendanceReport: (dbEvent.event_settings as any)?.includeInAttendanceReport !== undefined
+        ? (dbEvent.event_settings as any).includeInAttendanceReport
+        : true
     };
   });
 
@@ -545,7 +549,9 @@ export const createEvent = async (event: Omit<Event, 'id' | 'creator' | 'attenda
     initialNotificationRoles: (event.reminders as any)?.initialNotificationRoles || [],
     // Keep old fields for backward compatibility during transition
     sendRemindersToAccepted: event.reminderRecipients?.sendToAccepted !== undefined ? event.reminderRecipients.sendToAccepted : true,
-    sendRemindersToTentative: event.reminderRecipients?.sendToTentative !== undefined ? event.reminderRecipients.sendToTentative : true
+    sendRemindersToTentative: event.reminderRecipients?.sendToTentative !== undefined ? event.reminderRecipients.sendToTentative : true,
+    // Attendance report settings - default to true
+    includeInAttendanceReport: (event as any).includeInAttendanceReport !== undefined ? (event as any).includeInAttendanceReport : true
   };
 
 
@@ -730,6 +736,10 @@ export const updateEvent = async (eventId: string, updates: Partial<Omit<Event, 
         // Keep old fields for backward compatibility during transition
         eventSettings.sendRemindersToAccepted = updates.reminderRecipients.sendToAccepted;
         eventSettings.sendRemindersToTentative = updates.reminderRecipients.sendToTentative;
+      }
+      // Attendance report settings
+      if ((updates as any).includeInAttendanceReport !== undefined) {
+        eventSettings.includeInAttendanceReport = (updates as any).includeInAttendanceReport;
       }
 
       // Update database fields

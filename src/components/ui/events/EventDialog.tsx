@@ -56,6 +56,7 @@ interface EventDialogProps {
     };
     referenceMaterials?: ReferenceMaterial[];
     syllabusMissionId?: string;
+    includeInAttendanceReport?: boolean;
   }, shouldPublish?: boolean) => Promise<void>;
   onCancel: () => void;
   initialData?: {
@@ -107,6 +108,7 @@ interface EventDialogProps {
     referenceMaterials?: ReferenceMaterial[];
     syllabusMissionId?: string;
     cycleId?: string;
+    includeInAttendanceReport?: boolean;
   };
   squadrons?: Array<{ id: string; name: string; designation: string; insignia_url?: string | null }>;
   selectedCycle?: {
@@ -191,6 +193,13 @@ export const EventDialog: React.FC<EventDialogProps> = ({
     initialData?.eventSettings?.aarOperationalOnly !== undefined
       ? initialData.eventSettings.aarOperationalOnly
       : settings.eventDefaults.aarOperationalOnlyByDefault
+  );
+
+  // Include in attendance report setting - defaults to true, only relevant for cycle events
+  const [includeInAttendanceReport, setIncludeInAttendanceReport] = useState(
+    initialData?.includeInAttendanceReport !== undefined
+      ? initialData.includeInAttendanceReport
+      : true
   );
 
   // Reminder settings state - prioritize event settings over app defaults
@@ -1201,7 +1210,9 @@ export const EventDialog: React.FC<EventDialogProps> = ({
         // Training workflow fields (Phase 2-3)
         referenceMaterials: referenceMaterials, // Always pass array, even if empty, to allow deletion
         syllabusMissionId: selectedMissionId || undefined,
-        cycleId
+        cycleId,
+        // Only include if part of a cycle
+        includeInAttendanceReport: cycleId ? includeInAttendanceReport : undefined
       } as any, shouldPublish);
     } catch (error) {
       setError(error instanceof Error ? error.message : 'An error occurred while saving the event');
@@ -2173,6 +2184,56 @@ export const EventDialog: React.FC<EventDialogProps> = ({
                   </div>
                 </div>
               </div>
+
+              {/* Include in Attendance Report - only show for cycle events */}
+              {cycleId && (
+                <div style={{ marginBottom: '16px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <div style={{ flex: 1, marginRight: '16px' }}>
+                      <label style={{
+                        fontSize: '14px',
+                        fontWeight: 500,
+                        color: '#64748B',
+                        marginBottom: '4px',
+                        display: 'block'
+                      }}>
+                        Include in Cycle Attendance Report
+                      </label>
+                      <p style={{ fontSize: '12px', color: '#64748B', margin: '0', fontFamily: 'Inter' }}>
+                        When disabled, this event will be excluded from attendance statistics on the Reports page.
+                      </p>
+                    </div>
+                    <div style={{ flexShrink: 0 }}>
+                      <div
+                        onClick={() => setIncludeInAttendanceReport(!includeInAttendanceReport)}
+                        style={{
+                          width: '44px',
+                          height: '24px',
+                          backgroundColor: includeInAttendanceReport ? '#3B82F6' : '#E5E7EB',
+                          borderRadius: '12px',
+                          position: 'relative',
+                          cursor: 'pointer',
+                          transition: 'background-color 0.2s ease'
+                        }}
+                      >
+                        <div
+                          style={{
+                            width: '20px',
+                            height: '20px',
+                            backgroundColor: 'white',
+                            borderRadius: '50%',
+                            position: 'absolute',
+                            top: '2px',
+                            left: includeInAttendanceReport ? '22px' : '2px',
+                            transition: 'left 0.2s ease',
+                            boxShadow: '0 2px 4px rgba(0, 0, 0, 0.2)'
+                          }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

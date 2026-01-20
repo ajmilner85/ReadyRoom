@@ -803,6 +803,7 @@ const EventsManagement: React.FC = () => {
         showNoResponse: eventData.showNoResponse,
         aarOperationalOnly: eventData.aarOperationalOnly,
         groupResponsesByQualification: eventData.trackQualifications,
+        includeInAttendanceReport: (eventData as any).includeInAttendanceReport,
         firstReminderEnabled: eventData.reminders?.firstReminder?.enabled,
         firstReminderTime: eventData.reminders?.firstReminder ? {
           value: eventData.reminders.firstReminder.value,
@@ -2030,7 +2031,8 @@ const EventsManagement: React.FC = () => {
             isPublished: !!(editingEvent.discordEventId || editingEvent.discord_event_id), // Flag to indicate if event is already published
             referenceMaterials: editingEvent.referenceMaterials, // Training workflow: reference materials
             syllabusMissionId: editingEvent.syllabusMissionId, // Training workflow: syllabus mission
-            cycleId: editingEvent.cycleId // Include cycle ID for editing
+            cycleId: editingEvent.cycleId, // Include cycle ID for editing
+            includeInAttendanceReport: editingEvent.includeInAttendanceReport
           } : undefined}
           squadrons={squadrons}
           selectedCycle={selectedCycle ?? undefined}
