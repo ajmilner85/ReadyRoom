@@ -350,13 +350,18 @@ async function fetchAttendanceData(events: EventData[], pilots: PilotData[]): Pr
 
       pilotsWithResponses.add(pilot.id);
 
-      // Separate roll call responses from Discord RSVP responses
-      const rollCallResponses = responses.filter(r => r.user_response === 'roll_call');
-      const discordResponses = responses.filter(r => r.user_response !== 'roll_call');
+      // Get Discord RSVP responses (accepted/declined/tentative)
+      const discordResponses = responses.filter(r =>
+        ['accepted', 'declined', 'tentative'].includes(r.user_response)
+      );
 
-      // Get the latest roll call response (if any)
-      const latestRollCall = rollCallResponses.length > 0
-        ? rollCallResponses[rollCallResponses.length - 1]
+      // Find the latest roll call response
+      // Roll call data can be stored two ways:
+      // 1. As a separate record with user_response='roll_call' (when pilot had no RSVP)
+      // 2. On an existing RSVP record with roll_call_response set (when pilot had RSVP)
+      const recordsWithRollCall = responses.filter(r => r.roll_call_response != null);
+      const latestRollCall = recordsWithRollCall.length > 0
+        ? recordsWithRollCall[recordsWithRollCall.length - 1]
         : null;
 
       // Get the latest Discord RSVP response
@@ -564,7 +569,7 @@ export async function fetchCycleAttendanceReport(
   const now = new Date().toISOString();
   const { data: eventsData, error: eventsError} = await supabase
     .from('events')
-    .select('id, name, start_datetime, cycle_id, discord_event_id')
+    .select('id, name, start_datetime, cycle_id, discord_event_id, event_settings')
     .eq('cycle_id', cycleId)
     .lte('start_datetime', now) // Only past events
     .order('start_datetime', { ascending: true });
@@ -574,7 +579,14 @@ export async function fetchCycleAttendanceReport(
     throw eventsError;
   }
 
-  const events: EventData[] = (eventsData || []).map(event => ({
+  // Filter out events excluded from attendance reports (via event_settings.includeInAttendanceReport)
+  const includedEvents = (eventsData || []).filter(event => {
+    const eventSettings = event.event_settings as any;
+    // Include event if includeInAttendanceReport is undefined (default) or true
+    return eventSettings?.includeInAttendanceReport !== false;
+  });
+
+  const events: EventData[] = includedEvents.map(event => ({
     id: event.id,
     name: event.name,
     start_datetime: event.start_datetime,

@@ -75,6 +75,8 @@ export interface Event {
     // Training workflow fields
     syllabusMissionId?: string; // Optional syllabus mission for training events
     referenceMaterials?: ReferenceMaterial[]; // Event-specific reference materials
+    // Attendance report settings
+    includeInAttendanceReport?: boolean; // Whether to include this event in cycle attendance reports (defaults to true)
     creator: {
       boardNumber: string;
       callsign: string;
