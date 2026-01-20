@@ -5,18 +5,20 @@ import AddFlightDialog from '../dialogs/AddFlightDialog';
 import FlightPostOptionsDialog from '../dialogs/FlightPostOptionsDialog';
 import type { AssignedPilot } from '../../../types/MissionPrepTypes';
 import type { Mission } from '../../../types/MissionTypes';
-import { Trash2 } from 'lucide-react';
+import { Trash2, Settings } from 'lucide-react';
 import { useMissionPrepData } from '../../../hooks/useMissionPrepData';
 import { useAppSettings } from '../../../context/AppSettingsContext';
 import { authFetch } from '../../../utils/authFetch';
 import aircraftIconSvg from '../../../assets/Aircraft Icon.svg';
 import clockIconSvg from '../../../assets/Clock.svg';
+import FlightPublicationSettings, { type FlightPublicationConfig } from './FlightPublicationSettings';
+import { getUserSettings } from '../../../utils/userSettingsService';
 
-// Discord SVG icon component  
-const DiscordIcon = ({ className = "", size = 16 }: { className?: string; size?: number }) => (
+// Discord SVG icon component
+const DiscordIcon = ({ className = "", size = 16, color = "#5865F2" }: { className?: string; size?: number; color?: string }) => (
   <svg className={className} width={size} height={size} viewBox="0 -28.5 256 256" version="1.1" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid">
     <g>
-      <path d="M216.856339,16.5966031 C200.285002,8.84328665 182.566144,3.2084988 164.041564,0 C161.766523,4.11318106 159.108624,9.64549908 157.276099,14.0464379 C137.583995,11.0849896 118.072967,11.0849896 98.7430163,14.0464379 C96.9108417,9.64549908 94.1925838,4.11318106 91.8971895,0 C73.3526068,3.2084988 55.6133949,8.86399117 39.0420583,16.6376612 C5.61752293,67.146514 -3.4433191,116.400813 1.08711069,164.955721 C23.2560196,181.510915 44.7403634,191.567697 65.8621325,198.148576 C71.0772151,190.971126 75.7283628,183.341335 79.7352139,175.300261 C72.104019,172.400575 64.7949724,168.822202 57.8887866,164.667963 C59.7209612,163.310589 61.5131304,161.891452 63.2445898,160.431257 C105.36741,180.133187 151.134928,180.133187 192.754523,160.431257 C194.506336,161.891452 196.298154,163.310589 198.110326,164.667963 C191.183787,168.842556 183.854737,172.420929 176.223542,175.320965 C180.230393,183.341335 184.861538,190.991831 190.096624,198.16893 C211.238746,191.588051 232.743023,181.531619 254.911949,164.955721 C260.227747,108.668201 245.831087,59.8662432 216.856339,16.5966031 Z M85.4738752,135.09489 C72.8290281,135.09489 62.4592217,123.290155 62.4592217,108.914901 C62.4592217,94.5396472 72.607595,82.7145587 85.4738752,82.7145587 C98.3405064,82.7145587 108.709962,94.5189427 108.488529,108.914901 C108.508531,123.290155 98.3405064,135.09489 85.4738752,135.09489 Z M170.525237,135.09489 C157.88039,135.09489 147.510584,123.290155 147.510584,108.914901 C147.510584,94.5396472 157.658606,82.7145587 170.525237,82.7145587 C183.391518,82.7145587 193.761324,94.5189427 193.539891,108.914901 C193.539891,123.290155 183.391518,135.09489 170.525237,135.09489 Z" fill="#5865F2" fillRule="nonzero"></path>
+      <path d="M216.856339,16.5966031 C200.285002,8.84328665 182.566144,3.2084988 164.041564,0 C161.766523,4.11318106 159.108624,9.64549908 157.276099,14.0464379 C137.583995,11.0849896 118.072967,11.0849896 98.7430163,14.0464379 C96.9108417,9.64549908 94.1925838,4.11318106 91.8971895,0 C73.3526068,3.2084988 55.6133949,8.86399117 39.0420583,16.6376612 C5.61752293,67.146514 -3.4433191,116.400813 1.08711069,164.955721 C23.2560196,181.510915 44.7403634,191.567697 65.8621325,198.148576 C71.0772151,190.971126 75.7283628,183.341335 79.7352139,175.300261 C72.104019,172.400575 64.7949724,168.822202 57.8887866,164.667963 C59.7209612,163.310589 61.5131304,161.891452 63.2445898,160.431257 C105.36741,180.133187 151.134928,180.133187 192.754523,160.431257 C194.506336,161.891452 196.298154,163.310589 198.110326,164.667963 C191.183787,168.842556 183.854737,172.420929 176.223542,175.320965 C180.230393,183.341335 184.861538,190.991831 190.096624,198.16893 C211.238746,191.588051 232.743023,181.531619 254.911949,164.955721 C260.227747,108.668201 245.831087,59.8662432 216.856339,16.5966031 Z M85.4738752,135.09489 C72.8290281,135.09489 62.4592217,123.290155 62.4592217,108.914901 C62.4592217,94.5396472 72.607595,82.7145587 85.4738752,82.7145587 C98.3405064,82.7145587 108.709962,94.5189427 108.488529,108.914901 C108.508531,123.290155 98.3405064,135.09489 85.4738752,135.09489 Z M170.525237,135.09489 C157.88039,135.09489 147.510584,123.290155 147.510584,108.914901 C147.510584,94.5396472 157.658606,82.7145587 170.525237,82.7145587 C183.391518,82.7145587 193.761324,94.5189427 193.539891,108.914901 C193.539891,123.290155 183.391518,135.09489 170.525237,135.09489 Z" fill={color} fillRule="nonzero"></path>
     </g>
   </svg>
 );
@@ -97,6 +99,7 @@ interface FlightAssignmentsProps {
   onClearAssignments?: () => void;
   onClearFlightAssignments?: (flightId: string) => void;
   mission?: Mission | null;
+  selectedEvent?: any | null;
 }
 
 const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
@@ -108,7 +111,8 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
   initialFlights = [],
   onClearAssignments,
   onClearFlightAssignments,
-  mission
+  mission,
+  selectedEvent: selectedEventProp
 }) => {
   // Debug logging for assignedPilots data
   // React.useEffect(() => {
@@ -124,6 +128,8 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
   const [showAddFlightDialog, setShowAddFlightDialog] = useState(false);
   const [showPostOptionsDialog, setShowPostOptionsDialog] = useState(false);
   const [existingPosts, setExistingPosts] = useState<any[]>([]);
+  const [showPublicationSettings, setShowPublicationSettings] = useState(false);
+  const [isPublished, setIsPublished] = useState(false);
   
   // Update flights when initialFlights prop changes (e.g., from database restoration)
   React.useEffect(() => {
@@ -151,9 +157,29 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
   const [creationOrderCounter, setCreationOrderCounter] = useState(0);
   const [showRemoveAllDialog, setShowRemoveAllDialog] = useState(false);
 
-  // Get selected event, participating squadrons, and all squadrons for Discord message and flight dialog
-  const { selectedEvent, participatingSquadrons, squadrons } = useMissionPrepData();
+  // Get participating squadrons and all squadrons for Discord message and flight dialog
+  const { participatingSquadrons, squadrons } = useMissionPrepData();
   const { settings } = useAppSettings();
+
+  // Use selectedEvent from props
+  const selectedEvent = selectedEventProp;
+
+  // Debug logging for component mount/unmount
+  useEffect(() => {
+    console.log('🏗️ [FLIGHT-ASSIGNMENTS] Component mounted');
+    return () => {
+      console.log('🗑️ [FLIGHT-ASSIGNMENTS] Component unmounting');
+    };
+  }, []);
+
+  // Debug logging for selectedEvent changes
+  useEffect(() => {
+    console.log('📌 [SELECTED-EVENT-CHANGED] selectedEvent updated:', {
+      id: selectedEvent?.id,
+      title: selectedEvent?.title,
+      hasSelectedEvent: !!selectedEvent
+    });
+  }, [selectedEvent]);
 
   // Debug: Log mission changes
   useEffect(() => {
@@ -239,7 +265,44 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
       return { hasExisting: false, posts: [] };
     }
   }, [selectedEvent?.id]);
-  
+
+  // Track previous event ID to debug state changes
+  const prevEventIdRef = useRef<string | undefined>(undefined);
+
+  // Initialize publication status based on existing posts
+  useEffect(() => {
+    const eventId = selectedEvent?.id;
+    const prevEventId = prevEventIdRef.current;
+
+    console.log('🔄 [PUBLICATION-STATUS] Effect triggered. Previous event:', prevEventId, '→ Current event:', eventId);
+
+    // Update the ref for next comparison
+    prevEventIdRef.current = eventId;
+
+    const initializePublicationStatus = async () => {
+      if (!eventId) {
+        console.log('🔄 [PUBLICATION-STATUS] No selected event, resetting status');
+        setIsPublished(false);
+        return;
+      }
+
+      console.log('🔄 [PUBLICATION-STATUS] Checking existing posts for event:', eventId);
+      const { hasExisting, posts } = await checkExistingPosts();
+      console.log('🔄 [PUBLICATION-STATUS] Check result for event', eventId, ':', { hasExisting, postsCount: posts.length, posts });
+
+      if (hasExisting && posts.length > 0) {
+        console.log('🔄 [PUBLICATION-STATUS] Setting published state for event', eventId);
+        setIsPublished(true);
+      } else {
+        console.log('🔄 [PUBLICATION-STATUS] No existing posts found for event', eventId, ', resetting status');
+        setIsPublished(false);
+      }
+    };
+
+    initializePublicationStatus();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedEvent?.id]);
+
   // Use a ref to track which extracted flights we've already processed
   const processedFlightTimestamps = useRef<Set<string>>(new Set());
   const initializedRef = useRef(false);
@@ -841,23 +904,33 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
   const groupFlightsBySquadron = useCallback(async (): Promise<SquadronFlightGroup[]> => {
     const squadronGroups: SquadronFlightGroup[] = [];
 
+    // Load publication config to determine if we should include empty flights
+    const publicationConfig = await getStoredPublicationConfig();
+
     for (const squadron of squadrons) {
       if (!squadron.callsigns || !Array.isArray(squadron.callsigns)) {
         continue;
       }
 
-      const squadronFlights = flights.filter(flight =>
+      let squadronFlights = flights.filter(flight =>
         squadron.callsigns!.some((callsign: string) =>
           flight.callsign.toUpperCase() === callsign.toUpperCase()
         )
       );
 
-      // Only include squadron if it has flights with assigned pilots
-      const hasAssignedPilots = squadronFlights.some(flight =>
-        flight.pilots && flight.pilots.length > 0
-      );
+      // Filter out empty flights if the setting is disabled
+      if (!publicationConfig.includeEmptyFlights) {
+        squadronFlights = squadronFlights.filter(flight => {
+          // Check if flight has at least one pilot assigned
+          const hasAssignedPilot = flight.pilots && flight.pilots.some(pilot =>
+            pilot.boardNumber && pilot.boardNumber.trim() !== ''
+          );
+          return hasAssignedPilot;
+        });
+      }
 
-      if (squadronFlights.length > 0 && hasAssignedPilots) {
+      // Only include squadron if it has flights (after filtering)
+      if (squadronFlights.length > 0) {
         squadronGroups.push({
           squadron: squadron as LocalSquadron,
           flights: squadronFlights
@@ -1637,6 +1710,38 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
     setExistingPosts([]);
   }, []);
 
+  // Handle publication settings
+  const handlePublicationSettings = useCallback(() => {
+    setShowPublicationSettings(true);
+  }, []);
+
+  const handlePublicationSettingsCancel = useCallback(() => {
+    setShowPublicationSettings(false);
+  }, []);
+
+  const handlePublicationSettingsSave = useCallback((_config: FlightPublicationConfig) => {
+    setShowPublicationSettings(false);
+    // Configuration is already saved to user preferences by the modal
+  }, []);
+
+  // Load publication configuration from user preferences
+  const getStoredPublicationConfig = async (): Promise<FlightPublicationConfig> => {
+    try {
+      const settingsResult = await getUserSettings();
+      if (settingsResult.success && settingsResult.data?.preferences?.missionPrep?.flightPublicationConfig) {
+        const config = settingsResult.data.preferences.missionPrep.flightPublicationConfig;
+        return {
+          includeEmptyFlights: config.includeEmptyFlights ?? false
+        };
+      }
+    } catch (error) {
+      console.warn('Failed to load flight publication config from user preferences:', error);
+    }
+    return {
+      includeEmptyFlights: false
+    };
+  };
+
   // Perform the actual publish action
   const performPublishAction = useCallback(async (action: 'create' | 'update') => {
     try {
@@ -1750,6 +1855,9 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
         } else if (skippedResults.length === 0) {
           console.log(successMessage);
         }
+
+        // Update publication status after successful publish
+        setIsPublished(true);
       } else {
         if (skippedResults.length > 0 && failedResults.length === 0) {
           const skippedMessage = skippedResults.map((r: any) => r.squadron).join(', ');
@@ -1800,8 +1908,10 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
 
 
   return (
-    <div style={{ 
-      width, 
+    <div style={{
+      width,
+      minWidth: width,
+      flexShrink: 0,
       position: 'relative',
       padding: '10px',
       margin: '-10px',
@@ -1870,7 +1980,8 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
         </div>
         <div style={{
           display: 'flex',
-          justifyContent: 'space-around',
+          justifyContent: 'space-between',
+          alignItems: 'center',
           padding: '18px 0 0 0',
           borderTop: '1px solid #E2E8F0'
         }}>
@@ -1891,8 +2002,7 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
               fontFamily: 'Inter',
               fontSize: '14px',
               fontWeight: 400,
-              flex: '0 0 30%',
-              margin: '0 8px'
+              flex: '0 0 30%'
             }}
             onMouseEnter={e => {
               e.currentTarget.style.backgroundColor = '#F8FAFC';
@@ -1933,36 +2043,87 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
           >
             +
           </button>
-          <button
-            onClick={handlePublishToDiscord}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '8px',
-              padding: '8px 16px',
-              backgroundColor: '#FFFFFF',
-              color: '#64748B',
-              borderRadius: '8px',
-              border: '1px solid #CBD5E1',
-              cursor: 'pointer',
-              transition: 'background-color 0.2s ease',
-              fontFamily: 'Inter',
-              fontSize: '14px',
-              fontWeight: 400,
-              flex: '0 0 30%',
-              margin: '0 8px'
-            }}
-            onMouseEnter={e => {
-              e.currentTarget.style.backgroundColor = '#F8FAFC';
-            }}
-            onMouseLeave={e => {
-              e.currentTarget.style.backgroundColor = '#FFFFFF';
-            }}
-          >
-            <DiscordIcon size={16} />
-            Publish
-          </button>
+          {/* Split Publish Button */}
+          <div style={{
+            display: 'flex',
+            flex: '0 0 30%',
+            borderRadius: '8px',
+            border: isPublished ? 'none' : '1px solid #CBD5E1',
+            overflow: 'hidden'
+          }}>
+            {/* Main Publish Button */}
+            <button
+              onClick={handlePublishToDiscord}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px',
+                padding: '8px 12px',
+                backgroundColor: isPublished ? '#5865F2' : '#FFFFFF',
+                color: isPublished ? '#E3E5E8' : '#64748B',
+                border: 'none',
+                cursor: 'pointer',
+                transition: 'background-color 0.2s ease',
+                fontFamily: 'Inter',
+                fontSize: '14px',
+                fontWeight: 400,
+                flex: 1,
+                borderRight: '1px solid #CBD5E1'
+              }}
+              onMouseEnter={e => {
+                if (!isPublished) {
+                  e.currentTarget.style.backgroundColor = '#F8FAFC';
+                } else {
+                  e.currentTarget.style.backgroundColor = '#4752C4';
+                }
+              }}
+              onMouseLeave={e => {
+                if (!isPublished) {
+                  e.currentTarget.style.backgroundColor = '#FFFFFF';
+                } else {
+                  e.currentTarget.style.backgroundColor = '#5865F2';
+                }
+              }}
+            >
+              <DiscordIcon size={16} color={isPublished ? '#FFFFFF' : '#5865F2'} />
+              {isPublished ? 'Published' : 'Publish'}
+            </button>
+
+            {/* Settings Button */}
+            <button
+              onClick={handlePublicationSettings}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '8px',
+                backgroundColor: isPublished ? '#5865F2' : '#FFFFFF',
+                color: isPublished ? '#FFFFFF' : '#64748B',
+                border: 'none',
+                cursor: 'pointer',
+                transition: 'background-color 0.2s ease',
+                minWidth: '32px'
+              }}
+              onMouseEnter={e => {
+                if (!isPublished) {
+                  e.currentTarget.style.backgroundColor = '#F8FAFC';
+                } else {
+                  e.currentTarget.style.backgroundColor = '#4752C4';
+                }
+              }}
+              onMouseLeave={e => {
+                if (!isPublished) {
+                  e.currentTarget.style.backgroundColor = '#FFFFFF';
+                } else {
+                  e.currentTarget.style.backgroundColor = '#5865F2';
+                }
+              }}
+              title="Publication settings"
+            >
+              <Settings size={16} style={{ color: isPublished ? '#FFFFFF' : '#64748B' }} />
+            </button>
+          </div>
         </div>
       </Card>
 
@@ -2319,6 +2480,13 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
           existingPostsCount={existingPosts.length}
         />
       )}
+
+      {/* Flight Publication Settings Modal */}
+      <FlightPublicationSettings
+        isOpen={showPublicationSettings}
+        onCancel={handlePublicationSettingsCancel}
+        onSave={handlePublicationSettingsSave}
+      />
     </div>
   );
 };

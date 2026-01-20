@@ -130,11 +130,11 @@ interface PilotEntryProps {
     marginBottom: '10px',
     transition: 'background-color 0.2s ease, opacity 0.2s ease',
     borderRadius: '8px',
-    padding: '0 10px',
+    padding: '0 6px 0 2px',
     cursor: isRollCallMode ? 'default' : (isAssigned ? 'default' : 'grab'), // Change cursor when in roll call mode
     position: 'relative',
     left: 0,
-    width: 'calc(100% - 20px)',
+    width: 'calc(100% - 8px)',
     zIndex: 1,
     maxWidth: '100%',
     overflow: 'hidden',
@@ -265,8 +265,8 @@ interface PilotEntryProps {
       data-assigned={isAssigned ? 'true' : 'false'}
     >
       <span style={{
-        width: '62px',
-        textAlign: 'center',
+        width: '36px',
+        textAlign: 'left',
         fontSize: '16px',
         fontWeight: 400,
         color: '#646F7E'
@@ -897,8 +897,7 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
     fontFamily: 'Inter',
     fontSize: '14px',
     fontWeight: 400,
-    flex: '0 0 25%',
-    margin: '0 8px'
+    flex: '0 0 25%'
   };
 
   // Add a useEffect to update the pilot entries when roll call status changes
@@ -981,6 +980,8 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
   return (
     <div style={{
       width,
+      minWidth: width,
+      flexShrink: 0,
       backgroundColor: '#FFFFFF',
       boxShadow: '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)',
       borderRadius: '8px',
@@ -1046,7 +1047,9 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
             width: '100%',
             position: 'relative',
             padding: '0',
-            boxSizing: 'border-box'
+            paddingRight: '4px',
+            boxSizing: 'border-box',
+            scrollbarGutter: 'stable'
           }}
         >          {groupedPilots.order.map((groupName: string) => {
             const pilotsInGroup = groupedPilots.groups[groupName] || [];
@@ -1132,7 +1135,8 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
 
         <div style={{
           display: 'flex',
-          justifyContent: 'space-around',
+          justifyContent: 'space-between',
+          alignItems: 'center',
           padding: '18px 0 0 0',
           borderTop: '1px solid #E2E8F0',
           marginTop: 'auto'
@@ -1166,7 +1170,6 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
             <div style={{
               display: 'flex',
               flex: '0 0 calc(30% + 20px)',
-              margin: '0 8px',
               borderRadius: '8px',
               border: '1px solid #CBD5E1',
               overflow: 'hidden'
@@ -1317,8 +1320,7 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
                 fontFamily: 'Inter',
                 fontSize: '14px',
                 fontWeight: 400,
-                flex: '0 0 30%',
-                margin: '0 8px'
+                flex: '0 0 30%'
               }}
               onMouseEnter={e => {
                 e.currentTarget.style.backgroundColor = '#F8FAFC';

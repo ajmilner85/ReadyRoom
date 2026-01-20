@@ -28,6 +28,15 @@ export const useMissionPrepData = () => {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [allPilotQualifications, setAllPilotQualifications] = useState<Record<string, any[]>>({});
   const [squadrons, setSquadrons] = useState<Squadron[]>([]);
+
+  // Debug: Log when selectedEvent state changes
+  useEffect(() => {
+    console.log('🔄 [HOOK] selectedEvent state changed:', {
+      eventId: selectedEvent?.id,
+      eventTitle: selectedEvent?.title,
+      hasEvent: !!selectedEvent
+    });
+  }, [selectedEvent]);
   const [pilotSquadronMap, setPilotSquadronMap] = useState<Record<string, Squadron>>({});
   const [participatingSquadrons, setParticipatingSquadrons] = useState<any[]>([]);
 
@@ -293,6 +302,11 @@ export const useMissionPrepData = () => {
   }, [pilots]);
 
   const setSelectedEventWrapper = useCallback((event: Event | null) => {
+    console.log('🎯 [HOOK] setSelectedEventWrapper called:', {
+      eventId: event?.id,
+      eventTitle: event?.title,
+      hasEvent: !!event
+    });
     setSelectedEvent(event);
     saveSelectedEvent(event);
   }, []);

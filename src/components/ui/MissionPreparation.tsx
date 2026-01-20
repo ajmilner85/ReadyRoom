@@ -48,6 +48,9 @@ interface MissionPreparationProps {
 }
 
 const CARD_WIDTH = '605px';
+const MISSION_DETAILS_WIDTH = '530px';
+const AVAILABLE_PILOTS_WIDTH = '551px';
+const FLIGHT_ASSIGNMENTS_WIDTH = '551px';
 
 const MissionPreparation: React.FC<MissionPreparationProps> = ({ 
   onTransferToMission,
@@ -595,7 +598,7 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
           ) : (
             <>
               <MissionDetails
-                width={CARD_WIDTH}
+                width={MISSION_DETAILS_WIDTH}
                 events={events}
                 selectedEvent={selectedEvent}
                 onEventSelect={setSelectedEvent}
@@ -610,7 +613,7 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
                 onClearAssignments={handleClearAssignments}
               />
               <AvailablePilots
-                width={CARD_WIDTH}
+                width={AVAILABLE_PILOTS_WIDTH}
                 pilots={activePilots}
                 selectedEvent={selectedEvent}
                 assignedPilots={assignedPilots}
@@ -627,7 +630,7 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
                 qualifications={qualificationsData}
               />
               <FlightAssignments
-                width={CARD_WIDTH}
+                width={FLIGHT_ASSIGNMENTS_WIDTH}
                 assignedPilots={assignedPilots}
                 missionCommander={missionCommander}
                 extractedFlights={extractedFlights}
@@ -636,6 +639,7 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
                 onClearAssignments={handleClearAssignments}
                 onClearFlightAssignments={handleClearFlightAssignments}
                 mission={mission}
+                selectedEvent={selectedEvent}
               />              <div style={{
                 display: 'flex',
                 flexDirection: 'column',

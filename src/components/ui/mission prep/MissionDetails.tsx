@@ -902,6 +902,8 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
       flexDirection: 'column',
       gap: '20px',
       width,
+      minWidth: width,
+      flexShrink: 0,
       height: '100%'
     }}>
       {/* Mission Details Card */}
