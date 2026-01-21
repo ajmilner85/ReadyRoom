@@ -2,10 +2,11 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../../utils/supabaseClient';
-import { ArrowLeft, Save, Plus, Trash2, GripVertical, Edit2 } from 'lucide-react';
+import { ArrowLeft, Save, Plus, Trash2, GripVertical, Edit2, Image as ImageIcon, X } from 'lucide-react';
 import ReferenceMaterialsInput from '../ui/events/ReferenceMaterialsInput';
 import CriteriaBlockEditor, { CriteriaBlock } from './CriteriaBlockEditor';
 import type { ReferenceMaterial } from '../../types/EventTypes';
+import { uploadEventImage } from '../../utils/eventImageService';
 
 interface Mission {
   id?: string;
@@ -15,6 +16,10 @@ interface Mission {
   week_number: number;
   objectives: Objective[];
   reference_materials?: ReferenceMaterial[];
+  image_url?: {
+    headerImage?: string;
+    additionalImages?: string[];
+  } | null;
 }
 
 interface Objective {
@@ -55,6 +60,14 @@ const SyllabusEditor: React.FC<SyllabusEditorProps> = ({ syllabusId: propSyllabu
 
   // Tab state for the syllabus editor
   const [activeTab, setActiveTab] = useState<'missions' | 'student-enrollment' | 'instructor-qualifications'>('missions');
+
+  // Mission dialog tab state
+  const [missionDialogTab, setMissionDialogTab] = useState<'details' | 'objectives' | 'reference-materials'>('details');
+
+  // Image upload state for mission editor
+  const [missionImages, setMissionImages] = useState<(File | null)[]>([null, null, null, null]);
+  const [missionImagePreviews, setMissionImagePreviews] = useState<(string | null)[]>([null, null, null, null]);
+  const [missionImageDragStates, setMissionImageDragStates] = useState<boolean[]>([false, false, false, false]);
 
   // Auto-enrollment options
   const [standings, setStandings] = useState<Array<{ id: string; name: string }>>([]);
@@ -143,6 +156,7 @@ const SyllabusEditor: React.FC<SyllabusEditorProps> = ({ syllabusId: propSyllabu
           description: mission.description,
           week_number: mission.week_number || 1,
           reference_materials: Array.isArray(mission.reference_materials) ? mission.reference_materials : [],
+          image_url: mission.image_url || null,
           objectives: (objectivesData || []).map((obj: any) => ({
             id: obj.id,
             scope_level: obj.scope_level,
@@ -319,6 +333,66 @@ const SyllabusEditor: React.FC<SyllabusEditorProps> = ({ syllabusId: propSyllabu
     }
   };
 
+  // Image handling functions for mission editor
+  const handleMissionImageSelect = (file: File, imageIndex: number) => {
+    if (file && file.type.startsWith('image/')) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const result = e.target?.result as string;
+
+        const newImages = [...missionImages];
+        const newPreviews = [...missionImagePreviews];
+        newImages[imageIndex] = file;
+        newPreviews[imageIndex] = result;
+        setMissionImages(newImages);
+        setMissionImagePreviews(newPreviews);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleMissionImageDragOver = (e: React.DragEvent, imageIndex: number) => {
+    e.preventDefault();
+    const newStates = [...missionImageDragStates];
+    newStates[imageIndex] = true;
+    setMissionImageDragStates(newStates);
+  };
+
+  const handleMissionImageDragLeave = (e: React.DragEvent, imageIndex: number) => {
+    e.preventDefault();
+    const newStates = [...missionImageDragStates];
+    newStates[imageIndex] = false;
+    setMissionImageDragStates(newStates);
+  };
+
+  const handleMissionImageDrop = (e: React.DragEvent, imageIndex: number) => {
+    e.preventDefault();
+    const newStates = [...missionImageDragStates];
+    newStates[imageIndex] = false;
+    setMissionImageDragStates(newStates);
+
+    const files = Array.from(e.dataTransfer.files);
+    if (files.length > 0) {
+      handleMissionImageSelect(files[0], imageIndex);
+    }
+  };
+
+  const handleMissionImageFileInputChange = (e: React.ChangeEvent<HTMLInputElement>, imageIndex: number) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      handleMissionImageSelect(file, imageIndex);
+    }
+  };
+
+  const removeMissionImage = (imageIndex: number) => {
+    const newImages = [...missionImages];
+    const newPreviews = [...missionImagePreviews];
+    newImages[imageIndex] = null;
+    newPreviews[imageIndex] = null;
+    setMissionImages(newImages);
+    setMissionImagePreviews(newPreviews);
+  };
+
   const handleAddMission = () => {
     setEditingMission({
       index: -1,
@@ -328,17 +402,43 @@ const SyllabusEditor: React.FC<SyllabusEditorProps> = ({ syllabusId: propSyllabu
         description: '',
         week_number: missions.length > 0 ? Math.max(...missions.map(m => m.week_number)) + 1 : 0,
         objectives: [],
-        reference_materials: []
+        reference_materials: [],
+        image_url: null
       }
     });
+    // Reset image state
+    setMissionImages([null, null, null, null]);
+    setMissionImagePreviews([null, null, null, null]);
+    setMissionImageDragStates([false, false, false, false]);
+    setMissionDialogTab('details');
     setShowEventDialog(true);
   };
 
   const handleEditMission = (index: number) => {
+    const mission = missions[index];
     setEditingMission({
       index,
-      mission: { ...missions[index] }
+      mission: { ...mission }
     });
+
+    // Load existing images
+    const newPreviews: (string | null)[] = [null, null, null, null];
+    if (mission.image_url) {
+      if (mission.image_url.headerImage) {
+        newPreviews[0] = mission.image_url.headerImage;
+      }
+      if (mission.image_url.additionalImages) {
+        mission.image_url.additionalImages.forEach((url, i) => {
+          if (i < 3) {
+            newPreviews[i + 1] = url;
+          }
+        });
+      }
+    }
+    setMissionImages([null, null, null, null]);
+    setMissionImagePreviews(newPreviews);
+    setMissionImageDragStates([false, false, false, false]);
+    setMissionDialogTab('details');
     setShowEventDialog(true);
   };
 
@@ -367,7 +467,7 @@ const SyllabusEditor: React.FC<SyllabusEditorProps> = ({ syllabusId: propSyllabu
       const startWeek = syllabus.starts_at_week_zero ? 0 : 1;
 
       if (missionIndex === -1) {
-        // Insert new mission
+        // Insert new mission first without images
         const missionData = {
           syllabus_id: syllabusId,
           mission_number: mission.mission_number,
@@ -384,6 +484,45 @@ const SyllabusEditor: React.FC<SyllabusEditorProps> = ({ syllabusId: propSyllabu
           .single();
 
         if (insertError) throw insertError;
+
+        // Now upload images using the actual mission ID
+        const imagesToUpload = missionImages.filter(img => img !== null) as File[];
+        if (imagesToUpload.length > 0 && newMission.id) {
+          let imageUrlData: { headerImage?: string; additionalImages?: string[] } = {};
+          
+          const uploadPromises = missionImages.map((img, idx) => {
+            if (img) {
+              return uploadEventImage(newMission.id, img).then(result => ({ index: idx, url: result.url }));
+            }
+            return Promise.resolve(null);
+          });
+
+          const results = await Promise.all(uploadPromises);
+          const uploadedUrls = results
+            .filter(r => r !== null && r!.url)
+            .map(r => ({ index: r!.index, url: r!.url! }));
+
+          if (uploadedUrls.length > 0) {
+            const firstImage = uploadedUrls.find(u => u.index === 0);
+            if (firstImage?.url) {
+              imageUrlData.headerImage = firstImage.url;
+            }
+            const additionalUrls = uploadedUrls
+              .filter(u => u.index > 0)
+              .map(u => u.url);
+            if (additionalUrls.length > 0) {
+              imageUrlData.additionalImages = additionalUrls;
+            }
+
+            // Update mission with image URLs
+            const { error: updateError } = await supabase
+              .from('training_syllabus_missions')
+              .update({ image_url: imageUrlData })
+              .eq('id', newMission.id);
+
+            if (updateError) throw updateError;
+          }
+        }
 
         // Insert objectives for new mission
         if (mission.objectives.length > 0) {
@@ -405,11 +544,50 @@ const SyllabusEditor: React.FC<SyllabusEditorProps> = ({ syllabusId: propSyllabu
         await loadSyllabus();
       } else {
         // Update existing mission
+        let imageUrlData: { headerImage?: string; additionalImages?: string[] } | null = null;
+
+        // Upload images first if any new ones exist
+        const imagesToUpload = missionImages.filter(img => img !== null) as File[];
+        const existingPreviews = missionImagePreviews.filter(p => p !== null && typeof p === 'string');
+
+        if (imagesToUpload.length > 0 || existingPreviews.length > 0) {
+          const uploadPromises = missionImages.map((img, idx) => {
+            if (img) {
+              // New file to upload
+              return uploadEventImage(mission.id!, img).then(result => ({ index: idx, url: result.url }));
+            } else if (missionImagePreviews[idx]) {
+              // Existing URL to keep
+              return Promise.resolve({ index: idx, url: missionImagePreviews[idx] });
+            }
+            return Promise.resolve(null);
+          });
+
+          const results = await Promise.all(uploadPromises);
+          const imageUrls = results
+            .filter(r => r !== null && r!.url)
+            .map(r => ({ index: r!.index, url: r!.url! }));
+
+          if (imageUrls.length > 0) {
+            imageUrlData = {};
+            const firstImage = imageUrls.find(u => u.index === 0);
+            if (firstImage?.url) {
+              imageUrlData.headerImage = firstImage.url;
+            }
+            const additionalUrls = imageUrls
+              .filter(u => u.index > 0)
+              .map(u => u.url);
+            if (additionalUrls.length > 0) {
+              imageUrlData.additionalImages = additionalUrls;
+            }
+          }
+        }
+
         const missionData = {
           mission_number: mission.mission_number,
           mission_name: mission.mission_name,
           description: mission.description,
-          reference_materials: mission.reference_materials || []
+          reference_materials: mission.reference_materials || [],
+          image_url: imageUrlData
         };
 
         const { error: updateError } = await supabase
@@ -856,6 +1034,34 @@ const SyllabusEditor: React.FC<SyllabusEditorProps> = ({ syllabusId: propSyllabu
                 }}
               >
                 <GripVertical size={16} style={{ color: '#9CA3AF', cursor: 'grab' }} />
+                
+                {/* Thumbnail */}
+                <div style={{
+                  width: '48px',
+                  height: '27px',
+                  borderRadius: '4px',
+                  overflow: 'hidden',
+                  backgroundColor: '#F3F4F6',
+                  flexShrink: 0,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}>
+                  {mission.image_url?.headerImage ? (
+                    <img 
+                      src={mission.image_url.headerImage} 
+                      alt=""
+                      style={{
+                        width: '100%',
+                        height: '100%',
+                        objectFit: 'cover'
+                      }}
+                    />
+                  ) : (
+                    <ImageIcon size={12} style={{ color: '#D1D5DB' }} />
+                  )}
+                </div>
+
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: '14px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
                     {mission.mission_number !== null && (
@@ -961,237 +1167,360 @@ const SyllabusEditor: React.FC<SyllabusEditorProps> = ({ syllabusId: propSyllabu
               </h2>
             </div>
 
-            <div style={{ padding: '24px' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '140px 1fr', gap: '16px', marginBottom: '24px' }}>
-                <div>
-                  <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: 500 }}>
-                    Mission Number
-                  </label>
-                  <input
-                    type="number"
-                    value={editingMission.mission.mission_number ?? ''}
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      setEditingMission({
-                        ...editingMission,
-                        mission: {
-                          ...editingMission.mission,
-                          mission_number: value === '' ? null : parseInt(value) || null
-                        }
-                      });
-                    }}
-                    min="1"
-                    placeholder="Optional"
-                    style={{
-                      width: '100%',
-                      padding: '8px 12px',
-                      border: '1px solid #D1D5DB',
-                      borderRadius: '6px',
-                      fontSize: '14px',
-                      boxSizing: 'border-box'
-                    }}
-                  />
-                </div>
-                <div>
-                  <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: 500 }}>
-                    Event Name
-                  </label>
-                  <input
-                    type="text"
-                    value={editingMission.mission.mission_name}
-                    onChange={(e) => {
-                      setEditingMission({
-                        ...editingMission,
-                        mission: {
-                          ...editingMission.mission,
-                          mission_name: e.target.value
-                        }
-                      });
-                    }}
-                    placeholder="Event name"
-                    style={{
-                      width: '100%',
-                      padding: '8px 12px',
-                      border: '1px solid #D1D5DB',
-                      borderRadius: '6px',
-                      fontSize: '14px',
-                      boxSizing: 'border-box'
-                    }}
-                  />
-                </div>
-              </div>
-
-              <div style={{ marginBottom: '24px' }}>
-                <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: 500 }}>
-                  Description
-                </label>
-                <textarea
-                  value={editingMission.mission.description || ''}
-                  onChange={(e) => {
-                    setEditingMission({
-                      ...editingMission,
-                      mission: {
-                        ...editingMission.mission,
-                        description: e.target.value
-                      }
-                    });
-                  }}
-                  placeholder="Event description"
-                  rows={3}
+            {/* Tab Navigation */}
+            <div style={{ borderBottom: '1px solid #E5E7EB', display: 'flex', paddingLeft: '24px' }}>
+              {[
+                { id: 'details', label: 'Details' },
+                { id: 'objectives', label: 'Objectives' },
+                { id: 'references', label: 'Reference Materials' }
+              ].map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => setMissionDialogTab(tab.id)}
                   style={{
-                    width: '100%',
-                    padding: '8px 12px',
-                    border: '1px solid #D1D5DB',
-                    borderRadius: '6px',
+                    padding: '12px 16px',
                     fontSize: '14px',
-                    resize: 'none',
-                    boxSizing: 'border-box'
+                    fontWeight: 500,
+                    border: 'none',
+                    backgroundColor: 'transparent',
+                    color: missionDialogTab === tab.id ? '#2563EB' : '#6B7280',
+                    borderBottom: missionDialogTab === tab.id ? '2px solid #2563EB' : '2px solid transparent',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s'
                   }}
-                />
-              </div>
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
 
-              <div style={{ borderTop: '1px solid #E5E7EB', paddingTop: '16px', marginBottom: '24px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                  <h3 style={{ fontSize: '14px', fontWeight: 600, color: '#6B7280', textTransform: 'uppercase', margin: 0 }}>
-                    Objectives ({editingMission.mission.objectives.length})
-                  </h3>
-                  <button
-                    onClick={() => {
-                      setEditingMission({
-                        ...editingMission,
-                        mission: {
-                          ...editingMission.mission,
-                          objectives: [
-                            ...editingMission.mission.objectives,
-                            {
-                              scope_level: 'Individual',
-                              objective_text: '',
-                              display_order: editingMission.mission.objectives.length
-                            }
-                          ]
-                        }
-                      });
-                    }}
-                    style={{
-                      padding: '6px 10px',
-                      backgroundColor: '#F3F4F6',
-                      border: '1px solid #D1D5DB',
-                      borderRadius: '4px',
-                      cursor: 'pointer',
-                      fontSize: '13px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '4px'
-                    }}
-                  >
-                    <Plus size={14} />
-                    Add Objective
-                  </button>
-                </div>
-
-                {editingMission.mission.objectives.map((objective, objIndex) => (
-                  <div key={objIndex} style={{ padding: '12px', backgroundColor: '#F9FAFB', borderRadius: '6px', marginBottom: '8px' }}>
-                    <div style={{ display: 'grid', gridTemplateColumns: '150px 1fr auto', gap: '8px', alignItems: 'start' }}>
-                      <select
-                        value={objective.scope_level}
-                        onChange={(e) => {
-                          const updatedObjectives = [...editingMission.mission.objectives];
-                          updatedObjectives[objIndex].scope_level = e.target.value;
-                          setEditingMission({
-                            ...editingMission,
-                            mission: {
-                              ...editingMission.mission,
-                              objectives: updatedObjectives
-                            }
-                          });
-                        }}
-                        style={{
-                          padding: '6px 8px',
-                          border: '1px solid #D1D5DB',
-                          borderRadius: '4px',
-                          fontSize: '13px',
-                          backgroundColor: 'white'
-                        }}
-                      >
-                        <option value="Individual">Individual</option>
-                        <option value="Element">Element</option>
-                        <option value="Flight">Flight</option>
-                        <option value="Mission">Mission</option>
-                      </select>
+            <div style={{ padding: '24px' }}>
+              {/* Details Tab */}
+              {missionDialogTab === 'details' && (
+                <>
+                  <div style={{ display: 'grid', gridTemplateColumns: '140px 1fr', gap: '16px', marginBottom: '24px' }}>
+                    <div>
+                      <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: 500 }}>
+                        Mission Number
+                      </label>
                       <input
-                        type="text"
-                        value={objective.objective_text}
+                        type="number"
+                        value={editingMission.mission.mission_number ?? ''}
                         onChange={(e) => {
-                          const updatedObjectives = [...editingMission.mission.objectives];
-                          updatedObjectives[objIndex].objective_text = e.target.value;
+                          const value = e.target.value;
                           setEditingMission({
                             ...editingMission,
                             mission: {
                               ...editingMission.mission,
-                              objectives: updatedObjectives
+                              mission_number: value === '' ? null : parseInt(value) || null
                             }
                           });
                         }}
-                        placeholder="Objective description"
+                        min="1"
+                        placeholder="Optional"
                         style={{
-                          padding: '6px 8px',
+                          width: '100%',
+                          padding: '8px 12px',
                           border: '1px solid #D1D5DB',
-                          borderRadius: '4px',
-                          fontSize: '13px',
-                          backgroundColor: 'white'
+                          borderRadius: '6px',
+                          fontSize: '14px',
+                          boxSizing: 'border-box'
                         }}
                       />
-                      <button
-                        onClick={() => {
-                          const updatedObjectives = editingMission.mission.objectives.filter((_, i) => i !== objIndex);
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: 500 }}>
+                        Event Name
+                      </label>
+                      <input
+                        type="text"
+                        value={editingMission.mission.mission_name}
+                        onChange={(e) => {
                           setEditingMission({
                             ...editingMission,
                             mission: {
                               ...editingMission.mission,
-                              objectives: updatedObjectives
+                              mission_name: e.target.value
                             }
                           });
                         }}
+                        placeholder="Event name"
                         style={{
-                          padding: '6px',
-                          backgroundColor: 'white',
+                          width: '100%',
+                          padding: '8px 12px',
                           border: '1px solid #D1D5DB',
-                          borderRadius: '4px',
-                          cursor: 'pointer',
-                          color: '#EF4444'
+                          borderRadius: '6px',
+                          fontSize: '14px',
+                          boxSizing: 'border-box'
                         }}
-                      >
-                        <Trash2 size={14} />
-                      </button>
+                      />
                     </div>
                   </div>
-                ))}
 
-                {editingMission.mission.objectives.length === 0 && (
-                  <div style={{ padding: '24px', textAlign: 'center', color: '#9CA3AF', fontSize: '13px' }}>
-                    No objectives yet. Click "Add Objective" to create one.
+                  <div style={{ marginBottom: '24px' }}>
+                    <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: 500 }}>
+                      Description
+                    </label>
+                    <textarea
+                      value={editingMission.mission.description || ''}
+                      onChange={(e) => {
+                        setEditingMission({
+                          ...editingMission,
+                          mission: {
+                            ...editingMission.mission,
+                            description: e.target.value
+                          }
+                        });
+                      }}
+                      placeholder="Event description"
+                      rows={6}
+                      style={{
+                        width: '100%',
+                        padding: '8px 12px',
+                        border: '1px solid #D1D5DB',
+                        borderRadius: '6px',
+                        fontSize: '14px',
+                        resize: 'vertical',
+                        boxSizing: 'border-box'
+                      }}
+                    />
                   </div>
-                )}
-              </div>
 
-              {/* Reference Materials Section */}
-              <div style={{ borderTop: '1px solid #E5E7EB', paddingTop: '16px' }}>
-                <h3 style={{ fontSize: '14px', fontWeight: 600, color: '#6B7280', textTransform: 'uppercase', marginBottom: '12px' }}>
-                  Reference Materials
-                </h3>
-                <ReferenceMaterialsInput
-                  value={editingMission.mission.reference_materials || []}
-                  onChange={(materials) => {
-                    setEditingMission({
-                      ...editingMission,
-                      mission: {
-                        ...editingMission.mission,
-                        reference_materials: materials
-                      }
-                    });
-                  }}
-                />
-              </div>
+                  {/* Image Upload Section */}
+                  <div style={{ marginBottom: '24px' }}>
+                    <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: 500 }}>
+                      Images (up to 4)
+                    </label>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '12px' }}>
+                      {[0, 1, 2, 3].map((imageIndex) => (
+                        <div
+                          key={imageIndex}
+                          onDragOver={(e) => handleMissionImageDragOver(e, imageIndex)}
+                          onDragLeave={(e) => handleMissionImageDragLeave(e, imageIndex)}
+                          onDrop={(e) => handleMissionImageDrop(e, imageIndex)}
+                          style={{
+                            position: 'relative',
+                            border: missionImageDragStates[imageIndex] ? '2px dashed #2563EB' : '2px dashed #D1D5DB',
+                            borderRadius: '8px',
+                            aspectRatio: '16/9',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            backgroundColor: missionImagePreviews[imageIndex] ? 'transparent' : '#F9FAFB',
+                            cursor: 'pointer',
+                            overflow: 'hidden',
+                            transition: 'all 0.2s'
+                          }}
+                        >
+                          {missionImagePreviews[imageIndex] ? (
+                            <>
+                              <img
+                                src={missionImagePreviews[imageIndex]!}
+                                alt={`Preview ${imageIndex + 1}`}
+                                style={{
+                                  width: '100%',
+                                  height: '100%',
+                                  objectFit: 'cover'
+                                }}
+                              />
+                              <button
+                                onClick={() => removeMissionImage(imageIndex)}
+                                style={{
+                                  position: 'absolute',
+                                  top: '6px',
+                                  right: '6px',
+                                  padding: '4px',
+                                  backgroundColor: 'rgba(0, 0, 0, 0.6)',
+                                  border: 'none',
+                                  borderRadius: '4px',
+                                  cursor: 'pointer',
+                                  color: 'white',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center'
+                                }}
+                              >
+                                <X size={14} />
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <input
+                                type="file"
+                                accept="image/*"
+                                onChange={(e) => handleMissionImageFileInputChange(e, imageIndex)}
+                                style={{
+                                  position: 'absolute',
+                                  inset: 0,
+                                  opacity: 0,
+                                  cursor: 'pointer'
+                                }}
+                              />
+                              <div style={{ textAlign: 'center', pointerEvents: 'none' }}>
+                                <ImageIcon size={24} style={{ color: '#9CA3AF', marginBottom: '8px' }} />
+                                <div style={{ fontSize: '12px', color: '#6B7280' }}>
+                                  {imageIndex === 0 ? 'Header' : `Image ${imageIndex + 1}`}
+                                </div>
+                                <div style={{ fontSize: '11px', color: '#9CA3AF', marginTop: '4px' }}>
+                                  Click or drag
+                                </div>
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {/* Objectives Tab */}
+              {missionDialogTab === 'objectives' && (
+                <div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                    <h3 style={{ fontSize: '14px', fontWeight: 600, color: '#6B7280', textTransform: 'uppercase', margin: 0 }}>
+                      Objectives ({editingMission.mission.objectives.length})
+                    </h3>
+                    <button
+                      onClick={() => {
+                        setEditingMission({
+                          ...editingMission,
+                          mission: {
+                            ...editingMission.mission,
+                            objectives: [
+                              ...editingMission.mission.objectives,
+                              {
+                                scope_level: 'Individual',
+                                objective_text: '',
+                                display_order: editingMission.mission.objectives.length
+                              }
+                            ]
+                          }
+                        });
+                      }}
+                      style={{
+                        padding: '6px 10px',
+                        backgroundColor: '#F3F4F6',
+                        border: '1px solid #D1D5DB',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        fontSize: '13px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px'
+                      }}
+                    >
+                      <Plus size={14} />
+                      Add Objective
+                    </button>
+                  </div>
+
+                  {editingMission.mission.objectives.map((objective, objIndex) => (
+                    <div key={objIndex} style={{ padding: '12px', backgroundColor: '#F9FAFB', borderRadius: '6px', marginBottom: '8px' }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: '150px 1fr auto', gap: '8px', alignItems: 'start' }}>
+                        <select
+                          value={objective.scope_level}
+                          onChange={(e) => {
+                            const updatedObjectives = [...editingMission.mission.objectives];
+                            updatedObjectives[objIndex].scope_level = e.target.value;
+                            setEditingMission({
+                              ...editingMission,
+                              mission: {
+                                ...editingMission.mission,
+                                objectives: updatedObjectives
+                              }
+                            });
+                          }}
+                          style={{
+                            padding: '6px 8px',
+                            border: '1px solid #D1D5DB',
+                            borderRadius: '4px',
+                            fontSize: '13px',
+                            backgroundColor: 'white'
+                          }}
+                        >
+                          <option value="Individual">Individual</option>
+                          <option value="Element">Element</option>
+                          <option value="Flight">Flight</option>
+                          <option value="Mission">Mission</option>
+                        </select>
+                        <input
+                          type="text"
+                          value={objective.objective_text}
+                          onChange={(e) => {
+                            const updatedObjectives = [...editingMission.mission.objectives];
+                            updatedObjectives[objIndex].objective_text = e.target.value;
+                            setEditingMission({
+                              ...editingMission,
+                              mission: {
+                                ...editingMission.mission,
+                                objectives: updatedObjectives
+                              }
+                            });
+                          }}
+                          placeholder="Objective description"
+                          style={{
+                            padding: '6px 8px',
+                            border: '1px solid #D1D5DB',
+                            borderRadius: '4px',
+                            fontSize: '13px',
+                            backgroundColor: 'white'
+                          }}
+                        />
+                        <button
+                          onClick={() => {
+                            const updatedObjectives = editingMission.mission.objectives.filter((_, i) => i !== objIndex);
+                            setEditingMission({
+                              ...editingMission,
+                              mission: {
+                                ...editingMission.mission,
+                                objectives: updatedObjectives
+                              }
+                            });
+                          }}
+                          style={{
+                            padding: '6px',
+                            backgroundColor: 'white',
+                            border: '1px solid #D1D5DB',
+                            borderRadius: '4px',
+                            cursor: 'pointer',
+                            color: '#EF4444'
+                          }}
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+
+                  {editingMission.mission.objectives.length === 0 && (
+                    <div style={{ padding: '48px 24px', textAlign: 'center', color: '#9CA3AF', fontSize: '14px' }}>
+                      No objectives yet. Click "Add Objective" to create one.
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Reference Materials Tab */}
+              {missionDialogTab === 'references' && (
+                <div>
+                  <h3 style={{ fontSize: '14px', fontWeight: 600, color: '#6B7280', textTransform: 'uppercase', marginBottom: '12px' }}>
+                    Reference Materials
+                  </h3>
+                  <ReferenceMaterialsInput
+                    value={editingMission.mission.reference_materials || []}
+                    onChange={(materials) => {
+                      setEditingMission({
+                        ...editingMission,
+                        mission: {
+                          ...editingMission.mission,
+                          reference_materials: materials
+                        }
+                      });
+                    }}
+                  />
+                </div>
+              )}
             </div>
 
             <div style={{ padding: '16px 24px', borderTop: '1px solid #E5E7EB', display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>

@@ -25,6 +25,10 @@ export interface TrainingSyllabusMission {
   mission_name: string;
   description?: string;
   reference_materials?: ReferenceMaterial[];
+  image_url?: {
+    headerImage?: string;
+    additionalImages?: string[];
+  } | null;
   created_at?: string;
   updated_at?: string;
 }

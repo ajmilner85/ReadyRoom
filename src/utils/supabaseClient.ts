@@ -583,6 +583,11 @@ export const createEvent = async (event: Omit<Event, 'id' | 'creator' | 'attenda
     insertData.syllabus_mission_id = event.syllabusMissionId;
   }
 
+  // Image data - stored in image_url JSONB column
+  if ((event as any).imageUrl !== undefined) {
+    insertData.image_url = (event as any).imageUrl;
+  }
+
   console.log('[CREATE-EVENT] User attempting insert:', {
     userId: user.id,
     userEmail: user.email,
