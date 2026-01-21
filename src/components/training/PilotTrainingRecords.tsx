@@ -144,7 +144,7 @@ const PilotTrainingRecords: React.FC<PilotTrainingRecordsProps> = ({ error, setE
   }
 
   return (
-    <div style={{ padding: '40px 32px', height: '100%', overflow: 'auto', display: 'flex', flexDirection: 'column' }}>
+    <div style={{ padding: '40px 32px', height: '100%', display: 'flex', flexDirection: 'column' }}>
       {/* Header */}
       <div style={{ marginBottom: '24px' }}>
         <h2 style={{ fontSize: '20px', fontWeight: 600, marginBottom: '4px', margin: 0 }}>
@@ -245,7 +245,7 @@ const PilotTrainingRecords: React.FC<PilotTrainingRecordsProps> = ({ error, setE
           </div>
 
           {/* PTR Grid Content */}
-          <div style={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
+          <div style={{ flex: 1, minHeight: 0 }}>
             {selectedCycleId && cycles.find(c => c.id === selectedCycleId)?.syllabus_id ? (
               <PTRGrid
                 key={ptrGridKey}

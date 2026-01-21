@@ -558,8 +558,8 @@ const PTRGrid: React.FC<PTRGridProps> = ({ syllabusId, cycleId, onCellClick }) =
         </button>
       </div>
 
-      <div style={{ border: '1px solid #E5E7EB', borderRadius: '6px', position: 'relative', overflow: 'visible', width: 'fit-content' }}>
-        <div style={{ overflowX: 'auto', overflowY: 'auto', maxHeight: '600px', position: 'relative' }}>
+      <div style={{ border: '1px solid #E5E7EB', borderRadius: '6px', position: 'relative', overflow: 'visible', width: 'fit-content', height: '100%', display: 'flex', flexDirection: 'column' }}>
+        <div style={{ overflowX: 'auto', overflowY: 'auto', flex: 1, position: 'relative' }}>
           <table style={{ borderCollapse: 'collapse', width: 'auto' }}>
             <thead style={{ position: 'sticky', top: 0, zIndex: 10 }}>
               {/* Week Number Row */}
