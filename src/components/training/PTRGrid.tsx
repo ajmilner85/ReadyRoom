@@ -3,9 +3,10 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../../utils/supabaseClient';
 import { Download, BookOpen, CheckCircle2, ExternalLink, FileText } from 'lucide-react';
 import PilotIDBadgeSm from '../ui/PilotIDBadgeSm';
-import { PTRCellData } from '../../types/TrainingTypes';
+import { PTRCellData, TrainingGrade } from '../../types/TrainingTypes';
 import type { ReferenceMaterial } from '../../types/EventTypes';
 import { useNavigate } from 'react-router-dom';
+import PTRCellTooltip from './PTRCellTooltip';
 
 interface PTRGridProps {
   syllabusId: string;
@@ -52,6 +53,11 @@ const PTRGrid: React.FC<PTRGridProps> = ({ syllabusId, cycleId, onCellClick }) =
   const [sortBy, setSortBy] = useState<'boardNumber' | 'callsign'>('boardNumber');
   const [hoveredWeekPopup, setHoveredWeekPopup] = useState<number | null>(null);
   const [clickedWeekPopup, setClickedWeekPopup] = useState<number | null>(null);
+  const [tooltipData, setTooltipData] = useState<{
+    grade: TrainingGrade;
+    weekInfo: WeekInfo;
+    position: { x: number; y: number };
+  } | null>(null);
 
   useEffect(() => {
     loadPTRData();
@@ -517,6 +523,87 @@ const PTRGrid: React.FC<PTRGridProps> = ({ syllabusId, cycleId, onCellClick }) =
     }
   };
 
+  const handleCellHover = async (cellData: PTRCellData, event: React.MouseEvent<HTMLTableCellElement>, weekInfo: WeekInfo) => {
+    // Only show tooltip if there's a grade
+    if (!cellData.hasGrade || !cellData.latestAttemptId) {
+      setTooltipData(null);
+      return;
+    }
+
+    try {
+      // Get the cell's bounding rectangle to center the tooltip on the cell
+      const cellRect = event.currentTarget.getBoundingClientRect();
+      const cellCenterX = cellRect.left + cellRect.width / 2;
+      const cellCenterY = cellRect.top + cellRect.height / 2;
+
+      // Fetch the full grade data with all details
+      const { data: gradeData, error: gradeError } = await supabase
+        .from('training_grades')
+        .select(`
+          *,
+          student:pilots!training_grades_student_id_fkey(id, callsign, boardNumber),
+          gradedByPilot:pilots!training_grades_graded_by_pilot_id_fkey(id, callsign),
+          assignedIpPilot:pilots!training_grades_assigned_ip_pilot_id_fkey(id, callsign),
+          event:events(id, name, start_datetime)
+        `)
+        .eq('id', cellData.latestAttemptId)
+        .single();
+
+      if (gradeError) throw gradeError;
+
+      console.log('Raw grade data from DB:', gradeData);
+
+      // Map database fields (snake_case) to interface fields (camelCase)
+      const processedGradeData: TrainingGrade = {
+        id: gradeData.id,
+        studentId: gradeData.student_id,
+        syllabusMissionId: gradeData.syllabus_mission_id,
+        cycleId: gradeData.cycle_id,
+        eventId: gradeData.event_id,
+        isMakeupFlight: gradeData.is_makeup_flight,
+        makeupNotes: gradeData.makeup_notes,
+        attemptNumber: gradeData.attempt_number,
+        gradedByPilotId: gradeData.graded_by_pilot_id,
+        assignedIpPilotId: gradeData.assigned_ip_pilot_id,
+        ipMismatchAcknowledged: gradeData.ip_mismatch_acknowledged,
+        overallGrade: gradeData.overall_grade,
+        overallNotes: gradeData.overall_notes,
+        dloGrades: Array.isArray(gradeData.dlo_grades) ? gradeData.dlo_grades.map((dlo: any) => ({
+          objectiveId: dlo.objectiveId || dlo.objective_id,
+          grade: dlo.grade,
+          notes: dlo.notes
+        })) : [],
+        flightDate: gradeData.flight_date,
+        gradedAt: gradeData.graded_at,
+        updatedAt: gradeData.updated_at,
+        createdAt: gradeData.created_at,
+        student: gradeData.student,
+        gradedByPilot: gradeData.gradedByPilot,
+        assignedIpPilot: gradeData.assignedIpPilot,
+        event: gradeData.event
+      };
+
+      console.log('Processed grade data:', processedGradeData);
+
+      // Set tooltip data with cell center position
+      setTooltipData({
+        grade: processedGradeData,
+        weekInfo: weekInfo,
+        position: {
+          x: cellCenterX,
+          y: cellCenterY
+        }
+      });
+    } catch (err) {
+      console.error('Error loading grade details for tooltip:', err);
+      setTooltipData(null);
+    }
+  };
+
+  const handleCellLeave = () => {
+    setTooltipData(null);
+  };
+
   if (loading) {
     return (
       <div style={{ padding: '32px', textAlign: 'center', color: '#6B7280' }}>
@@ -869,6 +956,8 @@ const PTRGrid: React.FC<PTRGridProps> = ({ syllabusId, cycleId, onCellClick }) =
                       }}
                       onMouseEnter={() => {
                         setHoveredCol(week.weekNumber);
+                        // Clear cell tooltip when hovering over a week header
+                        setTooltipData(null);
                         if (clickedWeekPopup === null) {
                           setHoveredWeekPopup(week.weekNumber);
                         }
@@ -988,13 +1077,18 @@ const PTRGrid: React.FC<PTRGridProps> = ({ syllabusId, cycleId, onCellClick }) =
                     return (
                       <td
                         key={week.weekNumber}
-                        onMouseEnter={() => {
+                        onMouseEnter={(e) => {
                           setHoveredRow(row.student.id);
                           setHoveredCol(week.weekNumber);
+                          // Clear week header tooltip when hovering over a cell
+                          setHoveredWeekPopup(null);
+                          setClickedWeekPopup(null);
+                          handleCellHover(cellData, e, week);
                         }}
                         onMouseLeave={() => {
                           setHoveredRow(null);
                           setHoveredCol(null);
+                          handleCellLeave();
                         }}
                         onClick={() => handleCellClick(cellData)}
                         style={{
@@ -1020,6 +1114,18 @@ const PTRGrid: React.FC<PTRGridProps> = ({ syllabusId, cycleId, onCellClick }) =
           </table>
         </div>
       </div>
+
+      {/* Tooltip */}
+      {tooltipData && (
+        <PTRCellTooltip
+          grade={tooltipData.grade}
+          missionName={tooltipData.weekInfo.missionName || ''}
+          missionNumber={tooltipData.weekInfo.missionNumber || 0}
+          weekNumber={tooltipData.weekInfo.weekNumber}
+          objectives={tooltipData.weekInfo.objectives || []}
+          position={tooltipData.position}
+        />
+      )}
     </div>
   );
 };
