@@ -314,8 +314,8 @@ export interface TrainingGrade {
   };
   event?: {
     id: string;
-    title: string;
-    datetime: string;
+    name: string;
+    start_datetime: string;
   };
 }
 
