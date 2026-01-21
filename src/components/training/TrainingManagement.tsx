@@ -189,10 +189,11 @@ const TrainingManagement: React.FC = () => {
 
             {/* Main content area */}
             <div
-              className="flex-1 overflow-auto"
+              className="flex-1"
               style={{
                 fontFamily: 'Inter',
-                minWidth: 0
+                minWidth: 0,
+                overflow: 'hidden'
               }}
             >
               {renderTrainingContent()}
