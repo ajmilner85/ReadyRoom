@@ -1194,10 +1194,10 @@ const EventsManagement: React.FC = () => {
     if (!cycleData.syllabusId) return;
 
     try {
-      // Load syllabus missions with week numbers
+      // Load syllabus missions with week numbers and images
       const { data: missions, error: missionsError } = await supabase
         .from('training_syllabus_missions')
-        .select('id, week_number, mission_name')
+        .select('id, week_number, mission_name, image_url')
         .eq('syllabus_id', cycleData.syllabusId)
         .order('week_number') as any;
 
@@ -1235,6 +1235,9 @@ const EventsManagement: React.FC = () => {
           ? `Week ${weekNum} - ${mission.mission_name}`
           : `Week ${weekNum}`;
 
+        // Copy image_url JSONB object directly from syllabus mission if available
+        const imageUrl = mission?.image_url || undefined;
+
         const eventData = {
           title: eventTitle,
           description: mission ? `Training Mission: ${mission.mission_name}` : '',
@@ -1248,6 +1251,7 @@ const EventsManagement: React.FC = () => {
           trackQualifications: !!mission, // Only track qualifications if there's a mission assigned
           syllabusMissionId: mission?.id,
           referenceMaterials: [],
+          imageUrl,
           eventSettings: {
             timezone: settings.eventDefaults.referenceTimezone || 'America/New_York',
             showNoResponse: settings.eventDefaults.showNoResponse,

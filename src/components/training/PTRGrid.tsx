@@ -229,15 +229,6 @@ const PTRGrid: React.FC<PTRGridProps> = ({ syllabusId, cycleId, onCellClick }) =
         missionToEvent.set(event.syllabus_mission_id, event);
       });
 
-      console.log('[PTR-DEBUG] missionToEvent map:', {
-        size: missionToEvent.size,
-        entries: Array.from(missionToEvent.entries()).map(([syllabusMissionId, event]) => ({
-          syllabusMissionId,
-          eventId: event.id,
-          eventName: event.name
-        }))
-      });
-
       const weeks: WeekInfo[] = Array.from(weekMap.entries())
         .map(([weekNumber, data]) => {
           const event = missionToEvent.get(data.syllabusMissionId);
@@ -262,7 +253,7 @@ const PTRGrid: React.FC<PTRGridProps> = ({ syllabusId, cycleId, onCellClick }) =
 
       const mapInstanceId = Math.random().toString(36).substring(7);
       let attendanceMap = new Map(); // key: `${eventId}_${pilotId}`, value: { wasPresent, wasAssignedToFlight, assignedIpCallsign }
-      console.log(`[PTR-DEBUG] Created new attendanceMap instance: ${mapInstanceId}`);
+
 
       if (eventIds.length > 0) {
         // Build list of discord_event_ids to query - includes both published events and manual entries
@@ -294,19 +285,13 @@ const PTRGrid: React.FC<PTRGridProps> = ({ syllabusId, cycleId, onCellClick }) =
           discordToEventMap.set(manualId, e.id);
         });
 
-        console.log('[PTR-DEBUG] Querying attendance for discordEventIds:', discordEventIdsToQuery);
+
 
         if (discordEventIdsToQuery.length > 0) {
           const { data: attendanceData, error: attendanceError } = await supabase
             .from('discord_event_attendance')
             .select('discord_event_id, discord_id, roll_call_response')
             .in('discord_event_id', discordEventIdsToQuery);
-
-          console.log('[PTR-DEBUG] Attendance query result:', { 
-            count: attendanceData?.length, 
-            error: attendanceError,
-            records: attendanceData?.slice(0, 5) // Log first 5 records
-          });
 
           if (!attendanceError && attendanceData) {
             // Get discord_id to pilot_id mapping
@@ -322,7 +307,7 @@ const PTRGrid: React.FC<PTRGridProps> = ({ syllabusId, cycleId, onCellClick }) =
               discordToPilot.set(p.discord_id, p.id);
             });
 
-            console.log('[PTR-DEBUG] Discord to pilot mapping count:', discordToPilot.size);
+
 
             attendanceData.forEach((att: any) => {
               const pilotId = discordToPilot.get(att.discord_id);
@@ -337,7 +322,7 @@ const PTRGrid: React.FC<PTRGridProps> = ({ syllabusId, cycleId, onCellClick }) =
                   // Skip - don't overwrite Present with a non-Present entry
                   // This can happen when an event has multiple Discord threads/messages
                   if (pilotId === '420288b4-d803-4815-a1bb-5b46df18ad03') {
-                    console.log(`[PTR-DEBUG] Kate: SKIPPING overwrite - already marked Present, ignoring ${att.roll_call_response}`);
+
                   }
                   return;
                 }
@@ -349,19 +334,8 @@ const PTRGrid: React.FC<PTRGridProps> = ({ syllabusId, cycleId, onCellClick }) =
                 };
                 attendanceMap.set(key, valueToSet);
                 
-                // Debug: Log ALL attendance entries for Kate (not just Present)
-                if (pilotId === '420288b4-d803-4815-a1bb-5b46df18ad03') {
-                  console.log(`[PTR-DEBUG] Kate attendance entry (map ${mapInstanceId}):`, {
-                    key,
-                    discord_event_id: att.discord_event_id,
-                    roll_call_response: att.roll_call_response,
-                    wasPresent,
-                    valueSet: valueToSet
-                  });
-                }
-                
                 if (wasPresent) {
-                  console.log(`[PTR-DEBUG] Set wasPresent=true for key: ${key}, roll_call_response: ${att.roll_call_response}`);
+
                 }
               }
             });
@@ -371,21 +345,11 @@ const PTRGrid: React.FC<PTRGridProps> = ({ syllabusId, cycleId, onCellClick }) =
 
       // Load flight assignments from missions table
       if (eventIds.length > 0) {
-        console.log('[PTR-DEBUG] Loading flight assignments for eventIds:', eventIds);
+
         const { data: missionsWithAssignments, error: missionsAssignError } = await supabase
           .from('missions')
           .select('event_id, pilot_assignments')
           .in('event_id', eventIds);
-
-        console.log('[PTR-DEBUG] Missions with assignments:', { 
-          count: missionsWithAssignments?.length, 
-          error: missionsAssignError,
-          missions: missionsWithAssignments?.map(m => ({ 
-            event_id: m.event_id, 
-            hasAssignments: !!m.pilot_assignments,
-            assignmentKeys: m.pilot_assignments ? Object.keys(m.pilot_assignments) : []
-          }))
-        });
 
         if (!missionsAssignError && missionsWithAssignments) {
           missionsWithAssignments.forEach((mission: any) => {
@@ -397,10 +361,6 @@ const PTRGrid: React.FC<PTRGridProps> = ({ syllabusId, cycleId, onCellClick }) =
             Object.entries(assignments).forEach(([flightId, pilots]: [string, any]) => {
               if (!Array.isArray(pilots)) return;
 
-              console.log(`[PTR-DEBUG] Processing flight ${flightId} with ${pilots.length} pilots:`, 
-                pilots.map((p: any) => ({ pilot_id: p.pilot_id, id: p.id, dash_number: p.dash_number, dashNumber: p.dashNumber }))
-              );
-
               // Find flight lead - check both dash_number (db) and dashNumber (UI) formats
               const flightLead = pilots.find((p: any) => p.dash_number === "1" || p.dashNumber === "1");
               const ipCallsign = flightLead?.callsign;
@@ -409,23 +369,13 @@ const PTRGrid: React.FC<PTRGridProps> = ({ syllabusId, cycleId, onCellClick }) =
                 // Use pilot_id (db format) or id (UI format)
                 const pilotId = pilot.pilot_id || pilot.id;
                 if (!pilotId) {
-                  console.log('[PTR-DEBUG] Skipping pilot with no ID:', pilot);
+
                   return; // Skip if no valid pilot ID
                 }
 
                 const key = `${mission.event_id}_${pilotId}`;
                 const existing = attendanceMap.get(key);
                 const existingOrDefault = existing || { wasPresent: false, wasAssignedToFlight: false, assignedIpCallsign: null };
-                
-                // Debug: Log when updating Kate's entry
-                if (pilotId === '420288b4-d803-4815-a1bb-5b46df18ad03') {
-                  console.log(`[PTR-DEBUG] Updating flight for Kate (before) (map ${mapInstanceId}):`, {
-                    key,
-                    existingFound: !!existing,
-                    existingValue: existing,
-                    existingWasPresent: existing?.wasPresent
-                  });
-                }
                 
                 const newValue = {
                   ...existingOrDefault,
@@ -434,29 +384,12 @@ const PTRGrid: React.FC<PTRGridProps> = ({ syllabusId, cycleId, onCellClick }) =
                 };
                 attendanceMap.set(key, newValue);
                 
-                // Debug: Verify value was set correctly for Kate
-                if (pilotId === '420288b4-d803-4815-a1bb-5b46df18ad03') {
-                  const readBack = attendanceMap.get(key);
-                  console.log('[PTR-DEBUG] Updating flight for Kate (after):', {
-                    key,
-                    newValue,
-                    readBack,
-                    readBackWasPresent: readBack?.wasPresent
-                  });
-                }
-                
-                console.log(`[PTR-DEBUG] Set wasAssignedToFlight=true for key: ${key}`);
+
               });
             });
           });
         }
       }
-
-      // Debug: Log attendanceMap keys after it's fully built
-      console.log('[PTR-DEBUG] attendanceMap final state:', {
-        size: attendanceMap.size,
-        sampleKeys: Array.from(attendanceMap.keys()).slice(0, 10)
-      });
 
       // Load grades for this cycle
       const { data: gradesData, error: gradesError } = await supabase
@@ -491,33 +424,6 @@ const PTRGrid: React.FC<PTRGridProps> = ({ syllabusId, cycleId, onCellClick }) =
           const event = missionToEvent.get(week.syllabusMissionId);
           const attendanceKey = event ? `${event.id}_${pilot.id}` : null;
           const attendance = attendanceKey ? attendanceMap.get(attendanceKey) : null;
-          
-          // Debug: Log for week 0 to see what's happening
-          if (week.weekNumber === 0 && pilot.callsign === 'Kate') {
-            const mapValue = attendanceKey ? attendanceMap.get(attendanceKey) : null;
-            console.log(`[PTR-DEBUG] Week 0 for Kate:`, {
-              syllabusMissionId: week.syllabusMissionId,
-              eventFound: !!event,
-              eventId: event?.id,
-              eventName: event?.name,
-              attendanceKey,
-              attendanceFound: !!attendance,
-              wasPresent: attendance?.wasPresent,
-              attendanceMapHasKey: attendanceKey ? attendanceMap.has(attendanceKey) : false,
-              fullMapValue: mapValue,
-              mapSize: attendanceMap.size
-            });
-          }
-          
-          // Debug: Log when we find attendance data
-          if (attendance?.wasPresent && pilot.callsign) {
-            console.log(`[PTR-DEBUG] Cell data for ${pilot.callsign} week ${week.weekNumber}:`, {
-              attendanceKey,
-              wasPresent: attendance?.wasPresent,
-              wasAssignedToFlight: attendance?.wasAssignedToFlight,
-              event: event ? { id: event.id, name: event.name } : 'NO EVENT'
-            });
-          }
 
           const gradeKey = `${pilot.id}_${week.syllabusMissionId}`;
           const gradeData = gradeMap.get(gradeKey);
