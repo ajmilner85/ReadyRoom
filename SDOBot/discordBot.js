@@ -135,28 +135,30 @@ async function extractEmbedDataFromDatabaseEvent(dbEvent, overrideTimezone = nul
     billet: dbEvent.creator_billet || ''
   };
 
-  let timezone = overrideTimezone || 'America/New_York';
-  if (!overrideTimezone && dbEvent.event_settings) {
+  // Parse event_settings once and reuse the parsed object
+  let settings = {};
+  if (dbEvent.event_settings) {
     try {
-      const settings = typeof dbEvent.event_settings === 'string'
+      settings = typeof dbEvent.event_settings === 'string'
         ? JSON.parse(dbEvent.event_settings)
         : dbEvent.event_settings;
-
-      if (settings.timezone) {
-        timezone = settings.timezone;
-      }
     } catch (error) {
-      console.warn('Failed to parse event settings for timezone, using default');
+      console.warn('Failed to parse event settings, using empty object');
     }
   }
 
+  const timezone = overrideTimezone || settings.timezone || 'America/New_York';
+
   const eventOptions = {
-    trackQualifications: dbEvent.event_settings?.groupResponsesByQualification || dbEvent.track_qualifications || false,
-    groupBySquadron: dbEvent.event_settings?.groupBySquadron || false,
-    showNoResponse: dbEvent.event_settings?.showNoResponse || false,
+    trackQualifications: settings.groupResponsesByQualification || dbEvent.track_qualifications || false,
+    groupBySquadron: settings.groupBySquadron || false,
+    showNoResponse: settings.showNoResponse || false,
+    allowTentativeResponse: settings.allowTentativeResponse ?? true,
     eventType: dbEvent.event_type || null,
     timezone: timezone
   };
+
+  console.log(`[EXTRACT-EMBED-DATA] Event ${dbEvent.id} allowTentativeResponse: ${eventOptions.allowTentativeResponse} (from event_settings: ${settings.allowTentativeResponse})`);
 
   // Fetch training data if this is a training event
   if (dbEvent.syllabus_mission_id) {

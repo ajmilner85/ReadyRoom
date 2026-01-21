@@ -312,6 +312,7 @@ router.post('/events/publish', async (req, res) => {
             eventType: eventData.event_type || null,
             groupBySquadron: eventSettings.groupBySquadron || false,
             showNoResponse: eventSettings.showNoResponse || false,
+            allowTentativeResponse: eventSettings.allowTentativeResponse ?? true,
             participatingSquadrons: participatingSquadrons, // Pass to Discord bot
             initialNotificationRoles: eventSettings.initialNotificationRoles || [] // For @mentions on initial publication
           };

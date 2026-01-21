@@ -493,6 +493,7 @@ const EventsManagement: React.FC = () => {
     timezone?: string;
     groupBySquadron?: boolean;
     showNoResponse?: boolean;
+    allowTentativeResponse?: boolean;
     aarOperationalOnly?: boolean;
     reminders?: {
       firstReminder?: {
@@ -749,6 +750,7 @@ const EventsManagement: React.FC = () => {
     timezone?: string;
     groupBySquadron?: boolean;
     showNoResponse?: boolean;
+    allowTentativeResponse?: boolean;
     aarOperationalOnly?: boolean;
     reminders?: {
       firstReminder?: {
@@ -801,6 +803,7 @@ const EventsManagement: React.FC = () => {
         timezone: eventData.timezone,
         groupBySquadron: eventData.groupBySquadron,
         showNoResponse: eventData.showNoResponse,
+        allowTentativeResponse: eventData.allowTentativeResponse,
         aarOperationalOnly: eventData.aarOperationalOnly,
         groupResponsesByQualification: eventData.trackQualifications,
         includeInAttendanceReport: (eventData as any).includeInAttendanceReport,

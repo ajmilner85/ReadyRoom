@@ -9,24 +9,32 @@ const { ensureLoggedIn, findEventsChannel } = require('./discordClient');
 
 /**
  * Create attendance buttons
+ * @param {boolean} allowTentative - Whether to include the tentative button (default: true)
  */
-function createAttendanceButtons() {
+function createAttendanceButtons(allowTentative = true) {
   const acceptButton = new ButtonBuilder()
     .setCustomId('accept')
     .setLabel('Accept')
     .setStyle(ButtonStyle.Success);
-  
+
   const declineButton = new ButtonBuilder()
     .setCustomId('decline')
     .setLabel('Decline')
     .setStyle(ButtonStyle.Danger);
-  
-  const tentativeButton = new ButtonBuilder()
-    .setCustomId('tentative')
-    .setLabel('Tentative')
-    .setStyle(ButtonStyle.Primary);
-  
-  return new ActionRowBuilder().addComponents(acceptButton, tentativeButton, declineButton);
+
+  const components = [acceptButton];
+
+  if (allowTentative) {
+    const tentativeButton = new ButtonBuilder()
+      .setCustomId('tentative')
+      .setLabel('Tentative')
+      .setStyle(ButtonStyle.Primary);
+    components.push(tentativeButton);
+  }
+
+  components.push(declineButton);
+
+  return new ActionRowBuilder().addComponents(...components);
 }
 
 /**
@@ -80,7 +88,7 @@ async function publishEventToDiscord(title, description, eventTime, guildId, cha
     }
 
     const eventEmbed = await createEventEmbed(title, description, eventTime, initialResponses, creator, imageData, eventOptions);
-    const buttons = createAttendanceButtons();
+    const buttons = createAttendanceButtons(eventOptions.allowTentativeResponse ?? true);
     
     const additionalEmbeds = createAdditionalImageEmbeds(imageData, 'https://readyroom.app');
     const allEmbeds = [eventEmbed, ...additionalEmbeds];
