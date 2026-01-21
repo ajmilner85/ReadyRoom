@@ -77,6 +77,7 @@ interface EventDialogProps {
       groupResponsesByQualification?: boolean;
       groupBySquadron?: boolean;
       showNoResponse?: boolean;
+      allowTentativeResponse?: boolean;
       aarOperationalOnly?: boolean;
       firstReminderEnabled?: boolean;
       firstReminderTime?: {
@@ -187,6 +188,12 @@ export const EventDialog: React.FC<EventDialogProps> = ({
     initialData?.eventSettings?.showNoResponse !== undefined
       ? initialData.eventSettings.showNoResponse
       : settings.eventDefaults.showNoResponse
+  );
+
+  const [allowTentativeResponse, setAllowTentativeResponse] = useState(
+    initialData?.eventSettings?.allowTentativeResponse !== undefined
+      ? initialData.eventSettings.allowTentativeResponse
+      : settings.eventDefaults.allowTentativeResponse ?? true
   );
 
   const [aarOperationalOnly, setAarOperationalOnly] = useState(
@@ -1157,6 +1164,7 @@ export const EventDialog: React.FC<EventDialogProps> = ({
       // console.log('[EVENT-DIALOG-DEBUG] About to save event with participants:', participants);
       // console.log('[EVENT-DIALOG-DEBUG] Participants length:', participants.length);
       // console.log('[EVENT-DIALOG-DEBUG] Selected cycle participants:', selectedCycle?.participants);
+      console.log('[EVENT-DIALOG-SAVE] allowTentativeResponse state value:', allowTentativeResponse);
 
       await onSave({
         title: title.trim(),
@@ -1174,6 +1182,7 @@ export const EventDialog: React.FC<EventDialogProps> = ({
         trackQualifications,
         groupBySquadron,
         showNoResponse,
+        allowTentativeResponse,
         aarOperationalOnly,
         timezone,
         reminders: {
@@ -2130,6 +2139,52 @@ export const EventDialog: React.FC<EventDialogProps> = ({
                         position: 'absolute',
                         top: '2px',
                         left: showNoResponse ? '22px' : '2px',
+                        transition: 'left 0.2s ease',
+                        boxShadow: '0 2px 4px rgba(0, 0, 0, 0.2)'
+                      }}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ marginBottom: '16px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div>
+                    <label style={{
+                      fontSize: '14px',
+                      fontWeight: 500,
+                      color: '#64748B',
+                      marginBottom: '4px',
+                      display: 'block'
+                    }}>
+                      Allow users to respond tentatively to event
+                    </label>
+                    <p style={{ fontSize: '12px', color: '#64748B', margin: '0', fontFamily: 'Inter' }}>
+                      When enabled, users can select "Tentative" in addition to "Accept" or "Decline".
+                    </p>
+                  </div>
+                  <div
+                    onClick={() => setAllowTentativeResponse(!allowTentativeResponse)}
+                    style={{
+                      width: '44px',
+                      height: '24px',
+                      backgroundColor: allowTentativeResponse ? '#3B82F6' : '#E5E7EB',
+                      borderRadius: '12px',
+                      position: 'relative',
+                      cursor: 'pointer',
+                      transition: 'background-color 0.2s ease',
+                      marginLeft: '16px'
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: '20px',
+                        height: '20px',
+                        backgroundColor: 'white',
+                        borderRadius: '50%',
+                        position: 'absolute',
+                        top: '2px',
+                        left: allowTentativeResponse ? '22px' : '2px',
                         transition: 'left 0.2s ease',
                         boxShadow: '0 2px 4px rgba(0, 0, 0, 0.2)'
                       }}

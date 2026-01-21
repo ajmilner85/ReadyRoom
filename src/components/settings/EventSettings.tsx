@@ -580,6 +580,25 @@ const EventSettings: React.FC<EventSettingsProps> = ({ error, setError }) => {
           </div>
         </div>
 
+        {/* Response Options Section */}
+        <div style={sectionStyle}>
+          <h3 style={{ fontSize: '18px', fontWeight: 600, color: '#0F172A', margin: '0 0 16px 0' }}>
+            Response Options
+          </h3>
+
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div>
+              <label style={fieldLabelStyle}>Allow users to respond tentatively to events</label>
+              <p style={{ fontSize: '12px', color: '#64748B', margin: '4px 0 0 0', fontFamily: 'Inter' }}>
+                When enabled, users can select "Tentative" in addition to "Accept" or "Decline".
+              </p>
+            </div>
+            {renderToggle(appSettings.eventDefaults.allowTentativeResponse, (enabled) =>
+              handleSettingChange('allowTentativeResponse', enabled)
+            )}
+          </div>
+        </div>
+
         {/* Response Grouping Section */}
         <div style={sectionStyle}>
           <h3 style={{ fontSize: '18px', fontWeight: 600, color: '#0F172A', margin: '0 0 16px 0' }}>

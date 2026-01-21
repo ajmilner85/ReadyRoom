@@ -47,6 +47,9 @@ export interface AppSettings {
     sendRemindersToAccepted: boolean;
     sendRemindersToTentative: boolean;
 
+    // Response Options
+    allowTentativeResponse: boolean;
+
     // Response Grouping
     groupResponsesByQualification: boolean;
     groupBySquadron: boolean;
@@ -110,6 +113,9 @@ const defaultSettings: AppSettings = {
     // Legacy reminder recipient settings (for backwards compatibility)
     sendRemindersToAccepted: true,
     sendRemindersToTentative: true,
+
+    // Response options default
+    allowTentativeResponse: true, // default to true for backward compatibility
 
     // Response grouping default (ALL ENABLED by default)
     groupResponsesByQualification: true,

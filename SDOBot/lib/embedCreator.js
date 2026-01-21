@@ -13,12 +13,13 @@ const { formatInTimeZone } = require('date-fns-tz');
 async function createEventEmbed(title, description, eventTime, responses = {}, creator = null, images = null, eventOptions = {}) {
   // VERSION SENTINEL
   console.log(`[CODE-VERSION-SENTINEL] createEventEmbed v3.2 - Added Training Event Support`);
-  console.log(`[CODE-VERSION-SENTINEL] Event: ${title}, trackQuals: ${eventOptions.trackQualifications}, groupSquad: ${eventOptions.groupBySquadron}, showNoResponse: ${eventOptions.showNoResponse}, isTraining: ${!!eventOptions.trainingData}`);
+  console.log(`[CODE-VERSION-SENTINEL] Event: ${title}, trackQuals: ${eventOptions.trackQualifications}, groupSquad: ${eventOptions.groupBySquadron}, showNoResponse: ${eventOptions.showNoResponse}, allowTentative: ${eventOptions.allowTentativeResponse ?? true}, isTraining: ${!!eventOptions.trainingData}`);
 
   const accepted = responses.accepted || [];
   const declined = responses.declined || [];
   const tentative = responses.tentative || [];
   const noResponse = responses.noResponse || [];
+  const allowTentative = eventOptions.allowTentativeResponse ?? true;
   
   // Helper function to format pilot entries
   const formatPilotEntry = (entry) => {
@@ -540,19 +541,30 @@ async function createEventEmbed(title, description, eventTime, responses = {}, c
 
     // Add Tentative, Declined, and No Response sections at the end (in 3-column layout if showNoResponse)
     if (shouldShowNoResponse) {
-      // Use 3-column layout: Tentative | Declined | No Response
-      const tentativeText = tentative.length > 0 ? createBlockQuote(tentative) : '-';
-      const declinedText = declined.length > 0 ? createBlockQuote(declined) : '-';
-      const noResponseText = createBlockQuote(noResponse);
+      // Use 3-column layout: Tentative | Declined | No Response (or 2-column if tentative disabled)
+      if (allowTentative) {
+        const tentativeText = tentative.length > 0 ? createBlockQuote(tentative) : '-';
+        const declinedText = declined.length > 0 ? createBlockQuote(declined) : '-';
+        const noResponseText = createBlockQuote(noResponse);
 
-      embed.addFields(
-        { name: `❓ **Tentative** (${tentative.length})`, value: tentativeText, inline: true },
-        { name: `❌ **Declined** (${declined.length})`, value: declinedText, inline: true },
-        { name: `⏳ **No Response** (${noResponse.length})`, value: noResponseText, inline: true }
-      );
+        embed.addFields(
+          { name: `❓ **Tentative** (${tentative.length})`, value: tentativeText, inline: true },
+          { name: `❌ **Declined** (${declined.length})`, value: declinedText, inline: true },
+          { name: `⏳ **No Response** (${noResponse.length})`, value: noResponseText, inline: true }
+        );
+      } else {
+        // 2-column layout: Declined | No Response
+        const declinedText = declined.length > 0 ? createBlockQuote(declined) : '-';
+        const noResponseText = createBlockQuote(noResponse);
+
+        embed.addFields(
+          { name: `❌ **Declined** (${declined.length})`, value: declinedText, inline: true },
+          { name: `⏳ **No Response** (${noResponse.length})`, value: noResponseText, inline: true }
+        );
+      }
     } else {
       // Use original layout without No Response
-      if (tentative.length > 0) {
+      if (allowTentative && tentative.length > 0) {
         const tentativeText = createBlockQuote(tentative);
         embed.addFields(
           { name: `❓ **Tentative** (${tentative.length})`, value: tentativeText, inline: false }
@@ -647,19 +659,30 @@ async function createEventEmbed(title, description, eventTime, responses = {}, c
     // Add Tentative, Declined, and No Response sections at the end (in 3-column layout if showNoResponse)
 
     if (shouldShowNoResponse) {
-      // Use 3-column layout: Tentative | Declined | No Response
-      const tentativeText = tentative.length > 0 ? createBlockQuote(tentative) : '-';
-      const declinedText = declined.length > 0 ? createBlockQuote(declined) : '-';
-      const noResponseText = createBlockQuote(noResponse);
+      // Use 3-column layout: Tentative | Declined | No Response (or 2-column if tentative disabled)
+      if (allowTentative) {
+        const tentativeText = tentative.length > 0 ? createBlockQuote(tentative) : '-';
+        const declinedText = declined.length > 0 ? createBlockQuote(declined) : '-';
+        const noResponseText = createBlockQuote(noResponse);
 
-      embed.addFields(
-        { name: `❓ **Tentative** (${tentative.length})`, value: tentativeText, inline: true },
-        { name: `❌ **Declined** (${declined.length})`, value: declinedText, inline: true },
-        { name: `⏳ **No Response** (${noResponse.length})`, value: noResponseText, inline: true }
-      );
+        embed.addFields(
+          { name: `❓ **Tentative** (${tentative.length})`, value: tentativeText, inline: true },
+          { name: `❌ **Declined** (${declined.length})`, value: declinedText, inline: true },
+          { name: `⏳ **No Response** (${noResponse.length})`, value: noResponseText, inline: true }
+        );
+      } else {
+        // 2-column layout: Declined | No Response
+        const declinedText = declined.length > 0 ? createBlockQuote(declined) : '-';
+        const noResponseText = createBlockQuote(noResponse);
+
+        embed.addFields(
+          { name: `❌ **Declined** (${declined.length})`, value: declinedText, inline: true },
+          { name: `⏳ **No Response** (${noResponse.length})`, value: noResponseText, inline: true }
+        );
+      }
     } else {
       // Use original layout without No Response
-      if (tentative.length > 0) {
+      if (allowTentative && tentative.length > 0) {
         const tentativeText = createBlockQuote(tentative);
         embed.addFields(
           { name: `❓ **Tentative** (${tentative.length})`, value: tentativeText, inline: false }

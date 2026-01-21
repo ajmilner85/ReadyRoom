@@ -472,7 +472,7 @@ function setupDiscordEventHandlers(supabase, upsertEventAttendance, getEventByDi
     try {
       await interaction.editReply({
         embeds: allEmbeds,
-        components: [createAttendanceButtons()]
+        components: [createAttendanceButtons(embedData?.eventOptions?.allowTentativeResponse ?? true)]
       });
     } catch (error) {
       if (error.code === 40060) {
