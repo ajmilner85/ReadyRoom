@@ -13,6 +13,7 @@ interface PermissionHookState {
   loading: boolean;
   error: string | null;
   lastUpdated: Date | null;
+  expiresAt: Date | null;
 }
 
 /**
@@ -25,7 +26,8 @@ export function usePermissions() {
     permissions: null,
     loading: true,
     error: null,
-    lastUpdated: null
+    lastUpdated: null,
+    expiresAt: null
   });
 
   // Load permissions when user profile changes
@@ -35,7 +37,8 @@ export function usePermissions() {
         permissions: null,
         loading: false,
         error: null,
-        lastUpdated: null
+        lastUpdated: null,
+        expiresAt: null
       });
       return;
     }
@@ -53,7 +56,8 @@ export function usePermissions() {
             permissions,
             loading: false,
             error: null,
-            lastUpdated: new Date()
+            lastUpdated: new Date(),
+            expiresAt: permissions?.expiresAt || null
           });
         }
       } catch (error: any) {
@@ -63,7 +67,8 @@ export function usePermissions() {
             permissions: null,
             loading: false,
             error: error.message || 'Failed to load permissions',
-            lastUpdated: null
+            lastUpdated: null,
+            expiresAt: null
           });
         }
       }
@@ -136,7 +141,8 @@ export function usePermissions() {
         permissions,
         loading: false,
         error: null,
-        lastUpdated: new Date()
+        lastUpdated: new Date(),
+        expiresAt: permissions?.expiresAt || null
       });
     } catch (error: any) {
       console.error('Error refreshing permissions:', error);
@@ -167,15 +173,19 @@ export function usePermissions() {
     loading: state.loading,
     error: state.error,
     lastUpdated: state.lastUpdated,
-    
+    expiresAt: state.expiresAt,
+
     // Permission checks
     hasPermission,
     hasAnyPermission,
     hasAllPermissions,
-    
+
     // Utilities
     refreshPermissions,
     userContext,
+    isCacheStale: state.expiresAt
+      ? (state.expiresAt.getTime() - Date.now()) < 5 * 60 * 1000
+      : true,
     
     // Convenience getters
     canAccessHome: state.permissions?.canAccessHome || false,

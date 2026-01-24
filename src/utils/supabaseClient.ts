@@ -28,8 +28,20 @@ export function getSupabase(): SupabaseClient<Database> {
 // Resilient wrapper function (duplicated from sb.ts to avoid circular dependency)
 export async function sb<T>(fn: (c: SupabaseClient<Database>) => Promise<T>): Promise<T> {
   const supabase = getSupabase();
-  // Removed proactive session check - Supabase handles auth automatically
-  
+
+  // Proactively ensure JWT is fresh
+  const { data: { session } } = await supabase.auth.getSession();
+
+  // NEW: Proactively ensure permission cache is fresh BEFORE the query
+  if (session?.user?.id) {
+    try {
+      const { permissionCache } = await import('./permissionCache');
+      await permissionCache.refreshIfNeeded(session.user.id);
+    } catch (err) {
+      console.warn('[sb] Failed to refresh permission cache:', err);
+    }
+  }
+
   try {
     return await fn(supabase);
   } catch (err: any) {
@@ -41,8 +53,22 @@ export async function sb<T>(fn: (c: SupabaseClient<Database>) => Promise<T>): Pr
       await new Promise(r => setTimeout(r, 300)); // tiny backoff
       return await fn(supabase);
     }
+
     if (authy) {
+      // Refresh session
       await supabase.auth.refreshSession().catch(() => {});
+
+      // NEW: Force refresh permission cache on auth errors
+      if (session?.user?.id) {
+        try {
+          const { permissionCache } = await import('./permissionCache');
+          await permissionCache.invalidateUserPermissions(session.user.id);
+          await permissionCache.getUserPermissions(session.user.id);
+        } catch (cacheErr) {
+          console.warn('[sb] Failed to refresh permission cache after 403:', cacheErr);
+        }
+      }
+
       return await fn(supabase);
     }
     throw err;

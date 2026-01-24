@@ -34,6 +34,34 @@ export class PermissionCacheService {
   }
   
   /**
+   * Proactively refresh cache if expired or near expiry
+   * Returns true if cache was refreshed, false if still valid
+   */
+  async refreshIfNeeded(userId: string, safetyMarginMs: number = 5 * 60 * 1000): Promise<boolean> {
+    const cached = this.memoryCache.get(userId);
+
+    // Check memory cache first
+    if (cached) {
+      const expiresIn = cached.expiresAt.getTime() - Date.now();
+      if (expiresIn > safetyMarginMs) {
+        return false; // Cache still valid
+      }
+    }
+
+    // Cache expired or near expiry - regenerate
+    await this.calculateAndCache(userId);
+    return true;
+  }
+
+  /**
+   * Get cache expiry time for a user (for UI/monitoring)
+   */
+  getCacheExpiry(userId: string): Date | null {
+    const cached = this.memoryCache.get(userId);
+    return cached?.expiresAt || null;
+  }
+
+  /**
    * Calculate fresh permissions and cache them
    */
   private async calculateAndCache(userId: string): Promise<UserPermissions> {
