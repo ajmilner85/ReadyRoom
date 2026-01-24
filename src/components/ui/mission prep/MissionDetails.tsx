@@ -186,6 +186,16 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
       return dateA - dateB;
     });
 
+  // Check if there's an event ID in URL (navigation from Events Management)
+  const getEventIdFromUrl = () => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get('eventId');
+  };
+
+  // Track if we've processed the URL event ID to prevent re-processing
+  const [hasProcessedUrlEventId, setHasProcessedUrlEventId] = useState(false);
+  const urlEventId = getEventIdFromUrl();
+
   // Auto-select earliest upcoming event when cycle changes or events load
   useEffect(() => {
     console.log('🔍 MissionDetails: Event selection effect triggered:', {
@@ -195,19 +205,49 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
       filteredEventsCount: filteredAndSortedEvents.length,
       hasSelectedEvent: !!selectedEvent,
       selectedEventCycleId: selectedEvent?.cycleId,
-      eventsCount: events.length
+      eventsCount: events.length,
+      urlEventId,
+      hasProcessedUrlEventId
     });
 
     if (filteredAndSortedEvents.length > 0) {
-      // If current selected event is not in the filtered list, select the earliest upcoming event
+      // Priority 1: If URL has eventId and we haven't processed it yet, select that event
+      if (urlEventId && !hasProcessedUrlEventId) {
+        const urlEvent = filteredAndSortedEvents.find(e => e.id === urlEventId);
+        if (urlEvent) {
+          console.log('🎯 MissionDetails: Selecting event from URL:', urlEvent);
+          onEventSelect(urlEvent);
+          setHasProcessedUrlEventId(true);
+          return; // Exit early to prevent auto-selection logic from running
+        }
+      }
+
+      // Priority 2: If current selected event is not in the filtered list, select the earliest upcoming/ongoing event
       const eventStillValid = selectedEvent && filteredAndSortedEvents.some(e => e.id === selectedEvent.id);
       if (!eventStillValid) {
-        // Find the earliest upcoming event (first event in the future)
+        // Find the earliest ongoing or upcoming event
+        // An event is "ongoing" if current time is between datetime and endDatetime
+        // An event is "upcoming" if datetime is in the future
         const now = new Date();
-        const upcomingEvent = filteredAndSortedEvents.find(event => new Date(event.datetime) > now);
-        // If there's an upcoming event, select it; otherwise select the first event
-        const eventToSelect = upcomingEvent || filteredAndSortedEvents[0];
-        console.log('🎯 MissionDetails: Auto-selecting earliest upcoming event:', eventToSelect);
+        const ongoingOrUpcomingEvent = filteredAndSortedEvents.find(event => {
+          const eventStart = new Date(event.datetime);
+          const eventEnd = event.endDatetime ? new Date(event.endDatetime) : null;
+
+          // Event is ongoing (started but not ended)
+          if (eventStart <= now && eventEnd && eventEnd >= now) {
+            return true;
+          }
+
+          // Event is upcoming (hasn't started yet)
+          if (eventStart > now) {
+            return true;
+          }
+
+          return false;
+        });
+        // If there's an ongoing/upcoming event, select it; otherwise select the first event
+        const eventToSelect = ongoingOrUpcomingEvent || filteredAndSortedEvents[0];
+        console.log('🎯 MissionDetails: Auto-selecting earliest ongoing/upcoming event:', eventToSelect);
         onEventSelect(eventToSelect);
       }
     } else if (selectedEvent) {
@@ -215,7 +255,7 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
       console.log('🎯 MissionDetails: Clearing event selection (no events in filter)');
       onEventSelect(null);
     }
-  }, [selectedCycle?.id, filteredAndSortedEvents.length, events.length]);
+  }, [selectedCycle?.id, filteredAndSortedEvents.length, events.length, urlEventId, hasProcessedUrlEventId]);
 
   const [missionDetails, setMissionDetails] = useState<MissionDetailsData>(() => {
     // Load mission details from localStorage or use defaults
