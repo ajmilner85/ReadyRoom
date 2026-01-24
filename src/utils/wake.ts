@@ -1,13 +1,24 @@
 import { getSupabase } from './supabaseClient'
+import { permissionCache } from './permissionCache'
 
-/** Refresh auth (cheap if already fresh) and then revalidate your data layer. */
+/** Refresh auth and permission cache (cheap if already fresh) */
 export async function wake() {
   const supabase = getSupabase()
-  await supabase.auth.getSession().catch(() => {}) // ensure fresh JWT
-  
-  // Note: Since this codebase doesn't use a formal data layer like TanStack Query or SWR,
-  // we don't need to add revalidation calls here. The individual components will refresh
-  // their data when they detect auth changes through the AuthContext.
+
+  // Ensure fresh JWT
+  const { data: { session } } = await supabase.auth.getSession().catch(() => ({ data: { session: null } }))
+
+  // If user is authenticated, ensure permission cache is fresh
+  if (session?.user?.id) {
+    try {
+      const wasRefreshed = await permissionCache.refreshIfNeeded(session.user.id)
+      if (wasRefreshed) {
+        console.log('[WAKE] Permission cache was refreshed after idle')
+      }
+    } catch (err) {
+      console.warn('[WAKE] Failed to refresh permission cache:', err)
+    }
+  }
 }
 
 export function registerWakeHandlers() {
