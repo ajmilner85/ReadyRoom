@@ -137,7 +137,8 @@ export const useMissionPrepData = () => {
               const eventEnd = event.endDatetime ? new Date(event.endDatetime) : null;
 
               // Event is ongoing (started but not ended)
-              if (eventStart <= now && (!eventEnd || eventEnd >= now)) {
+              // Only consider it ongoing if we have an endDatetime and current time is before it
+              if (eventStart <= now && eventEnd && eventEnd >= now) {
                 return true;
               }
 
