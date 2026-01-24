@@ -300,8 +300,8 @@ export const BASIS_PRIORITIES: Record<BasisType, number> = {
 
 // Cache configuration
 export const PERMISSION_CACHE_CONFIG = {
-  DURATION_MS: 2 * 60 * 1000,        // 1 hour (extended from 30 min)
-  REFRESH_MARGIN_MS: .5 * 60 * 1000,   // 5 minutes before expiry
+  DURATION_MS: 60 * 60 * 1000,         // 2 minutes (for testing - restore to 60 * 60 * 1000 after)
+  REFRESH_MARGIN_MS: 5 * 60 * 1000,       // 30 seconds (for testing - restore to 5 * 60 * 1000 after)
   CLEANUP_INTERVAL_MS: 60 * 60 * 1000, // 1 hour
   MAX_CACHE_SIZE: 10000  // Maximum cached users
 };
