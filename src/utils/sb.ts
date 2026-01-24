@@ -5,18 +5,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 
 export async function sb<T>(fn: (c: SupabaseClient<Database>) => Promise<T>): Promise<T> {
   const supabase = getSupabase()
-
-  // Proactively ensure JWT is fresh
-  const { data: { session } } = await supabase.auth.getSession()
-
-  // NEW: Proactively ensure permission cache is fresh BEFORE the query
-  if (session?.user?.id) {
-    try {
-      await permissionCache.refreshIfNeeded(session.user.id)
-    } catch (err) {
-      console.warn('[sb] Failed to refresh permission cache:', err)
-    }
-  }
+  await supabase.auth.getSession() // proactively ensure JWT freshness
 
   try {
     return await fn(supabase)
@@ -32,13 +21,14 @@ export async function sb<T>(fn: (c: SupabaseClient<Database>) => Promise<T>): Pr
 
     if (authy) {
       // Refresh session
-      await supabase.auth.refreshSession().catch(() => {})
+      const { data: { session } } = await supabase.auth.refreshSession().catch(() => ({ data: { session: null } }))
 
-      // NEW: Force refresh permission cache on auth errors
+      // Force refresh permission cache on auth errors (likely stale cache causing RLS failure)
       if (session?.user?.id) {
         try {
           await permissionCache.invalidateUserPermissions(session.user.id)
           await permissionCache.getUserPermissions(session.user.id)
+          console.log('[sb] Permission cache forcibly refreshed after 403 error')
         } catch (cacheErr) {
           console.warn('[sb] Failed to refresh permission cache after 403:', cacheErr)
         }
