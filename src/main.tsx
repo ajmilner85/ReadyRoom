@@ -31,22 +31,24 @@ createRoot(document.getElementById('root')!).render(
             <Route path="/auth/callback" element={<AuthCallback />} />
             <Route path="/auth/reset-password" element={<ResetPassword />} />
             <Route path="/kneeboard" element={
-              <Suspense fallback={
-                <div style={{
-                  width: '100vw',
-                  height: '100vh',
-                  backgroundColor: '#1a1a2e',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: '#e5e5e5',
-                  fontFamily: 'Inter, system-ui, sans-serif'
-                }}>
-                  Loading kneeboard...
-                </div>
-              }>
-                <KneeboardLayout />
-              </Suspense>
+              <ProtectedRoute>
+                <Suspense fallback={
+                  <div style={{
+                    width: '100vw',
+                    height: '100vh',
+                    backgroundColor: '#1a1a2e',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: '#e5e5e5',
+                    fontFamily: 'Inter, system-ui, sans-serif'
+                  }}>
+                    Loading kneeboard...
+                  </div>
+                }>
+                  <KneeboardLayout />
+                </Suspense>
+              </ProtectedRoute>
             } />
             <Route path="/*" element={
               <ProtectedRoute>
