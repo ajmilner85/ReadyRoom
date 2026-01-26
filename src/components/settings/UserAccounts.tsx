@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { User, Lock, RefreshCw, Link, ExternalLink, Shield, Mail, Key } from 'lucide-react';
+import { User, Lock, RefreshCw, Link, ExternalLink, Shield, Mail, Copy, Check, Tablet, Key } from 'lucide-react';
 
 interface UserAccountsProps {
   error?: string | null;
@@ -13,7 +13,8 @@ const UserAccounts: React.FC<UserAccountsProps> = ({ }) => {
   const [resetEmail, setResetEmail] = useState('');
   const [resetLoading, setResetLoading] = useState(false);
   const [resetMessage, setResetMessage] = useState<string | null>(null);
-  
+  const [copied, setCopied] = useState(false);
+
   const handlePasswordReset = async (e: React.FormEvent) => {
     e.preventDefault();
     setResetLoading(true);
@@ -292,18 +293,18 @@ const UserAccounts: React.FC<UserAccountsProps> = ({ }) => {
       </div>
 
       {/* Discord Integration */}
-      <div style={lastSectionStyle}>
+      <div style={sectionStyle}>
         <h3 style={{ fontSize: '18px', fontWeight: 600, color: '#0F172A', margin: '0 0 16px 0', display: 'flex', alignItems: 'center', gap: '8px' }}>
           <Link size={20} />
           Discord Integration
         </h3>
         <p style={{ fontSize: '14px', color: '#64748B', margin: '0 0 16px 0', fontFamily: 'Inter' }}>
-          {userProfile?.discordUsername 
+          {userProfile?.discordUsername
             ? 'Your Discord account is linked. You can relink if you\'re experiencing issues.'
             : 'Link your Discord account for seamless authentication and access.'
           }
         </p>
-        
+
         <div style={{
           padding: '16px',
           border: '1px solid #E5E7EB',
@@ -325,7 +326,7 @@ const UserAccounts: React.FC<UserAccountsProps> = ({ }) => {
                 </div>
               )}
             </div>
-            
+
             <button
               onClick={handleDiscordRelink}
               style={{
@@ -350,9 +351,113 @@ const UserAccounts: React.FC<UserAccountsProps> = ({ }) => {
             </button>
           </div>
         </div>
+      </div>
+
+      {/* OpenKneeboard Integration */}
+      <div style={lastSectionStyle}>
+        <h3 style={{ fontSize: '18px', fontWeight: 600, color: '#0F172A', margin: '0 0 16px 0', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <Tablet size={20} />
+          OpenKneeboard
+        </h3>
+        <p style={{ fontSize: '14px', color: '#64748B', margin: '0 0 16px 0', fontFamily: 'Inter' }}>
+          Access live flight assignments and mission data directly in your cockpit using OpenKneeboard.
+        </p>
+
+        <div style={{
+          padding: '16px',
+          border: '1px solid #DDD6FE',
+          borderRadius: '8px',
+          backgroundColor: '#F5F3FF'
+        }}>
+          {/* Kneeboard URL display */}
+          <div style={{ marginBottom: '16px' }}>
+            <label style={{
+              display: 'block',
+              fontSize: '13px',
+              fontWeight: 500,
+              color: '#6B7280',
+              marginBottom: '6px'
+            }}>
+              Kneeboard URL (paste this into OpenKneeboard)
+            </label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <input
+                type="text"
+                readOnly
+                value={`${window.location.origin}/kneeboard`}
+                style={{
+                  flex: 1,
+                  padding: '10px 12px',
+                  backgroundColor: '#FFFFFF',
+                  border: '1px solid #D1D5DB',
+                  borderRadius: '6px',
+                  fontSize: '13px',
+                  color: '#374151',
+                  fontFamily: 'Inter'
+                }}
+              />
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(`${window.location.origin}/kneeboard`);
+                  setCopied(true);
+                  setTimeout(() => setCopied(false), 2000);
+                }}
+                style={{
+                  padding: '10px 16px',
+                  backgroundColor: copied ? '#059669' : '#7C3AED',
+                  color: '#FFFFFF',
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  fontFamily: 'Inter',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  transition: 'background-color 0.2s ease',
+                  minWidth: '100px',
+                  justifyContent: 'center'
+                }}
+              >
+                {copied ? (
+                  <>
+                    <Check size={16} />
+                    Copied!
+                  </>
+                ) : (
+                  <>
+                    <Copy size={16} />
+                    Copy URL
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+
+          {/* Setup instructions */}
+          <div style={{
+            paddingTop: '16px',
+            borderTop: '1px solid #DDD6FE'
+          }}>
+            <p style={{ fontSize: '13px', color: '#6B7280', margin: '0 0 8px 0' }}>
+              <strong>Setup:</strong> In OpenKneeboard, go to Settings → Tabs → Add Tab → Web Dashboard, then paste the kneeboard URL above.
+            </p>
+            <p style={{ fontSize: '13px', color: '#6B7280', margin: 0 }}>
+              You'll be prompted to authenticate with Discord when you first open the kneeboard page.{' '}
+              <a
+                href="https://openkneeboard.com/api/web-dashboards/"
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ color: '#7C3AED', textDecoration: 'underline' }}
+              >
+                Learn more
+              </a>
+            </p>
+          </div>
         </div>
       </div>
-    </div>
+        </div>
+      </div>
     </div>
   );
 };

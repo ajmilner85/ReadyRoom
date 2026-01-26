@@ -40,12 +40,22 @@ const Debriefing = React.lazy(() => import('./components/debriefing/Debriefing')
 const MyTraining = React.lazy(() => import('./components/training/MyTraining'));
 const TrainingManagement = React.lazy(() => import('./components/training/TrainingManagement'));
 const SyllabusEditor = React.lazy(() => import('./components/training/SyllabusEditor'));
+const KneeboardLayout = React.lazy(() => import('./components/kneeboard/KneeboardLayout'));
 
 const App: React.FC = () => {
   const { user } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
-  
+
+  // Auto-redirect to kneeboard if accessed from OpenKneeboard
+  useEffect(() => {
+    // Check if we're in OpenKneeboard context and not already on kneeboard route
+    if (window.OpenKneeboard && location.pathname !== '/kneeboard') {
+      console.log('[APP] Detected OpenKneeboard, redirecting to /kneeboard');
+      navigate('/kneeboard', { replace: true });
+    }
+  }, [location.pathname, navigate]);
+
   // Mission Execution state
   const [flights, setFlights] = useState<Flight[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -444,6 +454,34 @@ const App: React.FC = () => {
     return () => window.removeEventListener('keydown', handleKeyPress);
   }, [location.pathname, hoveredFlightId, flights, showFuelDialog, showPositionDialog, hoveredBoardNumber, isHoveringBoardNumber]);
 
+  // Check if we're on the kneeboard route - render without app chrome
+  console.log('[APP] Current pathname:', location.pathname);
+  console.log('[APP] Checking kneeboard route:', location.pathname === '/kneeboard' || location.pathname.startsWith('/kneeboard'));
+
+  if (location.pathname === '/kneeboard' || location.pathname.startsWith('/kneeboard')) {
+    console.log('[APP] Rendering kneeboard layout without navigation');
+    return (
+      <Suspense fallback={
+        <div style={{
+          width: '100vw',
+          height: '100vh',
+          backgroundColor: '#1a1a2e',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          color: '#e5e5e5',
+          fontFamily: 'Inter, system-ui, sans-serif'
+        }}>
+          Loading kneeboard...
+        </div>
+      }>
+        <KneeboardLayout />
+      </Suspense>
+    );
+  }
+
+  console.log('[APP] Rendering standard app layout with navigation');
+
   return (
     <AppSettingsProvider>
       <PageLoadingProvider>
@@ -539,6 +577,7 @@ const App: React.FC = () => {
                 </Suspense>
               </PermissionGuardedRoute>
             } />
+
             <Route path="/mission-coordination" element={
               <PermissionGuardedRoute requiredPermission="access_flights">
                 <DndContext
