@@ -438,6 +438,9 @@ export class PermissionCalculator {
       // DCS Reference Data (global only)
       manage_dcs_reference_data: false,
 
+      // Kneeboard (global only)
+      access_kneeboard: false,
+
       // Meta
       bases: this.extractPermissionBases(userBases),
       calculatedAt: new Date(),
@@ -658,6 +661,11 @@ export class PermissionCalculator {
         break;
       case 'access_training_management':
         permissions.access_training_management = true;
+        break;
+
+      // Kneeboard permissions (global only)
+      case 'access_kneeboard':
+        permissions.access_kneeboard = true;
         break;
     }
   }

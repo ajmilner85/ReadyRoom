@@ -1,5 +1,5 @@
 import React from 'react';
-import { Users, Layout, Calendar, FileText, Settings, LogOut, Home, FileBarChart, ClipboardCheck, GraduationCap, BookOpen } from 'lucide-react';
+import { Users, Layout, Calendar, FileText, Settings, LogOut, Home, FileBarChart, ClipboardCheck, GraduationCap, BookOpen, Notebook } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { signOut } from '../../utils/supabaseClient';
@@ -14,7 +14,7 @@ interface NavigationButton {
   label: string;
   route: string;
   // Updated to use new permission names
-  requiresPermission: 'access_home' | 'access_roster' | 'access_events' | 'access_mission_prep' | 'access_flights' | 'access_settings' | 'access_reports' | 'access_mission_debriefing' | 'access_my_training' | 'access_training_management';
+  requiresPermission: 'access_home' | 'access_roster' | 'access_events' | 'access_mission_prep' | 'access_flights' | 'access_settings' | 'access_reports' | 'access_mission_debriefing' | 'access_my_training' | 'access_training_management' | 'access_kneeboard';
   // Legacy permission for backward compatibility during migration
   legacyPermission?: 'canManageRoster' | 'canManageFlights' | 'canManageEvents' | 'canAccessMissionPrep' | 'canAccessSettings';
 }
@@ -87,6 +87,13 @@ const buttons: NavigationButton[] = [
     label: 'Reports',
     route: '/reports',
     requiresPermission: 'access_reports'
+  },
+  {
+    id: 'kneeboard',
+    icon: <Notebook size={24} />,
+    label: 'Kneeboard',
+    route: '/kneeboard',
+    requiresPermission: 'access_kneeboard'
   },
   {
     id: 'admin',
@@ -272,6 +279,7 @@ const NavigationBar: React.FC<NavigationBarProps> = ({ activeButton }) => {
                 case 'access_mission_debriefing': return activePermissions.canAccessMissionDebriefing;
                 case 'access_my_training': return activePermissions.access_my_training;
                 case 'access_training_management': return activePermissions.access_training_management;
+                case 'access_kneeboard': return activePermissions.access_kneeboard;
                 case 'access_reports': return activePermissions.canAccessReports;
                 case 'access_settings': return activePermissions.canAccessSettings;
                 default: return false;

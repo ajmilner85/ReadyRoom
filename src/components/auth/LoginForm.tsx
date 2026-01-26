@@ -65,6 +65,12 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
     setMessage(null);
 
     try {
+      // Store current path for redirect after auth
+      const currentPath = window.location.pathname;
+      if (currentPath && currentPath !== '/') {
+        sessionStorage.setItem('auth_redirect_path', currentPath);
+      }
+
       const { error } = await signInWithDiscord();
       if (error) {
         throw error;
