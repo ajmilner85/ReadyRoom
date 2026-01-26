@@ -203,7 +203,10 @@ export function usePermissions() {
     view_all_training_progress: state.permissions?.view_all_training_progress || false,
     lock_unlock_missions: state.permissions?.lock_unlock_missions || false,
     access_my_training: state.permissions?.access_my_training || false,
-    access_training_management: state.permissions?.access_training_management || false
+    access_training_management: state.permissions?.access_training_management || false,
+
+    // Kneeboard permissions
+    access_kneeboard: state.permissions?.access_kneeboard || false
   };
 }
 
@@ -257,7 +260,8 @@ export function useSimplePermissions() {
     canAccessReports,
     canAccessMissionDebriefing,
     access_my_training,
-    access_training_management
+    access_training_management,
+    access_kneeboard
   } = usePermissions();
 
   return {
@@ -272,6 +276,7 @@ export function useSimplePermissions() {
     canAccessMissionDebriefing,
     access_my_training,
     access_training_management,
+    access_kneeboard,
 
     // Generic permission check
     hasPermission,

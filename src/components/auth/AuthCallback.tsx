@@ -13,30 +13,36 @@ const AuthCallback: React.FC = () => {
         // Check if we have auth code in URL
         const urlParams = new URLSearchParams(window.location.search);
         const code = urlParams.get('code');
-        
+
         if (code) {
           // Exchange the code for a session
           const { data, error } = await supabase.auth.exchangeCodeForSession(code);
-          
+
           if (error) {
             throw error;
           }
-          
+
           if (data.session) {
-            navigate('/', { replace: true });
+            // Check if there's a stored redirect path
+            const redirectPath = sessionStorage.getItem('auth_redirect_path') || '/';
+            sessionStorage.removeItem('auth_redirect_path');
+            navigate(redirectPath, { replace: true });
             return;
           }
         }
-        
+
         // Fallback: try to get existing session
         const { data, error } = await supabase.auth.getSession();
-        
+
         if (error) {
           throw error;
         }
 
         if (data.session) {
-          navigate('/', { replace: true });
+          // Check if there's a stored redirect path
+          const redirectPath = sessionStorage.getItem('auth_redirect_path') || '/';
+          sessionStorage.removeItem('auth_redirect_path');
+          navigate(redirectPath, { replace: true });
         } else {
           navigate('/', { replace: true }); // Go to main page which will show login
         }

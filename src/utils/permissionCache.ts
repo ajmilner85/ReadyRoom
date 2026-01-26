@@ -510,6 +510,9 @@ export class PermissionCacheService {
       access_my_training: false,
       access_training_management: false,
 
+      // Kneeboard permissions
+      access_kneeboard: false,
+
       bases: [],
       calculatedAt: new Date(),
       expiresAt: new Date(Date.now() + PERMISSION_CACHE_CONFIG.DURATION_MS)
