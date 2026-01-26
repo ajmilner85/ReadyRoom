@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Sun, Moon, Menu, X, ChevronDown, ChevronLeft, ChevronRight, Home } from 'lucide-react';
+import { Sun, Moon, Menu, X, ChevronDown, ChevronLeft, ChevronRight, Home, LogOut } from 'lucide-react';
 import FlightAssignmentsKneeboard from './FlightAssignmentsKneeboard';
 import { TestKneeboard } from './TestKneeboard';
 import { useAuth } from '../../context/AuthContext';
@@ -742,6 +742,41 @@ const KneeboardLayout: React.FC = () => {
                     )}
                   </div>
                 )}
+              </div>
+
+              {/* Logout Button */}
+              <div style={{ marginTop: '24px', paddingTop: '24px', borderTop: `1px solid ${colors.border}` }}>
+                <button
+                  onClick={async () => {
+                    await supabase.auth.signOut();
+                    window.location.href = '/';
+                  }}
+                  style={{
+                    width: '100%',
+                    padding: '12px',
+                    backgroundColor: 'transparent',
+                    border: `1px solid ${colors.border}`,
+                    borderRadius: '6px',
+                    color: colors.text,
+                    fontSize: '14px',
+                    fontWeight: 500,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px',
+                    transition: 'background-color 0.2s'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = theme === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = 'transparent';
+                  }}
+                >
+                  <LogOut size={16} />
+                  <span>Sign Out</span>
+                </button>
               </div>
             </div>
           </div>

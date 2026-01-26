@@ -110,7 +110,7 @@ export interface UserPermissions {
   
   // Developer permissions (global only)
   access_developer_settings: boolean;           // Global only
-  
+
   // Polls and Change Log (global only)
   canManagePolls: boolean;                       // Global only
   canVoteInPolls: boolean;                       // Global only
@@ -119,6 +119,9 @@ export interface UserPermissions {
 
   // DCS Reference Data (global only)
   manage_dcs_reference_data: boolean;            // Global only
+
+  // Kneeboard (global only)
+  access_kneeboard: boolean;                     // Global only
 
   // Meta information
   bases: PermissionBasis[];
