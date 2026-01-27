@@ -37,15 +37,17 @@ interface CommunicationsProps {
     callsigns?: string[];
     color_palette?: any;
   }>;
+  updateMissionSettings?: (settings: any) => Promise<boolean>;
 }
 
-const Communications: React.FC<CommunicationsProps> = ({ 
-  width, 
+const Communications: React.FC<CommunicationsProps> = ({
+  width,
   assignedPilots = {},
   onTransferToMission,
   flights = [],
   extractedFlights = [],
-  squadrons = []
+  squadrons = [],
+  updateMissionSettings
 }) => {  // Initialize state with data from localStorage if available
   const [commsData, setCommsData] = useState<CommsPlanEntry[]>(() => {
     return loadFromLocalStorage<CommsPlanEntry[]>(STORAGE_KEYS.COMMS_PLAN, generateInitialCommsData());
@@ -56,9 +58,15 @@ const Communications: React.FC<CommunicationsProps> = ({
   const [hoveredRow, setHoveredRow] = useState<number | null>(null);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
 
-  // Save comms plan to localStorage whenever it changes
+  // Save comms plan to localStorage and database whenever it changes
   useEffect(() => {
     saveToLocalStorage(STORAGE_KEYS.COMMS_PLAN, commsData);
+
+    // Also save to database if updateMissionSettings is provided
+    if (updateMissionSettings) {
+      updateMissionSettings({ comms_plan: commsData });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [commsData]);
 
   const startEditing = () => {
