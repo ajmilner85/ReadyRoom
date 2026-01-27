@@ -74,6 +74,8 @@ interface PilotEntryProps {
   onRollCallResponse,
   displayWithSquadronColors = false
 }) => {
+  const [showTooltip, setShowTooltip] = useState(false);
+
   // Get squadron primary color for callsign styling
   const getSquadronPrimaryColor = () => {
     // When setting is disabled, use black for all pilots
@@ -145,28 +147,101 @@ interface PilotEntryProps {
     if (isRollCallMode) {
       return null; // Don't show qualification badges in roll call mode
     }
-    
+
     const dbQualifications = pilotQualifications || [];
-    
-    if (dbQualifications && dbQualifications.length > 0) {
-      return dbQualifications
-        .sort((a, b) => (a.qualification?.order || 999) - (b.qualification?.order || 999))
-        .map((pq, index) => {
-          if (pq.qualification) {
-            return (
-              <QualificationBadge
-                key={`db-${pq.qualification.id}-${index}`}
-                type={pq.qualification.name as QualificationType}
-                code={pq.qualification.code}
-                color={pq.qualification.color}
-              />
-            );
-          }
-          return null;
-        }).filter(badge => badge !== null);
+
+    if (!dbQualifications || dbQualifications.length === 0) {
+      return [];
     }
-    
-    return [];
+
+    // Sort qualifications by order
+    const sortedQuals = dbQualifications
+      .filter(pq => pq.qualification)
+      .sort((a, b) => (a.qualification?.order || 999) - (b.qualification?.order || 999));
+
+    // Each badge is 37px wide with 4px gap = 41px per badge
+    // With the available space, we can show up to 8 badges before overflow
+    const MAX_VISIBLE_BADGES = 8;
+
+    if (sortedQuals.length <= MAX_VISIBLE_BADGES) {
+      // Show all badges normally
+      return sortedQuals.map((pq, index) => (
+        <QualificationBadge
+          key={`db-${pq.qualification.id}-${index}`}
+          type={pq.qualification.name as QualificationType}
+          code={pq.qualification.code}
+          color={pq.qualification.color}
+        />
+      ));
+    }
+
+    // Show first (MAX_VISIBLE_BADGES - 1) badges plus overflow indicator
+    const visibleQuals = sortedQuals.slice(0, MAX_VISIBLE_BADGES - 1);
+    const overflowQuals = sortedQuals.slice(MAX_VISIBLE_BADGES - 1);
+
+    return (
+      <>
+        {visibleQuals.map((pq, index) => (
+          <QualificationBadge
+            key={`db-${pq.qualification.id}-${index}`}
+            type={pq.qualification.name as QualificationType}
+            code={pq.qualification.code}
+            color={pq.qualification.color}
+          />
+        ))}
+        <div
+          style={{ position: 'relative' }}
+          onMouseEnter={() => setShowTooltip(true)}
+          onMouseLeave={() => setShowTooltip(false)}
+        >
+          <div
+            style={{
+              backgroundColor: '#9CA3AF',
+              borderRadius: '8px',
+              width: '37px',
+              height: '24px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: '#F9FAFB',
+              fontSize: '12px',
+              fontWeight: 400,
+              cursor: 'pointer'
+            }}
+          >
+            +{overflowQuals.length}
+          </div>
+          {showTooltip && (
+            <div
+              style={{
+                position: 'absolute',
+                top: '100%',
+                right: 0,
+                marginTop: '4px',
+                backgroundColor: '#1F2937',
+                borderRadius: '8px',
+                padding: '8px',
+                display: 'flex',
+                flexWrap: 'wrap',
+                gap: '4px',
+                maxWidth: '200px',
+                zIndex: 1000,
+                boxShadow: '0px 4px 6px -1px rgba(0, 0, 0, 0.1), 0px 2px 4px -1px rgba(0, 0, 0, 0.06)'
+              }}
+            >
+              {overflowQuals.map((pq, index) => (
+                <QualificationBadge
+                  key={`db-${pq.qualification.id}-${index}-tooltip`}
+                  type={pq.qualification.name as QualificationType}
+                  code={pq.qualification.code}
+                  color={pq.qualification.color}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      </>
+    );
   };
 
   const renderRollCallButtons = () => {

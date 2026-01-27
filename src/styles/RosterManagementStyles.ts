@@ -60,7 +60,7 @@ export const rosterStyles = {
 
 export const pilotListStyles = {
   container: {
-    width: '663px',
+    width: '770px',
     backgroundColor: '#FFFFFF',
     boxShadow: '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)',
     borderRadius: '8px',
@@ -129,7 +129,10 @@ export const pilotListStyles = {
   role: {
     fontSize: '16px',
     fontWeight: 300,
-    color: '#646F7E'
+    color: '#646F7E',
+    whiteSpace: 'nowrap' as const,
+    overflow: 'hidden',
+    textOverflow: 'ellipsis'
   },
   badgeContainer: {
     display: 'flex',
