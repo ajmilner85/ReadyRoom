@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Sun, Moon, Menu, X, ChevronDown, ChevronLeft, ChevronRight, Home, LogOut } from 'lucide-react';
 import FlightAssignmentsKneeboard from './FlightAssignmentsKneeboard';
-import { TestKneeboard } from './TestKneeboard';
+import CommsPlanKneeboard from './CommsPlanKneeboard';
 import { useAuth } from '../../context/AuthContext';
 import { supabase } from '../../utils/supabaseClient';
 import type { Cycle } from '../../types/EventTypes';
+import type { CommsPlanEntry } from '../../types/CommsTypes';
+import { generateInitialCommsData } from '../../types/CommsTypes';
 
 // Extend Window interface for OpenKneeboard API
 interface OpenKneeboardPage {
@@ -52,6 +54,7 @@ const KneeboardLayout: React.FC = () => {
   const [selectedMissionId, setSelectedMissionId] = useState<string | null>(null);
   const [showCycleDropdown, setShowCycleDropdown] = useState(false);
   const [showMissionDropdown, setShowMissionDropdown] = useState(false);
+  const [commsData, setCommsData] = useState<CommsPlanEntry[]>(generateInitialCommsData());
 
   // Page navigation state
   const [currentPageGuid, setCurrentPageGuid] = useState<string | null>(null);
@@ -112,7 +115,7 @@ const KneeboardLayout: React.FC = () => {
             {
               guid: PAGE_2_GUID,
               pixelSize: { width: KNEEBOARD_WIDTH, height: KNEEBOARD_HEIGHT },
-              extraData: { title: 'Test Page 2' }
+              extraData: { title: 'Comms Plan' }
             }
           ];
 
@@ -264,6 +267,51 @@ const KneeboardLayout: React.FC = () => {
   useEffect(() => {
     fetchCycles();
   }, [fetchCycles]);
+
+  // Fetch comms data when mission changes
+  const fetchCommsData = useCallback(async () => {
+    if (!selectedMissionId) {
+      setCommsData(generateInitialCommsData());
+      return;
+    }
+
+    try {
+      const { data: missionData, error } = await supabase
+        .from('missions')
+        .select('mission_settings')
+        .eq('id', selectedMissionId)
+        .single();
+
+      if (error) {
+        console.error('[KNEEBOARD] Error fetching mission settings:', error);
+        setCommsData(generateInitialCommsData());
+        return;
+      }
+
+      // Extract comms_plan from mission_settings
+      const settings = missionData?.mission_settings as any;
+      const comms_plan = settings?.comms_plan;
+      if (comms_plan && Array.isArray(comms_plan)) {
+        setCommsData(comms_plan);
+      } else {
+        setCommsData(generateInitialCommsData());
+      }
+    } catch (err) {
+      console.error('[KNEEBOARD] Error in fetchCommsData:', err);
+      setCommsData(generateInitialCommsData());
+    }
+  }, [selectedMissionId]);
+
+  // Initial fetch
+  useEffect(() => {
+    fetchCommsData();
+  }, [fetchCommsData]);
+
+  // Poll for comms data updates (every 5 seconds to match flight assignments)
+  useEffect(() => {
+    const interval = setInterval(fetchCommsData, 5000);
+    return () => clearInterval(interval);
+  }, [fetchCommsData]);
 
   // Theme styles
   const themeStyles = {
@@ -803,7 +851,11 @@ const KneeboardLayout: React.FC = () => {
           />
         )}
         {currentPageGuid === PAGE_2_GUID && (
-          <TestKneeboard isDarkMode={theme === 'dark'} />
+          <CommsPlanKneeboard
+            theme={theme}
+            colors={colors}
+            commsData={commsData}
+          />
         )}
       </div>
     </div>
