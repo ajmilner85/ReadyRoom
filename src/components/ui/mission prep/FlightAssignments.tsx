@@ -130,12 +130,22 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
   const [existingPosts, setExistingPosts] = useState<any[]>([]);
   const [showPublicationSettings, setShowPublicationSettings] = useState(false);
   const [isPublished, setIsPublished] = useState(false);
-  
+
+  // Track the last initialFlights reference to detect actual changes
+  const lastInitialFlightsRef = useRef<Flight[]>(initialFlights);
+
   // Update flights when initialFlights prop changes (e.g., from database restoration)
   React.useEffect(() => {
+    // Only update if initialFlights actually changed (not just a re-render with same data)
+    if (lastInitialFlightsRef.current === initialFlights) {
+      console.log('🔄 FlightAssignments: initialFlights prop unchanged (same reference), skipping update');
+      return;
+    }
+
     console.log('🔄 FlightAssignments: initialFlights prop changed:', {
       hasFlights: !!initialFlights,
-      length: initialFlights?.length || 0
+      length: initialFlights?.length || 0,
+      previousLength: lastInitialFlightsRef.current?.length || 0
     });
 
     // Log each flight's MIDS values explicitly
@@ -145,6 +155,7 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
 
     // Always sync with initialFlights, even if empty (to clear stale state)
     setFlights(initialFlights || []);
+    lastInitialFlightsRef.current = initialFlights;
 
     // if (initialFlights && initialFlights.length > 0) {
     //   console.log('🔄 FlightAssignments: Updated flights from initialFlights prop:', initialFlights.length, 'flights');
@@ -322,18 +333,18 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
     };
   };
 
-  // Track the last initialFlights to prevent circular updates
-  const lastInitialFlightsRef = useRef<string>('');
-  
+  // Track the last initialFlights ID to prevent circular updates
+  const lastInitialFlightsIdRef = useRef<string>('');
+
   // Initialize flights from initialFlights when they change
   useEffect(() => {
     // Create a stable identifier for the current initialFlights
     const initialFlightsId = initialFlights.map(f => `${f.id}:${f.callsign}`).sort().join('|');
 
     // Only update if initialFlights actually changed (not just a re-render with same data)
-    if (initialFlightsId !== lastInitialFlightsRef.current) {
+    if (initialFlightsId !== lastInitialFlightsIdRef.current) {
       // console.log('FlightAssignments: initialFlights changed:', initialFlights.length, initialFlights.map(f => f.callsign));
-      lastInitialFlightsRef.current = initialFlightsId;
+      lastInitialFlightsIdRef.current = initialFlightsId;
 
       const normalizedFlights = initialFlights.map(normalizeFlight);
 
@@ -373,15 +384,35 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
   }, [initialFlights]); // Remove flights dependency to break circular loop
   // Track if this is a user-initiated change vs system update
   const isUserInitiatedChange = useRef(false);
-  
+  const userInitiatedChangeVersion = useRef(0);
+  const lastProcessedVersion = useRef(0);
+
   // Notify parent component when flights change or when assigned pilots change
   useEffect(() => {
     if (onFlightsChange) {
-      // Only trigger save for user-initiated changes
-      onFlightsChange(flights, !isUserInitiatedChange.current);
+      // Check if this is a user-initiated change by comparing version numbers
+      const isUserInitiated = userInitiatedChangeVersion.current > lastProcessedVersion.current;
+      const skipSave = !isUserInitiated;
+
+      console.log('🔄 [FLIGHT-CHANGE-EFFECT] Calling onFlightsChange:', {
+        flightsCount: flights.length,
+        skipSave,
+        isUserInitiated,
+        userInitiatedVersion: userInitiatedChangeVersion.current,
+        lastProcessedVersion: lastProcessedVersion.current
+      });
+
+      onFlightsChange(flights, skipSave);
+
+      // Update last processed version to current version
+      lastProcessedVersion.current = userInitiatedChangeVersion.current;
+
+      // Also reset the old flag for backward compatibility
+      isUserInitiatedChange.current = false;
+    } else {
+      // If no onFlightsChange callback, still reset the flag to prevent it from lingering
+      isUserInitiatedChange.current = false;
     }
-    // Reset the flag after notifying
-    isUserInitiatedChange.current = false;
   }, [flights]); // Removed onFlightsChange from dependencies to prevent infinite re-render
   // Force re-render when assignedPilots changes to update attendance status badges
   // Note: We don't need to update flights array, just force a re-render of the component
@@ -636,8 +667,15 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
 
   // Function to add a new flight with the given callsign
   const handleAddFlight = useCallback(({ flights: flightEntries }: { flights: { callsign: string; quantity: number }[] }) => {
+    console.log('➕ [ADD-FLIGHT] handleAddFlight called:', {
+      flightEntries,
+      editMode: !!editFlightId,
+      currentFlightsCount: flights.length
+    });
     isUserInitiatedChange.current = true;
-    
+    userInitiatedChangeVersion.current++;
+    console.log('➕ [ADD-FLIGHT] Set isUserInitiatedChange = true, version =', userInitiatedChangeVersion.current);
+
     if (editFlightId) {
       // Legacy edit mode - expect single flight entry
       const singleFlight = flightEntries[0];
@@ -719,7 +757,9 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
       });
       
       // Add the new flights and sort
+      console.log('➕ [ADD-FLIGHT] About to call setFlights with', newFlights.length, 'new flights');
       setFlights(prev => {
+        console.log('➕ [ADD-FLIGHT] setFlights updater running, current flights:', prev.length, 'adding:', newFlights.length);
         const updatedFlights = [...prev, ...newFlights];
         // Group flights by callsign and renumber them properly
         const groupedByCallsign = updatedFlights.reduce<Record<string, Flight[]>>((acc, flight) => {
@@ -751,18 +791,22 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
           midsCounter += 3;
         });
 
-        return updatedFlights.sort((a, b) => {
+        const sortedFlights = updatedFlights.sort((a, b) => {
           if (a.callsign === b.callsign) {
             return parseInt(a.flightNumber) - parseInt(b.flightNumber);
           }
           return a.creationOrder - b.creationOrder;
         });
+        console.log('➕ [ADD-FLIGHT] Returning updated flights array with', sortedFlights.length, 'total flights');
+        return sortedFlights;
       });
   
       // Update the creation order counter
       setCreationOrderCounter(currentCreationOrder);
+      console.log('➕ [ADD-FLIGHT] Completed multi-flight creation, updated creation order counter to', currentCreationOrder);
     }
-    
+
+    console.log('➕ [ADD-FLIGHT] Closing dialog, isUserInitiatedChange.current is still:', isUserInitiatedChange.current);
     setShowAddFlightDialog(false);
   }, [getNextFlightNumber, findNextAvailableMIDS, creationOrderCounter, editFlightId]);
 
@@ -804,6 +848,7 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
     if (!id) return;
 
     isUserInitiatedChange.current = true;
+    userInitiatedChangeVersion.current++;
 
     // Clear pilot assignments for this specific flight
     if (onClearFlightAssignments) {
@@ -846,6 +891,7 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
     if (!editingFlightId) return;
 
     isUserInitiatedChange.current = true;
+    userInitiatedChangeVersion.current++;
     setFlights(prevFlights =>
       prevFlights.map(flight =>
         flight.id === editingFlightId
@@ -866,6 +912,7 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
   // Handle step time changes for individual flights
   const handleStepTimeChange = useCallback((flightId: string, stepTime: number) => {
     isUserInitiatedChange.current = true;
+    userInitiatedChangeVersion.current++;
     setFlights(prevFlights =>
       prevFlights.map(flight =>
         flight.id === flightId
@@ -883,7 +930,8 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
   // Confirm remove all flights
   const confirmRemoveAll = useCallback(() => {
     isUserInitiatedChange.current = true;
-    
+    userInitiatedChangeVersion.current++;
+
     // Clear pilot assignments first
     if (onClearAssignments) {
       onClearAssignments();
