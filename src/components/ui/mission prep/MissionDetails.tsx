@@ -224,10 +224,11 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
 
       // Priority 2: If current selected event is not in the filtered list, select the earliest upcoming/ongoing event
       const eventStillValid = selectedEvent && filteredAndSortedEvents.some(e => e.id === selectedEvent.id);
-      if (!eventStillValid) {
+      if (!eventStillValid && !selectedEvent) {
+        // Only auto-select if there's NO selected event at all
+        // If there's a selected event but it's not in the filtered list, keep it selected
+        // (it just won't show in the list until the filter changes)
         // Find the earliest ongoing or upcoming event
-        // An event is "ongoing" if current time is between datetime and endDatetime
-        // An event is "upcoming" if datetime is in the future
         const now = new Date();
         const ongoingOrUpcomingEvent = filteredAndSortedEvents.find(event => {
           const eventStart = new Date(event.datetime);

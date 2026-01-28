@@ -63,6 +63,11 @@ export interface Mission {
   updated_at: string;
   step_time?: string; // UTC timestamp for step time
 
+  // Version tracking for optimistic locking / conflict detection
+  version: number;
+  last_modified_by?: string;
+  last_modified_at?: string;
+
   // Planning configuration
   selected_squadrons: string[];
   flight_import_filter: FlightImportFilter;
@@ -98,6 +103,8 @@ export interface UpdateMissionRequest extends Partial<CreateMissionRequest> {
   support_role_assignments?: SupportRoleAssignment[];
   mission_settings?: MissionSettings;
   step_time?: string; // UTC timestamp for step time
+  // Optimistic locking: if set, update only succeeds when DB version matches
+  expected_version?: number;
 }
 
 // Mission state for frontend components (maps to current localStorage structure)
@@ -113,6 +120,10 @@ export interface MissionState {
 export interface MissionResponse {
   mission: Mission;
   error?: string;
+  /** True when optimistic locking detects a version mismatch */
+  conflict?: boolean;
+  /** The current server-side mission when a conflict occurs */
+  serverMission?: Mission;
 }
 
 export interface MissionsListResponse {

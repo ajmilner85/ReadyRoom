@@ -437,17 +437,7 @@ const DroppableAircraftTile: React.FC<DroppableAircraftTileProps> = ({
   React.useEffect(() => {
     // Generate a new key whenever pilot's status changes
     setKey(Date.now());
-    
-    // Debug logging for roll call status
-    if (pilot.callsign === 'DSRM') {
-      console.log(`[DROPPABLE-TILE-DEBUG] ${pilot.callsign} in flight ${flightId}-${dashNumber}:`, {
-        rollCallStatus: pilot.rollCallStatus,
-        attendanceStatus: pilot.attendanceStatus,
-        boardNumber: pilot.boardNumber,
-        id: pilot.id
-      });
-    }
-  }, [pilot.attendanceStatus, pilot.rollCallStatus, flightId, dashNumber, pilot.callsign]);
+  }, [pilot.attendanceStatus, pilot.rollCallStatus]);
   
   const { setNodeRef, isOver } = useDroppable({
     id: dropId,

@@ -192,16 +192,6 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
     });
   }, [selectedEvent]);
 
-  // Debug: Log mission changes
-  useEffect(() => {
-    console.log('🎯 FlightAssignments: Mission prop changed:', {
-      hasMission: !!mission,
-      missionId: mission?.id,
-      stepTime: mission?.step_time,
-      missionKeys: mission ? Object.keys(mission) : []
-    });
-  }, [mission]);
-
   // Helper function to format step time for Discord post title
   const formatStepTime = useCallback((): string | null => {
     console.log('formatStepTime called:', {

@@ -6,9 +6,10 @@ import {
   createMission,
   linkMissionToEvent
 } from '../utils/missionService';
-import type { 
-  Mission, 
-  CreateMissionRequest, 
+import type {
+  Mission,
+  MissionResponse,
+  CreateMissionRequest,
   UpdateMissionRequest,
   MissionFlight,
   PilotAssignment,
@@ -137,57 +138,70 @@ export const useMission = (initialMissionId?: string, eventId?: string) => {
     }
   }, []);
 
-  // Update mission data
+  // Update mission data.
+  // Returns full MissionResponse so callers can detect version conflicts.
   const updateMissionData = useCallback(async (
     updates: UpdateMissionRequest,
     missionId?: string
-  ): Promise<boolean> => {
+  ): Promise<MissionResponse> => {
     const targetMissionId = missionId || mission?.id;
     if (!targetMissionId) {
       setError('No mission ID provided for update');
-      return false;
+      return { mission: {} as Mission, error: 'No mission ID provided for update' };
     }
 
     setSaving(true);
     setError(null);
 
     try {
-      const { mission: updatedMission, error } = await updateMission(targetMissionId, updates);
-      
-      if (error) {
-        setError(error);
-        return false;
+      const result = await updateMission(targetMissionId, updates);
+
+      if (result.conflict) {
+        // Version conflict — don't overwrite local mission state.
+        console.warn('⚠️ useMission: version conflict detected');
+        return result;
       }
 
-      setMission(updatedMission);
-      return true;
+      if (result.error) {
+        setError(result.error);
+        return result;
+      }
+
+      setMission(result.mission);
+      return result;
     } catch (err: any) {
       console.error('Error updating mission:', err);
       setError(err.message || 'Failed to update mission');
-      return false;
+      return { mission: {} as Mission, error: err.message || 'Failed to update mission' };
     } finally {
       setSaving(false);
     }
   }, [mission?.id]);
 
-  // Update flights in the mission
+  // Convenience wrappers return boolean for backward compatibility
   const updateFlights = useCallback(async (flights: MissionFlight[]): Promise<boolean> => {
-    return updateMissionData({ flights });
+    const result = await updateMissionData({ flights });
+    return !result.error && !result.conflict;
   }, [updateMissionData]);
 
-  // Update pilot assignments
   const updatePilotAssignments = useCallback(async (
     assignments: Record<string, PilotAssignment[]>
   ): Promise<boolean> => {
-    return updateMissionData({ pilot_assignments: assignments });
+    const result = await updateMissionData({ pilot_assignments: assignments });
+    return !result.error && !result.conflict;
   }, [updateMissionData]);
 
-  // Update support role assignments
   const updateSupportRoles = useCallback(async (
     roles: SupportRoleAssignment[]
   ): Promise<boolean> => {
-    return updateMissionData({ support_role_assignments: roles });
+    const result = await updateMissionData({ support_role_assignments: roles });
+    return !result.error && !result.conflict;
   }, [updateMissionData]);
+
+  // Allow external code (e.g. realtime hook) to update the mission state directly
+  const setMissionExternal = useCallback((m: Mission | null) => {
+    setMission(m);
+  }, []);
 
   // Link mission to an event
   const linkToEvent = useCallback(async (targetEventId: string): Promise<boolean> => {
@@ -220,12 +234,14 @@ export const useMission = (initialMissionId?: string, eventId?: string) => {
 
   // Helper to update mission settings
   const updateSettings = useCallback(async (settings: any): Promise<boolean> => {
-    return updateMissionData({ mission_settings: settings });
+    const result = await updateMissionData({ mission_settings: settings });
+    return !result.error && !result.conflict;
   }, [updateMissionData]);
 
   // Helper to update selected squadrons
   const updateSelectedSquadrons = useCallback(async (squadrons: string[]): Promise<boolean> => {
-    return updateMissionData({ selected_squadrons: squadrons });
+    const result = await updateMissionData({ selected_squadrons: squadrons });
+    return !result.error && !result.conflict;
   }, [updateMissionData]);
 
   return {
@@ -244,6 +260,9 @@ export const useMission = (initialMissionId?: string, eventId?: string) => {
     updateSettings,
     updateSelectedSquadrons,
     linkToEvent,
+
+    // Direct state setter (for realtime updates)
+    setMission: setMissionExternal,
 
     // Utility
     refetch: () => {
