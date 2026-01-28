@@ -780,6 +780,13 @@ export const useMissionPrepDataPersistence = (
       return Promise.resolve(false);
     },
 
+    updateSupportRoles: (roles: SupportRoleAssignment[]) => {
+      if (mission) {
+        return updateSupportRoles(roles);
+      }
+      return Promise.resolve(false);
+    },
+
     // Flight extraction handler
     handleExtractedFlights
   };

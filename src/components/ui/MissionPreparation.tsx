@@ -100,7 +100,8 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
     missionError,
     missionSaving,
     handleExtractedFlights: persistenceHandleExtractedFlights,
-    updateMissionData
+    updateMissionData,
+    updateSupportRoles
   } = useMissionPrepDataPersistence(
     selectedEvent,
     externalAssignedPilots,
@@ -651,6 +652,8 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
                   width={CARD_WIDTH}
                   assignedPilots={assignedPilots}
                   setAssignedPilots={setAssignedPilotsWrapper}
+                  mission={mission}
+                  updateSupportRoles={updateSupportRoles}
                 />
                 <Communications 
                   width={CARD_WIDTH} 

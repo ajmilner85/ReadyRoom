@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useMemo } from 'react';
+import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { Card } from '../card';
 import AddSupportRoleDialog from '../dialogs/AddSupportRoleDialog';
 import SupportRoleAssignmentCard from '../flight cards/SupportRoleAssignmentCard';
@@ -6,8 +6,9 @@ import type { Pilot } from '../../../types/PilotTypes';
 import { cleanRoleId } from '../../../utils/dragDropUtils';
 import { SupportRoleType } from '../../../types/SupportRoleTypes';
 import { AddSupportRoleDialogData } from '../../../types/DialogTypes';
-import { fetchCarriers } from '../../../utils/supabaseClient'; 
-import { SupportRole, saveSupportRoles, loadSupportRoles, ensureSupportRolesInAssignedPilots } from '../../../utils/supportRoleUtils';
+import { fetchCarriers } from '../../../utils/supabaseClient';
+import { SupportRole, ensureSupportRolesInAssignedPilots } from '../../../utils/supportRoleUtils';
+import type { Mission, SupportRoleAssignment } from '../../../types/MissionTypes';
 
 // Interface for fetched carrier data
 interface CarrierData {
@@ -27,35 +28,71 @@ interface MissionSupportAssignmentsProps {
   width: string;
   assignedPilots?: Record<string, AssignedPilot[]> | null;
   setAssignedPilots?: (value: React.SetStateAction<Record<string, AssignedPilot[]>>) => void;
+  mission?: Mission | null;
+  updateSupportRoles?: (roles: SupportRoleAssignment[]) => Promise<boolean>;
 }
 
-const MissionSupportAssignments: React.FC<MissionSupportAssignmentsProps> = ({ 
+const MissionSupportAssignments: React.FC<MissionSupportAssignmentsProps> = ({
   width,
   assignedPilots = {},
-  setAssignedPilots
+  setAssignedPilots,
+  mission,
+  updateSupportRoles
 }) => {
-  const [supportRoles, setSupportRoles] = useState<SupportRole[]>([]);  const [showAddDialog, setShowAddDialog] = useState(false);
+  const [supportRoles, setSupportRoles] = useState<SupportRole[]>([]);
+  const [showAddDialog, setShowAddDialog] = useState(false);
   const [editRoleId, setEditRoleId] = useState<string | null>(null);
   const [creationOrderCounter, setCreationOrderCounter] = useState(0);
-  const [allCarriers, setAllCarriers] = useState<CarrierData[]>([]); 
-  const [carriersLoading, setCarriersLoading] = useState(true); 
+  const [allCarriers, setAllCarriers] = useState<CarrierData[]>([]);
+  const [carriersLoading, setCarriersLoading] = useState(true);
+  const lastLoadedMissionIdRef = useRef<string | null>(null);
 
-  // Initialize supportRoles from local storage
+  // Load supportRoles from mission database
   useEffect(() => {
-    const savedRoles = loadSupportRoles();
-    if (savedRoles && savedRoles.length > 0) {
-      setSupportRoles(savedRoles);
-      // Update the counter to be greater than the maximum order
-      const maxOrder = Math.max(...savedRoles.map(r => r.creationOrder), -1);
+    // Skip if no mission or if we've already loaded this mission
+    if (!mission || mission.id === lastLoadedMissionIdRef.current) {
+      return;
+    }
+
+    console.log('[MISSION-SUPPORT] Loading support roles from mission:', mission.id);
+    lastLoadedMissionIdRef.current = mission.id;
+
+    // Convert database support_role_assignments to UI format
+    if (mission.support_role_assignments && Array.isArray(mission.support_role_assignments)) {
+      const roles: SupportRole[] = mission.support_role_assignments
+        .filter(role => role.role_type !== 'mission_commander') // Filter out mission commander
+        .map((role, index) => {
+          const roleData = role as any;
+          return {
+            id: roleData.id || `support-${role.role_type}-${Date.now()}-${index}`,
+            callsign: roleData.callsign || 'UNKNOWN',
+            pilots: roleData.pilots || [],
+            creationOrder: roleData.creationOrder ?? index,
+            carrier: roleData.carrier,
+            slots: roleData.slots
+          };
+        });
+
+      console.log('[MISSION-SUPPORT] Loaded roles from database:', roles);
+      setSupportRoles(roles);
+
+      // Update counter
+      const maxOrder = Math.max(...roles.map(r => r.creationOrder), -1);
       setCreationOrderCounter(maxOrder + 1);
+    } else {
+      // No roles in database, start fresh
+      console.log('[MISSION-SUPPORT] No support roles in database');
+      setSupportRoles([]);
+      setCreationOrderCounter(0);
     }
-  }, []); 
-  // Save supportRoles to local storage whenever they change
+  }, [mission?.id]);
+
+  // Clear support roles when mission changes
   useEffect(() => {
-    if (supportRoles.length > 0) {
-      saveSupportRoles(supportRoles);
-    }
-  }, [supportRoles]);  // Whenever supportRoles change and assignedPilots exists, ensure empty support roles are preserved
+    return () => {
+      lastLoadedMissionIdRef.current = null;
+    };
+  }, [mission?.id]);  // Whenever supportRoles change and assignedPilots exists, ensure empty support roles are preserved
   useEffect(() => {
     // Skip if no support roles or assigned pilots is external and can't be modified
     if (supportRoles.length === 0 || !assignedPilots || !setAssignedPilots) return;
@@ -95,6 +132,52 @@ const MissionSupportAssignments: React.FC<MissionSupportAssignmentsProps> = ({
     });
     return map;
   }, [allCarriers]); // Depends only on allCarriers
+
+  // Save support roles to database
+  const saveSupportRolesToDatabase = useCallback(async (roles: SupportRole[]) => {
+    if (!mission || !updateSupportRoles) {
+      console.log('[MISSION-SUPPORT] Cannot save - mission or updateSupportRoles not available');
+      return;
+    }
+
+    console.log('[MISSION-SUPPORT] Saving support roles to database:', roles);
+
+    // Convert UI format to database format
+    const dbRoles: SupportRoleAssignment[] = roles.map(role => ({
+      role_type: role.id.includes('carrier') ? 'carrier_air_ops' : 'command_control',
+      pilot_id: '', // Not used for these multi-slot roles
+      // Store full role data as additional fields
+      id: role.id,
+      callsign: role.callsign,
+      pilots: role.pilots,
+      creationOrder: role.creationOrder,
+      carrier: role.carrier,
+      slots: role.slots
+    } as any));
+
+    try {
+      await updateSupportRoles(dbRoles);
+      console.log('[MISSION-SUPPORT] Successfully saved support roles');
+    } catch (error) {
+      console.error('[MISSION-SUPPORT] Error saving support roles:', error);
+    }
+  }, [mission, updateSupportRoles]);
+
+  // Save support roles to database whenever they change
+  useEffect(() => {
+    // Skip initial load (when roles are being loaded from database)
+    if (supportRoles.length === 0 && !mission) {
+      return;
+    }
+
+    // Debounce the save to avoid excessive database calls
+    const timeoutId = setTimeout(() => {
+      saveSupportRolesToDatabase(supportRoles);
+    }, 500);
+
+    return () => clearTimeout(timeoutId);
+  }, [supportRoles, saveSupportRolesToDatabase]);
+
   // Function to handle adding or updating a support role
   const handleAddOrUpdateSupportRole = useCallback((data: AddSupportRoleDialogData) => {
     if (data.type === SupportRoleType.CARRIER_AIR_OPS) {
@@ -229,7 +312,16 @@ const MissionSupportAssignments: React.FC<MissionSupportAssignmentsProps> = ({
       const updatedRoles = prevRoles.filter(role => role.id !== id);
       return updatedRoles;
     });
-  }, []);
+
+    // Also remove from assignedPilots to prevent the role from reappearing
+    if (setAssignedPilots) {
+      setAssignedPilots(prev => {
+        const updated = { ...prev };
+        delete updated[id];
+        return updated;
+      });
+    }
+  }, [setAssignedPilots]);
   // Handle initiating the edit of a support role
   const handleEditRole = useCallback((id: string) => {
     setEditRoleId(id);
