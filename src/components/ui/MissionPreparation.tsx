@@ -18,6 +18,8 @@ import { getMissionCommanderCandidatesWithFlightInfo } from '../../utils/mission
 import { useMissionPrepData } from '../../hooks/useMissionPrepData';
 import { useMissionPrepState } from '../../hooks/useMissionPrepState';
 import { useMissionPrepDataPersistence } from '../../hooks/useMissionPrepDataPersistence';
+import MissionPresenceBanner from './mission prep/MissionPresenceBanner';
+import UnsavedChangesDialog from './mission prep/UnsavedChangesDialog';
 import type { AssignedPilot, AssignedPilotsRecord } from '../../types/MissionPrepTypes';
 import AutoAssignConfigModal, { type AutoAssignConfig } from './mission prep/AutoAssignConfig';
 import { getUserSettings } from '../../utils/userSettingsService';
@@ -96,9 +98,11 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
     prepFlights,
     setPrepFlights,
     mission,
-    missionLoading,
     missionError,
-    missionSaving,
+    hasPendingChanges,
+    isConnected,
+    activeUsers,
+    forceSavePendingChanges,
     handleExtractedFlights: persistenceHandleExtractedFlights,
     updateMissionData,
     updateSupportRoles
@@ -124,6 +128,36 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
   const [isAutoAssignConfigOpen, setIsAutoAssignConfigOpen] = useState(false);
   const [isTrainingEvent, setIsTrainingEvent] = useState(false);
   const [showNoFlightsDialog, setShowNoFlightsDialog] = useState(false);
+  const [showUnsavedDialog, setShowUnsavedDialog] = useState(false);
+  const [pendingEventSwitch, setPendingEventSwitch] = useState<any>(null);
+
+  // Event switching interceptor to warn about unsaved changes
+  const handleEventSelect = useCallback((event: any) => {
+    if (hasPendingChanges && event?.id !== selectedEvent?.id) {
+      setPendingEventSwitch(event);
+      setShowUnsavedDialog(true);
+    } else {
+      setSelectedEvent(event);
+    }
+  }, [hasPendingChanges, selectedEvent?.id, setSelectedEvent]);
+
+  const handleSaveAndSwitch = useCallback(async () => {
+    await forceSavePendingChanges();
+    setSelectedEvent(pendingEventSwitch);
+    setShowUnsavedDialog(false);
+    setPendingEventSwitch(null);
+  }, [forceSavePendingChanges, pendingEventSwitch, setSelectedEvent]);
+
+  const handleDiscardAndSwitch = useCallback(() => {
+    setSelectedEvent(pendingEventSwitch);
+    setShowUnsavedDialog(false);
+    setPendingEventSwitch(null);
+  }, [pendingEventSwitch, setSelectedEvent]);
+
+  const handleCancelSwitch = useCallback(() => {
+    setShowUnsavedDialog(false);
+    setPendingEventSwitch(null);
+  }, []);
 
   // Filter data state
   const [statuses, setStatuses] = useState<Status[]>([]);
@@ -370,18 +404,6 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
           ...data.tentative.map((attendee: any) => ({ discord_id: attendee.discord_id, response: 'tentative' })),
           ...data.declined.map((attendee: any) => ({ discord_id: attendee.discord_id, response: 'declined' }))
         ].filter(record => record.discord_id);
-
-        // Debug the attendance data update
-        const dsrmRecord = attendanceRecords.find(record => {
-          return activePilots?.find(pilot => {
-            // Use discord_id (numeric ID) for matching attendance data
-            const discordId = pilot.discord_id;
-            return discordId === record.discord_id && pilot.callsign === 'DSRM';
-          });
-        });
-        if (dsrmRecord) {
-          console.log(`[POLLING-DEBUG] Updated attendance data for DSRM:`, dsrmRecord);
-        }
         
         setRealtimeAttendanceData(attendanceRecords);
         
@@ -558,8 +580,8 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
           boxSizing: 'border-box',
           overflow: 'hidden'
         }}>
-        {/* Mission Status Indicator */}
-        {(missionLoading || missionSaving || missionError) && (
+        {/* Mission Status Indicator - Only show errors */}
+        {(missionError) && (
           <div style={{
             position: 'fixed',
             top: '20px',
@@ -568,13 +590,11 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
             borderRadius: '6px',
             fontSize: '14px',
             zIndex: 1000,
-            backgroundColor: missionError ? '#FEE2E2' : missionSaving ? '#FEF3C7' : '#DBEAFE',
-            color: missionError ? '#B91C1C' : missionSaving ? '#92400E' : '#1E40AF',
-            border: `1px solid ${missionError ? '#FCA5A5' : missionSaving ? '#FCD34D' : '#93C5FD'}`
+            backgroundColor: '#FEE2E2',
+            color: '#B91C1C',
+            border: '1px solid #FCA5A5'
           }}>
-            {missionError ? `Mission Error: ${missionError}` :
-             missionSaving ? 'Saving mission...' :
-             missionLoading ? 'Loading mission...' : ''}
+            Mission Error: {missionError}
           </div>
         )}
 
@@ -602,7 +622,7 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
                 width={MISSION_DETAILS_WIDTH}
                 events={events}
                 selectedEvent={selectedEvent}
-                onEventSelect={setSelectedEvent}
+                onEventSelect={handleEventSelect}
                 missionCommander={missionCommander}
                 getMissionCommanderCandidates={getMissionCommanderCandidatesWrapper}
                 setMissionCommander={setMissionCommander}
@@ -654,6 +674,7 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
                   setAssignedPilots={setAssignedPilotsWrapper}
                   mission={mission}
                   updateSupportRoles={updateSupportRoles}
+                  activePilots={activePilots}
                 />
                 <Communications 
                   width={CARD_WIDTH} 
@@ -679,6 +700,16 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
           dragSource={dragSource} 
         />
       </DragOverlay>
+
+      {/* Real-time Collaboration UI */}
+      <MissionPresenceBanner activeUsers={activeUsers} isConnected={isConnected} />
+      <UnsavedChangesDialog
+        isOpen={showUnsavedDialog}
+        onSaveAndSwitch={handleSaveAndSwitch}
+        onDiscardAndSwitch={handleDiscardAndSwitch}
+        onCancel={handleCancelSwitch}
+        targetEventName={pendingEventSwitch?.name || ''}
+      />
 
       {/* Auto-Assignment Configuration Modal */}
       <AutoAssignConfigModal

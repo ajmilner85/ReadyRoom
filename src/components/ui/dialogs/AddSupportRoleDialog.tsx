@@ -13,7 +13,8 @@ interface CarrierOption {
 interface AddSupportRoleDialogProps {
   onSave: (data: AddSupportRoleDialogData) => void;
   onCancel: () => void;
-  // Removed existingCallsigns and initialCallsign as they are no longer needed
+  existingSupportRoles?: Array<{ id: string; carrier?: { carrierId?: string } }>;
+  editingRoleId?: string; // ID of role being edited (to exclude from duplicate check)
   title?: string; // Keep title for edit/add distinction if needed later
 }
 
@@ -22,6 +23,8 @@ const slotTypes = ['AWACS', 'OLYMPUS', 'GCI', 'JTAC'] as const;
 const AddSupportRoleDialog: React.FC<AddSupportRoleDialogProps> = ({
   onSave,
   onCancel,
+  existingSupportRoles = [],
+  editingRoleId,
   title = 'Add Support Role' // Updated default title to be more generic
 }) => {  
   const [roleType, setRoleType] = useState<SupportRoleType>(SupportRoleType.CARRIER_AIR_OPS);
@@ -39,10 +42,19 @@ const AddSupportRoleDialog: React.FC<AddSupportRoleDialogProps> = ({
       const getCarriers = async () => {
         try {
           const carrierData = await fetchCarriers();
+          
+          // Get carrier IDs that already have support roles (excluding the one being edited)
+          const usedCarrierIds = new Set(
+            existingSupportRoles
+              .filter(role => role.id !== editingRoleId && role.carrier?.carrierId)
+              .map(role => role.carrier!.carrierId!)
+          );
+          
           // Map data to CarrierOption, ensuring hull and name are present
+          // Filter out carriers that already have support roles
           const options = carrierData
             .map(c => ({ id: c.id, name: c.name, hull: c.hull }))
-            .filter(c => c.id && c.name && c.hull); // Ensure required fields exist
+            .filter(c => c.id && c.name && c.hull && !usedCarrierIds.has(c.id)); // Ensure required fields exist and not already used
 
           setCarriers(options);
           if (options.length > 0) {

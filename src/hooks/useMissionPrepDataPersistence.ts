@@ -1,9 +1,11 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useMission } from './useMission';
+import { useMissionRealtime } from './useMissionRealtime';
+import { supabase } from '../utils/supabaseClient';
 import type { AssignedPilotsRecord } from '../types/MissionPrepTypes';
 import type { MissionCommanderInfo } from '../types/MissionCommanderTypes';
 import type { Event } from '../types/EventTypes';
-import type { MissionFlight, PilotAssignment, SupportRoleAssignment } from '../types/MissionTypes';
+import type { Mission, MissionFlight, PilotAssignment, SupportRoleAssignment } from '../types/MissionTypes';
 
 /**
  * Hook that bridges the existing mission prep state management with database persistence
@@ -29,8 +31,107 @@ export const useMissionPrepDataPersistence = (
     updateSelectedSquadrons,
     updateSettings,
     updateMissionData,
-    createNewMission
+    createNewMission,
+    setMission: setMissionDirect
   } = useMission(undefined, selectedEvent?.id);
+
+  // ── Version tracking for optimistic locking ──
+  // We track the version in a ref so debounced saves always have the latest
+  const missionVersionRef = useRef<number>(1);
+
+  // Keep version ref in sync with mission state
+  useEffect(() => {
+    if (mission) {
+      missionVersionRef.current = mission.version ?? 1;
+    }
+  }, [mission?.id, mission?.version]);
+
+  // ── Current user info for presence ──
+  const [currentUser, setCurrentUser] = useState<{ id: string; name: string } | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    supabase.auth.getUser().then(({ data }) => {
+      if (cancelled || !data.user) return;
+      // Get user profile for the user_profiles.id
+      supabase
+        .from('user_profiles')
+        .select('id, pilot_id')
+        .eq('auth_user_id', data.user.id)
+        .maybeSingle()
+        .then(({ data: profile }) => {
+          if (cancelled || !profile) return;
+          // Try to get the pilot callsign for display
+          if (profile.pilot_id) {
+            supabase
+              .from('pilots')
+              .select('callsign')
+              .eq('id', profile.pilot_id)
+              .maybeSingle()
+              .then(({ data: pilot }) => {
+                if (cancelled) return;
+                setCurrentUser({
+                  id: data.user.id, // Use auth user ID for FK constraint
+                  name: pilot?.callsign || data.user?.email || 'Unknown'
+                });
+              });
+          } else {
+            setCurrentUser({
+              id: data.user.id, // Use auth user ID for FK constraint
+              name: data.user?.email || 'Unknown'
+            });
+          }
+        });
+    });
+    return () => { cancelled = true; };
+  }, []);
+
+  // ── Realtime subscription ──
+  const handleRemoteMissionUpdate = useCallback((newRow: Record<string, any>) => {
+    // Ignore our own saves (we already have the local state)
+    if (currentUser && newRow.last_modified_by === currentUser.id) {
+      // Just update our version ref to stay in sync
+      if (newRow.version != null) {
+        missionVersionRef.current = newRow.version;
+      }
+      return;
+    }
+
+    // Another user saved — update our local state with their changes.
+    // Build a partial Mission from the raw row for setMissionDirect.
+    // The simplest approach: refetch the mission to get a properly typed object.
+    // But since we already have the raw row, we can update the version and
+    // let the sync effect re-hydrate the UI state.
+    if (newRow.version != null) {
+      missionVersionRef.current = newRow.version;
+    }
+
+    // Update the mission object so the sync effect fires with fresh data.
+    // We cast the row into a Mission-like shape — convertRowToMission is in missionService
+    // but we can do a lightweight update here:
+    setMissionDirect({
+      ...mission!,
+      version: newRow.version ?? 1,
+      last_modified_by: newRow.last_modified_by,
+      last_modified_at: newRow.last_modified_at,
+      flights: Array.isArray(newRow.flights) ? newRow.flights : mission?.flights || [],
+      pilot_assignments: typeof newRow.pilot_assignments === 'object' ? newRow.pilot_assignments : mission?.pilot_assignments || {},
+      support_role_assignments: Array.isArray(newRow.support_role_assignments) ? newRow.support_role_assignments : mission?.support_role_assignments || [],
+      updated_at: newRow.updated_at || mission?.updated_at || new Date().toISOString()
+    } as Mission);
+
+    // Reset the sync keys so the sync effect re-hydrates from the new mission data
+    setLastSyncMissionId(null);
+    setLastSyncEventId(null);
+  }, [mission, currentUser, setMissionDirect]);
+
+  const { isConnected, activeUsers, updatePresence } = useMissionRealtime({
+    missionId: mission?.id,
+    onRemoteMissionUpdate: handleRemoteMissionUpdate,
+    currentUserId: currentUser?.id,
+    currentUserName: currentUser?.name,
+    enabled: !!mission && !missionLoading
+  });
 
   // Local state that syncs with mission database
   const [assignedPilots, setAssignedPilotsLocal] = useState<AssignedPilotsRecord>(
@@ -84,7 +185,6 @@ export const useMissionPrepDataPersistence = (
     
     // Skip sync if there are pending changes to avoid overwriting user updates
     if (hasPendingChanges) {
-      console.log('🚫 Persistence: Skipping sync - pending changes detected');
       return;
     }
     
@@ -130,7 +230,16 @@ export const useMissionPrepDataPersistence = (
       const convertedAssignments: AssignedPilotsRecord = {};
       
       Object.entries(mission.pilot_assignments as Record<string, any[]>).forEach(([flightId, assignments]) => {
-        convertedAssignments[flightId] = assignments.map(assignment => {
+        convertedAssignments[flightId] = assignments
+          .filter(_assignment => {
+            // Keep assignments that have a pilot_id OR have a dashNumber (for empty slots)
+            // But skip completely invalid entries
+            if (!_assignment.pilot_id && !_assignment.dashNumber && !_assignment.dash_number) {
+              return false;
+            }
+            return true;
+          })
+          .map(assignment => {
           // If it's already in UI format (has dashNumber), use it as-is
           if (assignment.dashNumber) {
             // Preserve roll call status from current assignments or database
@@ -184,31 +293,8 @@ export const useMissionPrepDataPersistence = (
         });
       });
       
-      console.log('📥 Persistence: Converted assignments with preserved roll call data:', JSON.stringify(convertedAssignments));
-      
-      // Debug log roll call status preservation
-      Object.entries(convertedAssignments).forEach(([flightId, pilots]) => {
-        const pilotsWithRollCall = pilots.filter(p => p.rollCallStatus);
-        if (pilotsWithRollCall.length > 0) {
-          console.log(`🎯 Persistence: Flight ${flightId} has ${pilotsWithRollCall.length} pilots with roll call status:`, 
-            pilotsWithRollCall.map(p => `${p.callsign}: ${p.rollCallStatus}`));
-        }
-        
-        // Debug all pilots in this flight to see if anyone lost roll call status
-        pilots.forEach(pilot => {
-          if (pilot.callsign === 'DSRM') {
-            console.log(`🔍 Persistence: DSRM pilot data in flight ${flightId}:`, {
-              callsign: pilot.callsign,
-              rollCallStatus: pilot.rollCallStatus,
-              attendanceStatus: pilot.attendanceStatus,
-              boardNumber: pilot.boardNumber
-            });
-          }
-        });
-      });
       setAssignedPilotsLocal(convertedAssignments);
     } else {
-      console.log('📭 Persistence: No pilot assignments in database, using empty state');
       setAssignedPilotsLocal({});
     }
 
@@ -241,18 +327,9 @@ export const useMissionPrepDataPersistence = (
     // });
     
     if (mission.flights && mission.flights.length > 0) {
-      console.log('📝 Persistence: Restoring flights from database:', mission.flights.map(f => ({
-        id: f.id,
-        callsign: f.callsign,
-        flightData: f.flight_data,
-        midsA: f.flight_data?.midsA,
-        midsB: f.flight_data?.midsB
-      })));
       const convertedFlights = mission.flights.map((missionFlight, index) => {
         // Extract MIDS channels from the flight_data or use defaults
         const flightData = missionFlight.flight_data || {};
-
-        console.log(`Flight ${index} (${missionFlight.callsign}): midsA="${flightData.midsA}", midsB="${flightData.midsB}"`);
 
         return {
           id: missionFlight.id,
@@ -323,6 +400,9 @@ export const useMissionPrepDataPersistence = (
   // Check if any drag operation is in progress globally
   const isDragInProgress = document.body.classList.contains('dragging');
 
+  // Ref to the latest pending save so forceSavePendingChanges can execute it
+  const latestPendingSaveRef = useRef<(() => Promise<boolean>) | null>(null);
+
   const debouncedSave = useCallback((
     saveFunction: () => Promise<boolean>,
     delay: number = 1000
@@ -331,17 +411,23 @@ export const useMissionPrepDataPersistence = (
       clearTimeout(saveTimeout);
     }
 
+    // Store the latest save function so it can be force-executed
+    latestPendingSaveRef.current = saveFunction;
+
     // Check for drag state at call time
     const dragInProgress = document.body.classList.contains('dragging');
-    
+
     // If drag is in progress, queue the operation instead of executing immediately
     if (dragInProgress) {
-      console.log('🚫 Persistence: Drag in progress, queuing save operation');
       setPendingOperations(prev => [...prev, saveFunction]);
       return;
     }
 
     setHasPendingChanges(true);
+
+    // Capture the mission/event IDs at call time for consistency check
+    const capturedMissionId = mission?.id;
+    const capturedEventId = selectedEvent?.id;
 
     const timeout = setTimeout(async () => {
       // Double-check drag state before executing
@@ -353,9 +439,18 @@ export const useMissionPrepDataPersistence = (
         return;
       }
 
+      // CRITICAL: Verify mission/event haven't changed during debounce
+      if (mission?.id !== capturedMissionId || selectedEvent?.id !== capturedEventId) {
+        console.error('🚨 Persistence: Mission/Event changed during debounce - aborting save');
+        setHasPendingChanges(false);
+        latestPendingSaveRef.current = null;
+        return;
+      }
+
       try {
         console.log('💾 Persistence: Executing save operation');
         await saveFunction();
+        latestPendingSaveRef.current = null;
       } catch (error) {
         console.error('Error saving mission data:', error);
       } finally {
@@ -364,6 +459,25 @@ export const useMissionPrepDataPersistence = (
     }, delay);
 
     setSaveTimeout(timeout);
+  }, [saveTimeout, mission?.id, selectedEvent?.id]);
+
+  // Force-execute any pending save immediately (for unsaved changes dialog)
+  const forceSavePendingChanges = useCallback(async () => {
+    if (saveTimeout) {
+      clearTimeout(saveTimeout);
+      setSaveTimeout(null);
+    }
+    const pendingSave = latestPendingSaveRef.current;
+    if (pendingSave) {
+      latestPendingSaveRef.current = null;
+      try {
+        await pendingSave();
+      } catch (error) {
+        console.error('Error force-saving pending changes:', error);
+      } finally {
+        setHasPendingChanges(false);
+      }
+    }
   }, [saveTimeout]);
 
   // Monitor for drag completion and execute queued operations
@@ -394,20 +508,6 @@ export const useMissionPrepDataPersistence = (
 
   // Enhanced setters that save to database
   const setAssignedPilots = useCallback((pilots: AssignedPilotsRecord, skipSave: boolean = false) => {
-    // Debug tracking for DSRM
-    Object.entries(pilots).forEach(([flightId, pilotsList]) => {
-      pilotsList.forEach(pilot => {
-        if (pilot.callsign === 'DSRM') {
-          console.log(`[SET-ASSIGNED-PILOTS-DEBUG] Setting DSRM in flight ${flightId}:`, {
-            rollCallStatus: pilot.rollCallStatus,
-            attendanceStatus: pilot.attendanceStatus,
-            skipSave
-          });
-          console.trace('Call stack for setAssignedPilots');
-        }
-      });
-    });
-    
     const pilotsCount = Object.values(pilots).reduce((total, flight) => total + flight.length, 0);
 
     console.log('📝 Persistence: setAssignedPilots called:', {
@@ -438,32 +538,20 @@ export const useMissionPrepDataPersistence = (
           const pilotAssignments: Record<string, PilotAssignment[]> = {};
           
           Object.entries(pilots).forEach(([flightId, pilotsList]) => {
-            pilotAssignments[flightId] = pilotsList.map((pilot, index) => ({
-              pilot_id: pilot.id,
-              flight_id: flightId,
-              slot_number: index + 1,
-              dash_number: pilot.dashNumber,
-              mids_a_channel: (pilot as any).midsAChannel || '',
-              mids_b_channel: (pilot as any).midsBChannel || '',
-              roll_call_status: pilot.rollCallStatus || null
-            }));
-          });
-
-          // Debug save data for DSRM specifically
-          Object.entries(pilotAssignments).forEach(([flightId, assignments]) => {
-            assignments.forEach(assignment => {
-              if (assignment.pilot_id && activePilots) {
-                const pilot = activePilots.find(p => p.id === assignment.pilot_id);
-                if (pilot && pilot.callsign === 'DSRM') {
-                  console.log(`💾 Persistence: Saving DSRM assignment in flight ${flightId}:`, {
-                    pilot_id: assignment.pilot_id,
-                    dash_number: assignment.dash_number,
-                    roll_call_status: assignment.roll_call_status,
-                    originalPilotRollCall: pilot.rollCallStatus
-                  });
-                }
-              }
-            });
+            // Filter out empty pilots (those without an id or boardNumber)
+            const validPilots = pilotsList.filter(pilot => pilot.id && pilot.boardNumber);
+            
+            if (validPilots.length > 0) {
+              pilotAssignments[flightId] = validPilots.map((pilot, _index) => ({
+                pilot_id: pilot.id,
+                flight_id: flightId,
+                slot_number: pilotsList.indexOf(pilot) + 1, // Use original index
+                dash_number: pilot.dashNumber,
+                mids_a_channel: (pilot as any).midsAChannel || '',
+                mids_b_channel: (pilot as any).midsBChannel || '',
+                roll_call_status: pilot.rollCallStatus || null
+              }));
+            }
           });
           
           console.log('🔄 Persistence: Executing database save with assignments (including roll call):', pilotAssignments);
@@ -757,6 +845,13 @@ export const useMissionPrepDataPersistence = (
     missionLoading,
     missionError,
     missionSaving: missionSaving || hasPendingChanges,
+    hasPendingChanges,
+
+    // Real-time collaboration
+    isConnected,
+    activeUsers,
+    updatePresence,
+    forceSavePendingChanges,
 
     // Additional helpers
     updateSelectedSquadrons: (squadrons: string[]) => {

@@ -139,7 +139,8 @@ export const useDragDrop = ({
           updatedPilots[flightIdPart].push({
             ...pilot,
             dashNumber,
-            attendanceStatus: pilot.attendanceStatus
+            attendanceStatus: pilot.attendanceStatus,
+            rollCallStatus: pilot.rollCallStatus
           });
           
           // If the dragged pilot came from a tile, put the displaced pilot back in that position
@@ -204,7 +205,8 @@ export const useDragDrop = ({
             ...pilot,
             dashNumber,
             // Explicitly preserve the attendance status
-            attendanceStatus: pilot.attendanceStatus
+            attendanceStatus: pilot.attendanceStatus,
+            rollCallStatus: pilot.rollCallStatus
           });
           
           // Apply the pilots update first, then check for mission commander
@@ -283,7 +285,8 @@ export const useDragDrop = ({
             updatedPilots[roleIdPart].push({
             ...pilot,
             dashNumber,
-            attendanceStatus: pilot.attendanceStatus
+            attendanceStatus: pilot.attendanceStatus,
+            rollCallStatus: pilot.rollCallStatus
           });
           
           // If the dragged pilot came from a tile, put the displaced pilot back in that position
@@ -348,11 +351,23 @@ export const useDragDrop = ({
               updatedPilots[roleIdPart] = updatedPilots[roleIdPart].filter(p => p.dashNumber !== dashNumber);
             }
               // Add the pilot to the role with the correct dashNumber
-            updatedPilots[roleIdPart].push({
+            const newAssignment = {
               ...pilot,
               dashNumber, // Use the dashNumber from the target position
-              attendanceStatus: pilot.attendanceStatus
+              attendanceStatus: pilot.attendanceStatus,
+              rollCallStatus: pilot.rollCallStatus
+            };
+            console.log('[SUPPORT-DRAG] Adding pilot to support role:', {
+              roleId: roleIdPart,
+              dashNumber,
+              pilotId: pilot.id,
+              callsign: pilot.callsign,
+              attendanceStatus: newAssignment.attendanceStatus,
+              rollCallStatus: newAssignment.rollCallStatus,
+              hasAttendance: !!newAssignment.attendanceStatus,
+              hasRollCall: !!newAssignment.rollCallStatus
             });
+            updatedPilots[roleIdPart].push(newAssignment);
           
           // Sort the pilots by dashNumber for consistency
           updatedPilots[roleIdPart].sort((a, b) => {

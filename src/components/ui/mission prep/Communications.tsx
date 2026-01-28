@@ -86,12 +86,10 @@ const Communications: React.FC<CommunicationsProps> = ({
       processedValue = '——';
     }
 
-    // Apply field-specific validation and formatting
+    // For frequency field, store the raw value without formatting
+    // Formatting will happen on blur or save
     if (field === 'freq' && value !== '——') {
-      const numValue = parseFloat(value);
-      if (!isNaN(numValue) && isValidFrequency(value)) {
-        processedValue = numValue.toFixed(3);
-      }
+      processedValue = value;
     } else if (field === 'ils' && value !== '——') {
       // Make sure ILS is an integer between 1-20
       const ilsNum = parseInt(value, 10);
@@ -112,6 +110,20 @@ const Communications: React.FC<CommunicationsProps> = ({
     };
 
     setEditedData(newData);
+  };
+
+  // Format frequency field when user leaves the input
+  const handleFrequencyBlur = (index: number) => {
+    const newData = [...editedData];
+    const freq = newData[index].freq;
+    
+    if (freq !== '——' && freq !== '') {
+      const numValue = parseFloat(freq);
+      if (!isNaN(numValue) && isValidFrequency(freq)) {
+        newData[index].freq = numValue.toFixed(3);
+        setEditedData(newData);
+      }
+    }
   };
 
   // Function to calculate total fuel including external tanks
@@ -332,6 +344,7 @@ const Communications: React.FC<CommunicationsProps> = ({
                   type="text"
                   value={row.freq === '——' ? '' : row.freq}
                   onChange={(e) => handleCellEdit(index, 'freq', e.target.value)}
+                  onBlur={() => handleFrequencyBlur(index)}
                   style={styles.tableInput}
                 />
               ) : (

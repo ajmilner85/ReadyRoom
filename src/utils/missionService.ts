@@ -27,6 +27,10 @@ const convertRowToMission = (row: MissionRow): Mission => {
     created_at: row.created_at || new Date().toISOString(),
     updated_at: row.updated_at || new Date().toISOString(),
     step_time: row.step_time || undefined,
+    // Version tracking (defaults for rows created before migration)
+    version: (row as any).version ?? 1,
+    last_modified_by: (row as any).last_modified_by || undefined,
+    last_modified_at: (row as any).last_modified_at || undefined,
     selected_squadrons: Array.isArray(row.selected_squadrons)
       ? row.selected_squadrons as string[]
       : [],
@@ -58,7 +62,7 @@ const getCurrentUserProfileId = async (): Promise<string | null> => {
     return null;
   }
 
-  // Get the user_profiles.id (not auth_user_id) since that's what the FK constraint references
+  // Get the user_profiles.id since that's what updated_by FK references
   const { data, error } = await supabase
     .from('user_profiles')
     .select('id, pilot_id')
@@ -76,13 +80,13 @@ const getCurrentUserProfileId = async (): Promise<string | null> => {
     return null;
   }
 
-  console.log('User profile found:', {
-    profileId: data.id,
-    pilotId: data.pilot_id,
-    authUserId: user.id
-  });
-
+  // Return user_profiles.id for updated_by FK constraint
   return data.id || null;
+};
+
+const getCurrentAuthUserId = async (): Promise<string | null> => {
+  const { data: { user } } = await supabase.auth.getUser();
+  return user?.id || null;
 };
 
 /**
@@ -92,7 +96,8 @@ export const createMission = async (
   missionData: CreateMissionRequest
 ): Promise<MissionResponse> => {
   return await sb(async (supabase) => {
-    const userId = await getCurrentUserProfileId();
+    const userId = await getCurrentUserProfileId(); // user_profiles.id for created_by/updated_by
+    const authUserId = await getCurrentAuthUserId(); // auth.users.id for last_modified_by
     
     const insertData: MissionInsert = {
       name: missionData.name,
@@ -100,14 +105,15 @@ export const createMission = async (
       event_id: missionData.event_id || null,
       selected_squadrons: missionData.selected_squadrons || [],
       flight_import_filter: missionData.flight_import_filter || 'all',
-      created_by: userId,
-      updated_by: userId,
+      created_by: userId, // FK to user_profiles.id
+      updated_by: userId, // FK to user_profiles.id
       status: 'planning',
       flights: [],
       pilot_assignments: {},
       support_role_assignments: [],
       miz_file_data: {},
-      mission_settings: {}
+      mission_settings: {},
+      ...(authUserId ? { last_modified_by: authUserId } as any : {}) // FK to auth.users.id (new column)
     };
 
     const { data, error } = await supabase
@@ -225,32 +231,48 @@ export const getMissionByEventId = async (eventId: string): Promise<MissionRespo
 };
 
 /**
- * Update mission
+ * Update mission.
+ * Supports optimistic locking: if `expected_version` is set in missionData,
+ * the update will include a WHERE version = expected_version clause.
+ * When another user has saved since we last loaded, the WHERE won't match
+ * and we return a conflict response with the current server state.
  */
 export const updateMission = async (
   missionId: string,
   missionData: UpdateMissionRequest
 ): Promise<MissionResponse> => {
   return await sb(async (supabase) => {
-    const userId = await getCurrentUserProfileId();
+    const userId = await getCurrentUserProfileId(); // user_profiles.id for updated_by
+    const authUserId = await getCurrentAuthUserId(); // auth.users.id for last_modified_by
+
+    // Extract expected_version before building update payload (it's not a DB column)
+    const { expected_version, ...restData } = missionData;
 
     const updateData: MissionUpdate = {
-      ...missionData,
+      ...restData,
       // Convert empty string to null for timestamp fields
-      step_time: missionData.step_time === '' ? null : missionData.step_time,
-      flights: missionData.flights ? missionData.flights as any : undefined,
-      pilot_assignments: missionData.pilot_assignments ? missionData.pilot_assignments as any : undefined,
-      support_role_assignments: missionData.support_role_assignments ? missionData.support_role_assignments as any : undefined,
-      updated_by: userId,
-      updated_at: new Date().toISOString()
+      step_time: restData.step_time === '' ? null : restData.step_time,
+      flights: restData.flights ? restData.flights as any : undefined,
+      pilot_assignments: restData.pilot_assignments ? restData.pilot_assignments as any : undefined,
+      support_role_assignments: restData.support_role_assignments ? restData.support_role_assignments as any : undefined,
+      updated_by: userId, // FK to user_profiles.id
+      updated_at: new Date().toISOString(),
+      // Set last_modified_by so realtime listeners can identify the author (FK to auth.users.id)
+      ...(authUserId ? { last_modified_by: authUserId } : {})
     };
 
-    const { data, error } = await supabase
+    // Build the query
+    let query = supabase
       .from('missions')
       .update(updateData)
-      .eq('id', missionId)
-      .select()
-      .single();
+      .eq('id', missionId);
+
+    // If optimistic locking is requested, add version check
+    if (expected_version !== undefined) {
+      query = query.eq('version', expected_version);
+    }
+
+    const { data, error } = await query.select().maybeSingle();
 
     if (error) {
       console.error('Error updating mission:', error);
@@ -271,9 +293,32 @@ export const updateMission = async (
       return { mission: {} as Mission, error: error.message };
     }
 
-    return { 
+    // If optimistic locking was used and no row was returned, it's a version conflict
+    if (!data && expected_version !== undefined) {
+      console.warn(`⚠️ Version conflict: expected version ${expected_version} but it has changed`);
+
+      // Fetch the current server state so the caller can resolve the conflict
+      const { data: currentData } = await supabase
+        .from('missions')
+        .select('*')
+        .eq('id', missionId)
+        .single();
+
+      return {
+        mission: {} as Mission,
+        error: 'Version conflict: mission was modified by another user',
+        conflict: true,
+        serverMission: currentData ? convertRowToMission(currentData) : undefined
+      };
+    }
+
+    if (!data) {
+      return { mission: {} as Mission, error: 'Mission not found' };
+    }
+
+    return {
       mission: convertRowToMission(data),
-      error: undefined 
+      error: undefined
     };
   });
 };
