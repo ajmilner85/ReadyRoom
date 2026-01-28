@@ -293,9 +293,30 @@ export const useMissionPrepDataPersistence = (
         });
       });
       
+      // CRITICAL: Ensure all flights from mission.flights have entries in assignedPilots
+      // even if they have no pilot assignments yet (prevents display issues)
+      if (mission.flights && Array.isArray(mission.flights)) {
+        mission.flights.forEach(missionFlight => {
+          if (missionFlight.id && !convertedAssignments[missionFlight.id]) {
+            // Initialize with empty array for flights with no assignments
+            convertedAssignments[missionFlight.id] = [];
+            console.log('📋 Persistence: Initialized empty pilot array for flight:', missionFlight.id);
+          }
+        });
+      }
+      
       setAssignedPilotsLocal(convertedAssignments);
     } else {
-      setAssignedPilotsLocal({});
+      // If no pilot assignments, but we have flights, initialize empty arrays for each
+      const emptyAssignments: AssignedPilotsRecord = {};
+      if (mission.flights && Array.isArray(mission.flights)) {
+        mission.flights.forEach(missionFlight => {
+          if (missionFlight.id) {
+            emptyAssignments[missionFlight.id] = [];
+          }
+        });
+      }
+      setAssignedPilotsLocal(emptyAssignments);
     }
 
     // Convert support roles back to mission commander format
@@ -537,21 +558,33 @@ export const useMissionPrepDataPersistence = (
         try {
           const pilotAssignments: Record<string, PilotAssignment[]> = {};
           
+          // CRITICAL: Ensure ALL flights from prepFlights are represented, even if empty
+          // This prevents accidentally deleting flight assignments when only support roles are updated
+          if (prepFlights && prepFlights.length > 0) {
+            prepFlights.forEach(flight => {
+              if (flight.id && !flight.id.startsWith('support-')) {
+                // Initialize with empty array if not in pilots object
+                if (!pilots[flight.id]) {
+                  pilotAssignments[flight.id] = [];
+                }
+              }
+            });
+          }
+          
           Object.entries(pilots).forEach(([flightId, pilotsList]) => {
             // Filter out empty pilots (those without an id or boardNumber)
             const validPilots = pilotsList.filter(pilot => pilot.id && pilot.boardNumber);
             
-            if (validPilots.length > 0) {
-              pilotAssignments[flightId] = validPilots.map((pilot, _index) => ({
-                pilot_id: pilot.id,
-                flight_id: flightId,
-                slot_number: pilotsList.indexOf(pilot) + 1, // Use original index
-                dash_number: pilot.dashNumber,
-                mids_a_channel: (pilot as any).midsAChannel || '',
-                mids_b_channel: (pilot as any).midsBChannel || '',
-                roll_call_status: pilot.rollCallStatus || null
-              }));
-            }
+            // Always include the flight key, even if empty
+            pilotAssignments[flightId] = validPilots.map((pilot, _index) => ({
+              pilot_id: pilot.id,
+              flight_id: flightId,
+              slot_number: pilotsList.indexOf(pilot) + 1, // Use original index
+              dash_number: pilot.dashNumber,
+              mids_a_channel: (pilot as any).midsAChannel || '',
+              mids_b_channel: (pilot as any).midsBChannel || '',
+              roll_call_status: pilot.rollCallStatus || null
+            }));
           });
           
           console.log('🔄 Persistence: Executing database save with assignments (including roll call):', pilotAssignments);
@@ -566,7 +599,7 @@ export const useMissionPrepDataPersistence = (
     } else {
       console.log('⏭️ Persistence: Skipping save (skipSave=true or no mission)');
     }
-  }, [mission, selectedEvent, debouncedSave, updatePilotAssignments]);
+  }, [mission, selectedEvent, debouncedSave, updatePilotAssignments, prepFlights]);
 
   const setMissionCommander = useCallback((commander: MissionCommanderInfo | null) => {
     setMissionCommanderLocal(commander);
