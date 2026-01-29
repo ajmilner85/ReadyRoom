@@ -675,6 +675,7 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
                   mission={mission}
                   updateSupportRoles={updateSupportRoles}
                   activePilots={activePilots}
+                  selectedEventId={selectedEvent?.id}
                 />
                 <Communications 
                   width={CARD_WIDTH} 

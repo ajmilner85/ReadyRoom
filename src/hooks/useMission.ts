@@ -28,6 +28,8 @@ export const useMission = (initialMissionId?: string, eventId?: string) => {
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState<boolean>(false);
   const abortControllerRef = useRef<AbortController | null>(null);
+  // Track the current event ID to detect stale responses
+  const currentEventIdRef = useRef<string | undefined>(undefined);
 
   // Load mission on mount
   useEffect(() => {
@@ -35,6 +37,7 @@ export const useMission = (initialMissionId?: string, eventId?: string) => {
       if (!initialMissionId && !eventId) {
         setLoading(false);
         setMission(null);
+        currentEventIdRef.current = undefined;
         return;
       }
 
@@ -42,7 +45,11 @@ export const useMission = (initialMissionId?: string, eventId?: string) => {
       if (abortControllerRef.current) {
         abortControllerRef.current.abort();
       }
-      abortControllerRef.current = new AbortController();
+      const abortController = new AbortController();
+      abortControllerRef.current = abortController;
+      
+      // Track which event we're loading for stale response detection
+      currentEventIdRef.current = eventId;
 
       // Create cache key for deduplication
       const cacheKey = initialMissionId ? `mission:${initialMissionId}` : `event:${eventId}`;
@@ -72,8 +79,10 @@ export const useMission = (initialMissionId?: string, eventId?: string) => {
 
         const result = await loadingPromise;
 
-        // Check if request was aborted
-        if (abortControllerRef.current?.signal.aborted) {
+        // Check if request was aborted OR if we've moved on to a different event
+        // This prevents stale responses from overwriting newer data
+        if (abortController.signal.aborted || currentEventIdRef.current !== eventId) {
+          console.log(`Mission load cancelled - stale response for event ${eventId}, current is ${currentEventIdRef.current}`);
           return;
         }
 
@@ -90,13 +99,14 @@ export const useMission = (initialMissionId?: string, eventId?: string) => {
         }
       } catch (err: any) {
         // Ignore abort errors
-        if (err.name === 'AbortError' || abortControllerRef.current?.signal.aborted) {
+        if (err.name === 'AbortError' || abortController.signal.aborted) {
           return;
         }
         console.error('Error loading mission:', err);
         setError(err.message || 'Failed to load mission');
       } finally {
-        if (!abortControllerRef.current?.signal.aborted) {
+        // Only update loading state if this is still the current request
+        if (!abortController.signal.aborted && currentEventIdRef.current === eventId) {
           setLoading(false);
         }
       }

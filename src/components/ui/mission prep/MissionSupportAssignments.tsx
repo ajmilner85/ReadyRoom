@@ -31,6 +31,7 @@ interface MissionSupportAssignmentsProps {
   mission?: Mission | null;
   updateSupportRoles?: (roles: SupportRoleAssignment[]) => Promise<boolean>;
   activePilots?: Pilot[];
+  selectedEventId?: string; // Used to validate mission belongs to correct event
 }
 
 const MissionSupportAssignments: React.FC<MissionSupportAssignmentsProps> = ({
@@ -39,7 +40,8 @@ const MissionSupportAssignments: React.FC<MissionSupportAssignmentsProps> = ({
   setAssignedPilots,
   mission,
   updateSupportRoles,
-  activePilots
+  activePilots,
+  selectedEventId
 }) => {
   const [supportRoles, setSupportRoles] = useState<SupportRole[]>([]);
   const [showAddDialog, setShowAddDialog] = useState(false);
@@ -57,6 +59,17 @@ const MissionSupportAssignments: React.FC<MissionSupportAssignmentsProps> = ({
       setSupportRoles([]);
       setCreationOrderCounter(0);
       lastLoadedMissionIdRef.current = null;
+      return;
+    }
+
+    // CRITICAL: Validate mission belongs to the currently selected event
+    // This prevents loading stale mission data during rapid event switching
+    if (selectedEventId && mission.event_id && mission.event_id !== selectedEventId) {
+      console.warn('[MISSION-SUPPORT] Skipping load - mission belongs to different event:', {
+        missionEventId: mission.event_id,
+        selectedEventId: selectedEventId,
+        missionId: mission.id
+      });
       return;
     }
 
@@ -87,32 +100,12 @@ const MissionSupportAssignments: React.FC<MissionSupportAssignmentsProps> = ({
             // Find the corresponding pilot assignment by dash number
             const assignment = rolePilotAssignments.find((a: any) => a.dash_number === pilot.dashNumber);
             
-            console.log('[SUPPORT-ENRICH] Processing pilot enrichment:', {
-              roleId,
-              dashNumber: pilot.dashNumber,
-              pilotId: pilot.id,
-              hasAssignment: !!assignment,
-              assignmentPilotId: assignment?.pilot_id,
-              assignedPilotsForRole: assignedPilots?.[roleId]?.length || 0
-            });
-            
             if (assignment && assignment.pilot_id) {
               // Look up the full pilot data from assignedPilots first (has fresh attendance/rollCall status)
               const assignedPilot = assignedPilots?.[roleId]?.find(p => p.dashNumber === pilot.dashNumber);
               
-              console.log('[SUPPORT-ENRICH] Found assignment, checking assignedPilots:', {
-                hasAssignedPilot: !!assignedPilot,
-                assignedPilotAttendance: assignedPilot?.attendanceStatus,
-                assignedPilotRollCall: assignedPilot?.rollCallStatus
-              });
-              
               if (assignedPilot) {
                 // Use pilot from assignedPilots which has current attendance/rollCall status
-                console.log('[SUPPORT-ENRICH] ✓ Using assignedPilot:', {
-                  callsign: assignedPilot.callsign,
-                  attendanceStatus: assignedPilot.attendanceStatus,
-                  rollCallStatus: assignedPilot.rollCallStatus
-                });
                 return assignedPilot;
               }
               
@@ -120,11 +113,6 @@ const MissionSupportAssignments: React.FC<MissionSupportAssignmentsProps> = ({
               if (activePilots) {
                 const fullPilot = activePilots.find(p => p.id === assignment.pilot_id);
                 if (fullPilot) {
-                  console.log('[SUPPORT-ENRICH] ⚠️ Falling back to activePilots:', {
-                    callsign: fullPilot.callsign,
-                    attendanceStatus: fullPilot.attendanceStatus,
-                    rollCallStatus: fullPilot.rollCallStatus
-                  });
                   return {
                     ...fullPilot,
                     dashNumber: pilot.dashNumber,
@@ -136,7 +124,6 @@ const MissionSupportAssignments: React.FC<MissionSupportAssignmentsProps> = ({
             }
             
             // Fallback to basic pilot data from support_role_assignments
-            console.log('[SUPPORT-ENRICH] ❌ Using basic pilot data from support_role_assignments');
             return pilot;
           });
           
@@ -162,13 +149,6 @@ const MissionSupportAssignments: React.FC<MissionSupportAssignmentsProps> = ({
       setSupportRoles([]);
       setCreationOrderCounter(0);
     }
-  }, [mission?.id]);
-
-  // Clear support roles when mission changes
-  useEffect(() => {
-    return () => {
-      lastLoadedMissionIdRef.current = null;
-    };
   }, [mission?.id]);
 
   // Sync assignedPilots changes back to supportRoles display
@@ -276,8 +256,18 @@ const MissionSupportAssignments: React.FC<MissionSupportAssignmentsProps> = ({
   }, [allCarriers]); // Depends only on allCarriers
 
   // Save support roles to database
-  const saveSupportRolesToDatabase = useCallback(async (roles: SupportRole[]) => {
+  const saveSupportRolesToDatabase = useCallback(async (roles: SupportRole[], missionIdToSave: string) => {
     if (!mission || !updateSupportRoles) {
+      return;
+    }
+    
+    // CRITICAL: Only save if the mission ID matches what we intend to save
+    // This prevents cross-mission contamination during rapid switching
+    if (mission.id !== missionIdToSave) {
+      console.warn('[MISSION-SUPPORT] Skipping save - mission ID mismatch:', {
+        currentMissionId: mission.id,
+        intendedMissionId: missionIdToSave
+      });
       return;
     }
 
@@ -303,18 +293,28 @@ const MissionSupportAssignments: React.FC<MissionSupportAssignmentsProps> = ({
 
   // Save support roles to database whenever they change
   useEffect(() => {
-    // Skip initial load (when roles are being loaded from database)
-    if (supportRoles.length === 0 && !mission) {
+    // Skip if no mission
+    if (!mission) {
+      return;
+    }
+    
+    // Skip if roles are empty and we haven't loaded this mission's roles yet
+    // (to avoid saving empty roles during initial load)
+    if (supportRoles.length === 0 && lastLoadedMissionIdRef.current !== mission.id) {
       return;
     }
 
+    // Capture the mission ID at the time this effect runs
+    // This ensures we save to the correct mission even if the mission changes during the timeout
+    const missionIdAtEffectTime = mission.id;
+
     // Debounce the save to avoid excessive database calls
     const timeoutId = setTimeout(() => {
-      saveSupportRolesToDatabase(supportRoles);
+      saveSupportRolesToDatabase(supportRoles, missionIdAtEffectTime);
     }, 500);
 
     return () => clearTimeout(timeoutId);
-  }, [supportRoles, saveSupportRolesToDatabase]);
+  }, [supportRoles, mission?.id, saveSupportRolesToDatabase]);
 
   // Function to handle adding or updating a support role
   const handleAddOrUpdateSupportRole = useCallback((data: AddSupportRoleDialogData) => {

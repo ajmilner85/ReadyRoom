@@ -584,6 +584,12 @@ export const useMissionPrepDataPersistence = (
           }
           
           Object.entries(pilots).forEach(([flightId, pilotsList]) => {
+            // CRITICAL: Skip support role entries - they are saved separately via MissionSupportAssignments
+            // This prevents cross-mission contamination when switching between missions
+            if (flightId.startsWith('support-')) {
+              return;
+            }
+            
             // Filter out empty pilots (those without an id or boardNumber)
             const validPilots = pilotsList.filter(pilot => pilot.id && pilot.boardNumber);
             
