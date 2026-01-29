@@ -321,16 +321,6 @@ const DroppableAircraftTile = ({
     };
   }, [pilot, roleId, dashNumber]);
   
-  console.log('[SUPPORT-RENDER] Rendering pilot tile:', {
-    roleId,
-    dashNumber,
-    callsign: pilot.callsign,
-    boardNumber: pilot.boardNumber,
-    attendanceStatus: pilot.attendanceStatus,
-    rollCallStatus: pilot.rollCallStatus,
-    isEmpty
-  });
-  
   const { setNodeRef, isOver } = useDroppable({
     id: dropId,
     data: {
