@@ -88,6 +88,16 @@ export const useMissionPrepDataPersistence = (
 
   // ── Realtime subscription ──
   const handleRemoteMissionUpdate = useCallback((newRow: Record<string, any>) => {
+    // CRITICAL: Verify the update is for the mission we're currently viewing
+    // This guards against race conditions during mission switches
+    if (newRow.id && mission?.id && newRow.id !== mission.id) {
+      console.warn('[REALTIME] Ignoring update for different mission:', {
+        updateForMission: newRow.id,
+        currentMission: mission.id
+      });
+      return;
+    }
+
     // Ignore our own saves (we already have the local state)
     if (currentUser && newRow.last_modified_by === currentUser.id) {
       // Just update our version ref to stay in sync
@@ -109,8 +119,10 @@ export const useMissionPrepDataPersistence = (
     // Update the mission object so the sync effect fires with fresh data.
     // We cast the row into a Mission-like shape — convertRowToMission is in missionService
     // but we can do a lightweight update here:
+    // CRITICAL: Use newRow.id as the canonical ID to prevent cross-mission contamination
     setMissionDirect({
       ...mission!,
+      id: newRow.id || mission!.id, // Prefer newRow's ID
       version: newRow.version ?? 1,
       last_modified_by: newRow.last_modified_by,
       last_modified_at: newRow.last_modified_at,
