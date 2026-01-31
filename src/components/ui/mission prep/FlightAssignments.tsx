@@ -907,8 +907,24 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
     // Load publication config to determine if we should include empty flights
     const publicationConfig = await getStoredPublicationConfig();
 
+    // Debug: Show all assignedPilots keys vs flight IDs
+    const assignedPilotsKeys = assignedPilots ? Object.keys(assignedPilots) : [];
+    const flightIds = flights.map(f => f.id);
+    
+    console.log('📋 groupFlightsBySquadron: Starting with', {
+      squadronsCount: squadrons.length,
+      flightsCount: flights.length,
+      squadronCallsigns: squadrons.map(s => ({ name: s.name, callsigns: s.callsigns })),
+      flightCallsigns: flights.map(f => ({ callsign: f.callsign, id: f.id })),
+      includeEmptyFlights: publicationConfig.includeEmptyFlights,
+      assignedPilotsKeys: assignedPilotsKeys,
+      flightIds: flightIds,
+      keyMatchCount: flightIds.filter(id => assignedPilotsKeys.includes(id)).length
+    });
+
     for (const squadron of squadrons) {
       if (!squadron.callsigns || !Array.isArray(squadron.callsigns)) {
+        console.log(`⚠️ Skipping squadron ${squadron.name} - no callsigns array`);
         continue;
       }
 
@@ -917,14 +933,19 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
           flight.callsign.toUpperCase() === callsign.toUpperCase()
         )
       );
+      
+      console.log(`🔍 Squadron ${squadron.name}: callsigns=${squadron.callsigns.join(', ')}, matched flights=${squadronFlights.length}`);
 
       // Filter out empty flights if the setting is disabled
       if (!publicationConfig.includeEmptyFlights) {
         squadronFlights = squadronFlights.filter(flight => {
           // Check if flight has at least one pilot assigned
-          const hasAssignedPilot = flight.pilots && flight.pilots.some(pilot =>
+          // Use assignedPilots from state, not flight.pilots (which contains empty slot placeholders)
+          const flightAssignedPilots = assignedPilots?.[flight.id] || [];
+          const hasAssignedPilot = flightAssignedPilots.some(pilot =>
             pilot.boardNumber && pilot.boardNumber.trim() !== ''
           );
+          console.log(`  Flight ${flight.callsign} ${flight.flightNumber} (id=${flight.id}): hasAssignedPilot=${hasAssignedPilot}, assignedCount=${flightAssignedPilots.length}, foundInAssignedPilots=${!!assignedPilots?.[flight.id]}`);
           return hasAssignedPilot;
         });
       }
@@ -939,7 +960,7 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
     }
 
     return squadronGroups;
-  }, [flights, squadrons]);
+  }, [flights, squadrons, assignedPilots]);
 
   // Generate flight assignment table image for a squadron using Canvas
   const generateFlightAssignmentImage = useCallback(async (squadronGroup: SquadronFlightGroup, revision?: number): Promise<Blob | null> => {

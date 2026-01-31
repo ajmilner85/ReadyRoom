@@ -22,6 +22,7 @@ interface SupportRoleAssignmentCardProps {
     name: string;
     id: string;
   }>;
+  assignedPilots?: Record<string, any[]>; // Fresh pilot data from drag-drop
   onDeleteRole?: (id: string) => void;
   onEditRole?: (id: string, callsign: string) => void;
 }
@@ -32,16 +33,33 @@ const SupportRoleAssignmentCard: React.FC<SupportRoleAssignmentCardProps> = ({
   pilots,
   carrier,
   slots,
+  assignedPilots,
   onDeleteRole,
   onEditRole
-}) => {  const [isHovered, setIsHovered] = useState(false);
-    // Use memoization to prevent unnecessary recalculations and re-renders
+}) => {
+  const [isHovered, setIsHovered] = useState(false);
+  
+  // Use memoization to prevent unnecessary recalculations and re-renders
   const { filledPilots, slotNames, hasAssignedPilots } = useMemo(() => {
     // Determine if this is a Command & Control role
     const isCommandControl = id.includes('command-control');
     
-    // Create a stable filled pilots array that doesn't change on each render
-    const filled = [...pilots];
+    // Get fresh pilot data from assignedPilots (has current attendance status)
+    const freshPilotsForRole = assignedPilots?.[id] || [];
+
+    // Merge pilots with fresh attendance data
+    const filled = pilots.map(pilot => {
+      // Find matching pilot in assignedPilots by dashNumber
+      const freshPilot = freshPilotsForRole.find((p: any) => p.dashNumber === pilot.dashNumber);
+      if (freshPilot && freshPilot.callsign) {
+        // Use fresh pilot data which has attendanceStatus from drag operation
+        return {
+          ...pilot,
+          ...freshPilot
+        };
+      }
+      return pilot;
+    });
     
     // Check if any pilots are assigned (non-empty)
     const hasAssignedPilots = filled.some(p => p.boardNumber?.trim());
@@ -107,8 +125,8 @@ const SupportRoleAssignmentCard: React.FC<SupportRoleAssignmentCardProps> = ({
     }
     
     return { filledPilots: filled, isCommandControl, slotNames, hasAssignedPilots };
-  }, [pilots, id, slots]);
-  
+  }, [pilots, id, slots, assignedPilots]);
+
   return (
     <div
       style={{
@@ -233,7 +251,7 @@ const SupportRoleAssignmentCard: React.FC<SupportRoleAssignmentCardProps> = ({
           
           return (
             <DroppableAircraftTile
-              key={`${id}-position-${dashNumber}`}
+              key={`${id}-position-${dashNumber}-${pilot.attendanceStatus || 'none'}-${pilot.rollCallStatus || 'none'}`}
               pilot={pilot}
               roleId={id}
               dashNumber={dashNumber}

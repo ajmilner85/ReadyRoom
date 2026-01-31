@@ -1,5 +1,3 @@
-import { STORAGE_KEYS, saveToLocalStorage, loadFromLocalStorage } from './localStorageUtils';
-
 // Define type for support roles
 export interface SupportRole {
   id: string;
@@ -25,18 +23,10 @@ export interface SupportRole {
 }
 
 /**
- * Save support roles to localStorage
+ * NOTE: Support roles are NOT saved to localStorage.
+ * They are saved to the database via the mission support_role_assignments field.
+ * The functions saveSupportRoles() and loadSupportRoles() have been removed.
  */
-export const saveSupportRoles = (roles: SupportRole[]): void => {
-  saveToLocalStorage(STORAGE_KEYS.SUPPORT_ROLES, roles);
-};
-
-/**
- * Load support roles from localStorage
- */
-export const loadSupportRoles = (): SupportRole[] => {
-  return loadFromLocalStorage<SupportRole[]>(STORAGE_KEYS.SUPPORT_ROLES, []);
-};
 
 /**
  * Ensure support roles exist in assignedPilots even if they're empty

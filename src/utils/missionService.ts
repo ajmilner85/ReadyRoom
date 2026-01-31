@@ -40,9 +40,9 @@ const convertRowToMission = (row: MissionRow): Mission => {
     pilot_assignments: typeof row.pilot_assignments === 'object' && row.pilot_assignments
       ? row.pilot_assignments as Record<string, any[]>
       : {},
-    support_role_assignments: Array.isArray(row.support_role_assignments)
-      ? row.support_role_assignments as any[]
-      : [],
+    support_role_assignments: typeof row.support_role_assignments === 'object' && row.support_role_assignments && !Array.isArray(row.support_role_assignments)
+      ? row.support_role_assignments as { assignments: any[]; cards: any[] }
+      : { assignments: Array.isArray(row.support_role_assignments) ? row.support_role_assignments : [], cards: [] },
     mission_settings: typeof row.mission_settings === 'object' && row.mission_settings
       ? row.mission_settings as any
       : {}
@@ -105,7 +105,7 @@ export const createMission = async (
       status: 'planning',
       flights: [],
       pilot_assignments: {},
-      support_role_assignments: [],
+      support_role_assignments: { assignments: [], cards: [] },
       miz_file_data: {},
       mission_settings: {}
     };
