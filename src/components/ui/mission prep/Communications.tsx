@@ -38,6 +38,7 @@ interface CommunicationsProps {
     color_palette?: any;
   }>;
   updateMissionSettings?: (settings: any) => Promise<boolean>;
+  mission?: any; // Mission object to load comms_plan from
 }
 
 const Communications: React.FC<CommunicationsProps> = ({
@@ -47,16 +48,38 @@ const Communications: React.FC<CommunicationsProps> = ({
   flights = [],
   extractedFlights = [],
   squadrons = [],
-  updateMissionSettings
-}) => {  // Initialize state with data from localStorage if available
+  updateMissionSettings,
+  mission
+}) => {  // Initialize state from mission database if available, otherwise use default
   const [commsData, setCommsData] = useState<CommsPlanEntry[]>(() => {
-    return loadFromLocalStorage<CommsPlanEntry[]>(STORAGE_KEYS.COMMS_PLAN, generateInitialCommsData());
+    // Try to load from mission settings first
+    if (mission?.mission_settings?.comms_plan && Array.isArray(mission.mission_settings.comms_plan)) {
+      console.log('[COMMS] Loading from database:', mission.mission_settings.comms_plan.length, 'entries');
+      return mission.mission_settings.comms_plan;
+    }
+    // Fallback to localStorage for backward compatibility
+    const cached = loadFromLocalStorage<CommsPlanEntry[]>(STORAGE_KEYS.COMMS_PLAN, []);
+    if (cached && cached.length > 0) {
+      console.log('[COMMS] Loading from localStorage (fallback)');
+      return cached;
+    }
+    // Final fallback to default
+    console.log('[COMMS] Using default comms plan');
+    return generateInitialCommsData();
   });
   
   const [isEditing, setIsEditing] = useState(false);
   const [editedData, setEditedData] = useState<CommsPlanEntry[]>([]);
   const [hoveredRow, setHoveredRow] = useState<number | null>(null);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+
+  // Load comms plan from mission when it changes
+  useEffect(() => {
+    if (mission?.mission_settings?.comms_plan && Array.isArray(mission.mission_settings.comms_plan)) {
+      console.log('[COMMS] Mission changed, reloading from database');
+      setCommsData(mission.mission_settings.comms_plan);
+    }
+  }, [mission?.id]);
 
   // Save comms plan to localStorage and database whenever it changes
   useEffect(() => {
