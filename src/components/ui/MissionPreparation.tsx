@@ -686,6 +686,7 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
                   extractedFlights={extractedFlights}
                   squadrons={squadrons as any}
                   updateMissionSettings={updateMissionSettings}
+                  mission={mission}
                 />
               </div>
             </>
