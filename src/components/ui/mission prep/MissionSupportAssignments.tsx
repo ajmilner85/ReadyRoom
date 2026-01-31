@@ -284,10 +284,17 @@ const MissionSupportAssignments: React.FC<MissionSupportAssignmentsProps> = ({
       slots: role.slots
     } as any));
 
+    console.log('[MISSION-SUPPORT] 💾 Saving support roles to database:', {
+      missionId: mission.id,
+      roleCount: dbRoles.length,
+      roles: dbRoles.map(r => ({ id: (r as any).id, callsign: (r as any).callsign, pilotCount: (r as any).pilots?.length || 0 }))
+    });
+
     try {
-      await updateSupportRoles(dbRoles);
+      const success = await updateSupportRoles(dbRoles);
+      console.log('[MISSION-SUPPORT] ✅ Save result:', success ? 'SUCCESS' : 'FAILED');
     } catch (error) {
-      console.error('[MISSION-SUPPORT] Error saving support roles:', error);
+      console.error('[MISSION-SUPPORT] ❌ Error saving support roles:', error);
     }
   }, [mission, updateSupportRoles]);
 
