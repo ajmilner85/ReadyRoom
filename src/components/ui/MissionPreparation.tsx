@@ -99,6 +99,8 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
     missionLoading,
     missionError,
     missionSaving,
+    supportRoleCards,
+    setSupportRoleCards,
     handleExtractedFlights: persistenceHandleExtractedFlights,
     updateMissionData,
     updateMissionSettings
@@ -132,15 +134,18 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
   const [qualificationsData, setQualificationsData] = useState<Qualification[]>([]);
 
   // Wrapper for setAssignedPilots to handle React setState signature
-  const setAssignedPilotsWrapper = useCallback((pilots: AssignedPilotsRecord | ((prev: AssignedPilotsRecord) => AssignedPilotsRecord)) => {
+  const setAssignedPilotsWrapper = useCallback((
+    pilots: AssignedPilotsRecord | ((prev: AssignedPilotsRecord) => AssignedPilotsRecord),
+    skipSave: boolean = false
+  ) => {
     
     if (typeof pilots === 'function') {
       // Handle function updates - get current value and call function
       const currentPilots = assignedPilots || {};
       const newPilots = pilots(currentPilots);
-      setAssignedPilots(newPilots, false); // false = don't skip save for user actions
+      setAssignedPilots(newPilots, skipSave);
     } else {
-      setAssignedPilots(pilots, false); // false = don't skip save for user actions
+      setAssignedPilots(pilots, skipSave);
     }
   }, [assignedPilots, setAssignedPilots]);
 
@@ -471,9 +476,17 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
       }
 
       // Only update state if there were assignments and clearing was needed
+      // IMPORTANT: Use functional update to preserve support roles that might not be in the effect's closure
       if (hasAssignedPilots && needsClearing) {
         // console.log("[TENTATIVE-DEBUG] Clearing stale attendance statuses from assignedPilots state.");
-        setAssignedPilots(clearedAssignments); // Update with the potentially modified object
+        setAssignedPilotsWrapper((currentPilots) => {
+          // Merge: preserve any keys from current state (like support roles) that weren't in the clearing loop
+          const merged = { ...currentPilots };
+          for (const flightId in clearedAssignments) {
+            merged[flightId] = clearedAssignments[flightId];
+          }
+          return merged;
+        }, true); // skipSave = true for attendance clearing
       }
       return; // Stop processing since there's no attendance data
     }
@@ -535,11 +548,26 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
     }
 
     // If any flight array was replaced, update the state with the new top-level object
+    // IMPORTANT: Only update the flight keys that changed, preserving any other keys (like support roles)
+    // that might have been added by other effects running in the same render cycle
     if (needsOverallUpdate) {
       // console.log("[TENTATIVE-DEBUG] Applying updated attendance statuses to assignedPilots state.");
-      setAssignedPilots(nextAssignedPilots, true); // Skip database save - this is just attendance status update
+      // Use functional update to get the latest state and only merge the updated flights
+      // Pass skipSave: true since this is just an attendance status update, not a structural change
+      setAssignedPilotsWrapper((currentPilots) => {
+        // Merge: start with current state (which may include support roles added by other effects)
+        // and only override the flight keys that had attendance updates
+        const merged = { ...currentPilots };
+        for (const flightId in nextAssignedPilots) {
+          // Only update keys that exist in both and had changes
+          if (flightId in assignedPilots) {
+            merged[flightId] = nextAssignedPilots[flightId];
+          }
+        }
+        return merged;
+      }, true); // skipSave = true for attendance updates
     }
-  }, [realtimeAttendanceData, assignedPilots, setAssignedPilots]);
+  }, [realtimeAttendanceData, assignedPilots, setAssignedPilotsWrapper]);
   // --- END EFFECT TO UPDATE ASSIGNED PILOTS ---
 
   return (
@@ -652,6 +680,8 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
                   width={CARD_WIDTH}
                   assignedPilots={assignedPilots}
                   setAssignedPilots={setAssignedPilotsWrapper}
+                  supportRoleCards={supportRoleCards}
+                  setSupportRoleCards={setSupportRoleCards}
                 />
                 <Communications
                   width={CARD_WIDTH}
@@ -661,6 +691,7 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
                   extractedFlights={extractedFlights}
                   squadrons={squadrons as any}
                   updateMissionSettings={updateMissionSettings}
+                  mission={mission}
                 />
               </div>
             </>

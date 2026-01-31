@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useMemo } from 'react';
+import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { Card } from '../card';
 import AddSupportRoleDialog from '../dialogs/AddSupportRoleDialog';
 import SupportRoleAssignmentCard from '../flight cards/SupportRoleAssignmentCard';
@@ -7,7 +7,8 @@ import { cleanRoleId } from '../../../utils/dragDropUtils';
 import { SupportRoleType } from '../../../types/SupportRoleTypes';
 import { AddSupportRoleDialogData } from '../../../types/DialogTypes';
 import { fetchCarriers } from '../../../utils/supabaseClient'; 
-import { SupportRole, saveSupportRoles, loadSupportRoles, ensureSupportRolesInAssignedPilots } from '../../../utils/supportRoleUtils';
+import { SupportRole, ensureSupportRolesInAssignedPilots } from '../../../utils/supportRoleUtils';
+import type { SupportRoleCard } from '../../../types/MissionTypes';
 
 // Interface for fetched carrier data
 interface CarrierData {
@@ -26,36 +27,88 @@ interface AssignedPilot extends Pilot {
 interface MissionSupportAssignmentsProps {
   width: string;
   assignedPilots?: Record<string, AssignedPilot[]> | null;
-  setAssignedPilots?: (value: React.SetStateAction<Record<string, AssignedPilot[]>>) => void;
+  setAssignedPilots?: (value: React.SetStateAction<Record<string, AssignedPilot[]>>, skipSave?: boolean) => void;
+  // New props for database-backed support role cards
+  supportRoleCards?: SupportRoleCard[];
+  setSupportRoleCards?: (cards: SupportRoleCard[], skipSave?: boolean) => void;
 }
 
 const MissionSupportAssignments: React.FC<MissionSupportAssignmentsProps> = ({ 
   width,
   assignedPilots = {},
-  setAssignedPilots
+  setAssignedPilots,
+  supportRoleCards = [],
+  setSupportRoleCards
 }) => {
-  const [supportRoles, setSupportRoles] = useState<SupportRole[]>([]);  const [showAddDialog, setShowAddDialog] = useState(false);
+  const [supportRoles, setSupportRolesLocal] = useState<SupportRole[]>([]);
+  const [showAddDialog, setShowAddDialog] = useState(false);
   const [editRoleId, setEditRoleId] = useState<string | null>(null);
   const [creationOrderCounter, setCreationOrderCounter] = useState(0);
   const [allCarriers, setAllCarriers] = useState<CarrierData[]>([]); 
   const [carriersLoading, setCarriersLoading] = useState(true); 
+  
+  // Track if we've initialized from props to avoid overwriting
+  const initializedFromPropsRef = useRef(false);
+  // Track if we've completed initial sync to avoid triggering saves on page load
+  const initialSyncCompletedRef = useRef(false);
 
-  // Initialize supportRoles from local storage
+  // Reset sync flag when supportRoleCards reference changes (mission change)
+  const supportRoleCardsRef = useRef(supportRoleCards);
   useEffect(() => {
-    const savedRoles = loadSupportRoles();
-    if (savedRoles && savedRoles.length > 0) {
-      setSupportRoles(savedRoles);
+    if (supportRoleCardsRef.current !== supportRoleCards) {
+      console.log('[MISSION-SUPPORT] supportRoleCards reference changed, resetting sync flag');
+      initialSyncCompletedRef.current = false;
+      supportRoleCardsRef.current = supportRoleCards;
+    }
+  }, [supportRoleCards]);
+
+  // Initialize supportRoles from props (database) when they load
+  useEffect(() => {
+    if (supportRoleCards && supportRoleCards.length > 0) {
+      console.log('[MISSION-SUPPORT] Initializing from database:', supportRoleCards.length, 'cards');
+      // Convert SupportRoleCard to SupportRole (they have the same structure)
+      setSupportRolesLocal(supportRoleCards as SupportRole[]);
       // Update the counter to be greater than the maximum order
-      const maxOrder = Math.max(...savedRoles.map(r => r.creationOrder), -1);
+      const maxOrder = Math.max(...supportRoleCards.map(r => r.creationOrder), -1);
       setCreationOrderCounter(maxOrder + 1);
+      initializedFromPropsRef.current = true;
+      initialSyncCompletedRef.current = true;
+    } else if (supportRoleCards && supportRoleCards.length === 0 && initializedFromPropsRef.current) {
+      // Only clear if we had previously initialized - this prevents clearing on initial empty load
+      // before the database has loaded
+      console.log('[MISSION-SUPPORT] Database returned empty cards, clearing local state');
+      setSupportRolesLocal([]);
+    } else if (supportRoleCards && supportRoleCards.length === 0 && !initializedFromPropsRef.current) {
+      // Initial load with no cards in database - mark sync as complete
+      console.log('[MISSION-SUPPORT] Initial load complete, no cards in database');
+      initializedFromPropsRef.current = true;
+      initialSyncCompletedRef.current = true;
     }
-  }, []); 
-  // Save supportRoles to local storage whenever they change
-  useEffect(() => {
-    if (supportRoles.length > 0) {
-      saveSupportRoles(supportRoles);
-    }
-  }, [supportRoles]);  // Whenever supportRoles change and assignedPilots exists, ensure empty support roles are preserved
+  }, [supportRoleCards]);
+
+  // Wrapper to update local state AND save to database
+  // NOTE: We must NOT call setSupportRoleCards from inside setSupportRolesLocal's updater
+  // as that causes the React error "Cannot update a component while rendering a different component"
+  const setSupportRoles = useCallback((updater: SupportRole[] | ((prev: SupportRole[]) => SupportRole[]), skipSave: boolean = false) => {
+    // Calculate new roles first
+    setSupportRolesLocal(prevRoles => {
+      const newRoles = typeof updater === 'function' ? updater(prevRoles) : updater;
+
+      // Schedule the parent state update for after this setState completes
+      // This avoids the React anti-pattern of updating parent state during child render
+      if (setSupportRoleCards && !skipSave) {
+        // Use queueMicrotask to ensure this runs after the current render cycle
+        queueMicrotask(() => {
+          console.log('[MISSION-SUPPORT] Saving to database:', newRoles.length, 'cards');
+          setSupportRoleCards(newRoles as SupportRoleCard[], false);
+        });
+      }
+
+      return newRoles;
+    });
+  }, [setSupportRoleCards]);
+
+  // Whenever supportRoles change and assignedPilots exists, ensure empty support roles are preserved
   useEffect(() => {
     // Skip if no support roles or assigned pilots is external and can't be modified
     if (supportRoles.length === 0 || !assignedPilots || !setAssignedPilots) return;
@@ -64,10 +117,11 @@ const MissionSupportAssignments: React.FC<MissionSupportAssignmentsProps> = ({
     const assignedPilotsWithRoles = ensureSupportRolesInAssignedPilots(supportRoles, assignedPilots);
 
     // If there were changes, update the parent component's state
+    // Use skipSave since this is just initializing empty display slots, not user changes
     if (Object.keys(assignedPilotsWithRoles).length !== Object.keys(assignedPilots).length) {
       setAssignedPilots((prev) => {
         return { ...prev, ...assignedPilotsWithRoles };
-      });
+      }, true); // skipSave = true
     }
   }, [supportRoles, assignedPilots, setAssignedPilots]);
 
@@ -244,6 +298,11 @@ const MissionSupportAssignments: React.FC<MissionSupportAssignmentsProps> = ({
       return; 
     }
     
+    // Wait for initial sync from database before processing
+    if (!initialSyncCompletedRef.current) {
+      return;
+    }
+    
     // If assignedPilots is empty, just clear the pilots in existing support roles without removing the roles
     if (!assignedPilots || Object.keys(assignedPilots).length === 0) {
       setSupportRoles(prev => {
@@ -277,7 +336,7 @@ const MissionSupportAssignments: React.FC<MissionSupportAssignmentsProps> = ({
           });
         }
         return prev;
-      });
+      }, true); // skipSave during initialization
       return;
     }
     
@@ -454,7 +513,7 @@ const MissionSupportAssignments: React.FC<MissionSupportAssignmentsProps> = ({
 
       setCreationOrderCounter(maxOrder + 1);
       return updatedRoles.sort((a, b) => a.creationOrder - b.creationOrder);
-    });
+    }, true); // skipSave during initialization sync
   // Add allCarriers explicitly to dependencies to ensure effect re-runs when carriers are fetched
   }, [assignedPilots, carriersLoading, carrierMap, allCarriers]); // Added allCarriers
 
@@ -522,6 +581,7 @@ const MissionSupportAssignments: React.FC<MissionSupportAssignmentsProps> = ({
                     pilots={role.pilots}
                     carrier={role.carrier}
                     slots={role.slots}
+                    assignedPilots={assignedPilots || undefined}
                     onDeleteRole={handleDeleteRole}
                     onEditRole={handleEditRole}
                   />
@@ -593,6 +653,10 @@ const MissionSupportAssignments: React.FC<MissionSupportAssignmentsProps> = ({
                  ? "Edit Command & Control Role" 
                  : "Edit Carrier Air Ops Role")
               : "Add Support Role"}
+            usedCarrierIds={supportRoles
+              .filter(role => role.carrier?.carrierId)
+              .map(role => role.carrier!.carrierId!)}
+            editingCarrierId={editRoleId ? supportRoles.find(r => r.id === editRoleId)?.carrier?.carrierId : undefined}
           />
         </>      )}
     </div>

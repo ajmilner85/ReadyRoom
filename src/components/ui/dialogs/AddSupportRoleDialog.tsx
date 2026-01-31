@@ -13,8 +13,9 @@ interface CarrierOption {
 interface AddSupportRoleDialogProps {
   onSave: (data: AddSupportRoleDialogData) => void;
   onCancel: () => void;
-  // Removed existingCallsigns and initialCallsign as they are no longer needed
   title?: string; // Keep title for edit/add distinction if needed later
+  usedCarrierIds?: string[]; // IDs of carriers already in use
+  editingCarrierId?: string; // ID of carrier being edited (should not be filtered out)
 }
 
 const slotTypes = ['AWACS', 'OLYMPUS', 'GCI', 'JTAC'] as const;
@@ -22,7 +23,9 @@ const slotTypes = ['AWACS', 'OLYMPUS', 'GCI', 'JTAC'] as const;
 const AddSupportRoleDialog: React.FC<AddSupportRoleDialogProps> = ({
   onSave,
   onCancel,
-  title = 'Add Support Role' // Updated default title to be more generic
+  title = 'Add Support Role', // Updated default title to be more generic
+  usedCarrierIds = [],
+  editingCarrierId
 }) => {  
   const [roleType, setRoleType] = useState<SupportRoleType>(SupportRoleType.CARRIER_AIR_OPS);
   const [callsign, setCallsign] = useState<string>('');
@@ -42,7 +45,8 @@ const AddSupportRoleDialog: React.FC<AddSupportRoleDialogProps> = ({
           // Map data to CarrierOption, ensuring hull and name are present
           const options = carrierData
             .map(c => ({ id: c.id, name: c.name, hull: c.hull }))
-            .filter(c => c.id && c.name && c.hull); // Ensure required fields exist
+            .filter(c => c.id && c.name && c.hull) // Ensure required fields exist
+            .filter(c => !usedCarrierIds.includes(c.id) || c.id === editingCarrierId); // Exclude already used carriers (except when editing)
 
           setCarriers(options);
           if (options.length > 0) {
@@ -58,7 +62,7 @@ const AddSupportRoleDialog: React.FC<AddSupportRoleDialogProps> = ({
 
       getCarriers();
     }
-  }, [roleType]);
+  }, [roleType, usedCarrierIds, editingCarrierId]);
   
   // Toggle between carrier and callsign input based on role type
   useEffect(() => {

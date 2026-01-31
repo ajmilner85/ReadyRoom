@@ -3,7 +3,7 @@ import { useMission } from './useMission';
 import type { AssignedPilotsRecord } from '../types/MissionPrepTypes';
 import type { MissionCommanderInfo } from '../types/MissionCommanderTypes';
 import type { Event } from '../types/EventTypes';
-import type { MissionFlight, PilotAssignment, SupportRoleAssignment } from '../types/MissionTypes';
+import type { MissionFlight, PilotAssignment, SupportRoleAssignment, SupportRoleCard } from '../types/MissionTypes';
 
 /**
  * Hook that bridges the existing mission prep state management with database persistence
@@ -26,6 +26,7 @@ export const useMissionPrepDataPersistence = (
     updateFlights,
     updatePilotAssignments,
     updateSupportRoles,
+    updateSupportRoleCards,
     updateSelectedSquadrons,
     updateSettings,
     updateMissionData,
@@ -45,7 +46,11 @@ export const useMissionPrepDataPersistence = (
   const [prepFlights, setPrepFlightsLocal] = useState<any[]>(
     externalPrepFlights || []
   );
+  const [supportRoleCards, setSupportRoleCardsLocal] = useState<SupportRoleCard[]>([]);
   const [needsMissionCreation, setNeedsMissionCreation] = useState<boolean>(false);
+  
+  // Ref to track the latest support role assignments to avoid stale closure issues
+  const latestSupportRoleAssignmentsRef = useRef<any[]>([]);
 
   // Debug prepFlights changes
   // useEffect(() => {
@@ -61,18 +66,38 @@ export const useMissionPrepDataPersistence = (
   // Track the last sync to prevent circular updates
   const [lastSyncMissionId, setLastSyncMissionId] = useState<string | null>(null);
   const [lastSyncEventId, setLastSyncEventId] = useState<string | null>(null);
+  
+  // Track event transitions to prevent saves during event switching
+  // This prevents the bug where state gets cleared during event switch but
+  // the mission object still references the old event, causing empty data to be saved
+  const isEventTransitioningRef = useRef(false);
+  const lastKnownEventIdRef = useRef<string | null>(null);
+  // Track the current mission ID for validation at save time (to detect stale closures)
+  const currentMissionIdRef = useRef<string | null>(null);
 
   // Clear state when switching events
   useEffect(() => {
+    // Mark that we're transitioning events - this blocks all saves
+    if (lastKnownEventIdRef.current !== null && lastKnownEventIdRef.current !== selectedEvent?.id) {
+      console.log('🔄 Persistence: Event transition detected, blocking saves until mission loads', {
+        from: lastKnownEventIdRef.current,
+        to: selectedEvent?.id
+      });
+      isEventTransitioningRef.current = true;
+    }
+    lastKnownEventIdRef.current = selectedEvent?.id || null;
+    
     // Clear state whenever the selectedEvent changes, regardless of mission state
     setAssignedPilotsLocal({});
     setMissionCommanderLocal(null);
     setPrepFlightsLocal([]);
     setExtractedFlights([]);
+    setSupportRoleCardsLocal([]);  // Clear support role cards
     setHasPendingChanges(false);
     setIsSyncing(false);
     setLastSyncMissionId(null);
     setLastSyncEventId(null);
+    currentMissionIdRef.current = null;  // Clear mission ref during transition
   }, [selectedEvent?.id]);
 
   // Sync state with mission data when mission loads - ONLY run once per mission/event combination
@@ -106,7 +131,19 @@ export const useMissionPrepDataPersistence = (
     if (syncKey === lastSyncKey) {
       return;
     }
-      
+    
+    // Clear the event transition flag - mission is now loaded for the correct event
+    if (isEventTransitioningRef.current) {
+      console.log('✅ Persistence: Event transition complete, saves now allowed', {
+        missionId: mission.id,
+        eventId: selectedEvent.id
+      });
+      isEventTransitioningRef.current = false;
+    }
+
+    // Update the current mission ID ref for save validation (detects stale closures)
+    currentMissionIdRef.current = mission.id;
+
     // console.log('🔄 Persistence: Mission data loaded, syncing state:', {
     //   missionId: mission.id,
     //   eventId: selectedEvent.id,
@@ -212,9 +249,54 @@ export const useMissionPrepDataPersistence = (
       setAssignedPilotsLocal({});
     }
 
+    // Load support role pilot assignments from database
+    const supportData = mission.support_role_assignments as any;
+    if (supportData?.assignments && Array.isArray(supportData.assignments) && supportData.assignments.length > 0) {
+      console.log('📥 Persistence: Loading support role assignments from database:', supportData.assignments.length);
+      
+      // Update the ref with the loaded assignments
+      latestSupportRoleAssignmentsRef.current = supportData.assignments;
+      
+      const supportAssignments: AssignedPilotsRecord = {};
+      supportData.assignments.forEach((assignment: any) => {
+        const roleId = assignment.role_id;
+        if (!supportAssignments[roleId]) {
+          supportAssignments[roleId] = [];
+        }
+        
+        // Look up the full pilot data using pilot_id
+        const fullPilotData = activePilots?.find(pilot => pilot.id === assignment.pilot_id);
+        
+        if (fullPilotData) {
+          supportAssignments[roleId].push({
+            ...fullPilotData,
+            dashNumber: assignment.position,
+            rollCallStatus: assignment.roll_call_status,
+            attendanceStatus: assignment.attendance_status,
+            excused: assignment.excused || false
+          });
+        } else {
+          console.warn('🚨 Persistence: Could not find pilot data for support role assignment:', assignment.pilot_id);
+        }
+      });
+      
+      // Merge support assignments with regular flight assignments
+      setAssignedPilotsLocal(prev => ({
+        ...prev,
+        ...supportAssignments
+      }));
+      
+      console.log('✅ Persistence: Loaded support role assignments for', Object.keys(supportAssignments).length, 'roles');
+    }
+
     // Convert support roles back to mission commander format
-    if (mission.support_role_assignments) {
-      const mcRole = mission.support_role_assignments.find(role => role.role_type === 'mission_commander');
+    // Handle both old array format and new object format for backwards compatibility
+    const supportAssignments = Array.isArray(mission.support_role_assignments) 
+      ? mission.support_role_assignments 
+      : (mission.support_role_assignments?.assignments || []);
+    
+    if (supportAssignments.length > 0) {
+      const mcRole = supportAssignments.find(role => role.role_type === 'mission_commander');
       if (mcRole) {
         // This would need to be enhanced to get full pilot info
         // For now, storing basic info in the support role assignment
@@ -230,6 +312,19 @@ export const useMissionPrepDataPersistence = (
       }
     } else {
       setMissionCommanderLocal(null);
+    }
+
+    // Load support role cards from database (carrier/command control definitions)
+    // Handle both old array format (no cards) and new object format
+    const cards = Array.isArray(mission.support_role_assignments) 
+      ? [] 
+      : (mission.support_role_assignments?.cards || []);
+    if (cards.length > 0) {
+      console.log('[MISSION-SUPPORT] Loading support role cards from database:', cards.length);
+      setSupportRoleCardsLocal(cards);
+    } else {
+      console.log('[MISSION-SUPPORT] No support role cards in database');
+      setSupportRoleCardsLocal([]);
     }
 
     // Convert flights from mission database format to UI format
@@ -320,6 +415,54 @@ export const useMissionPrepDataPersistence = (
   const [hasPendingChanges, setHasPendingChanges] = useState<boolean>(false);
   const [pendingOperations, setPendingOperations] = useState<Array<() => Promise<boolean>>>([]);
 
+  // Track page visibility to prevent saves when tab is hidden/sleeping
+  const isPageVisibleRef = useRef(true);
+  const lastVisibleTimestampRef = useRef(Date.now());
+  const STALE_THRESHOLD_MS = 30000; // 30 seconds - if hidden longer, refresh on wake
+
+  // Page visibility handler - refresh data when returning from sleep/background
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        const now = Date.now();
+        const timeSinceLastVisible = now - lastVisibleTimestampRef.current;
+        isPageVisibleRef.current = true;
+        
+        if (timeSinceLastVisible > STALE_THRESHOLD_MS && mission?.id) {
+          console.log(`🔄 Persistence: Page woke after ${Math.round(timeSinceLastVisible / 1000)}s - state may be stale, blocking saves until data is refreshed`);
+          // Clear any pending saves - they might have stale data
+          if (saveTimeout) {
+            clearTimeout(saveTimeout);
+            setSaveTimeout(null);
+          }
+          setPendingOperations([]);
+          setHasPendingChanges(false);
+          // Note: The mission data will be refreshed by useMission's own fetch
+          // We just need to prevent any stale saves from executing
+        }
+        
+        lastVisibleTimestampRef.current = now;
+      } else {
+        // Page is being hidden - record timestamp and block saves
+        isPageVisibleRef.current = false;
+        lastVisibleTimestampRef.current = Date.now();
+        console.log('👁️ Persistence: Page hidden, blocking auto-saves');
+        
+        // Clear any pending saves - don't save while hidden
+        if (saveTimeout) {
+          clearTimeout(saveTimeout);
+          setSaveTimeout(null);
+        }
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [mission?.id, saveTimeout]);
+
   // Check if any drag operation is in progress globally
   const isDragInProgress = document.body.classList.contains('dragging');
 
@@ -327,6 +470,12 @@ export const useMissionPrepDataPersistence = (
     saveFunction: () => Promise<boolean>,
     delay: number = 1000
   ) => {
+    // Block saves when page is hidden to prevent stale state from being saved
+    if (!isPageVisibleRef.current) {
+      console.log('🚫 Persistence: Page hidden, blocking save operation');
+      return;
+    }
+
     if (saveTimeout) {
       clearTimeout(saveTimeout);
     }
@@ -344,6 +493,13 @@ export const useMissionPrepDataPersistence = (
     setHasPendingChanges(true);
 
     const timeout = setTimeout(async () => {
+      // Block saves when page is hidden
+      if (!isPageVisibleRef.current) {
+        console.log('🚫 Persistence: Page hidden during delay, cancelling save');
+        setHasPendingChanges(false);
+        return;
+      }
+
       // Double-check drag state before executing
       const stillDragging = document.body.classList.contains('dragging');
       if (stillDragging) {
@@ -369,6 +525,13 @@ export const useMissionPrepDataPersistence = (
   // Monitor for drag completion and execute queued operations
   useEffect(() => {
     if (!isDragInProgress && pendingOperations.length > 0) {
+      // Don't execute queued operations if page is hidden
+      if (!isPageVisibleRef.current) {
+        console.log('🚫 Persistence: Page hidden, clearing queued operations');
+        setPendingOperations([]);
+        return;
+      }
+
       console.log(`🚀 Persistence: Drag completed, executing ${pendingOperations.length} queued operations`);
       
       // Execute the most recent operation (latest user state)
@@ -377,6 +540,12 @@ export const useMissionPrepDataPersistence = (
       
       // Execute with a small delay to ensure UI has settled
       const timeout = setTimeout(async () => {
+        // Final visibility check before executing
+        if (!isPageVisibleRef.current) {
+          console.log('🚫 Persistence: Page hidden during delay, cancelling queued operation');
+          return;
+        }
+
         try {
           setHasPendingChanges(true);
           await latestOperation();
@@ -414,10 +583,17 @@ export const useMissionPrepDataPersistence = (
       pilotsCount,
       skipSave,
       hasMission: !!mission,
-      missionId: mission?.id
+      missionId: mission?.id,
+      isEventTransitioning: isEventTransitioningRef.current
     });
 
     setAssignedPilotsLocal(pilots);
+    
+    // Block saves during event transitions to prevent wiping data
+    if (isEventTransitioningRef.current) {
+      console.log('🚫 Persistence: Blocking pilot assignment save - event transition in progress');
+      return;
+    }
 
     // Save to database if this is a user-initiated change (including when clearing all pilots)
     if (mission && !skipSave) {
@@ -436,17 +612,42 @@ export const useMissionPrepDataPersistence = (
         setIsSyncing(true);
         try {
           const pilotAssignments: Record<string, PilotAssignment[]> = {};
+          const supportRoleAssignments: any[] = [];
           
+          // Separate regular flight assignments from support role assignments
           Object.entries(pilots).forEach(([flightId, pilotsList]) => {
-            pilotAssignments[flightId] = pilotsList.map((pilot, index) => ({
-              pilot_id: pilot.id,
-              flight_id: flightId,
-              slot_number: index + 1,
-              dash_number: pilot.dashNumber,
-              mids_a_channel: (pilot as any).midsAChannel || '',
-              mids_b_channel: (pilot as any).midsBChannel || '',
-              roll_call_status: pilot.rollCallStatus || null
-            }));
+            if (flightId.startsWith('support-')) {
+              // This is a support role assignment
+              console.log('🔵 Persistence: Processing support role:', flightId, 'with', pilotsList.length, 'pilots');
+              pilotsList.forEach((pilot, index) => {
+                console.log('  🔵 Pilot:', pilot.callsign || '(no callsign)', 'ID:', pilot.id, 'dashNumber:', pilot.dashNumber);
+                // Only add pilots that have a valid ID
+                if (pilot.id && pilot.id.trim() !== '') {
+                  supportRoleAssignments.push({
+                    pilot_id: pilot.id,
+                    role_id: flightId,
+                    position: pilot.dashNumber ?? index + 1,
+                    roll_call_status: pilot.rollCallStatus || null,
+                    attendance_status: pilot.attendanceStatus || null,
+                    excused: false
+                  });
+                  console.log('  ✅ Added to supportRoleAssignments');
+                } else {
+                  console.log('  ⏭️ Skipped - no valid pilot ID');
+                }
+              });
+            } else {
+              // Regular flight assignment
+              pilotAssignments[flightId] = pilotsList.map((pilot, index) => ({
+                pilot_id: pilot.id,
+                flight_id: flightId,
+                slot_number: index + 1,
+                dash_number: pilot.dashNumber,
+                mids_a_channel: (pilot as any).midsAChannel || '',
+                mids_b_channel: (pilot as any).midsBChannel || '',
+                roll_call_status: pilot.rollCallStatus || null
+              }));
+            }
           });
 
           // Debug save data for DSRM specifically
@@ -466,9 +667,46 @@ export const useMissionPrepDataPersistence = (
             });
           });
           
-          console.log('🔄 Persistence: Executing database save with assignments (including roll call):', pilotAssignments);
+          console.log('🔄 Persistence: Executing database save with assignments (including roll call):', {
+            pilotAssignments,
+            supportRoleAssignments: supportRoleAssignments.length
+          });
+          
+          // Save regular pilot assignments
           const result = await updatePilotAssignments(pilotAssignments);
-          console.log('✅ Persistence: Database save result:', result);
+          console.log('✅ Persistence: Pilot assignments save result:', result);
+          
+          // Save support role assignments if any
+          if (supportRoleAssignments.length > 0) {
+            console.log('🔄 Persistence: Saving support role assignments:', supportRoleAssignments);
+            
+            // Get the current support_role_assignments from mission (includes both assignments and cards)
+            const currentData = (mission.support_role_assignments as any) || { assignments: [], cards: [] };
+            const currentCards = Array.isArray(currentData) ? [] : (currentData.cards || []);
+            
+            // Build the new structure preserving cards
+            const newSupportRoleData = {
+              cards: currentCards,
+              assignments: supportRoleAssignments
+            };
+            
+            // Update the ref so future saves use fresh data
+            latestSupportRoleAssignmentsRef.current = supportRoleAssignments;
+            
+            console.log('🔄 Persistence: Saving with structure:', {
+              cardsCount: newSupportRoleData.cards.length,
+              assignmentsCount: newSupportRoleData.assignments.length
+            });
+            
+            await updateMissionData({
+              support_role_assignments: newSupportRoleData
+            });
+            console.log('✅ Persistence: Support role assignments saved');
+          } else {
+            // No support role assignments to save, but we should still preserve cards
+            console.log('⏭️ Persistence: No support role pilots to save (only empty slots or no support roles)');
+          }
+          
           return result;
         } finally {
           // Reset the syncing flag after a short delay to allow UI to stabilize
@@ -478,7 +716,7 @@ export const useMissionPrepDataPersistence = (
     } else {
       console.log('⏭️ Persistence: Skipping save (skipSave=true or no mission)');
     }
-  }, [mission, selectedEvent, debouncedSave, updatePilotAssignments]);
+  }, [mission, selectedEvent, debouncedSave, updatePilotAssignments, updateMissionData]);
 
   const setMissionCommander = useCallback((commander: MissionCommanderInfo | null) => {
     setMissionCommanderLocal(commander);
@@ -507,6 +745,53 @@ export const useMissionPrepDataPersistence = (
       });
     }
   }, [mission, selectedEvent, debouncedSave, updateSupportRoles]);
+
+  // Setter for support role cards (carrier/command control definitions)
+  const setSupportRoleCards = useCallback((cards: SupportRoleCard[], skipSave: boolean = false) => {
+    console.log('[MISSION-SUPPORT] setSupportRoleCards called:', {
+      cardsCount: cards.length,
+      skipSave,
+      hasMission: !!mission,
+      missionId: mission?.id,
+      isEventTransitioning: isEventTransitioningRef.current
+    });
+
+    setSupportRoleCardsLocal(cards);
+
+    // Block saves during event transitions to prevent saving data to the wrong mission
+    if (isEventTransitioningRef.current) {
+      console.log('🚫 Persistence: Blocking support role cards save - event transition in progress');
+      return;
+    }
+
+    // Save to database
+    if (mission && !skipSave) {
+      // Only save if this mission belongs to the currently selected event
+      if (selectedEvent && mission.event_id !== selectedEvent.id) {
+        console.log('🚫 Persistence: Skipping support role cards save - mission belongs to different event:', {
+          missionEventId: mission.event_id,
+          selectedEventId: selectedEvent.id,
+          missionId: mission.id
+        });
+        return;
+      }
+
+      const targetMissionId = mission.id;
+
+      console.log('[MISSION-SUPPORT] Scheduling support role cards save to database for mission:', targetMissionId);
+      debouncedSave(async () => {
+        // Double-check the mission ID hasn't changed during debounce using the ref
+        // (the ref reflects the currently active mission, not the one from the closure)
+        if (currentMissionIdRef.current !== targetMissionId) {
+          console.warn(`[MISSION-SUPPORT] Mission changed during debounce, skipping save. Target: ${targetMissionId}, Current: ${currentMissionIdRef.current}`);
+          return false;
+        }
+
+        console.log('[MISSION-SUPPORT] Executing support role cards save:', cards.length, 'cards for mission', targetMissionId);
+        return updateSupportRoleCards(cards);
+      });
+    }
+  }, [mission, selectedEvent, debouncedSave, updateSupportRoleCards]);
 
   // Effect to handle mission creation when needed
   useEffect(() => {
@@ -541,6 +826,12 @@ export const useMissionPrepDataPersistence = (
     if (flights.length === 0) {
       console.log('🔄 useMissionPrepDataPersistence: Flights cleared, resetting processed flights ref');
       processedFlightsRef.current = null;
+    }
+    
+    // Block saves during event transitions to prevent wiping data
+    if (isEventTransitioningRef.current) {
+      console.log('🚫 Persistence: Blocking flight save - event transition in progress');
+      return;
     }
 
     // Save to database with shorter delay for flights (immediate user feedback)
@@ -745,12 +1036,14 @@ export const useMissionPrepDataPersistence = (
     missionCommander,
     extractedFlights,
     prepFlights,
+    supportRoleCards,
 
     // Setters (enhanced with database persistence)
     setAssignedPilots,
     setMissionCommander,
     setExtractedFlights,
     setPrepFlights,
+    setSupportRoleCards,
 
     // Mission-specific data
     mission,

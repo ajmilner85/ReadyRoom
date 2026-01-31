@@ -43,6 +43,36 @@ export interface SupportRoleAssignment {
   assigned_at?: string;
 }
 
+// Support role card definition (carrier, command control)
+export interface SupportRoleCard {
+  id: string;
+  callsign: string;
+  pilots: Array<{
+    boardNumber: string;
+    callsign: string;
+    dashNumber: string;
+    attendanceStatus?: 'accepted' | 'tentative' | 'declined';
+    rollCallStatus?: 'Present' | 'Absent' | 'Tentative';
+  }>;
+  creationOrder: number;
+  carrier?: {
+    hull?: string;
+    name?: string;
+    carrierId?: string;
+  };
+  slots?: Array<{
+    type: string;
+    name: string;
+    id: string;
+  }>;
+}
+
+// Combined structure for support_role_assignments JSONB column
+export interface SupportRoleData {
+  assignments: SupportRoleAssignment[];
+  cards: SupportRoleCard[];
+}
+
 // Mission settings and configuration
 export interface MissionSettings {
   auto_assign_enabled?: boolean;
@@ -75,7 +105,7 @@ export interface Mission {
   };
   flights: MissionFlight[];
   pilot_assignments: Record<string, PilotAssignment[]>; // Keyed by flight_id
-  support_role_assignments: SupportRoleAssignment[];
+  support_role_assignments: SupportRoleData; // Combined: pilot assignments + card definitions
   mission_settings: MissionSettings;
 
   // Optional linked event data (populated when joining with events table)
@@ -95,7 +125,7 @@ export interface UpdateMissionRequest extends Partial<CreateMissionRequest> {
   status?: MissionStatus;
   flights?: MissionFlight[];
   pilot_assignments?: Record<string, PilotAssignment[]>;
-  support_role_assignments?: SupportRoleAssignment[];
+  support_role_assignments?: SupportRoleData;
   mission_settings?: MissionSettings;
   step_time?: string; // UTC timestamp for step time
 }

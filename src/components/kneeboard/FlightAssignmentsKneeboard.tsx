@@ -116,9 +116,12 @@ const FlightAssignmentsKneeboard: React.FC<FlightAssignmentsKneeboardProps> = ({
     }
 
     try {
-      // Get recent missions (past 7 days and future)
+      // Get recent missions (past 7 days and up to 7 days in the future)
       const sevenDaysAgo = new Date();
       sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+      
+      const sevenDaysFromNow = new Date();
+      sevenDaysFromNow.setDate(sevenDaysFromNow.getDate() + 7);
 
       const { data: missionsData, error: missionsError } = await supabase
         .from('missions')
@@ -154,9 +157,10 @@ const FlightAssignmentsKneeboard: React.FC<FlightAssignmentsKneeboardProps> = ({
           // Must match the selected cycle
           if (mission.events.cycle_id !== cycleId) return false;
 
-          // Check if mission is within time window
+          // Check if mission is within time window (past 7 days to future 7 days)
           const eventStart = new Date(mission.events.start_datetime);
           if (eventStart < sevenDaysAgo) return false;
+          if (eventStart > sevenDaysFromNow) return false;
 
           return true;
         })

@@ -12,7 +12,8 @@ import type {
   UpdateMissionRequest,
   MissionFlight,
   PilotAssignment,
-  SupportRoleAssignment
+  SupportRoleAssignment,
+  SupportRoleCard
 } from '../types/MissionTypes';
 
 // Global cache for mission loading requests to prevent duplicates
@@ -186,8 +187,29 @@ export const useMission = (initialMissionId?: string, eventId?: string) => {
   const updateSupportRoles = useCallback(async (
     roles: SupportRoleAssignment[]
   ): Promise<boolean> => {
-    return updateMissionData({ support_role_assignments: roles });
-  }, [updateMissionData]);
+    // Merge with existing cards
+    const currentData = mission?.support_role_assignments || { assignments: [], cards: [] };
+    return updateMissionData({ 
+      support_role_assignments: { 
+        ...currentData, 
+        assignments: roles 
+      } 
+    });
+  }, [updateMissionData, mission?.support_role_assignments]);
+
+  // Update support role cards (carrier/command control definitions)
+  const updateSupportRoleCards = useCallback(async (
+    cards: SupportRoleCard[]
+  ): Promise<boolean> => {
+    // Merge with existing assignments
+    const currentData = mission?.support_role_assignments || { assignments: [], cards: [] };
+    return updateMissionData({ 
+      support_role_assignments: { 
+        ...currentData, 
+        cards 
+      } 
+    });
+  }, [updateMissionData, mission?.support_role_assignments]);
 
   // Link mission to an event
   const linkToEvent = useCallback(async (targetEventId: string): Promise<boolean> => {
@@ -241,6 +263,7 @@ export const useMission = (initialMissionId?: string, eventId?: string) => {
     updateFlights,
     updatePilotAssignments,
     updateSupportRoles,
+    updateSupportRoleCards,
     updateSettings,
     updateSelectedSquadrons,
     linkToEvent,
