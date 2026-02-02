@@ -88,6 +88,9 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
     }
   }, [isLoading, setPageLoading]);
 
+  // Declare realtimeAttendanceData before passing it to useMissionPrepDataPersistence
+  const [realtimeAttendanceData, setRealtimeAttendanceData] = useState<RealtimeAttendanceRecord[]>([]);
+
   // Use database-backed state management first
   const {
     assignedPilots,
@@ -113,7 +116,8 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
     externalMissionCommander,
     externalExtractedFlights,
     externalPrepFlights,
-    activePilots
+    activePilots,
+    realtimeAttendanceData
   );
 
   // Debug prepFlights changes in MissionPreparation
@@ -124,8 +128,6 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
   //   });
   //   console.log('🔍 MissionPreparation: Raw prepFlights value:', prepFlights);
   // }, [prepFlights]);
-
-  const [realtimeAttendanceData, setRealtimeAttendanceData] = useState<RealtimeAttendanceRecord[]>([]);
   const [isAutoAssignConfigOpen, setIsAutoAssignConfigOpen] = useState(false);
   const [isTrainingEvent, setIsTrainingEvent] = useState(false);
   const [showNoFlightsDialog, setShowNoFlightsDialog] = useState(false);
@@ -677,6 +679,7 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
                   updateSupportRoles={updateSupportRoles}
                   activePilots={activePilots}
                   selectedEventId={selectedEvent?.id}
+                  realtimeAttendanceData={realtimeAttendanceData}
                 />
                 <Communications
                   width={CARD_WIDTH}
