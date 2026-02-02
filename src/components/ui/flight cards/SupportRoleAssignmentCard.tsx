@@ -131,9 +131,8 @@ const SupportRoleAssignmentCard: React.FC<SupportRoleAssignmentCardProps> = ({
       style={{
         position: 'relative',
         boxSizing: 'border-box',
-        width: 'calc(100% - 20px)', // Account for shadow space
-        padding: '10px 10px 28px 10px',
-        margin: '10px', // Add margin for drop shadow
+        width: 'calc(100% - 20px)',
+        margin: '10px',
         backgroundColor: '#FFFFFF',
         borderRadius: '8px',
         fontFamily: 'Inter, sans-serif',
@@ -141,8 +140,8 @@ const SupportRoleAssignmentCard: React.FC<SupportRoleAssignmentCardProps> = ({
         boxShadow: '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)',
         transition: 'all 0.2s ease-in-out',
         display: 'flex',
-        flexDirection: 'column',
-        marginBottom: '10px' // Add consistent spacing between cards
+        flexDirection: 'row',
+        marginBottom: '10px'
       }}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
@@ -229,38 +228,27 @@ const SupportRoleAssignmentCard: React.FC<SupportRoleAssignmentCardProps> = ({
         </div>
       )}
 
-      {/* Main content container */}
+      {/* Left container: vertical text elements */}
       <div style={{
         display: 'flex',
-        flexDirection: 'column',
-        gap: '4px'
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: '6px',
+        paddingLeft: '10px',
+        paddingRight: '0px'
       }}>
-        {/* Horizontal name centered above tiles */}
-        <div style={{
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          fontSize: '12px',
-          fontWeight: 400,
-          color: '#64748B',
-          textTransform: 'uppercase',
-          letterSpacing: '0.5px',
-          minHeight: '14px'
-        }}>
-          {carrier && carrier.name ? carrier.name : callsign}
-        </div>
-
-        {/* Container with vertical designation on left and tiles */}
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '10px'
-        }}>
-          {/* Vertical designation on the left (only for Carrier roles) */}
-          {carrier && carrier.hull && (
+        {/* Vertical designation */}
+        {carrier && carrier.hull ? (
+          <div style={{
+            height: '102px',
+            width: '20px',
+            position: 'relative'
+          }}>
             <div style={{
-              writingMode: 'vertical-rl',
-              transform: 'rotate(180deg)',
+              position: 'absolute',
+              top: '50%',
+              left: '50%',
+              transform: 'translateX(-50%) translateY(-50%) rotate(-90deg)',
               fontSize: '16px',
               fontWeight: 600,
               color: '#1E1E1E',
@@ -269,7 +257,51 @@ const SupportRoleAssignmentCard: React.FC<SupportRoleAssignmentCardProps> = ({
             }}>
               {carrier.hull}
             </div>
-          )}
+          </div>
+        ) : (
+          <div style={{ width: '20px' }} />
+        )}
+
+        {/* Vertical group name */}
+        <div style={{
+          height: '102px',
+          width: '40px',
+          position: 'relative'
+        }}>
+          <div style={{
+            position: 'absolute',
+            top: '50%',
+            left: '50%',
+            transform: 'translateX(-50%) translateY(-50%) rotate(-90deg)',
+            fontSize: '12px',
+            fontWeight: 400,
+            color: '#64748B',
+            textTransform: 'uppercase',
+            letterSpacing: '0.5px',
+            lineHeight: '1.4',
+            maxWidth: '102px',
+            textAlign: 'center',
+            whiteSpace: 'normal'
+          }}>
+            {carrier && carrier.name ? carrier.name : callsign}
+          </div>
+        </div>
+      </div>
+
+      {/* Right container: card content */}
+      <div style={{
+        flex: 1,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '4px',
+        padding: '10px 10px 28px 4px'
+      }}>
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '6px',
+          marginTop: '6px'
+        }}>
 
           {/* Aircraft Tiles Container */}
           <div style={{
@@ -348,12 +380,11 @@ const DroppableAircraftTile = ({
   });
   
   return (
-    <div 
-      ref={setNodeRef} 
-      style={{ 
+    <div
+      ref={setNodeRef}
+      style={{
         position: 'relative',
         width: '92px',
-        height: '102px',
         zIndex: isOver ? 10 : 1
       }}
       data-drop-id={dropId}
@@ -375,6 +406,7 @@ const DroppableAircraftTile = ({
         isEmpty={isEmpty}
         iconType="personnel"
         pilot={isEmpty ? undefined : pilot} // Pass the full pilot object for drag operations
+        hideMidsBackground={true} // Hide MIDS backgrounds for Mission Support tiles
       />
       {isOver && (
         <div style={{
