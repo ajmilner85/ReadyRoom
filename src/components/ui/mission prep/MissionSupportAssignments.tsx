@@ -50,6 +50,7 @@ const MissionSupportAssignments: React.FC<MissionSupportAssignmentsProps> = ({
   const [allCarriers, setAllCarriers] = useState<CarrierData[]>([]);
   const [carriersLoading, setCarriersLoading] = useState(true);
   const lastLoadedMissionIdRef = useRef<string | null>(null);
+  const lastSavedRolesRef = useRef<string>('');
 
   // Load supportRoles from mission database
   useEffect(() => {
@@ -59,6 +60,7 @@ const MissionSupportAssignments: React.FC<MissionSupportAssignmentsProps> = ({
       setSupportRoles([]);
       setCreationOrderCounter(0);
       lastLoadedMissionIdRef.current = null;
+      lastSavedRolesRef.current = '';
       return;
     }
 
@@ -80,50 +82,43 @@ const MissionSupportAssignments: React.FC<MissionSupportAssignmentsProps> = ({
 
     console.log('[MISSION-SUPPORT] Loading support roles from mission:', mission.id);
     lastLoadedMissionIdRef.current = mission.id;
+    lastSavedRolesRef.current = ''; // Reset save tracking for new mission
 
     // Convert database support_role_assignments to UI format
     if (mission.support_role_assignments && Array.isArray(mission.support_role_assignments)) {
-      // Get pilot assignments to enrich support role pilot data
-      const pilotAssignmentsMap = mission.pilot_assignments as Record<string, any[]> || {};
-      
       const roles: SupportRole[] = mission.support_role_assignments
         .filter(role => role.role_type !== 'mission_commander') // Filter out mission commander
         .map((role, index) => {
           const roleData = role as any;
           const roleId = roleData.id || `support-${role.role_type}-${Date.now()}-${index}`;
-          
-          // Get pilot assignments for this support role to get full pilot data
-          const rolePilotAssignments = pilotAssignmentsMap[roleId] || [];
-          
+
           // Merge pilot data from support_role_assignments with actual assignments
           const enrichedPilots = (roleData.pilots || []).map((pilot: any, _pilotIndex: number) => {
-            // Find the corresponding pilot assignment by dash number
-            const assignment = rolePilotAssignments.find((a: any) => a.dash_number === pilot.dashNumber);
-            
-            if (assignment && assignment.pilot_id) {
-              // Look up the full pilot data from assignedPilots first (has fresh attendance/rollCall status)
-              const assignedPilot = assignedPilots?.[roleId]?.find(p => p.dashNumber === pilot.dashNumber);
-              
-              if (assignedPilot) {
-                // Use pilot from assignedPilots which has current attendance/rollCall status
-                return assignedPilot;
-              }
-              
-              // Fallback to activePilots if not in assignedPilots yet
-              if (activePilots) {
-                const fullPilot = activePilots.find(p => p.id === assignment.pilot_id);
-                if (fullPilot) {
-                  return {
-                    ...fullPilot,
-                    dashNumber: pilot.dashNumber,
-                    attendanceStatus: fullPilot.attendanceStatus,
-                    rollCallStatus: fullPilot.rollCallStatus
-                  };
-                }
+            // Skip empty pilot slots
+            if (!pilot.boardNumber || !pilot.callsign) {
+              return pilot;
+            }
+
+            // Look up the full pilot data from activePilots by board number
+            if (activePilots) {
+              const fullPilot = activePilots.find(p => p.boardNumber === pilot.boardNumber);
+              if (fullPilot) {
+                return {
+                  ...fullPilot,
+                  dashNumber: pilot.dashNumber,
+                  attendanceStatus: fullPilot.attendanceStatus,
+                  rollCallStatus: fullPilot.rollCallStatus
+                };
               }
             }
-            
-            // Fallback to basic pilot data from support_role_assignments
+
+            // Look up from assignedPilots as fallback
+            const assignedPilot = assignedPilots?.[roleId]?.find(p => p.dashNumber === pilot.dashNumber);
+            if (assignedPilot) {
+              return assignedPilot;
+            }
+
+            // Final fallback to basic pilot data from support_role_assignments
             return pilot;
           });
           
@@ -143,49 +138,39 @@ const MissionSupportAssignments: React.FC<MissionSupportAssignmentsProps> = ({
       // Update counter
       const maxOrder = Math.max(...roles.map(r => r.creationOrder), -1);
       setCreationOrderCounter(maxOrder + 1);
+
+      // Set lastSavedRolesRef to current state to prevent initial save
+      // This avoids saving when data hasn't actually changed from what's in database
+      lastSavedRolesRef.current = JSON.stringify(roles);
     } else {
       // No roles in database, start fresh
       console.log('[MISSION-SUPPORT] No support roles in database');
       setSupportRoles([]);
       setCreationOrderCounter(0);
+      lastSavedRolesRef.current = JSON.stringify([]);
     }
-  }, [mission?.id]);
+  }, [mission?.id, activePilots]);
 
   // Sync assignedPilots changes back to supportRoles display
   useEffect(() => {
     if (!assignedPilots || supportRoles.length === 0) return;
 
-    console.log('[SUPPORT-SYNC] Syncing assignedPilots to supportRoles');
-
     // Update each support role with fresh pilot data from assignedPilots
     const updatedRoles = supportRoles.map(role => {
       const assignedPilotsForRole = assignedPilots[role.id] || [];
-      
+
       // Filter out empty pilots (placeholder slots)
       const realPilots = assignedPilotsForRole.filter(p => p.callsign && p.boardNumber);
-      
+
       if (realPilots.length === 0) {
         // No real pilots for this role
         return role;
       }
 
-      console.log('[SUPPORT-SYNC] Updating role:', {
-        roleId: role.id,
-        callsign: role.callsign,
-        realPilotsCount: realPilots.length,
-        currentPilotsCount: role.pilots.length
-      });
-
       // Merge assigned pilots into role.pilots, preserving slot positions
       const updatedPilots = role.pilots.map(existingPilot => {
         const freshPilot = realPilots.find(p => p.dashNumber === existingPilot.dashNumber);
         if (freshPilot) {
-          console.log('[SUPPORT-SYNC] Updated pilot in slot:', {
-            dashNumber: existingPilot.dashNumber,
-            callsign: freshPilot.callsign,
-            attendanceStatus: freshPilot.attendanceStatus,
-            rollCallStatus: freshPilot.rollCallStatus
-          });
           return freshPilot;
         }
         return existingPilot;
@@ -194,11 +179,6 @@ const MissionSupportAssignments: React.FC<MissionSupportAssignmentsProps> = ({
       // Add any new pilots that aren't in existing slots
       realPilots.forEach(assignedPilot => {
         if (!updatedPilots.some(p => p.dashNumber === assignedPilot.dashNumber)) {
-          console.log('[SUPPORT-SYNC] Adding new pilot:', {
-            dashNumber: assignedPilot.dashNumber,
-            callsign: assignedPilot.callsign,
-            attendanceStatus: assignedPilot.attendanceStatus
-          });
           updatedPilots.push(assignedPilot);
         }
       });
@@ -211,22 +191,19 @@ const MissionSupportAssignments: React.FC<MissionSupportAssignmentsProps> = ({
 
     // Only update if there were actual changes
     if (JSON.stringify(updatedRoles) !== JSON.stringify(supportRoles)) {
-      console.log('[SUPPORT-SYNC] Updating supportRoles state');
       setSupportRoles(updatedRoles);
     }
-  }, [assignedPilots]);  // Whenever supportRoles change and assignedPilots exists, ensure empty support roles are preserved
+  }, [assignedPilots, supportRoles]);  // Whenever supportRoles change and assignedPilots exists, ensure empty support roles are preserved
   useEffect(() => {
     // Skip if no support roles or assigned pilots is external and can't be modified
     if (supportRoles.length === 0 || !assignedPilots || !setAssignedPilots) return;
-    
+
     // Use our utility to ensure empty support roles are preserved in assignedPilots
     const assignedPilotsWithRoles = ensureSupportRolesInAssignedPilots(supportRoles, assignedPilots);
 
-    // If there were changes, update the parent component's state
-    if (Object.keys(assignedPilotsWithRoles).length !== Object.keys(assignedPilots).length) {
-      setAssignedPilots((prev) => {
-        return { ...prev, ...assignedPilotsWithRoles };
-      });
+    // Only update if the reference changed (ensureSupportRolesInAssignedPilots returns same ref if no changes)
+    if (assignedPilotsWithRoles !== assignedPilots) {
+      setAssignedPilots(assignedPilotsWithRoles);
     }
   }, [supportRoles, assignedPilots, setAssignedPilots]);
 
@@ -278,7 +255,14 @@ const MissionSupportAssignments: React.FC<MissionSupportAssignmentsProps> = ({
       // Store full role data as additional fields
       id: role.id,
       callsign: role.callsign,
-      pilots: role.pilots,
+      // Only save minimal pilot data - just identification fields
+      pilots: role.pilots.map(pilot => ({
+        boardNumber: pilot.boardNumber,
+        callsign: pilot.callsign,
+        dashNumber: pilot.dashNumber,
+        attendanceStatus: pilot.attendanceStatus,
+        rollCallStatus: pilot.rollCallStatus
+      })),
       creationOrder: role.creationOrder,
       carrier: role.carrier,
       slots: role.slots
@@ -304,10 +288,18 @@ const MissionSupportAssignments: React.FC<MissionSupportAssignmentsProps> = ({
     if (!mission) {
       return;
     }
-    
+
     // Skip if roles are empty and we haven't loaded this mission's roles yet
     // (to avoid saving empty roles during initial load)
     if (supportRoles.length === 0 && lastLoadedMissionIdRef.current !== mission.id) {
+      return;
+    }
+
+    // Serialize current roles to check if they've actually changed since last save
+    const currentRolesString = JSON.stringify(supportRoles);
+
+    // Skip save if roles haven't changed since last save
+    if (currentRolesString === lastSavedRolesRef.current) {
       return;
     }
 
@@ -318,6 +310,8 @@ const MissionSupportAssignments: React.FC<MissionSupportAssignmentsProps> = ({
     // Debounce the save to avoid excessive database calls
     const timeoutId = setTimeout(() => {
       saveSupportRolesToDatabase(supportRoles, missionIdAtEffectTime);
+      // Update ref after successful save
+      lastSavedRolesRef.current = currentRolesString;
     }, 500);
 
     return () => clearTimeout(timeoutId);
@@ -664,14 +658,33 @@ const MissionSupportAssignments: React.FC<MissionSupportAssignmentsProps> = ({
 
 
         updatedRoles.push(targetRole);
-        processedRoleIds.add(roleId); 
+        processedRoleIds.add(roleId);
       }
 
-      // Don't add back roles from previous state - they should come from the database or assignedPilots
-      // This prevents roles from previous missions appearing when switching missions
+      // CRITICAL: Add back roles from prevRoles that weren't in assignedPilots yet
+      // This preserves roles loaded from database before they're synced to assignedPilots
+      prevRoles.forEach(prevRole => {
+        if (!processedRoleIds.has(prevRole.id)) {
+          updatedRoles.push(prevRole);
+          if (prevRole.creationOrder > maxOrder) {
+            maxOrder = prevRole.creationOrder;
+          }
+        }
+      });
 
       setCreationOrderCounter(maxOrder + 1);
-      return updatedRoles.sort((a, b) => a.creationOrder - b.creationOrder);
+
+      // Only update if roles actually changed to prevent continuous saves
+      const sortedUpdatedRoles = updatedRoles.sort((a, b) => a.creationOrder - b.creationOrder);
+
+      // Deep comparison to check if roles actually changed
+      const hasChanges = JSON.stringify(sortedUpdatedRoles) !== JSON.stringify(prevRoles);
+
+      if (hasChanges) {
+        return sortedUpdatedRoles;
+      }
+
+      return prevRoles;
     });
   // Add allCarriers explicitly to dependencies to ensure effect re-runs when carriers are fetched
   }, [assignedPilots, carriersLoading, carrierMap, allCarriers]); // Added allCarriers

@@ -50,32 +50,19 @@ export const ensureSupportRolesInAssignedPilots = (
     return assignedPilots;
   }
 
+  let hasChanges = false;
   const updatedAssignedPilots = { ...assignedPilots };
 
-  // Ensure each support role exists in assignedPilots with at least empty slots
+  // Ensure each support role exists in assignedPilots, preserving pilots from the role itself
   supportRoles.forEach(role => {
-    if (!updatedAssignedPilots[role.id] || updatedAssignedPilots[role.id].length === 0) {
-      // If the role doesn't exist in assignedPilots, add it with empty pilots
-      const isCommandControl = role.id.includes('command-control');
-      
-      if (isCommandControl) {
-        const numSlots = role.slots?.length || 2;
-        updatedAssignedPilots[role.id] = Array(numSlots).fill(0).map((_, i) => ({
-          boardNumber: "",
-          callsign: "",
-          dashNumber: (i + 1).toString()
-        }));
-      } else {
-        // For Carrier Air Ops, always use 4 slots
-        updatedAssignedPilots[role.id] = [
-          { boardNumber: "", callsign: "", dashNumber: "1" },
-          { boardNumber: "", callsign: "", dashNumber: "2" },
-          { boardNumber: "", callsign: "", dashNumber: "3" },
-          { boardNumber: "", callsign: "", dashNumber: "4" }
-        ];
-      }
+    if (!updatedAssignedPilots[role.id]) {
+      // If the role doesn't exist in assignedPilots, add it with pilots from the role
+      // This preserves pilot data when support roles are loaded from the database
+      updatedAssignedPilots[role.id] = role.pilots || [];
+      hasChanges = true;
     }
   });
 
-  return updatedAssignedPilots;
+  // Only return new object if changes were made
+  return hasChanges ? updatedAssignedPilots : assignedPilots;
 };
