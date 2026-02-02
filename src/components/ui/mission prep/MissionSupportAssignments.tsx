@@ -24,6 +24,13 @@ interface AssignedPilot extends Pilot {
   rollCallStatus?: 'Present' | 'Absent' | 'Tentative';
 }
 
+// Define the structure for the polled attendance data
+interface RealtimeAttendanceRecord {
+  discord_id: string;
+  response: 'accepted' | 'declined' | 'tentative';
+  roll_call_response?: 'Present' | 'Absent' | 'Tentative';
+}
+
 interface MissionSupportAssignmentsProps {
   width: string;
   assignedPilots?: Record<string, AssignedPilot[]> | null;
@@ -32,6 +39,7 @@ interface MissionSupportAssignmentsProps {
   updateSupportRoles?: (roles: SupportRoleAssignment[]) => Promise<boolean>;
   activePilots?: Pilot[];
   selectedEventId?: string; // Used to validate mission belongs to correct event
+  realtimeAttendanceData?: RealtimeAttendanceRecord[];
 }
 
 const MissionSupportAssignments: React.FC<MissionSupportAssignmentsProps> = ({
@@ -41,7 +49,8 @@ const MissionSupportAssignments: React.FC<MissionSupportAssignmentsProps> = ({
   mission,
   updateSupportRoles,
   activePilots,
-  selectedEventId
+  selectedEventId,
+  realtimeAttendanceData = []
 }) => {
   const [supportRoles, setSupportRoles] = useState<SupportRole[]>([]);
   const [showAddDialog, setShowAddDialog] = useState(false);
@@ -67,11 +76,15 @@ const MissionSupportAssignments: React.FC<MissionSupportAssignmentsProps> = ({
     // CRITICAL: Validate mission belongs to the currently selected event
     // This prevents loading stale mission data during rapid event switching
     if (selectedEventId && mission.event_id && mission.event_id !== selectedEventId) {
-      console.warn('[MISSION-SUPPORT] Skipping load - mission belongs to different event:', {
+      console.warn('[MISSION-SUPPORT] Clearing support roles - mission belongs to different event:', {
         missionEventId: mission.event_id,
         selectedEventId: selectedEventId,
         missionId: mission.id
       });
+      setSupportRoles([]);
+      setCreationOrderCounter(0);
+      lastLoadedMissionIdRef.current = null;
+      lastSavedRolesRef.current = '';
       return;
     }
 
@@ -103,11 +116,17 @@ const MissionSupportAssignments: React.FC<MissionSupportAssignmentsProps> = ({
             if (activePilots) {
               const fullPilot = activePilots.find(p => p.boardNumber === pilot.boardNumber);
               if (fullPilot) {
+                // Look up attendance status from realtimeAttendanceData
+                const discordId = (fullPilot as any).discord_id;
+                const realtimeRecord = discordId && realtimeAttendanceData && realtimeAttendanceData.length > 0
+                  ? realtimeAttendanceData.find(record => record.discord_id === discordId)
+                  : undefined;
+
                 return {
                   ...fullPilot,
                   dashNumber: pilot.dashNumber,
-                  attendanceStatus: fullPilot.attendanceStatus,
-                  rollCallStatus: fullPilot.rollCallStatus
+                  attendanceStatus: realtimeRecord?.response,
+                  rollCallStatus: pilot.rollCallStatus
                 };
               }
             }
@@ -150,6 +169,53 @@ const MissionSupportAssignments: React.FC<MissionSupportAssignmentsProps> = ({
       lastSavedRolesRef.current = JSON.stringify([]);
     }
   }, [mission?.id, activePilots]);
+
+  // Update supportRoles when realtimeAttendanceData changes
+  useEffect(() => {
+    if (!realtimeAttendanceData || realtimeAttendanceData.length === 0 || supportRoles.length === 0) return;
+
+    // Update each support role pilot with fresh attendance status
+    const updatedRoles = supportRoles.map(role => {
+      const updatedPilots = role.pilots.map(pilot => {
+        // Skip empty slots
+        if (!pilot.boardNumber || !pilot.callsign) {
+          return pilot;
+        }
+
+        // Look up attendance status from realtimeAttendanceData
+        const discordId = (pilot as any).discord_id;
+        const realtimeRecord = discordId
+          ? realtimeAttendanceData.find(record => record.discord_id === discordId)
+          : undefined;
+
+        // Only update if attendance status changed
+        if (realtimeRecord?.response !== undefined && realtimeRecord.response !== pilot.attendanceStatus) {
+          return {
+            ...pilot,
+            attendanceStatus: realtimeRecord.response
+          };
+        }
+
+        return pilot;
+      });
+
+      // Check if any pilots were updated
+      const hasChanges = updatedPilots.some((p, i) => p !== role.pilots[i]);
+      if (hasChanges) {
+        return {
+          ...role,
+          pilots: updatedPilots
+        };
+      }
+
+      return role;
+    });
+
+    // Only update state if there were actual changes
+    if (JSON.stringify(updatedRoles) !== JSON.stringify(supportRoles)) {
+      setSupportRoles(updatedRoles);
+    }
+  }, [realtimeAttendanceData]);
 
   // Sync assignedPilots changes back to supportRoles display
   useEffect(() => {

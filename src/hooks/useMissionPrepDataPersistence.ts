@@ -7,6 +7,13 @@ import type { MissionCommanderInfo } from '../types/MissionCommanderTypes';
 import type { Event } from '../types/EventTypes';
 import type { Mission, MissionFlight, PilotAssignment, SupportRoleAssignment } from '../types/MissionTypes';
 
+// Define the structure for the polled attendance data
+interface RealtimeAttendanceRecord {
+  discord_id: string;
+  response: 'accepted' | 'declined' | 'tentative';
+  roll_call_response?: 'Present' | 'Absent' | 'Tentative';
+}
+
 /**
  * Hook that bridges the existing mission prep state management with database persistence
  * This replaces localStorage with database operations while maintaining the same interface
@@ -19,6 +26,7 @@ export const useMissionPrepDataPersistence = (
   externalExtractedFlights?: any[],
   externalPrepFlights?: any[],
   activePilots?: any[],
+  realtimeAttendanceData?: RealtimeAttendanceRecord[],
 ) => {
   const {
     mission,
@@ -256,23 +264,44 @@ export const useMissionPrepDataPersistence = (
           if (assignment.dashNumber) {
             // Preserve roll call status from current assignments or database
             const existingPilot = currentAssignments[flightId]?.find(p => p.id === assignment.id || p.boardNumber === assignment.boardNumber);
-            return {
+
+            // Look up attendance status from realtime data only if available
+            const discordId = (assignment as any).discord_id;
+            const realtimeRecord = discordId && realtimeAttendanceData && realtimeAttendanceData.length > 0
+              ? realtimeAttendanceData.find(record => record.discord_id === discordId)
+              : undefined;
+
+            const result: any = {
               ...assignment,
               // Prioritize existing pilot data if database value is null (prevents overwriting local changes)
               rollCallStatus: existingPilot?.rollCallStatus || assignment.roll_call_status
             };
+
+            // Only set attendanceStatus if we actually have realtime data
+            // Otherwise omit it entirely and let MissionPreparation effect handle it
+            if (realtimeRecord?.response !== undefined) {
+              result.attendanceStatus = realtimeRecord.response;
+            }
+
+            return result;
           }
-          
+
           // Convert from database format (PilotAssignment) to UI format (AssignedPilot)
           // Look up the full pilot data using pilot_id
           const fullPilotData = activePilots?.find(pilot => pilot.id === assignment.pilot_id);
-          
+
           if (fullPilotData) {
             // Check if there's existing roll call data for this pilot
             const existingPilot = currentAssignments[flightId]?.find(p => p.id === assignment.pilot_id || p.boardNumber === fullPilotData.boardNumber);
-            
+
+            // Look up attendance status from realtime data only if available
+            const discordId = (fullPilotData as any).discord_id;
+            const realtimeRecord = discordId && realtimeAttendanceData && realtimeAttendanceData.length > 0
+              ? realtimeAttendanceData.find(record => record.discord_id === discordId)
+              : undefined;
+
             // Use full pilot data with database assignment info
-            return {
+            const result: any = {
               ...fullPilotData,
               dashNumber: assignment.dash_number,
               flight_id: assignment.flight_id,
@@ -282,6 +311,14 @@ export const useMissionPrepDataPersistence = (
               // Prioritize existing pilot data if database value is null (prevents overwriting local changes)
               rollCallStatus: existingPilot?.rollCallStatus || assignment.roll_call_status
             };
+
+            // Only set attendanceStatus if we actually have realtime data
+            // Otherwise omit it entirely and let MissionPreparation effect handle it
+            if (realtimeRecord?.response !== undefined) {
+              result.attendanceStatus = realtimeRecord.response;
+            }
+
+            return result;
           } else {
             // Fallback to minimal pilot object if lookup fails
             // This should not happen if activePilots is properly loaded
@@ -300,6 +337,7 @@ export const useMissionPrepDataPersistence = (
               billet: '',
               qualifications: [],
               rollCallStatus: assignment.roll_call_status
+              // Omit attendanceStatus - let MissionPreparation effect handle it
             };
           }
         });
