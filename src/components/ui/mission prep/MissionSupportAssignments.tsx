@@ -65,6 +65,18 @@ const MissionSupportAssignments: React.FC<MissionSupportAssignmentsProps> = ({
 
   // Load supportRoles from mission database
   useEffect(() => {
+    // CRITICAL: Clear support roles when event changes (even if no mission yet)
+    // This prevents stale support roles from persisting when switching to events without missions
+    if (selectedEventId && lastLoadedMissionIdRef.current &&
+        (!mission || mission.event_id !== selectedEventId)) {
+      console.log('[MISSION-SUPPORT] Event changed, clearing support roles for new event:', selectedEventId);
+      setSupportRoles([]);
+      setCreationOrderCounter(0);
+      lastLoadedMissionIdRef.current = null;
+      lastSavedRolesRef.current = '';
+      return;
+    }
+
     // If no mission, clear support roles
     if (!mission) {
       console.log('[MISSION-SUPPORT] No mission, clearing support roles');
@@ -170,7 +182,7 @@ const MissionSupportAssignments: React.FC<MissionSupportAssignmentsProps> = ({
       setCreationOrderCounter(0);
       lastSavedRolesRef.current = JSON.stringify([]);
     }
-  }, [mission?.id, activePilots]);
+  }, [mission?.id, selectedEventId, activePilots]);
 
   // Update supportRoles when realtimeAttendanceData changes
   useEffect(() => {
@@ -599,9 +611,26 @@ const MissionSupportAssignments: React.FC<MissionSupportAssignmentsProps> = ({
   // Convert assignedPilots to supportRoles format, using fetched carrier data
   useEffect(() => {    // Explicitly wait for carriers to finish loading AND map to have entries if carriers exist
     if (carriersLoading || (allCarriers.length > 0 && carrierMap.size === 0)) {
-      return; 
+      return;
     }
-    
+
+    // CRITICAL: Skip processing assignedPilots if mission doesn't match the selected event
+    // This prevents restoring stale support roles when switching events
+    if (selectedEventId && mission && mission.event_id !== selectedEventId) {
+      console.log('[MISSION-SUPPORT] Skipping assignedPilots sync - mission belongs to different event');
+      return;
+    }
+
+    // CRITICAL: Skip processing empty assignedPilots if we just loaded support roles from database
+    // This prevents wiping freshly-loaded pilots during initial mission load
+    if ((!assignedPilots || Object.keys(assignedPilots).length === 0) &&
+        mission?.id === lastLoadedMissionIdRef.current &&
+        lastSavedRolesRef.current &&
+        lastSavedRolesRef.current !== '[]') {
+      console.log('[MISSION-SUPPORT] Skipping empty assignedPilots - support roles just loaded from database');
+      return;
+    }
+
     // If assignedPilots is empty, just clear the pilots in existing support roles without removing the roles
     if (!assignedPilots || Object.keys(assignedPilots).length === 0) {
       setSupportRoles(prev => {
@@ -814,7 +843,7 @@ const MissionSupportAssignments: React.FC<MissionSupportAssignmentsProps> = ({
       return prevRoles;
     });
   // Add allCarriers explicitly to dependencies to ensure effect re-runs when carriers are fetched
-  }, [assignedPilots, carriersLoading, carrierMap, allCarriers]); // Added allCarriers
+  }, [assignedPilots, carriersLoading, carrierMap, allCarriers, mission?.id, selectedEventId]);
 
   return (
     <div style={{
