@@ -9,6 +9,7 @@ import { AddSupportRoleDialogData } from '../../../types/DialogTypes';
 import { fetchCarriers } from '../../../utils/supabaseClient';
 import { SupportRole, ensureSupportRolesInAssignedPilots } from '../../../utils/supportRoleUtils';
 import type { Mission, SupportRoleAssignment } from '../../../types/MissionTypes';
+import { Trash2 } from 'lucide-react';
 
 // Interface for fetched carrier data
 interface CarrierData {
@@ -60,6 +61,7 @@ const MissionSupportAssignments: React.FC<MissionSupportAssignmentsProps> = ({
   const [carriersLoading, setCarriersLoading] = useState(true);
   const lastLoadedMissionIdRef = useRef<string | null>(null);
   const lastSavedRolesRef = useRef<string>('');
+  const [showRemoveAllDialog, setShowRemoveAllDialog] = useState(false);
 
   // Load supportRoles from mission database
   useEffect(() => {
@@ -534,6 +536,65 @@ const MissionSupportAssignments: React.FC<MissionSupportAssignmentsProps> = ({
     setShowAddDialog(true);
   }, []);
 
+  // Handle removing all pilot assignments from support roles
+  const handleRemoveAll = useCallback(() => {
+    setShowRemoveAllDialog(true);
+  }, []);
+
+  // Confirm remove all pilot assignments
+  const confirmRemoveAll = useCallback(() => {
+    // Clear all pilots from support roles while keeping the roles themselves
+    setSupportRoles(prevRoles => {
+      return prevRoles.map(role => {
+        const isCommandControl = role.id.includes('command-control');
+
+        if (isCommandControl) {
+          // Use the role's slots length if available, otherwise default to a reasonable length
+          const slotsLength = role.slots?.length || 1;
+          return {
+            ...role,
+            pilots: Array(slotsLength).fill(0).map((_, i) => ({
+              boardNumber: "",
+              callsign: "",
+              dashNumber: (i + 1).toString()
+            }))
+          };
+        } else {
+          // Standard 4 slots for Carrier Air Ops
+          return {
+            ...role,
+            pilots: [
+              { boardNumber: "", callsign: "", dashNumber: "1" },
+              { boardNumber: "", callsign: "", dashNumber: "2" },
+              { boardNumber: "", callsign: "", dashNumber: "3" },
+              { boardNumber: "", callsign: "", dashNumber: "4" }
+            ]
+          };
+        }
+      });
+    });
+
+    // Also clear from assignedPilots for support roles
+    if (setAssignedPilots) {
+      setAssignedPilots(prev => {
+        const updated = { ...prev };
+        // Remove all support role assignments
+        Object.keys(updated).forEach(key => {
+          if (key.startsWith('support-')) {
+            delete updated[key];
+          }
+        });
+        return updated;
+      });
+    }
+
+    setShowRemoveAllDialog(false);
+  }, [setAssignedPilots]);
+
+  // Cancel remove all
+  const cancelRemoveAll = useCallback(() => {
+    setShowRemoveAllDialog(false);
+  }, []);
 
   // Convert assignedPilots to supportRoles format, using fetched carrier data
   useEffect(() => {    // Explicitly wait for carriers to finish loading AND map to have entries if carriers exist
@@ -830,42 +891,75 @@ const MissionSupportAssignments: React.FC<MissionSupportAssignmentsProps> = ({
         </div>
         <div style={{
           display: 'flex',
-          justifyContent: 'center',
           alignItems: 'center',
           marginTop: 'auto',
-          padding: '24px 0 0 0',
+          padding: '18px 0 0 0',
           borderTop: '1px solid #E2E8F0'
         }}>
           <button
-            onClick={() => { setEditRoleId(null); setShowAddDialog(true); }}
+            onClick={handleRemoveAll}
             style={{
-              width: '119px',
-              height: '30px',
-              background: '#FFFFFF',
-              borderRadius: '8px',
-              border: 'none',
-              cursor: 'pointer',
-              transition: 'box-shadow 0.2s ease-in-out',
-              fontFamily: 'Inter',
-              fontStyle: 'normal',
-              fontWeight: 400,
-              fontSize: '20px',
-              lineHeight: '24px',
-              color: '#64748B',
               display: 'flex',
               alignItems: 'center',
-              justifyContent: 'center'
+              justifyContent: 'center',
+              gap: '8px',
+              padding: '8px 16px',
+              backgroundColor: '#FFFFFF',
+              color: '#64748B',
+              borderRadius: '8px',
+              border: '1px solid #CBD5E1',
+              cursor: 'pointer',
+              transition: 'background-color 0.2s ease',
+              fontFamily: 'Inter',
+              fontSize: '14px',
+              fontWeight: 400,
+              flex: '0 0 30%'
             }}
             onMouseEnter={e => {
-              e.currentTarget.style.boxShadow = '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)';
+              e.currentTarget.style.backgroundColor = '#F8FAFC';
             }}
             onMouseLeave={e => {
-              e.currentTarget.style.boxShadow = 'none';
+              e.currentTarget.style.backgroundColor = '#FFFFFF';
             }}
-            disabled={carriersLoading} // Disable add button while loading carriers
+            disabled={carriersLoading || supportRoles.length === 0}
           >
-            +
+            <Trash2 size={16} />
+            Remove All
           </button>
+          <div style={{ flex: 1, display: 'flex', justifyContent: 'center' }}>
+            <button
+              onClick={() => { setEditRoleId(null); setShowAddDialog(true); }}
+              style={{
+                width: '119px',
+                height: '30px',
+                background: '#FFFFFF',
+                borderRadius: '8px',
+                border: 'none',
+                cursor: 'pointer',
+                transition: 'box-shadow 0.2s ease-in-out',
+                fontFamily: 'Inter',
+                fontStyle: 'normal',
+                fontWeight: 400,
+                fontSize: '20px',
+                lineHeight: '24px',
+                color: '#64748B',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}
+              onMouseEnter={e => {
+                e.currentTarget.style.boxShadow = '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)';
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.boxShadow = 'none';
+              }}
+              disabled={carriersLoading} // Disable add button while loading carriers
+            >
+              +
+            </button>
+          </div>
+          {/* Invisible spacer to match Remove All button width and keep Add button centered */}
+          <div style={{ flex: '0 0 30%' }} />
         </div>
       </Card>
 
@@ -888,13 +982,113 @@ const MissionSupportAssignments: React.FC<MissionSupportAssignmentsProps> = ({
             onCancel={handleCancelAddRole}
             existingSupportRoles={supportRoles}
             editingRoleId={editRoleId || undefined}
-            title={editRoleId 
-              ? (editRoleId.includes('command-control') 
-                 ? "Edit Command & Control Role" 
+            title={editRoleId
+              ? (editRoleId.includes('command-control')
+                 ? "Edit Command & Control Role"
                  : "Edit Carrier Air Ops Role")
               : "Add Support Role"}
           />
         </>      )}
+
+      {/* Remove All Confirmation Dialog */}
+      {showRemoveAllDialog && (
+        <>
+          {/* Semi-transparent overlay */}
+          <div style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            zIndex: 1000
+          }} onClick={cancelRemoveAll} />
+          <div style={{
+            position: 'fixed',
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+            backgroundColor: '#FFFFFF',
+            borderRadius: '8px',
+            padding: '24px',
+            zIndex: 1001,
+            boxShadow: '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)',
+            width: '400px'
+          }}>
+            <div style={{
+              fontFamily: 'Inter',
+              fontSize: '18px',
+              fontWeight: 600,
+              color: '#1E293B',
+              marginBottom: '16px',
+              textAlign: 'center'
+            }}>
+              Remove All Mission Support Assignments?
+            </div>
+            <div style={{
+              fontFamily: 'Inter',
+              fontSize: '14px',
+              color: '#6B7280',
+              marginBottom: '24px',
+              textAlign: 'center'
+            }}>
+              This will remove all pilots from Mission Support roles, while keeping the role cards. This action cannot be undone.
+            </div>
+            <div style={{
+              display: 'flex',
+              gap: '12px',
+              justifyContent: 'center'
+            }}>
+              <button
+                onClick={cancelRemoveAll}
+                style={{
+                  padding: '8px 16px',
+                  backgroundColor: '#FFFFFF',
+                  color: '#64748B',
+                  border: '1px solid #CBD5E1',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  fontFamily: 'Inter',
+                  fontSize: '14px',
+                  fontWeight: 400,
+                  transition: 'background-color 0.2s ease'
+                }}
+                onMouseEnter={e => {
+                  e.currentTarget.style.backgroundColor = '#F8FAFC';
+                }}
+                onMouseLeave={e => {
+                  e.currentTarget.style.backgroundColor = '#FFFFFF';
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmRemoveAll}
+                style={{
+                  padding: '8px 16px',
+                  backgroundColor: '#DC2626',
+                  color: '#FFFFFF',
+                  border: 'none',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  fontFamily: 'Inter',
+                  fontSize: '14px',
+                  fontWeight: 400,
+                  transition: 'background-color 0.2s ease'
+                }}
+                onMouseEnter={e => {
+                  e.currentTarget.style.backgroundColor = '#B91C1C';
+                }}
+                onMouseLeave={e => {
+                  e.currentTarget.style.backgroundColor = '#DC2626';
+                }}
+              >
+                Remove All
+              </button>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 };

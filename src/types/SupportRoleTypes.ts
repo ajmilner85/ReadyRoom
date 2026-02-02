@@ -34,7 +34,7 @@ export type SupportRole = CarrierAirOpsRole | CustomSupportRole;
 export const DEFAULT_CARRIER_POSITIONS = [
   { name: 'AIR BOSS', id: 'airboss' },
   { name: 'MINI BOSS', id: 'miniboss' },
-  { name: 'MARSHALL', id: 'marshall' },
+  { name: 'MARSHAL', id: 'marshal' },
   { name: 'PADDLES', id: 'paddles' }
 ];
 
