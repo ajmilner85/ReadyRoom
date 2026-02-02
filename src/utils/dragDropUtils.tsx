@@ -65,6 +65,7 @@ export const removePilotFromAllFlights = (
           // Make sure we maintain the AssignedPilot type
           const emptyPilot: AssignedPilot = {
             ...p, // Keep all original properties
+            id: "", // Clear the ID so the pilot is not matched as assigned
             boardNumber: "", // Empty board number
             callsign: "",    // Empty callsign
           };
