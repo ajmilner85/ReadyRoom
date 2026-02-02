@@ -120,7 +120,7 @@ const SupportRoleAssignmentCard: React.FC<SupportRoleAssignmentCardProps> = ({
       }
     } else {
       // Default carrier position names
-      slotNames = ['AIR BOSS', 'MINI BOSS', 'MARSHALL', 'PADDLES'];
+      slotNames = ['AIR BOSS', 'MINI BOSS', 'MARSHAL', 'PADDLES'];
     }
     
     return { filledPilots: filled, isCommandControl, slotNames, hasAssignedPilots };
@@ -132,7 +132,7 @@ const SupportRoleAssignmentCard: React.FC<SupportRoleAssignmentCardProps> = ({
         position: 'relative',
         boxSizing: 'border-box',
         width: 'calc(100% - 20px)', // Account for shadow space
-        padding: '10px 10px 5px 10px', // Reduced bottom padding
+        padding: '10px 10px 28px 10px',
         margin: '10px', // Add margin for drop shadow
         backgroundColor: '#FFFFFF',
         borderRadius: '8px',
@@ -142,8 +142,7 @@ const SupportRoleAssignmentCard: React.FC<SupportRoleAssignmentCardProps> = ({
         transition: 'all 0.2s ease-in-out',
         display: 'flex',
         flexDirection: 'column',
-        marginBottom: '10px', // Add consistent spacing between cards
-        minHeight: '174px' // Set minimum height for the card
+        marginBottom: '10px' // Add consistent spacing between cards
       }}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
@@ -230,55 +229,77 @@ const SupportRoleAssignmentCard: React.FC<SupportRoleAssignmentCardProps> = ({
         </div>
       )}
 
-      {/* Aircraft Tiles Container */}
+      {/* Main content container */}
       <div style={{
         display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'center',
-        position: 'relative',
-        height: '102px', // Adjusted to match required tile height
-        marginBottom: '10px', // Add some margin to separate from role name
-        gap: '15px' // Consistent gap between tiles
+        flexDirection: 'column',
+        gap: '4px'
       }}>
-        {/* Map all position slots evenly */}
-        {filledPilots.map((pilot, index) => {
-          // Get dash number
-          const dashNumber = (index + 1).toString();
-          
-          // Use the slot name from our memoized array
-          const positionName = slotNames[index] || "UNKNOWN";
-          
-          return (
-            <DroppableAircraftTile
-              key={`${id}-position-${dashNumber}-${pilot.attendanceStatus || 'none'}-${pilot.rollCallStatus || 'none'}`}
-              pilot={pilot}
-              roleId={id}
-              dashNumber={dashNumber}
-              roleName={positionName} // Use the specific position name here
-            />
-          );
-        })}
-      </div>      {/* Role name at the bottom of the card */}
-      <div style={{
-        display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'center',
-        width: '100%',
-        height: '28px', // Increased height for potential two-line display
-        marginBottom: '5px', // Add some bottom margin
-        marginTop: 'auto' // Push to bottom of available space
-      }}>
+        {/* Horizontal name centered above tiles */}
         <div style={{
-          fontSize: '16px',
-          fontWeight: 600,
-          color: '#1E1E1E',
-          textAlign: 'center',
-          lineHeight: '18px', // Adjusted for potential multi-line
-          overflow: 'hidden',
-          textOverflow: 'ellipsis'        }}>
-          {carrier && carrier.hull && carrier.name ? 
-            `${carrier.hull} ${carrier.name}` : 
-            callsign}
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          fontSize: '12px',
+          fontWeight: 400,
+          color: '#64748B',
+          textTransform: 'uppercase',
+          letterSpacing: '0.5px',
+          minHeight: '14px'
+        }}>
+          {carrier && carrier.name ? carrier.name : callsign}
+        </div>
+
+        {/* Container with vertical designation on left and tiles */}
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '10px'
+        }}>
+          {/* Vertical designation on the left (only for Carrier roles) */}
+          {carrier && carrier.hull && (
+            <div style={{
+              writingMode: 'vertical-rl',
+              transform: 'rotate(180deg)',
+              fontSize: '16px',
+              fontWeight: 600,
+              color: '#1E1E1E',
+              letterSpacing: '0.5px',
+              whiteSpace: 'nowrap'
+            }}>
+              {carrier.hull}
+            </div>
+          )}
+
+          {/* Aircraft Tiles Container */}
+          <div style={{
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            position: 'relative',
+            height: '102px',
+            gap: '15px',
+            flex: 1
+          }}>
+            {/* Map all position slots evenly */}
+            {filledPilots.map((pilot, index) => {
+              // Get dash number
+              const dashNumber = (index + 1).toString();
+
+              // Use the slot name from our memoized array
+              const positionName = slotNames[index] || "UNKNOWN";
+
+              return (
+                <DroppableAircraftTile
+                  key={`${id}-position-${dashNumber}-${pilot.attendanceStatus || 'none'}-${pilot.rollCallStatus || 'none'}`}
+                  pilot={pilot}
+                  roleId={id}
+                  dashNumber={dashNumber}
+                  roleName={positionName} // Use the specific position name here
+                />
+              );
+            })}
+          </div>
         </div>
       </div>
     </div>
