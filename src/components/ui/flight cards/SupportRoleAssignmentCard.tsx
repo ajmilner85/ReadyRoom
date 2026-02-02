@@ -52,11 +52,6 @@ const SupportRoleAssignmentCard: React.FC<SupportRoleAssignmentCardProps> = ({
       const freshPilot = freshPilotsForRole.find((p: any) => p.dashNumber === pilot.dashNumber);
       if (freshPilot && freshPilot.callsign) {
         // Use fresh pilot data which has attendanceStatus from drag operation
-        console.log('[SUPPORT-CARD] Using fresh pilot data:', {
-          dashNumber: pilot.dashNumber,
-          callsign: freshPilot.callsign,
-          attendanceStatus: freshPilot.attendanceStatus
-        });
         return {
           ...pilot,
           ...freshPilot
