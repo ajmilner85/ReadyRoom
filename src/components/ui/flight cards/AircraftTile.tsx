@@ -23,6 +23,7 @@ interface AircraftTileProps {
   iconType?: 'aircraft' | 'personnel'; // Add prop to specify icon type
   pilot?: any; // Add full pilot object for drag operations
   pilotSquadronColor?: string; // Pilot's squadron primary color
+  hideMidsBackground?: boolean; // Hide MIDS channel white backgrounds (for Mission Support tiles)
 }
 
 const AircraftTile: React.FC<AircraftTileProps> = ({
@@ -43,7 +44,8 @@ const AircraftTile: React.FC<AircraftTileProps> = ({
   rollCallStatus,
   iconType = 'aircraft',
   pilot,
-  pilotSquadronColor
+  pilotSquadronColor,
+  hideMidsBackground = false
 }) => {
   // Track local drag state
   const [localDragging, setLocalDragging] = useState(false);
@@ -392,7 +394,7 @@ const AircraftTile: React.FC<AircraftTileProps> = ({
 
           {/* MIDS assignment sections - positioned within the tile */}
           {/* MIDS A - top left */}
-          {!isEmpty && (
+          {!isEmpty && !hideMidsBackground && (
             <div
               style={{
                 position: 'absolute',
@@ -423,7 +425,7 @@ const AircraftTile: React.FC<AircraftTileProps> = ({
           )}
 
           {/* MIDS B - top right */}
-          {!isEmpty && (
+          {!isEmpty && !hideMidsBackground && (
             <div
               style={{
                 position: 'absolute',
