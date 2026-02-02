@@ -61,6 +61,9 @@ const MissionSupportAssignments: React.FC<MissionSupportAssignmentsProps> = ({
   const [carriersLoading, setCarriersLoading] = useState(true);
   const lastLoadedMissionIdRef = useRef<string | null>(null);
   const lastSavedRolesRef = useRef<string>('');
+  // Track the mission ID that supportRoles currently belongs to
+  // This prevents saving stale roles when mission changes but supportRoles hasn't updated yet
+  const rolesForMissionIdRef = useRef<string | null>(null);
   const [showRemoveAllDialog, setShowRemoveAllDialog] = useState(false);
 
   // Load supportRoles from mission database
@@ -74,6 +77,7 @@ const MissionSupportAssignments: React.FC<MissionSupportAssignmentsProps> = ({
       setCreationOrderCounter(0);
       lastLoadedMissionIdRef.current = null;
       lastSavedRolesRef.current = '';
+      rolesForMissionIdRef.current = null;
       return;
     }
 
@@ -84,6 +88,7 @@ const MissionSupportAssignments: React.FC<MissionSupportAssignmentsProps> = ({
       setCreationOrderCounter(0);
       lastLoadedMissionIdRef.current = null;
       lastSavedRolesRef.current = '';
+      rolesForMissionIdRef.current = null;
       return;
     }
 
@@ -99,6 +104,7 @@ const MissionSupportAssignments: React.FC<MissionSupportAssignmentsProps> = ({
       setCreationOrderCounter(0);
       lastLoadedMissionIdRef.current = null;
       lastSavedRolesRef.current = '';
+      rolesForMissionIdRef.current = null;
       return;
     }
 
@@ -175,14 +181,24 @@ const MissionSupportAssignments: React.FC<MissionSupportAssignmentsProps> = ({
       // Set lastSavedRolesRef to current state to prevent initial save
       // This avoids saving when data hasn't actually changed from what's in database
       lastSavedRolesRef.current = JSON.stringify(roles);
+      // Note: rolesForMissionIdRef will be updated by the sync effect after supportRoles state updates
     } else {
       // No roles in database, start fresh
       console.log('[MISSION-SUPPORT] No support roles in database');
       setSupportRoles([]);
       setCreationOrderCounter(0);
       lastSavedRolesRef.current = JSON.stringify([]);
+      // Note: rolesForMissionIdRef will be updated by the sync effect after supportRoles state updates
     }
   }, [mission?.id, selectedEventId, activePilots]);
+
+  // CRITICAL: Track which mission the current supportRoles belong to
+  // This effect runs AFTER supportRoles state actually updates, not during the same render cycle
+  // It prevents the save effect from saving stale roles to a different mission
+  useEffect(() => {
+    rolesForMissionIdRef.current = lastLoadedMissionIdRef.current;
+    console.log('[MISSION-SUPPORT] Updated rolesForMissionIdRef:', rolesForMissionIdRef.current);
+  }, [supportRoles]);
 
   // Update supportRoles when realtimeAttendanceData changes
   useEffect(() => {
@@ -364,8 +380,69 @@ const MissionSupportAssignments: React.FC<MissionSupportAssignmentsProps> = ({
 
   // Save support roles to database whenever they change
   useEffect(() => {
-    // Skip if no mission
+    // If no mission but we have roles to save, trigger mission creation via updateSupportRoles
+    if (!mission && supportRoles.length > 0 && updateSupportRoles) {
+      console.log('[MISSION-SUPPORT] No mission but have roles - triggering mission creation:', {
+        roleCount: supportRoles.length,
+        selectedEventId
+      });
+
+      // Serialize current roles to check if they've actually changed since last save
+      const currentRolesString = JSON.stringify(supportRoles);
+
+      // Skip save if roles haven't changed since last save
+      if (currentRolesString === lastSavedRolesRef.current) {
+        return;
+      }
+
+      // Convert to database format and call updateSupportRoles to trigger mission creation
+      // (matches the format used in saveSupportRolesToDatabase)
+      const dbRoles: SupportRoleAssignment[] = supportRoles.map(role => ({
+        role_type: role.id.includes('carrier') ? 'carrier_air_ops' : 'command_control',
+        pilot_id: '', // Not used for these multi-slot roles
+        id: role.id,
+        callsign: role.callsign,
+        pilots: role.pilots.map(pilot => ({
+          boardNumber: pilot.boardNumber,
+          callsign: pilot.callsign,
+          dashNumber: pilot.dashNumber,
+          attendanceStatus: pilot.attendanceStatus,
+          rollCallStatus: pilot.rollCallStatus
+        })),
+        creationOrder: role.creationOrder,
+        carrier: role.carrier,
+        slots: role.slots
+      } as any));
+
+      // Debounce the save to avoid excessive database calls
+      const timeoutId = setTimeout(async () => {
+        try {
+          const success = await updateSupportRoles(dbRoles);
+          console.log('[MISSION-SUPPORT] Mission creation triggered result:', success ? 'SUCCESS' : 'PENDING');
+          if (success) {
+            lastSavedRolesRef.current = currentRolesString;
+          }
+        } catch (error) {
+          console.error('[MISSION-SUPPORT] Error triggering mission creation:', error);
+        }
+      }, 500);
+
+      return () => clearTimeout(timeoutId);
+    }
+
+    // Skip if no mission (and no roles to save)
     if (!mission) {
+      return;
+    }
+
+    // CRITICAL: Skip if supportRoles belong to a different mission than the current one
+    // This prevents saving stale roles from a previous mission during mission transitions
+    // rolesForMissionIdRef is updated by a separate effect AFTER supportRoles actually updates
+    if (rolesForMissionIdRef.current !== mission.id) {
+      console.log('[MISSION-SUPPORT] Skipping save - supportRoles are for different mission:', {
+        rolesForMission: rolesForMissionIdRef.current,
+        currentMission: mission.id
+      });
       return;
     }
 
@@ -395,7 +472,7 @@ const MissionSupportAssignments: React.FC<MissionSupportAssignmentsProps> = ({
     }, 500);
 
     return () => clearTimeout(timeoutId);
-  }, [supportRoles, mission?.id, saveSupportRolesToDatabase]);
+  }, [supportRoles, mission?.id, saveSupportRolesToDatabase, updateSupportRoles, selectedEventId]);
 
   // Function to handle adding or updating a support role
   const handleAddOrUpdateSupportRole = useCallback((data: AddSupportRoleDialogData) => {
@@ -682,8 +759,8 @@ const MissionSupportAssignments: React.FC<MissionSupportAssignmentsProps> = ({
 
         if (existingRole) {
           // Update existing role - Ensure carrier info is preserved or updated if needed
-          targetRole = { ...existingRole }; 
-          
+          targetRole = { ...existingRole };
+
           // If existing role somehow lacks carrier info but should have it, try reconstructing
           if (roleId.startsWith('support-carrier-') && !targetRole.carrier?.carrierId) {
              const idPart = cleanRoleId(targetRole.id).substring(16);
@@ -699,77 +776,14 @@ const MissionSupportAssignments: React.FC<MissionSupportAssignmentsProps> = ({
           }
           maxOrder = Math.max(maxOrder, targetRole.creationOrder);
         } else {
-          // Role exists in assignedPilots but not in current state - reconstruct it
-          const cleanedRoleId = cleanRoleId(roleId);
-          let callsign = 'SUPPORT ROLE'; 
-          let carrierInfo: SupportRole['carrier'] = {};
-          maxOrder++; 
-          let creationOrder = maxOrder;
-
-          if (cleanedRoleId.startsWith('support-carrier-')) {
-            const idPart = cleanedRoleId.substring(16); 
-            const lastHyphenIndex = idPart.lastIndexOf('-'); 
-
-            // Check if the format looks like UUID-timestamp
-            if (lastHyphenIndex > 0 && lastHyphenIndex === 36 && idPart.length > 37) { 
-              const extractedCarrierId = idPart.substring(0, lastHyphenIndex); 
-
-              const foundCarrier = carrierMap.get(extractedCarrierId); 
-              
-              if (foundCarrier) {
- 
-                callsign = `${foundCarrier.hull} ${foundCarrier.name}`.toUpperCase();
-                carrierInfo = { ...foundCarrier, carrierId: extractedCarrierId }; 
-              } else {
-                console.warn(`[SYNC_EFFECT] Carrier ID "${extractedCarrierId}" not found in carrierMap for role ${roleId}.`); 
-                callsign = `UNKNOWN CARRIER (ID: ${extractedCarrierId})`; 
-                carrierInfo = { carrierId: extractedCarrierId };
-              }
-            } else {
-               console.error(`[SYNC_EFFECT] Invalid roleId format or unable to extract UUID for carrier: ${roleId}`);
-               callsign = 'INVALID CARRIER ROLE ID FORMAT';
-               const potentialId = idPart.split('-')[0]; 
-               carrierInfo = { carrierId: potentialId }; 
-            }
-          } else if (cleanedRoleId.startsWith('support-command-control-')) {
-            // Handle Command & Control roles
-            callsign = 'COMMAND & CONTROL';
-          } else {
-            // Handle legacy formats (best effort, might need adjustment)
-            const parts = cleanedRoleId.substring(8).split('-');
-            if (parts.length > 1 && parts[0].startsWith('CVN')) {
-              const potentialHull = parts[0];
-              const potentialName = parts.slice(1, -1).join(' ');
-              if (potentialHull && potentialName) {
-                callsign = `${potentialHull} ${potentialName}`.toUpperCase();
-                carrierInfo = { hull: potentialHull, name: potentialName };
-              } else if (potentialHull) {
-                callsign = potentialHull.toUpperCase();
-                carrierInfo = { hull: potentialHull };
-              }
-            } else if (parts.length > 1 && parts[0]) {
-              callsign = parts[0].toUpperCase();
-            }
-          }
-          
-          // Create the appropriate pilots array based on role type
-          const pilotSlots = cleanedRoleId.startsWith('support-command-control-') ? 2 : 4;
-
-          const defaultPilots = Array(pilotSlots).fill(0).map((_, i) => ({ 
-            boardNumber: "", 
-            callsign: "", 
-            dashNumber: (i + 1).toString() 
-          }));
-          
-          targetRole = {
-            id: roleId,
-            callsign: callsign,
-            pilots: defaultPilots,
-            creationOrder: creationOrder,
-            carrier: carrierInfo
-          };
+          // CRITICAL FIX: Role exists in assignedPilots but NOT in current supportRoles state.
+          // This likely means the role ID is from a DIFFERENT mission (stale data in assignedPilots).
+          // DO NOT reconstruct it - only roles loaded from the database or created via dialog should exist.
+          // Skip this role entirely to prevent cross-mission contamination.
+          console.log('[MISSION-SUPPORT] Skipping stale support role ID from assignedPilots:', roleId);
+          continue;
         }
-        
+
         // Update pilots for the target role
         const sortedPilots = [...rolePilots]
           .filter(p => p.boardNumber && p.boardNumber.trim() !== "")

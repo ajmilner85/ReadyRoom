@@ -168,6 +168,9 @@ export const useMissionPrepDataPersistence = (
   );
   const [needsMissionCreation, setNeedsMissionCreation] = useState<boolean>(false);
 
+  // Track pending support roles when no mission exists yet (for auto-mission-creation)
+  const [pendingSupportRoles, setPendingSupportRoles] = useState<SupportRoleAssignment[] | null>(null);
+
   // Debug prepFlights changes
   // useEffect(() => {
   //   console.log('🔄 Persistence: prepFlights state changed:', {
@@ -194,6 +197,7 @@ export const useMissionPrepDataPersistence = (
     setIsSyncing(false);
     setLastSyncMissionId(null);
     setLastSyncEventId(null);
+    setPendingSupportRoles(null); // Clear pending support roles to prevent cross-event contamination
   }, [selectedEvent?.id]);
 
   // Sync state with mission data when mission loads - ONLY run once per mission/event combination
@@ -711,6 +715,20 @@ export const useMissionPrepDataPersistence = (
     }
   }, [needsMissionCreation, selectedEvent, mission, missionLoading, createNewMission]);
 
+  // Effect to save pending support roles after mission creation
+  useEffect(() => {
+    if (mission && pendingSupportRoles && pendingSupportRoles.length > 0) {
+      console.log('📝 Persistence: Saving pending support roles after mission creation:', pendingSupportRoles.length);
+      updateSupportRoles(pendingSupportRoles).then((result) => {
+        console.log('✅ Persistence: Pending support roles saved:', result);
+        setPendingSupportRoles(null);
+      }).catch((error) => {
+        console.error('❌ Persistence: Error saving pending support roles:', error);
+        setPendingSupportRoles(null);
+      });
+    }
+  }, [mission, pendingSupportRoles, updateSupportRoles]);
+
   const setPrepFlights = useCallback((flights: any[], skipSave: boolean = false) => {
     setPrepFlightsLocal(flights);
 
@@ -968,6 +986,15 @@ export const useMissionPrepDataPersistence = (
       if (mission) {
         return updateSupportRoles(roles);
       }
+
+      // No mission exists - trigger mission creation if we have roles to save
+      if (roles && roles.length > 0 && selectedEvent && !missionLoading) {
+        console.log('📝 Persistence: Triggering mission creation for support role assignments in event:', selectedEvent.id);
+        setPendingSupportRoles(roles);
+        setNeedsMissionCreation(true);
+        return Promise.resolve(true); // Indicate that save will happen after mission creation
+      }
+
       return Promise.resolve(false);
     },
 
