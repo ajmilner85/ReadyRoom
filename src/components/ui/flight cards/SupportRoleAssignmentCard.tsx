@@ -265,23 +265,21 @@ const SupportRoleAssignmentCard: React.FC<SupportRoleAssignmentCardProps> = ({
         {/* Vertical group name */}
         <div style={{
           height: '102px',
-          width: '40px',
-          position: 'relative'
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center'
         }}>
           <div style={{
-            position: 'absolute',
-            top: '50%',
-            left: '50%',
-            transform: 'translateX(-50%) translateY(-50%) rotate(-90deg)',
+            writingMode: 'vertical-rl',
+            transform: 'rotate(180deg)',
             fontSize: '12px',
             fontWeight: 400,
             color: '#64748B',
             textTransform: 'uppercase',
             letterSpacing: '0.5px',
             lineHeight: '1.4',
-            maxWidth: '102px',
-            textAlign: 'center',
-            whiteSpace: 'normal'
+            maxHeight: '102px',
+            textAlign: 'center'
           }}>
             {carrier && carrier.name ? carrier.name : callsign}
           </div>
