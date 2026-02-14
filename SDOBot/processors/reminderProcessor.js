@@ -27,6 +27,22 @@ const {
   getExistingThreadFromMessage
 } = require('../discordBot');
 
+// Helper function to convert UUID to integer for advisory lock
+// Uses first 16 hex characters (64 bits) of UUID as lock key
+function uuidToLockKey(uuid) {
+  // Remove dashes and take first 16 hex chars (64 bits)
+  const hex = uuid.replace(/-/g, '').substring(0, 16);
+  // Convert to BigInt then to Number (PostgreSQL bigint is 64-bit signed integer)
+  // We need to ensure it fits in signed 64-bit range (-2^63 to 2^63-1)
+  const value = BigInt('0x' + hex);
+  // Convert to signed by checking if high bit is set
+  const maxInt64 = BigInt('0x7FFFFFFFFFFFFFFF');
+  if (value > maxInt64) {
+    return Number(value - BigInt('0x10000000000000000'));
+  }
+  return Number(value);
+}
+
 // Helper function to send reminder to a specific Discord channel or thread
 async function sendReminderToChannel(guildId, channelId, message, eventId = null) {
   try {
@@ -69,15 +85,46 @@ async function processReminders() {
     let processed = 0;
     const errors = [];
 
-    // Process each reminder
+    // Process each reminder with distributed locking to prevent duplicates
     for (const reminder of pendingReminders) {
+      const lockKey = uuidToLockKey(reminder.id);
+      let lockAcquired = false;
+
       try {
+        // Try to acquire advisory lock for this reminder
+        const { data: lockResult, error: lockError } = await supabase
+          .rpc('try_acquire_reminder_lock', { lock_key: lockKey });
+
+        if (lockError) {
+          console.error(`[REMINDER] Error acquiring lock for ${reminder.id}:`, lockError);
+          errors.push({ reminderId: reminder.id, error: lockError });
+          continue;
+        }
+
+        if (!lockResult) {
+          // Lock is held by another server instance
+          console.log(`[REMINDER] Reminder ${reminder.id} being processed by another instance, skipping`);
+          continue;
+        }
+
+        lockAcquired = true;
+
+        // Process the reminder
         await processIndividualReminder(reminder);
         processed++;
         console.log(`Successfully processed reminder ${reminder.id} for event ${reminder.event_id}`);
       } catch (error) {
         console.error(`Error processing reminder ${reminder.id}:`, error);
         errors.push({ reminderId: reminder.id, error });
+      } finally {
+        // Always release the lock if we acquired it
+        if (lockAcquired) {
+          try {
+            await supabase.rpc('release_reminder_lock', { lock_key: lockKey });
+          } catch (unlockError) {
+            console.warn(`[REMINDER] Failed to release lock for ${reminder.id}:`, unlockError);
+          }
+        }
       }
     }
 
