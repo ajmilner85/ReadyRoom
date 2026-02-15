@@ -171,6 +171,10 @@ export const useMissionPrepDataPersistence = (
   // Track pending support roles when no mission exists yet (for auto-mission-creation)
   const [pendingSupportRoles, setPendingSupportRoles] = useState<SupportRoleAssignment[] | null>(null);
 
+  // Track pending flights that need to be saved after mission creation
+  // This prevents the race condition where flights are cleared by sync effect before being saved
+  const pendingFlightsRef = useRef<any[] | null>(null);
+
   // Debug prepFlights changes
   // useEffect(() => {
   //   console.log('🔄 Persistence: prepFlights state changed:', {
@@ -198,6 +202,7 @@ export const useMissionPrepDataPersistence = (
     setLastSyncMissionId(null);
     setLastSyncEventId(null);
     setPendingSupportRoles(null); // Clear pending support roles to prevent cross-event contamination
+    pendingFlightsRef.current = null; // Clear pending flights to prevent cross-event contamination
   }, [selectedEvent?.id]);
 
   // Sync state with mission data when mission loads - ONLY run once per mission/event combination
@@ -442,9 +447,17 @@ export const useMissionPrepDataPersistence = (
         });
       }, 10);
     } else {
-      // Only clear flights if they weren't just extracted from a .miz file
+      // Only clear flights if they weren't just extracted or pending save after mission creation
       if (flightsJustExtractedRef.current) {
         console.log('🛡️ Persistence: Protecting newly extracted flights from being cleared');
+      } else if (pendingFlightsRef.current && pendingFlightsRef.current.length > 0) {
+        console.log('🛡️ Persistence: Protecting pending flights from being cleared, will save them now');
+        // Don't clear - instead, restore from pending and trigger save
+        setPrepFlightsLocal(pendingFlightsRef.current);
+      } else if (prepFlights && prepFlights.length > 0) {
+        // CRITICAL: Don't clear flights that exist in local state but not yet in DB
+        // This happens when flights were just added and mission was just created
+        console.log('🛡️ Persistence: Protecting existing local flights from being cleared:', prepFlights.length);
       } else {
         // console.log('🔄 Persistence: No flights to restore, clearing prepFlights');
         // Clear flights if mission has no flights
@@ -729,6 +742,45 @@ export const useMissionPrepDataPersistence = (
     }
   }, [mission, pendingSupportRoles, updateSupportRoles]);
 
+  // Effect to save pending flights after mission creation
+  useEffect(() => {
+    if (mission && pendingFlightsRef.current && pendingFlightsRef.current.length > 0) {
+      const flightsToSave = pendingFlightsRef.current;
+      console.log('📝 Persistence: Saving pending flights after mission creation:', flightsToSave.length);
+
+      // Convert to mission flight format
+      const missionFlights: MissionFlight[] = flightsToSave.map((flight) => ({
+        id: flight.id || `flight_${Date.now()}_${Math.random()}`,
+        callsign: flight.callsign || flight.name || 'UNKNOWN',
+        squadron_id: flight.squadron_id,
+        aircraft_type: flight.aircraftType || flight.type || 'F/A-18C',
+        slots: flight.slots || flight.pilots?.length || 2,
+        flight_data: {
+          flightNumber: flight.flightNumber || '1',
+          pilots: flight.pilots || [],
+          midsA: flight.midsA || '',
+          midsB: flight.midsB || '',
+          creationOrder: flight.creationOrder || 0,
+          metadata: flight.metadata,
+          units: flight.units,
+          route: flight.route,
+          frequency: flight.frequency,
+          modulation: flight.modulation,
+          ...flight
+        }
+      }));
+
+      // Clear the ref before saving to prevent re-triggering
+      pendingFlightsRef.current = null;
+
+      updateFlights(missionFlights).then((result) => {
+        console.log('✅ Persistence: Pending flights saved:', result);
+      }).catch((error) => {
+        console.error('❌ Persistence: Error saving pending flights:', error);
+      });
+    }
+  }, [mission?.id, updateFlights]);
+
   const setPrepFlights = useCallback((flights: any[], skipSave: boolean = false) => {
     setPrepFlightsLocal(flights);
 
@@ -748,6 +800,8 @@ export const useMissionPrepDataPersistence = (
           return;
         }
         console.log('📝 Triggering mission creation for flight assignments in event:', selectedEvent.id);
+        // Store flights to be saved after mission creation
+        pendingFlightsRef.current = flights;
         // Set a flag to trigger mission creation in a separate effect
         setNeedsMissionCreation(true);
         return;
