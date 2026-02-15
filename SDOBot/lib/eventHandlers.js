@@ -6,6 +6,7 @@
 const { getClient } = require('./discordClient');
 const { createEventEmbed, createAdditionalImageEmbeds } = require('./embedCreator');
 const { createAttendanceButtons } = require('./messageManager');
+const { isConnectivityError, isCircuitOpen, recordFailure, resetFailures } = require('./databaseHealth');
 
 // Track recently processed interactions to prevent duplicates
 const processedInteractions = new Map();
@@ -269,6 +270,9 @@ function setupDiscordEventHandlers(supabase, upsertEventAttendance, getEventByDi
       pilotRecord
     };
     
+    // FAIL-SAFE: Track if we can safely update the Discord embed
+    let databaseFailedForEmbed = false;
+
     // Load existing responses from database before adding new one
     if (dbEvent) {
       try {
@@ -276,8 +280,17 @@ function setupDiscordEventHandlers(supabase, upsertEventAttendance, getEventByDi
           .rpc('get_latest_event_responses', {
             event_id: eventId
           });
-        
-        if (!attendanceError && existingAttendance) {
+
+        if (attendanceError) {
+          console.error(`[INTERACTION-ABORT] Database error loading responses for ${eventId}:`, attendanceError.message || attendanceError);
+          if (isConnectivityError(attendanceError)) {
+            recordFailure();
+            databaseFailedForEmbed = true;
+          }
+        } else if (existingAttendance) {
+          // Database query succeeded - reset circuit breaker
+          resetFailures();
+
           eventData.accepted = [];
           eventData.declined = [];
           eventData.tentative = [];
@@ -291,7 +304,7 @@ function setupDiscordEventHandlers(supabase, upsertEventAttendance, getEventByDi
           if (discordIds.length > 0) {
             console.log(`[BATCH-FETCH] Fetching data for ${discordIds.length} users`);
 
-            const { data: allPilots } = await supabase
+            const { data: allPilots, error: pilotsError } = await supabase
               .from('pilots')
               .select(`
                 *,
@@ -302,6 +315,11 @@ function setupDiscordEventHandlers(supabase, upsertEventAttendance, getEventByDi
               `)
               .in('discord_id', discordIds);
 
+            if (pilotsError && isConnectivityError(pilotsError)) {
+              recordFailure();
+              databaseFailedForEmbed = true;
+            }
+
             const pilotsByDiscordId = new Map();
             const pilotIds = [];
             if (allPilots) {
@@ -311,11 +329,16 @@ function setupDiscordEventHandlers(supabase, upsertEventAttendance, getEventByDi
               });
             }
 
-            const { data: allAssignments } = await supabase
+            const { data: allAssignments, error: assignmentsError } = await supabase
               .from('pilot_assignments')
               .select('pilot_id, squadron_id')
               .in('pilot_id', pilotIds)
               .is('end_date', null);
+
+            if (assignmentsError && isConnectivityError(assignmentsError)) {
+              recordFailure();
+              databaseFailedForEmbed = true;
+            }
 
             const assignmentsByPilotId = new Map();
             const squadronIds = [];
@@ -328,10 +351,15 @@ function setupDiscordEventHandlers(supabase, upsertEventAttendance, getEventByDi
               });
             }
 
-            const { data: allSquadrons } = await supabase
+            const { data: allSquadrons, error: squadronsError } = await supabase
               .from('org_squadrons')
               .select('id, designation, name, discord_integration')
               .in('id', squadronIds);
+
+            if (squadronsError && isConnectivityError(squadronsError)) {
+              recordFailure();
+              databaseFailedForEmbed = true;
+            }
 
             const squadronById = new Map();
             if (allSquadrons) {
@@ -340,50 +368,65 @@ function setupDiscordEventHandlers(supabase, upsertEventAttendance, getEventByDi
               });
             }
 
-            for (const record of existingAttendance) {
-              if (record.discord_id === userId) {
-                console.log(`[CURRENT-USER-SKIP] Skipping database reload for current user ${displayName}`);
-                continue;
-              }
+            // Only process attendance data if we didn't encounter connectivity errors
+            if (!databaseFailedForEmbed) {
+              for (const record of existingAttendance) {
+                if (record.discord_id === userId) {
+                  console.log(`[CURRENT-USER-SKIP] Skipping database reload for current user ${displayName}`);
+                  continue;
+                }
 
-              let pilotRecord = null;
-              const pilotData = pilotsByDiscordId.get(record.discord_id);
+                let pilotRecord = null;
+                const pilotData = pilotsByDiscordId.get(record.discord_id);
 
-              if (pilotData) {
-                const assignment = assignmentsByPilotId.get(pilotData.id);
-                const squadronData = assignment?.squadron_id ? squadronById.get(assignment.squadron_id) : null;
+                if (pilotData) {
+                  const assignment = assignmentsByPilotId.get(pilotData.id);
+                  const squadronData = assignment?.squadron_id ? squadronById.get(assignment.squadron_id) : null;
 
-                pilotRecord = {
-                  id: pilotData.id,
-                  callsign: pilotData.callsign,
-                  boardNumber: pilotData.boardNumber?.toString() || '',
-                  qualifications: pilotData.pilot_qualifications?.map(pq => pq.qualification?.name).filter(Boolean) || [],
-                  currentStatus: { name: pilotData.status || 'Provisional' },
-                  squadron: squadronData || null
+                  pilotRecord = {
+                    id: pilotData.id,
+                    callsign: pilotData.callsign,
+                    boardNumber: pilotData.boardNumber?.toString() || '',
+                    qualifications: pilotData.pilot_qualifications?.map(pq => pq.qualification?.name).filter(Boolean) || [],
+                    currentStatus: { name: pilotData.status || 'Provisional' },
+                    squadron: squadronData || null
+                  };
+                }
+
+                const existingUserEntry = {
+                  userId: record.discord_id,
+                  displayName: record.discord_username || 'Unknown User',
+                  boardNumber: pilotRecord?.boardNumber || '',
+                  callsign: pilotRecord?.callsign || record.discord_username || 'Unknown User',
+                  pilotRecord
                 };
-              }
 
-              const existingUserEntry = {
-                userId: record.discord_id,
-                displayName: record.discord_username || 'Unknown User',
-                boardNumber: pilotRecord?.boardNumber || '',
-                callsign: pilotRecord?.callsign || record.discord_username || 'Unknown User',
-                pilotRecord
-              };
-
-              if (record.user_response === 'accepted') {
-                eventData.accepted.push(existingUserEntry);
-              } else if (record.user_response === 'declined') {
-                eventData.declined.push(existingUserEntry);
-              } else if (record.user_response === 'tentative') {
-                eventData.tentative.push(existingUserEntry);
+                if (record.user_response === 'accepted') {
+                  eventData.accepted.push(existingUserEntry);
+                } else if (record.user_response === 'declined') {
+                  eventData.declined.push(existingUserEntry);
+                } else if (record.user_response === 'tentative') {
+                  eventData.tentative.push(existingUserEntry);
+                }
               }
             }
           }
         }
       } catch (error) {
-        console.warn(`[RESPONSES-DEBUG] Error loading existing responses: ${error.message}`);
+        console.error(`[INTERACTION-ABORT] Exception loading responses: ${error.message}`);
+        if (isConnectivityError(error)) {
+          recordFailure();
+          databaseFailedForEmbed = true;
+        }
       }
+    }
+
+    // FAIL-SAFE: If database failed, skip the Discord embed update
+    // The user's response was already saved to the database (upsert above)
+    // The embed will be updated on the next scheduled countdown refresh
+    if (databaseFailedForEmbed) {
+      console.warn(`[INTERACTION-FAIL-SAFE] Response for ${displayName} (${customId}) recorded in database, but Discord embed update skipped to preserve current state`);
+      return; // Exit without editReply - message retains previous state
     }
     
     // Add current user's response

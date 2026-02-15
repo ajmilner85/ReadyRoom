@@ -26,6 +26,7 @@ const {
   createThreadFromMessage,
   getExistingThreadFromMessage
 } = require('../discordBot');
+const { isConnectivityError, isCircuitOpen, recordFailure, resetFailures } = require('../lib/databaseHealth');
 
 // Helper function to convert UUID to integer for advisory lock
 // Uses first 16 hex characters (64 bits) of UUID as lock key
@@ -58,6 +59,12 @@ async function sendReminderToChannel(guildId, channelId, message, eventId = null
 
 // Server-side reminder processing functions
 async function processReminders() {
+  // FAIL-SAFE: Check circuit breaker before starting
+  if (isCircuitOpen()) {
+    console.warn('[REMINDER-PROCESSOR] Skipping reminder processing - database circuit is open');
+    return { processed: 0, errors: [], skipped: true, reason: 'circuit_open' };
+  }
+
   try {
     console.log('[REMINDER-PROCESSOR] Checking for pending reminders...');
 
@@ -71,9 +78,16 @@ async function processReminders() {
       .order('scheduled_time', { ascending: true });
 
     if (fetchError) {
-      console.error('Error fetching pending reminders:', fetchError);
+      console.error('[REMINDER-PROCESSOR] Error fetching pending reminders:', fetchError);
+      if (isConnectivityError(fetchError)) {
+        recordFailure();
+        console.warn('[REMINDER-PROCESSOR] Database connectivity error - aborting reminder processing');
+      }
       return { processed: 0, errors: [{ reminderId: 'fetch', error: fetchError }] };
     }
+
+    // Database query succeeded - reset circuit breaker
+    resetFailures();
 
     if (!pendingReminders || pendingReminders.length === 0) {
       console.log('[REMINDER-PROCESSOR] No pending reminders found');
@@ -130,7 +144,11 @@ async function processReminders() {
 
     return { processed, errors };
   } catch (error) {
-    console.error('Error in processReminders:', error);
+    console.error('[REMINDER-PROCESSOR] Error in processReminders:', error);
+    if (isConnectivityError(error)) {
+      recordFailure();
+      console.warn('[REMINDER-PROCESSOR] Database connectivity error detected');
+    }
     return { processed: 0, errors: [{ reminderId: 'general', error }] };
   }
 }
@@ -143,8 +161,16 @@ async function processIndividualReminder(reminder) {
     .eq('id', reminder.event_id)
     .single();
 
-  if (eventError || !eventData) {
-    throw new Error(`Could not fetch event data: ${eventError?.message || 'Event not found'}`);
+  if (eventError) {
+    if (isConnectivityError(eventError)) {
+      recordFailure();
+      throw new Error(`Database connectivity error fetching event: ${eventError.message}`);
+    }
+    throw new Error(`Could not fetch event data: ${eventError.message}`);
+  }
+
+  if (!eventData) {
+    throw new Error('Event not found');
   }
 
   // console.log('[EVENT-DEBUG] Retrieved event data:', JSON.stringify(eventData, null, 2));
@@ -185,8 +211,15 @@ async function processIndividualReminder(reminder) {
       .order('updated_at', { ascending: false });
 
     if (attendanceError) {
+      if (isConnectivityError(attendanceError)) {
+        recordFailure();
+        throw new Error(`Database connectivity error fetching attendance: ${attendanceError.message}`);
+      }
       throw new Error(`Could not fetch attendance data: ${attendanceError.message}`);
     }
+
+    // Database query succeeded - reset circuit breaker
+    resetFailures();
 
     // Deduplicate: keep only the most recent response per pilot
     // This prevents duplicate mentions and respects response changes (e.g., accepted → declined)
