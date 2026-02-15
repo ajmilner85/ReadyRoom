@@ -54,15 +54,33 @@ const MyTraining: React.FC = () => {
     if (!selectedSyllabusId || !userProfile?.pilot?.id) return;
 
     try {
+      // First get mission IDs for this syllabus
+      const { data: missions } = await supabase
+        .from('training_syllabus_missions')
+        .select('id')
+        .eq('syllabus_id', selectedSyllabusId);
+
+      const missionIds = (missions || []).map(m => m.id);
+
+      if (missionIds.length === 0) {
+        setProgressSummary({
+          studentId: userProfile.pilot.id,
+          syllabusId: selectedSyllabusId,
+          syllabusName: syllabi.find(s => s.id === selectedSyllabusId)?.name || '',
+          totalObjectives: 0,
+          completedObjectives: 0,
+          satisfactoryObjectives: 0,
+          unsatisfactoryObjectives: 0,
+          percentComplete: 0,
+          percentSatisfactory: 0
+        });
+        return;
+      }
+
       const { count: totalObjectives } = await supabase
         .from('syllabus_training_objectives')
         .select('*', { count: 'exact', head: true })
-        .in('mission_id',
-          supabase
-            .from('training_syllabus_missions')
-            .select('id')
-            .eq('syllabus_id', selectedSyllabusId)
-        );
+        .in('mission_id', missionIds);
 
       const { data: scores } = await supabase
         .from('training_objective_scores')
@@ -71,11 +89,12 @@ const MyTraining: React.FC = () => {
           objective:syllabus_training_objectives!inner(mission_id)
         `)
         .eq('student_id', userProfile.pilot.id)
-        .in('objective.mission_id',
-          supabase
-            .from('training_syllabus_missions')
+        .in('objective_id',
+          (await supabase
+            .from('syllabus_training_objectives')
             .select('id')
-            .eq('syllabus_id', selectedSyllabusId)
+            .in('mission_id', missionIds)
+          ).data?.map(o => o.id) || []
         );
 
       const satisfactory = scores?.filter(s => s.result === 'SAT').length || 0;
@@ -118,24 +137,26 @@ const MyTraining: React.FC = () => {
       if (missionsError) throw missionsError;
 
       const roadmap: TrainingRoadmapMission[] = await Promise.all((missions || []).map(async (mission) => {
-        const { count: totalObjectives } = await supabase
+        // Get objectives for this mission
+        const { data: objectives, count: totalObjectives } = await supabase
           .from('syllabus_training_objectives')
-          .select('*', { count: 'exact', head: true })
+          .select('id', { count: 'exact' })
           .eq('mission_id', mission.id);
 
-        const { data: scores } = await supabase
-          .from('training_objective_scores')
-          .select('result')
-          .eq('student_id', userProfile.pilot!.id)
-          .in('objective_id',
-            supabase
-              .from('syllabus_training_objectives')
-              .select('id')
-              .eq('mission_id', mission.id)
-          );
+        const objectiveIds = (objectives || []).map(o => o.id);
 
-        const completedCount = scores?.length || 0;
-        const satCount = scores?.filter(s => s.result === 'SAT').length || 0;
+        let scores: any[] = [];
+        if (objectiveIds.length > 0) {
+          const { data: scoresData } = await supabase
+            .from('training_objective_scores')
+            .select('result')
+            .eq('student_id', userProfile.pilot!.id)
+            .in('objective_id', objectiveIds);
+          scores = scoresData || [];
+        }
+
+        const completedCount = scores.length;
+        const satCount = scores.filter(s => s.result === 'SAT').length;
 
         let status: 'not_started' | 'in_progress' | 'completed' = 'not_started';
         if (completedCount === 0) {

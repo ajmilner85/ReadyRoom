@@ -509,6 +509,8 @@ export class PermissionCacheService {
       lock_unlock_missions: false,
       access_my_training: false,
       access_training_management: false,
+      create_training_issues: false,
+      resolve_training_issues: false,
 
       // Kneeboard permissions
       access_kneeboard: false,
