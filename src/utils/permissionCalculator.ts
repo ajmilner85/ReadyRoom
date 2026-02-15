@@ -421,6 +421,8 @@ export class PermissionCalculator {
       lock_unlock_missions: false,
       access_my_training: false,
       access_training_management: false,
+      create_training_issues: false,
+      resolve_training_issues: false,
 
       // Component level (mixed)
       canSyncWithDiscord: [],
@@ -661,6 +663,12 @@ export class PermissionCalculator {
         break;
       case 'access_training_management':
         permissions.access_training_management = true;
+        break;
+      case 'create_training_issues':
+        permissions.create_training_issues = true;
+        break;
+      case 'resolve_training_issues':
+        permissions.resolve_training_issues = true;
         break;
 
       // Kneeboard permissions (global only)

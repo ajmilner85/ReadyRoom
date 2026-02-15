@@ -7,6 +7,7 @@ import ReferenceMaterialsInput from '../ui/events/ReferenceMaterialsInput';
 import CriteriaBlockEditor, { CriteriaBlock } from './CriteriaBlockEditor';
 import type { ReferenceMaterial } from '../../types/EventTypes';
 import { uploadEventImage } from '../../utils/eventImageService';
+import { IssuesTab } from '../issues';
 
 interface Mission {
   id?: string;
@@ -59,10 +60,10 @@ const SyllabusEditor: React.FC<SyllabusEditorProps> = ({ syllabusId: propSyllabu
   const [deleteConfirmIndex, setDeleteConfirmIndex] = useState<number | null>(null);
 
   // Tab state for the syllabus editor
-  const [activeTab, setActiveTab] = useState<'missions' | 'student-enrollment' | 'instructor-qualifications'>('missions');
+  const [activeTab, setActiveTab] = useState<'missions' | 'student-enrollment' | 'instructor-qualifications' | 'issues'>('missions');
 
   // Mission dialog tab state
-  const [missionDialogTab, setMissionDialogTab] = useState<'details' | 'objectives' | 'reference-materials'>('details');
+  const [missionDialogTab, setMissionDialogTab] = useState<'details' | 'objectives' | 'reference-materials' | 'issues'>('details');
 
   // Image upload state for mission editor
   const [missionImages, setMissionImages] = useState<(File | null)[]>([null, null, null, null]);
@@ -875,7 +876,7 @@ const SyllabusEditor: React.FC<SyllabusEditorProps> = ({ syllabusId: propSyllabu
       {/* Tabs */}
       <div style={{ marginBottom: '24px' }}>
         <div style={{ display: 'flex', borderBottom: '1px solid #E5E7EB' }}>
-          {(['missions', 'student-enrollment', 'instructor-qualifications'] as const).map((tab) => (
+          {(['missions', 'student-enrollment', 'instructor-qualifications', 'issues'] as const).map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -895,6 +896,7 @@ const SyllabusEditor: React.FC<SyllabusEditorProps> = ({ syllabusId: propSyllabu
               {tab === 'missions' && `Missions (${missions.length})`}
               {tab === 'student-enrollment' && 'Student Enrollment'}
               {tab === 'instructor-qualifications' && 'Instructor Qualifications'}
+              {tab === 'issues' && 'Issues'}
             </button>
           ))}
         </div>
@@ -930,6 +932,22 @@ const SyllabusEditor: React.FC<SyllabusEditorProps> = ({ syllabusId: propSyllabu
             blockLabel="Instructor Criteria Block"
             addBlockLabel="Add Instructor Criteria Block"
           />
+        </div>
+      )}
+
+      {activeTab === 'issues' && !isCreating && syllabusId && (
+        <div style={{ backgroundColor: 'white', border: '1px solid #E5E7EB', borderRadius: '8px', marginBottom: '24px' }}>
+          <IssuesTab
+            entityType="syllabus"
+            entityId={syllabusId}
+            entityName={syllabus.name}
+          />
+        </div>
+      )}
+
+      {activeTab === 'issues' && isCreating && (
+        <div style={{ padding: '40px 24px', backgroundColor: 'white', border: '1px solid #E5E7EB', borderRadius: '8px', marginBottom: '24px', textAlign: 'center', color: '#6B7280' }}>
+          <p style={{ margin: 0, fontSize: '14px' }}>Save the syllabus first to add issues.</p>
         </div>
       )}
 
@@ -1172,11 +1190,12 @@ const SyllabusEditor: React.FC<SyllabusEditorProps> = ({ syllabusId: propSyllabu
               {[
                 { id: 'details', label: 'Details' },
                 { id: 'objectives', label: 'Objectives' },
-                { id: 'references', label: 'Reference Materials' }
+                { id: 'references', label: 'Reference Materials' },
+                ...(editingMission.mission.id ? [{ id: 'issues', label: 'Issues' }] : [])
               ].map((tab) => (
                 <button
                   key={tab.id}
-                  onClick={() => setMissionDialogTab(tab.id)}
+                  onClick={() => setMissionDialogTab(tab.id as typeof missionDialogTab)}
                   style={{
                     padding: '12px 16px',
                     fontSize: '14px',
@@ -1518,6 +1537,17 @@ const SyllabusEditor: React.FC<SyllabusEditorProps> = ({ syllabusId: propSyllabu
                         }
                       });
                     }}
+                  />
+                </div>
+              )}
+
+              {/* Issues Tab */}
+              {missionDialogTab === 'issues' && editingMission.mission.id && (
+                <div style={{ margin: '-24px', marginBottom: '-24px' }}>
+                  <IssuesTab
+                    entityType="syllabus_mission"
+                    entityId={editingMission.mission.id}
+                    entityName={editingMission.mission.mission_name}
                   />
                 </div>
               )}

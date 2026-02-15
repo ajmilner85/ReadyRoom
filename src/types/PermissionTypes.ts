@@ -103,6 +103,8 @@ export interface UserPermissions {
   lock_unlock_missions: boolean;                 // Global only
   access_my_training: boolean;                   // Global only
   access_training_management: boolean;           // Global only
+  create_training_issues: boolean;               // Global only
+  resolve_training_issues: boolean;              // Global only
 
   // Component-level permissions (mixed)
   canSyncWithDiscord: PermissionScopeContext[];
