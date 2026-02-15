@@ -6,6 +6,7 @@
 const { formatInTimeZone } = require('date-fns-tz');
 const { createEventEmbed, createAdditionalImageEmbeds } = require('./embedCreator');
 const { getClient, ensureLoggedIn } = require('./discordClient');
+const { isConnectivityError, isCircuitOpen, recordFailure, resetFailures, checkDatabaseHealth } = require('./databaseHealth');
 
 class CountdownUpdateManager {
   constructor(supabase, getEventByDiscordId, fetchSquadronTimezone, extractEmbedDataFromDatabaseEvent) {
@@ -139,6 +140,12 @@ class CountdownUpdateManager {
   }
 
   async updateEventCountdown(eventData, messageId, guildId, channelId) {
+    // FAIL-SAFE: Check circuit breaker before starting any database operations
+    if (isCircuitOpen()) {
+      console.warn(`[COUNTDOWN-CIRCUIT-OPEN] Skipping update for ${messageId} - database circuit is open, preserving Discord message state`);
+      return; // Do NOT update Discord message
+    }
+
     try {
       await ensureLoggedIn();
 
@@ -162,9 +169,10 @@ class CountdownUpdateManager {
           return;
         }
 
-        // Get existing responses from database
-        let currentResponses = { accepted: [], declined: [], tentative: [], noResponse: [] };
-        
+        // FAIL-SAFE: Track if database operations fail
+        let databaseFailed = false;
+        let currentResponses = null; // Start as null to detect if data was loaded
+
         try {
           const { data: attendanceData, error: attendanceError } = await this.supabase
             .rpc('get_latest_event_responses', {
@@ -172,110 +180,154 @@ class CountdownUpdateManager {
             });
 
           if (attendanceError) {
-            console.error(`[COUNTDOWN-QUERY-ERROR] Failed to fetch event responses for message ${messageId}:`, attendanceError);
-            throw attendanceError;
-          }
+            console.error(`[COUNTDOWN-ABORT] Database error fetching attendance for ${messageId}:`, attendanceError.message || attendanceError);
+            if (isConnectivityError(attendanceError)) {
+              console.error(`[COUNTDOWN-ABORT] Connectivity error detected - aborting update to preserve Discord message state`);
+              recordFailure();
+            }
+            databaseFailed = true;
+          } else {
+            // Database query succeeded - reset circuit breaker
+            resetFailures();
 
-          if (!attendanceData || attendanceData.length === 0) {
-            console.warn(`[COUNTDOWN-QUERY-WARN] No attendance data returned for message ${messageId} - this may indicate a database function issue`);
-          }
+            // Initialize responses (empty is valid, null means failed)
+            currentResponses = { accepted: [], declined: [], tentative: [], noResponse: [] };
 
-          if (attendanceData) {
-            const discordIds = attendanceData.map(record => record.discord_id);
-            console.log(`[COUNTDOWN-BATCH-FETCH] Fetching data for ${discordIds.length} users from message ${messageId}`);
-
-            const { data: allPilots } = await this.supabase
-              .from('pilots')
-              .select(`
-                *,
-                pilot_qualifications(
-                  qualification_id,
-                  qualification:qualifications(name)
-                )
-              `)
-              .in('discord_id', discordIds);
-
-            const pilotsByDiscordId = new Map();
-            const pilotIds = [];
-            if (allPilots) {
-              allPilots.forEach(pilot => {
-                pilotsByDiscordId.set(pilot.discord_id, pilot);
-                pilotIds.push(pilot.id);
-              });
+            if (!attendanceData || attendanceData.length === 0) {
+              console.log(`[COUNTDOWN-RESPONSES] No attendance data for message ${messageId} - this is normal for new events`);
             }
 
-            const { data: allAssignments } = await this.supabase
-              .from('pilot_assignments')
-              .select('pilot_id, squadron_id')
-              .in('pilot_id', pilotIds)
-              .is('end_date', null);
+            if (attendanceData && attendanceData.length > 0) {
+              const discordIds = attendanceData.map(record => record.discord_id);
+              console.log(`[COUNTDOWN-BATCH-FETCH] Fetching data for ${discordIds.length} users from message ${messageId}`);
 
-            const assignmentsByPilotId = new Map();
-            const squadronIds = [];
-            if (allAssignments) {
-              allAssignments.forEach(assignment => {
-                assignmentsByPilotId.set(assignment.pilot_id, assignment);
-                if (assignment.squadron_id) {
-                  squadronIds.push(assignment.squadron_id);
+              const { data: allPilots, error: pilotsError } = await this.supabase
+                .from('pilots')
+                .select(`
+                  *,
+                  pilot_qualifications(
+                    qualification_id,
+                    qualification:qualifications(name)
+                  )
+                `)
+                .in('discord_id', discordIds);
+
+              if (pilotsError) {
+                console.error(`[COUNTDOWN-ABORT] Database error fetching pilots:`, pilotsError.message || pilotsError);
+                if (isConnectivityError(pilotsError)) {
+                  recordFailure();
                 }
-              });
-            }
+                databaseFailed = true;
+              } else {
+                const pilotsByDiscordId = new Map();
+                const pilotIds = [];
+                if (allPilots) {
+                  allPilots.forEach(pilot => {
+                    pilotsByDiscordId.set(pilot.discord_id, pilot);
+                    pilotIds.push(pilot.id);
+                  });
+                }
 
-            const { data: allSquadrons } = await this.supabase
-              .from('org_squadrons')
-              .select('id, designation, name, discord_integration')
-              .in('id', squadronIds);
+                const { data: allAssignments, error: assignmentsError } = await this.supabase
+                  .from('pilot_assignments')
+                  .select('pilot_id, squadron_id')
+                  .in('pilot_id', pilotIds)
+                  .is('end_date', null);
 
-            const squadronById = new Map();
-            if (allSquadrons) {
-              allSquadrons.forEach(squadron => {
-                squadronById.set(squadron.id, squadron);
-              });
-            }
+                if (assignmentsError) {
+                  console.error(`[COUNTDOWN-ABORT] Database error fetching assignments:`, assignmentsError.message || assignmentsError);
+                  if (isConnectivityError(assignmentsError)) {
+                    recordFailure();
+                  }
+                  databaseFailed = true;
+                } else {
+                  const assignmentsByPilotId = new Map();
+                  const squadronIds = [];
+                  if (allAssignments) {
+                    allAssignments.forEach(assignment => {
+                      assignmentsByPilotId.set(assignment.pilot_id, assignment);
+                      if (assignment.squadron_id) {
+                        squadronIds.push(assignment.squadron_id);
+                      }
+                    });
+                  }
 
-            console.log(`[COUNTDOWN-BATCH-FETCH] Fetched ${allPilots?.length || 0} pilots, ${allAssignments?.length || 0} assignments, ${allSquadrons?.length || 0} squadrons`);
+                  const { data: allSquadrons, error: squadronsError } = await this.supabase
+                    .from('org_squadrons')
+                    .select('id, designation, name, discord_integration')
+                    .in('id', squadronIds);
 
-            for (const record of attendanceData) {
-              let pilotRecord = null;
-              const pilotData = pilotsByDiscordId.get(record.discord_id);
+                  if (squadronsError) {
+                    console.error(`[COUNTDOWN-ABORT] Database error fetching squadrons:`, squadronsError.message || squadronsError);
+                    if (isConnectivityError(squadronsError)) {
+                      recordFailure();
+                    }
+                    databaseFailed = true;
+                  } else {
+                    const squadronById = new Map();
+                    if (allSquadrons) {
+                      allSquadrons.forEach(squadron => {
+                        squadronById.set(squadron.id, squadron);
+                      });
+                    }
 
-              if (pilotData) {
-                const assignment = assignmentsByPilotId.get(pilotData.id);
-                const squadronData = assignment?.squadron_id ? squadronById.get(assignment.squadron_id) : null;
+                    console.log(`[COUNTDOWN-BATCH-FETCH] Fetched ${allPilots?.length || 0} pilots, ${allAssignments?.length || 0} assignments, ${allSquadrons?.length || 0} squadrons`);
 
-                pilotRecord = {
-                  id: pilotData.id,
-                  callsign: pilotData.callsign,
-                  boardNumber: pilotData.boardNumber?.toString() || '',
-                  qualifications: pilotData.pilot_qualifications?.map(pq => pq.qualification?.name).filter(Boolean) || [],
-                  currentStatus: { name: pilotData.status || 'Provisional' },
-                  squadron: squadronData || null
-                };
+                    for (const record of attendanceData) {
+                      let pilotRecord = null;
+                      const pilotData = pilotsByDiscordId.get(record.discord_id);
+
+                      if (pilotData) {
+                        const assignment = assignmentsByPilotId.get(pilotData.id);
+                        const squadronData = assignment?.squadron_id ? squadronById.get(assignment.squadron_id) : null;
+
+                        pilotRecord = {
+                          id: pilotData.id,
+                          callsign: pilotData.callsign,
+                          boardNumber: pilotData.boardNumber?.toString() || '',
+                          qualifications: pilotData.pilot_qualifications?.map(pq => pq.qualification?.name).filter(Boolean) || [],
+                          currentStatus: { name: pilotData.status || 'Provisional' },
+                          squadron: squadronData || null
+                        };
+                      }
+
+                      const userEntry = {
+                        userId: record.discord_id,
+                        displayName: record.discord_username || 'Unknown User',
+                        boardNumber: pilotRecord?.boardNumber || '',
+                        callsign: pilotRecord?.callsign || record.discord_username || 'Unknown User',
+                        pilotRecord
+                      };
+
+                      if (record.user_response === 'accepted' || record.user_response === 'roll_call') {
+                        // Treat both 'accepted' (pre-event) and 'roll_call' (during event) as accepted
+                        currentResponses.accepted.push(userEntry);
+                      } else if (record.user_response === 'declined') {
+                        currentResponses.declined.push(userEntry);
+                      } else if (record.user_response === 'tentative') {
+                        currentResponses.tentative.push(userEntry);
+                      }
+                    }
+
+                    console.log(`[COUNTDOWN-RESPONSES] Restored ${attendanceData.length} responses from database with pilot data for event ${messageId}`);
+                    console.log(`[COUNTDOWN-RESPONSES] Response breakdown: ${currentResponses.accepted.length} accepted, ${currentResponses.tentative.length} tentative, ${currentResponses.declined.length} declined`);
+                  }
+                }
               }
-
-              const userEntry = {
-                userId: record.discord_id,
-                displayName: record.discord_username || 'Unknown User',
-                boardNumber: pilotRecord?.boardNumber || '',
-                callsign: pilotRecord?.callsign || record.discord_username || 'Unknown User',
-                pilotRecord
-              };
-
-              if (record.user_response === 'accepted' || record.user_response === 'roll_call') {
-                // Treat both 'accepted' (pre-event) and 'roll_call' (during event) as accepted
-                currentResponses.accepted.push(userEntry);
-              } else if (record.user_response === 'declined') {
-                currentResponses.declined.push(userEntry);
-              } else if (record.user_response === 'tentative') {
-                currentResponses.tentative.push(userEntry);
-              }
             }
-            
-            console.log(`[COUNTDOWN-RESPONSES] Restored ${attendanceData.length} responses from database with pilot data for event ${messageId}`);
-            console.log(`[COUNTDOWN-RESPONSES] Response breakdown: ${currentResponses.accepted.length} accepted, ${currentResponses.tentative.length} tentative, ${currentResponses.declined.length} declined`);
           }
         } catch (dbError) {
-          console.warn(`[COUNTDOWN-RESPONSES] Error fetching responses from database:`, dbError);
+          console.error(`[COUNTDOWN-ABORT] Exception during database operations:`, dbError.message || dbError);
+          if (isConnectivityError(dbError)) {
+            recordFailure();
+          }
+          databaseFailed = true;
+        }
+
+        // FAIL-SAFE: If database failed, DO NOT edit Discord message
+        if (databaseFailed || currentResponses === null) {
+          console.warn(`[COUNTDOWN-FAIL-SAFE] Database unavailable for ${messageId} - Discord message preserved in current state`);
+          return; // Critical: Exit without editing
         }
 
         // Extract embed data
@@ -361,6 +413,15 @@ class CountdownUpdateManager {
 
   async start() {
     if (this.isRunning) {
+      return;
+    }
+
+    // Pre-flight health check - verify database is accessible
+    const healthResult = await checkDatabaseHealth(this.supabase);
+    if (!healthResult.healthy) {
+      console.error(`[COUNTDOWN] Cannot start - database health check failed:`, healthResult.error?.message || healthResult.error);
+      console.log('[COUNTDOWN] Will retry in 30 seconds...');
+      setTimeout(() => this.start(), 30000);
       return;
     }
 
