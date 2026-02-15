@@ -115,11 +115,9 @@ export const IssueDetailDialog: React.FC<IssueDetailDialogProps> = ({
     }
   };
 
-  // Get display name for a user
+  // Get display name for a user (prefer display_name which includes board number)
   const getDisplayName = (user?: IssueWithDetails['created_by_user']) => {
     if (!user) return 'Unknown';
-    const pilot = user.pilots;
-    if (pilot?.callsign) return pilot.callsign;
     return user.display_name || 'Unknown';
   };
 
