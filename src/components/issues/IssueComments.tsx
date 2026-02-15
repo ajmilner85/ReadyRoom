@@ -77,11 +77,9 @@ export const IssueComments: React.FC<IssueCommentsProps> = ({
     }
   };
 
-  // Get display name for a user
+  // Get display name for a user (prefer display_name which includes board number)
   const getDisplayName = (comment: IssueCommentWithUser) => {
     if (!comment.created_by_user) return 'Unknown';
-    const pilot = comment.created_by_user.pilots;
-    if (pilot?.callsign) return pilot.callsign;
     return comment.created_by_user.display_name || 'Unknown';
   };
 

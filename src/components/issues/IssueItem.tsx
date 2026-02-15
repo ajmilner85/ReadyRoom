@@ -33,11 +33,9 @@ export const IssueItem: React.FC<IssueItemProps> = ({
     }
   };
 
-  // Get display name for the creator
+  // Get display name for the creator (prefer display_name which includes board number)
   const getCreatorName = () => {
     if (!issue.created_by_user) return 'Unknown';
-    const pilot = issue.created_by_user.pilots;
-    if (pilot?.callsign) return pilot.callsign;
     return issue.created_by_user.display_name || 'Unknown';
   };
 

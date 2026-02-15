@@ -70,13 +70,28 @@ export const getIssuesForEntity = async (
     if (issue.resolved_by) userIds.add(issue.resolved_by);
   });
 
-  // Fetch user profiles
+  // Fetch user profiles with pilot data
   const { data: profiles } = await supabase
     .from('user_profiles')
-    .select('id, display_name')
+    .select('id, pilot_id, discord_username, pilots(callsign, boardNumber)')
     .in('id', Array.from(userIds));
 
-  const profileMap = new Map((profiles || []).map((p: any) => [p.id, p]));
+  // Map profiles with proper structure for display
+  const profileMap = new Map((profiles || []).map((p: any) => {
+    const pilot = p.pilots;
+    const displayName = pilot?.callsign
+      ? `${pilot.boardNumber} ${pilot.callsign}`
+      : p.discord_username || 'Unknown';
+    return [p.id, {
+      id: p.id,
+      display_name: displayName,
+      pilot_id: p.pilot_id,
+      pilots: pilot ? {
+        callsign: pilot.callsign,
+        board_number: String(pilot.boardNumber),
+      } : null,
+    }];
+  }));
 
   return issues.map((issue: any) => ({
     ...issue,
@@ -125,13 +140,28 @@ export const getIssuesForSyllabus = async (
         if (issue.resolved_by) userIds.add(issue.resolved_by);
       });
 
-      // Fetch user profiles
+      // Fetch user profiles with pilot data
       const { data: profiles } = await supabase
         .from('user_profiles')
-        .select('id, display_name')
+        .select('id, pilot_id, discord_username, pilots(callsign, boardNumber)')
         .in('id', Array.from(userIds));
 
-      const profileMap = new Map((profiles || []).map((p: any) => [p.id, p]));
+      // Map profiles with proper structure for display
+      const profileMap = new Map((profiles || []).map((p: any) => {
+        const pilot = p.pilots;
+        const displayName = pilot?.callsign
+          ? `${pilot.boardNumber} ${pilot.callsign}`
+          : p.discord_username || 'Unknown';
+        return [p.id, {
+          id: p.id,
+          display_name: displayName,
+          pilot_id: p.pilot_id,
+          pilots: pilot ? {
+            callsign: pilot.callsign,
+            board_number: String(pilot.boardNumber),
+          } : null,
+        }];
+      }));
 
       missionIssues = issues.map((issue: any) => ({
         ...issue,
@@ -219,15 +249,30 @@ export const getIssue = async (issueId: string): Promise<IssueWithDetails | null
     throw error;
   }
 
-  // Fetch user profiles
+  // Fetch user profiles with pilot data
   const userIds = [data.created_by, data.resolved_by].filter(Boolean);
   let profileMap = new Map();
   if (userIds.length > 0) {
     const { data: profiles } = await supabase
       .from('user_profiles')
-      .select('id, display_name')
+      .select('id, pilot_id, discord_username, pilots(callsign, boardNumber)')
       .in('id', userIds);
-    profileMap = new Map((profiles || []).map((p: any) => [p.id, p]));
+    // Map profiles with proper structure for display
+    profileMap = new Map((profiles || []).map((p: any) => {
+      const pilot = p.pilots;
+      const displayName = pilot?.callsign
+        ? `${pilot.boardNumber} ${pilot.callsign}`
+        : p.discord_username || 'Unknown';
+      return [p.id, {
+        id: p.id,
+        display_name: displayName,
+        pilot_id: p.pilot_id,
+        pilots: pilot ? {
+          callsign: pilot.callsign,
+          board_number: String(pilot.boardNumber),
+        } : null,
+      }];
+    }));
   }
 
   return {
@@ -253,14 +298,29 @@ export const getIssueComments = async (
   const comments = data || [];
   if (comments.length === 0) return [];
 
-  // Fetch user profiles
+  // Fetch user profiles with pilot data
   const userIds = [...new Set(comments.map((c: any) => c.created_by).filter(Boolean))] as string[];
   const { data: profiles } = await supabase
     .from('user_profiles')
-    .select('id, display_name')
+    .select('id, pilot_id, discord_username, pilots(callsign, boardNumber)')
     .in('id', userIds);
 
-  const profileMap = new Map((profiles || []).map((p: any) => [p.id, p]));
+  // Map profiles with proper structure for display
+  const profileMap = new Map((profiles || []).map((p: any) => {
+    const pilot = p.pilots;
+    const displayName = pilot?.callsign
+      ? `${pilot.boardNumber} ${pilot.callsign}`
+      : p.discord_username || 'Unknown';
+    return [p.id, {
+      id: p.id,
+      display_name: displayName,
+      pilot_id: p.pilot_id,
+      pilots: pilot ? {
+        callsign: pilot.callsign,
+        board_number: String(pilot.boardNumber),
+      } : null,
+    }];
+  }));
 
   return comments.map((comment: any) => ({
     ...comment,
