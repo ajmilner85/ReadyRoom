@@ -748,10 +748,10 @@ function createAdditionalImageEmbeds(images, mainEmbedUrl = 'https://readyroom.a
 }
 
 // Helper: Create Google Calendar link
+// Note: Description is omitted to avoid exceeding Discord's 1024 char limit for embed field values
 function createGoogleCalendarLink(title, description, startTime, endTime) {
   const encodedTitle = encodeURIComponent(title);
-  const encodedDescription = encodeURIComponent(description);
-  
+
   const formatDateForCalendar = (date) => {
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -761,14 +761,14 @@ function createGoogleCalendarLink(title, description, startTime, endTime) {
     const seconds = String(date.getSeconds()).padStart(2, '0');
     return `${year}${month}${day}T${hours}${minutes}${seconds}`;
   };
-  
+
   const startTimeFormatted = formatDateForCalendar(startTime);
   const endTimeFormatted = formatDateForCalendar(endTime);
-  
+
   console.log(`[CALENDAR-LINK-DEBUG] Original times: start=${startTime}, end=${endTime}`);
   console.log(`[CALENDAR-LINK-DEBUG] Formatted for calendar: start=${startTimeFormatted}, end=${endTimeFormatted}`);
-  
-  return `https://www.google.com/calendar/render?action=TEMPLATE&text=${encodedTitle}&details=${encodedDescription}&dates=${startTimeFormatted}/${endTimeFormatted}`;
+
+  return `https://www.google.com/calendar/render?action=TEMPLATE&text=${encodedTitle}&dates=${startTimeFormatted}/${endTimeFormatted}`;
 }
 
 module.exports = {
