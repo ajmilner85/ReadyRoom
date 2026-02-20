@@ -170,15 +170,16 @@ export const useMissionPrepData = () => {
   const fetchSquadronData = async (pilotsList: Pilot[]) => {
     try {
       const { pilotSquadronMap, squadrons, error } = await getOptimizedSquadronMapping(pilotsList);
-      
+
       if (error) {
         console.error('❌ Error fetching optimized squadron data:', error);
         return;
       }
 
+      console.log(`✅ Squadron data loaded: ${squadrons.length} squadrons, ${Object.keys(pilotSquadronMap).length} pilot mappings`);
       setSquadrons(squadrons);
       setPilotSquadronMap(pilotSquadronMap);
-      
+
     } catch (err) {
       console.error('❌ Error fetching squadron data:', err);
     }

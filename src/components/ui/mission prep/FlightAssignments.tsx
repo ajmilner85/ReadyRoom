@@ -6,8 +6,8 @@ import FlightPostOptionsDialog from '../dialogs/FlightPostOptionsDialog';
 import type { AssignedPilot } from '../../../types/MissionPrepTypes';
 import type { Mission } from '../../../types/MissionTypes';
 import { Trash2, Settings } from 'lucide-react';
-import { useMissionPrepData } from '../../../hooks/useMissionPrepData';
 import { useAppSettings } from '../../../context/AppSettingsContext';
+import type { Squadron } from '../../../types/OrganizationTypes';
 import { authFetch } from '../../../utils/authFetch';
 import aircraftIconSvg from '../../../assets/Aircraft Icon.svg';
 import clockIconSvg from '../../../assets/Clock.svg';
@@ -100,6 +100,9 @@ interface FlightAssignmentsProps {
   onClearFlightAssignments?: (flightId: string) => void;
   mission?: Mission | null;
   selectedEvent?: any | null;
+  squadrons?: Squadron[];
+  participatingSquadrons?: any[];
+  isLoading?: boolean;
 }
 
 const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
@@ -112,7 +115,10 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
   onClearAssignments,
   onClearFlightAssignments,
   mission,
-  selectedEvent: selectedEventProp
+  selectedEvent: selectedEventProp,
+  squadrons = [],
+  participatingSquadrons = [],
+  isLoading = false
 }) => {
   // Debug logging for assignedPilots data
   // React.useEffect(() => {
@@ -168,8 +174,6 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
   const [creationOrderCounter, setCreationOrderCounter] = useState(0);
   const [showRemoveAllDialog, setShowRemoveAllDialog] = useState(false);
 
-  // Get participating squadrons and all squadrons for Discord message and flight dialog
-  const { participatingSquadrons, squadrons } = useMissionPrepData();
   const { settings } = useAppSettings();
 
   // Use selectedEvent from props
@@ -1804,7 +1808,11 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
       })));
 
       if (sortedSquadronGroups.length === 0) {
-        alert('No squadrons found with matching callsigns. Please ensure squadrons have their callsigns configured in Organization > Squadron Settings.');
+        if (squadrons.length === 0) {
+          alert('Squadron data has not loaded yet. Please wait a moment and try again.');
+        } else {
+          alert('No squadrons found with matching callsigns. Please ensure squadrons have their callsigns configured in Organization > Squadron Settings.');
+        }
         return;
       }
 
@@ -2092,16 +2100,18 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
             {/* Main Publish Button */}
             <button
               onClick={handlePublishToDiscord}
+              disabled={isLoading}
+              title={isLoading ? 'Loading squadron data...' : undefined}
               style={{
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 gap: '8px',
                 padding: '8px 12px',
-                backgroundColor: isPublished ? '#5865F2' : '#FFFFFF',
-                color: isPublished ? '#E3E5E8' : '#64748B',
+                backgroundColor: isLoading ? '#F1F5F9' : isPublished ? '#5865F2' : '#FFFFFF',
+                color: isLoading ? '#94A3B8' : isPublished ? '#E3E5E8' : '#64748B',
                 border: 'none',
-                cursor: 'pointer',
+                cursor: isLoading ? 'not-allowed' : 'pointer',
                 transition: 'background-color 0.2s ease',
                 fontFamily: 'Inter',
                 fontSize: '14px',
