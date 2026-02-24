@@ -1,9 +1,11 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Sun, Moon, Menu, X, ChevronDown, ChevronLeft, ChevronRight, Home, LogOut } from 'lucide-react';
 import FlightAssignmentsKneeboard from './FlightAssignmentsKneeboard';
 import CommsPlanKneeboard from './CommsPlanKneeboard';
+import LSOGradingKneeboard from './lso/LSOGradingKneeboard';
 import { useAuth } from '../../context/AuthContext';
 import { supabase } from '../../utils/supabaseClient';
+import { useLSOQualification } from './lso/hooks/useLSOQualification';
 import type { Cycle } from '../../types/EventTypes';
 import type { CommsPlanEntry } from '../../types/CommsTypes';
 import { generateInitialCommsData } from '../../types/CommsTypes';
@@ -61,86 +63,113 @@ const KneeboardLayout: React.FC = () => {
   const [pageGuids, setPageGuids] = useState<string[]>([]);
   const [isOpenKneeboard, setIsOpenKneeboard] = useState(false);
 
+  // Viewport scale for browser mode (maintains aspect ratio)
+  const [viewportScale, setViewportScale] = useState(1);
+
+  // Guards against calling EnableExperimentalFeatures more than once
+  const okbInitialized = useRef(false);
+
+  // LSO qualification check
+  const { isLSO, loading: isLSOLoading } = useLSOQualification(userProfile?.pilotId || null);
+
   // Define page GUIDs (must be consistent across sessions)
   const PAGE_1_GUID = 'f8a8b3c1-4d2e-4f5a-9b1c-2d3e4f5a6b7c'; // Flight Assignments
-  const PAGE_2_GUID = 'a1b2c3d4-5e6f-7a8b-9c0d-1e2f3a4b5c6d'; // Test Page
+  const PAGE_2_GUID = 'a1b2c3d4-5e6f-7a8b-9c0d-1e2f3a4b5c6d'; // Comms Plan
+  const PAGE_3_GUID = 'b5c6d7e8-9f0a-1b2c-3d4e-5f6a7b8c9d0e'; // LSO Grading
 
-  // Initialize OpenKneeboard page-based content
+  // Build page list based on LSO qualification
+  const buildPageList = useCallback(() => {
+    const guids = [PAGE_1_GUID, PAGE_2_GUID];
+    if (isLSO) guids.push(PAGE_3_GUID);
+    return guids;
+  }, [isLSO]);
+
+  const buildOpenKneeboardPages = useCallback((): OpenKneeboardPage[] => {
+    const pages: OpenKneeboardPage[] = [
+      {
+        guid: PAGE_1_GUID,
+        pixelSize: { width: KNEEBOARD_WIDTH, height: KNEEBOARD_HEIGHT },
+        extraData: { title: 'Flight Assignments' }
+      },
+      {
+        guid: PAGE_2_GUID,
+        pixelSize: { width: KNEEBOARD_WIDTH, height: KNEEBOARD_HEIGHT },
+        extraData: { title: 'Comms Plan' }
+      }
+    ];
+    if (isLSO) {
+      pages.push({
+        guid: PAGE_3_GUID,
+        pixelSize: { width: KNEEBOARD_WIDTH, height: KNEEBOARD_HEIGHT },
+        extraData: { title: 'LSO Grading' }
+      });
+    }
+    return pages;
+  }, [isLSO]);
+
+  // Initialize OpenKneeboard page-based content.
+  // Depends on isLSOLoading so it waits until the qualification check is complete
+  // before calling SetPages, ensuring the correct page count is used from the start.
+  // EnableExperimentalFeatures is guarded by a ref so it is only ever called once.
   useEffect(() => {
+    // Don't run until we know definitively whether the user is an LSO
+    if (isLSOLoading) return;
+
     const initializeOpenKneeboard = async () => {
       if (!window.OpenKneeboard) {
         console.log('[KNEEBOARD] Not running in OpenKneeboard context');
-        // Default to page 1 when not in OpenKneeboard
-        setPageGuids([PAGE_1_GUID, PAGE_2_GUID]);
-        setCurrentPageGuid(PAGE_1_GUID);
+        const guids = buildPageList();
+        setPageGuids(guids);
+        if (!currentPageGuid || !guids.includes(currentPageGuid)) {
+          setCurrentPageGuid(guids[0]);
+        }
         return;
       }
 
       try {
-        setIsOpenKneeboard(true);
-        console.log('[KNEEBOARD] Initializing OpenKneeboard page-based content');
+        // One-time setup: EnableExperimentalFeatures + pageChanged listener.
+        // Calling EnableExperimentalFeatures more than once breaks OpenKneeboard
+        // page navigation, so guard it with a ref.
+        if (!okbInitialized.current) {
+          setIsOpenKneeboard(true);
+          console.log('[KNEEBOARD] Initializing OpenKneeboard page-based content');
 
-        // Enable experimental feature
-        await window.OpenKneeboard.EnableExperimentalFeatures([
-          { name: 'PageBasedContent', version: 2024073001 }
-        ]);
+          await window.OpenKneeboard.EnableExperimentalFeatures([
+            { name: 'PageBasedContent', version: 2024073001 }
+          ]);
 
-        // Set up event listeners BEFORE GetPages/SetPages
-        const handlePageChanged = (ev: CustomEvent) => {
-          const guid = ev.detail?.page?.guid;
-          if (guid) {
-            console.log('[KNEEBOARD] Page changed to:', guid);
-            setCurrentPageGuid(guid);
-          }
-        };
-
-        window.OpenKneeboard.addEventListener('pageChanged', handlePageChanged);
-
-        // Check if pages already exist
-        const existingPages = await window.OpenKneeboard.GetPages();
-
-        if (existingPages.havePages && existingPages.pages.length > 0) {
-          console.log('[KNEEBOARD] Using existing pages:', existingPages.pages);
-          const guids = existingPages.pages.map(p => p.guid);
-          setPageGuids(guids);
-          setCurrentPageGuid(guids[0]);
-        } else {
-          // Define pages for the first time
-          const pages: OpenKneeboardPage[] = [
-            {
-              guid: PAGE_1_GUID,
-              pixelSize: { width: KNEEBOARD_WIDTH, height: KNEEBOARD_HEIGHT },
-              extraData: { title: 'Flight Assignments' }
-            },
-            {
-              guid: PAGE_2_GUID,
-              pixelSize: { width: KNEEBOARD_WIDTH, height: KNEEBOARD_HEIGHT },
-              extraData: { title: 'Comms Plan' }
+          const handlePageChanged = (ev: CustomEvent) => {
+            const guid = ev.detail?.page?.guid;
+            if (guid) {
+              console.log('[KNEEBOARD] Page changed to:', guid);
+              setCurrentPageGuid(guid);
             }
-          ];
+          };
 
-          await window.OpenKneeboard.SetPages(pages);
-          console.log('[KNEEBOARD] Pages initialized:', pages);
-          setPageGuids([PAGE_1_GUID, PAGE_2_GUID]);
-          setCurrentPageGuid(PAGE_1_GUID);
+          window.OpenKneeboard.addEventListener('pageChanged', handlePageChanged);
+          okbInitialized.current = true;
         }
 
-        // Cleanup event listener on unmount
-        return () => {
-          if (window.OpenKneeboard) {
-            window.OpenKneeboard.removeEventListener('pageChanged', handlePageChanged);
-          }
-        };
+        // GetPages() must be called before every SetPages() call per the OpenKneeboard API contract
+        await window.OpenKneeboard.GetPages();
+        const pages = buildOpenKneeboardPages();
+        await window.OpenKneeboard.SetPages(pages);
+        const guids = pages.map(p => p.guid);
+        console.log('[KNEEBOARD] Pages set:', pages);
+        setPageGuids(guids);
+        if (!currentPageGuid || !guids.includes(currentPageGuid)) {
+          setCurrentPageGuid(guids[0]);
+        }
       } catch (error) {
         console.error('[KNEEBOARD] Error initializing OpenKneeboard:', error);
-        // Fallback to page 1
-        setPageGuids([PAGE_1_GUID, PAGE_2_GUID]);
-        setCurrentPageGuid(PAGE_1_GUID);
+        const guids = buildPageList();
+        setPageGuids(guids);
+        setCurrentPageGuid(guids[0]);
       }
     };
 
     initializeOpenKneeboard();
-  }, []);
+  }, [isLSOLoading, isLSO]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Set OpenKneeboard preferred pixel size and viewport for 1:1 rendering
   useEffect(() => {
@@ -185,6 +214,21 @@ const KneeboardLayout: React.FC = () => {
       document.body.style.height = originalBodyStyle.height;
     };
   }, []);
+
+  // Compute viewport scale for browser mode (aspect ratio preservation)
+  useEffect(() => {
+    if (isOpenKneeboard) return;
+
+    const updateScale = () => {
+      const scaleX = window.innerWidth / KNEEBOARD_WIDTH;
+      const scaleY = window.innerHeight / KNEEBOARD_HEIGHT;
+      setViewportScale(Math.min(scaleX, scaleY));
+    };
+
+    updateScale();
+    window.addEventListener('resize', updateScale);
+    return () => window.removeEventListener('resize', updateScale);
+  }, [isOpenKneeboard]);
 
   // Save theme preference when it changes
   useEffect(() => {
@@ -381,14 +425,25 @@ const KneeboardLayout: React.FC = () => {
       position: 'fixed',
       top: 0,
       left: 0,
-      width: isOpenKneeboard ? `${KNEEBOARD_WIDTH}px` : '100vw',
-      height: isOpenKneeboard ? `${KNEEBOARD_HEIGHT}px` : '100vh',
+      width: '100vw',
+      height: '100vh',
+      backgroundColor: isOpenKneeboard ? colors.background : '#0a0a1a',
+      display: 'flex',
+      justifyContent: 'center',
+      alignItems: 'center',
+      overflow: 'hidden',
+    }}>
+    <div style={{
+      width: `${KNEEBOARD_WIDTH}px`,
+      height: `${KNEEBOARD_HEIGHT}px`,
       backgroundColor: colors.background,
       color: colors.text,
       fontFamily: 'Inter, system-ui, sans-serif',
       overflow: 'hidden',
       display: 'flex',
       flexDirection: 'column',
+      flexShrink: 0,
+      transform: isOpenKneeboard ? 'none' : `scale(${viewportScale})`,
       // Force crisp text rendering at 1:1 pixels
       WebkitFontSmoothing: 'antialiased',
       MozOsxFontSmoothing: 'grayscale'
@@ -831,33 +886,47 @@ const KneeboardLayout: React.FC = () => {
         </>
       )}
 
-      {/* Content - scrollable area */}
-      <div style={{
-        flex: 1,
-        overflowY: 'auto',
-        overflowX: 'hidden',
-        padding: '16px'
-      }}>
-        {currentPageGuid === PAGE_1_GUID && (
-          <FlightAssignmentsKneeboard
-            pilotId={userProfile?.pilotId || null}
-            cycleId={selectedCycleId}
+      {/* Content area */}
+      {currentPageGuid === PAGE_3_GUID && isLSO ? (
+        /* LSO Grading page manages its own layout (no padding/scroll wrapper) */
+        <div style={{ flex: 1, overflow: 'hidden' }}>
+          <LSOGradingKneeboard
             theme={theme}
             colors={colors}
+            currentPilotId={userProfile?.pilotId || null}
             selectedMissionId={selectedMissionId}
-            onMissionChange={setSelectedMissionId}
-            missions={missions}
-            onMissionsLoad={setMissions}
           />
-        )}
-        {currentPageGuid === PAGE_2_GUID && (
-          <CommsPlanKneeboard
-            theme={theme}
-            colors={colors}
-            commsData={commsData}
-          />
-        )}
-      </div>
+        </div>
+      ) : (
+        /* Standard scrollable content area for other pages */
+        <div style={{
+          flex: 1,
+          overflowY: 'auto',
+          overflowX: 'hidden',
+          padding: '16px'
+        }}>
+          {currentPageGuid === PAGE_1_GUID && (
+            <FlightAssignmentsKneeboard
+              pilotId={userProfile?.pilotId || null}
+              cycleId={selectedCycleId}
+              theme={theme}
+              colors={colors}
+              selectedMissionId={selectedMissionId}
+              onMissionChange={setSelectedMissionId}
+              missions={missions}
+              onMissionsLoad={setMissions}
+            />
+          )}
+          {currentPageGuid === PAGE_2_GUID && (
+            <CommsPlanKneeboard
+              theme={theme}
+              colors={colors}
+              commsData={commsData}
+            />
+          )}
+        </div>
+      )}
+    </div>
     </div>
   );
 };
