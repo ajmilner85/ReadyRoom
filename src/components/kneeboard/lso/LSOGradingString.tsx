@@ -1,4 +1,5 @@
 import React, { useState, useRef, useCallback, type ReactNode } from 'react';
+import { Trash2, Check } from 'lucide-react';
 
 // Parse shorthand string: render _text_ segments as underlined spans
 function renderShorthand(text: string): ReactNode {
@@ -11,7 +12,6 @@ function renderShorthand(text: string): ReactNode {
     return part || null;
   });
 }
-import { Trash2, Check } from 'lucide-react';
 
 interface LSOGradingStringProps {
   theme: 'light' | 'dark';
