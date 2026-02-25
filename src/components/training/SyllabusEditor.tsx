@@ -598,8 +598,28 @@ const SyllabusEditor: React.FC<SyllabusEditorProps> = ({ syllabusId: propSyllabu
 
         if (updateError) throw updateError;
 
-        // Update/insert objectives - we'll let the reload handle showing the current state
-        // This is safer than trying to delete and risks losing data
+        // Delete objectives that were removed from the UI
+        const remainingObjectiveIds = mission.objectives.filter(obj => obj.id).map(obj => obj.id);
+        const { data: existingObjectives } = await supabase
+          .from('syllabus_training_objectives')
+          .select('id')
+          .eq('syllabus_mission_id', mission.id);
+
+        if (existingObjectives && existingObjectives.length > 0) {
+          const idsToDelete = existingObjectives
+            .map(o => o.id)
+            .filter(id => !remainingObjectiveIds.includes(id));
+
+          if (idsToDelete.length > 0) {
+            const { error: deleteError } = await supabase
+              .from('syllabus_training_objectives')
+              .delete()
+              .in('id', idsToDelete);
+
+            if (deleteError) throw deleteError;
+          }
+        }
+
         const objectivesToUpdate = mission.objectives.filter(obj => obj.id);
         const objectivesToInsert = mission.objectives.filter(obj => !obj.id);
 
