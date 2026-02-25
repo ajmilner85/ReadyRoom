@@ -35,7 +35,7 @@ const LSOGradingString: React.FC<LSOGradingStringProps> = ({
   pilotBoardNumber,
   pilotCallsign,
   canSave,
-  saving,
+  saving: _saving,
   onDelete,
   onSave,
   cellSize,

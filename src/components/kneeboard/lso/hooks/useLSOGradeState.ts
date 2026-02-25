@@ -50,9 +50,6 @@ function getNextSeverity(current: DeviationSeverity | null): DeviationSeverity |
   return SEVERITY_CYCLE[nextIdx];
 }
 
-// Symbols handled as global state (not phase-associated deviations)
-const GLOBAL_SYMBOLS = new Set(['NESA', 'LIG', 'AA']);
-
 export function useLSOGradeState(lsoPilotId: string | null) {
   const [entry, setEntry] = useState<GradeEntry>(INITIAL_ENTRY);
   const [uiState, setUIState] = useState<GradeUIState>('pre_ball_call');
@@ -353,7 +350,8 @@ export function useLSOGradeState(lsoPilotId: string | null) {
     setSaveError(null);
 
     try {
-      const { error } = await supabase.from('lso_grades').insert({
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error } = await (supabase as any).from('lso_grades').insert({
         mission_id: entry.missionId,
         carrier_id: entry.carrierId,
         pilot_id: entry.pilotId,
