@@ -34,10 +34,23 @@ async function createEventEmbed(title, description, eventTime, responses = {}, c
     return boardNumber ? `${boardNumber} ${callsign}` : callsign;
   };
 
+  // Helper function to sort pilots by board number (lowest to highest), no-board pilots at end
+  const sortByBoardNumber = (entries) => {
+    return [...entries].sort((a, b) => {
+      const aBoardNum = parseInt(a.pilotRecord?.boardNumber || a.boardNumber || '', 10);
+      const bBoardNum = parseInt(b.pilotRecord?.boardNumber || b.boardNumber || '', 10);
+      if (isNaN(aBoardNum) && isNaN(bBoardNum)) return 0;
+      if (isNaN(aBoardNum)) return 1;
+      if (isNaN(bBoardNum)) return -1;
+      return aBoardNum - bBoardNum;
+    });
+  };
+
   // Helper function to create block quote format
   const createBlockQuote = (entries) => {
     if (entries.length === 0) return '-';
-    const formattedEntries = entries.map(formatPilotEntry);
+    const sorted = sortByBoardNumber(entries);
+    const formattedEntries = sorted.map(formatPilotEntry);
     const content = formattedEntries.map(entry => `> ${entry}`).join('\n');
     return content.length > 1020 ? formattedEntries.slice(0, 20).map(entry => `> ${entry}`).join('\n') + `\n> ... and ${formattedEntries.length - 20} more` : content;
   };
@@ -105,9 +118,9 @@ async function createEventEmbed(title, description, eventTime, responses = {}, c
   // NEW: Format qualification group as text with block quote (Apollo style)
   const formatQualGroup = (pilots) => {
     if (pilots.length === 0) return '>>> -';
-    
+
     // Format as: >>> Pilot1\nPilot2\nPilot3 (Apollo uses >>> at start for entire block)
-    const pilotLines = pilots.map(formatPilotEntry).join('\n');
+    const pilotLines = sortByBoardNumber(pilots).map(formatPilotEntry).join('\n');
     return `>>> ${pilotLines}`;
   };
 
@@ -148,7 +161,7 @@ async function createEventEmbed(title, description, eventTime, responses = {}, c
       if (qualPilots.length > 0) {
         const displayName = displayNames[qual] || qual;
         // Use >>> block quote format like qualification groups
-        const pilotLines = qualPilots.map(formatPilotEntry).join('\n');
+        const pilotLines = sortByBoardNumber(qualPilots).map(formatPilotEntry).join('\n');
         const qualSection = `>>> ${pilotLines}`;
         const qualName = `*${displayName} (${qualPilots.length})*`;
         columns[currentColumn].push({ name: qualName, value: qualSection });
