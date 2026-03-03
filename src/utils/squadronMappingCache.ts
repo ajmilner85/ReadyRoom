@@ -1,4 +1,4 @@
-import { supabase } from './supabaseClient';
+import { sb } from './supabaseClient';
 import type { Squadron } from '../types/OrganizationTypes';
 import type { Pilot } from '../types/PilotTypes';
 
@@ -30,61 +30,56 @@ export async function getOptimizedSquadronMapping(pilots: Pilot[]): Promise<{
   }
 
   try {
-    
-    // Single query to get all pilot assignments with squadron data
-    const pilotIds = pilots.map(p => p.id).filter(Boolean);
-    
-    const { data: assignmentData, error: assignmentError } = await supabase
-      .from('pilot_assignments')
-      .select(`
-        pilot_id,
-        org_squadrons (
-          id,
-          name,
-          designation,
-          wing_id,
-          tail_code,
-          established_date,
-          deactivated_date,
-          insignia_url,
-          carrier_id,
-          callsigns,
-          discord_integration,
-          updated_at,
-          squadron_type
-        )
-      `)
-      .in('pilot_id', pilotIds)
-      .is('end_date', null);
 
-    if (assignmentError) {
-      console.error('❌ Error fetching pilot assignments:', assignmentError);
-      return { pilotSquadronMap: {}, squadrons: [], error: assignmentError };
+    // Query pilot assignments with squadron data (uses sb() for JWT freshness and retry)
+    const pilotIds = pilots.map(p => p.id).filter(Boolean);
+
+    let assignmentData: any[] | null = null;
+    let assignmentError: any = null;
+
+    try {
+      const result = await sb(async (supabase) => supabase
+        .from('pilot_assignments')
+        .select(`
+          pilot_id,
+          org_squadrons (
+            id,
+            name,
+            designation,
+            wing_id,
+            tail_code,
+            established_date,
+            deactivated_date,
+            insignia_url,
+            carrier_id,
+            callsigns,
+            discord_integration,
+            updated_at,
+            squadron_type
+          )
+        `)
+        .in('pilot_id', pilotIds)
+        .is('end_date', null));
+
+      assignmentData = result.data;
+      assignmentError = result.error;
+    } catch (err) {
+      assignmentError = err;
     }
 
-    // Single query to get all squadrons
+    if (assignmentError) {
+      console.error('❌ Error fetching pilot assignments (continuing to fetch squadrons):', assignmentError);
+      // Don't return early — still fetch org_squadrons below
+    }
+
+    // Query all squadrons (uses sb() for JWT freshness and retry)
     // Note: airframe join may fail if migration hasn't been run yet
-    let squadronQuery = supabase
-      .from('org_squadrons')
-      .select(`
-        id,
-        name,
-        designation,
-        wing_id,
-        tail_code,
-        established_date,
-        deactivated_date,
-        insignia_url,
-        carrier_id,
-        callsigns,
-        discord_integration,
-        updated_at,
-        squadron_type
-      `);
-    
-    // Try to add airframe data if the column exists
+    let squadronData: any[] | null = null;
+    let squadronError: any = null;
+
     try {
-      squadronQuery = supabase
+      // Try with airframe data first
+      const result = await sb(async (supabase) => supabase
         .from('org_squadrons')
         .select(`
           id,
@@ -102,30 +97,54 @@ export async function getOptimizedSquadronMapping(pilots: Pilot[]): Promise<{
           updated_at,
           squadron_type,
           airframe:ref_aircraft_types(id, designation, name)
-        `);
+        `));
+
+      squadronData = result.data;
+      squadronError = result.error;
     } catch (e) {
-      // Airframe column doesn't exist yet, use basic query
-      console.log('Airframe data not available yet');
+      // Airframe column doesn't exist yet, try basic query
+      try {
+        const result = await sb(async (supabase) => supabase
+          .from('org_squadrons')
+          .select(`
+            id,
+            name,
+            designation,
+            wing_id,
+            tail_code,
+            established_date,
+            deactivated_date,
+            insignia_url,
+            carrier_id,
+            callsigns,
+            discord_integration,
+            updated_at,
+            squadron_type
+          `));
+
+        squadronData = result.data;
+        squadronError = result.error;
+      } catch (e2) {
+        squadronError = e2;
+      }
     }
-    
-    const { data: squadronData, error: squadronError } = await squadronQuery;
 
     if (squadronError) {
       console.error('❌ Error fetching squadrons:', squadronError);
       return { pilotSquadronMap: {}, squadrons: [], error: squadronError };
     }
 
-    // Build pilot squadron mapping
+    // Build pilot squadron mapping (only if assignments loaded successfully)
     const pilotSquadronMap: Record<string, Squadron> = {};
-    
+
     if (assignmentData) {
       for (const assignment of assignmentData) {
         if (assignment.org_squadrons) {
           const squadron = assignment.org_squadrons as Squadron;
-          
+
           // Map by pilot ID
           pilotSquadronMap[assignment.pilot_id] = squadron;
-          
+
           // Also map by board number if we can find the pilot
           const pilot = pilots.find(p => p.id === assignment.pilot_id);
           if (pilot?.boardNumber) {
@@ -145,8 +164,8 @@ export async function getOptimizedSquadronMapping(pilots: Pilot[]): Promise<{
       ttl: CACHE_TTL
     };
 
-    return { pilotSquadronMap, squadrons };
-    
+    return { pilotSquadronMap, squadrons, ...(assignmentError ? { error: assignmentError } : {}) };
+
   } catch (err) {
     console.error('❌ Error in optimized squadron mapping:', err);
     return { pilotSquadronMap: {}, squadrons: [], error: err };
@@ -167,7 +186,7 @@ export async function prefetchSquadronMapping(pilots: Pilot[]): Promise<void> {
   // Only prefetch if cache is empty or stale
   if (!squadronMappingCache || (Date.now() - squadronMappingCache.timestamp) > squadronMappingCache.ttl) {
     // Fire and forget - don't await
-    getOptimizedSquadronMapping(pilots).catch(err => 
+    getOptimizedSquadronMapping(pilots).catch(err =>
       console.error('Background squadron mapping prefetch failed:', err)
     );
   }
