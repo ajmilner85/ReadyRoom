@@ -963,8 +963,9 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
       // Filter out empty flights if the setting is disabled
       if (!publicationConfig.includeEmptyFlights) {
         squadronFlights = squadronFlights.filter(flight => {
-          // Check if flight has at least one pilot assigned
-          const hasAssignedPilot = flight.pilots && flight.pilots.some(pilot =>
+          // Check assignedPilots (the actual assignment record) — not flight.pilots,
+          // which is always empty slot placeholders with boardNumber: ""
+          const hasAssignedPilot = (assignedPilots?.[flight.id] || []).some(pilot =>
             pilot.boardNumber && pilot.boardNumber.trim() !== ''
           );
           return hasAssignedPilot;
@@ -981,7 +982,7 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
     }
 
     return squadronGroups;
-  }, [flights, squadrons]);
+  }, [flights, squadrons, assignedPilots]);
 
   // Generate flight assignment table image for a squadron using Canvas
   const generateFlightAssignmentImage = useCallback(async (squadronGroup: SquadronFlightGroup, revision?: number): Promise<Blob | null> => {
@@ -1787,6 +1788,13 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
   // Perform the actual publish action
   const performPublishAction = useCallback(async (action: 'create' | 'update') => {
     try {
+      console.log('📊 [PUBLISH] Pre-grouping state:', {
+        squadronsCount: squadrons.length,
+        squadronCallsigns: squadrons.map(s => ({ name: s.name, callsigns: s.callsigns })),
+        flightsCount: flights.length,
+        flightCallsigns: flights.map(f => f.callsign)
+      });
+
       const squadronGroups = await groupFlightsBySquadron();
 
       // Sort squadron groups: operational squadrons first, then training squadrons
@@ -1808,6 +1816,11 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
       })));
 
       if (sortedSquadronGroups.length === 0) {
+        console.error('❌ [PUBLISH] No squadron groups found!', {
+          squadronsLoaded: squadrons.length,
+          isLoading,
+          flightsCount: flights.length
+        });
         if (squadrons.length === 0) {
           alert('Squadron data has not loaded yet. Please wait a moment and try again.');
         } else {

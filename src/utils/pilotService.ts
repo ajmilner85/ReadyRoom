@@ -1,14 +1,15 @@
-import { supabase } from './supabaseClient';
+import { supabase, sb } from './supabaseClient';
 import { Pilot, NewPilot, UpdatePilot, PilotRoleAssignment } from './pilotTypes';
 
 /**
  * Fetch all pilots from the database with their role assignments, status, and standing
  */
 export async function getAllPilots(): Promise<{ data: Pilot[] | null; error: any }> {
-  
+
   try {
     // Optimized: Single query with all related data using joins
-    const { data: pilotsData, error: pilotsError } = await supabase
+    // Uses sb() wrapper to ensure JWT freshness and retry on transient/auth errors
+    const { data: pilotsData, error: pilotsError } = await sb(async (supabase) => supabase
       .from('pilots')
       .select(`
         *,
@@ -81,7 +82,7 @@ export async function getAllPilots(): Promise<{ data: Pilot[] | null; error: any
           )
         )
       `)
-      .order('boardNumber', { ascending: true });
+      .order('boardNumber', { ascending: true }));
 
     if (pilotsError) {
       console.error('❌ Error fetching pilots:', pilotsError);
