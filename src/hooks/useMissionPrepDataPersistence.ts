@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useMission } from './useMission';
 import { useMissionRealtime } from './useMissionRealtime';
 import { supabase } from '../utils/supabaseClient';
+import { tabSessionId } from '../utils/tabSessionId';
 import type { AssignedPilotsRecord } from '../types/MissionPrepTypes';
 import type { MissionCommanderInfo } from '../types/MissionCommanderTypes';
 import type { Event } from '../types/EventTypes';
@@ -46,6 +47,11 @@ export const useMissionPrepDataPersistence = (
   // ── Version tracking for optimistic locking ──
   // We track the version in a ref so debounced saves always have the latest
   const missionVersionRef = useRef<number>(1);
+
+  // ── Remote update trigger ──
+  // Incremented each time a remote update arrives to force the sync effect to re-run
+  const [remoteUpdateTrigger, setRemoteUpdateTrigger] = useState(0);
+  const isRemoteUpdateRef = useRef(false);
 
   // Keep version ref in sync with mission state
   useEffect(() => {
@@ -106,8 +112,13 @@ export const useMissionPrepDataPersistence = (
       return;
     }
 
-    // Ignore our own saves (we already have the local state)
-    if (currentUser && newRow.last_modified_by === currentUser.id) {
+    // Ignore saves made by this exact tab (our own echo back from Supabase).
+    // Use the per-tab session ID so same-user saves from another tab are NOT filtered out.
+    // Fall back to user ID check only if session ID is absent (e.g. saves from older code).
+    const isSelfSave = newRow.last_modified_session
+      ? newRow.last_modified_session === tabSessionId
+      : (currentUser != null && newRow.last_modified_by === currentUser.id);
+    if (isSelfSave) {
       // Just update our version ref to stay in sync
       if (newRow.version != null) {
         missionVersionRef.current = newRow.version;
@@ -140,6 +151,12 @@ export const useMissionPrepDataPersistence = (
       updated_at: newRow.updated_at || mission?.updated_at || new Date().toISOString()
     } as Mission);
 
+    // Signal the sync effect to re-run. The sync effect only watches mission.id in its
+    // deps, so it won't re-run when the same mission's data changes. Incrementing this
+    // counter ensures it fires and hydrates the UI from the updated mission object.
+    isRemoteUpdateRef.current = true;
+    setRemoteUpdateTrigger(prev => prev + 1);
+
     // Reset the sync keys so the sync effect re-hydrates from the new mission data
     setLastSyncMissionId(null);
     setLastSyncEventId(null);
@@ -157,6 +174,10 @@ export const useMissionPrepDataPersistence = (
   const [assignedPilots, setAssignedPilotsLocal] = useState<AssignedPilotsRecord>(
     externalAssignedPilots || {}
   );
+  // Ref so setPrepFlights can read the latest assignedPilots without needing it as a dep
+  const assignedPilotsRef = useRef<AssignedPilotsRecord>(externalAssignedPilots || {});
+  useEffect(() => { assignedPilotsRef.current = assignedPilots; }, [assignedPilots]);
+
   const [missionCommander, setMissionCommanderLocal] = useState<MissionCommanderInfo | null>(
     externalMissionCommander || null
   );
@@ -211,24 +232,29 @@ export const useMissionPrepDataPersistence = (
     if (!mission || isSyncing || missionLoading) {
       return;
     }
-    
-    // Skip sync if there are pending changes to avoid overwriting user updates
-    if (hasPendingChanges) {
+
+    // Skip sync if there are pending changes to avoid overwriting user updates.
+    // EXCEPTION: Remote updates always apply — the other user's save is authoritative.
+    const triggeredByRemoteUpdate = isRemoteUpdateRef.current;
+    if (triggeredByRemoteUpdate) {
+      isRemoteUpdateRef.current = false;
+    }
+    if (hasPendingChanges && !triggeredByRemoteUpdate) {
       return;
     }
-    
+
     // If activePilots is not available but we have pilot assignments to restore,
     // we should wait for activePilots to load to properly map pilot data
     if ((!activePilots || activePilots.length === 0) && mission.pilot_assignments && Object.keys(mission.pilot_assignments).length > 0) {
       // console.log('🔄 Persistence: Waiting for pilot data to load before restoring assignments');
       return;
     }
-    
+
     // Skip if not for current event
     if (!selectedEvent || mission.event_id !== selectedEvent.id) {
       return;
     }
-    
+
     // Skip if we already synced this mission/event combination
     const syncKey = `${mission.id}-${selectedEvent.id}`;
     const lastSyncKey = `${lastSyncMissionId}-${lastSyncEventId}`;
@@ -447,24 +473,26 @@ export const useMissionPrepDataPersistence = (
         });
       }, 10);
     } else {
-      // Only clear flights if they weren't just extracted or pending save after mission creation
-      if (flightsJustExtractedRef.current) {
+      // Remote updates are always authoritative — skip all local-state protection guards.
+      // The protection guards exist to prevent a stale DB read from wiping locally-added
+      // flights that haven't been saved yet. But when another user explicitly deleted all
+      // flights, we must honour that deletion even if local state still shows some flights.
+      if (!triggeredByRemoteUpdate && flightsJustExtractedRef.current) {
         console.log('🛡️ Persistence: Protecting newly extracted flights from being cleared');
-      } else if (pendingFlightsRef.current && pendingFlightsRef.current.length > 0) {
+      } else if (!triggeredByRemoteUpdate && pendingFlightsRef.current && pendingFlightsRef.current.length > 0) {
         console.log('🛡️ Persistence: Protecting pending flights from being cleared, will save them now');
         // Don't clear - instead, restore from pending and trigger save
         setPrepFlightsLocal(pendingFlightsRef.current);
-      } else if (prepFlights && prepFlights.length > 0) {
+      } else if (!triggeredByRemoteUpdate && prepFlights && prepFlights.length > 0) {
         // CRITICAL: Don't clear flights that exist in local state but not yet in DB
         // This happens when flights were just added and mission was just created
         console.log('🛡️ Persistence: Protecting existing local flights from being cleared:', prepFlights.length);
       } else {
-        // console.log('🔄 Persistence: No flights to restore, clearing prepFlights');
-        // Clear flights if mission has no flights
+        // Clear flights — either DB has no flights, or a remote user deleted them all
         setPrepFlightsLocal([]);
       }
     }
-  }, [mission?.id, selectedEvent?.id, activePilots?.length, missionLoading, isSyncing]);
+  }, [mission?.id, selectedEvent?.id, activePilots?.length, missionLoading, isSyncing, remoteUpdateTrigger]);
 
   // Auto-create mission when event is selected but no mission exists
   // Removed auto-creation to prevent duplicate missions when navigating from Events Management
@@ -782,6 +810,17 @@ export const useMissionPrepDataPersistence = (
   }, [mission?.id, updateFlights]);
 
   const setPrepFlights = useCallback((flights: any[], skipSave: boolean = false) => {
+    // Guard against reference-cycling: when FlightAssignments reflects back prop-driven
+    // changes (skipSave=true), only update state if the flight IDs actually changed.
+    // Without this, the loop is:
+    //   setPrepFlightsLocal(newRef) → initialFlights changes → Effect1: setFlights →
+    //   useEffect[flights]: onFlightsChange(skipSave=true) → setPrepFlightsLocal(newRef) → repeat
+    if (skipSave && flights.length > 0) {
+      const currentIds = (prepFlights || []).map((f: any) => f.id).sort().join(',');
+      const newIds = flights.map((f: any) => f.id).sort().join(',');
+      if (currentIds === newIds) return;
+    }
+
     setPrepFlightsLocal(flights);
 
     // If flights are being cleared, reset the processed flights ref to allow re-importing
@@ -854,10 +893,35 @@ export const useMissionPrepDataPersistence = (
         }));
 
         console.log(`Saving flights to mission ${currentMissionId}:`, missionFlights.map(f => f.callsign));
-        return updateFlights(missionFlights);
+
+        // Also save pilot_assignments filtered to only the flights being saved.
+        // This handles the case where a flight is deleted: setAssignedPilots schedules
+        // a pilot-assignments save, but setPrepFlights fires immediately after and
+        // cancels it (debouncedSave clears the previous timeout). By re-saving here we
+        // ensure the DB doesn't keep stale assignments for deleted flights.
+        const flightIds = new Set(flights.map((f: any) => f.id).filter(Boolean));
+        const currentAssignments = assignedPilotsRef.current;
+        const filteredPilotAssignments: Record<string, PilotAssignment[]> = {};
+        // Include all current flights (even those with no pilots) so DB stays consistent
+        flightIds.forEach(flightId => {
+          const pilotsList = currentAssignments[flightId] || [];
+          const validPilots = pilotsList.filter((pilot: any) => pilot.id && pilot.boardNumber);
+          filteredPilotAssignments[flightId] = validPilots.map((pilot: any) => ({
+            pilot_id: pilot.id,
+            flight_id: flightId,
+            slot_number: pilotsList.indexOf(pilot) + 1,
+            dash_number: pilot.dashNumber,
+            mids_a_channel: pilot.midsAChannel || '',
+            mids_b_channel: pilot.midsBChannel || '',
+            roll_call_status: pilot.rollCallStatus || null
+          }));
+        });
+
+        await updateFlights(missionFlights);
+        return updatePilotAssignments(filteredPilotAssignments);
       }, 500); // Balanced delay for flight updates
     }
-  }, [mission, selectedEvent, debouncedSave, updateFlights]);
+  }, [mission, selectedEvent, debouncedSave, updateFlights, updatePilotAssignments, prepFlights]);
 
   // Clear timeout when switching events
   useEffect(() => {
