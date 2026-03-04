@@ -1,5 +1,10 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;700&display=swap');
 
+/* Flight assignment card hover actions */
+.flight-assignment-card:hover .flight-card-actions {
+  display: flex !important;
+}
+
 /* USN Stencil Font */
 @font-face {
   font-family: 'USN Stencil';
