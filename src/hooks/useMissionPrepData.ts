@@ -1,5 +1,5 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
-import { fetchEvents, supabase } from '../utils/supabaseClient';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { fetchEvents } from '../utils/supabaseClient';
 import { getAllPilots } from '../utils/pilotService';
 import { getBatchPilotQualifications } from '../utils/qualificationService';
 import { getOptimizedSquadronMapping, prefetchSquadronMapping } from '../utils/squadronMappingCache';
@@ -29,16 +29,20 @@ export const useMissionPrepData = () => {
   const [allPilotQualifications, setAllPilotQualifications] = useState<Record<string, any[]>>({});
   const [squadrons, setSquadrons] = useState<Squadron[]>([]);
 
-  // Debug: Log when selectedEvent state changes
-  useEffect(() => {
-    console.log('🔄 [HOOK] selectedEvent state changed:', {
-      eventId: selectedEvent?.id,
-      eventTitle: selectedEvent?.title,
-      hasEvent: !!selectedEvent
-    });
-  }, [selectedEvent]);
+  // Ref to always hold the latest selectedEvent — keeps refreshParticipatingSquadrons stable
+  const selectedEventRef = useRef<Event | null>(selectedEvent);
+  useEffect(() => { selectedEventRef.current = selectedEvent; }, [selectedEvent]);
   const [pilotSquadronMap, setPilotSquadronMap] = useState<Record<string, Squadron>>({});
   const [participatingSquadrons, setParticipatingSquadrons] = useState<any[]>([]);
+
+  // Refs to always hold the latest values — keeps computeParticipatingSquadrons and
+  // refreshParticipatingSquadrons completely stable so stale closures (e.g. the 5-second
+  // attendance polling in MissionPreparation) always read current data.
+  const eventsRef = useRef<Event[]>([]);
+  useEffect(() => { eventsRef.current = events; }, [events]);
+
+  const squadronsRef = useRef<Squadron[]>([]);
+  useEffect(() => { squadronsRef.current = squadrons; }, [squadrons]);
 
   // Fetch events without any squadron/guild filtering for multi-squadron support
   const loadEventsForCurrentGuild = async () => {
@@ -185,44 +189,33 @@ export const useMissionPrepData = () => {
     }
   };
 
-  // Function to fetch and cache participating squadrons for selected event
-  const fetchParticipatingSquadrons = useCallback(async (eventId: string) => {
-    if (!eventId || squadrons.length === 0) {
+  // Compute participating squadrons from the already-loaded event and squadron data.
+  // Reads ALL data from refs so this function is completely stable (no deps) and any
+  // stale closure (e.g. the 5-second attendance polling in MissionPreparation) always
+  // computes with current events AND current squadrons.
+  const computeParticipatingSquadrons = useCallback((eventId: string) => {
+    const currentSquadrons = squadronsRef.current;
+
+    if (!eventId || currentSquadrons.length === 0) {
       setParticipatingSquadrons([]);
       return;
     }
 
-    try {
-      // Fetch fresh event data to get current participants
-      const { data: eventData, error } = await supabase
-        .from('events')
-        .select('participants')
-        .eq('id', eventId)
-        .single();
+    const event = eventsRef.current.find(e => e.id === eventId);
+    const participants: string[] = Array.isArray(event?.participants) ? event!.participants! : [];
 
-      if (error || !eventData?.participants) {
-        setParticipatingSquadrons([]);
-        return;
-      }
+    const participating = currentSquadrons
+      .filter(squadron => participants.includes(squadron.id))
+      .map(squadron => ({
+        squadronId: squadron.id,
+        name: squadron.name,
+        designation: squadron.designation,
+        insignia_url: squadron.insignia_url,
+        callsigns: Array.isArray(squadron.callsigns) ? squadron.callsigns : []
+      }));
 
-      // Filter squadrons based on participants and format for AddFlightDialog
-      const participants = Array.isArray(eventData.participants) ? eventData.participants : [];
-      const participating = squadrons
-        .filter(squadron => participants.includes(squadron.id))
-        .map(squadron => ({
-          squadronId: squadron.id,
-          name: squadron.name,
-          designation: squadron.designation,
-          insignia_url: squadron.insignia_url,
-          callsigns: Array.isArray(squadron.callsigns) ? squadron.callsigns : []
-        }));
-
-      setParticipatingSquadrons(participating);
-    } catch (error) {
-      console.error('Error fetching participating squadrons:', error);
-      setParticipatingSquadrons([]);
-    }
-  }, [squadrons]);
+    setParticipatingSquadrons(participating);
+  }, []); // Stable — reads everything from refs, never rebuilds
 
   // Function to fetch qualifications for all pilots using batch operation
   const fetchAllPilotQualifications = async (pilotsList: Pilot[]) => {
@@ -303,6 +296,16 @@ export const useMissionPrepData = () => {
     );
   }, [pilots]);
 
+  // Stable refresh function — reads selectedEvent from ref so the 5-second polling
+  // interval in MissionPreparation always calls this with current event data even
+  // though it captured the function reference once at interval creation time.
+  const refreshParticipatingSquadrons = useCallback(() => {
+    const eventId = selectedEventRef.current?.id;
+    if (eventId) {
+      computeParticipatingSquadrons(eventId);
+    }
+  }, [computeParticipatingSquadrons]); // computeParticipatingSquadrons is stable (no deps), so this is too
+
   const setSelectedEventWrapper = useCallback((event: Event | null) => {
     console.log('🎯 [HOOK] setSelectedEventWrapper called:', {
       eventId: event?.id,
@@ -330,14 +333,14 @@ export const useMissionPrepData = () => {
     }
   }, [pilots]);
 
-  // Cache participating squadrons when event or squadrons change
+  // Compute participating squadrons when event, events list, or squadrons change
   useEffect(() => {
     if (selectedEvent?.id && squadrons.length > 0) {
-      fetchParticipatingSquadrons(selectedEvent.id);
+      computeParticipatingSquadrons(selectedEvent.id);
     } else {
       setParticipatingSquadrons([]);
     }
-  }, [selectedEvent?.id, squadrons, fetchParticipatingSquadrons]);
+  }, [selectedEvent?.id, squadrons, events, computeParticipatingSquadrons]);
 
   // Memoize the return object to prevent unnecessary re-renders
   return useMemo(() => ({
@@ -352,6 +355,6 @@ export const useMissionPrepData = () => {
     squadrons,
     pilotSquadronMap,
     participatingSquadrons,
-    refreshParticipatingSquadrons: () => selectedEvent?.id && fetchParticipatingSquadrons(selectedEvent.id)
-  }), [events, selectedEvent, pilots, activePilots, isLoading, loadError, allPilotQualifications, squadrons, pilotSquadronMap, participatingSquadrons, fetchParticipatingSquadrons]);
+    refreshParticipatingSquadrons,
+  }), [events, selectedEvent, pilots, activePilots, isLoading, loadError, allPilotQualifications, squadrons, pilotSquadronMap, participatingSquadrons, setSelectedEventWrapper, refreshParticipatingSquadrons]);
 };

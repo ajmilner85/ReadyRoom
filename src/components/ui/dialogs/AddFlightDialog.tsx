@@ -223,33 +223,6 @@ export const AddFlightDialog: React.FC<AddFlightDialogProps> = ({
 ADD FLIGHT
       </div>
 
-      {/* Loading spinner */}
-      {participatingSquadrons.length === 0 && (
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          padding: '40px',
-        }}>
-          <div style={{
-            width: '24px',
-            height: '24px',
-            border: '2px solid #E5E7EB',
-            borderTop: '2px solid #3B82F6',
-            borderRadius: '50%',
-            animation: 'spin 1s linear infinite'
-          }} />
-          <style dangerouslySetInnerHTML={{
-            __html: `
-              @keyframes spin {
-                0% { transform: rotate(0deg); }
-                100% { transform: rotate(360deg); }
-              }
-            `
-          }} />
-        </div>
-      )}
-
       {/* Participating Squadrons */}
       {participatingSquadrons.length > 0 && (
         <div style={{ marginBottom: '24px' }}>
@@ -407,7 +380,6 @@ ADD FLIGHT
       )}
 
       {/* Other Callsign */}
-      {participatingSquadrons.length > 0 && (
       <div style={{ marginBottom: '32px' }}>
         <div style={{
           fontSize: '14px',
@@ -415,7 +387,7 @@ ADD FLIGHT
           color: '#6B7280',
           marginBottom: '8px'
         }}>
-          Other Callsign
+          {participatingSquadrons.length > 0 ? 'Other Callsign' : 'Callsign'}
         </div>
         
         <div style={{ 
@@ -476,10 +448,8 @@ ADD FLIGHT
           </button>
         </div>
       </div>
-      )}
 
       {/* Flights to be added */}
-      {participatingSquadrons.length > 0 && (
       <div style={{ marginBottom: '24px' }}>
         <div style={{
           fontSize: '14px',
@@ -576,10 +546,9 @@ ADD FLIGHT
           )}
         </div>
       </div>
-      )}
 
       {/* Error message */}
-      {participatingSquadrons.length > 0 && error && (
+      {error && (
         <div style={{
           color: '#EF4444',
           fontSize: '14px',
@@ -591,8 +560,7 @@ ADD FLIGHT
       )}
 
       {/* Buttons */}
-      {participatingSquadrons.length > 0 && (
-        <div style={{
+      <div style={{
           display: 'flex',
           justifyContent: 'flex-end',
           gap: '12px'
@@ -627,7 +595,6 @@ ADD FLIGHT
             Add Flights
           </button>
         </div>
-      )}
 
     </div>
   );

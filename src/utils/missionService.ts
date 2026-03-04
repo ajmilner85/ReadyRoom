@@ -1,4 +1,5 @@
 import { supabase, sb } from './supabaseClient';
+import { tabSessionId } from './tabSessionId';
 import type { 
   Mission, 
   CreateMissionRequest, 
@@ -113,7 +114,8 @@ export const createMission = async (
       support_role_assignments: [],
       miz_file_data: {},
       mission_settings: {},
-      ...(authUserId ? { last_modified_by: authUserId } as any : {}) // FK to auth.users.id (new column)
+      ...(authUserId ? { last_modified_by: authUserId } as any : {}), // FK to auth.users.id (new column)
+      ...({ last_modified_session: tabSessionId } as any)
     };
 
     const { data, error } = await supabase
@@ -258,7 +260,9 @@ export const updateMission = async (
       updated_by: userId, // FK to user_profiles.id
       updated_at: new Date().toISOString(),
       // Set last_modified_by so realtime listeners can identify the author (FK to auth.users.id)
-      ...(authUserId ? { last_modified_by: authUserId } : {})
+      // Set last_modified_session so realtime listeners can distinguish same-user cross-tab saves
+      ...(authUserId ? { last_modified_by: authUserId } : {}),
+      ...({ last_modified_session: tabSessionId } as any)
     };
 
     // Build the query
