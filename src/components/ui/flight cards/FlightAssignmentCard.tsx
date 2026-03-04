@@ -48,7 +48,6 @@ const FlightAssignmentCard: React.FC<FlightAssignmentCardProps> = ({
   onStepTimeChange,
   missionCommander
 }) => {
-  const [isHovered, setIsHovered] = useState(false);
   const [isEditingStepTime, setIsEditingStepTime] = useState(false);
   const [editedStepTime, setEditedStepTime] = useState(stepTime.toString());
 
@@ -139,8 +138,7 @@ const FlightAssignmentCard: React.FC<FlightAssignmentCardProps> = ({
         alignItems: 'stretch',
         marginBottom: '10px' // Add consistent spacing between cards
       }}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
+      className="flight-assignment-card"
     >
       {/* Step time indicator - bottom left corner of card */}
       <div
@@ -205,17 +203,17 @@ const FlightAssignmentCard: React.FC<FlightAssignmentCardProps> = ({
       </div>
 
       {/* Edit and Delete buttons - top right corner of card */}
-      {isHovered && (
-        <div
-          style={{
-            position: 'absolute',
-            top: '4px',
-            right: '4px',
-            display: 'flex',
-            gap: '5px',
-            zIndex: 10
-          }}
-        >
+      <div
+        className="flight-card-actions"
+        style={{
+          position: 'absolute',
+          top: '4px',
+          right: '4px',
+          display: 'none',
+          gap: '5px',
+          zIndex: 10
+        }}
+      >
           {/* Edit button */}
           <button
             onClick={() => onEditFlight?.(id, callsign)}
@@ -277,8 +275,7 @@ const FlightAssignmentCard: React.FC<FlightAssignmentCardProps> = ({
           >
             <Trash2 size={14} color="#64748B" />
           </button>
-        </div>
-      )}
+      </div>
 
       {/* Left section - Vertical callsign */}
       <div
