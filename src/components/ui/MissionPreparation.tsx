@@ -107,6 +107,8 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
     isConnected,
     activeUsers,
     forceSavePendingChanges,
+    remoteUpdateTrigger,
+    remoteSupportRolesRevision,
     handleExtractedFlights: persistenceHandleExtractedFlights,
     updateMissionData,
     updateSupportRoles,
@@ -684,6 +686,7 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
                   activePilots={activePilots}
                   selectedEventId={selectedEvent?.id}
                   realtimeAttendanceData={realtimeAttendanceData}
+                  remoteUpdateTrigger={remoteSupportRolesRevision}
                 />
                 <Communications
                   width={CARD_WIDTH}

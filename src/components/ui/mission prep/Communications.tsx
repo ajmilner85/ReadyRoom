@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Card } from '../card';
 import { FileDown, Edit2, Check, X, Send } from 'lucide-react';
 import { styles } from '../../../styles/commsStyles';
@@ -72,14 +72,21 @@ const Communications: React.FC<CommunicationsProps> = ({
   const [editedData, setEditedData] = useState<CommsPlanEntry[]>([]);
   const [hoveredRow, setHoveredRow] = useState<number | null>(null);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  // Tracks the JSON of the last comms plan loaded from DB so we only call setCommsData
+  // when the content actually changed (prevents re-save loops when other mission fields save).
+  const lastLoadedCommsJsonRef = useRef<string>('');
 
-  // Load comms plan from mission when it changes
+  // Load comms plan from mission when it changes (including remote collaborator changes)
   useEffect(() => {
     if (mission?.mission_settings?.comms_plan && Array.isArray(mission.mission_settings.comms_plan)) {
-      console.log('[COMMS] Mission changed, reloading from database');
-      setCommsData(mission.mission_settings.comms_plan);
+      const incomingJson = JSON.stringify(mission.mission_settings.comms_plan);
+      if (incomingJson !== lastLoadedCommsJsonRef.current) {
+        console.log('[COMMS] Mission comms plan changed, reloading from database');
+        lastLoadedCommsJsonRef.current = incomingJson;
+        setCommsData(mission.mission_settings.comms_plan);
+      }
     }
-  }, [mission?.id]);
+  }, [mission?.id, mission?.mission_settings]);
 
   // Save comms plan to localStorage and database whenever it changes
   useEffect(() => {
