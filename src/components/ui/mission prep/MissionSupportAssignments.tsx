@@ -41,6 +41,7 @@ interface MissionSupportAssignmentsProps {
   activePilots?: Pilot[];
   selectedEventId?: string; // Used to validate mission belongs to correct event
   realtimeAttendanceData?: RealtimeAttendanceRecord[];
+  remoteUpdateTrigger?: number; // Increments each time a remote collaborator saves
 }
 
 const MissionSupportAssignments: React.FC<MissionSupportAssignmentsProps> = ({
@@ -51,7 +52,8 @@ const MissionSupportAssignments: React.FC<MissionSupportAssignmentsProps> = ({
   updateSupportRoles,
   activePilots,
   selectedEventId,
-  realtimeAttendanceData = []
+  realtimeAttendanceData = [],
+  remoteUpdateTrigger = 0
 }) => {
   const [supportRoles, setSupportRoles] = useState<SupportRole[]>([]);
   const [showAddDialog, setShowAddDialog] = useState(false);
@@ -64,6 +66,9 @@ const MissionSupportAssignments: React.FC<MissionSupportAssignmentsProps> = ({
   // Track the mission ID that supportRoles currently belongs to
   // This prevents saving stale roles when mission changes but supportRoles hasn't updated yet
   const rolesForMissionIdRef = useRef<string | null>(null);
+  // Track which remote update trigger we last responded to, so we re-load when a
+  // collaborator changes support roles on the same mission (without mission.id changing).
+  const lastSeenRemoteTriggerRef = useRef<number>(0);
   const [showRemoveAllDialog, setShowRemoveAllDialog] = useState(false);
 
   // Load supportRoles from mission database
@@ -108,13 +113,17 @@ const MissionSupportAssignments: React.FC<MissionSupportAssignmentsProps> = ({
       return;
     }
 
-    // Skip if we've already loaded this mission
-    if (mission.id === lastLoadedMissionIdRef.current) {
+    // Skip if we've already loaded this mission AND no new remote update has arrived.
+    // remoteUpdateTrigger increments when another user saves — that bypasses this guard
+    // so we re-read the updated support_role_assignments from the mission object.
+    const isRemoteUpdate = remoteUpdateTrigger > lastSeenRemoteTriggerRef.current;
+    if (mission.id === lastLoadedMissionIdRef.current && !isRemoteUpdate) {
       return;
     }
 
-    console.log('[MISSION-SUPPORT] Loading support roles from mission:', mission.id);
+    console.log('[MISSION-SUPPORT] Loading support roles from mission:', mission.id, isRemoteUpdate ? '(remote update)' : '');
     lastLoadedMissionIdRef.current = mission.id;
+    lastSeenRemoteTriggerRef.current = remoteUpdateTrigger; // Mark this trigger as handled
     lastSavedRolesRef.current = ''; // Reset save tracking for new mission
 
     // Convert database support_role_assignments to UI format
@@ -190,7 +199,7 @@ const MissionSupportAssignments: React.FC<MissionSupportAssignmentsProps> = ({
       lastSavedRolesRef.current = JSON.stringify([]);
       // Note: rolesForMissionIdRef will be updated by the sync effect after supportRoles state updates
     }
-  }, [mission?.id, selectedEventId, activePilots]);
+  }, [mission?.id, selectedEventId, activePilots, remoteUpdateTrigger]);
 
   // CRITICAL: Track which mission the current supportRoles belong to
   // This effect runs AFTER supportRoles state actually updates, not during the same render cycle

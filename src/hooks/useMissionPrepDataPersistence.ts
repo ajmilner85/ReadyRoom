@@ -53,6 +53,13 @@ export const useMissionPrepDataPersistence = (
   const [remoteUpdateTrigger, setRemoteUpdateTrigger] = useState(0);
   const isRemoteUpdateRef = useRef(false);
 
+  // ── Remote support-roles revision ──
+  // A narrower counter that only increments when support_role_assignments content
+  // actually changes. Used by MissionSupportAssignments so it doesn't reload on
+  // every remote save (e.g. pilot_assignments saves), breaking the ping-pong loop.
+  const [remoteSupportRolesRevision, setRemoteSupportRolesRevision] = useState(0);
+  const lastRemoteSupportRolesHashRef = useRef<string>('');
+
   // Keep version ref in sync with mission state
   useEffect(() => {
     if (mission) {
@@ -115,9 +122,13 @@ export const useMissionPrepDataPersistence = (
     // Ignore saves made by this exact tab (our own echo back from Supabase).
     // Use the per-tab session ID so same-user saves from another tab are NOT filtered out.
     // Fall back to user ID check only if session ID is absent (e.g. saves from older code).
+    // IMPORTANT: If currentUser hasn't loaded yet, treat the save as a self-save.
+    // This prevents a race condition during initial load where our own autosave echo
+    // arrives before currentUser resolves, causing the self-filter to fail and the
+    // sync effect to overwrite locally-added flights with stale DB data.
     const isSelfSave = newRow.last_modified_session
       ? newRow.last_modified_session === tabSessionId
-      : (currentUser != null && newRow.last_modified_by === currentUser.id);
+      : (currentUser == null || newRow.last_modified_by === currentUser.id);
     if (isSelfSave) {
       // Just update our version ref to stay in sync
       if (newRow.version != null) {
@@ -148,6 +159,9 @@ export const useMissionPrepDataPersistence = (
       flights: Array.isArray(newRow.flights) ? newRow.flights : mission?.flights || [],
       pilot_assignments: typeof newRow.pilot_assignments === 'object' ? newRow.pilot_assignments : mission?.pilot_assignments || {},
       support_role_assignments: Array.isArray(newRow.support_role_assignments) ? newRow.support_role_assignments : mission?.support_role_assignments || [],
+      step_time: newRow.step_time !== undefined ? newRow.step_time : mission?.step_time,
+      mission_settings: typeof newRow.mission_settings === 'object' && newRow.mission_settings !== null ? newRow.mission_settings : mission?.mission_settings,
+      miz_file_data: typeof newRow.miz_file_data === 'object' && newRow.miz_file_data !== null ? newRow.miz_file_data : mission?.miz_file_data,
       updated_at: newRow.updated_at || mission?.updated_at || new Date().toISOString()
     } as Mission);
 
@@ -157,9 +171,25 @@ export const useMissionPrepDataPersistence = (
     isRemoteUpdateRef.current = true;
     setRemoteUpdateTrigger(prev => prev + 1);
 
-    // Reset the sync keys so the sync effect re-hydrates from the new mission data
-    setLastSyncMissionId(null);
-    setLastSyncEventId(null);
+    // Only signal MissionSupportAssignments when support_role_assignments content
+    // actually changed. This breaks the inter-session ping-pong where pilot_assignments
+    // saves (from ensureSupportRolesInAssignedPilots) trigger a support-roles reload,
+    // which re-saves pilot_assignments, which the other session treats as remote, etc.
+    const newSupportRolesJson = Array.isArray(newRow.support_role_assignments)
+      ? JSON.stringify(newRow.support_role_assignments)
+      : '';
+    if (newSupportRolesJson !== lastRemoteSupportRolesHashRef.current) {
+      lastRemoteSupportRolesHashRef.current = newSupportRolesJson;
+      setRemoteSupportRolesRevision(prev => prev + 1);
+    }
+
+    // NOTE: We do NOT reset lastSyncKey here. The remoteUpdateTrigger increment above
+    // is sufficient to make the syncKey in the sync effect differ from the last recorded
+    // value, which causes the sync effect to re-run and hydrate the UI from the new
+    // mission data. Resetting lastSyncKey to null would allow isSyncing toggles (from
+    // any subsequent save) to also trigger the sync, which would overwrite locally-added
+    // flights with whatever mission.flights was at that moment — the root cause of the
+    // "flight disappears after add" bug.
   }, [mission, currentUser, setMissionDirect]);
 
   const { isConnected, activeUsers, updatePresence } = useMissionRealtime({
@@ -207,9 +237,12 @@ export const useMissionPrepDataPersistence = (
   // Add a flag to prevent circular updates during saves
   const [isSyncing, setIsSyncing] = useState(false);
 
-  // Track the last sync to prevent circular updates
-  const [lastSyncMissionId, setLastSyncMissionId] = useState<string | null>(null);
-  const [lastSyncEventId, setLastSyncEventId] = useState<string | null>(null);
+  // Track the last sync to prevent circular updates.
+  // We encode mission ID, event ID, and the remote-update revision together so that:
+  //   • isSyncing toggles after a save never re-trigger a full sync (same key → skip)
+  //   • Remote updates always produce a new key (remoteUpdateTrigger increments) → sync runs
+  //   • We never need to "null out" the key from handleRemoteMissionUpdate
+  const [lastSyncKey, setLastSyncKey] = useState<string | null>(null);
 
   // Clear state when switching events
   useEffect(() => {
@@ -220,8 +253,7 @@ export const useMissionPrepDataPersistence = (
     setExtractedFlights([]);
     setHasPendingChanges(false);
     setIsSyncing(false);
-    setLastSyncMissionId(null);
-    setLastSyncEventId(null);
+    setLastSyncKey(null);
     setPendingSupportRoles(null); // Clear pending support roles to prevent cross-event contamination
     pendingFlightsRef.current = null; // Clear pending flights to prevent cross-event contamination
   }, [selectedEvent?.id]);
@@ -255,9 +287,13 @@ export const useMissionPrepDataPersistence = (
       return;
     }
 
-    // Skip if we already synced this mission/event combination
-    const syncKey = `${mission.id}-${selectedEvent.id}`;
-    const lastSyncKey = `${lastSyncMissionId}-${lastSyncEventId}`;
+    // Skip if we already synced this mission/event/remoteUpdateTrigger combination.
+    // Including remoteUpdateTrigger means:
+    //   • Normal saves (isSyncing toggle): remoteUpdateTrigger unchanged → same key → skip ✓
+    //   • Remote updates: remoteUpdateTrigger incremented → new key → sync runs ✓
+    // This eliminates the need to reset the key to null in handleRemoteMissionUpdate,
+    // which was the root cause of flights reverting after user-initiated changes.
+    const syncKey = `${mission.id}-${selectedEvent.id}-${remoteUpdateTrigger}`;
     if (syncKey === lastSyncKey) {
       return;
     }
@@ -270,9 +306,8 @@ export const useMissionPrepDataPersistence = (
     //   pilotAssignments: JSON.stringify(mission.pilot_assignments)
     // });
     
-    // Mark this mission/event as synced
-    setLastSyncMissionId(mission.id);
-    setLastSyncEventId(selectedEvent.id);
+    // Mark this mission/event/remoteUpdateTrigger combination as synced
+    setLastSyncKey(syncKey);
     
     // Convert database pilot assignments back to the format expected by the UI (skip save since this is loading)
     if (mission.pilot_assignments) {
@@ -1077,6 +1112,8 @@ export const useMissionPrepDataPersistence = (
     activeUsers,
     updatePresence,
     forceSavePendingChanges,
+    remoteUpdateTrigger,
+    remoteSupportRolesRevision,
 
     // Additional helpers
     updateSelectedSquadrons: (squadrons: string[]) => {
