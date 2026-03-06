@@ -386,6 +386,22 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
     }
   }, [mission?.id, mission?.step_time, settings.eventDefaults.referenceTimezone]);
 
+  // Load mission details (taskUnit, mother, etc.) from mission_settings when mission updates.
+  // mission_settings is a JSONB object so we depend on mission.updated_at (a primitive) to
+  // detect when the row has changed, rather than the object reference which changes every render.
+  useEffect(() => {
+    if (!mission?.mission_settings) return;
+    const ms = mission.mission_settings as any;
+    setMissionDetails(prev => ({
+      ...prev,
+      ...(ms.taskUnit !== undefined ? { taskUnit: ms.taskUnit } : {}),
+      ...(ms.mother !== undefined ? { mother: ms.mother } : {}),
+      ...(ms.missionDateTime !== undefined ? { missionDateTime: ms.missionDateTime } : {}),
+      ...(ms.bullseyeLatLon !== undefined ? { bullseyeLatLon: ms.bullseyeLatLon } : {}),
+      ...(ms.weather !== undefined ? { weather: ms.weather } : {}),
+    }));
+  }, [mission?.id, mission?.updated_at]);
+
   const startEditing = () => {
     setIsEditing(true);
     setEditedDetails(missionDetails);
@@ -411,6 +427,20 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
     if (onStepTimeChange && editedDetails.stepTime !== missionDetails.stepTime) {
       console.log('🕐 MissionDetails: Calling onStepTimeChange with:', editedDetails.stepTime);
       onStepTimeChange(editedDetails.stepTime);
+    }
+
+    // Save remaining mission details to mission_settings so they sync via realtime
+    if (updateMissionData && mission) {
+      updateMissionData({
+        mission_settings: {
+          ...(mission.mission_settings as any || {}),
+          taskUnit: editedDetails.taskUnit,
+          mother: editedDetails.mother,
+          missionDateTime: editedDetails.missionDateTime,
+          bullseyeLatLon: editedDetails.bullseyeLatLon,
+          weather: editedDetails.weather,
+        }
+      });
     }
     // No need to explicitly save to localStorage here as the useEffect will handle it
   };
@@ -590,7 +620,9 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
   const processMissionFile = async (file: File, importMode: MizImportMode = 'clear') => {
     setIsProcessingFile(true);
     console.log('🔄 MissionDetails: Starting .miz file processing for:', file.name, 'with mode:', importMode);
-    
+    // Accumulate mission_settings fields extracted from the .miz so we can save them to DB
+    const mizExtractedSettings: Record<string, string> = {};
+
     try {
       // Make sure json2Lua is loaded
       if (!json2Lua) {
@@ -632,11 +664,13 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
           ...prev,
           bullseyeLatLon: coordinateData.blueBullseye.formatted || ''
         }));
-        
+
         setEditedDetails(prev => ({
           ...prev,
           bullseyeLatLon: coordinateData.blueBullseye.formatted || ''
         }));
+
+        mizExtractedSettings.bullseyeLatLon = coordinateData.blueBullseye.formatted;
       }
       
       try {
@@ -741,7 +775,7 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
           }
 
           if (mission) {
-            console.log('💾 MissionDetails: Saving red unit types to database...');
+            console.log('💾 MissionDetails: Saving red unit types and extracted details to database...');
             try {
               await updateMissionData({
                 miz_file_data: {
@@ -749,7 +783,14 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
                   red_coalition_units: redUnitTypes,
                   processed_at: new Date().toISOString(),
                   file_name: file.name
-                }
+                },
+                // Persist .miz-extracted details so they sync to other users via realtime
+                ...(Object.keys(mizExtractedSettings).length > 0 ? {
+                  mission_settings: {
+                    ...(mission.mission_settings as any || {}),
+                    ...mizExtractedSettings
+                  }
+                } : {})
               });
               console.log('✅ MissionDetails: Red unit types saved to database successfully');
             } catch (dbError) {
@@ -778,25 +819,27 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
         // Update any other details based on mission data
         if (missionData.date) {
           const missionDate = new Date(
-            missionData.date.Year, 
+            missionData.date.Year,
             missionData.date.Month - 1, // JS months are 0-indexed
             missionData.date.Day,
             missionData.start_time
           );
-          
+
           const formattedDate = missionDate.toISOString().slice(0, 16); // Format as YYYY-MM-DDTHH:MM
-          
+
           setMissionDetails(prev => ({
             ...prev,
             missionDateTime: formattedDate
           }));
-          
+
           setEditedDetails(prev => ({
             ...prev,
             missionDateTime: formattedDate
           }));
+
+          mizExtractedSettings.missionDateTime = formattedDate;
         }
-        
+
         // Update weather info if available
         if (missionData.weather) {
           const weatherDetails = [
@@ -804,16 +847,18 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
             `Visibility: ${missionData.weather?.visibility?.distance || 'N/A'} meters`,
             `Wind at ground: ${missionData.weather?.wind?.at8000?.speed || 'N/A'} m/s from ${missionData.weather?.wind?.at8000?.dir || 'N/A'}°`
           ].join('\n');
-          
+
           setMissionDetails(prev => ({
             ...prev,
             weather: weatherDetails
           }));
-          
+
           setEditedDetails(prev => ({
             ...prev,
             weather: weatherDetails
           }));
+
+          mizExtractedSettings.weather = weatherDetails;
         }
         
       } catch (luaError) {

@@ -44,6 +44,23 @@ interface MissionSupportAssignmentsProps {
   remoteUpdateTrigger?: number; // Increments each time a remote collaborator saves
 }
 
+// Pure helper: produce a minimal identity key for a list of support roles.
+// Compares only role IDs and pilot boardNumber+dashNumber so we never treat
+// "same pilots, different object richness" (enriched DB pilots vs minimal rebuilt
+// pilots) as a change.  Without this, the large assignedPilots effect would always
+// detect hasChanges=true when comparing enriched DB-loaded pilots to the minimal
+// ones it reconstructs from assignedPilots, triggering an infinite save ping-pong.
+const toMinimalRolesKey = (roles: SupportRole[]): string => {
+  const sorted = [...roles].sort((a, b) => a.id.localeCompare(b.id));
+  return JSON.stringify(sorted.map(r => ({
+    id: r.id,
+    pilots: r.pilots.map(p => ({
+      boardNumber: p.boardNumber || '',
+      dashNumber: p.dashNumber || ''
+    }))
+  })));
+};
+
 const MissionSupportAssignments: React.FC<MissionSupportAssignmentsProps> = ({
   width,
   assignedPilots = {},
@@ -121,7 +138,13 @@ const MissionSupportAssignments: React.FC<MissionSupportAssignmentsProps> = ({
       return;
     }
 
-    console.log('[MISSION-SUPPORT] Loading support roles from mission:', mission.id, isRemoteUpdate ? '(remote update)' : '');
+    console.log('[MISSION-SUPPORT] Mission load effect firing:', {
+      missionId: mission.id,
+      isRemoteUpdate,
+      remoteUpdateTrigger,
+      lastSeenRemoteTrigger: lastSeenRemoteTriggerRef.current,
+      lastLoadedMissionId: lastLoadedMissionIdRef.current
+    });
     lastLoadedMissionIdRef.current = mission.id;
     lastSeenRemoteTriggerRef.current = remoteUpdateTrigger; // Mark this trigger as handled
     lastSavedRolesRef.current = ''; // Reset save tracking for new mission
@@ -180,16 +203,17 @@ const MissionSupportAssignments: React.FC<MissionSupportAssignmentsProps> = ({
           };
         });
 
-      console.log('[MISSION-SUPPORT] Loaded roles from database:', roles);
+      console.log('[MISSION-SUPPORT] Loaded roles from database:', roles.map(r => ({ id: r.id, pilotCount: r.pilots.length })));
       setSupportRoles(roles);
 
       // Update counter
       const maxOrder = Math.max(...roles.map(r => r.creationOrder), -1);
       setCreationOrderCounter(maxOrder + 1);
 
-      // Set lastSavedRolesRef to current state to prevent initial save
-      // This avoids saving when data hasn't actually changed from what's in database
-      lastSavedRolesRef.current = JSON.stringify(roles);
+      // Store the MINIMAL key (not the full enriched JSON) so future comparisons
+      // from the save effect use the same format regardless of pilot object richness.
+      lastSavedRolesRef.current = toMinimalRolesKey(roles);
+      console.log('[MISSION-SUPPORT] Set lastSavedRolesRef to minimal key, isRemoteUpdate:', isRemoteUpdate);
       // Note: rolesForMissionIdRef will be updated by the sync effect after supportRoles state updates
     } else {
       // No roles in database, start fresh
@@ -256,49 +280,11 @@ const MissionSupportAssignments: React.FC<MissionSupportAssignmentsProps> = ({
     }
   }, [realtimeAttendanceData]);
 
-  // Sync assignedPilots changes back to supportRoles display
-  useEffect(() => {
-    if (!assignedPilots || supportRoles.length === 0) return;
-
-    // Update each support role with fresh pilot data from assignedPilots
-    const updatedRoles = supportRoles.map(role => {
-      const assignedPilotsForRole = assignedPilots[role.id] || [];
-
-      // Filter out empty pilots (placeholder slots)
-      const realPilots = assignedPilotsForRole.filter(p => p.callsign && p.boardNumber);
-
-      if (realPilots.length === 0) {
-        // No real pilots for this role
-        return role;
-      }
-
-      // Merge assigned pilots into role.pilots, preserving slot positions
-      const updatedPilots = role.pilots.map(existingPilot => {
-        const freshPilot = realPilots.find(p => p.dashNumber === existingPilot.dashNumber);
-        if (freshPilot) {
-          return freshPilot;
-        }
-        return existingPilot;
-      });
-
-      // Add any new pilots that aren't in existing slots
-      realPilots.forEach(assignedPilot => {
-        if (!updatedPilots.some(p => p.dashNumber === assignedPilot.dashNumber)) {
-          updatedPilots.push(assignedPilot);
-        }
-      });
-
-      return {
-        ...role,
-        pilots: updatedPilots
-      };
-    });
-
-    // Only update if there were actual changes
-    if (JSON.stringify(updatedRoles) !== JSON.stringify(supportRoles)) {
-      setSupportRoles(updatedRoles);
-    }
-  }, [assignedPilots, supportRoles]);  // Whenever supportRoles change and assignedPilots exists, ensure empty support roles are preserved
+  // NOTE: The previous "sync assignedPilots → supportRoles" effect was removed because it was
+  // redundant with the more comprehensive sync effect further below (line ~700) and created a
+  // circular dependency: it depended on [assignedPilots, supportRoles] while also updating
+  // supportRoles, causing cascading re-renders on every drag operation. The comprehensive
+  // sync effect handles the same case correctly without the circular dependency.  // Whenever supportRoles change and assignedPilots exists, ensure empty support roles are preserved
   useEffect(() => {
     // Skip if no support roles or assigned pilots is external and can't be modified
     if (supportRoles.length === 0 || !assignedPilots || !setAssignedPilots) return;
@@ -308,6 +294,7 @@ const MissionSupportAssignments: React.FC<MissionSupportAssignmentsProps> = ({
 
     // Only update if the reference changed (ensureSupportRolesInAssignedPilots returns same ref if no changes)
     if (assignedPilotsWithRoles !== assignedPilots) {
+      console.log('[MISSION-SUPPORT] ensureSupportRoles: adding support-* entries to assignedPilots, roleCount:', supportRoles.length);
       setAssignedPilots(assignedPilotsWithRoles);
     }
   }, [supportRoles, assignedPilots, setAssignedPilots]);
@@ -396,11 +383,12 @@ const MissionSupportAssignments: React.FC<MissionSupportAssignmentsProps> = ({
         selectedEventId
       });
 
-      // Serialize current roles to check if they've actually changed since last save
-      const currentRolesString = JSON.stringify(supportRoles);
+      // Use minimal key so pilot-object richness differences don't trigger redundant saves
+      const currentRolesString = toMinimalRolesKey(supportRoles);
 
       // Skip save if roles haven't changed since last save
       if (currentRolesString === lastSavedRolesRef.current) {
+        console.log('[MISSION-SUPPORT] Skipping no-mission save - minimal key unchanged');
         return;
       }
 
@@ -461,13 +449,23 @@ const MissionSupportAssignments: React.FC<MissionSupportAssignmentsProps> = ({
       return;
     }
 
-    // Serialize current roles to check if they've actually changed since last save
-    const currentRolesString = JSON.stringify(supportRoles);
+    // Use minimal key so pilot-object richness differences don't trigger redundant saves.
+    // Since enriched (DB-loaded) and minimal (assignedPilots-rebuilt) pilots look different
+    // in full JSON but are logically the same, the full JSON comparison was causing an
+    // infinite save ping-pong between two browser sessions.
+    const currentRolesString = toMinimalRolesKey(supportRoles);
 
     // Skip save if roles haven't changed since last save
     if (currentRolesString === lastSavedRolesRef.current) {
+      console.log('[MISSION-SUPPORT] Skipping save - minimal key unchanged, supportRoles count:', supportRoles.length);
       return;
     }
+
+    console.log('[MISSION-SUPPORT] 🔄 Save needed - minimal key changed:', {
+      missionId: mission.id,
+      lastSaved: lastSavedRolesRef.current?.substring(0, 80),
+      current: currentRolesString.substring(0, 80)
+    });
 
     // Capture the mission ID at the time this effect runs
     // This ensures we save to the correct mission even if the mission changes during the timeout
@@ -476,7 +474,7 @@ const MissionSupportAssignments: React.FC<MissionSupportAssignmentsProps> = ({
     // Debounce the save to avoid excessive database calls
     const timeoutId = setTimeout(() => {
       saveSupportRolesToDatabase(supportRoles, missionIdAtEffectTime);
-      // Update ref after successful save
+      // Update ref with minimal key after scheduling save
       lastSavedRolesRef.current = currentRolesString;
     }, 500);
 
@@ -829,8 +827,11 @@ const MissionSupportAssignments: React.FC<MissionSupportAssignmentsProps> = ({
             newPilots[posIndex] = {
               boardNumber: pilot.boardNumber || "",
               callsign: pilot.callsign || "",
-              dashNumber: pilot.dashNumber || (posIndex + 1).toString()
-            };
+              dashNumber: pilot.dashNumber || (posIndex + 1).toString(),
+              // Preserve attendance and roll call status from assignedPilots
+              ...(pilot.attendanceStatus !== undefined ? { attendanceStatus: pilot.attendanceStatus } : {}),
+              ...(pilot.rollCallStatus !== undefined ? { rollCallStatus: pilot.rollCallStatus } : {})
+            } as any;
           }
         });
         targetRole.pilots = newPilots;
@@ -856,10 +857,14 @@ const MissionSupportAssignments: React.FC<MissionSupportAssignmentsProps> = ({
       // Only update if roles actually changed to prevent continuous saves
       const sortedUpdatedRoles = updatedRoles.sort((a, b) => a.creationOrder - b.creationOrder);
 
-      // Deep comparison to check if roles actually changed
-      const hasChanges = JSON.stringify(sortedUpdatedRoles) !== JSON.stringify(prevRoles);
+      // Use minimal key comparison so "same pilots, different object richness" is NOT
+      // treated as a change.  A full JSON.stringify here would always differ between
+      // enriched (DB-loaded) pilots and the minimal pilots we just rebuilt from
+      // assignedPilots, causing an infinite setSupportRoles → save → echo loop.
+      const hasChanges = toMinimalRolesKey(sortedUpdatedRoles) !== toMinimalRolesKey(prevRoles);
 
       if (hasChanges) {
+        console.log('[MISSION-SUPPORT] assignedPilots effect: hasChanges=true, updating supportRoles');
         return sortedUpdatedRoles;
       }
 

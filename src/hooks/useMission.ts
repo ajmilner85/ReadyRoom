@@ -177,7 +177,31 @@ export const useMission = (initialMissionId?: string, eventId?: string) => {
         return result;
       }
 
-      setMission(result.mission);
+      // CRITICAL: Merge the DB response into the existing mission state instead of
+      // replacing it wholesale. When saving a subset of fields (e.g. only
+      // support_role_assignments), the DB response includes the ENTIRE row — including
+      // stale versions of fields we didn't save (e.g. pilot_assignments). Blindly
+      // calling setMission(result.mission) would overwrite locally-modified but
+      // not-yet-saved fields, causing pilots to snap back to previous positions.
+      //
+      // Instead, merge only the explicitly-updated fields plus server-computed metadata
+      // (version, updated_at, etc.) into the current mission state.
+      setMission(prev => {
+        if (!prev || !result.mission) return result.mission;
+        // Strip non-column fields from updates before merging into mission state
+        const { expected_version: _ev, ...fieldsToMerge } = updates as any;
+        return {
+          ...prev,
+          // Always take server-computed fields from the response
+          version: result.mission.version,
+          updated_at: result.mission.updated_at,
+          updated_by: result.mission.updated_by,
+          last_modified_by: result.mission.last_modified_by,
+          last_modified_at: (result.mission as any).last_modified_at,
+          // Merge in only the fields the caller explicitly updated
+          ...fieldsToMerge,
+        };
+      });
       return result;
     } catch (err: any) {
       console.error('Error updating mission:', err);

@@ -107,7 +107,6 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
     isConnected,
     activeUsers,
     forceSavePendingChanges,
-    remoteUpdateTrigger,
     remoteSupportRolesRevision,
     handleExtractedFlights: persistenceHandleExtractedFlights,
     updateMissionData,
@@ -501,7 +500,7 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
       // Only update state if there were assignments and clearing was needed
       if (hasAssignedPilots && needsClearing) {
         // console.log("[TENTATIVE-DEBUG] Clearing stale attendance statuses from assignedPilots state.");
-        setAssignedPilots(clearedAssignments); // Update with the potentially modified object
+        setAssignedPilots(clearedAssignments, true); // skipSave=true — attendanceStatus is not persisted to DB
       }
       return; // Stop processing since there's no attendance data
     }
