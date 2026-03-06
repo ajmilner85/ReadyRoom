@@ -129,10 +129,26 @@ export const useMissionPrepDataPersistence = (
     const isSelfSave = newRow.last_modified_session
       ? newRow.last_modified_session === tabSessionId
       : (currentUser == null || newRow.last_modified_by === currentUser.id);
+
+    console.log('[REALTIME] handleRemoteMissionUpdate:', {
+      missionId: newRow.id,
+      isSelfSave,
+      last_modified_session: newRow.last_modified_session,
+      tabSessionId,
+      sessionMatch: newRow.last_modified_session === tabSessionId,
+    });
+
     if (isSelfSave) {
       // Just update our version ref to stay in sync
       if (newRow.version != null) {
         missionVersionRef.current = newRow.version;
+      }
+      // Keep the support-roles hash current. Without this, echoes from OTHER users
+      // carrying unchanged support_role_assignments (e.g. a collaborator saving
+      // pilot_assignments after we've already saved support roles) would differ from
+      // the stale initial hash and falsely increment remoteSupportRolesRevision.
+      if (Array.isArray(newRow.support_role_assignments)) {
+        lastRemoteSupportRolesHashRef.current = JSON.stringify(newRow.support_role_assignments);
       }
       return;
     }
@@ -178,7 +194,13 @@ export const useMissionPrepDataPersistence = (
     const newSupportRolesJson = Array.isArray(newRow.support_role_assignments)
       ? JSON.stringify(newRow.support_role_assignments)
       : '';
+    console.log('[REALTIME] Support roles hash check:', {
+      newHash: newSupportRolesJson.substring(0, 60),
+      lastHash: lastRemoteSupportRolesHashRef.current.substring(0, 60),
+      changed: newSupportRolesJson !== lastRemoteSupportRolesHashRef.current
+    });
     if (newSupportRolesJson !== lastRemoteSupportRolesHashRef.current) {
+      console.log('[REALTIME] Support roles changed — incrementing remoteSupportRolesRevision');
       lastRemoteSupportRolesHashRef.current = newSupportRolesJson;
       setRemoteSupportRolesRevision(prev => prev + 1);
     }
@@ -237,12 +259,25 @@ export const useMissionPrepDataPersistence = (
   // Add a flag to prevent circular updates during saves
   const [isSyncing, setIsSyncing] = useState(false);
 
+  // Ref that always holds the latest hasPendingChanges value.
+  // Used inside the sync effect so it never reads a stale closure value —
+  // hasPendingChanges is not in the sync effect's dep array, which means
+  // without a ref the effect can run with the old (false) value even after
+  // a drag has set hasPendingChanges=true, causing it to overwrite local state.
+  const hasPendingChangesRef = useRef(false);
+
   // Track the last sync to prevent circular updates.
   // We encode mission ID, event ID, and the remote-update revision together so that:
   //   • isSyncing toggles after a save never re-trigger a full sync (same key → skip)
   //   • Remote updates always produce a new key (remoteUpdateTrigger increments) → sync runs
   //   • We never need to "null out" the key from handleRemoteMissionUpdate
-  const [lastSyncKey, setLastSyncKey] = useState<string | null>(null);
+  //
+  // IMPORTANT: This is a REF (not state) so the sync effect always reads the current value.
+  // If stored as state, the sync effect captures a stale closure value from whichever render
+  // last changed an effect dep (e.g. isSyncing) — that render may pre-date the setLastSyncKey
+  // call from the initial sync, so lastSyncKey appears null, the guard is bypassed, and the
+  // effect overwrites local user edits with stale DB data (the snap-back bug).
+  const lastSyncKeyRef = useRef<string | null>(null);
 
   // Clear state when switching events
   useEffect(() => {
@@ -253,7 +288,7 @@ export const useMissionPrepDataPersistence = (
     setExtractedFlights([]);
     setHasPendingChanges(false);
     setIsSyncing(false);
-    setLastSyncKey(null);
+    lastSyncKeyRef.current = null;
     setPendingSupportRoles(null); // Clear pending support roles to prevent cross-event contamination
     pendingFlightsRef.current = null; // Clear pending flights to prevent cross-event contamination
   }, [selectedEvent?.id]);
@@ -271,7 +306,7 @@ export const useMissionPrepDataPersistence = (
     if (triggeredByRemoteUpdate) {
       isRemoteUpdateRef.current = false;
     }
-    if (hasPendingChanges && !triggeredByRemoteUpdate) {
+    if (hasPendingChangesRef.current && !triggeredByRemoteUpdate) {
       return;
     }
 
@@ -293,21 +328,25 @@ export const useMissionPrepDataPersistence = (
     //   • Remote updates: remoteUpdateTrigger incremented → new key → sync runs ✓
     // This eliminates the need to reset the key to null in handleRemoteMissionUpdate,
     // which was the root cause of flights reverting after user-initiated changes.
+    //
+    // Uses a REF (not state) so we always compare against the truly-latest key, never a
+    // stale closure value from a prior render. State-based lastSyncKey can appear null
+    // in the sync effect closure even after the initial sync has already set it, because
+    // the closure was captured from a render that pre-dates the state update.
     const syncKey = `${mission.id}-${selectedEvent.id}-${remoteUpdateTrigger}`;
-    if (syncKey === lastSyncKey) {
+    if (syncKey === lastSyncKeyRef.current) {
       return;
     }
-      
-    // console.log('🔄 Persistence: Mission data loaded, syncing state:', {
-    //   missionId: mission.id,
-    //   eventId: selectedEvent.id,
-    //   hasPilotAssignments: !!mission.pilot_assignments,
-    //   activePilotsCount: activePilots?.length || 0,
-    //   pilotAssignments: JSON.stringify(mission.pilot_assignments)
-    // });
-    
+
     // Mark this mission/event/remoteUpdateTrigger combination as synced
-    setLastSyncKey(syncKey);
+    lastSyncKeyRef.current = syncKey;
+
+    console.log('[PERSISTENCE] sync effect firing:', {
+      syncKey,
+      triggeredByRemoteUpdate,
+      hasPendingChanges: hasPendingChangesRef.current,
+      remoteUpdateTrigger
+    });
     
     // Convert database pilot assignments back to the format expected by the UI (skip save since this is loading)
     if (mission.pilot_assignments) {
@@ -424,7 +463,15 @@ export const useMissionPrepDataPersistence = (
           }
         });
       }
-      
+
+      // Do NOT preserve support-* entries here.  MissionSupportAssignments owns that
+      // state and re-adds entries via the ensureSupportRoles effect after every sync.
+      // Preserving them was causing the real-time sync regression: stale local support
+      // data would be kept across remote updates and the large assignedPilots effect
+      // would detect a change (old enriched pilots vs new minimal pilots), trigger a
+      // redundant save, and create a ping-pong loop between browser sessions.
+      console.log('[PERSISTENCE] sync: setting assignedPilots from DB, flight keys:', Object.keys(convertedAssignments).filter(k => !k.startsWith('support-')).length);
+      assignedPilotsRef.current = convertedAssignments;
       setAssignedPilotsLocal(convertedAssignments);
     } else {
       // If no pilot assignments, but we have flights, initialize empty arrays for each
@@ -436,6 +483,9 @@ export const useMissionPrepDataPersistence = (
           }
         });
       }
+      // Do NOT preserve support-* entries (same reasoning as above).
+      console.log('[PERSISTENCE] sync: setting assignedPilots to empty (no pilot assignments in DB)');
+      assignedPilotsRef.current = emptyAssignments;
       setAssignedPilotsLocal(emptyAssignments);
     }
 
@@ -546,6 +596,7 @@ export const useMissionPrepDataPersistence = (
   // Debounced save function to avoid too many database calls
   const [saveTimeout, setSaveTimeout] = useState<NodeJS.Timeout | null>(null);
   const [hasPendingChanges, setHasPendingChanges] = useState<boolean>(false);
+  hasPendingChangesRef.current = hasPendingChanges; // keep ref in sync on every render
   const [pendingOperations, setPendingOperations] = useState<Array<() => Promise<boolean>>>([]);
 
   // Check if any drag operation is in progress globally
@@ -668,7 +719,18 @@ export const useMissionPrepDataPersistence = (
       missionId: mission?.id
     });
 
+    // Capture the OLD non-support JSON BEFORE updating the ref.
+    // The ref update below is synchronous — if we compare after, both sides read the same
+    // (new) value and the comparison always says "only support changed", silently dropping
+    // every regular flight pilot assignment.
+    const previousNonSupportJson = JSON.stringify(
+      Object.entries(assignedPilotsRef.current).filter(([k]) => !k.startsWith('support-'))
+    );
+
     setAssignedPilotsLocal(pilots);
+    // Keep ref in sync immediately so any concurrently-running child effects (e.g.
+    // ensureSupportRoles) read the up-to-date value rather than the previous render's.
+    assignedPilotsRef.current = pilots;
 
     // Save to database if this is a user-initiated change (including when clearing all pilots)
     if (mission && !skipSave) {
@@ -682,6 +744,20 @@ export const useMissionPrepDataPersistence = (
         return;
       }
       
+      // Skip debouncedSave when only support-role structure changed.
+      // Support-role entries are filtered out of the pilot_assignments save anyway, so
+      // triggering debouncedSave here would only cancel a pending drag save for no benefit.
+      // This is the main cause of the "pilot not assigned on first drag" bug when a
+      // Mission Support card exists: ensureSupportRolesInAssignedPilots fires, calls
+      // setAssignedPilots, and debouncedSave replaces/cancels the pending drag save.
+      const newNonSupportJson = JSON.stringify(
+        Object.entries(pilots).filter(([k]) => !k.startsWith('support-'))
+      );
+      if (previousNonSupportJson === newNonSupportJson) {
+        console.log('⏭️ Persistence: Skipping pilot assignments save - only support-role entries changed');
+        return;
+      }
+
       console.log('💾 Persistence: Scheduling database save...');
       debouncedSave(async () => {
         setIsSyncing(true);

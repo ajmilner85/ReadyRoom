@@ -93,8 +93,11 @@ const AircraftTile: React.FC<AircraftTileProps> = ({
   const accentColor = getAccentColor();
 
   // Make the tile draggable if it has a pilot assigned
+  // CRITICAL: Include flightId and dashNumber in the draggable ID to ensure uniqueness.
+  // Without this, the same pilot appearing in both a flight card and a support card
+  // creates two draggable elements with the same ID, causing dnd-kit to grab the wrong one.
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
-    id: `pilot-tile-${boardNumber}`,
+    id: `pilot-tile-${flightId || 'list'}-${dashNumber}-${boardNumber}`,
     data: {
       type: 'Pilot',
       pilot: isEmpty ? null : (pilot || {

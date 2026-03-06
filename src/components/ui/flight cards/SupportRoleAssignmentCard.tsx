@@ -46,17 +46,27 @@ const SupportRoleAssignmentCard: React.FC<SupportRoleAssignmentCardProps> = ({
     // Get fresh pilot data from assignedPilots (has current attendance status)
     const freshPilotsForRole = assignedPilots?.[id] || [];
     
-    // Merge pilots with fresh attendance data
+    // Merge pilots with fresh attendance data from assignedPilots.
+    // CRITICAL: When assignedPilots has data for this role, treat it as authoritative.
+    // Without this, a pilot dragged OUT of a support role appears as a "ghost" because
+    // the card falls back to stale role.pilots data when assignedPilots has an empty entry.
+    const hasAssignedPilotsData = freshPilotsForRole.length > 0;
     const filled = pilots.map(pilot => {
-      // Find matching pilot in assignedPilots by dashNumber
-      const freshPilot = freshPilotsForRole.find((p: any) => p.dashNumber === pilot.dashNumber);
-      if (freshPilot && freshPilot.callsign) {
-        // Use fresh pilot data which has attendanceStatus from drag operation
+      if (hasAssignedPilotsData) {
+        // assignedPilots exists for this role — use it as source of truth
+        const freshPilot = freshPilotsForRole.find((p: any) => p.dashNumber === pilot.dashNumber);
+        if (freshPilot && freshPilot.callsign) {
+          // Fresh pilot has data — use it
+          return { ...pilot, ...freshPilot };
+        }
+        // Fresh pilot is empty or not found — position was cleared, show empty
         return {
-          ...pilot,
-          ...freshPilot
+          boardNumber: "",
+          callsign: "",
+          dashNumber: pilot.dashNumber
         };
       }
+      // No assignedPilots data yet for this role — use role.pilots as fallback
       return pilot;
     });
     
