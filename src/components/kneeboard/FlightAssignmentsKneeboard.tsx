@@ -57,6 +57,15 @@ interface AssignedPilot {
   pilotId?: string;
 }
 
+interface SquadronInfo {
+  id: string;
+  designation: string;
+  name: string;
+  insignia_url: string | null;
+  callsigns: string[];
+  primaryColor: string | null;
+}
+
 const POLL_INTERVAL = 5000; // 5 seconds
 
 const FlightAssignmentsKneeboard: React.FC<FlightAssignmentsKneeboardProps> = ({
@@ -73,6 +82,7 @@ const FlightAssignmentsKneeboard: React.FC<FlightAssignmentsKneeboardProps> = ({
   const [missions, setMissions] = useState<Mission[]>(externalMissions || []);
   const [selectedMissionId, setSelectedMissionId] = useState<string | null>(externalSelectedMissionId || null);
   const [loading, setLoading] = useState(true);
+  const [squadrons, setSquadrons] = useState<SquadronInfo[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
@@ -337,6 +347,27 @@ const FlightAssignmentsKneeboard: React.FC<FlightAssignmentsKneeboardProps> = ({
     }
   }, [cycleId, externalSelectedMissionId, selectedMissionId, getActiveMission, onMissionChange, onMissionsLoad]);
 
+  // Fetch squadron data once on mount
+  useEffect(() => {
+    supabase
+      .from('org_squadrons')
+      .select('id, designation, name, insignia_url, callsigns, color_palette')
+      .then(({ data }) => {
+        if (data) {
+          setSquadrons(data.map((s: any) => ({
+            id: s.id,
+            designation: s.designation,
+            name: s.name,
+            insignia_url: s.insignia_url ?? null,
+            callsigns: Array.isArray(s.callsigns)
+              ? s.callsigns.filter((c: any): c is string => typeof c === 'string')
+              : [],
+            primaryColor: s.color_palette?.primary ?? null
+          })));
+        }
+      });
+  }, []);
+
   // Initial fetch
   useEffect(() => {
     fetchMissions();
@@ -417,7 +448,20 @@ const FlightAssignmentsKneeboard: React.FC<FlightAssignmentsKneeboardProps> = ({
   };
 
   // Render a flight card
-  const renderFlightCard = (flight: Flight, pilots: AssignedPilot[], isUserFlight: boolean) => {
+  const renderFlightCard = (flight: Flight, pilots: AssignedPilot[], isUserFlight: boolean, accentColor: string = colors.accent) => {
+    // Derive a semi-transparent version for the pilot row highlight
+    const highlightBg = (() => {
+      // Try to convert hex to rgba; fall back to opacity trick via a wrapper
+      const hex = accentColor.replace('#', '');
+      if (hex.length === 6) {
+        const r = parseInt(hex.slice(0, 2), 16);
+        const g = parseInt(hex.slice(2, 4), 16);
+        const b = parseInt(hex.slice(4, 6), 16);
+        return theme === 'dark' ? `rgba(${r},${g},${b},0.18)` : `rgba(${r},${g},${b},0.12)`;
+      }
+      return theme === 'dark' ? 'rgba(124, 58, 237, 0.15)' : 'rgba(124, 58, 237, 0.1)';
+    })();
+
     const sortedPilots = [...pilots].sort((a, b) => {
       // Handle both dashNumber (camelCase) and dash_number (snake_case from database)
       const dashA = parseInt((a as any).dash_number || a.dashNumber || '0');
@@ -430,7 +474,7 @@ const FlightAssignmentsKneeboard: React.FC<FlightAssignmentsKneeboardProps> = ({
         key={flight.id}
         style={{
           backgroundColor: colors.backgroundSecondary,
-          border: `2px solid ${isUserFlight ? colors.accent : colors.border}`,
+          border: `2px solid ${isUserFlight ? accentColor : colors.border}`,
           borderRadius: '8px',
           overflow: 'hidden',
           marginBottom: '12px'
@@ -438,7 +482,7 @@ const FlightAssignmentsKneeboard: React.FC<FlightAssignmentsKneeboardProps> = ({
       >
         {/* Flight header - callsign starts at left edge */}
         <div style={{
-          backgroundColor: isUserFlight ? colors.accent : colors.border,
+          backgroundColor: isUserFlight ? accentColor : colors.border,
           padding: '10px 20px',
           display: 'flex',
           alignItems: 'center'
@@ -451,7 +495,7 @@ const FlightAssignmentsKneeboard: React.FC<FlightAssignmentsKneeboardProps> = ({
             gap: '12px'
           }}>
             <span style={{
-              fontSize: '18px',
+              fontSize: '24px',
               fontWeight: 700,
               color: isUserFlight ? '#FFFFFF' : colors.text,
               letterSpacing: '0.5px'
@@ -460,7 +504,7 @@ const FlightAssignmentsKneeboard: React.FC<FlightAssignmentsKneeboardProps> = ({
             </span>
             {flight.stepTime !== undefined && (
               <span style={{
-                fontSize: '14px',
+                fontSize: '20px',
                 fontWeight: 500,
                 color: isUserFlight ? 'rgba(255,255,255,0.9)' : colors.textSecondary
               }}>
@@ -471,8 +515,8 @@ const FlightAssignmentsKneeboard: React.FC<FlightAssignmentsKneeboardProps> = ({
 
           {/* MIDS A column header */}
           <span style={{
-            width: '36px',
-            fontSize: '11px',
+            width: '52px',
+            fontSize: '20px',
             fontWeight: 600,
             color: isUserFlight ? 'rgba(255,255,255,0.8)' : colors.textSecondary,
             textAlign: 'center'
@@ -482,8 +526,8 @@ const FlightAssignmentsKneeboard: React.FC<FlightAssignmentsKneeboardProps> = ({
 
           {/* MIDS B column header */}
           <span style={{
-            width: '36px',
-            fontSize: '11px',
+            width: '52px',
+            fontSize: '20px',
             fontWeight: 600,
             color: isUserFlight ? 'rgba(255,255,255,0.8)' : colors.textSecondary,
             textAlign: 'center'
@@ -499,7 +543,7 @@ const FlightAssignmentsKneeboard: React.FC<FlightAssignmentsKneeboardProps> = ({
               padding: '12px',
               textAlign: 'center',
               color: colors.textSecondary,
-              fontSize: '14px',
+              fontSize: '24px',
               fontStyle: 'italic'
             }}>
               No pilots assigned
@@ -516,7 +560,7 @@ const FlightAssignmentsKneeboard: React.FC<FlightAssignmentsKneeboardProps> = ({
                     alignItems: 'center',
                     padding: '10px 12px',
                     backgroundColor: isCurrentUser
-                      ? (theme === 'dark' ? 'rgba(124, 58, 237, 0.15)' : 'rgba(124, 58, 237, 0.1)')
+                      ? highlightBg
                       : 'transparent',
                     borderRadius: '6px',
                     marginBottom: index < sortedPilots.length - 1 ? '4px' : 0
@@ -524,8 +568,8 @@ const FlightAssignmentsKneeboard: React.FC<FlightAssignmentsKneeboardProps> = ({
                 >
                   {/* Dash number */}
                   <span style={{
-                    width: '36px',
-                    fontSize: '16px',
+                    width: '46px',
+                    fontSize: '24px',
                     fontWeight: 600,
                     color: colors.textSecondary
                   }}>
@@ -534,10 +578,10 @@ const FlightAssignmentsKneeboard: React.FC<FlightAssignmentsKneeboardProps> = ({
 
                   {/* Board number */}
                   <span style={{
-                    width: '50px',
-                    fontSize: '16px',
-                    fontWeight: 700,
-                    color: colors.accent,
+                    width: '62px',
+                    fontSize: '24px',
+                    fontWeight: 800,
+                    color: accentColor,
                     fontFamily: 'monospace'
                   }}>
                     {pilot.boardNumber || '---'}
@@ -546,7 +590,7 @@ const FlightAssignmentsKneeboard: React.FC<FlightAssignmentsKneeboardProps> = ({
                   {/* Callsign */}
                   <span style={{
                     flex: 1,
-                    fontSize: '16px',
+                    fontSize: '24px',
                     fontWeight: isCurrentUser ? 600 : 400,
                     color: colors.text,
                     overflow: 'hidden',
@@ -559,8 +603,8 @@ const FlightAssignmentsKneeboard: React.FC<FlightAssignmentsKneeboardProps> = ({
 
                   {/* MIDS A - from flight level */}
                   <span style={{
-                    width: '36px',
-                    fontSize: '14px',
+                    width: '52px',
+                    fontSize: '22px',
                     fontWeight: 500,
                     color: colors.textSecondary,
                     textAlign: 'center'
@@ -570,8 +614,8 @@ const FlightAssignmentsKneeboard: React.FC<FlightAssignmentsKneeboardProps> = ({
 
                   {/* MIDS B - from flight level */}
                   <span style={{
-                    width: '36px',
-                    fontSize: '14px',
+                    width: '52px',
+                    fontSize: '22px',
                     fontWeight: 500,
                     color: colors.textSecondary,
                     textAlign: 'center'
@@ -595,7 +639,8 @@ const FlightAssignmentsKneeboard: React.FC<FlightAssignmentsKneeboardProps> = ({
         alignItems: 'center',
         justifyContent: 'center',
         padding: '48px',
-        color: colors.textSecondary
+        color: colors.textSecondary,
+        fontSize: '24px'
       }}>
         <RefreshCw size={24} style={{ animation: 'spin 1s linear infinite', marginRight: '12px' }} />
         Loading flight assignments...
@@ -618,7 +663,7 @@ const FlightAssignmentsKneeboard: React.FC<FlightAssignmentsKneeboardProps> = ({
         borderRadius: '8px',
         textAlign: 'center'
       }}>
-        <p style={{ color: colors.error, fontSize: '16px', margin: 0 }}>{error}</p>
+        <p style={{ color: colors.error, fontSize: '24px', margin: 0 }}>{error}</p>
       </div>
     );
   }
@@ -631,8 +676,8 @@ const FlightAssignmentsKneeboard: React.FC<FlightAssignmentsKneeboardProps> = ({
         textAlign: 'center',
         color: colors.textSecondary
       }}>
-        <p style={{ fontSize: '18px', margin: '0 0 8px 0' }}>No missions available</p>
-        <p style={{ fontSize: '14px', margin: 0 }}>Check back when a mission is being planned.</p>
+        <p style={{ fontSize: '24px', margin: '0 0 8px 0' }}>No missions available</p>
+        <p style={{ fontSize: '18px', margin: 0 }}>Check back when a mission is being planned.</p>
       </div>
     );
   }
@@ -642,36 +687,119 @@ const FlightAssignmentsKneeboard: React.FC<FlightAssignmentsKneeboardProps> = ({
       {/* Flight assignments */}
       {selectedMission && (
         <>
-          {/* User's flight (highlighted at top) */}
-          {userFlight && (
-            <div style={{ marginBottom: '24px' }}>
-              {renderFlightCard(userFlight.flight, userFlight.pilots, true)}
+          {selectedMission.flights.length === 0 ? (
+            <div style={{
+              padding: '24px',
+              textAlign: 'center',
+              color: colors.textSecondary,
+              backgroundColor: colors.backgroundSecondary,
+              borderRadius: '8px',
+              border: `1px solid ${colors.border}`
+            }}>
+              No flights configured for this mission
             </div>
-          )}
+          ) : (() => {
+            // Group flights by callsign root (first word, e.g. "DODGE", "HAWK", "STING")
+            const groups: Record<string, Flight[]> = {};
+            for (const flight of selectedMission.flights) {
+              const root = flight.callsign.split(' ')[0].toUpperCase();
+              if (!groups[root]) groups[root] = [];
+              groups[root].push(flight);
+            }
 
-          {/* Other flights */}
-          <div>
+            // Sort each group by flight number
+            for (const root of Object.keys(groups)) {
+              groups[root].sort((a, b) => {
+                const numA = parseInt(a.callsign.replace(/\D/g, '') || '0', 10);
+                const numB = parseInt(b.callsign.replace(/\D/g, '') || '0', 10);
+                return numA - numB;
+              });
+            }
 
-            {selectedMission.flights
-              .filter(f => !userFlight || f.id !== userFlight.flight.id)
-              .map(flight => {
-                const pilots = selectedMission.pilot_assignments[flight.id] || [];
-                return renderFlightCard(flight, pilots, false);
-              })}
+            // Sort columns alphabetically by callsign root
+            const sortedRoots = Object.keys(groups).sort();
 
-            {selectedMission.flights.length === 0 && (
+            // Build callsign-root → squadron lookup
+            const callsignToSquadron: Record<string, SquadronInfo | undefined> = {};
+            for (const sq of squadrons) {
+              for (const cs of sq.callsigns) {
+                callsignToSquadron[cs.toUpperCase().trim()] = sq;
+              }
+            }
+
+            return (
               <div style={{
-                padding: '24px',
-                textAlign: 'center',
-                color: colors.textSecondary,
-                backgroundColor: colors.backgroundSecondary,
-                borderRadius: '8px',
-                border: `1px solid ${colors.border}`
+                display: 'grid',
+                gridTemplateColumns: `repeat(${sortedRoots.length}, 1fr)`,
+                gap: '12px',
+                alignItems: 'start'
               }}>
-                No flights configured for this mission
+                {sortedRoots.map(root => {
+                  const sq = callsignToSquadron[root];
+                  const accentColor = sq?.primaryColor || colors.accent;
+                  return (
+                    <div key={root}>
+                      {/* Squadron insignia header */}
+                      <div style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        gap: '8px',
+                        marginBottom: '16px',
+                        paddingBottom: '12px',
+                        borderBottom: `2px solid ${accentColor}`
+                      }}>
+                        {sq?.insignia_url ? (
+                          <img
+                            src={sq.insignia_url}
+                            alt={sq.designation}
+                            style={{
+                              width: '80px',
+                              height: '80px',
+                              objectFit: 'contain'
+                            }}
+                          />
+                        ) : (
+                          <div style={{
+                            width: '80px',
+                            height: '80px',
+                            borderRadius: '50%',
+                            backgroundColor: colors.border,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontSize: '28px',
+                            color: colors.textSecondary
+                          }}>
+                            ✈
+                          </div>
+                        )}
+                        {sq && (
+                          <div style={{
+                            fontSize: '20px',
+                            fontWeight: 700,
+                            color: accentColor,
+                            textAlign: 'center',
+                            letterSpacing: '1px'
+                          }}>
+                            {sq.designation}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Flights */}
+                      {groups[root].map(flight => {
+                        const pilots = selectedMission.pilot_assignments[flight.id] || [];
+                        const isThisUserFlight = userFlight?.flight.id === flight.id;
+                        const accentColor = sq?.primaryColor || colors.accent;
+                        return renderFlightCard(flight, pilots, isThisUserFlight, accentColor);
+                      })}
+                    </div>
+                  );
+                })}
               </div>
-            )}
-          </div>
+            );
+          })()}
         </>
       )}
 
@@ -680,7 +808,7 @@ const FlightAssignmentsKneeboard: React.FC<FlightAssignmentsKneeboardProps> = ({
         <div style={{
           marginTop: '24px',
           textAlign: 'center',
-          fontSize: '12px',
+          fontSize: '16px',
           color: colors.textSecondary
         }}>
           Last updated: {lastUpdated.toLocaleTimeString()}

@@ -832,12 +832,36 @@ const KneeboardLayout: React.FC = () => {
       )}
 
       {/* Content - scrollable area */}
-      <div style={{
-        flex: 1,
-        overflowY: 'auto',
-        overflowX: 'hidden',
-        padding: '16px'
-      }}>
+      <div
+        className="kneeboard-scroll"
+        style={{
+          flex: 1,
+          overflowY: 'auto',
+          overflowX: 'hidden',
+          padding: '16px'
+        }}
+      >
+        <style>{`
+          .kneeboard-scroll::-webkit-scrollbar {
+            width: 10px;
+          }
+          .kneeboard-scroll::-webkit-scrollbar-track {
+            background: transparent;
+          }
+          .kneeboard-scroll::-webkit-scrollbar-thumb {
+            background-color: rgba(124, 58, 237, 0.5);
+            border-radius: 6px;
+            border: 2px solid transparent;
+            background-clip: padding-box;
+          }
+          .kneeboard-scroll::-webkit-scrollbar-thumb:hover {
+            background-color: rgba(124, 58, 237, 0.85);
+          }
+          .kneeboard-scroll {
+            scrollbar-width: thin;
+            scrollbar-color: rgba(124, 58, 237, 0.5) transparent;
+          }
+        `}</style>
         {currentPageGuid === PAGE_1_GUID && (
           <FlightAssignmentsKneeboard
             pilotId={userProfile?.pilotId || null}
