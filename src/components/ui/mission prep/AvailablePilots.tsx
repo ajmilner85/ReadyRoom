@@ -7,6 +7,7 @@ import type { Pilot, QualificationType } from '../../../types/PilotTypes';
 import type { Event } from '../../../types/EventTypes';
 import type { AssignedPilot } from '../../../types/MissionPrepTypes';
 import { updateRollCallResponse, syncRollCallResponses } from '../../../utils/rollCallUtils';
+import { supabase } from '../../../utils/supabaseClient';
 import { useAppSettings } from '../../../context/AppSettingsContext';
 import FilterDrawer, { QualificationFilterMode } from '../roster/FilterDrawer';
 import { Squadron } from '../../../utils/squadronService';
@@ -458,6 +459,11 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
   const [selectedQualifications, setSelectedQualifications] = useState<QualificationType[]>([]);
   const [isRollCallMode, setIsRollCallMode] = useState(false);
   const [rollCallResponses, setRollCallResponses] = useState<Record<string, 'Present' | 'Absent' | 'Tentative'>>({});
+
+  // Stable ref to pilots so the realtime handler can resolve discord_id → pilot_id
+  // without being listed as a dep (avoids tearing down the channel on every render).
+  const pilotsRef = useRef(pilots);
+  useEffect(() => { pilotsRef.current = pilots; }, [pilots]);
 
   // Sort state
   const [sortBy, setSortBy] = useState<'callsign' | 'boardNumber'>('callsign');
@@ -955,6 +961,72 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
     
     syncRollCall();
   }, [selectedEvent, pilots]);
+
+  // Realtime subscription: reflect roll call changes made in other browser sessions
+  useEffect(() => {
+    if (!selectedEvent?.id) return;
+
+    const effectiveDiscordEventId = selectedEvent.discordEventId || `manual-${selectedEvent.id}`;
+
+    const channel = supabase
+      .channel(`roll-call-available-pilots-${effectiveDiscordEventId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'discord_event_attendance',
+          // No server-side filter: with default REPLICA IDENTITY, UPDATE payloads only
+          // include changed columns, so discord_event_id may be absent and the filter
+          // would never match. Filter client-side instead.
+        },
+        (payload) => {
+          console.log('[ROLL-CALL-RT] postgres_changes event received:', payload.eventType, payload);
+
+          // For DELETE events, payload.new is empty — use payload.old to identify the row
+          // but treat the response as null (removed).
+          const isDelete = payload.eventType === 'DELETE';
+          const row = (isDelete ? payload.old : payload.new) as any;
+          if (!row?.discord_id) return;
+
+          // Client-side filter: ignore events for other discord_event_ids.
+          const rowDiscordEventId: string | undefined =
+            (payload.new as any)?.discord_event_id ??
+            (payload.old as any)?.discord_event_id;
+          if (rowDiscordEventId && rowDiscordEventId !== effectiveDiscordEventId) return;
+
+          const discordId: string = String(row.discord_id);
+          // On DELETE the row is gone → response is null.
+          // On UPDATE/INSERT read the new value (null means cleared).
+          const newResponse: 'Present' | 'Absent' | 'Tentative' | null =
+            isDelete ? null : (row.roll_call_response ?? null);
+
+          // Find all pilots that match this discord_id and update their roll call status
+          setRollCallResponses(prev => {
+            const updated = { ...prev };
+            pilotsRef.current.forEach(pilot => {
+              const pilotDiscordId = (pilot as any).discord_id;
+              if (pilotDiscordId && String(pilotDiscordId) === discordId) {
+                const pilotId = pilot.id || pilot.boardNumber;
+                if (newResponse) {
+                  updated[pilotId] = newResponse;
+                } else {
+                  delete updated[pilotId];
+                }
+              }
+            });
+            return updated;
+          });
+        }
+      )
+      .subscribe((status) => {
+        console.log('[ROLL-CALL-RT] Subscription status:', status, 'for event:', effectiveDiscordEventId);
+      });
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [selectedEvent?.id, selectedEvent?.discordEventId]);
 
   // Define button style for Roll Call button
   const rollCallButtonStyle = {
