@@ -88,35 +88,22 @@ export const updateRollCallResponse = async (
     const existingRecord = existingRecords && existingRecords.length > 0 ? existingRecords[0] : null;
 
     if (response === null) {
-      // Unselecting - Update the roll_call_response to null (don't delete if it's a Discord RSVP record)
+      // Unselecting - Update the roll_call_response to null
+      // Always use UPDATE (not DELETE) so Supabase Realtime broadcasts the change.
+      // DELETE events are unreliable with RLS-enabled Realtime subscriptions.
       if (existingRecord) {
-        if (existingRecord.user_response === 'roll_call') {
-          // This was a manual roll call record, safe to delete
-          const { error: deleteError } = await supabase
-            .from('discord_event_attendance')
-            .delete()
-            .eq('id', existingRecord.id);
+        const { error: updateError } = await supabase
+          .from('discord_event_attendance')
+          .update({
+            roll_call_response: null,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', existingRecord.id);
 
-          if (deleteError) {
-            console.error('Error deleting roll call record:', deleteError);
-          } else {
-            console.log(`[ROLL-CALL-DB] Deleted roll call record for ${pilotName}`);
-          }
+        if (updateError) {
+          console.error('Error clearing roll call response:', updateError);
         } else {
-          // This is a Discord RSVP record, just clear the roll_call_response
-          const { error: updateError } = await supabase
-            .from('discord_event_attendance')
-            .update({
-              roll_call_response: null,
-              updated_at: new Date().toISOString()
-            })
-            .eq('id', existingRecord.id);
-
-          if (updateError) {
-            console.error('Error clearing roll call response:', updateError);
-          } else {
-            console.log(`[ROLL-CALL-DB] Cleared roll call response for ${pilotName}`);
-          }
+          console.log(`[ROLL-CALL-DB] Cleared roll call response for ${pilotName}`);
         }
       } else {
         console.log(`[ROLL-CALL-DB] No record to clear for ${pilotName}`);

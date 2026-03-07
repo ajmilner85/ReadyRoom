@@ -1,5 +1,6 @@
-import React, { createContext, useState, useContext, useEffect } from 'react';
+import React, { createContext, useState, useContext, useEffect, useRef } from 'react';
 import { syncRollCallResponses } from '../utils/rollCallUtils';
+import { supabase } from '../utils/supabaseClient';
 import type { Event } from '../types/EventTypes';
 
 interface RollCallContextType {
@@ -32,35 +33,36 @@ export const RollCallProvider: React.FC<RollCallProviderProps> = ({ children, se
   const [isLoadingRollCall, setIsLoadingRollCall] = useState(false);
   const selectedEventId = selectedEvent?.id;
 
-  // Effect to sync roll call responses whenever the selected event changes
+  // Keep a stable ref to pilots so the realtime handler can build pilot-id keyed
+  // responses without being listed as a dependency (avoids tearing down/rebuilding
+  // the subscription on every pilots array render).
+  const pilotsRef = useRef(pilots);
+  useEffect(() => { pilotsRef.current = pilots; }, [pilots]);
+
+  // Helper: convert a discord-id keyed map to pilot-id keyed responses
+  const mapDiscordToPilotIds = (discordIdMap: Record<string, 'Present' | 'Absent' | 'Tentative'>) => {
+    const result: Record<string, 'Present' | 'Absent' | 'Tentative'> = {};
+    pilotsRef.current.forEach(pilot => {
+      const pilotId = pilot.id || pilot.boardNumber;
+      const discordId = pilot.discord_id;
+      if (discordId && discordIdMap[discordId]) {
+        result[pilotId] = discordIdMap[discordId];
+      }
+    });
+    return result;
+  };
+
+  // Initial load whenever the selected event changes
   useEffect(() => {
     const syncRollCall = async () => {
       if (!selectedEvent?.id) return;
 
       try {
         setIsLoadingRollCall(true);
-        // Use synthetic Discord event ID if the event doesn't have a real one
         const effectiveDiscordEventId = selectedEvent.discordEventId || `manual-${selectedEvent.id}`;
         const discordIdMap = await syncRollCallResponses(effectiveDiscordEventId);
         setDiscordIdToRollCallMap(discordIdMap);
-
-        // Map Discord IDs to pilot IDs
-        const pilotRollCallResponses: Record<string, 'Present' | 'Absent' | 'Tentative'> = {};
-
-        // For each pilot, check if they have a roll call response
-        pilots.forEach(pilot => {
-          const pilotId = pilot.id || pilot.boardNumber;
-          const discordId = pilot.discord_id;
-
-          if (discordId && discordIdMap[discordId]) {
-            pilotRollCallResponses[pilotId] = discordIdMap[discordId];
-          }
-        });
-
-        // Update the state with all roll call responses
-        setRollCallResponses(pilotRollCallResponses);
-
-        // console.log('[ROLL-CALL-DEBUG] Synced roll call responses for event:', selectedEvent.id);
+        setRollCallResponses(mapDiscordToPilotIds(discordIdMap));
       } catch (error) {
         console.error('Error syncing roll call responses:', error);
       } finally {
@@ -69,7 +71,74 @@ export const RollCallProvider: React.FC<RollCallProviderProps> = ({ children, se
     };
 
     syncRollCall();
-  }, [selectedEvent, pilots]);
+  }, [selectedEvent]); // pilots intentionally excluded — pilotsRef keeps it current
+
+  // Realtime subscription: watch discord_event_attendance for roll_call_response changes
+  useEffect(() => {
+    if (!selectedEvent?.id) return;
+
+    const effectiveDiscordEventId = selectedEvent.discordEventId || `manual-${selectedEvent.id}`;
+
+    const channel = supabase
+      .channel(`roll-call-${effectiveDiscordEventId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'discord_event_attendance',
+          filter: `discord_event_id=eq.${effectiveDiscordEventId}`
+        },
+        (payload) => {
+          const row = (payload.new ?? payload.old) as any;
+          if (!row?.discord_id) return;
+
+          const discordId: string = row.discord_id;
+          const newResponse: 'Present' | 'Absent' | 'Tentative' | null = row.roll_call_response ?? null;
+
+          console.log('[ROLL-CALL-REALTIME] Change received:', {
+            event: payload.eventType,
+            discordId,
+            newResponse
+          });
+
+          // Update the discord-id keyed map
+          setDiscordIdToRollCallMap(prev => {
+            const updated = { ...prev };
+            if (newResponse) {
+              updated[discordId] = newResponse;
+            } else {
+              delete updated[discordId];
+            }
+            return updated;
+          });
+
+          // Update the pilot-id keyed responses (used by the UI)
+          setRollCallResponses(prev => {
+            const updated = { ...prev };
+            // Find which pilot(s) map to this discord_id
+            pilotsRef.current.forEach(pilot => {
+              if ((pilot as any).discord_id === discordId) {
+                const pilotId = pilot.id || pilot.boardNumber;
+                if (newResponse) {
+                  updated[pilotId] = newResponse;
+                } else {
+                  delete updated[pilotId];
+                }
+              }
+            });
+            return updated;
+          });
+        }
+      )
+      .subscribe((status) => {
+        console.log('[ROLL-CALL-REALTIME] Subscription status:', status);
+      });
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [selectedEvent?.id, selectedEvent?.discordEventId]);
 
   return (
     <RollCallContext.Provider
