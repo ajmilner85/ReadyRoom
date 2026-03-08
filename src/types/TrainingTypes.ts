@@ -374,3 +374,50 @@ export interface GradingDialogData {
   // Existing attempts (for viewing history / creating new attempt)
   existingAttempts: TrainingGrade[];
 }
+
+// ==========================================
+// Graduation Outcomes
+// ==========================================
+
+export type GraduationOutcomeType = 'callsign' | 'standing' | 'squadron_assignment' | 'qualifications';
+
+export interface GraduationEffectiveDate {
+  mode: 'graduation' | 'week';
+  weekNumber?: number;
+}
+
+/** A single qualification entry with its own effective date (used in graduation outcome defaultValue) */
+export interface GraduationQualEntry {
+  id: string; // qualification_id
+  effectiveDate: GraduationEffectiveDate;
+}
+
+/** Configuration for a single graduation outcome, stored on the syllabus */
+export interface GraduationOutcome {
+  type: GraduationOutcomeType;
+  enabled: boolean;
+  required: boolean;
+  effectiveDate: GraduationEffectiveDate;
+  /** standing_id for 'standing', GraduationQualEntry[] for 'qualifications', null for others */
+  defaultValue?: string | string[] | GraduationQualEntry[] | null;
+}
+
+/** Record of a graduation that was applied */
+export interface GraduationRecord {
+  id: string;
+  enrollmentId: string;
+  cycleId: string;
+  syllabusId: string;
+  studentPilotId: string;
+  graduatedBy: string;
+  graduatedAt: string;
+  outcomesApplied: AppliedOutcome[];
+  createdAt: string;
+}
+
+/** A single outcome that was applied during graduation */
+export interface AppliedOutcome {
+  type: GraduationOutcomeType;
+  effectiveDate: string; // resolved calendar date
+  value: string | string[] | null; // new callsign, standing_id, squadron_id, or qualification_ids[]
+}
