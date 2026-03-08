@@ -8,6 +8,8 @@ import CriteriaBlockEditor, { CriteriaBlock } from './CriteriaBlockEditor';
 import type { ReferenceMaterial } from '../../types/EventTypes';
 import { uploadEventImage } from '../../utils/eventImageService';
 import { IssuesTab } from '../issues';
+import OutcomesTab from './OutcomesTab';
+import type { GraduationOutcome } from '../../types/TrainingTypes';
 
 interface Mission {
   id?: string;
@@ -46,7 +48,8 @@ const SyllabusEditor: React.FC<SyllabusEditorProps> = ({ syllabusId: propSyllabu
     description: '',
     starts_at_week_zero: false,
     auto_enrollment_rules: [] as CriteriaBlock[],
-    instructor_qualification_rules: [] as CriteriaBlock[]
+    instructor_qualification_rules: [] as CriteriaBlock[],
+    graduation_outcomes: [] as GraduationOutcome[]
   });
 
   const [missions, setMissions] = useState<Mission[]>([]);
@@ -60,7 +63,7 @@ const SyllabusEditor: React.FC<SyllabusEditorProps> = ({ syllabusId: propSyllabu
   const [deleteConfirmIndex, setDeleteConfirmIndex] = useState<number | null>(null);
 
   // Tab state for the syllabus editor
-  const [activeTab, setActiveTab] = useState<'missions' | 'student-enrollment' | 'instructor-qualifications' | 'issues'>('missions');
+  const [activeTab, setActiveTab] = useState<'missions' | 'student-enrollment' | 'instructor-qualifications' | 'outcomes' | 'issues'>('missions');
 
   // Mission dialog tab state
   const [missionDialogTab, setMissionDialogTab] = useState<'details' | 'objectives' | 'reference-materials' | 'issues'>('details');
@@ -130,7 +133,8 @@ const SyllabusEditor: React.FC<SyllabusEditorProps> = ({ syllabusId: propSyllabu
         description: syllabusData.description || '',
         starts_at_week_zero: syllabusData.starts_at_week_zero || false,
         auto_enrollment_rules: convertToBlockFormat(syllabusData.auto_enrollment_rules),
-        instructor_qualification_rules: convertToBlockFormat(syllabusData.instructor_qualification_rules)
+        instructor_qualification_rules: convertToBlockFormat(syllabusData.instructor_qualification_rules),
+        graduation_outcomes: Array.isArray(syllabusData.graduation_outcomes) ? syllabusData.graduation_outcomes : []
       });
 
       const { data: missionsData, error: missionsError } = await supabase
@@ -194,7 +198,8 @@ const SyllabusEditor: React.FC<SyllabusEditorProps> = ({ syllabusId: propSyllabu
             description: syllabus.description,
             starts_at_week_zero: syllabus.starts_at_week_zero,
             auto_enrollment_rules: syllabus.auto_enrollment_rules,
-            instructor_qualification_rules: syllabus.instructor_qualification_rules
+            instructor_qualification_rules: syllabus.instructor_qualification_rules,
+            graduation_outcomes: syllabus.graduation_outcomes
           })
           .select()
           .single();
@@ -209,7 +214,8 @@ const SyllabusEditor: React.FC<SyllabusEditorProps> = ({ syllabusId: propSyllabu
             description: syllabus.description,
             starts_at_week_zero: syllabus.starts_at_week_zero,
             auto_enrollment_rules: syllabus.auto_enrollment_rules,
-            instructor_qualification_rules: syllabus.instructor_qualification_rules
+            instructor_qualification_rules: syllabus.instructor_qualification_rules,
+            graduation_outcomes: syllabus.graduation_outcomes
           })
           .eq('id', syllabusId);
 
@@ -896,7 +902,7 @@ const SyllabusEditor: React.FC<SyllabusEditorProps> = ({ syllabusId: propSyllabu
       {/* Tabs */}
       <div style={{ marginBottom: '24px' }}>
         <div style={{ display: 'flex', borderBottom: '1px solid #E5E7EB' }}>
-          {(['missions', 'student-enrollment', 'instructor-qualifications', 'issues'] as const).map((tab) => (
+          {(['missions', 'student-enrollment', 'instructor-qualifications', 'outcomes', 'issues'] as const).map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -916,6 +922,7 @@ const SyllabusEditor: React.FC<SyllabusEditorProps> = ({ syllabusId: propSyllabu
               {tab === 'missions' && `Missions (${missions.length})`}
               {tab === 'student-enrollment' && 'Student Enrollment'}
               {tab === 'instructor-qualifications' && 'Instructor Qualifications'}
+              {tab === 'outcomes' && 'Outcomes'}
               {tab === 'issues' && 'Issues'}
             </button>
           ))}
@@ -953,6 +960,20 @@ const SyllabusEditor: React.FC<SyllabusEditorProps> = ({ syllabusId: propSyllabu
             addBlockLabel="Add Instructor Criteria Block"
           />
         </div>
+      )}
+
+      {activeTab === 'outcomes' && (
+        <OutcomesTab
+          outcomes={syllabus.graduation_outcomes}
+          onChange={(outcomes) => {
+            setSyllabus({ ...syllabus, graduation_outcomes: outcomes });
+            setHasUnsavedChanges(true);
+          }}
+          maxWeekNumber={missions.length > 0
+            ? (syllabus.starts_at_week_zero ? missions.length - 1 : missions.length)
+            : 10
+          }
+        />
       )}
 
       {activeTab === 'issues' && !isCreating && syllabusId && (

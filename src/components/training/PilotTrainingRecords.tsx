@@ -4,9 +4,12 @@ import { supabase } from '../../utils/supabaseClient';
 import { Users, UserCheck } from 'lucide-react';
 import PTRGrid from './PTRGrid';
 import GradingDialog from './GradingDialog';
+import GraduationDialog from './GraduationDialog';
+import type { GraduationSubmission } from './GraduationDialog';
 import { getCycleEnrollmentCount } from '../../utils/trainingEnrollmentService';
 import { getPilotInstructorCycles, getCycleInstructorCount } from '../../utils/instructorEnrollmentService';
-import { PTRCellData } from '../../types/TrainingTypes';
+import { graduateStudents } from '../../services/graduationService';
+import { PTRCellData, GraduationOutcome } from '../../types/TrainingTypes';
 import { useAuth } from '../../context/AuthContext';
 
 interface TrainingCycle {
@@ -31,6 +34,13 @@ const PilotTrainingRecords: React.FC<PilotTrainingRecordsProps> = ({ error, setE
   const [instructorCounts, setInstructorCounts] = useState<Record<string, number>>({});
   const [gradingDialogCell, setGradingDialogCell] = useState<PTRCellData | null>(null);
   const [ptrGridKey, setPtrGridKey] = useState(0);
+
+  // Graduation dialog state
+  const [graduationStudentIds, setGraduationStudentIds] = useState<string[] | null>(null);
+  const [graduationStudents, setGraduationStudents] = useState<any[]>([]);
+  const [graduationOutcomes, setGraduationOutcomes] = useState<GraduationOutcome[]>([]);
+  const [graduatingSaving, setGraduatingSaving] = useState(false);
+  const [isGraduationPending, setIsGraduationPending] = useState(false);
 
   useEffect(() => {
     loadCycles();
@@ -133,6 +143,85 @@ const PilotTrainingRecords: React.FC<PilotTrainingRecordsProps> = ({ error, setE
   const handleGradingDialogSave = () => {
     // Refresh the PTR grid by updating the key
     setPtrGridKey(prev => prev + 1);
+  };
+
+  const handleGraduateClick = async (studentIds: string[]) => {
+    if (!selectedCycleId) return;
+    const cycle = cycles.find(c => c.id === selectedCycleId);
+    if (!cycle?.syllabus_id) return;
+
+    setIsGraduationPending(true);
+    try {
+      // Load student info
+      const { data: studentsData } = await supabase
+        .from('pilots')
+        .select(`
+          id, callsign, boardNumber,
+          pilot_assignments!inner(squadron_id, end_date,
+            org_squadrons(tail_code, insignia_url, color_palette)
+          )
+        `)
+        .in('id', studentIds);
+
+      const studentInfo = (studentsData || []).map((p: any) => {
+        const currentAssignment = p.pilot_assignments?.find((a: any) => !a.end_date);
+        const sq = currentAssignment?.org_squadrons;
+        return {
+          id: p.id,
+          callsign: p.callsign,
+          board_number: String(p.boardNumber || ''),
+          squadron: sq ? {
+            tail_code: sq.tail_code || '',
+            insignia_url: sq.insignia_url || '',
+            primary_color: sq.color_palette?.primary || '#000000',
+          } : undefined,
+        };
+      });
+
+      // Load syllabus graduation outcomes
+      const { data: syllabusData } = await supabase
+        .from('training_syllabi')
+        .select('graduation_outcomes')
+        .eq('id', cycle.syllabus_id)
+        .single();
+
+      setGraduationStudents(studentInfo);
+      setGraduationOutcomes(
+        Array.isArray(syllabusData?.graduation_outcomes) ? syllabusData.graduation_outcomes : []
+      );
+      setGraduationStudentIds(studentIds);
+    } catch (err: any) {
+      console.error('Error loading graduation data:', err);
+      setError(err.message);
+      setIsGraduationPending(false);
+    }
+  };
+
+  const handleGraduationConfirm = async (submissions: GraduationSubmission[]) => {
+    if (!selectedCycleId || !userProfile?.id) return;
+    const cycle = cycles.find(c => c.id === selectedCycleId);
+    if (!cycle?.syllabus_id) return;
+
+    try {
+      setGraduatingSaving(true);
+      const result = await graduateStudents(
+        submissions,
+        selectedCycleId,
+        cycle.syllabus_id,
+        userProfile.id,
+      );
+
+      if (result.failed.length > 0) {
+        setError(`Failed to graduate ${result.failed.length} student(s): ${result.failed.map(f => f.error).join(', ')}`);
+      }
+
+      setGraduationStudentIds(null);
+      setPtrGridKey(prev => prev + 1);
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setGraduatingSaving(false);
+    }
   };
 
   if (loading) {
@@ -252,6 +341,8 @@ const PilotTrainingRecords: React.FC<PilotTrainingRecordsProps> = ({ error, setE
                 syllabusId={cycles.find(c => c.id === selectedCycleId)!.syllabus_id!}
                 cycleId={selectedCycleId}
                 onCellClick={handleCellClick}
+                onGraduateClick={handleGraduateClick}
+              suppressTooltips={isGraduationPending || !!graduationStudentIds}
               />
             ) : selectedCycleId ? (
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', textAlign: 'center', color: '#6B7280', backgroundColor: 'white', border: '1px solid #E5E7EB', borderRadius: '8px', padding: '40px' }}>
@@ -272,6 +363,21 @@ const PilotTrainingRecords: React.FC<PilotTrainingRecordsProps> = ({ error, setE
               onClose={handleGradingDialogClose}
               onSave={handleGradingDialogSave}
               currentUserPilotId={userProfile?.pilotId}
+            />
+          )}
+
+          {/* Graduation Dialog */}
+          {graduationStudentIds && selectedCycleId && (
+            <GraduationDialog
+              studentIds={graduationStudentIds}
+              students={graduationStudents}
+              cycleId={selectedCycleId}
+              syllabusId={cycles.find(c => c.id === selectedCycleId)!.syllabus_id!}
+              cycleStartDate={cycles.find(c => c.id === selectedCycleId)!.start_date}
+              outcomes={graduationOutcomes}
+              onClose={() => { setGraduationStudentIds(null); setIsGraduationPending(false); }}
+              onConfirm={handleGraduationConfirm}
+              saving={graduatingSaving}
             />
           )}
         </>

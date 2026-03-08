@@ -1,7 +1,7 @@
 // @ts-nocheck
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../utils/supabaseClient';
-import { Download, BookOpen, CheckCircle2, ExternalLink, FileText } from 'lucide-react';
+import { Download, BookOpen, CheckCircle2, ExternalLink, FileText, GraduationCap } from 'lucide-react';
 import PilotIDBadgeSm from '../ui/PilotIDBadgeSm';
 import { PTRCellData, TrainingGrade } from '../../types/TrainingTypes';
 import type { ReferenceMaterial } from '../../types/EventTypes';
@@ -12,6 +12,8 @@ interface PTRGridProps {
   syllabusId: string;
   cycleId: string;
   onCellClick?: (cellData: PTRCellData) => void;
+  onGraduateClick?: (studentIds: string[]) => void;
+  suppressTooltips?: boolean;
 }
 
 interface Student {
@@ -38,11 +40,11 @@ interface WeekInfo {
 }
 
 interface StudentRow {
-  student: Student;
+  student: Student & { enrollment_status?: string };
   weekCells: Map<number, PTRCellData>;
 }
 
-const PTRGrid: React.FC<PTRGridProps> = ({ syllabusId, cycleId, onCellClick }) => {
+const PTRGrid: React.FC<PTRGridProps> = ({ syllabusId, cycleId, onCellClick, onGraduateClick, suppressTooltips }) => {
   const navigate = useNavigate();
   const [studentRows, setStudentRows] = useState<StudentRow[]>([]);
   const [weekInfo, setWeekInfo] = useState<WeekInfo[]>([]);
@@ -97,17 +99,27 @@ const PTRGrid: React.FC<PTRGridProps> = ({ syllabusId, cycleId, onCellClick }) =
       const startDate = new Date(cycleData.start_date);
       setCycleStartDate(startDate);
 
-      // Get enrolled pilots for this cycle (only active and graduated students)
+      // Get enrolled pilots for this cycle (only active and graduated students, with active pilot status)
       const { data: enrollments, error: enrollmentsError } = await supabase
         .from('training_enrollments')
         .select(`
           id,
           pilot_id,
           status,
-          pilots!inner(id, callsign, boardNumber)
+          pilots!inner(
+            id,
+            callsign,
+            boardNumber,
+            pilot_statuses!inner(
+              end_date,
+              statuses!inner(isActive)
+            )
+          )
         `)
         .eq('cycle_id', cycleId)
         .in('status', ['active', 'graduated'])
+        .is('pilots.pilot_statuses.end_date', null)
+        .eq('pilots.pilot_statuses.statuses.isActive', true)
         .order('enrolled_at');
 
       if (enrollmentsError) throw enrollmentsError;
@@ -458,7 +470,8 @@ const PTRGrid: React.FC<PTRGridProps> = ({ syllabusId, cycleId, onCellClick }) =
             id: pilot.id,
             callsign: pilot.callsign,
             board_number: pilot.board_number,
-            squadron: pilot.squadron
+            squadron: pilot.squadron,
+            enrollment_status: pilot.enrollment_status
           },
           weekCells
         };
@@ -524,6 +537,7 @@ const PTRGrid: React.FC<PTRGridProps> = ({ syllabusId, cycleId, onCellClick }) =
   };
 
   const handleCellHover = async (cellData: PTRCellData, event: React.MouseEvent<HTMLTableCellElement>, weekInfo: WeekInfo) => {
+    if (suppressTooltips) return;
     // Only show tooltip if there's a grade
     if (!cellData.hasGrade || !cellData.latestAttemptId) {
       setTooltipData(null);
@@ -708,11 +722,10 @@ const PTRGrid: React.FC<PTRGridProps> = ({ syllabusId, cycleId, onCellClick }) =
                         cursor: hasContent ? 'pointer' : 'default'
                       }}
                       onMouseEnter={() => {
-                        if (hasContent) {
-                          setHoveredCol(week.weekNumber);
-                          if (clickedWeekPopup === null) {
-                            setHoveredWeekPopup(week.weekNumber);
-                          }
+                        if (suppressTooltips || !hasContent) return;
+                        setHoveredCol(week.weekNumber);
+                        if (clickedWeekPopup === null) {
+                          setHoveredWeekPopup(week.weekNumber);
                         }
                       }}
                       onMouseLeave={() => {
@@ -924,6 +937,22 @@ const PTRGrid: React.FC<PTRGridProps> = ({ syllabusId, cycleId, onCellClick }) =
                     </th>
                   );
                 })}
+                {/* Graduation Column Header */}
+                {onGraduateClick && (
+                  <th style={{
+                    padding: '12px 8px 2px',
+                    textAlign: 'center',
+                    backgroundColor: '#F9FAFB',
+                    whiteSpace: 'nowrap',
+                    width: '48px',
+                    minWidth: '48px',
+                    position: 'sticky',
+                    top: 0,
+                    zIndex: 10,
+                  }}>
+                    <GraduationCap size={16} style={{ color: '#6B7280' }} />
+                  </th>
+                )}
               </tr>
               {/* Hop Number Row */}
               <tr style={{ backgroundColor: '#F9FAFB', borderBottom: '1px solid #E5E7EB' }}>
@@ -977,6 +1006,16 @@ const PTRGrid: React.FC<PTRGridProps> = ({ syllabusId, cycleId, onCellClick }) =
                     </th>
                   );
                 })}
+                {/* Graduation Column - Hop Number Row (empty) */}
+                {onGraduateClick && (
+                  <th style={{
+                    padding: '2px 8px 12px',
+                    textAlign: 'center',
+                    backgroundColor: '#F9FAFB',
+                    width: '48px',
+                    minWidth: '48px',
+                  }} />
+                )}
               </tr>
             </thead>
             <tbody>
@@ -1108,6 +1147,57 @@ const PTRGrid: React.FC<PTRGridProps> = ({ syllabusId, cycleId, onCellClick }) =
                       </td>
                     );
                   })}
+                  {/* Graduation Column - Data Cell */}
+                  {onGraduateClick && (
+                    <td
+                      style={{
+                        padding: '12px 8px',
+                        textAlign: 'center',
+                        borderBottom: '1px solid #E5E7EB',
+                        width: '48px',
+                        minWidth: '48px',
+                        backgroundColor: row.student.enrollment_status === 'graduated'
+                          ? '#DCFCE7'
+                          : hoveredRow === row.student.id ? '#F9FAFB' : 'white',
+                        transition: 'background-color 0.1s',
+                      }}
+                      onMouseEnter={() => { if (row.student.enrollment_status !== 'graduated') setHoveredRow(row.student.id); }}
+                      onMouseLeave={() => setHoveredRow(null)}
+                    >
+                      {row.student.enrollment_status === 'graduated' ? (
+                        <CheckCircle2
+                          size={16}
+                          style={{ color: '#16A34A', display: 'block', margin: '0 auto' }}
+                        />
+                      ) : hoveredRow === row.student.id && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setTooltipData(null);
+                            setHoveredWeekPopup(null);
+                            setClickedWeekPopup(null);
+                            onGraduateClick([row.student.id]);
+                          }}
+                          style={{
+                            padding: '4px',
+                            border: 'none',
+                            borderRadius: '4px',
+                            backgroundColor: 'transparent',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            margin: '0 auto',
+                          }}
+                          title="Graduate this student"
+                          onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#EFF6FF')}
+                          onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
+                        >
+                          <GraduationCap size={16} style={{ color: '#2563EB' }} />
+                        </button>
+                      )}
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>

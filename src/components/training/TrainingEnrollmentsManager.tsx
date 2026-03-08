@@ -192,6 +192,17 @@ const TrainingEnrollmentsManager: React.FC<TrainingEnrollmentsManagerProps> = ({
             fontWeight: 500,
             color: '#6B7280',
             textTransform: 'uppercase',
+            width: '120px',
+            borderRight: '1px solid #E5E7EB'
+          }}>
+            Completed
+          </div>
+          <div style={{
+            padding: '8px 12px',
+            fontSize: '12px',
+            fontWeight: 500,
+            color: '#6B7280',
+            textTransform: 'uppercase',
             width: '60px',
             textAlign: 'center'
           }}>
@@ -263,6 +274,17 @@ const TrainingEnrollmentsManager: React.FC<TrainingEnrollmentsManagerProps> = ({
                   borderRight: '1px solid #E5E7EB'
                 }}>
                   {formatDate(enrollment.enrolled_at)}
+                </div>
+                <div style={{
+                  padding: '8px 12px',
+                  fontSize: '14px',
+                  color: '#6B7280',
+                  width: '120px',
+                  borderRight: '1px solid #E5E7EB'
+                }}>
+                  {(enrollment.status === 'graduated' || enrollment.status === 'completed') && enrollment.status_changed_at
+                    ? formatDate(enrollment.status_changed_at)
+                    : '—'}
                 </div>
                 <div style={{
                   padding: '8px 12px',
