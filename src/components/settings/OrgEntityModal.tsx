@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Save, Upload, Edit, Trash } from 'lucide-react';
 import { supabase } from '../../utils/supabaseClient';
+import { uploadToR2, getAccessToken, deleteStorageFileByUrl } from '../../utils/r2StorageService';
 import SquadronDiscordSettings from './SquadronDiscordSettings';
 import { getAllTeams, createTeam, updateTeam, deleteTeam } from '../../utils/organizationService';
 import {
@@ -356,15 +357,30 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
     }));
   };
 
-  // Handle image upload to Supabase storage
+  // Handle image upload to storage (R2 or Supabase depending on feature flag)
   const uploadImageToStorage = async (file: File): Promise<string | null> => {
     try {
       setUploadingImage(true);
-      
+
       // Generate unique filename
       const fileExt = file.name.split('.').pop();
       const fileName = `${entityType}-${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
       const filePath = `insignias/${fileName}`;
+
+      if (import.meta.env.VITE_USE_R2 === 'true') {
+        const accessToken = await getAccessToken();
+        if (!accessToken) {
+          setErrors(prev => ({ ...prev, insignia_url: 'Not authenticated' }));
+          return null;
+        }
+        const r2Path = `organization-assets/${filePath}`;
+        const { url, error: r2Error } = await uploadToR2(file, r2Path, accessToken);
+        if (r2Error || !url) {
+          setErrors(prev => ({ ...prev, insignia_url: 'Failed to upload image: ' + (r2Error || 'Unknown error') }));
+          return null;
+        }
+        return url;
+      }
 
       // Upload file to Supabase storage
       const { error } = await supabase.storage
@@ -403,9 +419,11 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
     const imageFile = files.find(file => file.type.startsWith('image/'));
 
     if (imageFile) {
+      const oldUrl = formData.insignia_url;
       const url = await uploadImageToStorage(imageFile);
       if (url) {
         handleInputChange('insignia_url', url);
+        if (oldUrl) deleteStorageFileByUrl(oldUrl).catch(() => {});
       }
     } else {
       setErrors(prev => ({ ...prev, insignia_url: 'Please drop an image file' }));
@@ -416,9 +434,11 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
   const handleFileInputChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      const oldUrl = formData.insignia_url;
       const url = await uploadImageToStorage(file);
       if (url) {
         handleInputChange('insignia_url', url);
+        if (oldUrl) deleteStorageFileByUrl(oldUrl).catch(() => {});
       }
     }
   };

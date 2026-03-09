@@ -35,6 +35,7 @@ import {
   isEntityActive
 } from '../../utils/organizationService';
 import OrgEntityModal from './OrgEntityModal';
+import { deleteStorageFileByUrl } from '../../utils/r2StorageService';
 
 interface OrganizationSettingsProps {
   error?: string | null;
@@ -311,12 +312,19 @@ const OrganizationSettings: React.FC<OrganizationSettingsProps> = ({ error, setE
             setWings(wings.filter(w => w.id !== entityId));
           }
           break;
-        case 'squadron':
+        case 'squadron': {
+          const sq = deleteConfirmation.entity as Squadron;
+          if (sq.insignia_url) {
+            await deleteStorageFileByUrl(sq.insignia_url).catch(err =>
+              console.warn('[GC] Failed to delete squadron insignia:', err)
+            );
+          }
           result = await deleteSquadron(entityId);
           if (result.success) {
             setSquadrons(squadrons.filter(s => s.id !== entityId));
           }
           break;
+        }
         case 'team':
           result = await deleteTeam(entityId);
           if (!result.error) {

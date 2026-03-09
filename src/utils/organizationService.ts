@@ -374,10 +374,37 @@ export async function createSquadron(squadron: NewSquadron): Promise<{ data: Squ
       
     clearTimeout(timeoutId);
 
-    // If basic insert succeeded, try to get the full record with relations
+    // If basic insert succeeded, save all remaining fields then fetch the full record
     if (!error && data) {
-      console.log('Basic insert succeeded, fetching full record...');
-      
+      console.log('Basic insert succeeded, saving all squadron fields...');
+
+      // Save all fields omitted from the minimal insert
+      const sq = squadron as any;
+      const updateData: any = {};
+      if (sq.squadron_type !== undefined) updateData.squadron_type = sq.squadron_type;
+      if (sq.established_date !== undefined) updateData.established_date = sq.established_date;
+      if (sq.deactivated_date !== undefined) updateData.deactivated_date = sq.deactivated_date;
+      if (sq.tail_code !== undefined) updateData.tail_code = sq.tail_code;
+      if (sq.insignia_url !== undefined) updateData.insignia_url = sq.insignia_url;
+      if (sq.callsigns !== undefined) updateData.callsigns = sq.callsigns;
+      if (sq.color_palette !== undefined) updateData.color_palette = sq.color_palette;
+      if (sq.discord_integration !== undefined) updateData.discord_integration = sq.discord_integration;
+      if (sq.settings !== undefined) updateData.settings = sq.settings;
+
+      if (Object.keys(updateData).length > 0) {
+        const { error: updateError } = await supabase
+          .from('org_squadrons')
+          .update(updateData)
+          .eq('id', data.id);
+
+        if (updateError) {
+          console.error('Squadron fields update failed:', updateError);
+        } else {
+          console.log('Squadron fields updated successfully');
+        }
+      }
+
+      // Fetch full record (with wing join) after all updates are complete
       const { data: fullData, error: fetchError } = await supabase
         .from('org_squadrons')
         .select(`
@@ -401,34 +428,12 @@ export async function createSquadron(squadron: NewSquadron): Promise<{ data: Squ
         `)
         .eq('id', data.id)
         .single();
-        
+
       if (fetchError) {
         console.error('Failed to fetch full squadron data:', fetchError);
-        // Return the basic data if relation fetch fails
         return { data: data as unknown as Squadron, error: null };
       }
-      
-      // Try updating with complex fields
-      const sq = squadron as any;
-      if (sq.callsigns || sq.color_palette || sq.discord_integration) {
-        console.log('Updating with complex fields...');
-        const updateData: any = {};
-        if (sq.callsigns) updateData.callsigns = sq.callsigns;
-        if (sq.color_palette) updateData.color_palette = sq.color_palette;
-        if (sq.discord_integration) updateData.discord_integration = sq.discord_integration;
-        
-        const { error: updateError } = await supabase
-          .from('org_squadrons')
-          .update(updateData)
-          .eq('id', data.id);
-          
-        if (updateError) {
-          console.error('Complex fields update failed:', updateError);
-        } else {
-          console.log('Complex fields updated successfully');
-        }
-      }
-      
+
       return { data: fullData as unknown as Squadron, error: null };
     }
 
