@@ -82,7 +82,7 @@ export const uploadEventImage = async (eventId: string, file: File) => {
     const { data: _data, error } = await supabase.storage
       .from('event-images')
       .upload(filePath, compressedFile, {
-        cacheControl: '3600',
+        cacheControl: '2592000', // 30 days
         upsert: true // Use upsert to override existing files
       });
     
@@ -311,7 +311,7 @@ const uploadSingleImageFile = async (eventId: string, file: File, imageType: str
   const { data: _data, error } = await supabase.storage
     .from('event-images')
     .upload(filePath, compressedFile, {
-      cacheControl: '3600',
+      cacheControl: '2592000', // 30 days
       upsert: true
     });
   

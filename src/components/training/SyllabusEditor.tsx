@@ -1110,6 +1110,7 @@ const SyllabusEditor: React.FC<SyllabusEditorProps> = ({ syllabusId: propSyllabu
                     <img 
                       src={mission.image_url.headerImage} 
                       alt=""
+                      loading="lazy"
                       style={{
                         width: '100%',
                         height: '100%',

@@ -322,6 +322,7 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
                     <img
                       src={squadron.insignia_url}
                       alt={`${squadronName} insignia`}
+                      loading="lazy"
                       style={squadronTileStyles.insignia}
                     />
                   )}

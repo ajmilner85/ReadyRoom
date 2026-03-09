@@ -889,6 +889,7 @@ const EventDetails: React.FC<EventDetailsProps> = ({
                         <img 
                           src={squadron.insignia_url} 
                           alt={`${squadron.designation} insignia`}
+                          loading="lazy"
                           style={{
                             width: '24px',
                             height: '24px',
