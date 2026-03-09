@@ -14,7 +14,7 @@ import type { Event, Cycle, CycleType, ReferenceMaterial } from '../../types/Eve
 import { supabase, fetchCycles, createCycle, updateCycle, deleteCycle,
          fetchEvents, createEvent, updateEvent, deleteEvent } from '../../utils/supabaseClient';
 import { deleteMultiChannelEvent, updateMultiChannelEvent } from '../../utils/discordService';
-import { uploadMultipleEventImages } from '../../utils/eventImageService';
+import { uploadMultipleEventImages, deleteEventImageFiles } from '../../utils/eventImageService';
 import LoadingSpinner from './LoadingSpinner';
 import { useWebSocket } from '../../context/WebSocketContext';
 import { getAllSquadrons } from '../../utils/organizationService';
@@ -1439,6 +1439,15 @@ const EventsManagement: React.FC = () => {
           console.warn(`Failed to delete Discord messages for event ${event.id}:`, discordError);
         }
 
+        // GC: delete associated image files
+        if (event.imageUrl || event.headerImageUrl || event.additionalImageUrls?.length) {
+          await deleteEventImageFiles({
+            imageUrl: event.imageUrl,
+            headerImageUrl: event.headerImageUrl,
+            additionalImageUrls: event.additionalImageUrls,
+          }).catch(err => console.warn(`[GC] Failed to delete images for event ${event.id}:`, err));
+        }
+
         // Delete the event from database
         const { error } = await deleteEvent(event.id);
         if (error) {
@@ -1510,6 +1519,15 @@ const EventsManagement: React.FC = () => {
           // Continue with event deletion even if Discord deletion fails
         }
         
+        // GC: delete associated image files before removing the DB row
+        if (eventToDelete.imageUrl || eventToDelete.headerImageUrl || eventToDelete.additionalImageUrls?.length) {
+          await deleteEventImageFiles({
+            imageUrl: eventToDelete.imageUrl,
+            headerImageUrl: eventToDelete.headerImageUrl,
+            additionalImageUrls: eventToDelete.additionalImageUrls,
+          }).catch(err => console.warn('[GC] Failed to delete event images:', err));
+        }
+
         // Delete event from database
         console.log(`[DELETE-EVENT] Attempting to delete event ${eventToDelete.id} from database`);
         const { error } = await deleteEvent(eventToDelete.id);
