@@ -753,6 +753,7 @@ const FlightAssignmentsKneeboard: React.FC<FlightAssignmentsKneeboardProps> = ({
                           <img
                             src={sq.insignia_url}
                             alt={sq.designation}
+                            loading="lazy"
                             style={{
                               width: '80px',
                               height: '80px',

@@ -405,6 +405,7 @@ const FlightDebriefForm: React.FC<FlightDebriefFormProps> = ({
               <img
                 src={squadron.insignia_url}
                 alt={`${squadron.name} insignia`}
+                loading="lazy"
                 style={{
                   width: '32px',
                   height: '32px',

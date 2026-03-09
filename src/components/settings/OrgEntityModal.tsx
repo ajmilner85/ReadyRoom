@@ -369,7 +369,10 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
       // Upload file to Supabase storage
       const { error } = await supabase.storage
         .from('organization-assets')
-        .upload(filePath, file);
+        .upload(filePath, file, {
+          cacheControl: '2592000', // 30 days
+          upsert: true
+        });
 
       if (error) {
         console.error('Upload error:', error);
