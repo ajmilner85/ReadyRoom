@@ -673,7 +673,7 @@ const App: React.FC = () => {
       </SectionProvider>
       </PageLoadingProvider>
     </AppSettingsProvider>
-    <Analytics scriptSrc="/_proxy/va/script.js" endpoint="/_proxy/va" />
+    <Analytics />
     </>
   );
 };
