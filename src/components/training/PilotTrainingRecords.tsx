@@ -9,6 +9,7 @@ import type { GraduationSubmission } from './GraduationDialog';
 import { getCycleEnrollmentCount } from '../../utils/trainingEnrollmentService';
 import { getPilotInstructorCycles, getCycleInstructorCount } from '../../utils/instructorEnrollmentService';
 import { graduateStudents } from '../../services/graduationService';
+import { clearAllQualificationsCache } from '../../utils/qualificationService';
 import { PTRCellData, GraduationOutcome } from '../../types/TrainingTypes';
 import { useAuth } from '../../context/AuthContext';
 
@@ -214,6 +215,9 @@ const PilotTrainingRecords: React.FC<PilotTrainingRecordsProps> = ({ error, setE
       if (result.failed.length > 0) {
         setError(`Failed to graduate ${result.failed.length} student(s): ${result.failed.map(f => f.error).join(', ')}`);
       }
+
+      // Clear cached qualification data so other pages (e.g. Roster Management) fetch fresh data
+      clearAllQualificationsCache();
 
       setGraduationStudentIds(null);
       setPtrGridKey(prev => prev + 1);
