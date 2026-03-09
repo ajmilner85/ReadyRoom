@@ -21,6 +21,8 @@
     }
   ],
   "rewrites": [
+    { "source": "/_proxy/va/script.js", "destination": "https://va.vercel-scripts.com/v1/script.js" },
+    { "source": "/_proxy/va/:path*", "destination": "https://va.vercel-scripts.com/:path*" },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }
