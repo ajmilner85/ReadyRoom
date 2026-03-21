@@ -2046,11 +2046,15 @@ const RosterManagement: React.FC = () => {
     try {
       setUpdatingSquadron(true);
 
-      const operations = selectedPilots.map(async (pilot) => {
-        await assignPilotToSquadron(pilot.id, squadronId);
-      });
+      const results = await Promise.all(
+        selectedPilots.map(pilot => assignPilotToSquadron(pilot.id, squadronId))
+      );
 
-      await Promise.all(operations);
+      const failed = results.filter(r => !r.success);
+      if (failed.length > 0) {
+        console.error(`Error updating squadron for ${failed.length} pilot(s):`, failed.map(r => r.error));
+      }
+
       await refreshPilots();
     } catch (error) {
       console.error('Error updating squadron:', error);

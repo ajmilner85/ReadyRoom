@@ -244,9 +244,18 @@ export class PermissionCacheService {
         access_training_management: (data as any).permissions?.access_training_management
       });
       
+      const permissions = (data as any).permissions as UserPermissions;
+      // Re-hydrate Date fields that JSON serialization converts to strings
+      if (permissions?.expiresAt && !(permissions.expiresAt instanceof Date)) {
+        (permissions as any).expiresAt = new Date(permissions.expiresAt as any);
+      }
+      if (permissions?.calculatedAt && !(permissions.calculatedAt instanceof Date)) {
+        (permissions as any).calculatedAt = new Date(permissions.calculatedAt as any);
+      }
+
       return {
         userId: userId, // Return the original auth_user_id for consistency
-        permissions: (data as any).permissions as UserPermissions,
+        permissions,
         basesHash: (data as any).bases_hash,
         calculatedAt: new Date((data as any).calculated_at),
         expiresAt: new Date((data as any).expires_at)
