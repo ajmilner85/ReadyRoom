@@ -573,8 +573,49 @@ export const useMissionPrepDataPersistence = (
         // This happens when flights were just added and mission was just created
         console.log('🛡️ Persistence: Protecting existing local flights from being cleared:', prepFlights.length);
       } else {
-        // Clear flights — either DB has no flights, or a remote user deleted them all
-        setPrepFlightsLocal([]);
+        // Before clearing, check if pilot_assignments has flight keys — if so, reconstruct
+        // placeholder cards. This is a safety net for the race where flights were never saved
+        // but pilot assignments were (e.g. missionLoading deferred path).
+        const pilotFlightKeys = Object.keys(mission?.pilot_assignments || {})
+          .filter(k => !k.startsWith('support-'));
+
+        if (pilotFlightKeys.length > 0 && !triggeredByRemoteUpdate) {
+          const callsignCounters: Record<string, number> = {};
+          const reconstructed = pilotFlightKeys
+            .map((flightId) => {
+              const parts = flightId.split('-');
+              let callsign = 'FLIGHT';
+              let sortIndex = 0;
+              if (parts.length >= 3 && /^\d+$/.test(parts[0])) {
+                callsign = parts[1];
+                sortIndex = parseInt(parts[2]) || 0;
+              }
+              return { flightId, callsign, sortIndex };
+            })
+            .sort((a, b) => a.callsign.localeCompare(b.callsign) || a.sortIndex - b.sortIndex)
+            .map(({ flightId, callsign }, idx) => {
+              callsignCounters[callsign] = (callsignCounters[callsign] || 0) + 1;
+              return {
+                id: flightId,
+                callsign,
+                flightNumber: callsignCounters[callsign].toString(),
+                pilots: [
+                  { boardNumber: '', callsign: '', dashNumber: '1' },
+                  { boardNumber: '', callsign: '', dashNumber: '2' },
+                  { boardNumber: '', callsign: '', dashNumber: '3' },
+                  { boardNumber: '', callsign: '', dashNumber: '4' },
+                ],
+                midsA: '',
+                midsB: '',
+                creationOrder: idx,
+              };
+            });
+          console.log('[PERSISTENCE] sync: reconstructed', reconstructed.length, 'flights from pilot_assignments (flights field was empty)');
+          setPrepFlightsLocal(reconstructed);
+        } else {
+          // Clear flights — either DB has no flights, or a remote user deleted them all
+          setPrepFlightsLocal([]);
+        }
       }
     }
   }, [mission?.id, selectedEvent?.id, activePilots?.length, missionLoading, isSyncing, remoteUpdateTrigger]);
@@ -947,6 +988,7 @@ export const useMissionPrepDataPersistence = (
       if (!mission && flights.length > 0) {
         if (missionLoading) {
           console.log('⏳ Persistence: Mission still loading, deferring flight save');
+          pendingFlightsRef.current = flights; // Capture so pending-flights effect can save after mission loads
           return;
         }
         console.log('📝 Triggering mission creation for flight assignments in event:', selectedEvent.id);
