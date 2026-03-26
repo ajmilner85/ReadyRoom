@@ -317,6 +317,18 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
             }
           }
 
+          // If there's a currently selected event with a cycleId, prefer that cycle.
+          // This ensures the dropdown matches the event cached in localStorage rather
+          // than always falling back to whichever cycle is marked "active".
+          if (selectedEvent?.cycleId) {
+            const eventCycle = fetchedCycles.find(cycle => cycle.id === selectedEvent.cycleId);
+            if (eventCycle) {
+              console.log('✅ MissionDetails: Selecting cycle matching selected event:', eventCycle.name);
+              setSelectedCycle(eventCycle);
+              return;
+            }
+          }
+
           // Otherwise, auto-select the active cycle with the earliest start date
           const activeCycles = fetchedCycles.filter(cycle => cycle.status === 'active');
           console.log('🔍 MissionDetails: Active cycles found:', activeCycles.length);

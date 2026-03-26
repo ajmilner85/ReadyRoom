@@ -285,6 +285,17 @@ export const autoAssignPilots = async (
       assignedPilotIds.add(assignedPilot.boardNumber);
     }
   }
+  // Always exclude pilots assigned to mission support roles, regardless of assignment scope.
+  // Support role keys start with 'support-'; these are never touched by the clear/fillGaps logic
+  // above, so without this pass those pilots would remain in the pool and get double-assigned.
+  for (const [key, supportAssignments] of Object.entries(assignedPilots)) {
+    if (key.startsWith('support-')) {
+      for (const assignedPilot of supportAssignments) {
+        if (assignedPilot.id) assignedPilotIds.add(assignedPilot.id);
+        if (assignedPilot.boardNumber) assignedPilotIds.add(assignedPilot.boardNumber);
+      }
+    }
+  }
 
   let availablePilotPool = availablePilots.filter(pilot =>
     !assignedPilotIds.has(pilot.id) && !assignedPilotIds.has(pilot.boardNumber)
