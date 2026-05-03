@@ -70,6 +70,26 @@ export default {
       return new Response(null, { status: 204, headers: cors });
     }
 
+    // GET /object/* - Public CORS proxy for R2 objects (no auth required, bucket is already public)
+    const requestUrl = new URL(request.url);
+    if (request.method === 'GET' && requestUrl.pathname.startsWith('/object/')) {
+      const objectPath = requestUrl.pathname.slice('/object/'.length);
+      const safePath = sanitizePath(objectPath);
+      const corsForGet = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'GET, OPTIONS' };
+      if (!safePath) return new Response('Invalid path', { status: 400, headers: corsForGet });
+
+      const object = await env.R2_BUCKET.get(safePath);
+      if (!object) return new Response('Not found', { status: 404, headers: corsForGet });
+
+      return new Response(object.body, {
+        headers: {
+          'Content-Type': object.httpMetadata?.contentType || 'application/octet-stream',
+          'Cache-Control': 'public, max-age=2592000',
+          'Access-Control-Allow-Origin': '*',
+        },
+      });
+    }
+
     // Auth
     const authHeader = request.headers.get('Authorization');
     const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;

@@ -245,8 +245,27 @@ async function extractEmbedDataFromDatabaseEvent(dbEvent, overrideTimezone = nul
     end: parseDateTime(dbEvent.end_datetime)
   };
 
+  // Construct title with cycle name prefix, matching frontend behavior:
+  // "{Cycle Name} - {Event Name}" when the event belongs to a cycle
+  let eventTitle = dbEvent.name || dbEvent.title || 'Event';
+  if (dbEvent.cycle_id) {
+    try {
+      const { data: cycleData } = await supabase
+        .from('cycles')
+        .select('name')
+        .eq('id', dbEvent.cycle_id)
+        .single();
+
+      if (cycleData?.name) {
+        eventTitle = `${cycleData.name} - ${eventTitle}`;
+      }
+    } catch (cycleError) {
+      console.warn(`[EXTRACT-EMBED-DATA] Error fetching cycle name for event ${dbEvent.id}:`, cycleError.message);
+    }
+  }
+
   return {
-    title: dbEvent.name || dbEvent.title || 'Event',
+    title: eventTitle,
     description: dbEvent.description || '',
     eventTime,
     imageData,
