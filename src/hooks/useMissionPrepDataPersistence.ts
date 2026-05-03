@@ -824,20 +824,33 @@ export const useMissionPrepDataPersistence = (
             if (flightId.startsWith('support-')) {
               return;
             }
-            
+
             // Filter out empty pilots (those without an id or boardNumber)
             const validPilots = pilotsList.filter(pilot => pilot.id && pilot.boardNumber);
-            
+
+            // Look up flight-level MIDS values to compute per-section channels
+            const flight = prepFlights?.find((f: any) => f.id === flightId);
+            const flightMidsA = flight?.midsA || '';
+            const flightMidsB = flight?.midsB || '';
+            const flightMidsANum = parseInt(flightMidsA) || 0;
+
             // Always include the flight key, even if empty
-            pilotAssignments[flightId] = validPilots.map((pilot, _index) => ({
-              pilot_id: pilot.id,
-              flight_id: flightId,
-              slot_number: pilotsList.indexOf(pilot) + 1, // Use original index
-              dash_number: pilot.dashNumber,
-              mids_a_channel: (pilot as any).midsAChannel || '',
-              mids_b_channel: (pilot as any).midsBChannel || '',
-              roll_call_status: pilot.rollCallStatus || null
-            }));
+            pilotAssignments[flightId] = validPilots.map((pilot, _index) => {
+              // Dash 3 and 4 are in the second section and get midsA + 1
+              const dashNum = parseInt(pilot.dashNumber || '0');
+              const isSecondSection = dashNum >= 3 && flightMidsANum > 0;
+              const pilotMidsA = isSecondSection ? (flightMidsANum + 1).toString() : flightMidsA;
+
+              return {
+                pilot_id: pilot.id,
+                flight_id: flightId,
+                slot_number: pilotsList.indexOf(pilot) + 1, // Use original index
+                dash_number: pilot.dashNumber,
+                mids_a_channel: pilotMidsA,
+                mids_b_channel: flightMidsB,
+                roll_call_status: pilot.rollCallStatus || null
+              };
+            });
           });
           
           console.log('🔄 Persistence: Executing database save with assignments (including roll call):', pilotAssignments);

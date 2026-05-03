@@ -55,6 +55,8 @@ interface AssignedPilot {
   attendanceStatus?: 'accepted' | 'tentative' | 'declined';
   rollCallStatus?: 'Present' | 'Absent' | 'Tentative';
   pilotId?: string;
+  mids_a_channel?: string;
+  mids_b_channel?: string;
 }
 
 interface SquadronInfo {
@@ -601,7 +603,7 @@ const FlightAssignmentsKneeboard: React.FC<FlightAssignmentsKneeboardProps> = ({
                     {pilot.callsign || '(Empty)'}
                   </span>
 
-                  {/* MIDS A - from flight level */}
+                  {/* MIDS A - per-pilot channel, fall back to computing from flight data */}
                   <span style={{
                     width: '52px',
                     fontSize: '22px',
@@ -609,10 +611,17 @@ const FlightAssignmentsKneeboard: React.FC<FlightAssignmentsKneeboardProps> = ({
                     color: colors.textSecondary,
                     textAlign: 'center'
                   }}>
-                    {flight.midsA || '---'}
+                    {(() => {
+                      if (pilot.mids_a_channel) return pilot.mids_a_channel;
+                      // Fall back: compute from flight midsA and dash number
+                      const flightMidsANum = parseInt(flight.midsA || '') || 0;
+                      if (!flightMidsANum) return '---';
+                      const dashNum = parseInt((pilot as any).dash_number || pilot.dashNumber || '0');
+                      return dashNum >= 3 ? (flightMidsANum + 1).toString() : flight.midsA || '---';
+                    })()}
                   </span>
 
-                  {/* MIDS B - from flight level */}
+                  {/* MIDS B - per-pilot channel, fall back to flight-level */}
                   <span style={{
                     width: '52px',
                     fontSize: '22px',
@@ -620,7 +629,7 @@ const FlightAssignmentsKneeboard: React.FC<FlightAssignmentsKneeboardProps> = ({
                     color: colors.textSecondary,
                     textAlign: 'center'
                   }}>
-                    {flight.midsB || '---'}
+                    {pilot.mids_b_channel || flight.midsB || '---'}
                   </span>
                 </div>
               );
