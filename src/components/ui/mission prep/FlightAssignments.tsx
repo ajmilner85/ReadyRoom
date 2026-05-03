@@ -1145,11 +1145,21 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
         try {
           const img = new Image();
           img.crossOrigin = 'anonymous';
-          
+
+          // R2 public URLs don't include CORS headers, so route through the worker
+          // proxy endpoint which serves the object with Access-Control-Allow-Origin: *
+          const rawUrl = squadronGroup.squadron.insignia_url!;
+          const workerUrl = import.meta.env.VITE_WORKER_URL as string | undefined;
+          let imageUrl = rawUrl;
+          if (workerUrl && rawUrl.includes('.r2.dev/')) {
+            const path = new URL(rawUrl).pathname.slice(1); // strip leading /
+            imageUrl = `${workerUrl}/object/${path}`;
+          }
+
           await new Promise((resolve, reject) => {
             img.onload = resolve;
             img.onerror = reject;
-            img.src = squadronGroup.squadron.insignia_url!;
+            img.src = imageUrl;
           });
           
           ctx.drawImage(img, insigniaX, insigniaY, insigniaSize, insigniaSize);
