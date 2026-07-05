@@ -462,12 +462,13 @@ const DiscordRoleVerificationReport: React.FC<DiscordRoleVerificationReportProps
       const { pilotId, item, earnedDate } = repairDialogData;
 
       if (item.type === 'qualification' && item.mapping.qualification) {
-        // Check if qualification already exists
+        // Check if qualification is currently held (historical records don't block re-adding)
         const { data: existingQuals, error: checkError } = await supabase
           .from('pilot_qualifications')
           .select('id')
           .eq('pilot_id', pilotId)
-          .eq('qualification_id', item.mapping.qualification);
+          .eq('qualification_id', item.mapping.qualification)
+          .eq('is_current', true);
 
         if (checkError) {
           console.error('Error checking existing qualifications:', checkError);

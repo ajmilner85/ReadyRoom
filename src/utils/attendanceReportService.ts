@@ -170,6 +170,7 @@ async function fetchActivePilots(startDate: string, endDate: string): Promise<Pi
           )
         `)
         .eq('pilot_id', pilotId)
+        .eq('is_current', true)
         .or(`expiry_date.is.null,expiry_date.gte.${startDate}`);
 
       if (qualError) {

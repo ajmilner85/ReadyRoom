@@ -1,7 +1,7 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { Card } from '../card';
 import { pilotDetailsStyles } from '../../../styles/RosterManagementStyles';
-import { Pilot } from '../../../types/PilotTypes';
+import type { Pilot } from '../../../utils/pilotTypes';
 import { Status } from '../../../utils/statusService';
 import { Standing } from '../../../utils/standingService';
 import { Role } from '../../../utils/roleService';
@@ -345,12 +345,13 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
     if (!repairDialogData || !selectedPilot) return;
     
     try {
-      // Check if qualification already exists to prevent duplicate key error
+      // Check if qualification is currently held (historical records don't block re-adding)
       const { data: existingQualifications, error: checkError } = await supabase
         .from('pilot_qualifications')
         .select('id')
         .eq('pilot_id', selectedPilot.id)
-        .eq('qualification_id', repairDialogData.selectedQualificationId);
+        .eq('qualification_id', repairDialogData.selectedQualificationId)
+        .eq('is_current', true);
 
       if (checkError) {
         console.error('Error checking existing qualifications:', checkError);
@@ -650,7 +651,8 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
           id: role.id,
           name: role.name,
           exclusivity_scope: role.exclusivity_scope,
-          order: role.order
+          order: role.order,
+          created_at: null
         }
       }] : []
     });
@@ -671,9 +673,7 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
         pilot_id: editedPilot.id,
         squadron_id: squadron.id,
         start_date: new Date().toISOString().split('T')[0],
-        end_date: null,
-        created_at: new Date().toISOString(),
-        updated_at: null
+        created_at: new Date().toISOString()
       } : undefined
     });
 
@@ -689,8 +689,8 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
     // Update edited pilot with new Discord info
     setEditedPilot({
       ...editedPilot,
-      discord_id: discordId || undefined,
-      discordUsername: selectedMember?.username || ''
+      discord_id: discordId || null,
+      discord_username: selectedMember?.username || null
     });
 
     setSelectedDiscordId(discordId);
@@ -703,8 +703,8 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
     // Clear Discord selection locally (doesn't save immediately)
     setEditedPilot({
       ...editedPilot,
-      discord_id: undefined,
-      discordUsername: ''
+      discord_id: null,
+      discord_username: null
     });
 
     setSelectedDiscordId('');

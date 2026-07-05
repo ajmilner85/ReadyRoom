@@ -150,6 +150,7 @@ async function fetchActivePilots(
     .from('pilot_qualifications')
     .select('pilot_id, qualification_id')
     .in('pilot_id', uniquePilotIds)
+    .eq('is_current', true)
     .or(`expiry_date.is.null,expiry_date.gte.${startDate}`);
 
   // Map qualifications by pilot_id for quick lookup

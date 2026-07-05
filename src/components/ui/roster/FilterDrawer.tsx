@@ -4,9 +4,16 @@ import { Status } from '../../../utils/statusService';
 import { Standing } from '../../../utils/standingService';
 import { Role } from '../../../utils/roleService';
 import { Qualification } from '../../../utils/qualificationService';
-import { Pilot } from '../../../types/PilotTypes';
-
 export type QualificationFilterMode = 'include' | 'exclude';
+
+// Minimal structural shape the filter needs — works with both the roster
+// page's Pilot (utils/pilotTypes) and mission prep's legacy Pilot type
+export interface FilterablePilot {
+  id: string;
+  currentStatus?: { id: string } | null;
+  currentStanding?: { id: string } | null;
+  roles?: { role?: { id: string } | null }[] | null;
+}
 
 interface FilterDrawerProps {
   squadrons: Squadron[];
@@ -14,7 +21,7 @@ interface FilterDrawerProps {
   standings: Standing[];
   roles: Role[];
   qualifications: Qualification[];
-  pilots: Pilot[];
+  pilots: FilterablePilot[];
   allPilotQualifications: Record<string, any[]>;
   selectedSquadronIds: string[];
   selectedStatusIds: string[];

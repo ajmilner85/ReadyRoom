@@ -14,6 +14,7 @@
  * - processScheduledPublications: Scheduled event publishing
  * - processConcludedEvents: Mark finished events for cleanup
  * - processMissionStatusUpdates: Update mission status based on timing
+ * - processEventStatusUpdates: Update event status based on timing
  *
  * USAGE:
  * Called once from server startup: startProcessorOrchestrator()
@@ -22,7 +23,7 @@
 const { processReminders } = require('./reminderProcessor');
 const { processScheduledPublications } = require('./scheduledPublicationProcessor');
 const { processConcludedEvents } = require('./concludedEventsProcessor');
-const { processMissionStatusUpdates } = require('./missionStatusProcessor');
+const { processMissionStatusUpdates, processEventStatusUpdates } = require('./missionStatusProcessor');
 
 let processorIntervalId = null;
 
@@ -49,6 +50,11 @@ function startProcessorOrchestrator() {
     console.error('Error in initial mission status updates processing:', error);
   });
 
+  // Process event status updates immediately
+  processEventStatusUpdates().catch(error => {
+    console.error('Error in initial event status updates processing:', error);
+  });
+
   // Then process every 1 minute
   processorIntervalId = setInterval(() => {
     processReminders().catch(error => {
@@ -62,6 +68,9 @@ function startProcessorOrchestrator() {
     });
     processMissionStatusUpdates().catch(error => {
       console.error('Error in scheduled mission status updates processing:', error);
+    });
+    processEventStatusUpdates().catch(error => {
+      console.error('Error in scheduled event status updates processing:', error);
     });
   }, 60000); // 1 minute = 60000ms
 

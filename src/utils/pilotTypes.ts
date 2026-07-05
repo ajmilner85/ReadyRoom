@@ -56,6 +56,7 @@ export interface Pilot extends PilotBase {
   };
   // Additional fields for compatibility
   standing_id?: string;
+  status_id?: string;
   status?: string; // Legacy status field for backward compatibility - optional
 }
 

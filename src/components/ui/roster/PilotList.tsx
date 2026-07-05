@@ -1,5 +1,5 @@
 import React, { useRef, useMemo, useCallback, useState } from 'react';
-import { Pilot } from '../../../types/PilotTypes';
+import type { Pilot } from '../../../utils/pilotTypes';
 import { Status } from '../../../utils/statusService';
 import { Standing } from '../../../utils/standingService';
 import { Squadron } from '../../../utils/squadronService';
@@ -194,8 +194,8 @@ const PilotList: React.FC<PilotListProps> = ({
 
       // Then apply secondary sort
       if (sortBy === 'boardNumber') {
-        const numA = parseInt(a.boardNumber || '0') || 0;
-        const numB = parseInt(b.boardNumber || '0') || 0;
+        const numA = Number(a.boardNumber) || 0;
+        const numB = Number(b.boardNumber) || 0;
         return numA - numB;
       } else if (sortBy === 'callsign') {
         return a.callsign.localeCompare(b.callsign);

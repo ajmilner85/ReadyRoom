@@ -1,13 +1,14 @@
 /**
  * MISSION STATUS PROCESSOR
  *
- * PURPOSE: Automatically updates mission status based on event timing
+ * PURPOSE: Automatically updates mission and event status based on event timing
  *
  * RESPONSIBILITIES:
  * - Monitor missions in 'planning' and 'in_progress' status
  * - Update to 'in_progress' when event start time is reached
  * - Update to 'completed' when event end time is reached
  * - Time-based state machine: planning → in_progress → completed
+ * - Mirror the same transitions on events: upcoming → active → completed
  *
  * DEPENDENCIES:
  * - Supabase client for database queries/updates
@@ -110,6 +111,77 @@ async function processMissionStatusUpdates() {
   }
 }
 
+/**
+ * Update events.status based on timing: upcoming → active → completed.
+ * Events with no end_datetime go straight to completed once their start
+ * time passes (mirrors the frontend's date-based categorization, which
+ * treats a missing end as a zero-length active window).
+ */
+async function processEventStatusUpdates() {
+  try {
+    const now = new Date();
+
+    // Fetch events whose start has passed but aren't completed yet.
+    // Includes null status (legacy rows) so they get backfilled.
+    const { data: events, error: fetchError } = await supabase
+      .from('events')
+      .select('id, name, status, start_datetime, end_datetime')
+      .or('status.is.null,status.eq.upcoming,status.eq.active')
+      .lte('start_datetime', now.toISOString());
+
+    if (fetchError) {
+      console.error('[EVENT-STATUS] Error fetching events:', fetchError);
+      return { updated: 0, errors: [fetchError] };
+    }
+
+    if (!events || events.length === 0) {
+      return { updated: 0, errors: [] };
+    }
+
+    let updated = 0;
+    const errors = [];
+
+    for (const event of events) {
+      try {
+        const endTime = event.end_datetime ? new Date(event.end_datetime) : null;
+        const newStatus = endTime && now < endTime ? 'active' : 'completed';
+
+        if (newStatus === event.status) {
+          continue;
+        }
+
+        const { error: updateError } = await supabase
+          .from('events')
+          .update({
+            status: newStatus,
+            updated_at: now.toISOString()
+          })
+          .eq('id', event.id);
+
+        if (updateError) {
+          console.error(`[EVENT-STATUS] Error updating event ${event.id}:`, updateError);
+          errors.push({ eventId: event.id, error: updateError });
+        } else {
+          updated++;
+          console.log(`[EVENT-STATUS] Updated event "${event.name}" (${event.id}) from "${event.status}" to "${newStatus}"`);
+        }
+      } catch (error) {
+        console.error(`[EVENT-STATUS] Error processing event ${event.id}:`, error);
+        errors.push({ eventId: event.id, error });
+      }
+    }
+
+    if (updated > 0 || errors.length > 0) {
+      console.log(`[EVENT-STATUS] Completed: ${updated} updated, ${errors.length} errors`);
+    }
+    return { updated, errors };
+  } catch (error) {
+    console.error('[EVENT-STATUS] Error in processEventStatusUpdates:', error);
+    return { updated: 0, errors: [{ error }] };
+  }
+}
+
 module.exports = {
-  processMissionStatusUpdates
+  processMissionStatusUpdates,
+  processEventStatusUpdates
 };

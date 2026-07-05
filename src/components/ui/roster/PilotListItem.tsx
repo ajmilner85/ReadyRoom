@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { Pilot } from '../../../types/PilotTypes';
+import type { Pilot } from '../../../utils/pilotTypes';
 import QualificationBadge from '../QualificationBadge';
 import PilotIDBadgeSm from '../PilotIDBadgeSm';
 import { pilotListStyles } from '../../../styles/RosterManagementStyles';
@@ -163,7 +163,7 @@ const PilotListItem: React.FC<PilotListItemProps> = ({
       <div style={{ marginLeft: '-20px' }}>
         <PilotIDBadgeSm 
           squadronTailCode={pilot.currentSquadron?.tail_code || undefined}
-          boardNumber={pilot.boardNumber}
+          boardNumber={String(pilot.boardNumber)}
           squadronInsigniaUrl={pilot.currentSquadron?.insignia_url || undefined}
         />
       </div>

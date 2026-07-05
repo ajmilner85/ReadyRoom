@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { usePageLoading } from '../../context/PageLoadingContext';
 import { usePermissions } from '../../hooks/usePermissions';
 import StandardPageLoader from './StandardPageLoader';
-import { Pilot } from '../../types/PilotTypes';
+import type { Pilot } from '../../utils/pilotTypes';
 import {
   getAllPilots,
   getPilotByDiscordId,
@@ -267,7 +267,7 @@ const RosterManagement: React.FC = () => {
         setPilots(prevPilots =>
           prevPilots.map(pilot =>
             pilot.id === pilotId
-              ? { ...pilot, discordUsername: '', discord_id: undefined }
+              ? { ...pilot, discord_username: null, discord_id: null }
               : pilot
           )
         );
@@ -276,8 +276,8 @@ const RosterManagement: React.FC = () => {
         if (selectedPilot && selectedPilot.id === pilotId) {
           setSelectedPilot({
             ...selectedPilot,
-            discordUsername: '',
-            discord_id: undefined
+            discord_username: null,
+            discord_id: null
           });
         }
 
@@ -322,36 +322,8 @@ const RosterManagement: React.FC = () => {
       }
 
       if (data && data.length > 0) {
-        // Use the pilot data directly from getAllPilots() - it already has the new structure
-        const convertedPilots = data.map(pilot => {
-          // Create the pilot object with all necessary properties
-          const legacyPilot: Pilot = {
-            id: pilot.id, // Use the actual pilot UUID as ID
-            discord_id: (pilot as any).discord_id, // Preserve numeric Discord ID
-            callsign: pilot.callsign,
-            boardNumber: pilot.boardNumber.toString(), // Convert to string for legacy compatibility
-            discord_username: pilot.discord_username || undefined, // Handle null case
-            currentStatus: pilot.currentStatus || undefined,
-            currentStanding: pilot.currentStanding || undefined,
-            qualifications: ((pilot as any).qualifications || []).map((q: any, index: number) => ({
-              id: `${pilot.id}-${index}`,
-              type: q as any,
-              dateAchieved: new Date().toISOString().split('T')[0]
-            })), // Convert strings to Qualification objects
-            // Set status based on currentStatus if available
-            status: pilot.currentStatus?.name || 'Provisional' as any,
-            billet: '', // Default empty billet
-            discordUsername: pilot.discord_username || '', // Use discord_username for display
-            roles: pilot.roles as any, // KEEP THE ROLES - cast to avoid type conflicts
-            // Add squadron assignment information
-            currentSquadron: (pilot as any).currentSquadron || undefined,
-            squadronAssignment: (pilot as any).squadronAssignment || undefined
-          };
-          
-          
-          return legacyPilot;
-        });
-        setPilots(convertedPilots);
+        // Use the pilot data directly from getAllPilots() - no conversion needed
+        setPilots(data);
       }
     } catch (err: any) {
       console.error('Error refreshing pilots:', err);
@@ -381,13 +353,15 @@ const RosterManagement: React.FC = () => {
     const blankPilot: Pilot = {
       id: tempId,
       callsign: '',
-      boardNumber: '',
-      billet: '',
+      boardNumber: 0,
+      discord_username: null,
+      discord_id: null,
+      discord_roles: null,
+      created_at: new Date().toISOString(),
+      updated_at: null,
       status: 'Provisional',
       status_id: blankFormData.status_id,
-      standing_id: blankFormData.standing_id,
-      qualifications: [],
-      discordUsername: ''
+      standing_id: blankFormData.standing_id
     };
     
     setIsAddingNewPilot(true);
@@ -498,7 +472,8 @@ const RosterManagement: React.FC = () => {
                 id: role.id,
                 name: role.name,
                 exclusivity_scope: role.exclusivity_scope,
-                order: role.order
+                order: role.order,
+                created_at: null
               }
             }];
           }
@@ -667,26 +642,9 @@ const RosterManagement: React.FC = () => {
         if (!fetchError && freshPilots) {
           const createdPilot = freshPilots.find(p => p.id === data.id || p.callsign === data.callsign);
           if (createdPilot) {
-            // Convert to Pilot format matching the interface requirements
-            const pilotToSelect: Pilot = {
-              id: createdPilot.id,
-              discord_id: (createdPilot as any).discord_id,
-              discord_username: createdPilot.discord_username || undefined,
-              callsign: createdPilot.callsign,
-              boardNumber: createdPilot.boardNumber.toString(),
-              status: (createdPilot.currentStatus?.name as any) || 'Provisional',
-              billet: '',
-              qualifications: [],
-              discordUsername: createdPilot.discord_username || '',
-              currentStatus: createdPilot.currentStatus || undefined,
-              currentStanding: createdPilot.currentStanding || undefined,
-              currentSquadron: (createdPilot as any).currentSquadron || undefined,
-              roles: (createdPilot as any).roles || undefined
-            };
-
             // Select the pilot - this will trigger the useEffect to fetch qualifications, teams, enrollments
-            setSelectedPilot(pilotToSelect);
-            setSelectedPilots([pilotToSelect]);
+            setSelectedPilot(createdPilot);
+            setSelectedPilots([createdPilot]);
           }
         }
 
@@ -1595,10 +1553,14 @@ const RosterManagement: React.FC = () => {
       // Get the actual UUID
       const actualPilotId = await getActualPilotId(selectedPilot.id);
 
-      // Remove the specific qualification record by its ID (not qualification_id)
+      // Soft-delete the specific qualification record by its ID, preserving history
       const { error } = await supabase
         .from('pilot_qualifications')
-        .delete()
+        .update({
+          is_current: false,
+          superseded_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
         .eq('id', pilotQualificationRecordId);
 
       if (error) {
@@ -2092,12 +2054,13 @@ const RosterManagement: React.FC = () => {
       const operations = selectedPilots.map(async (pilot) => {
         console.log(`[Bulk Add Qual] Processing pilot ${pilot.callsign} (${pilot.id})`);
 
-        // Check if pilot already has this qualification
+        // Check if pilot currently has this qualification (historical records don't count)
         const { data: existingQual, error: checkError } = await supabase
           .from('pilot_qualifications')
           .select('id')
           .eq('pilot_id', pilot.id)
           .eq('qualification_id', qualificationId)
+          .eq('is_current', true)
           .maybeSingle();
 
         if (checkError) {
@@ -2507,8 +2470,8 @@ const RosterManagement: React.FC = () => {
       // Prepare update payload - only include fields that can be updated directly
       const updatePayload: any = {
         callsign: updatedPilot.callsign,
-        boardNumber: parseInt(updatedPilot.boardNumber),
-        discord_username: updatedPilot.discordUsername || null,
+        boardNumber: Number(updatedPilot.boardNumber),
+        discord_username: updatedPilot.discord_username || null,
         discord_id: updatedPilot.discord_id || null
         // Note: role is handled separately
         // Note: status and standing are now handled via join tables, not direct updates

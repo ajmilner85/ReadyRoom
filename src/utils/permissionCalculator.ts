@@ -158,8 +158,9 @@ export class PermissionCalculator {
         )
       `)
       .eq('pilot_id', pilotId)
+      .eq('is_current', true)
       .or('expiry_date.is.null,expiry_date.gt.now()');
-    
+
     if (error) {
       console.warn('Error fetching pilot qualifications:', error);
       return [];
