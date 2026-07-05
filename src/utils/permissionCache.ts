@@ -192,6 +192,7 @@ export class PermissionCacheService {
       .from('pilot_qualifications')
       .select('qualification_id')
       .eq('pilot_id', pilotId)
+      .eq('is_current', true)
       .or('expiry_date.is.null,expiry_date.gt.now()');
     return data?.map(q => ({ id: q.qualification_id })) || [];
   }

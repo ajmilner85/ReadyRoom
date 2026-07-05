@@ -147,7 +147,8 @@ export async function getSuggestedEnrollments(syllabusId: string): Promise<Enrol
             const { data: pilotQuals, error: pilotQualsError } = await supabase
               .from('pilot_qualifications')
               .select('pilot_id')
-              .in('qualification_id', qualIds);
+              .in('qualification_id', qualIds)
+              .eq('is_current', true);
 
             if (pilotQualsError) {
               console.error('Error fetching pilot qualifications:', pilotQualsError);

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Card } from '../card';
 import { pilotDetailsStyles } from '../../../styles/RosterManagementStyles';
-import { Pilot } from '../../../types/PilotTypes';
+import type { Pilot } from '../../../utils/pilotTypes';
 import { Status } from '../../../utils/statusService';
 import { Standing } from '../../../utils/standingService';
 import { Squadron } from '../../../utils/squadronService';
@@ -413,7 +413,7 @@ const BulkEditPilotDetails: React.FC<BulkEditPilotDetailsProps> = ({
   }, [selectedPilots, allPilotEnrollments]);
 
   // Calculate common Discord roles
-  const hasDiscordLinked = selectedPilots.every(p => p.discordUsername);
+  const hasDiscordLinked = selectedPilots.every(p => p.discord_username);
 
   const handleAddQualification = async () => {
     console.log('[BulkEditPilotDetails] handleAddQualification called with:', { selectedQualification, achievedDate });

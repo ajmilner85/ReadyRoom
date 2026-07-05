@@ -126,24 +126,26 @@ export async function updateQualification(id: string, updates: Partial<Omit<Qual
  */
 export async function deleteQualification(id: string): Promise<{ success: boolean; error: any }> {
   try {
-    // First check if any pilots have this qualification
+    // Check if any pilot records (current OR historical) reference this
+    // qualification - historical records must be preserved, so deletion is
+    // blocked either way. Archive (active = false) instead.
     const { data: pilotsWithQual, error: checkError } = await supabase
       .from('pilot_qualifications')
       .select('id')
       .eq('qualification_id', id);
-    
+
     if (checkError) {
       throw checkError;
     }
-    
-    // If pilots have this qualification, prevent deletion
+
+    // If pilot records reference this qualification, prevent deletion
     if (pilotsWithQual && pilotsWithQual.length > 0) {
-      return { 
-        success: false, 
+      return {
+        success: false,
         error: {
-          message: `Cannot delete qualification: It is assigned to ${pilotsWithQual.length} pilots`,
+          message: `Cannot delete qualification: ${pilotsWithQual.length} pilot record(s) reference it (including historical records). Archive it instead.`,
           code: "foreign_key_violation"
-        } 
+        }
       };
     }
     
@@ -166,8 +168,9 @@ export async function archiveQualification(id: string): Promise<{ data: Qualific
 }
 
 /**
- * Get the usage count of a qualification
- * Returns the number of pilots currently assigned this qualification
+ * Get the usage count of a qualification.
+ * Counts ALL pilot records (current and historical) because this gates
+ * deletion - historical records must block deletes to preserve history.
  */
 export async function getQualificationUsageCount(qualificationId: string): Promise<{ count: number; error: any }> {
   try {
@@ -228,29 +231,36 @@ export async function assignQualificationToPilot(
 }
 
 /**
- * Remove a qualification from a pilot
+ * Remove a qualification from a pilot.
+ * Soft-deletes by marking the record not current, preserving history so
+ * "held X qualification at time Y" remains reconstructable.
  */
 export async function removeQualificationFromPilot(pilotId: string, qualificationId: string): Promise<{ success: boolean; error: any }> {
   try {
     console.log('Attempting to remove qualification:', { pilotId, qualificationId });
 
-    const { data, error, count } = await supabase
+    const { data, error } = await supabase
       .from('pilot_qualifications')
-      .delete()
+      .update({
+        is_current: false,
+        superseded_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      })
       .eq('pilot_id', pilotId)
       .eq('qualification_id', qualificationId)
+      .eq('is_current', true)
       .select();
 
-    console.log('Delete result:', { data, error, count, deletedRows: data?.length });
+    console.log('Remove result:', { data, error, removedRows: data?.length });
 
     if (error) {
-      console.error('Supabase delete error:', error);
+      console.error('Supabase update error:', error);
       return { success: false, error };
     }
 
-    // Check if any rows were actually deleted
+    // Check if any rows were actually updated
     if (!data || data.length === 0) {
-      console.warn('No rows were deleted - qualification may not exist');
+      console.warn('No rows were updated - qualification may not exist');
       return { success: false, error: { message: 'Qualification not found or already removed' } };
     }
 
@@ -354,14 +364,16 @@ export async function getPilotQualifications(pilotId: string): Promise<{ data: a
         return { data: qualificationsCache[actualPilotId], error: null };
       }
       
-      // Get the qualifications using the actual UUID
+      // Get the current qualifications using the actual UUID
+      // (superseded/removed records are kept for history but excluded here)
       const { data, error } = await supabase
         .from('pilot_qualifications')
         .select(`
           *,
           qualification:qualifications(*)
         `)
-        .eq('pilot_id', actualPilotId);
+        .eq('pilot_id', actualPilotId)
+        .eq('is_current', true);
 
       if (error) {
         return { data: null, error };
@@ -451,7 +463,8 @@ export async function getBatchPilotQualifications(pilotIds: string[]): Promise<R
           qualification:qualifications(*),
           pilot_id
         `)
-        .in('pilot_id', chunk);
+        .in('pilot_id', chunk)
+        .eq('is_current', true);
         
       if (error) {
         continue; // Skip this chunk but continue with others

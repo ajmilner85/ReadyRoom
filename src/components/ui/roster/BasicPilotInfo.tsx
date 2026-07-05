@@ -1,6 +1,6 @@
 import React from 'react';
 import { pilotDetailsStyles } from '../../../styles/RosterManagementStyles';
-import { Pilot } from '../../../types/PilotTypes';
+import type { Pilot } from '../../../utils/pilotTypes';
 
 interface BasicPilotInfoProps {
   pilot: Pilot;
@@ -47,7 +47,7 @@ const BasicPilotInfo: React.FC<BasicPilotInfoProps> = ({ pilot }) => {
           Discord Username
         </label>
         <div style={fieldValueStyle}>
-          {pilot.discordUsername || '\u00A0'}
+          {pilot.discord_username || '\u00A0'}
         </div>
       </div>
     </>
