@@ -25,43 +25,66 @@ export function getSupabase(): SupabaseClient<Database> {
   return client;
 }
 
-// Resilient wrapper function (duplicated from sb.ts to avoid circular dependency)
+// Auth-shaped errors: expired/invalid JWT (PGRST301) or RLS denial (42501),
+// which can be caused by a stale user_permission_cache rather than a genuine
+// lack of permission — so recovery refreshes both the session and the cache.
+function isAuthError(err: any): boolean {
+  if (!err) return false;
+  const message = typeof err === 'string' ? err : err.message ?? '';
+  const status = err.status ?? err.statusCode;
+  return status === 401 || status === 403 ||
+    err.code === 'PGRST301' || err.code === '42501' ||
+    /jwt expired|invalid jwt|row-level security/i.test(message);
+}
+
+async function recoverFromAuthError(supabase: SupabaseClient<Database>): Promise<void> {
+  const { data: { session } } = await supabase.auth.refreshSession().catch(() => ({ data: { session: null } }));
+
+  // Force refresh permission cache on auth errors (likely stale cache causing RLS failure)
+  if (session?.user?.id) {
+    try {
+      const { permissionCache } = await import('./permissionCache');
+      await permissionCache.invalidateUserPermissions(session.user.id);
+      await permissionCache.getUserPermissions(session.user.id);
+      console.log('[sb] Permission cache forcibly refreshed after auth error');
+    } catch (cacheErr) {
+      console.warn('[sb] Failed to refresh permission cache after auth error:', cacheErr);
+    }
+  }
+}
+
+// Resilient query wrapper: retries once on transient failures, and on auth
+// failures refreshes the session + permission cache before retrying.
 export async function sb<T>(fn: (c: SupabaseClient<Database>) => Promise<T>): Promise<T> {
   const supabase = getSupabase();
-  await supabase.auth.getSession(); // proactively ensure JWT freshness
 
+  let result: T;
   try {
-    return await fn(supabase);
+    result = await fn(supabase);
   } catch (err: any) {
     const status = err?.status;
     const transient = err?.name === 'TypeError' || [408, 425, 429, 500, 502, 503, 504].includes(status);
-    const authy = [401, 403].includes(status);
 
     if (transient) {
       await new Promise(r => setTimeout(r, 300)); // tiny backoff
       return await fn(supabase);
     }
 
-    if (authy) {
-      // Refresh session
-      const { data: { session } } = await supabase.auth.refreshSession().catch(() => ({ data: { session: null } }));
-
-      // Force refresh permission cache on auth errors (likely stale cache causing RLS failure)
-      if (session?.user?.id) {
-        try {
-          const { permissionCache } = await import('./permissionCache');
-          await permissionCache.invalidateUserPermissions(session.user.id);
-          await permissionCache.getUserPermissions(session.user.id);
-          console.log('[sb] Permission cache forcibly refreshed after 403 error');
-        } catch (cacheErr) {
-          console.warn('[sb] Failed to refresh permission cache after 403:', cacheErr);
-        }
-      }
-
+    if (isAuthError(err)) {
+      await recoverFromAuthError(supabase);
       return await fn(supabase);
     }
     throw err;
   }
+
+  // supabase-js returns query errors in-band ({ data, error }) rather than
+  // throwing, so auth failures must also be detected on the returned value.
+  if (isAuthError((result as any)?.error)) {
+    await recoverFromAuthError(supabase);
+    return await fn(supabase);
+  }
+
+  return result;
 }
 
 // Maintain backward compatibility
