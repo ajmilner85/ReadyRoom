@@ -88,7 +88,7 @@ const defaultSettings: AppSettings = {
     referenceTimezone: 'America/New_York',
 
     // Reminder defaults
-    firstReminderTime: { value: 2, unit: 'days' },
+    firstReminderTime: { value: 3, unit: 'days' },
     firstReminderEnabled: true,
     secondReminderTime: { value: 15, unit: 'minutes' },
     secondReminderEnabled: true,
@@ -108,14 +108,14 @@ const defaultSettings: AppSettings = {
     },
 
     // Initial notification roles default
-    initialNotificationRoles: [],
+    initialNotificationRoles: [{ id: '994833914516475984', name: 'Cadre' }],
 
     // Legacy reminder recipient settings (for backwards compatibility)
     sendRemindersToAccepted: true,
     sendRemindersToTentative: true,
 
     // Response options default
-    allowTentativeResponse: true, // default to true for backward compatibility
+    allowTentativeResponse: false,
 
     // Response grouping default (ALL ENABLED by default)
     groupResponsesByQualification: true,
