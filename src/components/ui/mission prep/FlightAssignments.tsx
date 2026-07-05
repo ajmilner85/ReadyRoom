@@ -364,6 +364,15 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
             }
           }
         });
+
+        // Persist the freshly-assigned MIDS channels. Without this the values live
+        // only in memory (used by the Discord flight-assignments image) but never
+        // reach the DB, so the OpenKneeboard page — which reads persisted flight_data
+        // — shows blank MIDS columns. Flag as a user-initiated change so the
+        // onFlightsChange effect saves instead of skipping. This is idempotent: once
+        // persisted, initialFlights arrive with MIDS populated and this branch no-ops.
+        isUserInitiatedChange.current = true;
+        userInitiatedChangeVersion.current++;
       }
 
       setFlights(normalizedFlights);
