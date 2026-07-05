@@ -103,7 +103,7 @@ export const defaultUserSettings: UserSettings = {
       defaultDurationHours: 2,
       defaultDurationMinutes: 0,
       referenceTimezone: 'America/New_York',
-      firstReminderTime: { value: 2, unit: 'days' },
+      firstReminderTime: { value: 3, unit: 'days' },
       firstReminderEnabled: true,
       secondReminderTime: { value: 15, unit: 'minutes' },
       secondReminderEnabled: true,
@@ -119,7 +119,7 @@ export const defaultUserSettings: UserSettings = {
         declined: false,
         noResponse: false
       },
-      initialNotificationRoles: [],
+      initialNotificationRoles: [{ id: '994833914516475984', name: 'Cadre' }],
       sendRemindersToAccepted: true,
       sendRemindersToTentative: true,
       groupResponsesByQualification: true,

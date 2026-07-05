@@ -113,6 +113,19 @@ export class PermissionService {
    */
   async invalidateAllPermissions(): Promise<void> {
     await permissionCache.invalidateAllPermissions();
+    // The permission_rules DB trigger also wipes every user's cache row.
+    // RLS policies read that row, so until it is rebuilt any permission-
+    // gated database operation is denied. Recompute the current user's
+    // permissions immediately so the admin who just edited rules isn't
+    // temporarily locked out; other users rebuild lazily on next load.
+    try {
+      const { data } = await supabase.auth.getUser();
+      if (data?.user) {
+        await permissionCache.getUserPermissions(data.user.id);
+      }
+    } catch (error) {
+      console.warn('Post-invalidation permission refresh failed:', error);
+    }
   }
   
   // ============================================================================
@@ -419,12 +432,11 @@ export class PermissionService {
       throw new Error(`Failed to create permission rule: ${error.message}`);
     }
     
-    // TODO: Temporarily disabled cache invalidation due to DELETE WHERE clause issue
-    // try {
-    //   await this.invalidateAllPermissions();
-    // } catch (cacheError) {
-    //   console.warn('Cache invalidation failed, but permission rule was created:', cacheError);
-    // }
+    try {
+      await this.invalidateAllPermissions();
+    } catch (cacheError) {
+      console.warn('Cache invalidation failed, but permission rule was created:', cacheError);
+    }
     
     return {
       id: (data as any).id,
