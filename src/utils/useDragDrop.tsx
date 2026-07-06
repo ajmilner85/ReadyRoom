@@ -54,6 +54,9 @@ export const useDragDrop = ({
       const pilotData = event.active.data.current;
         const pilot: AssignedPilot = {
         ...pilotData.pilot,
+        // Drag data may carry a DB pilot (number boardNumber) or an assigned
+        // snapshot (string) — normalize so downstream comparisons match.
+        boardNumber: String(pilotData.pilot.boardNumber ?? ''),
         dashNumber: pilotData.pilot.dashNumber || '',
         attendanceStatus: pilotData.pilot.attendanceStatus,
         rollCallStatus: pilotData.pilot.rollCallStatus

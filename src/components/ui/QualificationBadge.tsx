@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import type { QualificationType } from '../../types/PilotTypes';
 import { Qualification, getAllQualifications } from '../../utils/qualificationService';
 
 interface QualificationBadgeProps {
-  type: QualificationType;
+  type: string; // Qualification name from the qualifications table
   count?: number;
   code?: string; // Optional code if we already have it
   color?: string; // Optional color if we already have it
@@ -12,7 +11,7 @@ interface QualificationBadgeProps {
 }
 
 // Legacy qualification configs (for backward compatibility)
-const LEGACY_QUALIFICATION_CONFIGS: Record<QualificationType, { abbr: string; color: string }> = {
+const LEGACY_QUALIFICATION_CONFIGS: Record<string, { abbr: string; color: string }> = {
   'Strike Lead': { 
     abbr: 'SL', 
     color: '#732103'  // Dark Orange

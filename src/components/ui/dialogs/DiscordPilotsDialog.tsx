@@ -7,7 +7,7 @@ import {
 } from '../../../utils/discordPilotService';
 import { syncUserDiscordRoles } from '../../../utils/discordRoleSync';
 import { X, Shield, Filter, Eye, EyeOff } from 'lucide-react';
-import { Pilot, PilotStatus } from '../../../types/PilotTypes';
+import { Pilot } from '../../../utils/pilotTypes';
 import { supabase } from '../../../utils/supabaseClient';
 import { Status } from '../../../utils/statusService';
 import { Role } from '../../../utils/roleService';
@@ -299,18 +299,7 @@ export const DiscordPilotsDialog: React.FC<DiscordPilotsDialogProps> = ({
         .limit(15);
       
       if (initialPilotsData) {
-        // Convert initial Supabase pilots to legacy format
-        const initialPilots = initialPilotsData.map(p => ({
-          id: p.id,
-          callsign: p.callsign,
-          boardNumber: p.boardNumber.toString(),
-          status: 'Provisional' as PilotStatus,
-          billet: '',
-          qualifications: [],
-          discordUsername: p.discord_id || ''
-        }));
-
-        setAllPilots(initialPilots);
+        setAllPilots(initialPilotsData);
       }
 
       // Load remaining pilots immediately after dialog is shown (non-blocking)
@@ -321,18 +310,7 @@ export const DiscordPilotsDialog: React.FC<DiscordPilotsDialogProps> = ({
             .select('*');
 
           if (allPilotsData) {
-            // Convert all Supabase pilots to legacy format
-            const allPilots = allPilotsData.map(p => ({
-              id: p.id,
-              callsign: p.callsign,
-              boardNumber: p.boardNumber.toString(),
-              status: 'Provisional' as PilotStatus,
-              billet: '',
-              qualifications: [],
-              discordUsername: p.discord_id || ''
-            }));
-            
-            setAllPilots(allPilots);
+            setAllPilots(allPilotsData);
           }
         } catch (error) {
           console.warn('Failed to load remaining pilots:', error);
@@ -1349,7 +1327,7 @@ export const DiscordPilotsDialog: React.FC<DiscordPilotsDialogProps> = ({
                                   Update Existing Pilot
                                 </option>
                                 {allPilots
-                                  .sort((a, b) => parseInt(a.boardNumber) - parseInt(b.boardNumber))
+                                  .sort((a, b) => a.boardNumber - b.boardNumber)
                                   .map(pilot => (
                                     <option key={pilot.id} value={pilot.id} style={{ paddingLeft: '20px' }}>
                                       &nbsp;&nbsp;{pilot.boardNumber} {pilot.callsign}
@@ -1490,8 +1468,8 @@ export const DiscordPilotsDialog: React.FC<DiscordPilotsDialogProps> = ({
                                     // Show current member always
                                     if (member.id === match.discordMember.id) return true;
                                     // Filter out members already linked to other pilots
-                                    const isLinked = allPilots.some(pilot => 
-                                      pilot.discordUsername === member.id && pilot.id !== match.selectedPilotId
+                                    const isLinked = allPilots.some(pilot =>
+                                      pilot.discord_id === member.id && pilot.id !== match.selectedPilotId
                                     );
                                     return !isLinked;
                                   })
@@ -1530,8 +1508,8 @@ export const DiscordPilotsDialog: React.FC<DiscordPilotsDialogProps> = ({
                                     // Show current member always
                                     if (member.id === match.discordMember.id) return true;
                                     // Filter out members already linked to other pilots
-                                    const isLinked = allPilots.some(pilot => 
-                                      pilot.discordUsername === member.id && pilot.id !== match.selectedPilotId
+                                    const isLinked = allPilots.some(pilot =>
+                                      pilot.discord_id === member.id && pilot.id !== match.selectedPilotId
                                     );
                                     return !isLinked;
                                   })

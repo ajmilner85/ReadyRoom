@@ -3,10 +3,9 @@ import { fetchEvents } from '../utils/supabaseClient';
 import { getAllPilots } from '../utils/pilotService';
 import { getBatchPilotQualifications } from '../utils/qualificationService';
 import { getOptimizedSquadronMapping, prefetchSquadronMapping } from '../utils/squadronMappingCache';
-import { adaptSupabasePilots } from '../utils/pilotDataUtils';
 import { loadSelectedEvent, saveSelectedEvent, STORAGE_KEYS } from '../utils/localStorageUtils';
 import type { Event } from '../types/EventTypes';
-import type { Pilot } from '../types/PilotTypes';
+import type { Pilot } from '../utils/pilotTypes';
 import type { Squadron } from '../types/OrganizationTypes';
 
 /**
@@ -254,7 +253,6 @@ export const useMissionPrepData = () => {
   const fetchPilots = async () => {
     setIsLoading(true);
     try {
-      // Fetch data directly and adapt to legacy format
       const { data, error } = await getAllPilots();
 
       if (error) {
@@ -262,15 +260,11 @@ export const useMissionPrepData = () => {
       }
 
       if (data && data.length > 0) {
-        // Adapt the data to the expected Pilot format while preserving squadron data
-        const adaptedPilots = adaptSupabasePilots(data);
-
-        // Set pilots state to the adapted Pilot format
-        setPilots(adaptedPilots);
+        setPilots(data);
 
         // After fetching pilots, also fetch their qualifications and squadron data
-        await fetchAllPilotQualifications(adaptedPilots);
-        await fetchSquadronData(adaptedPilots);
+        await fetchAllPilotQualifications(data);
+        await fetchSquadronData(data);
 
         setLoadError(null);
       } else {

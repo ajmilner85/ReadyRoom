@@ -1,6 +1,5 @@
 import { supabase } from './supabaseClient';
-import type { Pilot } from '../types/PilotTypes';
-import { adaptSupabasePilots } from './pilotDataUtils';
+import type { Pilot } from './pilotTypes';
 import { updatePilotRole } from './pilotService';
 import { getUserSettings } from './userSettingsService';
 
@@ -266,10 +265,9 @@ export async function matchDiscordMembersWithPilots(discordMembers: DiscordMembe
     .from('statuses')
     .select('*');
   
-  
-  // Get properly typed SupabasePilot objects
-  const pilots = adaptSupabasePilots(existingPilots);
-  
+
+  const pilots: Pilot[] = existingPilots;
+
   const matches = await Promise.all(discordMembers.map(async member => {
 
     // Try to find an exact match by Discord ID first (this is the stable unique identifier)
@@ -285,7 +283,7 @@ export async function matchDiscordMembersWithPilots(discordMembers: DiscordMembe
 
     if (!exactMatchByDiscordId && member.boardNumber) {
       // Try to find matches by board number
-      const boardMatches = pilots.filter(p => p.boardNumber === member.boardNumber);
+      const boardMatches = pilots.filter(p => String(p.boardNumber) === member.boardNumber);
       
       if (boardMatches.length > 0) {
         potentialMatches = boardMatches;
