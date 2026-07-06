@@ -1,5 +1,5 @@
 import React from 'react';
-import { Users, Layout, Calendar, FileText, Settings, LogOut, Home, FileBarChart, ClipboardCheck, GraduationCap, BookOpen, Notebook } from 'lucide-react';
+import { Users, Layout, Calendar, FileText, Settings, LogOut, Home, FileBarChart, ClipboardCheck, GraduationCap, BookOpen, Notebook, BookUser } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { signOut } from '../../utils/supabaseClient';
@@ -27,6 +27,14 @@ const buttons: NavigationButton[] = [
     route: '/',
     requiresPermission: 'access_home',
     // No legacy permission - home should always be accessible
+  },
+  {
+    id: 'dossier',
+    icon: <BookUser size={24} />,
+    label: 'Pilot Dossier',
+    route: '/dossier',
+    requiresPermission: 'access_home',
+    // Uses home access — every member can view their own dossier
   },
   {
     id: 'roster',

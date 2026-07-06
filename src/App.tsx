@@ -32,6 +32,7 @@ const Home = React.lazy(() => import('./components/ui/Home'));
 const ClearCache = React.lazy(() => import('./pages/ClearCache'));
 const Debriefing = React.lazy(() => import('./components/debriefing/Debriefing'));
 const MyTraining = React.lazy(() => import('./components/training/MyTraining'));
+const PilotDossier = React.lazy(() => import('./components/dossier/PilotDossier'));
 const TrainingManagement = React.lazy(() => import('./components/training/TrainingManagement'));
 const SyllabusEditor = React.lazy(() => import('./components/training/SyllabusEditor'));
 
@@ -64,6 +65,7 @@ const App: React.FC = () => {
     if (path === '/') return 'home'; // Root is now Home
     if (path === '/events') return 'events';
     if (path === '/roster') return 'roster';
+    if (path === '/dossier') return 'dossier';
     if (path === '/mission-coordination') return 'flights';
     if (path === '/mission-prep') return 'mission-prep';
     if (path === '/debriefing') return 'debriefing';
@@ -467,6 +469,13 @@ const App: React.FC = () => {
               <PermissionGuardedRoute requiredPermission="access_home">
                 <Suspense fallback={<StandardPageLoader message="Loading home..." />}>
                   <Home />
+                </Suspense>
+              </PermissionGuardedRoute>
+            } />
+            <Route path="/dossier" element={
+              <PermissionGuardedRoute requiredPermission="access_home">
+                <Suspense fallback={<StandardPageLoader message="Loading dossier..." />}>
+                  <PilotDossier />
                 </Suspense>
               </PermissionGuardedRoute>
             } />
