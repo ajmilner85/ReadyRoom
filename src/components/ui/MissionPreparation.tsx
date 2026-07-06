@@ -11,7 +11,7 @@ import MissionSupportAssignments from './mission prep/MissionSupportAssignments'
 import PilotDragOverlay from './mission-execution/PilotDragOverlay';
 import type { Flight, ExtractedFlight } from '../../types/FlightData';
 import type { MissionCommanderInfo } from '../../types/MissionCommanderTypes';
-import type { Pilot } from '../../types/PilotTypes';
+import type { Pilot } from '../../utils/pilotTypes';
 import { useDragDrop } from '../../utils/useDragDrop';
 import { autoAssignPilots } from '../../utils/autoAssignUtils';
 import { getMissionCommanderCandidatesWithFlightInfo } from '../../utils/missionCommanderUtils';

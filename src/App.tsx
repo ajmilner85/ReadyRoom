@@ -18,14 +18,7 @@ import OnboardingGuide from './components/onboarding/OnboardingGuide';
 import { useAuth } from './context/AuthContext';
 import { initializeApp, cleanupApp } from './utils/appInitialization';
 import { Analytics } from '@vercel/analytics/react';
-import type { Pilot } from './types/PilotTypes';
-
-// Define AssignedPilot here since it's not exported from PilotTypes
-interface AssignedPilot extends Pilot {
-  dashNumber: string;
-  attendanceStatus?: 'accepted' | 'tentative' | 'declined';
-  rollCallStatus?: 'Present' | 'Absent' | 'Tentative';
-}
+import type { AssignedPilot } from './types/MissionPrepTypes';
 import type { MissionCommanderInfo } from './types/MissionCommanderTypes';
 import type { ExtractedFlight } from './types/FlightData';
 import { loadAssignedPilots, saveMissionCommander, saveAssignedPilots, loadMissionCommander, loadExtractedFlights, saveExtractedFlights, loadPrepFlights, savePrepFlights } from './utils/localStorageUtils';

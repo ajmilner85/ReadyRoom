@@ -2,7 +2,8 @@ import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react'
 import { Card } from '../card';
 import AddSupportRoleDialog from '../dialogs/AddSupportRoleDialog';
 import SupportRoleAssignmentCard from '../flight cards/SupportRoleAssignmentCard';
-import type { Pilot } from '../../../types/PilotTypes';
+import type { Pilot } from '../../../utils/pilotTypes';
+import type { AssignedPilot } from '../../../types/MissionPrepTypes';
 import { cleanRoleId } from '../../../utils/dragDropUtils';
 import { SupportRoleType } from '../../../types/SupportRoleTypes';
 import { AddSupportRoleDialogData } from '../../../types/DialogTypes';
@@ -16,13 +17,6 @@ interface CarrierData {
   id: string;
   name: string;
   hull: string;
-}
-
-// Extended Pilot type with additional properties for assignment
-interface AssignedPilot extends Pilot {
-  dashNumber: string;
-  attendanceStatus?: 'accepted' | 'tentative' | 'declined';
-  rollCallStatus?: 'Present' | 'Absent' | 'Tentative';
 }
 
 // Define the structure for the polled attendance data
@@ -165,17 +159,19 @@ const MissionSupportAssignments: React.FC<MissionSupportAssignmentsProps> = ({
             }
 
             // Look up the full pilot data from activePilots by board number
+            // (serialized role data stores boardNumber as a string, DB pilots as a number)
             if (activePilots) {
-              const fullPilot = activePilots.find(p => p.boardNumber === pilot.boardNumber);
+              const fullPilot = activePilots.find(p => String(p.boardNumber) === String(pilot.boardNumber));
               if (fullPilot) {
                 // Look up attendance status from realtimeAttendanceData
-                const discordId = (fullPilot as any).discord_id;
+                const discordId = fullPilot.discord_id;
                 const realtimeRecord = discordId && realtimeAttendanceData && realtimeAttendanceData.length > 0
                   ? realtimeAttendanceData.find(record => record.discord_id === discordId)
                   : undefined;
 
                 return {
                   ...fullPilot,
+                  boardNumber: String(fullPilot.boardNumber),
                   dashNumber: pilot.dashNumber,
                   attendanceStatus: realtimeRecord?.response,
                   rollCallStatus: pilot.rollCallStatus

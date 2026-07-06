@@ -1,6 +1,6 @@
 import { sb } from './supabaseClient';
 import type { Squadron } from '../types/OrganizationTypes';
-import type { Pilot } from '../types/PilotTypes';
+import type { Pilot } from './pilotTypes';
 
 interface CachedSquadronMapping {
   pilotSquadronMap: Record<string, Squadron>;

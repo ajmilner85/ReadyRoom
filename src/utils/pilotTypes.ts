@@ -58,6 +58,9 @@ export interface Pilot extends PilotBase {
   standing_id?: string;
   status_id?: string;
   status?: string; // Legacy status field for backward compatibility - optional
+  // Event attendance fields populated at runtime in mission prep flows
+  attendanceStatus?: 'accepted' | 'tentative' | 'declined'; // From Discord event response
+  rollCallStatus?: 'Present' | 'Absent' | 'Tentative'; // From Roll Call UI
 }
 
 export type NewPilot = Database['public']['Tables']['pilots']['Insert'];

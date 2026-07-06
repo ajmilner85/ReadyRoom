@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import type { Event, Cycle } from '../../../types/EventTypes';
 import QualificationBadge from '../QualificationBadge';
 import { getPilotByDiscordId } from '../../../utils/pilotService';
-import type { Pilot } from '../../../types/PilotTypes';
+import type { Pilot } from '../../../utils/pilotTypes';
 import { fetchCycles } from '../../../utils/supabaseClient';
 import { getBatchPilotQualifications, getAllQualifications } from '../../../utils/qualificationService';
 import { getCycleEnrollments } from '../../../utils/trainingEnrollmentService';
@@ -33,12 +33,13 @@ interface AttendanceData {
   status: 'accepted' | 'declined' | 'tentative';
   billet?: string;
   discord_id?: string;
-  pilotRecord?: Pilot | null;
+  pilotRecord?: EnhancedPilot | null;
 }
 
-// Enhanced pilot type with role information
+// Enhanced pilot type with role information and qualifications attached at runtime
 interface EnhancedPilot extends Pilot {
   displayRole?: string;
+  qualifications?: { id: string; type: string; dateAchieved: string }[];
 }
 
 const EventAttendance: React.FC<EventAttendanceProps> = ({ event }) => {

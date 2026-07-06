@@ -1,12 +1,9 @@
 import type { Flight } from '../types/FlightData';
-import type { Pilot } from '../types/PilotTypes';
+import type { Pilot } from './pilotTypes';
+import type { AssignedPilot } from '../types/MissionPrepTypes';
 import type { MissionCommanderInfo } from '../types/MissionCommanderTypes';
 import type { AutoAssignConfig } from '../components/ui/mission prep/AutoAssignConfig';
 import { getSquadronCallsignMappings, getSquadronForCallsign, isStandardCallsign, type SquadronCallsignMapping } from './squadronCallsignService';
-
-interface AssignedPilot extends Pilot {
-  dashNumber: string;
-}
 
 interface AssignmentGate {
   attendance: string[];
@@ -17,24 +14,27 @@ interface AssignmentGate {
 /**
  * Get qualification rank for seniority sorting (lower number = higher qualification)
  */
-function getQualificationRank(pilot: Pilot): number {
-  const qualifications = pilot.qualifications || [];
-  
+function getQualificationRank(pilot: AssignedPilot, allPilotQualifications: Record<string, any[]>): number {
+  const qualifications = allPilotQualifications[pilot.id] || allPilotQualifications[pilot.boardNumber] || [];
+  const hasQual = (pattern: string) => qualifications.some((qual: any) =>
+    (qual.qualification?.name?.toLowerCase() || '').includes(pattern)
+  );
+
   // Strike Lead is highest (rank 1) - closest to Mission Commander
-  if (qualifications.some(q => q.type === 'Strike Lead')) return 1;
-  
+  if (hasQual('strike lead')) return 1;
+
   // Flight Lead is next (rank 2)
-  if (qualifications.some(q => q.type === 'Flight Lead')) return 2;
-  
+  if (hasQual('flight lead')) return 2;
+
   // Section Lead (rank 3)
-  if (qualifications.some(q => q.type === 'Section Lead')) return 3;
-  
+  if (hasQual('section lead')) return 3;
+
   // LSO (rank 4)
-  if (qualifications.some(q => q.type === 'LSO')) return 4;
-  
-  // IP (Instructor Pilot) (rank 5) 
-  if (qualifications.some(q => q.type === 'Instructor Pilot')) return 5;
-  
+  if (hasQual('lso')) return 4;
+
+  // IP (Instructor Pilot) (rank 5)
+  if (hasQual('instructor pilot')) return 5;
+
   // Wingman or no special qualifications (rank 6 - lowest, will be moved first)
   return 6;
 }
@@ -48,6 +48,7 @@ async function consolidateSingletonFlights(
   newAssignments: Record<string, AssignedPilot[]>,
   squadronCallsigns: SquadronCallsignMapping[],
   config: AutoAssignConfig,
+  allPilotQualifications: Record<string, any[]>,
   pilotSquadronMap?: Record<string, any>
 ): Promise<void> {
   
@@ -110,8 +111,8 @@ async function consolidateSingletonFlights(
       }
       
       // Fallback to qualification-based ranking
-      const qualRankA = getQualificationRank(pilotA);
-      const qualRankB = getQualificationRank(pilotB);
+      const qualRankA = getQualificationRank(pilotA, allPilotQualifications);
+      const qualRankB = getQualificationRank(pilotB, allPilotQualifications);
       
       if (qualRankA !== qualRankB) {
         return qualRankB - qualRankA; // Higher rank number = lower qualification = move first
@@ -298,7 +299,7 @@ export const autoAssignPilots = async (
   }
 
   let availablePilotPool = availablePilots.filter(pilot =>
-    !assignedPilotIds.has(pilot.id) && !assignedPilotIds.has(pilot.boardNumber)
+    !assignedPilotIds.has(pilot.id) && !assignedPilotIds.has(String(pilot.boardNumber))
   );
 
   console.log('[AUTO-ASSIGN-DEBUG] Available pilot pool after filtering assigned:', {
@@ -342,7 +343,7 @@ export const autoAssignPilots = async (
   // Pass 2: Singleton Consolidation - Only run for depth-first (breadth-first and training intentionally create balanced flights)
   if (config.flightFillingPriority === 'depth' && !config.trainingMode) {
     console.log('[CONSOLIDATION-DEBUG] Running singleton consolidation for depth-first strategy');
-    await consolidateSingletonFlights(flightOrder, newAssignments, squadronCallsigns, config, pilotSquadronMap);
+    await consolidateSingletonFlights(flightOrder, newAssignments, squadronCallsigns, config, allPilotQualifications, pilotSquadronMap);
   } else {
     console.log('[CONSOLIDATION-DEBUG] Skipping singleton consolidation (breadth-first or training mode)');
   }
@@ -504,7 +505,7 @@ async function executeTrainingAssignment(
   const isIP = (pilot: Pilot): boolean => {
     // If we have instructor enrollments, use those
     if (enrolledInstructorIds.size > 0) {
-      return enrolledInstructorIds.has(pilot.id) || enrolledInstructorIds.has(pilot.boardNumber);
+      return enrolledInstructorIds.has(pilot.id) || enrolledInstructorIds.has(String(pilot.boardNumber));
     }
     // Fallback to qualification-based detection for backward compatibility
     const quals = allPilotQualifications[pilot.id] || allPilotQualifications[pilot.boardNumber] || [];
@@ -526,10 +527,10 @@ async function executeTrainingAssignment(
   if (enrolledTraineeIds.size > 0) {
     // Use enrollment data to determine trainees
     trainees = nonIPs.filter(pilot =>
-      enrolledTraineeIds.has(pilot.id) || enrolledTraineeIds.has(pilot.boardNumber)
+      enrolledTraineeIds.has(pilot.id) || enrolledTraineeIds.has(String(pilot.boardNumber))
     );
     nonTrainees = nonIPs.filter(pilot =>
-      !enrolledTraineeIds.has(pilot.id) && !enrolledTraineeIds.has(pilot.boardNumber)
+      !enrolledTraineeIds.has(pilot.id) && !enrolledTraineeIds.has(String(pilot.boardNumber))
     );
     console.log('[TRAINING-ASSIGN-DEBUG] Using enrollment-based trainee detection');
   } else {
@@ -596,8 +597,8 @@ async function executeTrainingAssignment(
 
   // Sort trainees by board number (lower board number = more senior)
   const sortedTrainees = [...availableTrainees].sort((a, b) => {
-    const boardA = parseInt(a.boardNumber) || 9999;
-    const boardB = parseInt(b.boardNumber) || 9999;
+    const boardA = a.boardNumber || 9999;
+    const boardB = b.boardNumber || 9999;
     return boardA - boardB;
   });
 
@@ -1191,7 +1192,7 @@ function selectByBilletSeniority(candidates: Pilot[]): Pilot {
 /**
  * Get billet order for seniority comparison
  */
-function getBilletOrder(pilot: Pilot): number {
+function getBilletOrder(pilot: Pilot | AssignedPilot): number {
   if (pilot.roles && pilot.roles.length > 0) {
     const activeRole = pilot.roles.find(ra => !ra.end_date);
     if (activeRole && activeRole.role && typeof activeRole.role.order === 'number') {
@@ -1208,10 +1209,10 @@ function assignPilot(pilot: Pilot, flight: Flight, dashNumber: string, newAssign
   if (!newAssignments[flight.id]) {
     newAssignments[flight.id] = [];
   }
-  
-  const assignedPilot: AssignedPilot = { ...pilot, dashNumber };
+
+  const assignedPilot: AssignedPilot = { ...pilot, boardNumber: String(pilot.boardNumber), dashNumber };
   newAssignments[flight.id].push(assignedPilot);
-  
+
 }
 
 /**

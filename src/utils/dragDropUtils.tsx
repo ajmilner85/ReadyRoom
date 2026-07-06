@@ -1,4 +1,3 @@
-import type { Pilot } from '../types/PilotTypes';
 import type { MissionCommanderInfo } from '../types/MissionCommanderTypes';
 import type { AssignedPilot } from '../types/MissionPrepTypes';
 
@@ -31,9 +30,9 @@ export const cleanRoleId = (roleId: string): string => {
 
 // Find a pilot by board number across all flights
 export const findPilotInFlights = (
-  boardNumber: string, 
-  assignedPilots: Record<string, Pilot[]>
-): { flightId: string; pilot: Pilot; } | null => {
+  boardNumber: string,
+  assignedPilots: Record<string, AssignedPilot[]>
+): { flightId: string; pilot: AssignedPilot; } | null => {
   for (const [flightId, flightPilots] of Object.entries(assignedPilots)) {
     const pilot = flightPilots.find(p => p.boardNumber === boardNumber);
     if (pilot) {

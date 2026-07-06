@@ -3,7 +3,7 @@ import React, { useState, useMemo, useRef, useEffect } from 'react';
 import QualificationBadge from '../QualificationBadge';
 import { ClipboardCheck, Settings, X, HelpCircle, MessageCircleOff, ArrowUpDown } from 'lucide-react';
 import { useDraggable } from '@dnd-kit/core';
-import type { Pilot, QualificationType } from '../../../types/PilotTypes';
+import type { Pilot } from '../../../utils/pilotTypes';
 import type { Event } from '../../../types/EventTypes';
 import type { AssignedPilot } from '../../../types/MissionPrepTypes';
 import { updateRollCallResponse, syncRollCallResponses } from '../../../utils/rollCallUtils';
@@ -43,13 +43,13 @@ interface AvailablePilotsProps {
   qualifications: Qualification[];
 }
 
-// These should match the updated QualificationType
-const QUALIFICATION_ORDER: QualificationType[] = [
+// Qualification names (from the qualifications table) in display order
+const QUALIFICATION_ORDER: string[] = [
   'FAC(A)', 'TL', '4FL', '2FL', 'WQ', 'T/O', 'NATOPS', 'DFL', 'DTL'
 ];
 
-// Recognized qualification types for grouping
-const RECOGNIZED_QUALIFICATIONS: QualificationType[] = [
+// Recognized qualification names for grouping
+const RECOGNIZED_QUALIFICATIONS: string[] = [
   ...QUALIFICATION_ORDER,
   'Strike Lead', 'Instructor Pilot', 'LSO', 'Flight Lead', 'Section Lead', 
   'CQ', 'Night CQ', 'Wingman'
@@ -169,7 +169,7 @@ interface PilotEntryProps {
       return sortedQuals.map((pq, index) => (
         <QualificationBadge
           key={`db-${pq.qualification.id}-${index}`}
-          type={pq.qualification.name as QualificationType}
+          type={pq.qualification.name}
           code={pq.qualification.code}
           color={pq.qualification.color}
         />
@@ -185,7 +185,7 @@ interface PilotEntryProps {
         {visibleQuals.map((pq, index) => (
           <QualificationBadge
             key={`db-${pq.qualification.id}-${index}`}
-            type={pq.qualification.name as QualificationType}
+            type={pq.qualification.name}
             code={pq.qualification.code}
             color={pq.qualification.color}
           />
@@ -233,7 +233,7 @@ interface PilotEntryProps {
               {overflowQuals.map((pq, index) => (
                 <QualificationBadge
                   key={`db-${pq.qualification.id}-${index}-tooltip`}
-                  type={pq.qualification.name as QualificationType}
+                  type={pq.qualification.name}
                   code={pq.qualification.code}
                   color={pq.qualification.color}
                 />
@@ -247,8 +247,8 @@ interface PilotEntryProps {
 
   const renderRollCallButtons = () => {
     if (!isRollCallMode) return null;
-    
-    const pilotId = pilot.id || pilot.boardNumber;
+
+    const pilotId = pilot.id || String(pilot.boardNumber);
     const currentRollCallStatus = pilot.rollCallStatus;
     
     // Define button styles
@@ -456,7 +456,7 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
   const { settings } = useAppSettings();
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [showOnlyAttending, setShowOnlyAttending] = useState(false);
-  const [selectedQualifications, setSelectedQualifications] = useState<QualificationType[]>([]);
+  const [selectedQualifications, setSelectedQualifications] = useState<string[]>([]);
   const [isRollCallMode, setIsRollCallMode] = useState(false);
   const [rollCallResponses, setRollCallResponses] = useState<Record<string, 'Present' | 'Absent' | 'Tentative'>>({});
 
@@ -550,7 +550,7 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
     const effectiveDiscordEventId = selectedEvent.discordEventId || `manual-${selectedEvent.id}`;
 
     // Find the pilot's Discord ID
-    const pilot = pilots.find(p => p.id === pilotId || p.boardNumber === pilotId);
+    const pilot = pilots.find(p => p.id === pilotId || String(p.boardNumber) === pilotId);
     if (!pilot) {
       console.log(`Cannot find pilot with ID ${pilotId}`);
       return;
@@ -574,19 +574,18 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
 
   // Get all available qualifications from the pilots' data
   const allQualifications = useMemo(() => {
-    const qualSet = new Set<QualificationType>();
-    
+    const qualSet = new Set<string>();
+
     // Always ensure we have Wingman category available for unqualified pilots
     qualSet.add('Wingman');
-    
+
     // Add all qualifications from pilots' data
     Object.values(pilotQualifications).forEach(qualArray => {
       if (Array.isArray(qualArray)) {
         qualArray.forEach(qual => {
           if (qual.qualification && qual.qualification.name) {
-            // Directly use the name if it's a valid QualificationType
-            const qualName = qual.qualification.name as QualificationType;
-            // Check if it's one of the recognized types before adding
+            const qualName = qual.qualification.name as string;
+            // Check if it's one of the recognized names before adding
             if (RECOGNIZED_QUALIFICATIONS.includes(qualName)) {
               qualSet.add(qualName);
             }
@@ -615,12 +614,9 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
   // Toggle a qualification for filtering
 
   // Check if a pilot has a specific qualification
-  const hasDatabaseQualification = (pilotIdOrBoardNumber: string, qualType: QualificationType) => {
+  const hasDatabaseQualification = (pilotIdOrBoardNumber: string, qualType: string) => {
     const pilotQuals = pilotQualifications[pilotIdOrBoardNumber] || [];
-    return pilotQuals.some(qual => {
-      const mappedType = qual.qualification?.name as QualificationType;
-      return mappedType === qualType;
-    });
+    return pilotQuals.some(qual => qual.qualification?.name === qualType);
   };
 
   // Add attendance status to pilots based on realtime data
@@ -636,7 +632,7 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
         attendanceStatus: undefined as ('accepted' | 'tentative' | 'declined' | undefined),
         rollCallStatus: undefined as ('Present' | 'Absent' | 'Tentative' | undefined)
       };
-      const pilotId = pilotCopy.id || pilotCopy.boardNumber;
+      const pilotId = pilotCopy.id || String(pilotCopy.boardNumber);
       // Use discord_id (numeric ID) for matching attendance data
       const discordId = (pilotCopy as any).discord_id;
       
@@ -732,12 +728,12 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
     // Filter by selected qualifications (legacy filter - still works for qualification badges)
     if (selectedQualifications.length > 0) {
       filtered = filtered.filter(pilot => {
-        const pilotIdKey = pilot.id || pilot.boardNumber;
+        const pilotIdKey = pilot.id || String(pilot.boardNumber);
         const hasQual = selectedQualifications.some(qualType => hasDatabaseQualification(pilotIdKey, qualType));
         return hasQual;
       });
     }
-    
+
     // Sort pilots
     return filtered.sort((a, b) => {
       // First sort by squadron ID if enabled
@@ -750,8 +746,8 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
 
       // Then sort by board number or callsign
       if (sortBy === 'boardNumber') {
-        const numA = parseInt(a.boardNumber || '0') || 0;
-        const numB = parseInt(b.boardNumber || '0') || 0;
+        const numA = a.boardNumber || 0;
+        const numB = b.boardNumber || 0;
         return numA - numB;
       } else {
         return (a.callsign || '').localeCompare(b.callsign || '');
@@ -828,21 +824,21 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
       // Assign each pilot to their highest qualification group
       filteredPilots.forEach(pilot => {
         // Default to Wingman if no other qualification matches
-        let highestQual: QualificationType = 'Wingman';
-        const pilotIdKey = pilot.id || pilot.boardNumber;
+        let highestQual = 'Wingman';
+        const pilotIdKey = pilot.id || String(pilot.boardNumber);
         const pilotDbQuals = pilotQualifications[pilotIdKey] || [];
 
         // Get qualification names from pilot data
         if (pilotDbQuals.length > 0) {
           const pilotQualNames = pilotDbQuals
             .filter(q => q.qualification && q.qualification.name)
-            .map(q => q.qualification.name as QualificationType)
+            .map(q => q.qualification.name as string)
             .filter(name => qualTypeOrder.includes(name));
-          
+
           // Find the highest qualification based on the group order
           for (const qual of qualTypeOrder) {
-            if (pilotQualNames.includes(qual as QualificationType)) {
-              highestQual = qual as QualificationType;
+            if (pilotQualNames.includes(qual)) {
+              highestQual = qual;
               break; // Found the highest one
             }
           }
@@ -940,7 +936,7 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
 
           // For each pilot, check if they have a roll call response
           pilots.forEach(pilot => {
-            const pilotId = pilot.id || pilot.boardNumber;
+            const pilotId = pilot.id || String(pilot.boardNumber);
             // Use discord_id (numeric ID) for matching roll call data
             const discordId = (pilot as any).discord_id;
 
@@ -1007,7 +1003,7 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
             pilotsRef.current.forEach(pilot => {
               const pilotDiscordId = (pilot as any).discord_id;
               if (pilotDiscordId && String(pilotDiscordId) === discordId) {
-                const pilotId = pilot.id || pilot.boardNumber;
+                const pilotId = pilot.id || String(pilot.boardNumber);
                 if (newResponse) {
                   updated[pilotId] = newResponse;
                 } else {
@@ -1253,7 +1249,7 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
                 }}>                  {pilotsInGroup.map((pilot: Pilot) => {
                     // In roll call mode, we still track assignment but don't visually dim the pilot
                     const assignment = isPilotAssignedToFlight(pilot);
-                    const pilotIdKey = pilot.id || pilot.boardNumber;
+                    const pilotIdKey = pilot.id || String(pilot.boardNumber);
                     const specificPilotQuals = pilotQualifications[pilotIdKey] || [];
                     const pilotWithRollCall = {
                       ...pilot,
@@ -1338,7 +1334,7 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
                         const freshPilotResponses: Record<string, 'Present' | 'Absent' | 'Tentative'> = {};
 
                         pilots.forEach(pilot => {
-                          const pilotId = pilot.id || pilot.boardNumber;
+                          const pilotId = pilot.id || String(pilot.boardNumber);
                           // Use discord_id (numeric ID) for matching roll call data
                           const discordId = (pilot as any).discord_id;
 
@@ -1359,7 +1355,7 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
                     // Prepare pilot data with fresh roll call data
                     const pilotsForAutoAssign = pilots
                       .map(pilot => {
-                        const pilotId = pilot.id || pilot.boardNumber;
+                        const pilotId = pilot.id || String(pilot.boardNumber);
                         // Use discord_id (numeric ID) for matching attendance data
                         const discordId = (pilot as any).discord_id;
                         

@@ -1,8 +1,8 @@
 import React from 'react';
-import type { Pilot } from '../../../types/PilotTypes';
+import type { AssignedPilot } from '../../../types/MissionPrepTypes';
 
 interface PilotDragOverlayProps {
-  draggedPilot: Pilot | null;
+  draggedPilot: AssignedPilot | null;
   dragSource: 'tile' | 'list' | null;
 }
 
