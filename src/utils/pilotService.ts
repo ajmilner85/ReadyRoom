@@ -306,7 +306,7 @@ export async function getPilotByDiscordId(discordId: string): Promise<{ data: Pi
       )
     `)
     .eq('discord_id', discordId)
-    .single();
+    .maybeSingle(); // .single() returns HTTP 406 when no pilot matches — Discord users without pilot records are a normal case
 
   if (error || !data) {
     return { data: null, error };

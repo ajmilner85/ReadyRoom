@@ -70,6 +70,10 @@ export interface UserPermissions {
   canManageStandings: PermissionScopeContext[];
   canBulkEditRoster: PermissionScopeContext[];
   canViewPublicRoster: boolean;
+
+  // Pilot Dossiers (scope-aware; own dossier is always viewable)
+  view_pilot_dossiers: PermissionScopeContext[];
+  edit_pilot_dossiers: PermissionScopeContext[];
   
   // Events Management (scope-aware)
   canManageEvents: PermissionScopeContext[];

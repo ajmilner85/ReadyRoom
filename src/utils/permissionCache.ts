@@ -477,7 +477,10 @@ export class PermissionCacheService {
       canManageStandings: [],
       canBulkEditRoster: [],
       canViewPublicRoster: false,
-      
+
+      view_pilot_dossiers: [],
+      edit_pilot_dossiers: [],
+
       canManageEvents: [],
       canCreateTrainingCycles: [],
       canManageEventAttendance: [],

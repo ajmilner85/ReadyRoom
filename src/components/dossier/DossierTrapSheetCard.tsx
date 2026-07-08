@@ -6,6 +6,8 @@ import type { TrapRecord } from '../../utils/dossierService';
 interface DossierTrapSheetCardProps {
   traps: TrapRecord[];
   loading: boolean;
+  // Mission IDs covered by the page-level scope; null = career (no filtering)
+  scopeMissionIds: string[] | null;
 }
 
 // Greenie-board color conventions per LSO NATOPS grading
@@ -69,13 +71,15 @@ const cellStyle: React.CSSProperties = {
   whiteSpace: 'nowrap'
 };
 
-const DossierTrapSheetCard: React.FC<DossierTrapSheetCardProps> = ({ traps, loading }) => {
+const DossierTrapSheetCard: React.FC<DossierTrapSheetCardProps> = ({ traps, loading, scopeMissionIds }) => {
   const [sourceFilter, setSourceFilter] = useState<'all' | 'lso' | 'tactical-paddles'>('all');
   const [gradeFilter, setGradeFilter] = useState<string>('all');
   const [timeFilter, setTimeFilter] = useState<'all' | 'day' | 'night'>('all');
 
   const filteredTraps = useMemo(() => {
+    const scopeSet = scopeMissionIds === null ? null : new Set(scopeMissionIds);
     return traps.filter(trap => {
+      if (scopeSet && (!trap.mission_id || !scopeSet.has(trap.mission_id))) return false;
       // Passes graded by a human LSO carry a grading_lso_id; app-sourced
       // passes (Tactical Paddles) do not.
       if (sourceFilter === 'lso' && !trap.grading_lso_id) return false;
@@ -85,14 +89,14 @@ const DossierTrapSheetCard: React.FC<DossierTrapSheetCardProps> = ({ traps, load
       if (timeFilter === 'night' && !trap.is_night) return false;
       return true;
     });
-  }, [traps, sourceFilter, gradeFilter, timeFilter]);
+  }, [traps, sourceFilter, gradeFilter, timeFilter, scopeMissionIds]);
 
   return (
-    <div style={{ ...dossierStyles.card, flex: 1, minHeight: 0 }}>
+    <div style={{ ...dossierStyles.card, flexShrink: 0 }}>
       <div style={dossierStyles.cardHeader}>
         <span style={dossierStyles.cardHeaderText}>Trap Sheet</span>
       </div>
-      <div style={{ ...dossierStyles.cardContent, display: 'flex', flexDirection: 'column' }}>
+      <div style={{ ...dossierStyles.cardContent, display: 'flex', flexDirection: 'column', overflowY: 'visible', minHeight: '200px' }}>
         {/* Filters */}
         <div style={{ display: 'flex', gap: '12px', marginBottom: '16px', flexWrap: 'wrap' }}>
           {[
@@ -197,7 +201,7 @@ const DossierTrapSheetCard: React.FC<DossierTrapSheetCardProps> = ({ traps, load
             </div>
 
             {/* Pass table */}
-            <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
+            <div style={{ maxHeight: '420px', overflowY: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead>
                   <tr>
