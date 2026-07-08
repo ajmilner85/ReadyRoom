@@ -389,6 +389,10 @@ export class PermissionCalculator {
       canManageStandings: [],
       canBulkEditRoster: [],
       canViewPublicRoster: false,
+
+      // Pilot Dossiers (scoped)
+      view_pilot_dossiers: [],
+      edit_pilot_dossiers: [],
       
       // Events (scoped)
       canManageEvents: [],
@@ -525,6 +529,18 @@ export class PermissionCalculator {
         break;
       case 'view_public_roster':
         permissions.canViewPublicRoster = true;
+        break;
+
+      // Pilot Dossier permissions (scoped)
+      case 'view_pilot_dossiers':
+        if (!this.hasScopeContext(permissions.view_pilot_dossiers, scopeContext)) {
+          permissions.view_pilot_dossiers.push(scopeContext);
+        }
+        break;
+      case 'edit_pilot_dossiers':
+        if (!this.hasScopeContext(permissions.edit_pilot_dossiers, scopeContext)) {
+          permissions.edit_pilot_dossiers.push(scopeContext);
+        }
         break;
         
       // Events permissions (scoped)
@@ -701,14 +717,16 @@ export class PermissionCalculator {
       'canManageSquadronSettings' | 'canEditDiscordIntegration' |
       'canEditFlightAssignments' | 'canAssignMissionRoles' | 'canPublishToDiscord' |
       'canSyncWithDiscord' |
-      'view_debriefs' | 'edit_debriefs' | 'finalize_debriefs' | 'delegate_debriefs'
+      'view_debriefs' | 'edit_debriefs' | 'finalize_debriefs' | 'delegate_debriefs' |
+      'view_pilot_dossiers' | 'edit_pilot_dossiers'
     >)[] = [
       'canManageRoster', 'canEditPilotQualifications', 'canDeletePilots', 'canManageStandings',
       'canManageEvents', 'canCreateTrainingCycles', 'canManageEventAttendance', 'canOverrideEventSettings',
       'canManageSquadronSettings', 'canEditDiscordIntegration',
       'canEditFlightAssignments', 'canAssignMissionRoles', 'canPublishToDiscord',
       'canSyncWithDiscord',
-      'view_debriefs', 'edit_debriefs', 'finalize_debriefs', 'delegate_debriefs'
+      'view_debriefs', 'edit_debriefs', 'finalize_debriefs', 'delegate_debriefs',
+      'view_pilot_dossiers', 'edit_pilot_dossiers'
     ];
     
     for (const permissionKey of scopedPermissions) {

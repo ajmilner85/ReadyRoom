@@ -1,4 +1,5 @@
 import { supabase } from './supabaseClient';
+import { dateInputToLocalDate } from './dateUtils';
 
 // ---------- Types ----------
 
@@ -17,6 +18,45 @@ export interface TimelineEvent {
   type: TimelineEventType;
   title: string;
   subtitle?: string;
+  // Underlying database record; present when the entry can be edited/deleted
+  // in edit mode. dateColumn is the column this entry's date comes from.
+  source?: { table: string; id: string; dateColumn: string };
+}
+
+// Scope filter for statistics/trap sheet/attendance drill-down.
+// Empty = career, cycleId = one cycle, cycleId+eventId = one event.
+export interface DossierScope {
+  cycleId?: string;
+  eventId?: string;
+}
+
+export interface DossierPilotOption {
+  id: string;
+  callsign: string;
+  boardNumber: number | string;
+  squadronId: string | null;
+  squadronDesignation: string | null;
+  wingId: string | null;
+}
+
+export interface DossierEventOption {
+  id: string;
+  name: string;
+  start_datetime: string | null;
+}
+
+export interface DossierAttendance {
+  totalEvents: number;    // published events in scope
+  attended: number;       // marked Present during roll call
+  absent: number;         // marked Absent during roll call
+  notRecorded: number;    // no roll call result for this pilot
+  attendanceRate: number | null; // attended / totalEvents
+  recent: Array<{
+    eventId: string;
+    name: string;
+    date: string | null;
+    response: 'present' | 'absent' | 'not-recorded';
+  }>;
 }
 
 export interface DossierQualification {
@@ -79,6 +119,7 @@ export interface DossierCycle {
 
 export interface TrapRecord {
   id: string;
+  mission_id: string | null;
   pass_time: string | null;
   created_at: string | null;
   overall_grade: string | null;
@@ -95,7 +136,7 @@ export interface TrapRecord {
   grading_lso_id: string | null;
 }
 
-// ---------- Cycles ----------
+// ---------- Cycles / Events (scope drill-down) ----------
 
 export async function getDossierCycles(): Promise<{ data: DossierCycle[] | null; error: any }> {
   const { data, error } = await supabase
@@ -106,12 +147,68 @@ export async function getDossierCycles(): Promise<{ data: DossierCycle[] | null;
   return { data: data as DossierCycle[] | null, error };
 }
 
+export async function getCycleEvents(cycleId: string): Promise<{ data: DossierEventOption[] | null; error: any }> {
+  const { data, error } = await supabase
+    .from('events')
+    .select('id, name, start_datetime')
+    .eq('cycle_id', cycleId)
+    .order('start_datetime', { ascending: false });
+
+  return { data: data as DossierEventOption[] | null, error };
+}
+
+// ---------- Pilot selector ----------
+
+/**
+ * Pilots available for dossier viewing, with their active squadron/wing for
+ * client-side scope filtering. RLS on the pilots table provides the actual
+ * enforcement; this only shapes the picker.
+ */
+export async function getDossierPilotList(): Promise<{ data: DossierPilotOption[] | null; error: any }> {
+  try {
+    const [pilotsRes, assignmentsRes] = await Promise.all([
+      supabase
+        .from('pilots')
+        .select('id, callsign, boardNumber')
+        .order('callsign'),
+      supabase
+        .from('pilot_assignments')
+        .select('pilot_id, end_date, squadron:squadron_id (id, designation, wing_id)')
+        .is('end_date', null)
+    ]);
+
+    if (pilotsRes.error) return { data: null, error: pilotsRes.error };
+
+    const assignmentByPilot: Record<string, any> = {};
+    ((assignmentsRes.data || []) as any[]).forEach(a => {
+      if (a.squadron) assignmentByPilot[a.pilot_id] = a.squadron;
+    });
+
+    const options: DossierPilotOption[] = (pilotsRes.data || []).map(p => {
+      const squadron = assignmentByPilot[p.id];
+      return {
+        id: p.id,
+        callsign: p.callsign,
+        boardNumber: p.boardNumber,
+        squadronId: squadron?.id || null,
+        squadronDesignation: squadron?.designation || null,
+        wingId: squadron?.wing_id || null
+      };
+    });
+
+    return { data: options, error: null };
+  } catch (error) {
+    return { data: null, error };
+  }
+}
+
 // ---------- Cruise participation ----------
 
 /**
  * Returns the completed Cruise-type cycles the pilot participated in.
- * Participation is inferred from Discord event attendance (accepted response
- * or roll call presence) on any event belonging to the cycle.
+ * A cruise counts when the pilot attended at least one of its events
+ * (roll call Present, or an accepted RSVP when no roll call was taken).
+ * Training and other cycle types never count.
  */
 export async function getCompletedCruises(discordId: string | null): Promise<DossierCycle[]> {
   try {
@@ -138,7 +235,7 @@ export async function getCompletedCruises(discordId: string | null): Promise<Dos
     if (attendanceError || !attendance || attendance.length === 0) return [];
 
     const attendedMessageIds = attendance
-      .filter(a => a.user_response === 'accepted' || a.roll_call_response === 'Present' || (!a.user_response && !a.roll_call_response))
+      .filter(a => a.roll_call_response === 'Present' || (!a.roll_call_response && a.user_response === 'accepted'))
       .map(a => a.discord_event_id)
       .filter(Boolean) as string[];
 
@@ -164,19 +261,30 @@ export async function getCompletedCruises(discordId: string | null): Promise<Dos
 
 // ---------- Stats ----------
 
-/** Returns the mission IDs belonging to a cycle (via events linked to missions). */
-async function getCycleMissionIds(cycleId: string): Promise<string[]> {
-  const { data: events } = await supabase
-    .from('events')
-    .select('id')
-    .eq('cycle_id', cycleId);
+/**
+ * Returns the mission IDs covered by a scope (via events linked to missions),
+ * or null when the scope is career-wide (no filtering).
+ */
+export async function getScopeMissionIds(scope: DossierScope): Promise<string[] | null> {
+  if (!scope.cycleId && !scope.eventId) return null;
 
-  if (!events || events.length === 0) return [];
+  let eventIds: string[];
+  if (scope.eventId) {
+    eventIds = [scope.eventId];
+  } else {
+    const { data: events } = await supabase
+      .from('events')
+      .select('id')
+      .eq('cycle_id', scope.cycleId!);
+    eventIds = (events || []).map(e => e.id);
+  }
+
+  if (eventIds.length === 0) return [];
 
   const { data: missions } = await supabase
     .from('missions')
     .select('id')
-    .in('event_id', events.map(e => e.id));
+    .in('event_id', eventIds);
 
   return (missions || []).map(m => m.id);
 }
@@ -184,13 +292,10 @@ async function getCycleMissionIds(cycleId: string): Promise<string[]> {
 export async function getDossierStats(
   pilotId: string,
   discordId: string | null,
-  cycleId?: string
+  scope: DossierScope = {}
 ): Promise<{ data: DossierStats | null; error: any }> {
   try {
-    let cycleMissionIds: string[] | null = null;
-    if (cycleId) {
-      cycleMissionIds = await getCycleMissionIds(cycleId);
-    }
+    const cycleMissionIds = await getScopeMissionIds(scope);
 
     // --- Kills ---
     let killsQuery = supabase
@@ -271,8 +376,8 @@ export async function getDossierStats(
 
     // --- Cruises ---
     const completedCruises = await getCompletedCruises(discordId);
-    const cruisesCompleted = cycleId
-      ? (completedCruises.some(c => c.id === cycleId) ? 1 : 0)
+    const cruisesCompleted = scope.cycleId
+      ? (completedCruises.some(c => c.id === scope.cycleId) ? 1 : 0)
       : completedCruises.length;
 
     return {
@@ -305,6 +410,245 @@ export async function getPilotTraps(pilotId: string, limit: number = 50): Promis
   return { data: data as TrapRecord[] | null, error };
 }
 
+// ---------- Attendance ----------
+
+export async function getDossierAttendance(
+  discordId: string | null,
+  scope: DossierScope = {}
+): Promise<{ data: DossierAttendance | null; error: any }> {
+  try {
+    const empty: DossierAttendance = {
+      totalEvents: 0,
+      attended: 0,
+      absent: 0,
+      notRecorded: 0,
+      attendanceRate: null,
+      recent: []
+    };
+
+    // Events in scope that have already occurred
+    let eventsQuery = supabase
+      .from('events')
+      .select('id, name, start_datetime, discord_event_id, cycle_id')
+      .lte('start_datetime', new Date().toISOString())
+      .order('start_datetime', { ascending: false });
+
+    if (scope.eventId) {
+      eventsQuery = eventsQuery.eq('id', scope.eventId);
+    } else if (scope.cycleId) {
+      eventsQuery = eventsQuery.eq('cycle_id', scope.cycleId);
+    }
+
+    const { data: events, error: eventsError } = await eventsQuery;
+    if (eventsError) return { data: null, error: eventsError };
+    if (!events || events.length === 0) return { data: empty, error: null };
+
+    // Only consider events that were actually published to Discord —
+    // unpublished events had no attendance to take.
+    const publishedEvents = events.filter(e => {
+      const serialized = JSON.stringify(e.discord_event_id || '');
+      return serialized && serialized !== '""' && serialized !== 'null' && serialized !== '{}' && serialized !== '[]';
+    });
+    if (publishedEvents.length === 0) return { data: empty, error: null };
+
+    if (!discordId) {
+      return {
+        data: {
+          ...empty,
+          totalEvents: publishedEvents.length,
+          notRecorded: publishedEvents.length,
+          attendanceRate: 0
+        },
+        error: null
+      };
+    }
+
+    const { data: attendance, error: attendanceError } = await supabase
+      .from('discord_event_attendance')
+      .select('discord_event_id, roll_call_response')
+      .eq('discord_id', discordId);
+
+    if (attendanceError) return { data: null, error: attendanceError };
+
+    // Attendance rows key on Discord message IDs; events store their published
+    // message IDs in a JSONB whose shape varies, so match by serialized inclusion.
+    // Only roll call results count — RSVP responses are ignored.
+    const responseFor = (event: any): 'present' | 'absent' | 'not-recorded' => {
+      const serialized = JSON.stringify(event.discord_event_id || '');
+      const rows = (attendance || []).filter(a => a.discord_event_id && serialized.includes(a.discord_event_id));
+      if (rows.some(r => r.roll_call_response === 'Present')) return 'present';
+      if (rows.some(r => r.roll_call_response === 'Absent')) return 'absent';
+      return 'not-recorded';
+    };
+
+    const result: DossierAttendance = {
+      ...empty,
+      totalEvents: publishedEvents.length
+    };
+
+    publishedEvents.forEach(event => {
+      const response = responseFor(event);
+      if (response === 'present') result.attended += 1;
+      else if (response === 'absent') result.absent += 1;
+      else result.notRecorded += 1;
+
+      if (result.recent.length < 10) {
+        result.recent.push({
+          eventId: event.id,
+          name: event.name || 'Unnamed event',
+          date: event.start_datetime,
+          response
+        });
+      }
+    });
+
+    result.attendanceRate = result.totalEvents > 0 ? result.attended / result.totalEvents : null;
+
+    return { data: result, error: null };
+  } catch (error) {
+    return { data: null, error };
+  }
+}
+
+// ---------- Timeline record cleanup (edit mode) ----------
+
+const DELETABLE_TIMELINE_TABLES = [
+  'pilot_assignments',
+  'pilot_roles',
+  'pilot_qualifications',
+  'pilot_standings',
+  'pilot_statuses'
+] as const;
+
+/**
+ * Deletes an erroneous history record backing a timeline entry. RLS policies
+ * on each table (manage_roster / manage_standings / edit_pilot_qualifications)
+ * are the actual enforcement; the UI additionally gates on edit_pilot_dossiers.
+ */
+export async function deleteTimelineRecord(table: string, id: string): Promise<{ success: boolean; error: any }> {
+  if (!(DELETABLE_TIMELINE_TABLES as readonly string[]).includes(table)) {
+    return { success: false, error: new Error(`Records from ${table} cannot be deleted from the dossier`) };
+  }
+
+  // .select() returns the affected rows — RLS-blocked writes "succeed" with
+  // zero rows and no error, so an empty result means the policy denied it.
+  const { data, error } = await (supabase as any)
+    .from(table)
+    .delete()
+    .eq('id', id)
+    .select('id');
+
+  if (error) return { success: false, error };
+  if (!data || data.length === 0) {
+    return {
+      success: false,
+      error: new Error('The record was not deleted. You may not have permission to edit this pilot\'s history.')
+    };
+  }
+  return { success: true, error: null };
+}
+
+// Editable date columns per table. achieved_date is a timestamptz; the rest
+// are plain dates.
+const EDITABLE_DATE_COLUMNS: Record<string, string[]> = {
+  pilot_assignments: ['start_date', 'end_date'],
+  pilot_roles: ['effective_date', 'end_date'],
+  pilot_qualifications: ['achieved_date'],
+  pilot_standings: ['start_date'],
+  pilot_statuses: ['start_date']
+};
+
+const TIMESTAMP_DATE_COLUMNS = new Set(['achieved_date']);
+
+/**
+ * Changes the date on a history record backing a timeline entry.
+ * dateInput is a YYYY-MM-DD string from a date picker. RLS provides the
+ * actual enforcement, as with deleteTimelineRecord.
+ */
+export async function updateTimelineRecordDate(
+  table: string,
+  id: string,
+  column: string,
+  dateInput: string
+): Promise<{ success: boolean; error: any }> {
+  const allowedColumns = EDITABLE_DATE_COLUMNS[table];
+  if (!allowedColumns || !allowedColumns.includes(column)) {
+    return { success: false, error: new Error(`The date on ${table}.${column} cannot be edited from the dossier`) };
+  }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateInput)) {
+    return { success: false, error: new Error('Invalid date') };
+  }
+
+  const value = TIMESTAMP_DATE_COLUMNS.has(column)
+    ? dateInputToLocalDate(dateInput).toISOString()
+    : dateInput;
+
+  // See deleteTimelineRecord: empty result = RLS denied the write
+  const { data, error } = await (supabase as any)
+    .from(table)
+    .update({ [column]: value })
+    .eq('id', id)
+    .select('id');
+
+  if (error) return { success: false, error };
+  if (!data || data.length === 0) {
+    return {
+      success: false,
+      error: new Error('The date was not updated. You may not have permission to edit this pilot\'s history.')
+    };
+  }
+  return { success: true, error: null };
+}
+
+// ---------- Last mission flown (scope shortcut) ----------
+
+/**
+ * Finds the most recent completed event the pilot attended (roll call
+ * Present, or an accepted RSVP when no roll call was taken) and returns a
+ * scope pointing at it. Returns null when nothing is found.
+ */
+export async function getLastFlownScope(discordId: string | null): Promise<DossierScope | null> {
+  if (!discordId) return null;
+  try {
+    const [eventsRes, attendanceRes] = await Promise.all([
+      supabase
+        .from('events')
+        .select('id, cycle_id, start_datetime, discord_event_id')
+        .eq('status', 'completed')
+        .order('start_datetime', { ascending: false, nullsFirst: false })
+        .limit(200),
+      supabase
+        .from('discord_event_attendance')
+        .select('discord_event_id, user_response, roll_call_response')
+        .eq('discord_id', discordId)
+    ]);
+
+    const events = eventsRes.data || [];
+    const attendance = attendanceRes.data || [];
+    if (events.length === 0 || attendance.length === 0) return null;
+
+    const attendedMessageIds = attendance
+      .filter(a => a.roll_call_response === 'Present' || (!a.roll_call_response && a.user_response === 'accepted'))
+      .map(a => a.discord_event_id)
+      .filter(Boolean) as string[];
+    if (attendedMessageIds.length === 0) return null;
+
+    // Events are already newest-first; take the first attended one that has a
+    // cycle (the scope card can't represent an event outside a cycle).
+    const lastAttended = events.find(event => {
+      if (!event.cycle_id) return false;
+      const serialized = JSON.stringify(event.discord_event_id || '');
+      return attendedMessageIds.some(id => serialized.includes(id));
+    });
+
+    if (!lastAttended) return null;
+    return { cycleId: lastAttended.cycle_id!, eventId: lastAttended.id };
+  } catch (error) {
+    console.error('Error finding last attended mission:', error);
+    return null;
+  }
+}
+
 // ---------- Profile + Timeline ----------
 
 export async function getDossierProfile(pilotId: string, discordId: string | null): Promise<{ data: DossierProfile | null; error: any }> {
@@ -312,7 +656,7 @@ export async function getDossierProfile(pilotId: string, discordId: string | nul
     const [assignmentsRes, rolesRes, qualsRes, standingsRes, statusesRes, gradsRes, teamsRes, enrollmentsRes] = await Promise.all([
       supabase
         .from('pilot_assignments')
-        .select('id, start_date, end_date, squadron:squadron_id (id, name, designation, tail_code, insignia_url)')
+        .select('id, start_date, end_date, squadron:squadron_id (id, name, designation, tail_code, insignia_url, wing_id)')
         .eq('pilot_id', pilotId)
         .order('start_date', { ascending: true }),
       supabase
@@ -404,7 +748,8 @@ export async function getDossierProfile(pilotId: string, discordId: string | nul
           date: a.start_date,
           type: 'squadron',
           title: index === 0 ? `Joined ${designation}` : `Transferred to ${designation}`,
-          subtitle: a.squadron?.name || undefined
+          subtitle: a.squadron?.name || undefined,
+          source: { table: 'pilot_assignments', id: a.id, dateColumn: 'start_date' }
         });
       }
       // Only surface departures that were not immediately followed by a new assignment
@@ -418,7 +763,8 @@ export async function getDossierProfile(pilotId: string, discordId: string | nul
             date: a.end_date,
             type: 'squadron',
             title: `Departed ${designation}`,
-            subtitle: a.squadron?.name || undefined
+            subtitle: a.squadron?.name || undefined,
+            source: { table: 'pilot_assignments', id: a.id, dateColumn: 'end_date' }
           });
         }
       }
@@ -432,7 +778,8 @@ export async function getDossierProfile(pilotId: string, discordId: string | nul
           id: `role-start-${r.id}`,
           date: r.effective_date,
           type: 'billet',
-          title: `Assumed billet: ${r.role.name}${acting}`
+          title: `Assumed billet: ${r.role.name}${acting}`,
+          source: { table: 'pilot_roles', id: r.id, dateColumn: 'effective_date' }
         });
       }
       if (r.end_date && r.end_date < today) {
@@ -440,7 +787,8 @@ export async function getDossierProfile(pilotId: string, discordId: string | nul
           id: `role-end-${r.id}`,
           date: r.end_date,
           type: 'billet',
-          title: `Completed tour as ${r.role.name}`
+          title: `Completed tour as ${r.role.name}`,
+          source: { table: 'pilot_roles', id: r.id, dateColumn: 'end_date' }
         });
       }
     });
@@ -458,7 +806,8 @@ export async function getDossierProfile(pilotId: string, discordId: string | nul
         id: `qual-${q.id}`,
         date: q.achieved_date,
         type: 'qualification',
-        title: `Earned ${q.qualification.name} qualification`
+        title: `Earned ${q.qualification.name} qualification`,
+        source: { table: 'pilot_qualifications', id: q.id, dateColumn: 'achieved_date' }
       });
     });
 
@@ -468,7 +817,8 @@ export async function getDossierProfile(pilotId: string, discordId: string | nul
         id: `standing-${s.id}`,
         date: s.start_date,
         type: 'standing',
-        title: index === 0 ? `Initial standing: ${s.standing.name}` : `Standing changed to ${s.standing.name}`
+        title: index === 0 ? `Initial standing: ${s.standing.name}` : `Standing changed to ${s.standing.name}`,
+        source: { table: 'pilot_standings', id: s.id, dateColumn: 'start_date' }
       });
     });
 
@@ -478,7 +828,8 @@ export async function getDossierProfile(pilotId: string, discordId: string | nul
         id: `status-${s.id}`,
         date: s.start_date,
         type: 'status',
-        title: index === 0 ? `Initial status: ${s.status.name}` : `Status changed to ${s.status.name}`
+        title: index === 0 ? `Initial status: ${s.status.name}` : `Status changed to ${s.status.name}`,
+        source: { table: 'pilot_statuses', id: s.id, dateColumn: 'start_date' }
       });
     });
 

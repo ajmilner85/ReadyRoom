@@ -1,7 +1,8 @@
 import React from 'react';
+import { ChevronDown } from 'lucide-react';
 import QualificationBadge from '../ui/QualificationBadge';
 import { dossierStyles, formatDossierDate } from './dossierStyles';
-import type { DossierProfile } from '../../utils/dossierService';
+import type { DossierProfile, DossierPilotOption } from '../../utils/dossierService';
 
 interface DossierDetailsCardProps {
   callsign: string;
@@ -9,6 +10,10 @@ interface DossierDetailsCardProps {
   discordUsername?: string | null;
   profile: DossierProfile | null;
   loading: boolean;
+  // Pilot picker — only rendered when the viewer may see more than their own dossier
+  viewablePilots: DossierPilotOption[];
+  selectedPilotId: string;
+  onSelectPilot: (pilotId: string) => void;
 }
 
 const fieldRowStyle: React.CSSProperties = {
@@ -31,8 +36,18 @@ const DossierDetailsCard: React.FC<DossierDetailsCardProps> = ({
   boardNumber,
   discordUsername,
   profile,
-  loading
+  loading,
+  viewablePilots,
+  selectedPilotId,
+  onSelectPilot
 }) => {
+  // Group picker options by squadron designation
+  const pilotGroups = viewablePilots.reduce<Record<string, DossierPilotOption[]>>((groups, pilot) => {
+    const label = pilot.squadronDesignation || 'No Squadron';
+    if (!groups[label]) groups[label] = [];
+    groups[label].push(pilot);
+    return groups;
+  }, {});
   const renderField = (label: string, value: React.ReactNode) => (
     <div style={fieldRowStyle}>
       <span style={fieldRowLabelStyle}>{label}</span>
@@ -72,6 +87,35 @@ const DossierDetailsCard: React.FC<DossierDetailsCardProps> = ({
         <span style={dossierStyles.cardHeaderText}>Pilot Details</span>
       </div>
       <div style={dossierStyles.cardContent}>
+        {viewablePilots.length > 1 && (
+          <div style={{ position: 'relative', width: '320px', marginBottom: '16px' }}>
+            <select
+              value={selectedPilotId}
+              onChange={(e) => onSelectPilot(e.target.value)}
+              style={dossierStyles.selector}
+            >
+              {Object.entries(pilotGroups).map(([groupLabel, pilots]) => (
+                <optgroup key={groupLabel} label={groupLabel}>
+                  {pilots.map(pilot => (
+                    <option key={pilot.id} value={pilot.id}>
+                      {pilot.boardNumber} {pilot.callsign}
+                    </option>
+                  ))}
+                </optgroup>
+              ))}
+            </select>
+            <div style={{
+              position: 'absolute',
+              top: '50%',
+              right: '12px',
+              transform: 'translateY(-50%)',
+              pointerEvents: 'none'
+            }}>
+              <ChevronDown size={16} color="#64748B" />
+            </div>
+          </div>
+        )}
+
         {loading ? (
           <div style={dossierStyles.emptyState}>Loading pilot details...</div>
         ) : (
@@ -140,7 +184,6 @@ const DossierDetailsCard: React.FC<DossierDetailsCardProps> = ({
                 </div>
                 <div style={{ fontSize: '14px', color: '#64748B' }}>
                   {profile?.squadron?.name || ''}
-                  {profile?.squadron?.tail_code ? ` · Tail Code ${profile.squadron.tail_code}` : ''}
                 </div>
               </div>
             </div>

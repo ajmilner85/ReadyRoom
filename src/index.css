@@ -39,6 +39,9 @@
 :root {
   --background: 0 0% 100%;
   --foreground: 222.2 84% 4.9%;
+  /* The app is light-themed; without this, browsers in dark mode render
+     native widgets (date/time pickers, scrollbars, selects) dark. */
+  color-scheme: light;
 }
 
 @keyframes spin {
