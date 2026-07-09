@@ -44,6 +44,25 @@
   color-scheme: light;
 }
 
+/* Subtle scrollbar for the dossier center column — keeps the bar clear of card edges */
+.dossier-scroll-column {
+  scrollbar-width: thin;
+  scrollbar-color: #CBD5E1 transparent;
+}
+.dossier-scroll-column::-webkit-scrollbar {
+  width: 8px;
+}
+.dossier-scroll-column::-webkit-scrollbar-track {
+  background: transparent;
+}
+.dossier-scroll-column::-webkit-scrollbar-thumb {
+  background-color: #CBD5E1;
+  border-radius: 4px;
+}
+.dossier-scroll-column::-webkit-scrollbar-thumb:hover {
+  background-color: #94A3B8;
+}
+
 @keyframes spin {
   from {
     transform: rotate(0deg);

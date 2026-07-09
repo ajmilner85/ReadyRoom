@@ -10,7 +10,8 @@ export type TimelineEventType =
   | 'standing'
   | 'status'
   | 'graduation'
-  | 'cruise';
+  | 'cruise'
+  | 'award';
 
 export interface TimelineEvent {
   id: string;
@@ -87,6 +88,7 @@ export interface DossierProfile {
     designation: string;
     tail_code?: string | null;
     insignia_url?: string | null;
+    color_palette?: { primary?: string; secondary?: string; accent?: string } | null;
   } | null;
   statusName?: string | null;
   standingName?: string | null;
@@ -517,7 +519,8 @@ const DELETABLE_TIMELINE_TABLES = [
   'pilot_roles',
   'pilot_qualifications',
   'pilot_standings',
-  'pilot_statuses'
+  'pilot_statuses',
+  'pilot_awards'
 ] as const;
 
 /**
@@ -555,7 +558,8 @@ const EDITABLE_DATE_COLUMNS: Record<string, string[]> = {
   pilot_roles: ['effective_date', 'end_date'],
   pilot_qualifications: ['achieved_date'],
   pilot_standings: ['start_date'],
-  pilot_statuses: ['start_date']
+  pilot_statuses: ['start_date'],
+  pilot_awards: ['awarded_date']
 };
 
 const TIMESTAMP_DATE_COLUMNS = new Set(['achieved_date']);
@@ -653,10 +657,10 @@ export async function getLastFlownScope(discordId: string | null): Promise<Dossi
 
 export async function getDossierProfile(pilotId: string, discordId: string | null): Promise<{ data: DossierProfile | null; error: any }> {
   try {
-    const [assignmentsRes, rolesRes, qualsRes, standingsRes, statusesRes, gradsRes, teamsRes, enrollmentsRes] = await Promise.all([
+    const [assignmentsRes, rolesRes, qualsRes, standingsRes, statusesRes, gradsRes, teamsRes, enrollmentsRes, awardsRes] = await Promise.all([
       supabase
         .from('pilot_assignments')
-        .select('id, start_date, end_date, squadron:squadron_id (id, name, designation, tail_code, insignia_url, wing_id)')
+        .select('id, start_date, end_date, squadron:squadron_id (id, name, designation, tail_code, insignia_url, wing_id, color_palette)')
         .eq('pilot_id', pilotId)
         .order('start_date', { ascending: true }),
       supabase
@@ -689,6 +693,10 @@ export async function getDossierProfile(pilotId: string, discordId: string | nul
       (supabase as any)
         .from('training_enrollments')
         .select('id, status, enrolled_at, cycle:cycle_id (id, name)')
+        .eq('pilot_id', pilotId),
+      (supabase as any)
+        .from('pilot_awards')
+        .select('id, awarded_date, citation, award:award_id (id, name)')
         .eq('pilot_id', pilotId)
     ]);
 
@@ -700,6 +708,7 @@ export async function getDossierProfile(pilotId: string, discordId: string | nul
     const gradRecords = (gradsRes.data || []) as any[];
     const teamRecords = (teamsRes.data || []) as any[];
     const enrollmentRecords = (enrollmentsRes.data || []) as any[];
+    const awardRecords = (awardsRes.data || []) as any[];
 
     const today = new Date().toISOString().split('T')[0];
     const isActive = (endDate: string | null) => !endDate || endDate >= today;
@@ -840,6 +849,18 @@ export async function getDossierProfile(pilotId: string, discordId: string | nul
         date: g.graduated_at,
         type: 'graduation',
         title: `Graduated: ${g.syllabus?.name || 'Training syllabus'}`
+      });
+    });
+
+    awardRecords.forEach(a => {
+      if (!a.awarded_date || !a.award) return;
+      timeline.push({
+        id: `award-${a.id}`,
+        date: a.awarded_date,
+        type: 'award',
+        title: `Awarded ${a.award.name}`,
+        subtitle: a.citation || undefined,
+        source: { table: 'pilot_awards', id: a.id, dateColumn: 'awarded_date' }
       });
     });
 

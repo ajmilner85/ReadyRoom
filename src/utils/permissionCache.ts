@@ -480,6 +480,8 @@ export class PermissionCacheService {
 
       view_pilot_dossiers: [],
       edit_pilot_dossiers: [],
+      manage_awards: [],
+      issue_awards: [],
 
       canManageEvents: [],
       canCreateTrainingCycles: [],

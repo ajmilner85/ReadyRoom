@@ -3,6 +3,7 @@ import { BookUser } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { usePermissions } from '../../hooks/usePermissions';
 import { usePageLoading } from '../../context/PageLoadingContext';
+import { useAppSettings } from '../../context/AppSettingsContext';
 import DossierDetailsCard from './DossierDetailsCard';
 import DossierScopeCard from './DossierScopeCard';
 import DossierStatsCard from './DossierStatsCard';
@@ -12,6 +13,8 @@ import DossierTrapSheetCard from './DossierTrapSheetCard';
 import DossierAwardsCard from './DossierAwardsCard';
 import { dossierStyles } from './dossierStyles';
 import { ConfirmationDialog } from '../ui/dialogs/ConfirmationDialog';
+import AwardsManagerDialog from './AwardsManagerDialog';
+import { getPilotAwards, type PilotAward } from '../../utils/awardService';
 import {
   getDossierProfile,
   getDossierStats,
@@ -40,6 +43,7 @@ const PilotDossier: React.FC = () => {
   const { userProfile } = useAuth();
   const { setPageLoading } = usePageLoading();
   const { hasPermission, loading: permissionsLoading } = usePermissions();
+  const { settings } = useAppSettings();
 
   const ownPilotId = userProfile?.pilot?.id;
 
@@ -54,6 +58,8 @@ const PilotDossier: React.FC = () => {
   const [discordUsername, setDiscordUsername] = useState<string | null>(null);
   const [traps, setTraps] = useState<TrapRecord[]>([]);
   const [trapsLoading, setTrapsLoading] = useState(true);
+  const [pilotAwards, setPilotAwards] = useState<PilotAward[]>([]);
+  const [showAwardsManager, setShowAwardsManager] = useState(false);
 
   // Scope drill-down (career → cycle → event)
   const [cycles, setCycles] = useState<DossierCycle[]>([]);
@@ -130,6 +136,22 @@ const PilotDossier: React.FC = () => {
   const callsign = selectedPilotOption?.callsign || userProfile?.pilot?.callsign || '';
   const boardNumber = selectedPilotOption?.boardNumber ?? userProfile?.pilot?.boardNumber ?? '';
 
+  // Awards in the selected scope, most recent first (already sorted by service).
+  // Only explicit cycle/event linkage counts — dates are never inferred, since
+  // multiple cycles can run concurrently.
+  const scopedAwards = useMemo(() => {
+    if (scope.eventId) {
+      return pilotAwards.filter(a => a.event_id === scope.eventId);
+    }
+    if (scope.cycleId) {
+      return pilotAwards.filter(a => a.cycle_id === scope.cycleId);
+    }
+    return pilotAwards;
+  }, [pilotAwards, scope]);
+
+  const canManageAwardLibrary = !permissionsLoading && hasPermission('manage_awards');
+  const canIssueAwards = !permissionsLoading && hasPermission('issue_awards');
+
   // Editing: own dossier requires holding the permission at any scope; others by target scope
   const canEdit = useMemo(() => {
     if (permissionsLoading || !selectedPilotId) return false;
@@ -157,9 +179,10 @@ const PilotDossier: React.FC = () => {
       setDiscordId(pilotDiscordId);
       setDiscordUsername(pilotRecord?.discord_username || null);
 
-      const [profileResult, trapsResult] = await Promise.all([
+      const [profileResult, trapsResult, awardsResult] = await Promise.all([
         getDossierProfile(pilotId, pilotDiscordId),
-        getPilotTraps(pilotId)
+        getPilotTraps(pilotId),
+        getPilotAwards(pilotId)
       ]);
 
       if (profileResult.error) {
@@ -167,6 +190,7 @@ const PilotDossier: React.FC = () => {
       }
       setProfile(profileResult.data);
       setTraps(trapsResult.data || []);
+      setPilotAwards(awardsResult.data || []);
       return pilotDiscordId;
     } catch (error) {
       console.error('Error loading dossier:', error);
@@ -344,16 +368,20 @@ const PilotDossier: React.FC = () => {
           </div>
 
           {/* Center column: scope drill-down filtering statistics, attendance, trap sheet, awards */}
-          <div style={{
-            flex: 1,
-            minWidth: 0,
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '20px',
-            height: '100%',
-            overflowY: 'auto',
-            paddingBottom: '2px'
-          }}>
+          <div
+            className="dossier-scroll-column"
+            style={{
+              flex: 1,
+              minWidth: 0,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '20px',
+              height: '100%',
+              overflowY: 'auto',
+              paddingRight: '12px',
+              paddingBottom: '2px'
+            }}
+          >
             <DossierScopeCard
               cycles={cycles}
               cycleEvents={cycleEvents}
@@ -367,7 +395,12 @@ const PilotDossier: React.FC = () => {
             <DossierStatsCard stats={stats} loading={statsLoading} />
             <DossierAttendanceCard attendance={attendance} loading={attendanceLoading} />
             <DossierTrapSheetCard traps={traps} loading={trapsLoading} scopeMissionIds={scopeMissionIds} />
-            <DossierAwardsCard />
+            <DossierAwardsCard
+              awards={scopedAwards}
+              loading={profileLoading}
+              canManage={canManageAwardLibrary || canIssueAwards}
+              onOpenManager={() => setShowAwardsManager(true)}
+            />
           </div>
 
           {/* Right column: timeline spanning the page height */}
@@ -379,9 +412,21 @@ const PilotDossier: React.FC = () => {
             onEditEventDate={handleEditTimelineEventDate}
             busyEventId={busyEventId}
             errorMessage={timelineError}
+            squadronPalette={settings.interfaceThemeUsesSquadronColors ? (profile?.squadron?.color_palette || null) : null}
           />
         </div>
       </div>
+
+      <AwardsManagerDialog
+        isOpen={showAwardsManager}
+        onClose={() => setShowAwardsManager(false)}
+        pilots={pilotOptions}
+        cycles={cycles}
+        issuedByProfileId={userProfile?.id || null}
+        canManageLibrary={canManageAwardLibrary}
+        canIssue={canIssueAwards}
+        onChanged={() => { if (selectedPilotId) loadPilotData(selectedPilotId); }}
+      />
 
       <ConfirmationDialog
         isOpen={pendingDelete !== null}
