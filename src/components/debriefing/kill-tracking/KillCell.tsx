@@ -4,6 +4,7 @@ import { Plus, Minus, Trash2 } from 'lucide-react';
 interface KillCellProps {
   killCount: number;
   unitDisplayName: string;
+  isFriendly?: boolean;
   onIncrement: () => void;
   onDecrement: () => void;
 }
@@ -11,6 +12,7 @@ interface KillCellProps {
 const KillCell: React.FC<KillCellProps> = ({
   killCount,
   unitDisplayName,
+  isFriendly = false,
   onIncrement,
   onDecrement
 }) => {
@@ -25,7 +27,7 @@ const KillCell: React.FC<KillCellProps> = ({
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        minHeight: '48px',
+        minHeight: '32px',
         width: '120px'
       }}
     >
@@ -36,7 +38,7 @@ const KillCell: React.FC<KillCellProps> = ({
           onClick={onDecrement}
           style={{
             position: 'absolute',
-            left: '-4px',
+            left: '-12px',
             top: '50%',
             transform: 'translateY(-50%)',
             width: '20px',
@@ -55,24 +57,29 @@ const KillCell: React.FC<KillCellProps> = ({
         </button>
       )}
 
-      {/* Unit name and count - centered, fixed width */}
+      {/* Unit name and count - centered, fixed width.
+          Friendly-fire kills render inside a blue bubble; regular kills have no bubble */}
       <div style={{
         width: '92px',
-        backgroundColor: '#FFFFFF',
+        backgroundColor: isFriendly ? '#EFF6FF' : '#FFFFFF',
+        // Painted as an inset shadow rather than a real border so it doesn't
+        // grow the box beyond the plain (borderless) cell's footprint
+        boxShadow: isFriendly ? 'inset 0 0 0 1px #93C5FD' : 'none',
+        borderRadius: isFriendly ? '8px' : 0,
         padding: '8px',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
         gap: '2px',
-        minHeight: '48px'
+        minHeight: '32px'
       }}
-      title={unitDisplayName}>
+      title={isFriendly ? `${unitDisplayName} (friendly fire)` : unitDisplayName}>
         <div
           style={{
             fontSize: '11px',
             fontWeight: 500,
-            color: '#64748B',
+            color: isFriendly ? '#2563EB' : '#64748B',
             textAlign: 'center',
             overflow: 'hidden',
             textOverflow: 'ellipsis',
@@ -87,7 +94,7 @@ const KillCell: React.FC<KillCellProps> = ({
           {unitDisplayName}
         </div>
         {killCount > 1 && (
-          <span style={{ fontSize: '12px', fontWeight: 700, color: '#000000' }}>
+          <span style={{ fontSize: '12px', fontWeight: 700, color: isFriendly ? '#2563EB' : '#000000' }}>
             x{killCount}
           </span>
         )}
@@ -100,7 +107,7 @@ const KillCell: React.FC<KillCellProps> = ({
           onClick={onIncrement}
           style={{
             position: 'absolute',
-            right: '-4px',
+            right: '-12px',
             top: '50%',
             transform: 'translateY(-50%)',
             width: '20px',

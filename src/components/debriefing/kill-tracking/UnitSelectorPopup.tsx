@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 
 interface UnitOption {
   id: string;
@@ -12,14 +12,16 @@ interface UnitSelectorPopupProps {
   killCategory: 'A2A' | 'A2G' | 'A2S';
   missionPoolUnits: UnitOption[];
   position: { top: number; left: number };
-  onSelectUnit: (unitId: string) => void;
-  onOpenBrowser: () => void;
+  onSelectUnit: (unitId: string, isFriendly: boolean) => void;
+  onOpenBrowser: (isFriendly: boolean) => void;
   onClose: () => void;
 }
 
 /**
  * Dropdown menu for selecting units from mission pool
- * Shows mission pool units + generic option + "OTHER" button
+ * Shows mission pool units + generic option + "OTHER" button.
+ * A "FRIENDLY FIRE" toggle switches the popup into friendly-fire mode:
+ * the same unit list is shown, but selections are recorded as friendly kills.
  */
 const UnitSelectorPopup: React.FC<UnitSelectorPopupProps> = ({
   killCategory,
@@ -30,6 +32,7 @@ const UnitSelectorPopup: React.FC<UnitSelectorPopupProps> = ({
   onClose
 }) => {
   const popupRef = useRef<HTMLDivElement>(null);
+  const [friendlyMode, setFriendlyMode] = useState(false);
 
   // Close on click outside
   useEffect(() => {
@@ -68,7 +71,7 @@ const UnitSelectorPopup: React.FC<UnitSelectorPopupProps> = ({
         top: position.top,
         left: position.left,
         backgroundColor: '#FFFFFF',
-        border: '1px solid #E2E8F0',
+        border: friendlyMode ? '1px solid #3B82F6' : '1px solid #E2E8F0',
         borderRadius: '8px',
         boxShadow: '0px 10px 15px -3px rgba(0, 0, 0, 0.1), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)',
         zIndex: 1000,
@@ -80,6 +83,25 @@ const UnitSelectorPopup: React.FC<UnitSelectorPopupProps> = ({
         overflow: 'hidden'
       }}
     >
+      {/* Friendly fire mode banner */}
+      {friendlyMode && (
+        <div
+          style={{
+            padding: '6px 12px',
+            backgroundColor: '#EFF6FF',
+            borderBottom: '1px solid #BFDBFE',
+            fontSize: '11px',
+            fontWeight: 600,
+            color: '#2563EB',
+            textTransform: 'uppercase',
+            letterSpacing: '0.5px',
+            textAlign: 'center'
+          }}
+        >
+          Recording Friendly Fire
+        </div>
+      )}
+
       {/* Unit list */}
       <div
         style={{
@@ -92,7 +114,7 @@ const UnitSelectorPopup: React.FC<UnitSelectorPopupProps> = ({
           <button
             key={unit.id}
             type="button"
-            onClick={() => onSelectUnit(unit.id)}
+            onClick={() => onSelectUnit(unit.id, friendlyMode)}
             style={{
               width: '100%',
               padding: '8px 12px',
@@ -110,7 +132,7 @@ const UnitSelectorPopup: React.FC<UnitSelectorPopupProps> = ({
               gap: '2px'
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = '#F8FAFC';
+              e.currentTarget.style.backgroundColor = friendlyMode ? '#EFF6FF' : '#F8FAFC';
             }}
             onMouseLeave={(e) => {
               e.currentTarget.style.backgroundColor = 'transparent';
@@ -132,16 +154,19 @@ const UnitSelectorPopup: React.FC<UnitSelectorPopupProps> = ({
         ))}
       </div>
 
-      {/* OTHER button */}
+      {/* OTHER + FRIENDLY FIRE buttons */}
       <div
         style={{
           borderTop: '1px solid #E2E8F0',
-          padding: '4px'
+          padding: '4px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '4px'
         }}
       >
         <button
           type="button"
-          onClick={onOpenBrowser}
+          onClick={() => onOpenBrowser(friendlyMode)}
           style={{
             width: '100%',
             padding: '10px 12px',
@@ -164,6 +189,32 @@ const UnitSelectorPopup: React.FC<UnitSelectorPopupProps> = ({
           }}
         >
           OTHER
+        </button>
+        <button
+          type="button"
+          onClick={() => setFriendlyMode(prev => !prev)}
+          style={{
+            width: '100%',
+            padding: '10px 12px',
+            backgroundColor: friendlyMode ? '#1D4ED8' : '#3B82F6',
+            border: 'none',
+            borderRadius: '4px',
+            color: '#FFFFFF',
+            fontSize: '13px',
+            fontWeight: 600,
+            cursor: 'pointer',
+            textTransform: 'uppercase',
+            letterSpacing: '0.5px',
+            transition: 'background-color 0.15s ease'
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.backgroundColor = '#1D4ED8';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.backgroundColor = friendlyMode ? '#1D4ED8' : '#3B82F6';
+          }}
+        >
+          {friendlyMode ? 'CANCEL FRIENDLY FIRE' : 'FRIENDLY FIRE'}
         </button>
       </div>
     </div>

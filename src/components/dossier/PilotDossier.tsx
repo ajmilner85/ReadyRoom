@@ -7,12 +7,12 @@ import { useAppSettings } from '../../context/AppSettingsContext';
 import DossierDetailsCard from './DossierDetailsCard';
 import DossierScopeCard from './DossierScopeCard';
 import DossierStatsCard from './DossierStatsCard';
-import DossierAttendanceCard from './DossierAttendanceCard';
+import DossierMainTabs from './DossierMainTabs';
 import DossierTimelineCard from './DossierTimelineCard';
-import DossierTrapSheetCard from './DossierTrapSheetCard';
 import DossierAwardsCard from './DossierAwardsCard';
 import { dossierStyles } from './dossierStyles';
 import { ConfirmationDialog } from '../ui/dialogs/ConfirmationDialog';
+import DossierGapWarningDialog from './DossierGapWarningDialog';
 import AwardsManagerDialog from './AwardsManagerDialog';
 import { getPilotAwards, type PilotAward } from '../../utils/awardService';
 import {
@@ -23,10 +23,13 @@ import {
   getPilotTraps,
   getDossierPilotList,
   getDossierAttendance,
+  getDossierKills,
   getScopeMissionIds,
   deleteTimelineRecord,
   updateTimelineRecordDate,
   getLastFlownScope,
+  assessDeletionGapRisk,
+  reopenFieldRecord,
   type DossierProfile,
   type DossierStats,
   type DossierCycle,
@@ -34,8 +37,10 @@ import {
   type DossierScope,
   type DossierPilotOption,
   type DossierAttendance as DossierAttendanceData,
+  type DossierMissionKills,
   type TrapRecord,
-  type TimelineEvent
+  type TimelineEvent,
+  type DeletionGapRisk
 } from '../../utils/dossierService';
 import { supabase } from '../../utils/supabaseClient';
 
@@ -73,10 +78,13 @@ const PilotDossier: React.FC = () => {
   const [statsLoading, setStatsLoading] = useState(true);
   const [attendance, setAttendance] = useState<DossierAttendanceData | null>(null);
   const [attendanceLoading, setAttendanceLoading] = useState(true);
+  const [missionKills, setMissionKills] = useState<DossierMissionKills[]>([]);
+  const [killsLoading, setKillsLoading] = useState(true);
 
   // Timeline edit mode
   const [busyEventId, setBusyEventId] = useState<string | null>(null);
   const [pendingDelete, setPendingDelete] = useState<TimelineEvent | null>(null);
+  const [gapWarning, setGapWarning] = useState<{ event: TimelineEvent; risk: DeletionGapRisk } | null>(null);
   const [timelineError, setTimelineError] = useState<string | null>(null);
 
   // Last-mission scope shortcut
@@ -240,12 +248,13 @@ const PilotDossier: React.FC = () => {
     return () => { isMounted = false; };
   }, [scope]);
 
-  // Load scope-dependent data: statistics + attendance
+  // Load scope-dependent data: statistics + attendance + kills
   useEffect(() => {
     if (!selectedPilotId || profileLoading) return;
     let isMounted = true;
     setStatsLoading(true);
     setAttendanceLoading(true);
+    setKillsLoading(true);
 
     getDossierStats(selectedPilotId, discordId, scope).then(({ data, error }) => {
       if (!isMounted) return;
@@ -259,6 +268,13 @@ const PilotDossier: React.FC = () => {
       if (error) console.error('Error loading dossier attendance:', error);
       setAttendance(data);
       setAttendanceLoading(false);
+    });
+
+    getDossierKills(selectedPilotId, scope).then(({ data, error }) => {
+      if (!isMounted) return;
+      if (error) console.error('Error loading dossier kills:', error);
+      setMissionKills(data || []);
+      setKillsLoading(false);
     });
 
     return () => { isMounted = false; };
@@ -285,10 +301,24 @@ const PilotDossier: React.FC = () => {
     }
   };
 
-  const handleConfirmDelete = async () => {
-    const event = pendingDelete;
-    setPendingDelete(null);
-    if (!event?.source || !selectedPilotId) return;
+  // Entry point from the timeline's delete button — routes to a plain
+  // confirmation, or to the gap warning when deleting would leave the pilot
+  // without a current status/standing/squadron/billet.
+  const handleRequestDelete = (event: TimelineEvent) => {
+    if (!event.source || !profile) {
+      setPendingDelete(event);
+      return;
+    }
+    const risk = assessDeletionGapRisk(profile, event.source.table, event.source.id);
+    if (risk.type === 'none') {
+      setPendingDelete(event);
+    } else {
+      setGapWarning({ event, risk });
+    }
+  };
+
+  const performDelete = async (event: TimelineEvent): Promise<boolean> => {
+    if (!event.source || !selectedPilotId) return false;
 
     setBusyEventId(event.id);
     setTimelineError(null);
@@ -296,12 +326,57 @@ const PilotDossier: React.FC = () => {
       const { success, error } = await deleteTimelineRecord(event.source.table, event.source.id);
       if (!success) {
         setTimelineError(error?.message || 'Failed to delete the record.');
-        return;
+        return false;
       }
-      // Reload profile so details and timeline reflect the deletion
-      await loadPilotData(selectedPilotId);
+      return true;
     } finally {
       setBusyEventId(null);
+    }
+  };
+
+  const handleConfirmDelete = async () => {
+    const event = pendingDelete;
+    setPendingDelete(null);
+    if (!event || !selectedPilotId) return;
+
+    if (await performDelete(event)) {
+      // Reload profile so details and timeline reflect the deletion
+      await loadPilotData(selectedPilotId);
+    }
+  };
+
+  const handleDeleteAnywayFromGapWarning = async () => {
+    const event = gapWarning?.event;
+    setGapWarning(null);
+    if (!event || !selectedPilotId) return;
+
+    if (await performDelete(event)) {
+      await loadPilotData(selectedPilotId);
+    }
+  };
+
+  const handleReopenAndDelete = async () => {
+    const pending = gapWarning;
+    setGapWarning(null);
+    if (!pending || pending.risk.type !== 'gap' || !pending.event.source || !selectedPilotId) return;
+
+    setBusyEventId(pending.event.id);
+    setTimelineError(null);
+    try {
+      const { success: reopenSuccess, error: reopenError } = await reopenFieldRecord(
+        pending.event.source.table,
+        pending.risk.previousRecordId
+      );
+      if (!reopenSuccess) {
+        setTimelineError(reopenError?.message || 'Failed to restore the earlier entry.');
+        return;
+      }
+    } finally {
+      setBusyEventId(null);
+    }
+
+    if (await performDelete(pending.event)) {
+      await loadPilotData(selectedPilotId);
     }
   };
 
@@ -367,21 +442,18 @@ const PilotDossier: React.FC = () => {
             />
           </div>
 
-          {/* Center column: scope drill-down filtering statistics, attendance, trap sheet, awards */}
-          <div
-            className="dossier-scroll-column"
-            style={{
-              flex: 1,
-              minWidth: 0,
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '20px',
-              height: '100%',
-              overflowY: 'auto',
-              paddingRight: '12px',
-              paddingBottom: '2px'
-            }}
-          >
+          {/* Center column: scope and statistics frozen at the top, awards
+              frozen at the bottom, with the tabbed main content area
+              (attendance / kills / trap sheet) filling the height between
+              them and scrolling internally */}
+          <div style={{
+            flex: 1,
+            minWidth: 0,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '20px',
+            height: '100%'
+          }}>
             <DossierScopeCard
               cycles={cycles}
               cycleEvents={cycleEvents}
@@ -393,8 +465,15 @@ const PilotDossier: React.FC = () => {
               notice={scopeNotice}
             />
             <DossierStatsCard stats={stats} loading={statsLoading} />
-            <DossierAttendanceCard attendance={attendance} loading={attendanceLoading} />
-            <DossierTrapSheetCard traps={traps} loading={trapsLoading} scopeMissionIds={scopeMissionIds} />
+            <DossierMainTabs
+              attendance={attendance}
+              attendanceLoading={attendanceLoading}
+              kills={missionKills}
+              killsLoading={killsLoading}
+              traps={traps}
+              trapsLoading={trapsLoading}
+              scopeMissionIds={scopeMissionIds}
+            />
             <DossierAwardsCard
               awards={scopedAwards}
               loading={profileLoading}
@@ -408,7 +487,7 @@ const PilotDossier: React.FC = () => {
             timeline={profile?.timeline || []}
             loading={profileLoading}
             canEdit={canEdit}
-            onDeleteEvent={setPendingDelete}
+            onDeleteEvent={handleRequestDelete}
             onEditEventDate={handleEditTimelineEventDate}
             busyEventId={busyEventId}
             errorMessage={timelineError}
@@ -438,6 +517,17 @@ const PilotDossier: React.FC = () => {
         cancelText="Cancel"
         type="danger"
         icon="trash"
+      />
+
+      <DossierGapWarningDialog
+        isOpen={gapWarning !== null}
+        entryTitle={gapWarning?.event.title || ''}
+        fieldLabel={gapWarning?.risk.type !== 'none' ? (gapWarning?.risk.fieldLabel || '') : ''}
+        canReopenPrevious={gapWarning?.risk.type === 'gap'}
+        busy={busyEventId !== null && busyEventId === gapWarning?.event.id}
+        onCancel={() => setGapWarning(null)}
+        onDeleteAnyway={handleDeleteAnywayFromGapWarning}
+        onReopenAndDelete={handleReopenAndDelete}
       />
     </div>
   );

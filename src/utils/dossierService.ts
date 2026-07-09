@@ -49,14 +49,14 @@ export interface DossierEventOption {
 export interface DossierAttendance {
   totalEvents: number;    // published events in scope
   attended: number;       // marked Present during roll call
-  absent: number;         // marked Absent during roll call
-  notRecorded: number;    // no roll call result for this pilot
+  absent: number;         // marked Absent during roll call, or declined on Discord without a Present roll call result
+  unknown: number;        // no roll call decision and no Discord decline (e.g. accepted/tentative on Discord, or no response at all)
   attendanceRate: number | null; // attended / totalEvents
   recent: Array<{
     eventId: string;
     name: string;
     date: string | null;
-    response: 'present' | 'absent' | 'not-recorded';
+    response: 'present' | 'absent' | 'unknown';
   }>;
 }
 
@@ -98,16 +98,95 @@ export interface DossierProfile {
   teams: DossierTeam[];
   enrollments: DossierEnrollment[];
   timeline: TimelineEvent[];
+  // Full history (not just current) for the four fields that track "current"
+  // via an open-ended date range, sorted oldest → newest. Used to warn before
+  // a delete would leave the pilot without a current entry.
+  fieldHistory: Record<GapCheckedTable, FieldHistoryEntry[]>;
+}
+
+// Tables where "current" is derived from being the most recent entry with no
+// end date, and where deleting the wrong entry can leave that undefined.
+export type GapCheckedTable = 'pilot_assignments' | 'pilot_roles' | 'pilot_standings' | 'pilot_statuses';
+
+export interface FieldHistoryEntry {
+  id: string;
+  startDate: string | null;
+  endDate: string | null;
+}
+
+export const GAP_CHECKED_FIELD_LABELS: Record<GapCheckedTable, string> = {
+  pilot_assignments: 'squadron assignment',
+  pilot_roles: 'billet',
+  pilot_standings: 'standing',
+  pilot_statuses: 'status'
+};
+
+export type DeletionGapRisk =
+  | { type: 'none' }
+  | { type: 'no-remaining'; fieldLabel: string }
+  | { type: 'gap'; fieldLabel: string; previousRecordId: string };
+
+/**
+ * Checks whether deleting a timeline entry would leave the pilot without a
+ * current value for that field — either because it's the only entry, or
+ * because it's the most recent one and the entry before it was already
+ * closed out (and nothing will reopen it once this one is gone).
+ */
+export function assessDeletionGapRisk(profile: DossierProfile, table: string, recordId: string): DeletionGapRisk {
+  if (!(table in GAP_CHECKED_FIELD_LABELS)) return { type: 'none' };
+
+  const history = profile.fieldHistory[table as GapCheckedTable] || [];
+  const index = history.findIndex(entry => entry.id === recordId);
+  if (index === -1 || index !== history.length - 1) {
+    // Not found, or not the most recent entry — deleting an older entry
+    // doesn't affect what's currently active.
+    return { type: 'none' };
+  }
+
+  const fieldLabel = GAP_CHECKED_FIELD_LABELS[table as GapCheckedTable];
+
+  if (history.length === 1) {
+    return { type: 'no-remaining', fieldLabel };
+  }
+
+  const previous = history[index - 1];
+  if (previous.endDate) {
+    return { type: 'gap', fieldLabel, previousRecordId: previous.id };
+  }
+
+  return { type: 'none' };
 }
 
 export interface DossierStats {
   a2aKills: number;
   a2gKills: number;
   a2sKills: number;
+  // Friendly-fire kills (all categories), excluded from the counts above
+  friendlyKills: number;
   cruisesCompleted: number;
   traps: number;
   nightTraps: number;
   landings: number | null; // Not currently tracked
+  // Sorties where the AAR recorded the pilot as alive, over all sorties with a
+  // recorded pilot status. Null when no AAR has recorded a status in scope.
+  survivalRate: number | null;
+}
+
+export interface DossierKillEntry {
+  label: string; // unit type display name from the AAR
+  count: number;
+  category: string | null; // A2A / A2G / A2S
+  isFriendly?: boolean; // friendly-fire kill
+}
+
+// One mission's kills from AAR records, for the dossier Kills tab
+export interface DossierMissionKills {
+  missionId: string;
+  missionName: string;
+  eventName: string | null;
+  date: string | null;
+  kills: DossierKillEntry[];
+  totalKills: number;
 }
 
 export interface DossierCycle {
@@ -302,7 +381,7 @@ export async function getDossierStats(
     // --- Kills ---
     let killsQuery = supabase
       .from('pilot_kills')
-      .select('id, mission_id, air_to_air_kills, air_to_ground_kills, kills_detail')
+      .select('id, mission_id, air_to_air_kills, air_to_ground_kills, kills_detail, pilot_status')
       .eq('pilot_id', pilotId);
 
     if (cycleMissionIds) {
@@ -338,11 +417,16 @@ export async function getDossierStats(
     let a2aKills = 0;
     let a2gKills = 0;
     let a2sKills = 0;
+    let friendlyKills = 0;
 
     (kills || []).forEach(k => {
       if (Array.isArray(k.kills_detail) && k.kills_detail.length > 0) {
         k.kills_detail.forEach((d: any) => {
           const count = d?.kill_count || 0;
+          if (d?.is_friendly) {
+            friendlyKills += count;
+            return;
+          }
           const category = d?.unit_type_id ? unitTypeCategories[d.unit_type_id] : undefined;
           if (category === 'A2A') a2aKills += count;
           else if (category === 'A2S') a2sKills += count;
@@ -376,6 +460,13 @@ export async function getDossierStats(
     const traps = trapPasses.length;
     const nightTraps = trapPasses.filter(g => g.is_night).length;
 
+    // --- Survival rate ---
+    // Each pilot_kills row is one AAR entry for a sortie; pilot_status is only
+    // set when the debrief recorded an outcome (alive / mia / kia).
+    const sortiesWithStatus = (kills || []).filter(k => (k as any).pilot_status);
+    const survived = sortiesWithStatus.filter(k => (k as any).pilot_status === 'alive').length;
+    const survivalRate = sortiesWithStatus.length > 0 ? survived / sortiesWithStatus.length : null;
+
     // --- Cruises ---
     const completedCruises = await getCompletedCruises(discordId);
     const cruisesCompleted = scope.cycleId
@@ -387,13 +478,135 @@ export async function getDossierStats(
         a2aKills,
         a2gKills,
         a2sKills,
+        friendlyKills,
         cruisesCompleted,
         traps,
         nightTraps,
-        landings: null
+        landings: null,
+        survivalRate
       },
       error: null
     };
+  } catch (error) {
+    return { data: null, error };
+  }
+}
+
+// ---------- Kills (per-mission detail for the Kills tab) ----------
+
+/**
+ * Returns the pilot's in-scope kills grouped by mission, most recent first,
+ * with unit types resolved from the AAR's detailed kill records. Missions
+ * where the AAR recorded no kills are omitted.
+ */
+export async function getDossierKills(
+  pilotId: string,
+  scope: DossierScope = {}
+): Promise<{ data: DossierMissionKills[] | null; error: any }> {
+  try {
+    const scopeMissionIds = await getScopeMissionIds(scope);
+    if (scopeMissionIds && scopeMissionIds.length === 0) return { data: [], error: null };
+
+    let killsQuery = supabase
+      .from('pilot_kills')
+      .select('id, mission_id, air_to_air_kills, air_to_ground_kills, kills_detail, created_at')
+      .eq('pilot_id', pilotId);
+
+    if (scopeMissionIds) {
+      killsQuery = killsQuery.in('mission_id', scopeMissionIds);
+    }
+
+    const { data: kills, error: killsError } = await killsQuery;
+    if (killsError) return { data: null, error: killsError };
+    if (!kills || kills.length === 0) return { data: [], error: null };
+
+    // Resolve unit types referenced by detailed kill records
+    const unitTypeIds = new Set<string>();
+    kills.forEach(k => {
+      if (Array.isArray(k.kills_detail)) {
+        (k.kills_detail as any[]).forEach(d => d?.unit_type_id && unitTypeIds.add(d.unit_type_id));
+      }
+    });
+
+    const unitTypesById: Record<string, { label: string; category: string | null }> = {};
+    if (unitTypeIds.size > 0) {
+      const { data: unitTypes } = await supabase
+        .from('dcs_unit_types')
+        .select('id, type_name, display_name, kill_category')
+        .in('id', Array.from(unitTypeIds));
+      (unitTypes || []).forEach(ut => {
+        unitTypesById[ut.id] = {
+          label: ut.display_name || ut.type_name,
+          category: ut.kill_category || null
+        };
+      });
+    }
+
+    // Resolve mission names and dates (via the linked event when present)
+    const missionIds = Array.from(new Set(kills.map(k => k.mission_id).filter(Boolean))) as string[];
+    const missionsById: Record<string, { name: string; eventName: string | null; date: string | null }> = {};
+    if (missionIds.length > 0) {
+      const { data: missions } = await supabase
+        .from('missions')
+        .select('id, name, step_time, event:event_id (id, name, start_datetime)')
+        .in('id', missionIds);
+      ((missions || []) as any[]).forEach(m => {
+        missionsById[m.id] = {
+          name: m.name || m.event?.name || 'Unnamed mission',
+          eventName: m.event?.name || null,
+          date: m.event?.start_datetime || m.step_time || null
+        };
+      });
+    }
+
+    // Aggregate per mission; a pilot can have multiple AAR rows for one
+    // mission (one per flight debrief)
+    const byMission = new Map<string, DossierMissionKills>();
+    kills.forEach(k => {
+      const key = k.mission_id || `record-${k.id}`;
+      const missionInfo = k.mission_id ? missionsById[k.mission_id] : undefined;
+      let entry = byMission.get(key);
+      if (!entry) {
+        entry = {
+          missionId: key,
+          missionName: missionInfo?.name || 'Unknown mission',
+          eventName: missionInfo?.eventName || null,
+          date: missionInfo?.date || k.created_at,
+          kills: [],
+          totalKills: 0
+        };
+        byMission.set(key, entry);
+      }
+
+      const addKill = (label: string, count: number, category: string | null, isFriendly: boolean = false) => {
+        if (count <= 0) return;
+        const existing = entry!.kills.find(x => x.label === label && x.category === category && !!x.isFriendly === isFriendly);
+        if (existing) existing.count += count;
+        else entry!.kills.push({ label, count, category, isFriendly });
+        entry!.totalKills += count;
+      };
+
+      if (Array.isArray(k.kills_detail) && k.kills_detail.length > 0) {
+        (k.kills_detail as any[]).forEach(d => {
+          const unitType = d?.unit_type_id ? unitTypesById[d.unit_type_id] : undefined;
+          addKill(unitType?.label || 'Unknown unit type', d?.kill_count || 0, unitType?.category || null, !!d?.is_friendly);
+        });
+      } else {
+        // Phase 1 records only carry simple category counts
+        addKill('Air-to-air kills', k.air_to_air_kills || 0, 'A2A');
+        addKill('Air-to-ground kills', k.air_to_ground_kills || 0, 'A2G');
+      }
+    });
+
+    const result = Array.from(byMission.values())
+      .filter(m => m.totalKills > 0)
+      .sort((a, b) => {
+        if (!a.date) return 1;
+        if (!b.date) return -1;
+        return new Date(b.date).getTime() - new Date(a.date).getTime();
+      });
+
+    return { data: result, error: null };
   } catch (error) {
     return { data: null, error };
   }
@@ -423,7 +636,7 @@ export async function getDossierAttendance(
       totalEvents: 0,
       attended: 0,
       absent: 0,
-      notRecorded: 0,
+      unknown: 0,
       attendanceRate: null,
       recent: []
     };
@@ -458,7 +671,7 @@ export async function getDossierAttendance(
         data: {
           ...empty,
           totalEvents: publishedEvents.length,
-          notRecorded: publishedEvents.length,
+          unknown: publishedEvents.length,
           attendanceRate: 0
         },
         error: null
@@ -467,20 +680,22 @@ export async function getDossierAttendance(
 
     const { data: attendance, error: attendanceError } = await supabase
       .from('discord_event_attendance')
-      .select('discord_event_id, roll_call_response')
+      .select('discord_event_id, user_response, roll_call_response')
       .eq('discord_id', discordId);
 
     if (attendanceError) return { data: null, error: attendanceError };
 
     // Attendance rows key on Discord message IDs; events store their published
     // message IDs in a JSONB whose shape varies, so match by serialized inclusion.
-    // Only roll call results count — RSVP responses are ignored.
-    const responseFor = (event: any): 'present' | 'absent' | 'not-recorded' => {
+    // Priority: roll call Present > roll call Absent > Discord declined > unknown
+    // (accepted/tentative on Discord with no roll call decision, or no response at all).
+    const responseFor = (event: any): 'present' | 'absent' | 'unknown' => {
       const serialized = JSON.stringify(event.discord_event_id || '');
       const rows = (attendance || []).filter(a => a.discord_event_id && serialized.includes(a.discord_event_id));
       if (rows.some(r => r.roll_call_response === 'Present')) return 'present';
       if (rows.some(r => r.roll_call_response === 'Absent')) return 'absent';
-      return 'not-recorded';
+      if (rows.some(r => r.user_response === 'declined')) return 'absent';
+      return 'unknown';
     };
 
     const result: DossierAttendance = {
@@ -492,7 +707,7 @@ export async function getDossierAttendance(
       const response = responseFor(event);
       if (response === 'present') result.attended += 1;
       else if (response === 'absent') result.absent += 1;
-      else result.notRecorded += 1;
+      else result.unknown += 1;
 
       if (result.recent.length < 10) {
         result.recent.push({
@@ -600,6 +815,29 @@ export async function updateTimelineRecordDate(
       success: false,
       error: new Error('The date was not updated. You may not have permission to edit this pilot\'s history.')
     };
+  }
+  return { success: true, error: null };
+}
+
+/**
+ * Clears the end date on a history record, re-establishing it as the pilot's
+ * current entry for that field. Used to fix a record left "closed" after the
+ * record that had superseded it was deleted — see assessDeletionGapRisk.
+ */
+export async function reopenFieldRecord(table: string, id: string): Promise<{ success: boolean; error: any }> {
+  if (!(table in GAP_CHECKED_FIELD_LABELS)) {
+    return { success: false, error: new Error(`Records from ${table} cannot be reopened`) };
+  }
+
+  const { data, error } = await (supabase as any)
+    .from(table)
+    .update({ end_date: null })
+    .eq('id', id)
+    .select('id');
+
+  if (error) return { success: false, error };
+  if (!data || data.length === 0) {
+    return { success: false, error: new Error('The record was not reopened. You may not have permission to edit this pilot\'s history.') };
   }
   return { success: true, error: null };
 }
@@ -888,7 +1126,13 @@ export async function getDossierProfile(pilotId: string, discordId: string | nul
         qualifications,
         teams,
         enrollments,
-        timeline
+        timeline,
+        fieldHistory: {
+          pilot_assignments: assignments.map(a => ({ id: a.id, startDate: a.start_date, endDate: a.end_date })),
+          pilot_roles: roleRecords.map(r => ({ id: r.id, startDate: r.effective_date, endDate: r.end_date })),
+          pilot_standings: standingRecords.map(s => ({ id: s.id, startDate: s.start_date, endDate: s.end_date })),
+          pilot_statuses: statusRecords.map(s => ({ id: s.id, startDate: s.start_date, endDate: s.end_date }))
+        }
       },
       error: null
     };

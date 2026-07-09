@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, ExternalLink, Medal } from 'lucide-react';
 import { formatDossierDate } from './dossierStyles';
-import type { PilotAward } from '../../utils/awardService';
+import { awardDisplayImage, type PilotAward } from '../../utils/awardService';
 
 interface AwardViewerDialogProps {
   pilotAward: PilotAward | null;
@@ -38,7 +38,7 @@ const AwardViewerDialog: React.FC<AwardViewerDialogProps> = ({ pilotAward, onClo
   if (!pilotAward) return null;
 
   const award = pilotAward.award;
-  const awardImageUrl = award?.image_url || null;
+  const awardImageUrl = awardDisplayImage(award); // own image or category default
   const certificateUrl = pilotAward.certificate_url || null;
   const certificateIsPdf = !!certificateUrl && certificateUrl.split('?')[0].toLowerCase().endsWith('.pdf');
   // Certificates render via their generated first-page preview when they're

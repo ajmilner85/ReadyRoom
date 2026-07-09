@@ -44,7 +44,7 @@
   color-scheme: light;
 }
 
-/* Subtle scrollbar for the dossier center column — keeps the bar clear of card edges */
+/* Subtle scrollbar for the dossier main content tabs */
 .dossier-scroll-column {
   scrollbar-width: thin;
   scrollbar-color: #CBD5E1 transparent;

@@ -11,6 +11,8 @@ export interface AwardCategory {
   id: string;
   name: string;
   order: number;
+  // Fallback image for awards in this category that have no image of their own
+  default_image_url?: string | null;
 }
 
 export interface Award {
@@ -69,10 +71,30 @@ export interface IssueAwardParams {
 export async function getAwardCategories(): Promise<{ data: AwardCategory[] | null; error: any }> {
   const { data, error } = await sb
     .from('award_categories')
-    .select('id, name, order')
+    .select('id, name, order, default_image_url')
     .order('order')
     .order('name');
   return { data, error };
+}
+
+/** Set or clear (pass null) a category's default award image */
+export async function updateAwardCategoryImage(id: string, imageUrl: string | null): Promise<{ success: boolean; error: any }> {
+  const { data, error } = await sb
+    .from('award_categories')
+    .update({ default_image_url: imageUrl, updated_at: new Date().toISOString() })
+    .eq('id', id)
+    .select('id');
+
+  if (error) return { success: false, error };
+  if (!data || data.length === 0) {
+    return { success: false, error: new Error('Category image was not updated. You may not have permission to manage awards.') };
+  }
+  return { success: true, error: null };
+}
+
+/** Display image for an award: its own image, else its category's default */
+export function awardDisplayImage(award: Award | null | undefined): string | null {
+  return award?.image_url || award?.category?.default_image_url || null;
 }
 
 export async function createAwardCategory(name: string, order: number = 0): Promise<{ data: AwardCategory | null; error: any }> {
@@ -122,7 +144,7 @@ export async function deleteAwardCategory(id: string): Promise<{ success: boolea
 export async function getAllAwards(): Promise<{ data: Award[] | null; error: any }> {
   const { data, error } = await sb
     .from('awards')
-    .select('*, category:category_id (id, name, order)')
+    .select('*, category:category_id (id, name, order, default_image_url)')
     .order('name');
   return { data, error };
 }
@@ -168,7 +190,7 @@ export async function deleteAward(id: string): Promise<{ success: boolean; error
 export async function getPilotAwards(pilotId: string): Promise<{ data: PilotAward[] | null; error: any }> {
   const { data, error } = await sb
     .from('pilot_awards')
-    .select('*, award:award_id (*, category:category_id (id, name, order))')
+    .select('*, award:award_id (*, category:category_id (id, name, order, default_image_url))')
     .eq('pilot_id', pilotId)
     .order('awarded_date', { ascending: false });
   return { data, error };

@@ -29,6 +29,7 @@ interface UnitKillRecord {
   unitTypeName: string;
   killCount: number;
   killCategory: 'A2A' | 'A2G' | 'A2S';
+  isFriendly: boolean;
 }
 
 interface PilotStatusRecord {
@@ -79,6 +80,7 @@ const EnhancedKillTrackingCardV2 = forwardRef<EnhancedKillTrackingCardRef, Enhan
   // Browser modal state
   const [showBrowser, setShowBrowser] = useState(false);
   const [browserKillCategory, setBrowserKillCategory] = useState<'A2A' | 'A2G' | 'A2S'>('A2A');
+  const [browserFriendly, setBrowserFriendly] = useState(false);
 
   // Status menu state
   const [showPilotStatusMenu, setShowPilotStatusMenu] = useState(false);
@@ -137,9 +139,7 @@ const EnhancedKillTrackingCardV2 = forwardRef<EnhancedKillTrackingCardRef, Enhan
           // Get pilot status for this pilot
           const statusRecord = pilotStatuses.get(record.pilotId);
           const pilotStatus = statusRecord?.pilotStatus === 'unaccounted' ? undefined : statusRecord?.pilotStatus;
-          let aircraftStatus = statusRecord?.aircraftStatus === 'unaccounted' ? undefined : statusRecord?.aircraftStatus;
-          // Map 'down' to 'damaged' for service compatibility
-          if (aircraftStatus === 'down') aircraftStatus = 'damaged';
+          const aircraftStatus = statusRecord?.aircraftStatus === 'unaccounted' ? undefined : statusRecord?.aircraftStatus;
 
           const result = await killTrackingService.recordUnitKills(
             actualFlightDebriefId,
@@ -148,13 +148,17 @@ const EnhancedKillTrackingCardV2 = forwardRef<EnhancedKillTrackingCardRef, Enhan
             record.unitTypeId,
             record.killCount,
             pilotStatus || 'alive',
-            aircraftStatus || 'recovered'
+            aircraftStatus || 'recovered',
+            record.isFriendly
           );
 
-          // Update record with actual DB ID if it was a temp record
+          // Update record with actual DB ID if it was a temp record.
+          // recordUnitKills returns the parent pilot_kills row; rebuild the
+          // composite ID (matching getUnitKillsByFlight) so later deletes and
+          // React keys stay correct without a reload.
           savedRecords.push({
             ...record,
-            id: result.id
+            id: `${result.id}-${record.unitTypeId}${record.isFriendly ? '-ff' : ''}`
           });
         }
 
@@ -169,9 +173,7 @@ const EnhancedKillTrackingCardV2 = forwardRef<EnhancedKillTrackingCardRef, Enhan
             // This pilot has no kills but has status - save it with empty kills_detail
             console.log('Saving status-only record for pilot:', pilotId);
             const pilotStatus = statusRecord.pilotStatus === 'unaccounted' ? 'alive' : statusRecord.pilotStatus;
-            let aircraftStatus = statusRecord.aircraftStatus === 'unaccounted' ? 'recovered' : statusRecord.aircraftStatus;
-            // Map 'down' to 'damaged' for service compatibility
-            if (aircraftStatus === 'down') aircraftStatus = 'damaged';
+            const aircraftStatus = statusRecord.aircraftStatus === 'unaccounted' ? 'recovered' : statusRecord.aircraftStatus;
 
             await killTrackingService.savePilotStatus(
               actualFlightDebriefId,
@@ -333,7 +335,8 @@ const EnhancedKillTrackingCardV2 = forwardRef<EnhancedKillTrackingCardRef, Enhan
         unitDisplayName: kill.unit_type?.display_name || 'Unknown',
         unitTypeName: kill.unit_type?.type_name || 'Unknown',
         killCount: kill.kill_count || 1,
-        killCategory: kill.unit_type?.kill_category || 'A2A'
+        killCategory: kill.unit_type?.kill_category || 'A2A',
+        isFriendly: !!kill.is_friendly
       }));
 
       // Load pilot/aircraft statuses for ALL pilots (including those with no kills)
@@ -388,13 +391,13 @@ const EnhancedKillTrackingCardV2 = forwardRef<EnhancedKillTrackingCardRef, Enhan
     setShowPopup(true);
   };
 
-  const handleSelectUnit = async (unitId: string) => {
+  const handleSelectUnit = async (unitId: string, isFriendly: boolean = false) => {
     if (!popupPilotId) {
       console.error('handleSelectUnit: No popupPilotId set');
       return;
     }
 
-    console.log('handleSelectUnit called:', { unitId, popupPilotId, category: popupKillCategory });
+    console.log('handleSelectUnit called:', { unitId, popupPilotId, category: popupKillCategory, isFriendly });
 
     try {
       // Check if this is a generic unit (starts with GENERIC_)
@@ -449,8 +452,9 @@ const EnhancedKillTrackingCardV2 = forwardRef<EnhancedKillTrackingCardRef, Enhan
       }
 
       // Check if this pilot already has a kill record for this unit type
+      // (friendly-fire kills are tracked separately from regular kills)
       const existingRecord = killRecords.find(
-        r => r.pilotId === popupPilotId && r.unitTypeId === actualUnitId
+        r => r.pilotId === popupPilotId && r.unitTypeId === actualUnitId && r.isFriendly === isFriendly
       );
       const newKillCount = existingRecord ? existingRecord.killCount + 1 : 1;
 
@@ -478,7 +482,8 @@ const EnhancedKillTrackingCardV2 = forwardRef<EnhancedKillTrackingCardRef, Enhan
         unitDisplayName: unitData.display_name,
         unitTypeName: unitData.type_name,
         killCount: newKillCount,
-        killCategory: unitData.kill_category
+        killCategory: unitData.kill_category,
+        isFriendly
       };
 
       console.log(existingRecord ? 'Updating kill record:' : 'Adding new kill record:', updatedRecord);
@@ -506,8 +511,9 @@ const EnhancedKillTrackingCardV2 = forwardRef<EnhancedKillTrackingCardRef, Enhan
     }
   };
 
-  const handleOpenBrowser = () => {
+  const handleOpenBrowser = (isFriendly: boolean = false) => {
     setBrowserKillCategory(popupKillCategory);
+    setBrowserFriendly(isFriendly);
     setShowPopup(false);
     setShowBrowser(true);
   };
@@ -515,7 +521,7 @@ const EnhancedKillTrackingCardV2 = forwardRef<EnhancedKillTrackingCardRef, Enhan
   const handleBrowserSelectUnit = async (unitId: string) => {
     if (!popupPilotId) return;
     setShowBrowser(false);
-    await handleSelectUnit(unitId);
+    await handleSelectUnit(unitId, browserFriendly);
   };
 
   const handleIncrement = (killRecordId: string) => {
@@ -631,16 +637,24 @@ const EnhancedKillTrackingCardV2 = forwardRef<EnhancedKillTrackingCardRef, Enhan
   }, [showPilotStatusMenu, showAircraftStatusMenu]);
 
   const renderCategorySection = (category: 'A2A' | 'A2G' | 'A2S', label: string) => {
-    // Calculate totals for each pilot in this category
+    // Calculate totals for each pilot in this category; friendly-fire kills
+    // are tallied separately and excluded from the regular totals
     const pilotTotals = allPilots.map(pilot => {
       if (!pilot) return 0;
       return killRecords
-        .filter(k => k.pilotId === pilot.id && k.killCategory === category)
+        .filter(k => k.pilotId === pilot.id && k.killCategory === category && !k.isFriendly)
+        .reduce((sum, k) => sum + k.killCount, 0);
+    });
+    const pilotFriendlyTotals = allPilots.map(pilot => {
+      if (!pilot) return 0;
+      return killRecords
+        .filter(k => k.pilotId === pilot.id && k.killCategory === category && k.isFriendly)
         .reduce((sum, k) => sum + k.killCount, 0);
     });
 
-    // Calculate flight total for this category
+    // Calculate flight totals for this category
     const flightTotal = pilotTotals.reduce((sum, total) => sum + total, 0);
+    const flightFriendlyTotal = pilotFriendlyTotals.reduce((sum, total) => sum + total, 0);
 
     return (
       <div style={{ marginBottom: '12px' }}>
@@ -678,74 +692,115 @@ const EnhancedKillTrackingCardV2 = forwardRef<EnhancedKillTrackingCardRef, Enhan
             >
               {label}
             </div>
-            {/* Flight total for this category - positioned absolutely at bottom */}
-            {flightTotal > 0 && (
+            {/* Flight totals for this category - positioned absolutely at bottom.
+                Friendly-fire total (excluded from the regular total) stacked below */}
+            {(flightTotal > 0 || flightFriendlyTotal > 0) && (
               <div
                 style={{
                   position: 'absolute',
                   bottom: '8px',
-                  minHeight: '24px',
                   display: 'flex',
+                  flexDirection: 'column',
                   alignItems: 'center',
                   fontSize: '14px',
                   fontWeight: 700,
                   color: '#FFFFFF'
                 }}
               >
-                x{flightTotal}
+                {flightTotal > 0 && (
+                  <div style={{ minHeight: '24px', display: 'flex', alignItems: 'center' }}>
+                    x{flightTotal}
+                  </div>
+                )}
+                {flightFriendlyTotal > 0 && (
+                  <div style={{ minHeight: '24px', display: 'flex', alignItems: 'center', opacity: 0.8 }}>
+                    x{flightFriendlyTotal}
+                  </div>
+                )}
               </div>
             )}
           </div>
 
-          {/* Pilot Columns - each pilot's kills stack vertically */}
-          <div style={{ display: 'flex', gap: '8px', padding: '8px' }}>
-            {allPilots.map((pilot, index) => {
-              const dashNumber = ['2', '1', '3', '4'][index];
+          {/* Pilot columns with totals footer rows aligned across all columns */}
+          <div style={{ display: 'flex', flexDirection: 'column', padding: '8px' }}>
+            {/* Pilot Columns - each pilot's kills stack vertically */}
+            <div style={{ display: 'flex', gap: '8px' }}>
+              {allPilots.map((pilot, index) => {
+                const dashNumber = ['2', '1', '3', '4'][index];
 
-              // Get this pilot's kills for this category (empty array if no pilot)
-              const pilotKills = pilot ? killRecords.filter(
-                k => k.pilotId === pilot.id && k.killCategory === category
-              ) : [];
+                // Get this pilot's kills for this category (empty array if no pilot)
+                const pilotKills = pilot ? killRecords.filter(
+                  k => k.pilotId === pilot.id && k.killCategory === category
+                ) : [];
 
-              const total = pilotTotals[index];
+                return (
+                  <div key={`column-${dashNumber}`} style={{ width: '120px', display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'center' }}>
+                    {/* Each kill for this pilot in this category */}
+                    {pilotKills.map(record => {
+                      return (
+                        <KillCell
+                          key={record.id}
+                          killCount={record.killCount}
+                          unitDisplayName={record.unitDisplayName}
+                          isFriendly={record.isFriendly}
+                          onIncrement={() => handleIncrement(record.id)}
+                          onDecrement={() => handleDecrement(record.id)}
+                        />
+                      );
+                    })}
+                    {/* Add button at bottom of pilot's column - only if pilot exists */}
+                    {pilot && <AddKillButton onClick={(e) => handleAddButtonClick(e, pilot.id, category)} />}
+                  </div>
+                );
+              })}
+            </div>
 
-              return (
-                <div key={`column-${dashNumber}`} style={{ width: '120px', display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'center' }}>
-                  {/* Each kill for this pilot in this category */}
-                  {pilotKills.map(record => {
-                    return (
-                      <KillCell
-                        key={record.id}
-                        killCount={record.killCount}
-                        unitDisplayName={record.unitDisplayName}
-                        onIncrement={() => handleIncrement(record.id)}
-                        onDecrement={() => handleDecrement(record.id)}
-                      />
-                    );
-                  })}
-                  {/* Add button at bottom of pilot's column - only if pilot exists */}
-                  {pilot && <AddKillButton onClick={(e) => handleAddButtonClick(e, pilot.id, category)} />}
-                  {/* Total count - only show if there are kills */}
-                  {total > 0 && (
-                    <div
-                      style={{
-                        width: '120px',
-                        minHeight: '24px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        fontSize: '14px',
-                        fontWeight: 700,
-                        color: '#000000',
-                        marginTop: '4px'
-                      }}
-                    >
-                      x{total}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+            {/* Totals row - one aligned row across all pilot columns */}
+            {flightTotal > 0 && (
+              <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
+                {pilotTotals.map((total, index) => (
+                  <div
+                    key={`total-${index}`}
+                    style={{
+                      width: '120px',
+                      minHeight: '24px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: '14px',
+                      fontWeight: 700,
+                      color: '#000000'
+                    }}
+                  >
+                    {total > 0 ? `x${total}` : ''}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Friendly-fire totals row - in blue, below the regular totals
+                (excluded from the regular totals) */}
+            {flightFriendlyTotal > 0 && (
+              <div style={{ display: 'flex', gap: '8px', marginTop: flightTotal > 0 ? 0 : '4px' }}>
+                {pilotFriendlyTotals.map((friendlyTotal, index) => (
+                  <div
+                    key={`friendly-total-${index}`}
+                    style={{
+                      width: '120px',
+                      minHeight: '24px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: '14px',
+                      fontWeight: 700,
+                      color: '#2563EB'
+                    }}
+                  >
+                    {friendlyTotal > 0 ? `x${friendlyTotal}` : ''}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </div>
