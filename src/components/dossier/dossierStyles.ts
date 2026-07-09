@@ -104,7 +104,16 @@ export const dossierStyles = {
 
 export function formatDossierDate(date: string | null | undefined): string {
   if (!date) return '—';
-  const parsed = new Date(date);
+  // Date-only strings (e.g. awarded_date '2026-07-08') must be parsed as LOCAL
+  // dates — new Date('2026-07-08') parses as UTC midnight, which displays as
+  // the previous day in western timezones.
+  let parsed: Date;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    const [year, month, day] = date.split('-').map(Number);
+    parsed = new Date(year, month - 1, day);
+  } else {
+    parsed = new Date(date);
+  }
   if (isNaN(parsed.getTime())) return '—';
   return parsed.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
 }

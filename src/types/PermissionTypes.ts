@@ -74,6 +74,10 @@ export interface UserPermissions {
   // Pilot Dossiers (scope-aware; own dossier is always viewable)
   view_pilot_dossiers: PermissionScopeContext[];
   edit_pilot_dossiers: PermissionScopeContext[];
+
+  // Awards (scope-aware)
+  manage_awards: PermissionScopeContext[];
+  issue_awards: PermissionScopeContext[];
   
   // Events Management (scope-aware)
   canManageEvents: PermissionScopeContext[];

@@ -393,6 +393,10 @@ export class PermissionCalculator {
       // Pilot Dossiers (scoped)
       view_pilot_dossiers: [],
       edit_pilot_dossiers: [],
+
+      // Awards (scoped)
+      manage_awards: [],
+      issue_awards: [],
       
       // Events (scoped)
       canManageEvents: [],
@@ -540,6 +544,18 @@ export class PermissionCalculator {
       case 'edit_pilot_dossiers':
         if (!this.hasScopeContext(permissions.edit_pilot_dossiers, scopeContext)) {
           permissions.edit_pilot_dossiers.push(scopeContext);
+        }
+        break;
+
+      // Awards permissions (scoped)
+      case 'manage_awards':
+        if (!this.hasScopeContext(permissions.manage_awards, scopeContext)) {
+          permissions.manage_awards.push(scopeContext);
+        }
+        break;
+      case 'issue_awards':
+        if (!this.hasScopeContext(permissions.issue_awards, scopeContext)) {
+          permissions.issue_awards.push(scopeContext);
         }
         break;
         
@@ -718,7 +734,7 @@ export class PermissionCalculator {
       'canEditFlightAssignments' | 'canAssignMissionRoles' | 'canPublishToDiscord' |
       'canSyncWithDiscord' |
       'view_debriefs' | 'edit_debriefs' | 'finalize_debriefs' | 'delegate_debriefs' |
-      'view_pilot_dossiers' | 'edit_pilot_dossiers'
+      'view_pilot_dossiers' | 'edit_pilot_dossiers' | 'manage_awards' | 'issue_awards'
     >)[] = [
       'canManageRoster', 'canEditPilotQualifications', 'canDeletePilots', 'canManageStandings',
       'canManageEvents', 'canCreateTrainingCycles', 'canManageEventAttendance', 'canOverrideEventSettings',
@@ -726,7 +742,7 @@ export class PermissionCalculator {
       'canEditFlightAssignments', 'canAssignMissionRoles', 'canPublishToDiscord',
       'canSyncWithDiscord',
       'view_debriefs', 'edit_debriefs', 'finalize_debriefs', 'delegate_debriefs',
-      'view_pilot_dossiers', 'edit_pilot_dossiers'
+      'view_pilot_dossiers', 'edit_pilot_dossiers', 'manage_awards', 'issue_awards'
     ];
     
     for (const permissionKey of scopedPermissions) {
