@@ -31,6 +31,7 @@ export interface MissionSummaryDetails {
     a2a: Array<{ unitTypeName: string; displayName: string; count: number }>;
     a2g: Array<{ unitTypeName: string; displayName: string; count: number }>;
     a2s: Array<{ unitTypeName: string; displayName: string; count: number }>;
+    friendly: Array<{ unitTypeName: string; displayName: string; count: number }>;
   };
   performanceDetails: {
     categories: Array<{
@@ -155,7 +156,8 @@ class MissionSummaryDetailService {
       killDetails: {
         a2a: [],
         a2g: [],
-        a2s: []
+        a2s: [],
+        friendly: []
       },
       performanceDetails: {
         categories: []
@@ -257,18 +259,21 @@ class MissionSummaryDetailService {
       });
     }
 
-    // Aggregate kill details by unit type
-    const killsByUnit = new Map<string, { category: string; count: number }>();
+    // Aggregate kill details by unit type; friendly-fire kills are grouped
+    // separately from regular kills of the same unit type
+    const killsByUnit = new Map<string, { unitTypeId: string; isFriendly: boolean; count: number }>();
 
     pilotKills?.forEach(record => {
       if (record.kills_detail && Array.isArray(record.kills_detail)) {
-        const killsDetail = record.kills_detail as Array<{unit_type_id: string, kill_count: number}>;
+        const killsDetail = record.kills_detail as Array<{unit_type_id: string, kill_count: number, is_friendly?: boolean}>;
         killsDetail.forEach(kill => {
-          const existing = killsByUnit.get(kill.unit_type_id);
+          const isFriendly = !!kill.is_friendly;
+          const key = `${kill.unit_type_id}${isFriendly ? '-ff' : ''}`;
+          const existing = killsByUnit.get(key);
           if (existing) {
             existing.count += kill.kill_count;
           } else {
-            killsByUnit.set(kill.unit_type_id, { category: '', count: kill.kill_count });
+            killsByUnit.set(key, { unitTypeId: kill.unit_type_id, isFriendly, count: kill.kill_count });
           }
         });
       }
@@ -276,27 +281,32 @@ class MissionSummaryDetailService {
 
     // Fetch unit type details
     if (killsByUnit.size > 0) {
+      const unitTypeIds = Array.from(new Set(Array.from(killsByUnit.values()).map(k => k.unitTypeId)));
       const { data: unitTypes } = await supabase
         .from('dcs_unit_types')
         .select('id, type_name, display_name, kill_category')
-        .in('id', Array.from(killsByUnit.keys()));
+        .in('id', unitTypeIds);
 
-      unitTypes?.forEach(ut => {
-        const killData = killsByUnit.get(ut.id);
-        if (killData) {
-          const unitDetail = {
-            unitTypeName: ut.type_name,
-            displayName: ut.display_name,
-            count: killData.count
-          };
+      const unitTypeById = new Map((unitTypes || []).map(ut => [ut.id, ut]));
 
-          if (ut.kill_category === 'A2A') {
-            details.killDetails.a2a.push(unitDetail);
-          } else if (ut.kill_category === 'A2G') {
-            details.killDetails.a2g.push(unitDetail);
-          } else if (ut.kill_category === 'A2S') {
-            details.killDetails.a2s.push(unitDetail);
-          }
+      killsByUnit.forEach(killData => {
+        const ut = unitTypeById.get(killData.unitTypeId);
+        if (!ut) return;
+
+        const unitDetail = {
+          unitTypeName: ut.type_name,
+          displayName: ut.display_name,
+          count: killData.count
+        };
+
+        if (killData.isFriendly) {
+          details.killDetails.friendly.push(unitDetail);
+        } else if (ut.kill_category === 'A2A') {
+          details.killDetails.a2a.push(unitDetail);
+        } else if (ut.kill_category === 'A2G') {
+          details.killDetails.a2g.push(unitDetail);
+        } else if (ut.kill_category === 'A2S') {
+          details.killDetails.a2s.push(unitDetail);
         }
       });
 
@@ -304,6 +314,7 @@ class MissionSummaryDetailService {
       details.killDetails.a2a.sort((a, b) => b.count - a.count);
       details.killDetails.a2g.sort((a, b) => b.count - a.count);
       details.killDetails.a2s.sort((a, b) => b.count - a.count);
+      details.killDetails.friendly.sort((a, b) => b.count - a.count);
     }
 
     // Aggregate performance ratings by category

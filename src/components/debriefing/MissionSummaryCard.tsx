@@ -20,6 +20,11 @@ interface MissionSummaryData {
     a2g: number;
     a2s: number;
   };
+  friendlyKills?: {
+    a2a: number;
+    a2g: number;
+    a2s: number;
+  };
   performance: {
     sats: number;
     unsats: number;
@@ -68,11 +73,13 @@ interface StatusRowProps {
   icon?: React.ReactNode;
   label: string;
   value: number;
+  // Friendly-fire count shown in blue parentheses next to the value
+  friendlyValue?: number;
   highlighted?: boolean;
   onClick?: (event: React.MouseEvent<HTMLDivElement>) => void;
 }
 
-const StatusRow: React.FC<StatusRowProps> = ({ icon, label, value, highlighted = false, onClick }) => {
+const StatusRow: React.FC<StatusRowProps> = ({ icon, label, value, friendlyValue, highlighted = false, onClick }) => {
   const [isHovered, setIsHovered] = React.useState(false);
 
   return (
@@ -85,7 +92,7 @@ const StatusRow: React.FC<StatusRowProps> = ({ icon, label, value, highlighted =
         alignItems: 'center',
         gap: '8px',
         padding: '8px 12px',
-        backgroundColor: highlighted ? '#EFF6FF' : isHovered ? '#F8FAFC' : '#FFFFFF',
+        backgroundColor: highlighted ? '#F1F5F9' : isHovered ? '#F8FAFC' : '#FFFFFF',
         borderRadius: '6px',
         cursor: onClick ? 'pointer' : 'default',
         transition: 'background-color 0.15s'
@@ -103,12 +110,17 @@ const StatusRow: React.FC<StatusRowProps> = ({ icon, label, value, highlighted =
       </span>
       <span style={{
         fontSize: '16px',
-        fontWeight: 600,
-        color: highlighted ? '#2563EB' : '#1E293B',
+        fontWeight: highlighted ? 700 : 600,
+        color: highlighted ? '#0F172A' : '#1E293B',
         fontFamily: 'Inter',
         marginLeft: 'auto'
       }}>
         {value ?? 0}
+        {friendlyValue != null && friendlyValue > 0 && (
+          <span style={{ fontWeight: 600, color: '#2563EB', marginLeft: '4px' }}>
+            ({friendlyValue})
+          </span>
+        )}
       </span>
     </div>
   );
@@ -194,27 +206,32 @@ export const AircraftStatusCard: React.FC<AircraftStatusCardProps> = ({ data, on
 
 interface TotalKillsCardProps {
   data: MissionSummaryData['totalKills'];
-  onRowClick?: (category: 'a2a' | 'a2g' | 'a2s', event: React.MouseEvent<HTMLDivElement>) => void;
+  friendlyData?: MissionSummaryData['friendlyKills'];
+  onRowClick?: (category: 'a2a' | 'a2g' | 'a2s' | 'friendly', event: React.MouseEvent<HTMLDivElement>) => void;
 }
 
-export const TotalKillsCard: React.FC<TotalKillsCardProps> = ({ data, onRowClick }) => {
+export const TotalKillsCard: React.FC<TotalKillsCardProps> = ({ data, friendlyData, onRowClick }) => {
   return (
     <CategoryCard title="Total Kills">
       <StatusRow
         label="A2A"
         value={data.a2a}
+        friendlyValue={friendlyData?.a2a}
         onClick={onRowClick ? (e) => onRowClick('a2a', e) : undefined}
       />
       <StatusRow
         label="A2G"
         value={data.a2g}
+        friendlyValue={friendlyData?.a2g}
         onClick={onRowClick ? (e) => onRowClick('a2g', e) : undefined}
       />
       <StatusRow
         label="A2S"
         value={data.a2s}
+        friendlyValue={friendlyData?.a2s}
         onClick={onRowClick ? (e) => onRowClick('a2s', e) : undefined}
       />
+      {/* Total excludes friendly-fire kills */}
       <StatusRow label="Total" value={data.a2a + data.a2g + data.a2s} highlighted />
     </CategoryCard>
   );
@@ -248,7 +265,7 @@ export const PerformanceCard: React.FC<PerformanceCardProps> = ({ data, onRowCli
         alignItems: 'center',
         gap: '8px',
         padding: '8px 12px',
-        backgroundColor: '#EFF6FF',
+        backgroundColor: '#F1F5F9',
         borderRadius: '6px',
         marginTop: '4px'
       }}>
@@ -263,8 +280,8 @@ export const PerformanceCard: React.FC<PerformanceCardProps> = ({ data, onRowCli
         </span>
         <span style={{
           fontSize: '16px',
-          fontWeight: 600,
-          color: '#2563EB',
+          fontWeight: 700,
+          color: '#0F172A',
           fontFamily: 'Inter',
           marginLeft: 'auto'
         }}>
@@ -634,7 +651,7 @@ const MissionSummaryCard: React.FC<MissionSummaryCardProps> = ({ data }) => {
             alignItems: 'center',
             gap: '8px',
             padding: '8px 12px',
-            backgroundColor: '#EFF6FF',
+            backgroundColor: '#F1F5F9',
             borderRadius: '6px',
             marginTop: '4px'
           }}>
@@ -647,8 +664,8 @@ const MissionSummaryCard: React.FC<MissionSummaryCardProps> = ({ data }) => {
             }}>Total</span>
             <span style={{
               fontSize: '16px',
-              fontWeight: 600,
-              color: '#2563EB',
+              fontWeight: 700,
+              color: '#0F172A',
               fontFamily: 'Inter',
               marginLeft: 'auto'
             }}>
@@ -727,7 +744,7 @@ const MissionSummaryCard: React.FC<MissionSummaryCardProps> = ({ data }) => {
             alignItems: 'center',
             gap: '8px',
             padding: '8px 12px',
-            backgroundColor: '#EFF6FF',
+            backgroundColor: '#F1F5F9',
             borderRadius: '6px',
             marginTop: '4px'
           }}>
@@ -740,8 +757,8 @@ const MissionSummaryCard: React.FC<MissionSummaryCardProps> = ({ data }) => {
             }}>Total Evaluated</span>
             <span style={{
               fontSize: '16px',
-              fontWeight: 600,
-              color: '#2563EB',
+              fontWeight: 700,
+              color: '#0F172A',
               fontFamily: 'Inter',
               marginLeft: 'auto'
             }}>

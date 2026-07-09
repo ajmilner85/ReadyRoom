@@ -22,6 +22,11 @@ interface MissionSummaryData {
     a2g: number;
     a2s: number;
   };
+  friendlyKills?: {
+    a2a: number;
+    a2g: number;
+    a2s: number;
+  };
   performance: {
     sats: number;
     unsats: number;
@@ -102,12 +107,12 @@ const MissionSummaryWithPopups: React.FC<MissionSummaryWithPopupsProps> = ({
     });
   };
 
-  const handleKillsClick = (category: 'a2a' | 'a2g' | 'a2s', event: React.MouseEvent<HTMLDivElement>) => {
+  const handleKillsClick = (category: 'a2a' | 'a2g' | 'a2s' | 'friendly', event: React.MouseEvent<HTMLDivElement>) => {
     const rect = event.currentTarget.getBoundingClientRect();
     setPopup({
       show: true,
       type: 'kills',
-      title: `${category.toUpperCase()} Kills`,
+      title: category === 'friendly' ? 'Friendly Fire Kills' : `${category.toUpperCase()} Kills`,
       statusKey: category,
       position: {
         top: rect.top,
@@ -200,6 +205,7 @@ const MissionSummaryWithPopups: React.FC<MissionSummaryWithPopupsProps> = ({
         />
         <TotalKillsCard
           data={summaryData.totalKills}
+          friendlyData={summaryData.friendlyKills}
           onRowClick={handleKillsClick}
         />
         <PerformanceCard

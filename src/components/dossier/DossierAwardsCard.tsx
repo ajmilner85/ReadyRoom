@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Medal, Settings } from 'lucide-react';
 import { dossierStyles, formatDossierDate } from './dossierStyles';
 import AwardViewerDialog from './AwardViewerDialog';
-import type { PilotAward } from '../../utils/awardService';
+import { awardDisplayImage, type PilotAward } from '../../utils/awardService';
 
 interface DossierAwardsCardProps {
   awards: PilotAward[]; // already scope-filtered, most recent first
@@ -83,10 +83,11 @@ const DossierAwardsCard: React.FC<DossierAwardsCardProps> = ({
                 !pilotAward.certificate_url.split('?')[0].toLowerCase().endsWith('.pdf');
               const certificateDisplayUrl = pilotAward.certificate_thumbnail_url
                 || (certificateIsImage ? pilotAward.certificate_url : null);
-              const imageUrl = award?.image_url || certificateDisplayUrl;
+              const awardImage = awardDisplayImage(award); // own image or category default
+              const imageUrl = awardImage || certificateDisplayUrl;
               // Certificate inset shown when the tile displays the award image
               // and this issuance also has its own certificate
-              const insetUrl = award?.image_url && certificateDisplayUrl ? certificateDisplayUrl : null;
+              const insetUrl = awardImage && certificateDisplayUrl ? certificateDisplayUrl : null;
               return (
                 <div
                   key={pilotAward.id}

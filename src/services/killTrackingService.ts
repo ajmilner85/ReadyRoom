@@ -244,7 +244,8 @@ class KillTrackingService {
     unitTypeId: string,
     killCount: number,
     pilotStatus: 'alive' | 'mia' | 'kia' = 'alive',
-    aircraftStatus: 'recovered' | 'damaged' | 'destroyed' = 'recovered'
+    aircraftStatus: 'recovered' | 'damaged' | 'destroyed' | 'down' = 'recovered',
+    isFriendly: boolean = false
   ) {
     // Guard against invalid/empty flight debrief ID
     if (!flightDebriefId || flightDebriefId.trim() === '') {
@@ -260,21 +261,30 @@ class KillTrackingService {
       .eq('mission_id', missionId)
       .maybeSingle();
 
+    // Friendly-fire kills of the same unit type are tracked as a separate entry
+    const newEntry = {
+      unit_type_id: unitTypeId,
+      kill_count: killCount,
+      ...(isFriendly ? { is_friendly: true } : {})
+    };
+
     if (existing) {
       // Update existing record - modify kills_detail JSONB array
-      const killsDetail = existing.kills_detail as Array<{unit_type_id: string, kill_count: number}> || [];
+      const killsDetail = existing.kills_detail as Array<{unit_type_id: string, kill_count: number, is_friendly?: boolean}> || [];
 
-      // Find if this unit type already exists in the array
-      const existingKillIndex = killsDetail.findIndex(k => k.unit_type_id === unitTypeId);
+      // Find if this unit type (with matching friendly flag) already exists in the array
+      const existingKillIndex = killsDetail.findIndex(
+        k => k.unit_type_id === unitTypeId && !!k.is_friendly === isFriendly
+      );
 
       let updatedKillsDetail;
       if (existingKillIndex >= 0) {
         // Update existing unit kill count
         updatedKillsDetail = [...killsDetail];
-        updatedKillsDetail[existingKillIndex] = { unit_type_id: unitTypeId, kill_count: killCount };
+        updatedKillsDetail[existingKillIndex] = newEntry;
       } else {
         // Add new unit kill to array
-        updatedKillsDetail = [...killsDetail, { unit_type_id: unitTypeId, kill_count: killCount }];
+        updatedKillsDetail = [...killsDetail, newEntry];
       }
 
       const { data, error } = await supabase
@@ -301,7 +311,7 @@ class KillTrackingService {
         flight_debrief_id: flightDebriefId,
         pilot_id: pilotId,
         mission_id: missionId,
-        kills_detail: [{ unit_type_id: unitTypeId, kill_count: killCount }],
+        kills_detail: [newEntry],
         pilot_status: pilotStatus,
         aircraft_status: aircraftStatus
       })
@@ -323,7 +333,7 @@ class KillTrackingService {
     pilotId: string,
     missionId: string,
     pilotStatus: 'alive' | 'mia' | 'kia',
-    aircraftStatus: 'recovered' | 'damaged' | 'destroyed'
+    aircraftStatus: 'recovered' | 'damaged' | 'destroyed' | 'down'
   ) {
     // Guard against invalid/empty flight debrief ID
     if (!flightDebriefId || flightDebriefId.trim() === '') {
@@ -443,7 +453,7 @@ class KillTrackingService {
     const expandedKills: any[] = [];
 
     for (const record of data || []) {
-      const killsDetail = record.kills_detail as Array<{unit_type_id: string, kill_count: number}> || [];
+      const killsDetail = record.kills_detail as Array<{unit_type_id: string, kill_count: number, is_friendly?: boolean}> || [];
 
       for (const kill of killsDetail) {
         // Fetch unit type data for each kill
@@ -454,12 +464,15 @@ class KillTrackingService {
           .single();
 
         expandedKills.push({
-          id: `${record.id}-${kill.unit_type_id}`, // Composite ID for UI
+          // Composite ID for UI; '-ff' suffix keeps friendly-fire entries of the
+          // same unit type distinct from regular kills
+          id: `${record.id}-${kill.unit_type_id}${kill.is_friendly ? '-ff' : ''}`,
           flight_debrief_id: record.flight_debrief_id,
           pilot_id: record.pilot_id,
           mission_id: record.mission_id,
           unit_type_id: kill.unit_type_id,
           kill_count: kill.kill_count,
+          is_friendly: !!kill.is_friendly,
           pilot_status: record.pilot_status,
           aircraft_status: record.aircraft_status,
           pilot: record.pilot,
@@ -482,20 +495,30 @@ class KillTrackingService {
   async deleteUnitKills(killRecordId: string, unitTypeId?: string) {
     console.log('Attempting to delete kill record from DB:', { killRecordId, unitTypeId });
 
-    // Parse composite ID if needed (format: "parentId-unitTypeId")
+    // Parse composite ID if needed (format: "parentId-unitTypeId" with an
+    // optional "-ff" suffix marking a friendly-fire entry)
     let parentRecordId: string;
     let targetUnitTypeId: string;
+    let targetIsFriendly = false;
 
-    if (killRecordId.includes('-') && !unitTypeId) {
-      const parts = killRecordId.split('-');
-      parentRecordId = parts[0];
-      targetUnitTypeId = parts.slice(1).join('-'); // Handle UUIDs with dashes
+    // Both halves are UUIDs (which contain dashes themselves), so match the
+    // full 36-char UUID prefix rather than splitting on the first dash
+    const compositeMatch = killRecordId.match(
+      /^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})-(.+)$/i
+    );
+    if (compositeMatch && !unitTypeId) {
+      parentRecordId = compositeMatch[1];
+      targetUnitTypeId = compositeMatch[2];
+      if (targetUnitTypeId.endsWith('-ff')) {
+        targetUnitTypeId = targetUnitTypeId.slice(0, -3);
+        targetIsFriendly = true;
+      }
     } else {
       parentRecordId = killRecordId;
       targetUnitTypeId = unitTypeId || '';
     }
 
-    console.log('Parsed IDs:', { parentRecordId, targetUnitTypeId });
+    console.log('Parsed IDs:', { parentRecordId, targetUnitTypeId, targetIsFriendly });
 
     // Get the parent record
     const { data: parentRecord, error: fetchError } = await supabase
@@ -516,10 +539,12 @@ class KillTrackingService {
 
     console.log('Found parent record:', parentRecord);
 
-    const killsDetail = parentRecord.kills_detail as Array<{unit_type_id: string, kill_count: number}> || [];
+    const killsDetail = parentRecord.kills_detail as Array<{unit_type_id: string, kill_count: number, is_friendly?: boolean}> || [];
 
-    // Remove the specific unit from the array
-    const updatedKillsDetail = killsDetail.filter(k => k.unit_type_id !== targetUnitTypeId);
+    // Remove the specific unit (with matching friendly flag) from the array
+    const updatedKillsDetail = killsDetail.filter(
+      k => !(k.unit_type_id === targetUnitTypeId && !!k.is_friendly === targetIsFriendly)
+    );
 
     console.log('Kills detail before:', killsDetail);
     console.log('Kills detail after:', updatedKillsDetail);
@@ -565,9 +590,9 @@ class KillTrackingService {
     flightDebriefId: string,
     pilotId: string,
     missionId: string,
-    kills: Array<{ unitTypeId: string, killCount: number }>,
+    kills: Array<{ unitTypeId: string, killCount: number, isFriendly?: boolean }>,
     pilotStatus: 'alive' | 'mia' | 'kia' = 'alive',
-    aircraftStatus: 'recovered' | 'damaged' | 'destroyed' = 'recovered'
+    aircraftStatus: 'recovered' | 'damaged' | 'destroyed' | 'down' = 'recovered'
   ) {
     // Get existing record for this pilot in this mission
     const { data: existing } = await supabase
@@ -581,7 +606,8 @@ class KillTrackingService {
     // Build kills_detail array
     const killsDetail = kills.map(k => ({
       unit_type_id: k.unitTypeId,
-      kill_count: k.killCount
+      kill_count: k.killCount,
+      ...(k.isFriendly ? { is_friendly: true } : {})
     }));
 
     if (existing) {
@@ -713,6 +739,11 @@ class KillTrackingService {
         a2g: 0,
         a2s: 0
       },
+      friendlyKills: {
+        a2a: 0,
+        a2g: 0,
+        a2s: 0
+      },
       performance: {
         sats: 0,
         unsats: 0,
@@ -784,18 +815,20 @@ class KillTrackingService {
         summary.aircraftStatus.unaccounted--;
       }
 
-      // Aggregate kills from kills_detail JSONB array
+      // Aggregate kills from kills_detail JSONB array; friendly-fire kills are
+      // tallied separately and excluded from the category totals
       if (record.kills_detail && Array.isArray(record.kills_detail)) {
-        const killsDetail = record.kills_detail as Array<{unit_type_id: string, kill_count: number}>;
+        const killsDetail = record.kills_detail as Array<{unit_type_id: string, kill_count: number, is_friendly?: boolean}>;
 
         killsDetail.forEach(kill => {
           const category = unitTypeCategories.get(kill.unit_type_id);
+          const bucket = kill.is_friendly ? summary.friendlyKills : summary.totalKills;
           if (category === 'A2A') {
-            summary.totalKills.a2a += kill.kill_count;
+            bucket.a2a += kill.kill_count;
           } else if (category === 'A2G') {
-            summary.totalKills.a2g += kill.kill_count;
+            bucket.a2g += kill.kill_count;
           } else if (category === 'A2S') {
-            summary.totalKills.a2s += kill.kill_count;
+            bucket.a2s += kill.kill_count;
           }
         });
       }

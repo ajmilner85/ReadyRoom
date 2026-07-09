@@ -11,9 +11,10 @@ interface StatTileProps {
   label: string;
   value: number | string | null;
   note?: string;
+  valueColor?: string;
 }
 
-const StatTile: React.FC<StatTileProps> = ({ label, value, note }) => (
+const StatTile: React.FC<StatTileProps> = ({ label, value, note, valueColor }) => (
   <div style={{
     padding: '16px',
     backgroundColor: '#F8FAFC',
@@ -21,7 +22,7 @@ const StatTile: React.FC<StatTileProps> = ({ label, value, note }) => (
     borderRadius: '8px',
     textAlign: 'center'
   }}>
-    <div style={{ fontSize: '28px', fontWeight: 700, color: value === null ? '#CBD5E1' : '#0F172A', lineHeight: '32px' }}>
+    <div style={{ fontSize: '28px', fontWeight: 700, color: value === null ? '#CBD5E1' : (valueColor || '#0F172A'), lineHeight: '32px' }}>
       {value === null ? '—' : value}
     </div>
     <div style={{
@@ -56,13 +57,19 @@ const DossierStatsCard: React.FC<DossierStatsCardProps> = ({ stats, loading }) =
         ) : (
           <div style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(4, 1fr)',
+            gridTemplateColumns: 'repeat(6, 1fr)',
             gap: '12px'
           }}>
             <StatTile label="A2A Kills" value={stats?.a2aKills ?? 0} />
             <StatTile label="A2G Kills" value={stats?.a2gKills ?? 0} />
             <StatTile label="A2S Kills" value={stats?.a2sKills ?? 0} />
+            <StatTile label="Friendly Kills" value={stats?.friendlyKills ?? 0} valueColor="#2563EB" />
             <StatTile label="Cruises Completed" value={stats?.cruisesCompleted ?? 0} />
+            <StatTile
+              label="Survival Rate"
+              value={stats?.survivalRate != null ? `${Math.round(stats.survivalRate * 100)}%` : null}
+              note={stats?.survivalRate == null ? 'No AAR outcomes in scope' : undefined}
+            />
           </div>
         )}
       </div>

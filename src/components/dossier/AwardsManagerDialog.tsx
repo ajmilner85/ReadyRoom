@@ -13,7 +13,9 @@ import {
   getAwardCategories,
   createAwardCategory,
   updateAwardCategory,
+  updateAwardCategoryImage,
   deleteAwardCategory,
+  awardDisplayImage,
   type Award,
   type AwardCategory,
   type NewAward
@@ -246,6 +248,7 @@ const AwardsManagerDialog: React.FC<AwardsManagerDialogProps> = ({
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
   const [editingCategoryName, setEditingCategoryName] = useState('');
   const [pendingDeleteCategory, setPendingDeleteCategory] = useState<AwardCategory | null>(null);
+  const [busyCategoryId, setBusyCategoryId] = useState<string | null>(null);
 
   // Shared issuance state — used by the Issue tab AND the creation form's
   // "issue now" section, so pilot selections survive switching between them.
@@ -651,6 +654,53 @@ const AwardsManagerDialog: React.FC<AwardsManagerDialogProps> = ({
     }
   };
 
+  const handleCategoryImageFile = async (category: AwardCategory, file: File | null) => {
+    if (!file) return;
+    setBusyCategoryId(category.id);
+    setError(null);
+    try {
+      // Default images are display assets — convert PDFs to their first page
+      const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
+      const uploadFile = isPdf ? await renderPdfFirstPageToImage(file) : file;
+
+      const { url, error: uploadError } = await uploadAwardImage(uploadFile, 'insignia');
+      if (uploadError || !url) {
+        setError(`Image upload failed: ${uploadError?.message || 'unknown error'}`);
+        return;
+      }
+      const { success, error: updateError } = await updateAwardCategoryImage(category.id, url);
+      if (!success) {
+        setError(updateError?.message || 'Failed to set the category image');
+        return;
+      }
+      setNotice(`Default image set for "${category.name}"`);
+      await loadData();
+      onChanged();
+    } catch (err) {
+      console.error('Category image processing failed:', err);
+      setError('Could not read that file. Try a different image.');
+    } finally {
+      setBusyCategoryId(null);
+    }
+  };
+
+  const handleRemoveCategoryImage = async (category: AwardCategory) => {
+    setBusyCategoryId(category.id);
+    setError(null);
+    try {
+      const { success, error: updateError } = await updateAwardCategoryImage(category.id, null);
+      if (!success) {
+        setError(updateError?.message || 'Failed to remove the category image');
+        return;
+      }
+      setNotice(`Default image removed from "${category.name}"`);
+      await loadData();
+      onChanged();
+    } finally {
+      setBusyCategoryId(null);
+    }
+  };
+
   const handleConfirmDeleteCategory = async () => {
     const category = pendingDeleteCategory;
     setPendingDeleteCategory(null);
@@ -891,31 +941,48 @@ const AwardsManagerDialog: React.FC<AwardsManagerDialogProps> = ({
       <div style={{ marginTop: '12px' }}>
         <label style={labelStyle}>Award Image</label>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          {(formState.imageFile || formState.image_url) && !convertingImage && (
-            <div style={{
-              width: '56px',
-              height: '56px',
-              flexShrink: 0,
-              backgroundImage: `url(${formState.imageFile ? URL.createObjectURL(formState.imageFile) : formState.image_url})`,
-              backgroundSize: 'contain',
-              backgroundRepeat: 'no-repeat',
-              backgroundPosition: 'center',
-              border: '1px solid #E2E8F0',
-              borderRadius: '6px'
-            }} />
-          )}
-          <div style={{ flex: 1 }}>
-            <FileDropZone
-              accept="image/*,application/pdf,.pdf"
-              file={formState.imageFile}
-              onFile={handleAwardImageFile}
-              processing={convertingImage}
-              processingText="Converting PDF to image..."
-              placeholder={formState.image_url
-                ? 'Drag a replacement image or PDF here, or click to open file browser.'
-                : 'Drag the award image or PDF here, or click to open file browser.'}
-            />
-          </div>
+          {(() => {
+            const categoryDefault = categories.find(c => c.id === formState.category_id)?.default_image_url || null;
+            const previewUrl = formState.imageFile
+              ? URL.createObjectURL(formState.imageFile)
+              : (formState.image_url || categoryDefault);
+            const usingCategoryDefault = !formState.imageFile && !formState.image_url && !!categoryDefault;
+            return (
+              <>
+                {previewUrl && !convertingImage && (
+                  <div
+                    title={usingCategoryDefault ? 'Category default image' : 'Award image'}
+                    style={{
+                      width: '56px',
+                      height: '56px',
+                      flexShrink: 0,
+                      backgroundImage: `url(${previewUrl})`,
+                      backgroundSize: 'contain',
+                      backgroundRepeat: 'no-repeat',
+                      backgroundPosition: 'center',
+                      border: usingCategoryDefault ? '1px dashed #CBD5E1' : '1px solid #E2E8F0',
+                      borderRadius: '6px',
+                      opacity: usingCategoryDefault ? 0.7 : 1
+                    }}
+                  />
+                )}
+                <div style={{ flex: 1 }}>
+                  <FileDropZone
+                    accept="image/*,application/pdf,.pdf"
+                    file={formState.imageFile}
+                    onFile={handleAwardImageFile}
+                    processing={convertingImage}
+                    processingText="Converting PDF to image..."
+                    placeholder={formState.image_url
+                      ? 'Drag a replacement image or PDF here, or click to open file browser.'
+                      : usingCategoryDefault
+                        ? 'Using the category\'s default image — drop an image or PDF here to override.'
+                        : 'Drag the award image or PDF here, or click to open file browser.'}
+                  />
+                </div>
+              </>
+            );
+          })()}
         </div>
       </div>
 
@@ -1094,6 +1161,7 @@ const AwardsManagerDialog: React.FC<AwardsManagerDialogProps> = ({
             <div style={{ display: 'flex', flexDirection: 'column' }}>
               {libraryFilteredAwards.map(award => {
                 const uniqueAndIssued = !award.is_repeatable && issuedAwardIds.has(award.id);
+                const displayImage = awardDisplayImage(award);
                 return (
                 <div key={award.id} style={{
                   display: 'flex',
@@ -1102,12 +1170,12 @@ const AwardsManagerDialog: React.FC<AwardsManagerDialogProps> = ({
                   padding: '8px 0',
                   borderBottom: '1px solid #F1F5F9'
                 }}>
-                  {award.image_url ? (
+                  {displayImage ? (
                     <div style={{
                       width: '40px',
                       height: '40px',
                       flexShrink: 0,
-                      backgroundImage: `url(${award.image_url})`,
+                      backgroundImage: `url(${displayImage})`,
                       backgroundSize: 'contain',
                       backgroundRepeat: 'no-repeat',
                       backgroundPosition: 'center'
@@ -1224,14 +1292,40 @@ const AwardsManagerDialog: React.FC<AwardsManagerDialogProps> = ({
           {categories.map(category => {
             const inUseCount = awards.filter(a => a.category_id === category.id).length;
             const isEditing = editingCategoryId === category.id;
+            const isBusy = busyCategoryId === category.id;
             return (
               <div key={category.id} style={{
                 display: 'flex',
                 alignItems: 'center',
                 gap: '12px',
                 padding: '8px 0',
-                borderBottom: '1px solid #F1F5F9'
+                borderBottom: '1px solid #F1F5F9',
+                opacity: isBusy ? 0.5 : 1
               }}>
+                {category.default_image_url ? (
+                  <div style={{
+                    width: '32px',
+                    height: '32px',
+                    flexShrink: 0,
+                    backgroundImage: `url(${category.default_image_url})`,
+                    backgroundSize: 'contain',
+                    backgroundRepeat: 'no-repeat',
+                    backgroundPosition: 'center'
+                  }} />
+                ) : (
+                  <div style={{
+                    width: '32px',
+                    height: '32px',
+                    flexShrink: 0,
+                    borderRadius: '4px',
+                    border: '1px dashed #CBD5E1',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}>
+                    <Medal size={16} style={{ color: '#CBD5E1' }} />
+                  </div>
+                )}
                 {isEditing ? (
                   <>
                     <input
@@ -1266,6 +1360,32 @@ const AwardsManagerDialog: React.FC<AwardsManagerDialogProps> = ({
                         {inUseCount} award{inUseCount === 1 ? '' : 's'}
                       </span>
                     </div>
+                    <label
+                      title={category.default_image_url ? 'Replace default award image' : 'Set a default award image for this category'}
+                      style={{ ...secondaryButtonStyle, padding: '6px 8px', cursor: isBusy ? 'wait' : 'pointer' }}
+                    >
+                      <Upload size={14} />
+                      <input
+                        type="file"
+                        accept="image/*,application/pdf,.pdf"
+                        style={{ display: 'none' }}
+                        disabled={isBusy}
+                        onChange={(e) => {
+                          handleCategoryImageFile(category, e.target.files?.[0] || null);
+                          e.target.value = '';
+                        }}
+                      />
+                    </label>
+                    {category.default_image_url && (
+                      <button
+                        onClick={() => handleRemoveCategoryImage(category)}
+                        disabled={isBusy}
+                        title="Remove default image"
+                        style={{ ...secondaryButtonStyle, padding: '6px 8px', color: '#DC2626', borderColor: '#FCA5A5' }}
+                      >
+                        <X size={14} />
+                      </button>
+                    )}
                     <button
                       onClick={() => { setEditingCategoryId(category.id); setEditingCategoryName(category.name); }}
                       title="Rename category"
