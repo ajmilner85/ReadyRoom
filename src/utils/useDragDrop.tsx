@@ -73,20 +73,21 @@ export const useDragDrop = ({
       // Handle dropping outside valid drop zones
       if (active.data.current?.type === 'Pilot' && active.data.current.currentFlightId) {
         const pilot = active.data.current.pilot;
-        
+        const pilotBoardNumber = String(pilot.boardNumber ?? '');
+
         // Pass undefined for flightId and dashNumber to indicate removal
         const newMissionCommander = handleMissionCommanderCheck(
-          pilot.boardNumber, 
-          undefined, 
-          undefined, 
+          pilotBoardNumber,
+          undefined,
+          undefined,
           missionCommander
         );
         if (newMissionCommander !== missionCommander) {
           setMissionCommander(newMissionCommander);
         }
-        
+
         // Remove pilot from all flights and update state
-        const updatedPilots = removePilotFromAllFlights(pilot.boardNumber, assignedPilots);
+        const updatedPilots = removePilotFromAllFlights(pilotBoardNumber, assignedPilots);
         setAssignedPilots(updatedPilots);
       }
       setDraggedPilot(null);
@@ -123,7 +124,8 @@ export const useDragDrop = ({
           // console.log('Target already has pilot:', targetData.currentPilot.callsign);
           
           // If target position pilot is the current pilot, do nothing
-          if (targetData.currentPilot.boardNumber === pilot.boardNumber) {
+          // (restored assignments may carry numeric board numbers — compare as strings)
+          if (String(targetData.currentPilot.boardNumber) === pilot.boardNumber) {
             setDraggedPilot(null);
             setDragSource(null);
             return;
@@ -268,7 +270,7 @@ export const useDragDrop = ({
           // });
           
           // If target position pilot is the current pilot, do nothing
-          if (targetData.currentPilot.boardNumber === pilot.boardNumber) {
+          if (String(targetData.currentPilot.boardNumber) === pilot.boardNumber) {
             // console.log('[SUPPORT-DEBUG] Same pilot, no action needed');
             setDraggedPilot(null);
             setDragSource(null);

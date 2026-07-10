@@ -382,6 +382,9 @@ export const useMissionPrepDataPersistence = (
 
             const result: any = {
               ...assignment,
+              // Persisted assignments may carry a numeric boardNumber (raw DB pilot row) —
+              // UI state and drag comparisons expect strings
+              boardNumber: assignment.boardNumber != null ? String(assignment.boardNumber) : '',
               // Prioritize existing pilot data if database value is null (prevents overwriting local changes)
               rollCallStatus: existingPilot?.rollCallStatus || assignment.roll_call_status
             };
@@ -412,6 +415,8 @@ export const useMissionPrepDataPersistence = (
             // Use full pilot data with database assignment info
             const result: any = {
               ...fullPilotData,
+              // DB pilot rows store boardNumber as a number — UI state expects strings
+              boardNumber: fullPilotData.boardNumber != null ? String(fullPilotData.boardNumber) : '',
               dashNumber: assignment.dash_number,
               flight_id: assignment.flight_id,
               slot_number: assignment.slot_number,
