@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Medal, Settings } from 'lucide-react';
 import { dossierStyles, formatDossierDate } from './dossierStyles';
 import AwardViewerDialog from './AwardViewerDialog';
-import { awardDisplayImage, type PilotAward } from '../../utils/awardService';
+import { groupPilotAwardsForDisplay, type PilotAward, type PilotAwardDisplayGroup } from '../../utils/awardService';
 
 interface DossierAwardsCardProps {
   awards: PilotAward[]; // already scope-filtered, most recent first
@@ -17,7 +17,11 @@ const DossierAwardsCard: React.FC<DossierAwardsCardProps> = ({
   canManage,
   onOpenManager
 }) => {
-  const [viewingAward, setViewingAward] = useState<PilotAward | null>(null);
+  const [viewingGroup, setViewingGroup] = useState<PilotAwardDisplayGroup | null>(null);
+
+  // Repeat-mode awards (e.g. deployment ribbons) collapse to one tile whose
+  // image variant carries the bronze/silver devices for the issuance count
+  const displayGroups = useMemo(() => groupPilotAwardsForDisplay(awards), [awards]);
 
   return (
     <>
@@ -75,15 +79,17 @@ const DossierAwardsCard: React.FC<DossierAwardsCardProps> = ({
             overflowX: 'auto',
             paddingBottom: '8px'
           }}>
-            {awards.map(pilotAward => {
+            {displayGroups.map(group => {
+              const pilotAward = group.pilotAward;
               const award = pilotAward.award;
-              // Tile image: the award's own image wins; otherwise fall back to
-              // the issuance certificate (its generated preview for PDFs)
+              // Tile image: the award's device variant (or plain image) wins;
+              // otherwise fall back to the issuance certificate (its
+              // generated preview for PDFs)
               const certificateIsImage = pilotAward.certificate_url &&
                 !pilotAward.certificate_url.split('?')[0].toLowerCase().endsWith('.pdf');
               const certificateDisplayUrl = pilotAward.certificate_thumbnail_url
                 || (certificateIsImage ? pilotAward.certificate_url : null);
-              const awardImage = awardDisplayImage(award); // own image or category default
+              const awardImage = group.imageUrl; // variant, own image or category default
               const imageUrl = awardImage || certificateDisplayUrl;
               // Certificate inset shown when the tile displays the award image
               // and this issuance also has its own certificate
@@ -91,8 +97,8 @@ const DossierAwardsCard: React.FC<DossierAwardsCardProps> = ({
               return (
                 <div
                   key={pilotAward.id}
-                  title={[award?.name, pilotAward.citation].filter(Boolean).join(' — ')}
-                  onClick={() => setViewingAward(pilotAward)}
+                  title={[award?.name, group.count > 1 ? `${group.count} awards` : null, pilotAward.citation].filter(Boolean).join(' — ')}
+                  onClick={() => setViewingGroup(group)}
                   style={{
                     display: 'flex',
                     flexDirection: 'column',
@@ -154,6 +160,9 @@ const DossierAwardsCard: React.FC<DossierAwardsCardProps> = ({
                     lineHeight: '16px'
                   }}>
                     {award?.name || 'Unknown award'}
+                    {group.count > 1 && (
+                      <span style={{ color: '#64748B', fontWeight: 400 }}> ×{group.count}</span>
+                    )}
                   </div>
                   <div style={{ fontSize: '11px', color: '#94A3B8', marginTop: '2px' }}>
                     {formatDossierDate(pilotAward.awarded_date)}
@@ -166,7 +175,12 @@ const DossierAwardsCard: React.FC<DossierAwardsCardProps> = ({
       </div>
     </div>
 
-    <AwardViewerDialog pilotAward={viewingAward} onClose={() => setViewingAward(null)} />
+    <AwardViewerDialog
+      pilotAward={viewingGroup?.pilotAward || null}
+      repeatCount={viewingGroup?.count || 1}
+      issuances={viewingGroup?.issuances}
+      onClose={() => setViewingGroup(null)}
+    />
     </>
   );
 };

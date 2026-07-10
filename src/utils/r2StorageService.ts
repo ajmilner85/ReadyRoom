@@ -4,6 +4,24 @@ function getWorkerUrl(): string {
   return import.meta.env.VITE_WORKER_URL || 'https://readyroom-storage.ajmilner85.workers.dev';
 }
 
+/**
+ * Rewrites an R2 public URL to the storage worker's CORS proxy
+ * (GET /object/<path> responds with Access-Control-Allow-Origin: *) so the
+ * image can be drawn onto a canvas without tainting it. Supabase Storage
+ * URLs already allow cross-origin reads and pass through unchanged.
+ */
+export function toCorsSafeImageUrl(url: string): string {
+  try {
+    const clean = url.split('?')[0];
+    if (!clean || clean.includes('supabase.co')) return url;
+    const path = new URL(clean).pathname.replace(/^\//, '');
+    if (!path) return url;
+    return `${getWorkerUrl()}/object/${path}`;
+  } catch {
+    return url;
+  }
+}
+
 export async function getAccessToken(): Promise<string | null> {
   const { data } = await supabase.auth.getSession();
   return data.session?.access_token ?? null;

@@ -1,15 +1,22 @@
 import React from 'react';
 import { AlertTriangle } from 'lucide-react';
+import { formatDossierDate } from './dossierStyles';
 
 interface DossierGapWarningDialogProps {
   isOpen: boolean;
   entryTitle: string;
   fieldLabel: string; // e.g. "status", "standing", "squadron assignment", "billet"
-  canReopenPrevious: boolean; // whether there's an earlier entry that can be restored
+  /** Display value of the earlier entry (e.g. "Active"), when known */
+  previousLabel?: string | null;
+  /** Deleted entry's end date — the earlier entry can be extended to cover the deleted period */
+  extendToDate?: string | null;
+  /** No later entry exists — the earlier entry can be made ongoing (end date removed) */
+  canExtendOpenEnded?: boolean;
   busy?: boolean;
   onCancel: () => void;
   onDeleteAnyway: () => void;
-  onReopenAndDelete: () => void;
+  /** Extend the earlier entry to the given end date (null = open-ended), then delete */
+  onExtendPreviousAndDelete: (endDate: string | null) => void;
 }
 
 const buttonBase: React.CSSProperties = {
@@ -27,23 +34,29 @@ const buttonBase: React.CSSProperties = {
 };
 
 /**
- * Warns before deleting a dossier timeline entry that is the pilot's most
- * recent record for its field (status/standing/squadron/billet) when doing so
- * would leave nothing "current" — either because it's the only entry, or
- * because the entry before it was already closed out and nothing will
- * reopen it once this one is gone.
+ * Warns before deleting a dossier timeline entry that would leave a hole in
+ * the pilot's history for its field (status/standing/squadron/billet):
+ * either nothing "current" (deleting the most recent entry when the one
+ * before it was closed out), or a gap in past coverage (deleting a duplicate
+ * middle entry whose predecessor was closed when the duplicate was created).
+ * Offers to repair the earlier entry as part of the delete.
  */
 const DossierGapWarningDialog: React.FC<DossierGapWarningDialogProps> = ({
   isOpen,
   entryTitle,
   fieldLabel,
-  canReopenPrevious,
+  previousLabel = null,
+  extendToDate = null,
+  canExtendOpenEnded = false,
   busy = false,
   onCancel,
   onDeleteAnyway,
-  onReopenAndDelete
+  onExtendPreviousAndDelete
 }) => {
   if (!isOpen) return null;
+
+  const hasRepairOptions = canExtendOpenEnded || !!extendToDate;
+  const earlierEntryName = previousLabel ? `"${previousLabel}"` : 'earlier';
 
   return (
     <div
@@ -64,7 +77,7 @@ const DossierGapWarningDialog: React.FC<DossierGapWarningDialogProps> = ({
           backgroundColor: '#FFFFFF',
           borderRadius: '12px',
           width: '100%',
-          maxWidth: '440px',
+          maxWidth: '460px',
           overflow: 'hidden',
           boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)'
         }}
@@ -75,15 +88,18 @@ const DossierGapWarningDialog: React.FC<DossierGapWarningDialogProps> = ({
             <AlertTriangle size={20} style={{ margin: '0 auto' }} />
           </div>
           <h2 style={{ fontSize: '18px', fontWeight: 600, color: '#1F2937', margin: '0 0 12px 0' }}>
-            This will remove the pilot's current {fieldLabel}
+            {canExtendOpenEnded
+              ? `This will remove the pilot's current ${fieldLabel}`
+              : `This will leave a gap in the pilot's ${fieldLabel} history`}
           </h2>
-          {canReopenPrevious ? (
+          {hasRepairOptions ? (
             <p style={{ fontSize: '14px', color: '#6B7280', lineHeight: 1.5, margin: 0, textAlign: 'left' }}>
-              Deleting "{entryTitle}" will leave this pilot without a current {fieldLabel}, because the entry
-              right before it was already marked as finished — most likely from when this entry was first added.
+              The entry right before "{entryTitle}" was marked as finished — most likely from when this entry
+              was first added. Deleting this entry on its own leaves that period of the pilot's {fieldLabel} history
+              uncovered.
               <br /><br />
-              If this entry was a mistake (for example, a duplicate), the earlier entry is probably still correct
-              and just needs to be marked as ongoing again.
+              If this entry was a mistake (for example, a duplicate), the {earlierEntryName} entry before it is
+              probably still correct and just needs its end date adjusted to close the gap.
             </p>
           ) : (
             <p style={{ fontSize: '14px', color: '#6B7280', lineHeight: 1.5, margin: 0, textAlign: 'left' }}>
@@ -94,9 +110,9 @@ const DossierGapWarningDialog: React.FC<DossierGapWarningDialogProps> = ({
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: '8px 24px 24px 24px' }}>
-          {canReopenPrevious && (
+          {canExtendOpenEnded && (
             <button
-              onClick={onReopenAndDelete}
+              onClick={() => onExtendPreviousAndDelete(null)}
               disabled={busy}
               style={{
                 ...buttonBase,
@@ -109,7 +125,25 @@ const DossierGapWarningDialog: React.FC<DossierGapWarningDialogProps> = ({
               onMouseEnter={e => { if (!busy) e.currentTarget.style.opacity = '0.9'; }}
               onMouseLeave={e => { e.currentTarget.style.opacity = busy ? '0.7' : '1'; }}
             >
-              Restore Earlier Entry & Delete This One
+              Make the {earlierEntryName} entry ongoing & delete this one
+            </button>
+          )}
+          {extendToDate && (
+            <button
+              onClick={() => onExtendPreviousAndDelete(extendToDate)}
+              disabled={busy}
+              style={{
+                ...buttonBase,
+                backgroundColor: canExtendOpenEnded ? '#FFFFFF' : '#3B82F6',
+                borderColor: '#3B82F6',
+                color: canExtendOpenEnded ? '#3B82F6' : '#FFFFFF',
+                opacity: busy ? 0.7 : 1,
+                cursor: busy ? 'wait' : 'pointer'
+              }}
+              onMouseEnter={e => { if (!busy) e.currentTarget.style.opacity = '0.9'; }}
+              onMouseLeave={e => { e.currentTarget.style.opacity = busy ? '0.7' : '1'; }}
+            >
+              Extend the {earlierEntryName} entry to {formatDossierDate(extendToDate)} & delete this one
             </button>
           )}
           <div style={{ display: 'flex', gap: '8px' }}>

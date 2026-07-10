@@ -26,10 +26,10 @@ import {
   getDossierKills,
   getScopeMissionIds,
   deleteTimelineRecord,
+  extendFieldRecord,
   updateTimelineRecordDate,
   getLastFlownScope,
   assessDeletionGapRisk,
-  reopenFieldRecord,
   type DossierProfile,
   type DossierStats,
   type DossierCycle,
@@ -355,7 +355,9 @@ const PilotDossier: React.FC = () => {
     }
   };
 
-  const handleReopenAndDelete = async () => {
+  // Repairs the earlier entry (extend to a date, or null = make it ongoing)
+  // before deleting the flagged one — see assessDeletionGapRisk.
+  const handleExtendPreviousAndDelete = async (endDate: string | null) => {
     const pending = gapWarning;
     setGapWarning(null);
     if (!pending || pending.risk.type !== 'gap' || !pending.event.source || !selectedPilotId) return;
@@ -363,12 +365,13 @@ const PilotDossier: React.FC = () => {
     setBusyEventId(pending.event.id);
     setTimelineError(null);
     try {
-      const { success: reopenSuccess, error: reopenError } = await reopenFieldRecord(
+      const { success: extendSuccess, error: extendError } = await extendFieldRecord(
         pending.event.source.table,
-        pending.risk.previousRecordId
+        pending.risk.previousRecordId,
+        endDate
       );
-      if (!reopenSuccess) {
-        setTimelineError(reopenError?.message || 'Failed to restore the earlier entry.');
+      if (!extendSuccess) {
+        setTimelineError(extendError?.message || 'Failed to adjust the earlier entry.');
         return;
       }
     } finally {
@@ -523,11 +526,13 @@ const PilotDossier: React.FC = () => {
         isOpen={gapWarning !== null}
         entryTitle={gapWarning?.event.title || ''}
         fieldLabel={gapWarning?.risk.type !== 'none' ? (gapWarning?.risk.fieldLabel || '') : ''}
-        canReopenPrevious={gapWarning?.risk.type === 'gap'}
+        previousLabel={gapWarning?.risk.type === 'gap' ? gapWarning.risk.previousLabel : null}
+        extendToDate={gapWarning?.risk.type === 'gap' ? gapWarning.risk.extendToDate : null}
+        canExtendOpenEnded={gapWarning?.risk.type === 'gap' ? gapWarning.risk.canExtendOpenEnded : false}
         busy={busyEventId !== null && busyEventId === gapWarning?.event.id}
         onCancel={() => setGapWarning(null)}
         onDeleteAnyway={handleDeleteAnywayFromGapWarning}
-        onReopenAndDelete={handleReopenAndDelete}
+        onExtendPreviousAndDelete={handleExtendPreviousAndDelete}
       />
     </div>
   );

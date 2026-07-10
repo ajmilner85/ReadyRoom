@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import StyledSelect from './StyledSelect';
 import type { Award, AwardCategory } from '../../utils/awardService';
 import type { DossierCycle, DossierEventOption } from '../../utils/dossierService';
 
@@ -65,88 +66,6 @@ const sectionTitleStyle: React.CSSProperties = {
   fontFamily: 'Inter',
   color: '#374151',
   margin: 0
-};
-
-// Custom single-select dropdown — same look as the roster FilterDrawer's
-// MultiSelectDropdown (native <select> option lists can't be font-styled).
-interface StyledSelectOption {
-  value: string;
-  label: string;
-}
-
-const StyledSelect: React.FC<{
-  value: string;
-  options: StyledSelectOption[];
-  onChange: (value: string) => void;
-  disabled?: boolean;
-}> = ({ value, options, onChange, disabled = false }) => {
-  const [isOpen, setIsOpen] = useState(false);
-  const selected = options.find(o => o.value === value);
-
-  return (
-    <div style={{ position: 'relative', overflow: 'visible', opacity: disabled ? 0.5 : 1 }}>
-      <div
-        onClick={() => { if (!disabled) setIsOpen(!isOpen); }}
-        style={{
-          padding: '8px 12px',
-          border: '1px solid #CBD5E1',
-          borderRadius: '6px',
-          backgroundColor: '#F8FAFC',
-          cursor: disabled ? 'not-allowed' : 'pointer',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          fontSize: '12px',
-          fontFamily: 'Inter'
-        }}
-      >
-        <span>{selected?.label || options[0]?.label || ''}</span>
-        <span style={{ transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }}>
-          ▼
-        </span>
-      </div>
-
-      {isOpen && (
-        <div style={{
-          position: 'absolute',
-          top: '100%',
-          left: 0,
-          right: 0,
-          backgroundColor: '#FFFFFF',
-          border: '1px solid #CBD5E1',
-          borderRadius: '6px',
-          maxHeight: '200px',
-          overflowY: 'auto',
-          zIndex: 1000,
-          boxShadow: '0px 4px 6px -1px rgba(0, 0, 0, 0.1)',
-          marginTop: '4px'
-        }}>
-          {options.map(option => (
-            <div
-              key={option.value}
-              onClick={() => { onChange(option.value); setIsOpen(false); }}
-              style={{
-                padding: '8px 12px',
-                cursor: 'pointer',
-                backgroundColor: option.value === value ? '#EFF6FF' : 'transparent',
-                transition: 'background-color 0.2s',
-                fontSize: '12px',
-                fontFamily: 'Inter'
-              }}
-              onMouseEnter={e => {
-                if (option.value !== value) e.currentTarget.style.backgroundColor = '#F8FAFC';
-              }}
-              onMouseLeave={e => {
-                if (option.value !== value) e.currentTarget.style.backgroundColor = 'transparent';
-              }}
-            >
-              {option.label}
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
 };
 
 // Three-way toggle indicator (unfiltered / include / exclude)
