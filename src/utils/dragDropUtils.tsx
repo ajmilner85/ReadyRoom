@@ -28,13 +28,19 @@ export const cleanRoleId = (roleId: string): string => {
   return roleId;
 };
 
+// Board numbers are stored as numbers in the DB but as strings in drag data and
+// UI state — always compare through this to avoid type mismatches.
+export const normalizeBoardNumber = (boardNumber: unknown): string =>
+  boardNumber === null || boardNumber === undefined ? '' : String(boardNumber).trim();
+
 // Find a pilot by board number across all flights
 export const findPilotInFlights = (
   boardNumber: string,
   assignedPilots: Record<string, AssignedPilot[]>
 ): { flightId: string; pilot: AssignedPilot; } | null => {
+  const target = normalizeBoardNumber(boardNumber);
   for (const [flightId, flightPilots] of Object.entries(assignedPilots)) {
-    const pilot = flightPilots.find(p => p.boardNumber === boardNumber);
+    const pilot = flightPilots.find(p => normalizeBoardNumber(p.boardNumber) === target);
     if (pilot) {
       return { flightId, pilot };
     }
@@ -44,22 +50,21 @@ export const findPilotInFlights = (
 
 // Remove pilot from all flights
 export const removePilotFromAllFlights = (
-  boardNumber: string, 
+  boardNumber: string,
   assignedPilots: Record<string, AssignedPilot[]>
 ): Record<string, AssignedPilot[]> => {
   const updated = { ...assignedPilots };
-  
+  const target = normalizeBoardNumber(boardNumber);
+
   // Check all flights for this pilot
   Object.keys(updated).forEach(flightId => {
     const isSupportRole = flightId.startsWith('support-');
-    
+
     if (isSupportRole) {
       // For all support roles (Command Control or Carrier Air Ops), we want to keep empty slots rather than removing them
       // Replace the pilot with an empty one at the same position
       updated[flightId] = updated[flightId].map(p => {
-        // Make sure we're comparing strings properly
-        const pilotBoardNumber = p.boardNumber?.trim() || '';
-        if (pilotBoardNumber === boardNumber) {
+        if (normalizeBoardNumber(p.boardNumber) === target) {
           // Return an empty pilot with the same dash number
           // Make sure we maintain the AssignedPilot type
           const emptyPilot: AssignedPilot = {
@@ -74,11 +79,9 @@ export const removePilotFromAllFlights = (
       });
     } else {
       // For regular flights, filter out the pilot
-      updated[flightId] = updated[flightId].filter(p => {
-        // Make sure we're comparing strings properly
-        const pilotBoardNumber = p.boardNumber?.trim() || '';
-        return pilotBoardNumber !== boardNumber;
-      });
+      updated[flightId] = updated[flightId].filter(p =>
+        normalizeBoardNumber(p.boardNumber) !== target
+      );
       
       // If flight is now empty, remove it
       if (updated[flightId].length === 0) {
@@ -101,7 +104,7 @@ export const swapPilots = (
   // Remove source pilot from their flight
   if (source.flightId) {
     updated[source.flightId] = (updated[source.flightId] || [])
-      .filter(p => p.boardNumber !== source.pilot.boardNumber);
+      .filter(p => normalizeBoardNumber(p.boardNumber) !== normalizeBoardNumber(source.pilot.boardNumber));
   }
   
   // Create target flight array if it doesn't exist
@@ -122,8 +125,8 @@ export const swapPilots = (
   // If target had a pilot and it's a different pilot than source,
   // and source wasn't in the available pilots list,
   // then add that pilot to source position
-  if (target.currentPilot && 
-      target.currentPilot.boardNumber !== source.pilot.boardNumber &&
+  if (target.currentPilot &&
+      normalizeBoardNumber(target.currentPilot.boardNumber) !== normalizeBoardNumber(source.pilot.boardNumber) &&
       source.flightId) {
     
     updated[source.flightId].push({
@@ -223,7 +226,7 @@ export const getMissionCommanderCandidates = (
       // dash-1 position is what matters for selection in the dropdown
       if (pilot.dashNumber === "1") {
         candidates.push({
-          boardNumber: pilot.boardNumber,
+          boardNumber: normalizeBoardNumber(pilot.boardNumber),
           callsign: pilot.callsign
         });
       }

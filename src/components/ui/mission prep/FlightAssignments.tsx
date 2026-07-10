@@ -69,6 +69,27 @@ interface SquadronFlightGroup {
   flights: Flight[];
 }
 
+// Sort flights deterministically: callsign groups ordered by the earliest
+// creationOrder in each group, flights within a group ordered by flight number.
+// NOTE: comparing creationOrder directly across callsigns while comparing
+// flightNumber within a callsign is a non-transitive comparator — when creation
+// orders interleave across callsigns, Array.prototype.sort can return flights
+// out of numerical order (this produced out-of-order Discord posts).
+const sortFlights = (flightList: Flight[]): Flight[] => {
+  const groupOrder: Record<string, number> = {};
+  flightList.forEach(f => {
+    if (!(f.callsign in groupOrder) || f.creationOrder < groupOrder[f.callsign]) {
+      groupOrder[f.callsign] = f.creationOrder;
+    }
+  });
+  return flightList.sort((a, b) => {
+    if (a.callsign !== b.callsign) {
+      return groupOrder[a.callsign] - groupOrder[b.callsign];
+    }
+    return parseInt(a.flightNumber) - parseInt(b.flightNumber);
+  });
+};
+
 // Add mission commander interface
 interface MissionCommanderInfo {
   boardNumber: string;
@@ -544,13 +565,8 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
         midsCounter += 3;
       });
 
-      // Sort flights by creation order and then by callsign/flight number
-      const sortedFlights = allFlights.sort((a, b) => {
-        if (a.callsign === b.callsign) {
-          return parseInt(a.flightNumber) - parseInt(b.flightNumber);
-        }
-        return a.creationOrder - b.creationOrder;
-      });
+      // Sort flights by creation order group and then by flight number
+      const sortedFlights = sortFlights(allFlights);
       
       console.log('🎯 FlightAssignments: Final flight list:', sortedFlights.map(f => ({
         id: f.id,
@@ -699,12 +715,7 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
           });
 
           // Re-sort flights by callsign and flight number, preserving creation order groups
-          return updatedFlights.sort((a, b) => {
-            if (a.callsign === b.callsign) {
-              return parseInt(a.flightNumber) - parseInt(b.flightNumber);
-            }
-            return a.creationOrder - b.creationOrder;
-          });
+          return sortFlights(updatedFlights);
         });
         
         // Reset edit state
@@ -794,12 +805,7 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
           midsCounter += 3;
         });
 
-        const sortedFlights = updatedFlights.sort((a, b) => {
-          if (a.callsign === b.callsign) {
-            return parseInt(a.flightNumber) - parseInt(b.flightNumber);
-          }
-          return a.creationOrder - b.creationOrder;
-        });
+        const sortedFlights = sortFlights(updatedFlights);
         console.log('➕ [ADD-FLIGHT] Returning updated flights array with', sortedFlights.length, 'total flights');
         return sortedFlights;
       });
@@ -983,6 +989,16 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
 
       // Only include squadron if it has flights (after filtering)
       if (squadronFlights.length > 0) {
+        // Sort into the same order the on-screen flight list uses (callsign
+        // alphabetically, then flight number numerically) so the published
+        // image never depends on the raw state array order, which can be
+        // stale in previously-saved missions
+        squadronFlights.sort((a, b) => {
+          if (a.callsign !== b.callsign) {
+            return a.callsign.localeCompare(b.callsign);
+          }
+          return parseInt(a.flightNumber) - parseInt(b.flightNumber);
+        });
         squadronGroups.push({
           squadron: squadron as LocalSquadron,
           flights: squadronFlights
