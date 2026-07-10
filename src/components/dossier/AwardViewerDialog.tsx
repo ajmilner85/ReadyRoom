@@ -1,10 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { X, ExternalLink, Medal } from 'lucide-react';
 import { formatDossierDate } from './dossierStyles';
-import { awardDisplayImage, type PilotAward } from '../../utils/awardService';
+import {
+  pilotAwardVariantImage,
+  pilotAwardDeviceLabel,
+  type PilotAward
+} from '../../utils/awardService';
 
 interface AwardViewerDialogProps {
   pilotAward: PilotAward | null;
+  /** Total times the pilot holds this award (repeat-mode device variants) */
+  repeatCount?: number;
+  /** All issuances in the displayed group, most recent first */
+  issuances?: PilotAward[];
   onClose: () => void;
 }
 
@@ -26,7 +34,7 @@ const iconButtonStyle: React.CSSProperties = {
  * attached to the issuance, otherwise the award insignia, with the award
  * details in a side panel.
  */
-const AwardViewerDialog: React.FC<AwardViewerDialogProps> = ({ pilotAward, onClose }) => {
+const AwardViewerDialog: React.FC<AwardViewerDialogProps> = ({ pilotAward, repeatCount = 1, issuances, onClose }) => {
   // When both an award image and a certificate exist, the certificate shows
   // as an inset over the award image; clicking the inset swaps them.
   const [certificateAsMain, setCertificateAsMain] = useState(false);
@@ -38,7 +46,10 @@ const AwardViewerDialog: React.FC<AwardViewerDialogProps> = ({ pilotAward, onClo
   if (!pilotAward) return null;
 
   const award = pilotAward.award;
-  const awardImageUrl = awardDisplayImage(award); // own image or category default
+  // Device variant (stars composited), else own image or category default
+  const awardImageUrl = pilotAwardVariantImage(pilotAward, repeatCount);
+  const deviceLabel = pilotAwardDeviceLabel(pilotAward, repeatCount);
+  const groupIssuances = issuances && issuances.length > 1 ? issuances : null;
   const certificateUrl = pilotAward.certificate_url || null;
   const certificateIsPdf = !!certificateUrl && certificateUrl.split('?')[0].toLowerCase().endsWith('.pdf');
   // Certificates render via their generated first-page preview when they're
@@ -194,14 +205,36 @@ const AwardViewerDialog: React.FC<AwardViewerDialogProps> = ({ pilotAward, onClo
             </div>
           </div>
 
-          <div>
-            <div style={{ fontSize: '12px', fontWeight: 500, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-              Awarded
+          {deviceLabel && (
+            <div style={{ fontSize: '13px', color: '#B45309', fontWeight: 500 }}>
+              {deviceLabel}
             </div>
-            <div style={{ fontSize: '14px', color: '#0F172A' }}>{formatDossierDate(pilotAward.awarded_date)}</div>
-          </div>
+          )}
 
-          {pilotAward.citation && (
+          {groupIssuances ? (
+            <div>
+              <div style={{ fontSize: '12px', fontWeight: 500, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                Awarded {groupIssuances.length} times
+              </div>
+              {groupIssuances.map(issuance => (
+                <div key={issuance.id} style={{ fontSize: '14px', color: '#0F172A' }}>
+                  {formatDossierDate(issuance.awarded_date)}
+                  {issuance.citation && (
+                    <span style={{ color: '#94A3B8', fontSize: '12px' }}> — {issuance.citation}</span>
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div>
+              <div style={{ fontSize: '12px', fontWeight: 500, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                Awarded
+              </div>
+              <div style={{ fontSize: '14px', color: '#0F172A' }}>{formatDossierDate(pilotAward.awarded_date)}</div>
+            </div>
+          )}
+
+          {pilotAward.citation && !groupIssuances && (
             <div>
               <div style={{ fontSize: '12px', fontWeight: 500, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                 Citation

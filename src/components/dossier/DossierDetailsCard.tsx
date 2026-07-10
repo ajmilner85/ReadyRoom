@@ -41,13 +41,18 @@ const DossierDetailsCard: React.FC<DossierDetailsCardProps> = ({
   selectedPilotId,
   onSelectPilot
 }) => {
-  // Group picker options by squadron designation
+  // Group picker options by squadron designation, sorted by board number
   const pilotGroups = viewablePilots.reduce<Record<string, DossierPilotOption[]>>((groups, pilot) => {
     const label = pilot.squadronDesignation || 'No Squadron';
     if (!groups[label]) groups[label] = [];
     groups[label].push(pilot);
     return groups;
   }, {});
+  Object.values(pilotGroups).forEach(group => {
+    group.sort((a, b) =>
+      String(a.boardNumber).localeCompare(String(b.boardNumber), undefined, { numeric: true })
+    );
+  });
   const renderField = (label: string, value: React.ReactNode) => (
     <div style={fieldRowStyle}>
       <span style={fieldRowLabelStyle}>{label}</span>

@@ -112,6 +112,8 @@ export interface FieldHistoryEntry {
   id: string;
   startDate: string | null;
   endDate: string | null;
+  /** Display value of the entry, e.g. the status/standing/billet name */
+  label?: string | null;
 }
 
 export const GAP_CHECKED_FIELD_LABELS: Record<GapCheckedTable, string> = {
@@ -124,37 +126,59 @@ export const GAP_CHECKED_FIELD_LABELS: Record<GapCheckedTable, string> = {
 export type DeletionGapRisk =
   | { type: 'none' }
   | { type: 'no-remaining'; fieldLabel: string }
-  | { type: 'gap'; fieldLabel: string; previousRecordId: string };
+  | {
+      type: 'gap';
+      fieldLabel: string;
+      previousRecordId: string;
+      /** Display value of the earlier entry (e.g. "Active"), when known */
+      previousLabel: string | null;
+      /**
+       * The deleted entry's end date — extending the earlier entry to this
+       * date covers the deleted period without overlapping any later entry.
+       * Null when the deleted entry is open-ended.
+       */
+      extendToDate: string | null;
+      /** No later entry exists, so the earlier entry can be made current (end date removed) */
+      canExtendOpenEnded: boolean;
+    };
 
 /**
- * Checks whether deleting a timeline entry would leave the pilot without a
- * current value for that field — either because it's the only entry, or
- * because it's the most recent one and the entry before it was already
- * closed out (and nothing will reopen it once this one is gone).
+ * Checks whether deleting a timeline entry would leave a hole in the pilot's
+ * history for that field: either no current value (deleting the most recent
+ * entry when the one before it was already closed out), or a gap in past
+ * coverage (deleting a middle entry, e.g. a duplicate, whose predecessor was
+ * closed when the duplicate was created).
  */
 export function assessDeletionGapRisk(profile: DossierProfile, table: string, recordId: string): DeletionGapRisk {
   if (!(table in GAP_CHECKED_FIELD_LABELS)) return { type: 'none' };
 
   const history = profile.fieldHistory[table as GapCheckedTable] || [];
   const index = history.findIndex(entry => entry.id === recordId);
-  if (index === -1 || index !== history.length - 1) {
-    // Not found, or not the most recent entry — deleting an older entry
-    // doesn't affect what's currently active.
-    return { type: 'none' };
-  }
+  if (index === -1) return { type: 'none' };
 
   const fieldLabel = GAP_CHECKED_FIELD_LABELS[table as GapCheckedTable];
 
-  if (history.length === 1) {
-    return { type: 'no-remaining', fieldLabel };
+  if (index === 0) {
+    // Deleting the oldest entry: only risky when it's the only one — later
+    // entries cover everything from their own start dates.
+    return history.length === 1 ? { type: 'no-remaining', fieldLabel } : { type: 'none' };
   }
 
   const previous = history[index - 1];
-  if (previous.endDate) {
-    return { type: 'gap', fieldLabel, previousRecordId: previous.id };
+  if (!previous.endDate) {
+    // The earlier entry is still open-ended, so it covers the deleted period
+    return { type: 'none' };
   }
 
-  return { type: 'none' };
+  const deleted = history[index];
+  return {
+    type: 'gap',
+    fieldLabel,
+    previousRecordId: previous.id,
+    previousLabel: previous.label || null,
+    extendToDate: deleted.endDate || null,
+    canExtendOpenEnded: index === history.length - 1
+  };
 }
 
 export interface DossierStats {
@@ -820,24 +844,28 @@ export async function updateTimelineRecordDate(
 }
 
 /**
- * Clears the end date on a history record, re-establishing it as the pilot's
- * current entry for that field. Used to fix a record left "closed" after the
- * record that had superseded it was deleted — see assessDeletionGapRisk.
+ * Adjusts the end date on a history record to close a coverage hole left by
+ * deleting the entry after it — see assessDeletionGapRisk. Pass a YYYY-MM-DD
+ * date to extend the record to cover the deleted period, or null to make it
+ * open-ended again (the pilot's current entry for that field).
  */
-export async function reopenFieldRecord(table: string, id: string): Promise<{ success: boolean; error: any }> {
+export async function extendFieldRecord(table: string, id: string, endDate: string | null): Promise<{ success: boolean; error: any }> {
   if (!(table in GAP_CHECKED_FIELD_LABELS)) {
-    return { success: false, error: new Error(`Records from ${table} cannot be reopened`) };
+    return { success: false, error: new Error(`Records from ${table} cannot be extended`) };
+  }
+  if (endDate !== null && !/^\d{4}-\d{2}-\d{2}$/.test(endDate)) {
+    return { success: false, error: new Error('Invalid date') };
   }
 
   const { data, error } = await (supabase as any)
     .from(table)
-    .update({ end_date: null })
+    .update({ end_date: endDate })
     .eq('id', id)
     .select('id');
 
   if (error) return { success: false, error };
   if (!data || data.length === 0) {
-    return { success: false, error: new Error('The record was not reopened. You may not have permission to edit this pilot\'s history.') };
+    return { success: false, error: new Error('The earlier entry was not updated. You may not have permission to edit this pilot\'s history.') };
   }
   return { success: true, error: null };
 }
@@ -1128,10 +1156,10 @@ export async function getDossierProfile(pilotId: string, discordId: string | nul
         enrollments,
         timeline,
         fieldHistory: {
-          pilot_assignments: assignments.map(a => ({ id: a.id, startDate: a.start_date, endDate: a.end_date })),
-          pilot_roles: roleRecords.map(r => ({ id: r.id, startDate: r.effective_date, endDate: r.end_date })),
-          pilot_standings: standingRecords.map(s => ({ id: s.id, startDate: s.start_date, endDate: s.end_date })),
-          pilot_statuses: statusRecords.map(s => ({ id: s.id, startDate: s.start_date, endDate: s.end_date }))
+          pilot_assignments: assignments.map(a => ({ id: a.id, startDate: a.start_date, endDate: a.end_date, label: a.squadron?.designation || null })),
+          pilot_roles: roleRecords.map(r => ({ id: r.id, startDate: r.effective_date, endDate: r.end_date, label: r.role?.name || null })),
+          pilot_standings: standingRecords.map(s => ({ id: s.id, startDate: s.start_date, endDate: s.end_date, label: s.standing?.name || null })),
+          pilot_statuses: statusRecords.map(s => ({ id: s.id, startDate: s.start_date, endDate: s.end_date, label: s.status?.name || null }))
         }
       },
       error: null

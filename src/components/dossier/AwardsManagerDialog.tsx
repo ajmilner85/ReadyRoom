@@ -9,21 +9,40 @@ import {
   deleteAward,
   issueAward,
   uploadAwardImage,
+  updateIssuance,
   updateIssuanceCertificate,
+  revokeAward,
   getAwardCategories,
   createAwardCategory,
   updateAwardCategory,
   updateAwardCategoryImage,
   deleteAwardCategory,
   awardDisplayImage,
+  getDecorationImages,
+  ensureRepeatVariantCoverage,
   type Award,
   type AwardCategory,
-  type NewAward
+  type NewAward,
+  type AwardDecorationImage
 } from '../../utils/awardService';
+import {
+  emptyEligibilityRules,
+  ruleTreeHasConditions,
+  type AwardEligibilityRules,
+  type AwardDeviceConfig
+} from '../../utils/awardRules';
+import { generateAwardVariants } from '../../utils/awardImageComposer';
+import AwardRuleBuilder from './AwardRuleBuilder';
+import AwardDeviceEditor from './AwardDeviceEditor';
+import AwardEligibilityPanel from './AwardEligibilityPanel';
+import StyledSelect from './StyledSelect';
 import { getCycleEvents, type DossierCycle, type DossierEventOption, type DossierPilotOption } from '../../utils/dossierService';
 import { renderPdfFirstPageToImage } from '../../utils/pdfUtils';
 import AwardFilterDrawer, { EMPTY_AWARD_FILTERS, hasActiveAwardFilters, type AwardLibraryFilters } from './AwardFilterDrawer';
 import { supabase } from '../../utils/supabaseClient';
+
+// Cycle types an award's eligibility can be scoped to (mirrors CycleType)
+const ELIGIBILITY_CYCLE_TYPES = ['Cruise-WorkUp', 'Cruise-Mission', 'Training', 'Other'];
 
 // Issuance metadata used by the library filters and the per-issuance
 // certificate editor in the award edit form
@@ -32,10 +51,19 @@ interface IssuanceRecord {
   award_id: string;
   pilot_id: string;
   awarded_date: string | null;
+  citation: string | null;
+  device_tier: string | null;
   cycle_id: string | null;
   event_id: string | null;
   certificate_url: string | null;
   certificate_thumbnail_url: string | null;
+}
+
+/** Editable fields of an issuance row in the issuance manager */
+interface IssuanceEdit {
+  awarded_date: string;
+  citation: string;
+  device_tier: string; // '' = no device
 }
 
 interface AwardsManagerDialogProps {
@@ -210,6 +238,9 @@ interface AwardFormState {
   image_url: string | null;
   imageFile: File | null;
   issueNow: boolean; // creation only: issue immediately using the shared issuance fields
+  // Structured eligibility + devices (null = manual-only award)
+  eligibilityRules: AwardEligibilityRules | null;
+  deviceConfig: AwardDeviceConfig | null;
 }
 
 const AwardsManagerDialog: React.FC<AwardsManagerDialogProps> = ({
@@ -225,6 +256,7 @@ const AwardsManagerDialog: React.FC<AwardsManagerDialogProps> = ({
   const [activeTab, setActiveTab] = useState<'library' | 'issue' | 'categories'>(canManageLibrary ? 'library' : 'issue');
   const [awards, setAwards] = useState<Award[]>([]);
   const [categories, setCategories] = useState<AwardCategory[]>([]);
+  const [decorations, setDecorations] = useState<AwardDecorationImage[]>([]);
   const [issuances, setIssuances] = useState<IssuanceRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -237,11 +269,21 @@ const AwardsManagerDialog: React.FC<AwardsManagerDialogProps> = ({
   const [libraryFiltersEnabled, setLibraryFiltersEnabled] = useState(true);
   const [filterCycleEvents, setFilterCycleEvents] = useState<DossierEventOption[]>([]);
 
+  // Library list sorting
+  type LibrarySortKey = 'name' | 'category' | 'issued';
+  const [librarySort, setLibrarySort] = useState<{ key: LibrarySortKey; dir: 'asc' | 'desc' }>({ key: 'name', dir: 'asc' });
+
   // Library state
   const [form, setForm] = useState<AwardFormState | null>(null);
   const [convertingImage, setConvertingImage] = useState(false);
+  const [generatingVariants, setGeneratingVariants] = useState(false);
   const [pendingDeleteAward, setPendingDeleteAward] = useState<Award | null>(null);
   const [busyIssuanceId, setBusyIssuanceId] = useState<string | null>(null);
+
+  // Issuance manager (opened by clicking an award's issued counts)
+  const [issuanceViewAwardId, setIssuanceViewAwardId] = useState<string | null>(null);
+  const [issuanceEdits, setIssuanceEdits] = useState<Record<string, IssuanceEdit>>({});
+  const [pendingRevoke, setPendingRevoke] = useState<IssuanceRecord | null>(null);
 
   // Categories state
   const [newCategoryName, setNewCategoryName] = useState('');
@@ -265,13 +307,15 @@ const AwardsManagerDialog: React.FC<AwardsManagerDialogProps> = ({
   const loadData = async () => {
     setLoading(true);
     try {
-      const [awardsRes, categoriesRes, issuancesRes] = await Promise.all([
+      const [awardsRes, categoriesRes, decorationsRes, issuancesRes] = await Promise.all([
         getAllAwards(),
         getAwardCategories(),
-        (supabase as any).from('pilot_awards').select('id, award_id, pilot_id, awarded_date, cycle_id, event_id, certificate_url, certificate_thumbnail_url')
+        getDecorationImages(),
+        (supabase as any).from('pilot_awards').select('id, award_id, pilot_id, awarded_date, citation, device_tier, cycle_id, event_id, certificate_url, certificate_thumbnail_url')
       ]);
       setAwards(awardsRes.data || []);
       setCategories(categoriesRes.data || []);
+      setDecorations(decorationsRes.data || []);
       setIssuances((issuancesRes.data || []) as IssuanceRecord[]);
     } finally {
       setLoading(false);
@@ -286,6 +330,8 @@ const AwardsManagerDialog: React.FC<AwardsManagerDialogProps> = ({
       setError(null);
       setNotice(null);
       setForm(null);
+      setIssuanceViewAwardId(null);
+      setIssuanceEdits({});
       setEditingCategoryId(null);
       setCategoryFilter('');
       setLibraryFilters(EMPTY_AWARD_FILTERS);
@@ -390,6 +436,29 @@ const AwardsManagerDialog: React.FC<AwardsManagerDialogProps> = ({
     });
   }, [awards, libraryFilters, libraryFiltersEnabled, issuancesByAward]);
 
+  const sortedLibraryAwards = useMemo(() => {
+    const sorted = [...libraryFilteredAwards];
+    const dir = librarySort.dir === 'asc' ? 1 : -1;
+    sorted.sort((a, b) => {
+      let cmp = 0;
+      if (librarySort.key === 'category') {
+        cmp = (a.category?.name || '').localeCompare(b.category?.name || '');
+      } else if (librarySort.key === 'issued') {
+        cmp = (issuancesByAward[a.id]?.length || 0) - (issuancesByAward[b.id]?.length || 0);
+      }
+      // Primary name sort, and the tie-breaker for the other keys
+      return cmp !== 0 ? cmp * dir : a.name.localeCompare(b.name) * (librarySort.key === 'name' ? dir : 1);
+    });
+    return sorted;
+  }, [libraryFilteredAwards, librarySort, issuancesByAward]);
+
+  const toggleLibrarySort = (key: LibrarySortKey) => {
+    setLibrarySort(prev => prev.key === key
+      ? { key, dir: prev.dir === 'asc' ? 'desc' : 'asc' }
+      // Counts start with the most-awarded on top; text columns start A→Z
+      : { key, dir: key === 'issued' ? 'desc' : 'asc' });
+  };
+
   if (!isOpen) return null;
 
   const switchTab = (tab: 'library' | 'issue' | 'categories') => {
@@ -436,7 +505,9 @@ const AwardsManagerDialog: React.FC<AwardsManagerDialogProps> = ({
       is_repeatable: true,
       image_url: null,
       imageFile: null,
-      issueNow
+      issueNow,
+      eligibilityRules: null,
+      deviceConfig: null
     });
     setError(null);
     setNotice(null);
@@ -468,6 +539,25 @@ const AwardsManagerDialog: React.FC<AwardsManagerDialogProps> = ({
     }
   };
 
+  /** Validation for the structured eligibility + device configuration */
+  const validateRulesAndDevices = (formState: AwardFormState): string | null => {
+    if (formState.eligibilityRules && !ruleTreeHasConditions(formState.eligibilityRules.rules)) {
+      return 'Eligibility criteria are enabled but contain no conditions — add one or disable them';
+    }
+    const config = formState.deviceConfig;
+    if (config?.mode === 'repeat' && !config.repeat?.bronzeImageUrl) {
+      return 'Select (or upload) a bronze device image for the repeat devices';
+    }
+    if (config?.mode === 'tier') {
+      for (const tier of config.tiers || []) {
+        if (!tier.name.trim()) return 'Every device tier needs a name';
+        if (!tier.imageUrl) return `Select a device image for the "${tier.name}" tier`;
+        if (!ruleTreeHasConditions(tier.rules)) return `The "${tier.name}" tier has no conditions`;
+      }
+    }
+    return null;
+  };
+
   const handleSaveAward = async () => {
     if (!form || !form.name.trim()) {
       setError('Award name is required');
@@ -477,6 +567,11 @@ const AwardsManagerDialog: React.FC<AwardsManagerDialogProps> = ({
       setError('Select a category');
       return;
     }
+    const rulesError = validateRulesAndDevices(form);
+    if (rulesError) {
+      setError(rulesError);
+      return;
+    }
 
     const payload: NewAward = {
       name: form.name.trim(),
@@ -484,7 +579,9 @@ const AwardsManagerDialog: React.FC<AwardsManagerDialogProps> = ({
       description: form.description.trim() || null,
       criteria: form.criteria.trim() || null,
       is_repeatable: form.is_repeatable,
-      image_url: form.image_url
+      image_url: form.image_url,
+      eligibility_rules: form.eligibilityRules,
+      device_config: form.deviceConfig
     };
 
     const issuingNow = !form.id && form.issueNow;
@@ -506,6 +603,30 @@ const AwardsManagerDialog: React.FC<AwardsManagerDialogProps> = ({
           return;
         }
         payload.image_url = url;
+      }
+
+      // Regenerate the composited device variants on every save with devices —
+      // saving is rare, and this also lets a plain re-save pick up compositor
+      // improvements (device sizing, anti-aliasing) in existing variants
+      if (form.deviceConfig) {
+        const baseImage = payload.image_url || categories.find(c => c.id === form.category_id)?.default_image_url || null;
+        if (!baseImage) {
+          setError('Devices need an award image (or a category default image) to be composited onto — add one first');
+          return;
+        }
+        setGeneratingVariants(true);
+        try {
+          const { variants, error: variantError } = await generateAwardVariants(baseImage, form.deviceConfig);
+          if (variantError || !variants) {
+            setError(`Generating the device images failed: ${variantError?.message || 'unknown error'}`);
+            return;
+          }
+          payload.variant_images = variants;
+        } finally {
+          setGeneratingVariants(false);
+        }
+      } else {
+        payload.variant_images = null;
       }
 
       const result = form.id
@@ -610,6 +731,77 @@ const AwardsManagerDialog: React.FC<AwardsManagerDialogProps> = ({
       onChanged();
     } finally {
       setBusy(false);
+    }
+  };
+
+  // ----- Issuance manager handlers -----
+
+  const issuanceEditFor = (record: IssuanceRecord): IssuanceEdit =>
+    issuanceEdits[record.id] || {
+      awarded_date: record.awarded_date || '',
+      citation: record.citation || '',
+      device_tier: record.device_tier || ''
+    };
+
+  const setIssuanceEdit = (recordId: string, edit: IssuanceEdit) =>
+    setIssuanceEdits(prev => ({ ...prev, [recordId]: edit }));
+
+  const issuanceIsDirty = (record: IssuanceRecord): boolean => {
+    const edit = issuanceEdits[record.id];
+    if (!edit) return false;
+    return edit.awarded_date !== (record.awarded_date || '')
+      || edit.citation !== (record.citation || '')
+      || edit.device_tier !== (record.device_tier || '');
+  };
+
+  const handleSaveIssuance = async (record: IssuanceRecord) => {
+    const edit = issuanceEditFor(record);
+    if (!edit.awarded_date) {
+      setError('The awarded date cannot be empty');
+      return;
+    }
+    setBusyIssuanceId(record.id);
+    setError(null);
+    try {
+      const { success, error: updateError } = await updateIssuance(record.id, {
+        awardedDate: edit.awarded_date,
+        citation: edit.citation.trim() || null,
+        deviceTier: edit.device_tier || null
+      });
+      if (!success) {
+        setError(updateError?.message || 'Failed to update the issuance');
+        return;
+      }
+      setIssuanceEdits(prev => {
+        const next = { ...prev };
+        delete next[record.id];
+        return next;
+      });
+      setNotice('Issuance updated');
+      await loadData();
+      onChanged();
+    } finally {
+      setBusyIssuanceId(null);
+    }
+  };
+
+  const handleConfirmRevoke = async () => {
+    const record = pendingRevoke;
+    setPendingRevoke(null);
+    if (!record) return;
+    setBusyIssuanceId(record.id);
+    setError(null);
+    try {
+      const { success, error: revokeError } = await revokeAward(record.id);
+      if (!success) {
+        setError(revokeError?.message || 'Failed to revoke the award');
+        return;
+      }
+      setNotice('Award revoked');
+      await loadData();
+      onChanged();
+    } finally {
+      setBusyIssuanceId(null);
     }
   };
 
@@ -754,6 +946,9 @@ const AwardsManagerDialog: React.FC<AwardsManagerDialogProps> = ({
         return;
       }
 
+      // Repeat-device awards: generate any newly-needed star variants
+      await ensureRepeatVariantCoverage(issueAwardId);
+
       setNotice(`Issued to ${selectedPilotIds.size} pilot${selectedPilotIds.size > 1 ? 's' : ''}`);
       resetIssuanceFields();
       await loadData();
@@ -766,16 +961,16 @@ const AwardsManagerDialog: React.FC<AwardsManagerDialogProps> = ({
   // ----- Renderers -----
 
   const renderCategoryFilter = (width?: string) => (
-    <select
-      value={categoryFilter}
-      onChange={(e) => setCategoryFilter(e.target.value)}
-      style={{ ...inputStyle, width: width || '100%' }}
-    >
-      <option value="">All Categories</option>
-      {categories.map(category => (
-        <option key={category.id} value={category.id}>{category.name}</option>
-      ))}
-    </select>
+    <div style={{ width: width || '100%' }}>
+      <StyledSelect
+        value={categoryFilter}
+        onChange={setCategoryFilter}
+        options={[
+          { value: '', label: 'All Categories' },
+          ...categories.map(category => ({ value: category.id, label: category.name }))
+        ]}
+      />
+    </div>
   );
 
   // Shared issuance fields: pilots, date, cycle/event linkage, citation, certificate
@@ -835,26 +1030,26 @@ const AwardsManagerDialog: React.FC<AwardsManagerDialogProps> = ({
         </div>
         <div>
           <label style={labelStyle}>Cycle (optional)</label>
-          <select value={issueCycleId} onChange={(e) => setIssueCycleId(e.target.value)} style={inputStyle}>
-            <option value="">Not tied to a cycle</option>
-            {cycles.map(cycle => (
-              <option key={cycle.id} value={cycle.id}>{cycle.name}</option>
-            ))}
-          </select>
+          <StyledSelect
+            value={issueCycleId}
+            onChange={setIssueCycleId}
+            options={[
+              { value: '', label: 'Not tied to a cycle' },
+              ...cycles.map(cycle => ({ value: cycle.id, label: cycle.name }))
+            ]}
+          />
         </div>
         <div>
           <label style={labelStyle}>Event (optional)</label>
-          <select
+          <StyledSelect
             value={issueEventId}
-            onChange={(e) => setIssueEventId(e.target.value)}
-            style={{ ...inputStyle, opacity: issueCycleId ? 1 : 0.5 }}
+            onChange={setIssueEventId}
             disabled={!issueCycleId}
-          >
-            <option value="">Not tied to an event</option>
-            {issueCycleEvents.map(event => (
-              <option key={event.id} value={event.id}>{event.name || 'Unnamed event'}</option>
-            ))}
-          </select>
+            options={[
+              { value: '', label: 'Not tied to an event' },
+              ...issueCycleEvents.map(event => ({ value: event.id, label: event.name || 'Unnamed event' }))
+            ]}
+          />
         </div>
       </div>
 
@@ -895,15 +1090,11 @@ const AwardsManagerDialog: React.FC<AwardsManagerDialogProps> = ({
         </div>
         <div>
           <label style={labelStyle}>Category *</label>
-          <select
+          <StyledSelect
             value={formState.category_id}
-            onChange={(e) => setForm({ ...formState, category_id: e.target.value })}
-            style={inputStyle}
-          >
-            {categories.map(category => (
-              <option key={category.id} value={category.id}>{category.name}</option>
-            ))}
-          </select>
+            onChange={(categoryId) => setForm({ ...formState, category_id: categoryId })}
+            options={categories.map(category => ({ value: category.id, label: category.name }))}
+          />
         </div>
       </div>
 
@@ -984,6 +1175,85 @@ const AwardsManagerDialog: React.FC<AwardsManagerDialogProps> = ({
             );
           })()}
         </div>
+      </div>
+
+      {/* Structured eligibility criteria (evaluated per pilot per cycle) */}
+      <div style={{
+        marginTop: '16px',
+        padding: '12px 16px',
+        border: '1px solid #E2E8F0',
+        borderRadius: '8px',
+        backgroundColor: formState.eligibilityRules ? '#F8FAFC' : 'transparent'
+      }}>
+        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px', fontWeight: 500, color: '#0F172A', cursor: 'pointer' }}>
+          <input
+            type="checkbox"
+            checked={!!formState.eligibilityRules}
+            onChange={(e) => setForm({
+              ...formState,
+              eligibilityRules: e.target.checked ? emptyEligibilityRules() : null
+            })}
+          />
+          Automatic eligibility criteria
+          <span style={{ fontWeight: 400, fontSize: '12px', color: '#94A3B8' }}>
+            — identify recipients from cycle attendance and roster data on the Eligibility tab
+          </span>
+        </label>
+
+        {formState.eligibilityRules && (
+          <div style={{ marginTop: '12px' }}>
+            <label style={labelStyle}>Qualifying cycle types</label>
+            <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', marginBottom: '12px' }}>
+              {ELIGIBILITY_CYCLE_TYPES.map(cycleType => (
+                <label key={cycleType} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: '#0F172A', cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    checked={formState.eligibilityRules!.cycleTypes.includes(cycleType)}
+                    onChange={(e) => {
+                      const current = formState.eligibilityRules!;
+                      const cycleTypes = e.target.checked
+                        ? [...current.cycleTypes, cycleType]
+                        : current.cycleTypes.filter(t => t !== cycleType);
+                      setForm({ ...formState, eligibilityRules: { ...current, cycleTypes } });
+                    }}
+                  />
+                  {cycleType}
+                </label>
+              ))}
+            </div>
+            <label style={labelStyle}>A pilot is eligible when</label>
+            <AwardRuleBuilder
+              group={formState.eligibilityRules.rules}
+              onChange={(rules) => setForm({
+                ...formState,
+                eligibilityRules: { ...formState.eligibilityRules!, rules }
+              })}
+              cycles={cycles}
+            />
+          </div>
+        )}
+      </div>
+
+      {/* Device (star) decorations */}
+      <div style={{
+        marginTop: '16px',
+        padding: '12px 16px',
+        border: '1px solid #E2E8F0',
+        borderRadius: '8px',
+        backgroundColor: formState.deviceConfig ? '#F8FAFC' : 'transparent'
+      }}>
+        <AwardDeviceEditor
+          config={formState.deviceConfig}
+          onChange={(deviceConfig) => setForm({ ...formState, deviceConfig })}
+          decorations={decorations}
+          onDecorationsChanged={async () => {
+            const { data } = await getDecorationImages();
+            setDecorations(data || []);
+          }}
+          cycles={cycles}
+          canManage={canManageLibrary}
+          onError={setError}
+        />
       </div>
 
       {/* Existing issuances with per-issuance certificate management (edit only) */}
@@ -1109,13 +1379,15 @@ const AwardsManagerDialog: React.FC<AwardsManagerDialogProps> = ({
         >
           {convertingImage
             ? 'Converting image...'
-            : busy
-              ? 'Saving...'
-              : formState.id
-                ? 'Save Changes'
-                : formState.issueNow
-                  ? 'Create & Issue Award'
-                  : 'Create Award'}
+            : generatingVariants
+              ? 'Generating device images...'
+              : busy
+                ? 'Saving...'
+                : formState.id
+                  ? 'Save Changes'
+                  : formState.issueNow
+                    ? 'Create & Issue Award'
+                    : 'Create Award'}
         </button>
         <button
           onClick={() => setForm(null)}
@@ -1128,10 +1400,132 @@ const AwardsManagerDialog: React.FC<AwardsManagerDialogProps> = ({
     </div>
   );
 
+  // All grants of one award: edit dates/citations/device tiers, or revoke
+  const renderIssuanceManager = (award: Award) => {
+    const records = [...(issuancesByAward[award.id] || [])].sort((a, b) => {
+      const dateCmp = (b.awarded_date || '').localeCompare(a.awarded_date || '');
+      if (dateCmp !== 0) return dateCmp;
+      const callsignA = pilots.find(p => p.id === a.pilot_id)?.callsign || '';
+      const callsignB = pilots.find(p => p.id === b.pilot_id)?.callsign || '';
+      return callsignA.localeCompare(callsignB);
+    });
+    const tierOptions = award.device_config?.mode === 'tier' ? (award.device_config.tiers || []) : [];
+    const uniqueHolders = new Set(records.map(r => r.pilot_id)).size;
+
+    return (
+      <div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
+          <button
+            onClick={() => { setIssuanceViewAwardId(null); setIssuanceEdits({}); }}
+            style={{ ...secondaryButtonStyle, whiteSpace: 'nowrap' }}
+          >
+            ← Back
+          </button>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontSize: '15px', fontWeight: 600, color: '#0F172A' }}>{award.name} — Issuances</div>
+            <div style={{ fontSize: '12px', color: '#94A3B8' }}>
+              Issued {records.length} time{records.length === 1 ? '' : 's'} to {uniqueHolders} pilot{uniqueHolders === 1 ? '' : 's'}
+            </div>
+          </div>
+        </div>
+
+        {records.length === 0 ? (
+          <div style={{ color: '#94A3B8', fontSize: '14px', fontStyle: 'italic' }}>
+            This award has not been issued yet.
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            {records.map(record => {
+              const pilot = pilots.find(p => p.id === record.pilot_id);
+              const cycleName = record.cycle_id
+                ? (cycles.find(c => c.id === record.cycle_id)?.name || 'Unknown cycle')
+                : null;
+              const edit = issuanceEditFor(record);
+              const dirty = issuanceIsDirty(record);
+              const isBusy = busyIssuanceId === record.id;
+              return (
+                <div key={record.id} style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '10px',
+                  padding: '8px 0',
+                  borderBottom: '1px solid #F1F5F9',
+                  opacity: isBusy ? 0.5 : 1
+                }}>
+                  <div style={{ width: '140px', flexShrink: 0, fontSize: '13px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    <span style={{ color: '#646F7E', marginRight: '6px' }}>{pilot?.boardNumber ?? ''}</span>
+                    <span style={{ fontWeight: 500, color: '#0F172A' }}>{pilot?.callsign || 'Unknown pilot'}</span>
+                    {cycleName && (
+                      <div style={{ fontSize: '11px', color: '#94A3B8', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={cycleName}>
+                        {cycleName}
+                      </div>
+                    )}
+                  </div>
+                  <input
+                    type="date"
+                    value={edit.awarded_date}
+                    onChange={(e) => setIssuanceEdit(record.id, { ...edit, awarded_date: e.target.value })}
+                    disabled={isBusy}
+                    style={{ ...inputStyle, width: '150px', flexShrink: 0, padding: '6px 8px', fontSize: '13px' }}
+                  />
+                  {tierOptions.length > 0 && (
+                    <div style={{ width: '180px', flexShrink: 0 }}>
+                      <StyledSelect
+                        value={edit.device_tier}
+                        onChange={(tierId) => setIssuanceEdit(record.id, { ...edit, device_tier: tierId })}
+                        disabled={isBusy}
+                        options={[
+                          { value: '', label: 'No device' },
+                          ...tierOptions.map(tier => ({ value: tier.id, label: tier.name }))
+                        ]}
+                      />
+                    </div>
+                  )}
+                  <input
+                    type="text"
+                    value={edit.citation}
+                    placeholder="Citation"
+                    onChange={(e) => setIssuanceEdit(record.id, { ...edit, citation: e.target.value })}
+                    disabled={isBusy}
+                    style={{ ...inputStyle, flex: 1, minWidth: '80px', padding: '6px 8px', fontSize: '13px' }}
+                  />
+                  <button
+                    onClick={() => handleSaveIssuance(record)}
+                    disabled={!dirty || isBusy}
+                    title={dirty ? 'Save changes to this issuance' : 'No changes to save'}
+                    style={{
+                      ...secondaryButtonStyle,
+                      padding: '6px 8px',
+                      color: dirty ? '#16A34A' : '#CBD5E1',
+                      borderColor: dirty ? '#86EFAC' : '#E2E8F0',
+                      cursor: dirty && !isBusy ? 'pointer' : 'not-allowed'
+                    }}
+                  >
+                    <Check size={14} />
+                  </button>
+                  <button
+                    onClick={() => setPendingRevoke(record)}
+                    disabled={isBusy}
+                    title="Revoke this award"
+                    style={{ ...secondaryButtonStyle, padding: '6px 8px', color: '#DC2626', borderColor: '#FCA5A5' }}
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    );
+  };
+
   const renderLibraryTab = () => (
     <>
       {form ? (
         renderAwardForm(form)
+      ) : issuanceViewAwardId && awards.find(a => a.id === issuanceViewAwardId) ? (
+        renderIssuanceManager(awards.find(a => a.id === issuanceViewAwardId)!)
       ) : (
         <>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
@@ -1159,7 +1553,44 @@ const AwardsManagerDialog: React.FC<AwardsManagerDialogProps> = ({
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column' }}>
-              {libraryFilteredAwards.map(award => {
+              {(() => {
+                const sortHeader = (label: string, key: LibrarySortKey, style?: React.CSSProperties) => (
+                  <div
+                    onClick={() => toggleLibrarySort(key)}
+                    title={`Sort by ${label.toLowerCase()}`}
+                    style={{
+                      fontSize: '11px',
+                      fontWeight: 600,
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.5px',
+                      fontFamily: 'Inter',
+                      color: librarySort.key === key ? '#3B82F6' : '#64748B',
+                      cursor: 'pointer',
+                      userSelect: 'none',
+                      ...style
+                    }}
+                  >
+                    {label}{librarySort.key === key ? (librarySort.dir === 'asc' ? ' ▲' : ' ▼') : ''}
+                  </div>
+                );
+                return (
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '12px',
+                    padding: '4px 0 6px',
+                    borderBottom: '1px solid #E2E8F0'
+                  }}>
+                    <div style={{ width: '40px', flexShrink: 0 }} />
+                    {sortHeader('Name', 'name', { flex: 1, minWidth: 0 })}
+                    {sortHeader('Category', 'category', { width: '150px', flexShrink: 0 })}
+                    {sortHeader('Awarded', 'issued', { width: '92px', flexShrink: 0, textAlign: 'right' })}
+                    {/* Spacer matching the action buttons column */}
+                    <div style={{ width: canIssue ? '120px' : '76px', flexShrink: 0 }} />
+                  </div>
+                );
+              })()}
+              {sortedLibraryAwards.map(award => {
                 const uniqueAndIssued = !award.is_repeatable && issuedAwardIds.has(award.id);
                 const displayImage = awardDisplayImage(award);
                 return (
@@ -1196,9 +1627,8 @@ const AwardsManagerDialog: React.FC<AwardsManagerDialogProps> = ({
                     </div>
                   )}
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: '14px', fontWeight: 500, color: '#0F172A' }}>{award.name}</div>
-                    <div style={{ fontSize: '12px', color: '#94A3B8' }}>
-                      {award.category?.name || 'Uncategorized'}
+                    <div style={{ fontSize: '14px', fontWeight: 500, color: '#0F172A' }}>
+                      {award.name}
                       {!award.is_repeatable && (
                         <span style={{
                           marginLeft: '8px',
@@ -1208,13 +1638,57 @@ const AwardsManagerDialog: React.FC<AwardsManagerDialogProps> = ({
                           color: '#D97706',
                           fontSize: '10px',
                           fontWeight: 600,
-                          textTransform: 'uppercase'
+                          textTransform: 'uppercase',
+                          verticalAlign: 'middle'
                         }}>
                           Unique{uniqueAndIssued ? ' · Issued' : ''}
                         </span>
                       )}
                     </div>
                   </div>
+                  <div style={{
+                    width: '150px',
+                    flexShrink: 0,
+                    fontSize: '13px',
+                    color: '#64748B',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap'
+                  }}>
+                    {award.category?.name || 'Uncategorized'}
+                  </div>
+                  {(() => {
+                    const awardIssuances = issuancesByAward[award.id] || [];
+                    const uniqueHolders = new Set(awardIssuances.map(i => i.pilot_id)).size;
+                    const issued = awardIssuances.length > 0;
+                    return (
+                      <div
+                        onClick={issued ? () => setIssuanceViewAwardId(award.id) : undefined}
+                        title={issued
+                          ? `Issued ${awardIssuances.length} time${awardIssuances.length === 1 ? '' : 's'} to ${uniqueHolders} pilot${uniqueHolders === 1 ? '' : 's'} — click to view and manage`
+                          : 'Never issued'}
+                        style={{
+                          width: '92px',
+                          textAlign: 'right',
+                          flexShrink: 0,
+                          cursor: issued ? 'pointer' : 'default',
+                          borderRadius: '6px',
+                          padding: '2px 4px',
+                          margin: '-2px -4px',
+                          transition: 'background-color 0.2s'
+                        }}
+                        onMouseEnter={(e) => { if (issued) e.currentTarget.style.backgroundColor = '#F1F5F9'; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
+                      >
+                        <div style={{ fontSize: '13px', color: issued ? '#3B82F6' : '#CBD5E1' }}>
+                          {awardIssuances.length} awarded
+                        </div>
+                        <div style={{ fontSize: '11px', color: issued ? '#94A3B8' : '#CBD5E1' }}>
+                          {uniqueHolders} pilot{uniqueHolders === 1 ? '' : 's'}
+                        </div>
+                      </div>
+                    );
+                  })()}
                   {canIssue && (
                     <button
                       onClick={() => { setIssueAwardId(award.id); switchTab('issue'); }}
@@ -1241,7 +1715,9 @@ const AwardsManagerDialog: React.FC<AwardsManagerDialogProps> = ({
                       is_repeatable: award.is_repeatable,
                       image_url: award.image_url,
                       imageFile: null,
-                      issueNow: false
+                      issueNow: false,
+                      eligibilityRules: award.eligibility_rules || null,
+                      deviceConfig: award.device_config || null
                     })}
                     title="Edit award"
                     style={{ ...secondaryButtonStyle, padding: '6px 8px' }}
@@ -1420,7 +1896,13 @@ const AwardsManagerDialog: React.FC<AwardsManagerDialogProps> = ({
     </div>
   );
 
-  const renderIssueTab = () => (
+  const renderIssueTab = () => {
+    const selectedIssueAward = awards.find(a => a.id === issueAwardId) || null;
+    // Awards with structured criteria issue through the eligibility checker;
+    // everything else uses the manual pilot picker
+    const usesEligibility = !!selectedIssueAward?.eligibility_rules;
+
+    return (
     <div>
       <div style={{ display: 'grid', gridTemplateColumns: '220px 1fr auto', gap: '12px', alignItems: 'end' }}>
         <div>
@@ -1429,17 +1911,21 @@ const AwardsManagerDialog: React.FC<AwardsManagerDialogProps> = ({
         </div>
         <div>
           <label style={labelStyle}>Award *</label>
-          <select value={issueAwardId} onChange={(e) => setIssueAwardId(e.target.value)} style={inputStyle}>
-            <option value="">Select an award...</option>
-            {filteredAwards.filter(a => a.active).map(award => {
-              const uniqueAndIssued = !award.is_repeatable && issuedAwardIds.has(award.id);
-              return (
-                <option key={award.id} value={award.id} disabled={uniqueAndIssued}>
-                  {award.name}{uniqueAndIssued ? ' (already issued)' : ''}
-                </option>
-              );
-            })}
-          </select>
+          <StyledSelect
+            value={issueAwardId}
+            onChange={setIssueAwardId}
+            options={[
+              { value: '', label: 'Select an award...' },
+              ...filteredAwards.filter(a => a.active).map(award => {
+                const uniqueAndIssued = !award.is_repeatable && issuedAwardIds.has(award.id);
+                return {
+                  value: award.id,
+                  label: `${award.name}${uniqueAndIssued ? ' (already issued)' : ''}`,
+                  disabled: uniqueAndIssued
+                };
+              })
+            ]}
+          />
         </div>
         {canManageLibrary && (
           <button
@@ -1452,13 +1938,30 @@ const AwardsManagerDialog: React.FC<AwardsManagerDialogProps> = ({
         )}
       </div>
 
-      {renderIssuanceFields()}
+      {usesEligibility && selectedIssueAward ? (
+        <div style={{ marginTop: '16px' }}>
+          <AwardEligibilityPanel
+            award={selectedIssueAward}
+            cycles={cycles}
+            pilots={pilots}
+            issuedByProfileId={issuedByProfileId}
+            onIssued={async () => { await loadData(); onChanged(); }}
+            onError={setError}
+            onNotice={setNotice}
+          />
+        </div>
+      ) : (
+        <>
+          {renderIssuanceFields()}
 
-      <button onClick={handleIssue} disabled={busy} style={{ ...primaryButtonStyle, marginTop: '20px', opacity: busy ? 0.7 : 1 }}>
-        <Medal size={14} /> {busy ? 'Issuing...' : 'Issue Award'}
-      </button>
+          <button onClick={handleIssue} disabled={busy} style={{ ...primaryButtonStyle, marginTop: '20px', opacity: busy ? 0.7 : 1 }}>
+            <Medal size={14} /> {busy ? 'Issuing...' : 'Issue Award'}
+          </button>
+        </>
+      )}
     </div>
-  );
+    );
+  };
 
   return (
     <>
@@ -1593,6 +2096,18 @@ const AwardsManagerDialog: React.FC<AwardsManagerDialogProps> = ({
       title="Delete Category"
       message={`Delete the "${pendingDeleteCategory?.name || ''}" category? This cannot be undone.`}
       confirmText="Delete"
+      cancelText="Cancel"
+      type="danger"
+      icon="trash"
+    />
+
+    <ConfirmationDialog
+      isOpen={pendingRevoke !== null}
+      onConfirm={handleConfirmRevoke}
+      onCancel={() => setPendingRevoke(null)}
+      title="Revoke Award"
+      message={`Revoke this award from ${pilots.find(p => p.id === pendingRevoke?.pilot_id)?.callsign || 'this pilot'}? The issuance is removed from their record and cannot be undone.`}
+      confirmText="Revoke"
       cancelText="Cancel"
       type="danger"
       icon="trash"
