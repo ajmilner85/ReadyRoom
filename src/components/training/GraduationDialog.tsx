@@ -25,7 +25,7 @@ interface GraduationDialogProps {
   cycleStartDate: string;
   outcomes: GraduationOutcome[];
   onClose: () => void;
-  onConfirm: (graduationData: GraduationSubmission[]) => void;
+  onConfirm: (graduationData: GraduationSubmission[], graduationDate: string) => void;
   saving?: boolean;
 }
 
@@ -80,6 +80,12 @@ const GraduationDialog: React.FC<GraduationDialogProps> = ({
   const [callsignValues, setCallsignValues] = useState<Record<string, string>>({});
   // Effective date overrides (keyed by outcome type, not qualifications)
   const [dateOverrides, setDateOverrides] = useState<Record<string, string>>({});
+  // Date recorded on the graduation itself (dossier timeline, award criteria);
+  // backdate it when graduating students retroactively
+  const [graduationDate, setGraduationDate] = useState(new Date().toISOString().split('T')[0]);
+  // Outcomes explicitly skipped (e.g. already applied manually in the past) —
+  // skipped outcomes bypass validation and are not applied
+  const [skippedOutcomes, setSkippedOutcomes] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     loadOptions();
@@ -130,11 +136,20 @@ const GraduationDialog: React.FC<GraduationDialogProps> = ({
     setDateOverrides(overrides);
   };
 
-  // Validation
+  const toggleSkipOutcome = (type: string) => {
+    setSkippedOutcomes(prev => {
+      const next = new Set(prev);
+      if (next.has(type)) next.delete(type);
+      else next.add(type);
+      return next;
+    });
+  };
+
+  // Validation (skipped outcomes are exempt)
   const validationErrors = useMemo(() => {
     const errors: string[] = [];
     enabledOutcomes.forEach(outcome => {
-      if (!outcome.required) return;
+      if (!outcome.required || skippedOutcomes.has(outcome.type)) return;
       switch (outcome.type) {
         case 'callsign':
           if (isBatch) {
@@ -160,15 +175,15 @@ const GraduationDialog: React.FC<GraduationDialogProps> = ({
       }
     });
     return errors;
-  }, [enabledOutcomes, callsignValues, standingValue, squadronValue, qualEntries, studentIds, isBatch]);
+  }, [enabledOutcomes, skippedOutcomes, callsignValues, standingValue, squadronValue, qualEntries, studentIds, isBatch]);
 
-  const canSubmit = validationErrors.length === 0 && !saving;
+  const canSubmit = validationErrors.length === 0 && !saving && !!graduationDate;
 
   const handleConfirm = () => {
     if (!canSubmit) return;
 
     const submissions: GraduationSubmission[] = studentIds.map(studentId => {
-      const appliedOutcomes: AppliedOutcome[] = enabledOutcomes.map(outcome => {
+      const appliedOutcomes: AppliedOutcome[] = enabledOutcomes.filter(o => !skippedOutcomes.has(o.type)).map(outcome => {
         let value: string | string[] | null = null;
         switch (outcome.type) {
           case 'callsign':
@@ -193,7 +208,7 @@ const GraduationDialog: React.FC<GraduationDialogProps> = ({
       return { studentId, outcomes: appliedOutcomes };
     });
 
-    onConfirm(submissions);
+    onConfirm(submissions, graduationDate);
   };
 
   const addQualEntry = (qualId: string) => {
@@ -291,6 +306,22 @@ const GraduationDialog: React.FC<GraduationDialogProps> = ({
               </div>
             </div>
           )}
+          {/* Graduation date — drives the graduation record / dossier timeline */}
+          <div style={{ marginBottom: '20px' }}>
+            <div style={{ fontSize: '14px', fontWeight: 600, color: '#475569', marginBottom: '8px' }}>Graduation Date</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <input
+                type="date"
+                value={graduationDate}
+                onChange={(e) => setGraduationDate(e.target.value)}
+                style={{ padding: '8px 12px', border: '1px solid #D1D5DB', borderRadius: '6px', fontSize: '14px', color: '#374151' }}
+              />
+              <span style={{ fontSize: '12px', color: '#6B7280' }}>
+                Backdate this when recording a graduation retroactively (e.g. the end of the cycle).
+              </span>
+            </div>
+          </div>
+
           {enabledOutcomes.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '32px 16px', color: '#6B7280' }}>
               <p style={{ margin: 0, fontSize: '14px' }}>
@@ -302,16 +333,19 @@ const GraduationDialog: React.FC<GraduationDialogProps> = ({
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-              {enabledOutcomes.map(outcome => (
+              {enabledOutcomes.map(outcome => {
+                const isSkipped = skippedOutcomes.has(outcome.type);
+                return (
                 <div key={outcome.type} style={{
                   border: '1px solid #E5E7EB',
                   borderRadius: '8px',
                   padding: '16px',
+                  backgroundColor: isSkipped ? '#F9FAFB' : 'white',
                 }}>
                   {/* Outcome Header */}
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: isSkipped ? 0 : '12px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <span style={{ fontSize: '14px', fontWeight: 600, color: '#111827' }}>
+                      <span style={{ fontSize: '14px', fontWeight: 600, color: isSkipped ? '#9CA3AF' : '#111827' }}>
                         {outcome.type === 'callsign' && 'Callsign'}
                         {outcome.type === 'standing' && 'Standing'}
                         {outcome.type === 'squadron_assignment' && 'Squadron Assignment'}
@@ -322,13 +356,26 @@ const GraduationDialog: React.FC<GraduationDialogProps> = ({
                         fontWeight: 500,
                         padding: '2px 8px',
                         borderRadius: '10px',
-                        backgroundColor: outcome.required ? '#FEE2E2' : '#F3F4F6',
-                        color: outcome.required ? '#991B1B' : '#6B7280',
+                        backgroundColor: isSkipped ? '#F3F4F6' : outcome.required ? '#FEE2E2' : '#F3F4F6',
+                        color: isSkipped ? '#6B7280' : outcome.required ? '#991B1B' : '#6B7280',
                       }}>
-                        {outcome.required ? 'Required' : 'Optional'}
+                        {isSkipped ? 'Skipped' : outcome.required ? 'Required' : 'Optional'}
                       </span>
                     </div>
+                    <label
+                      title="Skip this outcome — nothing is changed for it (use when it was already applied in the past)"
+                      style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: '#6B7280', cursor: 'pointer', userSelect: 'none' }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isSkipped}
+                        onChange={() => toggleSkipOutcome(outcome.type)}
+                      />
+                      Skip — already applied
+                    </label>
                   </div>
+                  {!isSkipped && (
+                  <>
 
                   {/* Callsign Input */}
                   {outcome.type === 'callsign' && (
@@ -562,10 +609,11 @@ const GraduationDialog: React.FC<GraduationDialogProps> = ({
                       )}
                     </div>
                   )}
-
-
+                  </>
+                  )}
                 </div>
-              ))}
+                );
+              })}
             </div>
           )}
 

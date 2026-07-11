@@ -1,8 +1,13 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Check, Medal, RefreshCw, X } from 'lucide-react';
 import StyledSelect from './StyledSelect';
-import { describeRuleNode } from '../../utils/awardRules';
-import { computeEligibleRecipients, type EligibilityCandidate } from '../../utils/awardEligibilityService';
+import { describeRuleNode, awardMetricDefinition, collectRuleConditions } from '../../utils/awardRules';
+import {
+  computeEligibleRecipients,
+  type EligibilityCandidate,
+  type EligibilityColumn,
+  type EligibilityColumnValue
+} from '../../utils/awardEligibilityService';
 import { issueAward, ensureRepeatVariantCoverage, type Award } from '../../utils/awardService';
 import type { DossierCycle, DossierPilotOption } from '../../utils/dossierService';
 
@@ -19,6 +24,21 @@ interface AwardEligibilityPanelProps {
   onIssued: () => Promise<void> | void;
   onError: (message: string) => void;
   onNotice: (message: string) => void;
+}
+
+/** Formats one dynamic metric cell: booleans as ✓/✗, percentages with %, counts as value or value/total */
+function renderColumnValue(column: EligibilityColumn, columnValue: EligibilityColumnValue | undefined): React.ReactNode {
+  if (!columnValue) return '—';
+  const metricDef = awardMetricDefinition(column.metric);
+  if (metricDef.isBoolean) {
+    return columnValue.value >= 1
+      ? <Check size={14} style={{ color: '#16A34A' }} />
+      : <X size={14} style={{ color: '#CBD5E1' }} />;
+  }
+  if (columnValue.total !== undefined) {
+    return <>{columnValue.value}/{columnValue.total}</>;
+  }
+  return `${columnValue.value}${metricDef.unit || ''}`;
 }
 
 /**
@@ -99,6 +119,7 @@ const AwardEligibilityPanel: React.FC<AwardEligibilityPanelProps> = ({
 }) => {
   const [cycleId, setCycleId] = useState('');
   const [candidates, setCandidates] = useState<EligibilityCandidate[] | null>(null);
+  const [columns, setColumns] = useState<EligibilityColumn[]>([]);
   const [eventsConsidered, setEventsConsidered] = useState(0);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [awardedDate, setAwardedDate] = useState('');
@@ -128,6 +149,16 @@ const AwardEligibilityPanel: React.FC<AwardEligibilityPanelProps> = ({
     cycles.forEach(c => { map[c.id] = c.name; });
     return map;
   }, [cycles]);
+
+  // When every condition is pinned or any-cycle scoped, the cycle picked here
+  // doesn't affect who qualifies — flag that so identical results across
+  // cycles don't read as a bug
+  const referencesIssuedCycle = useMemo(() => {
+    if (!award.eligibility_rules) return true;
+    const conditions = collectRuleConditions(award.eligibility_rules.rules);
+    (award.device_config?.tiers || []).forEach(tier => collectRuleConditions(tier.rules, conditions));
+    return conditions.some(condition => !condition.cycleId);
+  }, [award]);
 
   const handleCycleChange = (id: string) => {
     setCycleId(id);
@@ -160,6 +191,7 @@ const AwardEligibilityPanel: React.FC<AwardEligibilityPanelProps> = ({
         return;
       }
       setCandidates(data.candidates);
+      setColumns(data.columns);
       setEventsConsidered(data.eventsConsidered);
       setSelected(new Set(
         data.candidates.filter(c => c.eligible && !c.alreadyIssued).map(c => c.pilotId)
@@ -253,8 +285,15 @@ const AwardEligibilityPanel: React.FC<AwardEligibilityPanelProps> = ({
         }}>
           <span style={{ fontWeight: 500 }}>Criteria: </span>
           {describeRuleNode(selectedAward.eligibility_rules.rules, cycleNameById)}
-          {candidates && (
+          {candidates && columns.some(c => ['events_attended', 'attendance_pct', 'events_total'].includes(c.metric)) && (
             <span> · Evaluated over {eventsConsidered} published event{eventsConsidered === 1 ? '' : 's'} in the cycle</span>
+          )}
+          {!referencesIssuedCycle && (
+            <div style={{ marginTop: '6px', color: '#B45309' }}>
+              None of this award's criteria depend on the cycle selected here, so the results are the same for every
+              cycle (the selection is still recorded on the issuance). Scope a condition to "Cycle being issued for"
+              if eligibility should be judged per cycle.
+            </div>
           )}
         </div>
       )}
@@ -268,8 +307,9 @@ const AwardEligibilityPanel: React.FC<AwardEligibilityPanelProps> = ({
                   <th style={{ ...headerCellStyle, width: '32px' }}></th>
                   <th style={headerCellStyle}>Pilot</th>
                   <th style={headerCellStyle}>Squadron</th>
-                  <th style={headerCellStyle}>Attended</th>
-                  <th style={headerCellStyle}>Active</th>
+                  {columns.map((column, index) => (
+                    <th key={index} style={headerCellStyle} title={column.title}>{column.shortLabel}</th>
+                  ))}
                   {selectedAward?.device_config?.mode === 'tier' && <th style={headerCellStyle}>Device</th>}
                   <th style={headerCellStyle}>Status</th>
                 </tr>
@@ -289,15 +329,11 @@ const AwardEligibilityPanel: React.FC<AwardEligibilityPanelProps> = ({
                       <span style={{ fontWeight: 500 }}>{candidate.callsign}</span>
                     </td>
                     <td style={{ ...cellStyle, color: '#64748B' }}>{candidate.squadronDesignation || '—'}</td>
-                    <td style={cellStyle}>
-                      {candidate.metrics.events_attended}/{candidate.metrics.events_total}
-                      <span style={{ color: '#94A3B8', marginLeft: '6px' }}>({candidate.metrics.attendance_pct}%)</span>
-                    </td>
-                    <td style={cellStyle}>
-                      {candidate.metrics.active_member
-                        ? <Check size={14} style={{ color: '#16A34A' }} />
-                        : <X size={14} style={{ color: '#CBD5E1' }} />}
-                    </td>
+                    {columns.map((column, index) => (
+                      <td key={index} style={cellStyle} title={column.title}>
+                        {renderColumnValue(column, candidate.columnValues[index])}
+                      </td>
+                    ))}
                     {selectedAward?.device_config?.mode === 'tier' && (
                       <td style={{ ...cellStyle, color: '#64748B' }}>{candidate.earnedTier?.name || '—'}</td>
                     )}

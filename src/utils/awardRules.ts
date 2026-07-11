@@ -7,31 +7,39 @@
 // ---------- Metrics ----------
 
 export type AwardMetricId =
-  | 'events_attended'  // participation: roll call Present, or accepted RSVP when no roll call was taken (matches the dossier's cruise participation rule)
-  | 'attendance_pct'   // roll call Present ÷ published past events in the cycle, as 0-100 (matches the dossier attendance card exactly)
-  | 'active_member'    // 1 when the pilot held an active roster status overlapping the cycle's date range, else 0
-  | 'events_total';    // published events in the cycle that have already occurred
+  | 'events_attended'     // participation: roll call Present, or accepted RSVP when no roll call was taken (matches the dossier's cruise participation rule)
+  | 'attendance_pct'      // roll call Present ÷ published past events in the cycle, as 0-100 (matches the dossier attendance card exactly)
+  | 'active_member'       // 1 when the pilot held an active roster status overlapping the cycle's date range, else 0
+  | 'events_total'        // published events in the cycle that have already occurred
+  | 'students_flown'      // distinct enrolled students this pilot shared a mission flight with, or instructed/graded a syllabus attempt for, in the cycle; 0 for pilots who are themselves enrolled
+  | 'students_graduated'; // of those students, how many went on to graduate (graduation record on/after the cycle start)
 
 export interface AwardMetricValues {
   events_attended: number;
   attendance_pct: number;
   active_member: number; // 0 | 1
   events_total: number;
+  students_flown: number;
+  students_graduated: number;
 }
 
 export interface AwardMetricDefinition {
   id: AwardMetricId;
   label: string;
+  /** Compact column header for the eligibility results table */
+  shortLabel: string;
   /** boolean metrics render as a yes/no select instead of comparator + number */
   isBoolean: boolean;
   unit?: string;
 }
 
 export const AWARD_METRICS: AwardMetricDefinition[] = [
-  { id: 'events_attended', label: 'Events attended in cycle', isBoolean: false },
-  { id: 'attendance_pct', label: 'Roll-call attendance', isBoolean: false, unit: '%' },
-  { id: 'active_member', label: 'Active member during cycle', isBoolean: true },
-  { id: 'events_total', label: 'Events held in cycle', isBoolean: false }
+  { id: 'events_attended', label: 'Events attended in cycle', shortLabel: 'Attended', isBoolean: false },
+  { id: 'attendance_pct', label: 'Roll-call attendance', shortLabel: 'Roll call', isBoolean: false, unit: '%' },
+  { id: 'active_member', label: 'Active member during cycle', shortLabel: 'Active', isBoolean: true },
+  { id: 'events_total', label: 'Events held in cycle', shortLabel: 'Events', isBoolean: false },
+  { id: 'students_flown', label: 'Students flown with in cycle', shortLabel: 'Students', isBoolean: false },
+  { id: 'students_graduated', label: 'Students flown with who graduated', shortLabel: 'Graduated', isBoolean: false }
 ];
 
 export const awardMetricDefinition = (id: AwardMetricId): AwardMetricDefinition =>
@@ -59,10 +67,14 @@ export interface AwardRuleCondition {
    * Cycle the metric is measured against. Null/absent = the cycle selected
    * when issuing (right for reusable awards like a deployment ribbon); a
    * cycle id pins the condition to that specific cycle (right for campaign
-   * medals tied to one operation).
+   * medals tied to one operation); ANY_QUALIFYING_CYCLE passes when the
+   * comparison holds in at least one cycle of the award's qualifying types.
    */
   cycleId?: string | null;
 }
+
+/** Sentinel cycleId: the condition passes if it holds in any qualifying cycle */
+export const ANY_QUALIFYING_CYCLE = 'any-qualifying-cycle';
 
 export interface AwardRuleGroup {
   kind: 'group';
@@ -167,9 +179,11 @@ const compare = (actual: number, comparator: AwardRuleComparator, expected: numb
 
 /**
  * Supplies a pilot's metrics for a condition's cycle scope: null = the cycle
- * selected at issuance, a cycle id = that specific cycle.
+ * selected at issuance, a cycle id = that specific cycle. For
+ * ANY_QUALIFYING_CYCLE the resolver returns one metric set per qualifying
+ * cycle, and the condition passes if the comparison holds for any of them.
  */
-export type MetricsResolver = (cycleId: string | null) => AwardMetricValues;
+export type MetricsResolver = (cycleId: string | null) => AwardMetricValues | AwardMetricValues[];
 
 const asResolver = (metrics: AwardMetricValues | MetricsResolver): MetricsResolver =>
   typeof metrics === 'function' ? metrics : () => metrics;
@@ -177,9 +191,12 @@ const asResolver = (metrics: AwardMetricValues | MetricsResolver): MetricsResolv
 export function evaluateRuleNode(node: AwardRuleNode, metrics: AwardMetricValues | MetricsResolver): boolean {
   const resolve = asResolver(metrics);
   if (node.kind === 'condition') {
-    const actual = resolve(node.cycleId || null)[node.metric];
-    if (typeof actual !== 'number') return false;
-    return compare(actual, node.comparator, node.value);
+    const resolved = resolve(node.cycleId || null);
+    const candidates = Array.isArray(resolved) ? resolved : [resolved];
+    return candidates.some(candidate => {
+      const actual = candidate[node.metric];
+      return typeof actual === 'number' && compare(actual, node.comparator, node.value);
+    });
   }
   // Empty groups pass for 'and' (no failed requirement) and fail for 'or'
   if (node.children.length === 0) return node.op === 'and';
@@ -188,13 +205,29 @@ export function evaluateRuleNode(node: AwardRuleNode, metrics: AwardMetricValues
     : node.children.some(child => evaluateRuleNode(child, resolve));
 }
 
-/** Cycle ids explicitly referenced by conditions in a rule tree */
+/** Specific cycle ids referenced by conditions in a rule tree (excludes the any-cycle sentinel) */
 export function collectRuleCycleIds(node: AwardRuleNode, out: Set<string> = new Set()): Set<string> {
   if (node.kind === 'condition') {
-    if (node.cycleId) out.add(node.cycleId);
+    if (node.cycleId && node.cycleId !== ANY_QUALIFYING_CYCLE) out.add(node.cycleId);
     return out;
   }
   node.children.forEach(child => collectRuleCycleIds(child, out));
+  return out;
+}
+
+/** True when any condition in the tree uses the any-qualifying-cycle scope */
+export function ruleTreeUsesAnyCycle(node: AwardRuleNode): boolean {
+  if (node.kind === 'condition') return node.cycleId === ANY_QUALIFYING_CYCLE;
+  return node.children.some(ruleTreeUsesAnyCycle);
+}
+
+/** Flat list of every condition in a rule tree */
+export function collectRuleConditions(node: AwardRuleNode, out: AwardRuleCondition[] = []): AwardRuleCondition[] {
+  if (node.kind === 'condition') {
+    out.push(node);
+    return out;
+  }
+  node.children.forEach(child => collectRuleConditions(child, out));
   return out;
 }
 
@@ -250,9 +283,11 @@ export const tierVariantKey = (tierId: string): string => `tier:${tierId}`;
 export function describeRuleNode(node: AwardRuleNode, cycleNameById?: Record<string, string>): string {
   if (node.kind === 'condition') {
     const metric = awardMetricDefinition(node.metric);
-    const cycleSuffix = node.cycleId
-      ? ` [${cycleNameById?.[node.cycleId] || 'specific cycle'}]`
-      : '';
+    const cycleSuffix = node.cycleId === ANY_QUALIFYING_CYCLE
+      ? ' [any qualifying cycle]'
+      : node.cycleId
+        ? ` [${cycleNameById?.[node.cycleId] || 'specific cycle'}]`
+        : '';
     if (metric.isBoolean) {
       return (node.value >= 1 ? metric.label : `Not: ${metric.label.toLowerCase()}`) + cycleSuffix;
     }

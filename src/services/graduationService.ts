@@ -10,6 +10,8 @@ interface GraduateParams {
   studentPilotId: string;
   graduatedByUserId: string;
   outcomes: AppliedOutcome[];
+  /** YYYY-MM-DD; recorded as graduated_at (backdated for retroactive graduations). Defaults to now. */
+  graduationDate?: string;
 }
 
 /**
@@ -19,7 +21,12 @@ interface GraduateParams {
  * 3. Insert graduation_records audit row
  */
 export async function graduateStudent(params: GraduateParams): Promise<void> {
-  const { enrollmentId, cycleId, syllabusId, studentPilotId, graduatedByUserId, outcomes } = params;
+  const { enrollmentId, cycleId, syllabusId, studentPilotId, graduatedByUserId, outcomes, graduationDate } = params;
+
+  // Midday keeps the calendar date stable across timezones
+  const graduatedAt = graduationDate
+    ? new Date(`${graduationDate}T12:00:00`).toISOString()
+    : new Date().toISOString();
 
   // 1. Mark enrollment as graduated
   const { error: enrollmentError } = await supabase
@@ -128,7 +135,7 @@ export async function graduateStudent(params: GraduateParams): Promise<void> {
       syllabus_id: syllabusId,
       student_pilot_id: studentPilotId,
       graduated_by: graduatedByUserId,
-      graduated_at: new Date().toISOString(),
+      graduated_at: graduatedAt,
       outcomes_applied: outcomes,
     });
 
@@ -160,6 +167,7 @@ export async function graduateStudents(
   cycleId: string,
   syllabusId: string,
   graduatedByUserId: string,
+  graduationDate?: string,
 ): Promise<{ succeeded: string[]; failed: Array<{ studentId: string; error: string }> }> {
   const succeeded: string[] = [];
   const failed: Array<{ studentId: string; error: string }> = [];
@@ -179,6 +187,7 @@ export async function graduateStudents(
         studentPilotId: submission.studentId,
         graduatedByUserId,
         outcomes: submission.outcomes,
+        graduationDate,
       });
 
       succeeded.push(submission.studentId);

@@ -11,7 +11,7 @@ import {
   uploadAwardImage,
   updateIssuance,
   updateIssuanceCertificate,
-  revokeAward,
+  revokeAwards,
   getAwardCategories,
   createAwardCategory,
   updateAwardCategory,
@@ -283,7 +283,8 @@ const AwardsManagerDialog: React.FC<AwardsManagerDialogProps> = ({
   // Issuance manager (opened by clicking an award's issued counts)
   const [issuanceViewAwardId, setIssuanceViewAwardId] = useState<string | null>(null);
   const [issuanceEdits, setIssuanceEdits] = useState<Record<string, IssuanceEdit>>({});
-  const [pendingRevoke, setPendingRevoke] = useState<IssuanceRecord | null>(null);
+  const [selectedIssuanceIds, setSelectedIssuanceIds] = useState<Set<string>>(new Set());
+  const [pendingRevoke, setPendingRevoke] = useState<IssuanceRecord[] | null>(null);
 
   // Categories state
   const [newCategoryName, setNewCategoryName] = useState('');
@@ -332,6 +333,7 @@ const AwardsManagerDialog: React.FC<AwardsManagerDialogProps> = ({
       setForm(null);
       setIssuanceViewAwardId(null);
       setIssuanceEdits({});
+      setSelectedIssuanceIds(new Set());
       setEditingCategoryId(null);
       setCategoryFilter('');
       setLibraryFilters(EMPTY_AWARD_FILTERS);
@@ -786,22 +788,26 @@ const AwardsManagerDialog: React.FC<AwardsManagerDialogProps> = ({
   };
 
   const handleConfirmRevoke = async () => {
-    const record = pendingRevoke;
+    const records = pendingRevoke;
     setPendingRevoke(null);
-    if (!record) return;
-    setBusyIssuanceId(record.id);
+    if (!records || records.length === 0) return;
+    setBusy(true);
     setError(null);
     try {
-      const { success, error: revokeError } = await revokeAward(record.id);
+      const { success, revoked, error: revokeError } = await revokeAwards(records.map(r => r.id));
       if (!success) {
         setError(revokeError?.message || 'Failed to revoke the award');
         return;
       }
-      setNotice('Award revoked');
+      setNotice(revoked === 1 ? 'Award revoked' : `${revoked} issuances revoked`);
+      if (revoked < records.length) {
+        setError(`${records.length - revoked} issuance${records.length - revoked === 1 ? ' was' : 's were'} not revoked — you may not have permission for those pilots.`);
+      }
+      setSelectedIssuanceIds(new Set());
       await loadData();
       onChanged();
     } finally {
-      setBusyIssuanceId(null);
+      setBusy(false);
     }
   };
 
@@ -1229,6 +1235,7 @@ const AwardsManagerDialog: React.FC<AwardsManagerDialogProps> = ({
                 eligibilityRules: { ...formState.eligibilityRules!, rules }
               })}
               cycles={cycles}
+              qualifyingCycleTypes={formState.eligibilityRules.cycleTypes}
             />
           </div>
         )}
@@ -1251,6 +1258,7 @@ const AwardsManagerDialog: React.FC<AwardsManagerDialogProps> = ({
             setDecorations(data || []);
           }}
           cycles={cycles}
+          qualifyingCycleTypes={formState.eligibilityRules?.cycleTypes}
           canManage={canManageLibrary}
           onError={setError}
         />
@@ -1412,21 +1420,33 @@ const AwardsManagerDialog: React.FC<AwardsManagerDialogProps> = ({
     const tierOptions = award.device_config?.mode === 'tier' ? (award.device_config.tiers || []) : [];
     const uniqueHolders = new Set(records.map(r => r.pilot_id)).size;
 
+    const allSelected = records.length > 0 && records.every(r => selectedIssuanceIds.has(r.id));
+    const selectedRecords = records.filter(r => selectedIssuanceIds.has(r.id));
+
     return (
       <div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
           <button
-            onClick={() => { setIssuanceViewAwardId(null); setIssuanceEdits({}); }}
+            onClick={() => { setIssuanceViewAwardId(null); setIssuanceEdits({}); setSelectedIssuanceIds(new Set()); }}
             style={{ ...secondaryButtonStyle, whiteSpace: 'nowrap' }}
           >
             ← Back
           </button>
-          <div style={{ minWidth: 0 }}>
+          <div style={{ minWidth: 0, flex: 1 }}>
             <div style={{ fontSize: '15px', fontWeight: 600, color: '#0F172A' }}>{award.name} — Issuances</div>
             <div style={{ fontSize: '12px', color: '#94A3B8' }}>
               Issued {records.length} time{records.length === 1 ? '' : 's'} to {uniqueHolders} pilot{uniqueHolders === 1 ? '' : 's'}
             </div>
           </div>
+          {selectedRecords.length > 0 && (
+            <button
+              onClick={() => setPendingRevoke(selectedRecords)}
+              disabled={busy}
+              style={{ ...secondaryButtonStyle, color: '#DC2626', borderColor: '#FCA5A5', whiteSpace: 'nowrap' }}
+            >
+              <Trash2 size={14} /> Revoke Selected ({selectedRecords.length})
+            </button>
+          )}
         </div>
 
         {records.length === 0 ? (
@@ -1435,6 +1455,14 @@ const AwardsManagerDialog: React.FC<AwardsManagerDialogProps> = ({
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '4px 0 8px', borderBottom: '1px solid #E2E8F0', fontSize: '12px', color: '#64748B', cursor: 'pointer', userSelect: 'none' }}>
+              <input
+                type="checkbox"
+                checked={allSelected}
+                onChange={(e) => setSelectedIssuanceIds(e.target.checked ? new Set(records.map(r => r.id)) : new Set())}
+              />
+              Select all
+            </label>
             {records.map(record => {
               const pilot = pilots.find(p => p.id === record.pilot_id);
               const cycleName = record.cycle_id
@@ -1452,6 +1480,17 @@ const AwardsManagerDialog: React.FC<AwardsManagerDialogProps> = ({
                   borderBottom: '1px solid #F1F5F9',
                   opacity: isBusy ? 0.5 : 1
                 }}>
+                  <input
+                    type="checkbox"
+                    checked={selectedIssuanceIds.has(record.id)}
+                    onChange={(e) => {
+                      const next = new Set(selectedIssuanceIds);
+                      if (e.target.checked) next.add(record.id);
+                      else next.delete(record.id);
+                      setSelectedIssuanceIds(next);
+                    }}
+                    style={{ flexShrink: 0 }}
+                  />
                   <div style={{ width: '140px', flexShrink: 0, fontSize: '13px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     <span style={{ color: '#646F7E', marginRight: '6px' }}>{pilot?.boardNumber ?? ''}</span>
                     <span style={{ fontWeight: 500, color: '#0F172A' }}>{pilot?.callsign || 'Unknown pilot'}</span>
@@ -1504,7 +1543,7 @@ const AwardsManagerDialog: React.FC<AwardsManagerDialogProps> = ({
                     <Check size={14} />
                   </button>
                   <button
-                    onClick={() => setPendingRevoke(record)}
+                    onClick={() => setPendingRevoke([record])}
                     disabled={isBusy}
                     title="Revoke this award"
                     style={{ ...secondaryButtonStyle, padding: '6px 8px', color: '#DC2626', borderColor: '#FCA5A5' }}
@@ -2105,8 +2144,16 @@ const AwardsManagerDialog: React.FC<AwardsManagerDialogProps> = ({
       isOpen={pendingRevoke !== null}
       onConfirm={handleConfirmRevoke}
       onCancel={() => setPendingRevoke(null)}
-      title="Revoke Award"
-      message={`Revoke this award from ${pilots.find(p => p.id === pendingRevoke?.pilot_id)?.callsign || 'this pilot'}? The issuance is removed from their record and cannot be undone.`}
+      title={pendingRevoke && pendingRevoke.length > 1 ? 'Revoke Awards' : 'Revoke Award'}
+      message={(() => {
+        if (!pendingRevoke) return '';
+        if (pendingRevoke.length === 1) {
+          const callsign = pilots.find(p => p.id === pendingRevoke[0].pilot_id)?.callsign || 'this pilot';
+          return `Revoke this award from ${callsign}? The issuance is removed from their record and cannot be undone.`;
+        }
+        const pilotCount = new Set(pendingRevoke.map(r => r.pilot_id)).size;
+        return `Revoke ${pendingRevoke.length} issuances from ${pilotCount} pilot${pilotCount === 1 ? '' : 's'}? The issuances are removed from their records and cannot be undone.`;
+      })()}
       confirmText="Revoke"
       cancelText="Cancel"
       type="danger"

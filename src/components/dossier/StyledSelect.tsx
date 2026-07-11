@@ -1,9 +1,13 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 
 // Custom single-select dropdown — same look as the roster FilterDrawer's
 // MultiSelectDropdown. Native <select> elements render their option list in
 // the OS font, which clashes with the app's Inter styling, so anything in a
 // polished surface should use this instead.
+//
+// The option list renders in a portal positioned at the trigger, so it hangs
+// over dialog borders and scroll containers instead of being clipped by them.
 
 export interface StyledSelectOption {
   value: string;
@@ -20,27 +24,51 @@ interface StyledSelectProps {
   placeholder?: string;
 }
 
+const LIST_MAX_HEIGHT = 200;
+
 const StyledSelect: React.FC<StyledSelectProps> = ({ value, options, onChange, disabled = false, placeholder }) => {
   const [isOpen, setIsOpen] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
+  const [triggerRect, setTriggerRect] = useState<DOMRect | null>(null);
+  const triggerRef = useRef<HTMLDivElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
   const selected = options.find(o => o.value === value);
 
-  // Close when clicking anywhere outside
+  const openList = () => {
+    if (disabled || !triggerRef.current) return;
+    setTriggerRect(triggerRef.current.getBoundingClientRect());
+    setIsOpen(true);
+  };
+
+  // Close on outside clicks (the list lives in a portal, so check both refs),
+  // and on any scroll/resize — the fixed-position list would detach otherwise
   useEffect(() => {
     if (!isOpen) return;
-    const handleClick = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+    const handleMouseDown = (e: MouseEvent) => {
+      const target = e.target as Node;
+      if (!triggerRef.current?.contains(target) && !listRef.current?.contains(target)) {
         setIsOpen(false);
       }
     };
-    document.addEventListener('mousedown', handleClick);
-    return () => document.removeEventListener('mousedown', handleClick);
+    const close = () => setIsOpen(false);
+    document.addEventListener('mousedown', handleMouseDown);
+    window.addEventListener('scroll', close, true);
+    window.addEventListener('resize', close);
+    return () => {
+      document.removeEventListener('mousedown', handleMouseDown);
+      window.removeEventListener('scroll', close, true);
+      window.removeEventListener('resize', close);
+    };
   }, [isOpen]);
 
+  // Open upward when there isn't room below the trigger
+  const openUp = triggerRect
+    ? triggerRect.bottom + LIST_MAX_HEIGHT + 8 > window.innerHeight && triggerRect.top > LIST_MAX_HEIGHT + 8
+    : false;
+
   return (
-    <div ref={containerRef} style={{ position: 'relative', overflow: 'visible', opacity: disabled ? 0.5 : 1 }}>
+    <div ref={triggerRef} style={{ position: 'relative', opacity: disabled ? 0.5 : 1 }}>
       <div
-        onClick={() => { if (!disabled) setIsOpen(!isOpen); }}
+        onClick={() => (isOpen ? setIsOpen(false) : openList())}
         style={{
           padding: '8px 12px',
           border: '1px solid #CBD5E1',
@@ -67,21 +95,25 @@ const StyledSelect: React.FC<StyledSelectProps> = ({ value, options, onChange, d
         </span>
       </div>
 
-      {isOpen && (
-        <div style={{
-          position: 'absolute',
-          top: '100%',
-          left: 0,
-          right: 0,
-          backgroundColor: '#FFFFFF',
-          border: '1px solid #CBD5E1',
-          borderRadius: '6px',
-          maxHeight: '200px',
-          overflowY: 'auto',
-          zIndex: 1000,
-          boxShadow: '0px 4px 6px -1px rgba(0, 0, 0, 0.1)',
-          marginTop: '4px'
-        }}>
+      {isOpen && triggerRect && createPortal(
+        <div
+          ref={listRef}
+          style={{
+            position: 'fixed',
+            ...(openUp
+              ? { bottom: window.innerHeight - triggerRect.top + 4 }
+              : { top: triggerRect.bottom + 4 }),
+            left: triggerRect.left,
+            width: triggerRect.width,
+            backgroundColor: '#FFFFFF',
+            border: '1px solid #CBD5E1',
+            borderRadius: '6px',
+            maxHeight: `${LIST_MAX_HEIGHT}px`,
+            overflowY: 'auto',
+            zIndex: 1100,
+            boxShadow: '0px 4px 6px -1px rgba(0, 0, 0, 0.1)'
+          }}
+        >
           {options.map(option => (
             <div
               key={option.value}
@@ -109,7 +141,8 @@ const StyledSelect: React.FC<StyledSelectProps> = ({ value, options, onChange, d
               {option.label}
             </div>
           ))}
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

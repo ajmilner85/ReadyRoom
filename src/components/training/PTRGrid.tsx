@@ -20,6 +20,8 @@ interface Student {
   id: string;
   callsign: string;
   board_number: string;
+  /** Current roster status is an active one (statuses.isActive) */
+  is_active?: boolean;
   squadron?: {
     tail_code: string;
     insignia_url: string;
@@ -53,6 +55,7 @@ const PTRGrid: React.FC<PTRGridProps> = ({ syllabusId, cycleId, onCellClick, onG
   const [hoveredRow, setHoveredRow] = useState<string | null>(null);
   const [hoveredCol, setHoveredCol] = useState<number | null>(null);
   const [sortBy, setSortBy] = useState<'boardNumber' | 'callsign'>('boardNumber');
+  const [showInactive, setShowInactive] = useState(false);
   const [hoveredWeekPopup, setHoveredWeekPopup] = useState<number | null>(null);
   const [clickedWeekPopup, setClickedWeekPopup] = useState<number | null>(null);
   const [tooltipData, setTooltipData] = useState<{
@@ -99,7 +102,9 @@ const PTRGrid: React.FC<PTRGridProps> = ({ syllabusId, cycleId, onCellClick, onG
       const startDate = new Date(cycleData.start_date);
       setCycleStartDate(startDate);
 
-      // Get enrolled pilots for this cycle (only active and graduated students, with active pilot status)
+      // Get enrolled pilots for this cycle (active and graduated students).
+      // Pilot roster status comes along so inactive pilots can be hidden or
+      // shown client-side via the "Show inactive pilots" toggle.
       const { data: enrollments, error: enrollmentsError } = await supabase
         .from('training_enrollments')
         .select(`
@@ -110,16 +115,14 @@ const PTRGrid: React.FC<PTRGridProps> = ({ syllabusId, cycleId, onCellClick, onG
             id,
             callsign,
             boardNumber,
-            pilot_statuses!inner(
+            pilot_statuses(
               end_date,
-              statuses!inner(isActive)
+              statuses(isActive)
             )
           )
         `)
         .eq('cycle_id', cycleId)
         .in('status', ['active', 'graduated'])
-        .is('pilots.pilot_statuses.end_date', null)
-        .eq('pilots.pilot_statuses.statuses.isActive', true)
         .order('enrolled_at');
 
       if (enrollmentsError) throw enrollmentsError;
@@ -151,15 +154,21 @@ const PTRGrid: React.FC<PTRGridProps> = ({ syllabusId, cycleId, onCellClick, onG
         }
       });
 
-      // Build enriched pilot data from enrollments
-      const enrichedPilotsData = enrollments.map((enrollment: any) => ({
-        id: enrollment.pilot_id,
-        callsign: enrollment.pilots.callsign,
-        boardNumber: enrollment.pilots.boardNumber,
-        board_number: enrollment.pilots.boardNumber,
-        squadron: squadronMap.get(enrollment.pilot_id) || null,
-        enrollment_status: enrollment.status
-      }));
+      // Build enriched pilot data from enrollments; a pilot is active when
+      // their current (open-ended) status row is an active status
+      const enrichedPilotsData = enrollments.map((enrollment: any) => {
+        const statusRows = enrollment.pilots.pilot_statuses || [];
+        const isActive = statusRows.some((row: any) => row.end_date === null && row.statuses?.isActive);
+        return {
+          id: enrollment.pilot_id,
+          callsign: enrollment.pilots.callsign,
+          boardNumber: enrollment.pilots.boardNumber,
+          board_number: enrollment.pilots.boardNumber,
+          squadron: squadronMap.get(enrollment.pilot_id) || null,
+          enrollment_status: enrollment.status,
+          is_active: isActive
+        };
+      });
 
       // Load week numbers and mission numbers from syllabus missions with objectives and references
       const { data: missionsData, error: missionsError } = await supabase
@@ -471,7 +480,8 @@ const PTRGrid: React.FC<PTRGridProps> = ({ syllabusId, cycleId, onCellClick, onG
             callsign: pilot.callsign,
             board_number: pilot.board_number,
             squadron: pilot.squadron,
-            enrollment_status: pilot.enrollment_status
+            enrollment_status: pilot.enrollment_status,
+            is_active: pilot.is_active
           },
           weekCells
         };
@@ -490,20 +500,28 @@ const PTRGrid: React.FC<PTRGridProps> = ({ syllabusId, cycleId, onCellClick, onG
   };
 
   const sortedStudentRows = React.useMemo(() => {
-    return [...studentRows].sort((a, b) => {
-      if (sortBy === 'boardNumber') {
-        return parseInt(a.student.board_number) - parseInt(b.student.board_number);
-      } else {
-        return a.student.callsign.localeCompare(b.student.callsign);
-      }
-    });
-  }, [studentRows, sortBy]);
+    return studentRows
+      .filter(row => showInactive || row.student.is_active !== false)
+      .sort((a, b) => {
+        if (sortBy === 'boardNumber') {
+          return parseInt(a.student.board_number) - parseInt(b.student.board_number);
+        } else {
+          return a.student.callsign.localeCompare(b.student.callsign);
+        }
+      });
+  }, [studentRows, sortBy, showInactive]);
+
+  const inactiveCount = React.useMemo(
+    () => studentRows.filter(row => row.student.is_active === false).length,
+    [studentRows]
+  );
 
   const exportToCSV = () => {
     const headers = ['Student', 'Board Number', ...weekInfo.map(w => `Week ${w.weekNumber}`)];
     const csvRows = [headers.join(',')];
 
-    studentRows.forEach(row => {
+    // Export what's shown (respects the inactive-pilot toggle and sort)
+    sortedStudentRows.forEach(row => {
       const weekResults = weekInfo.map(week => {
         const cellData = row.weekCells.get(week.weekNumber);
         if (!cellData) return '';
@@ -637,8 +655,23 @@ const PTRGrid: React.FC<PTRGridProps> = ({ syllabusId, cycleId, onCellClick, onG
   return (
     <div>
       <div style={{ marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div style={{ fontSize: '14px', color: '#6B7280' }}>
-          {studentRows.length} student{studentRows.length !== 1 ? 's' : ''}, {weekInfo.length} week{weekInfo.length !== 1 ? 's' : ''}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <div style={{ fontSize: '14px', color: '#6B7280' }}>
+            {sortedStudentRows.length} student{sortedStudentRows.length !== 1 ? 's' : ''}, {weekInfo.length} week{weekInfo.length !== 1 ? 's' : ''}
+            {!showInactive && inactiveCount > 0 && (
+              <span style={{ color: '#9CA3AF' }}> ({inactiveCount} inactive hidden)</span>
+            )}
+          </div>
+          {inactiveCount > 0 && (
+            <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: '#6B7280', cursor: 'pointer', userSelect: 'none' }}>
+              <input
+                type="checkbox"
+                checked={showInactive}
+                onChange={(e) => setShowInactive(e.target.checked)}
+              />
+              Show inactive pilots
+            </label>
+          )}
         </div>
         <button
           onClick={exportToCSV}
@@ -1031,12 +1064,16 @@ const PTRGrid: React.FC<PTRGridProps> = ({ syllabusId, cycleId, onCellClick, onG
                     width: '220px',
                     transition: 'background-color 0.1s'
                   }}>
-                    <div style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      height: '24px',
-                      gap: '8px'
-                    }}>
+                    <div
+                      title={row.student.is_active === false ? 'Inactive pilot' : undefined}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        height: '24px',
+                        gap: '8px',
+                        opacity: row.student.is_active === false ? 0.5 : 1
+                      }}
+                    >
                       <div style={{ marginLeft: '-20px' }}>
                         <PilotIDBadgeSm
                           squadronTailCode={row.student.squadron?.tail_code}
