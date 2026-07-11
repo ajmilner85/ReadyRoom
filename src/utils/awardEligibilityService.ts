@@ -4,6 +4,11 @@ import {
   evaluateDeviceTier,
   ruleTreeHasConditions,
   collectRuleCycleIds,
+  collectRuleConditions,
+  ruleTreeUsesAnyCycle,
+  awardMetricDefinition,
+  ANY_QUALIFYING_CYCLE,
+  type AwardMetricId,
   type AwardMetricValues,
   type AwardEligibilityRules,
   type AwardDeviceConfig,
@@ -27,12 +32,31 @@ export interface EligibilityCandidate {
   earnedTier: AwardDeviceTier | null;
   /** Existing pilot_awards row for this award + cycle, if any */
   alreadyIssued: boolean;
+  /** Values aligned with EligibilityResult.columns */
+  columnValues: EligibilityColumnValue[];
+}
+
+/** One results-table column, derived from a (metric, cycle scope) the criteria reference */
+export interface EligibilityColumn {
+  metric: AwardMetricId;
+  /** Compact header text */
+  shortLabel: string;
+  /** Full description including the cycle scope, for the header tooltip */
+  title: string;
+}
+
+export interface EligibilityColumnValue {
+  value: number;
+  /** Denominator, present for events-attended style values (renders as value/total) */
+  total?: number;
 }
 
 export interface EligibilityResult {
   candidates: EligibilityCandidate[];
   /** Published events in the cycle that have already occurred */
   eventsConsidered: number;
+  /** Metric columns relevant to the award's criteria, in rule order */
+  columns: EligibilityColumn[];
 }
 
 // ---------- Discord message ID extraction ----------
@@ -96,8 +120,8 @@ export async function computeCycleMetrics(cycleId: string): Promise<{
     // Published events that have already occurred — unpublished events had no
     // attendance to take (same rule as the dossier attendance card)
     const now = new Date().toISOString();
-    const events = ((eventsRes.data || []) as any[])
-      .filter(e => !e.start_datetime || e.start_datetime <= now)
+    const pastEvents = ((eventsRes.data || []) as any[]).filter(e => !e.start_datetime || e.start_datetime <= now);
+    const events = pastEvents
       .map(e => ({ id: e.id, messageIds: extractDiscordMessageIds(e.discord_event_id) }))
       .filter(e => e.messageIds.length > 0);
 
@@ -120,6 +144,66 @@ export async function computeCycleMetrics(cycleId: string): Promise<{
       // status to still be open (or end after) the cycle start
       if (row.end_date && row.end_date < cycleStart) return;
       activePilotIds.add(row.pilot_id);
+    });
+
+    // --- Training: students flown with, and which of them graduated ---
+    // A pilot "flew with" a student when either:
+    //  - both were assigned to the same flight in a saved mission of a cycle
+    //    event (assignments explicitly marked Absent don't count), or
+    //  - the pilot was the assigned or grading IP on one of the student's
+    //    syllabus attempts in the cycle (training_grades) — the authoritative
+    //    record for training cycles, where missions are often not saved.
+    // Students are the cycle's training enrollments; graduations count from
+    // the cycle start onward ("went on to graduate").
+    const cycleStartIso = cycle.start_date || '0001-01-01';
+    const pastEventIds = pastEvents.map(e => e.id);
+
+    const [enrollmentsRes, gradsRes, trainingGradesRes] = await Promise.all([
+      sb.from('training_enrollments').select('pilot_id').eq('cycle_id', cycleId),
+      sb.from('graduation_records').select('student_pilot_id, graduated_at').gte('graduated_at', cycleStartIso),
+      sb.from('training_grades').select('student_id, graded_by_pilot_id, assigned_ip_pilot_id').eq('cycle_id', cycleId)
+    ]);
+    if (enrollmentsRes.error) return { data: null, error: enrollmentsRes.error };
+    if (gradsRes.error) return { data: null, error: gradsRes.error };
+    if (trainingGradesRes.error) return { data: null, error: trainingGradesRes.error };
+
+    let missionRows: any[] = [];
+    if (pastEventIds.length > 0) {
+      const { data: missions, error: missionsError } = await sb
+        .from('missions')
+        .select('id, pilot_assignments')
+        .in('event_id', pastEventIds);
+      if (missionsError) return { data: null, error: missionsError };
+      missionRows = missions || [];
+    }
+
+    const enrolledPilotIds = new Set<string>(((enrollmentsRes.data || []) as any[]).map(r => r.pilot_id));
+    const graduatedPilotIds = new Set<string>(((gradsRes.data || []) as any[]).map(r => r.student_pilot_id));
+
+    const flightmatesByPilot: Record<string, Set<string>> = {};
+    missionRows.forEach(mission => {
+      const assignments = mission.pilot_assignments;
+      if (!assignments || typeof assignments !== 'object') return;
+      Object.values(assignments).forEach(flight => {
+        if (!Array.isArray(flight)) return;
+        const members = flight
+          .filter((slot: any) => slot?.pilot_id && slot.roll_call_status !== 'Absent')
+          .map((slot: any) => slot.pilot_id as string);
+        members.forEach(pilotId => {
+          const mates = (flightmatesByPilot[pilotId] = flightmatesByPilot[pilotId] || new Set<string>());
+          members.forEach(mateId => { if (mateId !== pilotId) mates.add(mateId); });
+        });
+      });
+    });
+
+    // Instruction pairings from the training system's grading records
+    ((trainingGradesRes.data || []) as any[]).forEach(grade => {
+      if (!grade.student_id) return;
+      [grade.assigned_ip_pilot_id, grade.graded_by_pilot_id].forEach(ipPilotId => {
+        if (!ipPilotId || ipPilotId === grade.student_id) return;
+        const mates = (flightmatesByPilot[ipPilotId] = flightmatesByPilot[ipPilotId] || new Set<string>());
+        mates.add(grade.student_id);
+      });
     });
 
     // --- Attendance ---
@@ -179,11 +263,25 @@ export async function computeCycleMetrics(cycleId: string): Promise<{
         });
       }
 
+      // Instructor-style metrics: pilots enrolled in the cycle are the
+      // students, so they never earn student counts themselves
+      let studentsFlown = 0;
+      let studentsGraduated = 0;
+      if (!enrolledPilotIds.has(pilot.id)) {
+        flightmatesByPilot[pilot.id]?.forEach(mateId => {
+          if (!enrolledPilotIds.has(mateId)) return;
+          studentsFlown += 1;
+          if (graduatedPilotIds.has(mateId)) studentsGraduated += 1;
+        });
+      }
+
       metricsByPilot[pilot.id] = {
         events_attended: participated,
         attendance_pct: events.length > 0 ? Math.round((present / events.length) * 1000) / 10 : 0,
         active_member: activePilotIds.has(pilot.id) ? 1 : 0,
-        events_total: events.length
+        events_total: events.length,
+        students_flown: studentsFlown,
+        students_graduated: studentsGraduated
       };
     });
 
@@ -222,7 +320,22 @@ export async function computeEligibleRecipients(
     // Every cycle the rule trees reference, plus the issuance cycle
     const referencedCycleIds = collectRuleCycleIds(eligibilityRules.rules);
     (deviceConfig?.tiers || []).forEach(tier => collectRuleCycleIds(tier.rules, referencedCycleIds));
-    const allCycleIds = Array.from(new Set([cycleId, ...referencedCycleIds]));
+
+    // "Any qualifying cycle" conditions need metrics for every cycle of the
+    // award's qualifying types
+    const usesAnyCycle = ruleTreeUsesAnyCycle(eligibilityRules.rules)
+      || (deviceConfig?.tiers || []).some(tier => ruleTreeUsesAnyCycle(tier.rules));
+    let qualifyingCycleIds: string[] = [];
+    if (usesAnyCycle) {
+      let cyclesQuery = sb.from('cycles').select('id');
+      const types = eligibilityRules.cycleTypes || [];
+      if (types.length > 0) cyclesQuery = cyclesQuery.in('type', types);
+      const { data: qualifyingCycles, error: cyclesError } = await cyclesQuery;
+      if (cyclesError) return { data: null, error: cyclesError };
+      qualifyingCycleIds = ((qualifyingCycles || []) as any[]).map(c => c.id);
+    }
+
+    const allCycleIds = Array.from(new Set([cycleId, ...referencedCycleIds, ...qualifyingCycleIds]));
 
     const [metricsResults, issuedRes] = await Promise.all([
       Promise.all(allCycleIds.map(id => computeCycleMetrics(id))),
@@ -240,22 +353,74 @@ export async function computeEligibleRecipients(
     const issuedPilotIds = new Set(((issuedRes.data || []) as any[]).map(r => r.pilot_id));
     const hasRules = ruleTreeHasConditions(eligibilityRules.rules);
 
+    // Results-table columns: one per unique (metric, cycle scope) referenced
+    // by the criteria or device tiers, so the table always shows the numbers
+    // the award is actually judged on
+    const allConditions = collectRuleConditions(eligibilityRules.rules);
+    (deviceConfig?.tiers || []).forEach(tier => collectRuleConditions(tier.rules, allConditions));
+    const seenColumns = new Set<string>();
+    const columnDefs: Array<{ metric: AwardMetricId; cycleId: string | null }> = [];
+    allConditions.forEach(condition => {
+      const scope = condition.cycleId || null;
+      const key = `${condition.metric}|${scope || ''}`;
+      if (seenColumns.has(key)) return;
+      seenColumns.add(key);
+      columnDefs.push({ metric: condition.metric, cycleId: scope });
+    });
+
+    // Cycle names for the column tooltips
+    const cycleNameById: Record<string, string> = {};
+    if (columnDefs.some(def => def.cycleId && def.cycleId !== ANY_QUALIFYING_CYCLE)) {
+      const { data: namedCycles } = await sb.from('cycles').select('id, name').in('id', allCycleIds);
+      ((namedCycles || []) as any[]).forEach(c => { cycleNameById[c.id] = c.name; });
+    }
+
+    const columns: EligibilityColumn[] = columnDefs.map(def => {
+      const metricDef = awardMetricDefinition(def.metric);
+      const scopeText = def.cycleId === ANY_QUALIFYING_CYCLE
+        ? 'in any qualifying cycle (best cycle shown)'
+        : def.cycleId
+          ? `in ${cycleNameById[def.cycleId] || 'a specific cycle'}`
+          : 'in the selected cycle';
+      return { metric: def.metric, shortLabel: metricDef.shortLabel, title: `${metricDef.label} — ${scopeText}` };
+    });
+
     const emptyMetrics = (cycle: string): AwardMetricValues => ({
       events_attended: 0,
       attendance_pct: 0,
       active_member: 0,
-      events_total: metricsByCycle[cycle]?.eventsConsidered ?? 0
+      events_total: metricsByCycle[cycle]?.eventsConsidered ?? 0,
+      students_flown: 0,
+      students_graduated: 0
     });
 
     const candidates: EligibilityCandidate[] = pilots.map(pilot => {
-      // Resolves a condition's cycle scope: null = the issuance cycle
+      // Resolves a condition's cycle scope: null = the issuance cycle,
+      // ANY_QUALIFYING_CYCLE = one metric set per qualifying cycle
       const resolveMetrics: MetricsResolver = (conditionCycleId) => {
+        if (conditionCycleId === ANY_QUALIFYING_CYCLE) {
+          const ids = qualifyingCycleIds.length > 0 ? qualifyingCycleIds : [cycleId];
+          return ids.map(id => metricsByCycle[id]?.metricsByPilot[pilot.id] || emptyMetrics(id));
+        }
         const scope = conditionCycleId && metricsByCycle[conditionCycleId] ? conditionCycleId : cycleId;
         return metricsByCycle[scope].metricsByPilot[pilot.id] || emptyMetrics(scope);
       };
 
-      const metrics = resolveMetrics(null); // issuance-cycle metrics for the results table
+      // Issuance-cycle metrics for the results table
+      const metrics = resolveMetrics(null) as AwardMetricValues;
       const eligible = hasRules ? evaluateRuleNode(eligibilityRules.rules, resolveMetrics) : false;
+
+      // One value per column; any-cycle scopes show the pilot's best cycle
+      const columnValues: EligibilityColumnValue[] = columnDefs.map(def => {
+        const resolved = resolveMetrics(def.cycleId);
+        const sets = Array.isArray(resolved) ? resolved : [resolved];
+        let best = sets[0];
+        sets.forEach(set => { if (set[def.metric] > best[def.metric]) best = set; });
+        return def.metric === 'events_attended'
+          ? { value: best.events_attended, total: best.events_total }
+          : { value: best[def.metric] };
+      });
+
       return {
         pilotId: pilot.id,
         callsign: pilot.callsign,
@@ -264,7 +429,8 @@ export async function computeEligibleRecipients(
         metrics,
         eligible,
         earnedTier: eligible ? evaluateDeviceTier(deviceConfig, resolveMetrics) : null,
-        alreadyIssued: issuedPilotIds.has(pilot.id)
+        alreadyIssued: issuedPilotIds.has(pilot.id),
+        columnValues
       };
     });
 
@@ -274,7 +440,7 @@ export async function computeEligibleRecipients(
       return String(a.boardNumber).localeCompare(String(b.boardNumber), undefined, { numeric: true });
     });
 
-    return { data: { candidates, eventsConsidered }, error: null };
+    return { data: { candidates, eventsConsidered, columns }, error: null };
   } catch (error) {
     return { data: null, error };
   }

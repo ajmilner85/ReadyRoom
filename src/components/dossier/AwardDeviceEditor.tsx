@@ -31,6 +31,8 @@ interface AwardDeviceEditorProps {
   onDecorationsChanged: () => Promise<void> | void;
   /** Cycles offered when pinning a tier condition to a specific cycle */
   cycles: DossierCycle[];
+  /** Award's qualifying cycle types — filters the tier rule cycle pickers */
+  qualifyingCycleTypes?: string[];
   canManage: boolean;
   onError: (message: string) => void;
 }
@@ -243,6 +245,7 @@ const AwardDeviceEditor: React.FC<AwardDeviceEditorProps> = ({
   decorations,
   onDecorationsChanged,
   cycles,
+  qualifyingCycleTypes,
   canManage,
   onError
 }) => {
@@ -380,6 +383,7 @@ const AwardDeviceEditor: React.FC<AwardDeviceEditorProps> = ({
                 group={tier.rules}
                 onChange={(rules) => updateTier(index, { rules })}
                 cycles={cycles}
+                qualifyingCycleTypes={qualifyingCycleTypes}
               />
             </div>
           ))}

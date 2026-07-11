@@ -7,6 +7,7 @@ import {
   awardMetricDefinition,
   emptyRuleGroup,
   newRuleCondition,
+  ANY_QUALIFYING_CYCLE,
   type AwardRuleGroup,
   type AwardRuleNode,
   type AwardRuleCondition,
@@ -28,6 +29,8 @@ interface AwardRuleBuilderProps {
   onChange: (group: AwardRuleGroup) => void;
   /** Cycles offered for pinning a condition to a specific cycle */
   cycles: DossierCycle[];
+  /** Award's qualifying cycle types — filters the cycle picker (empty/absent = all) */
+  qualifyingCycleTypes?: string[];
   depth?: number;
 }
 
@@ -54,7 +57,14 @@ const smallButtonStyle: React.CSSProperties = {
   fontSize: '12px'
 };
 
-const AwardRuleBuilder: React.FC<AwardRuleBuilderProps> = ({ group, onChange, cycles, depth = 0 }) => {
+const AwardRuleBuilder: React.FC<AwardRuleBuilderProps> = ({ group, onChange, cycles, qualifyingCycleTypes, depth = 0 }) => {
+  // Only offer cycles of the award's qualifying types for pinning; a
+  // condition already pinned to a now-excluded cycle stays listed so it
+  // remains visible and editable
+  const pinnableCycles = (qualifyingCycleTypes && qualifyingCycleTypes.length > 0)
+    ? cycles.filter(c => (c.type && qualifyingCycleTypes.includes(c.type)) ||
+        group.children.some(child => child.kind === 'condition' && child.cycleId === c.id))
+    : cycles;
   const updateChild = (index: number, child: AwardRuleNode) => {
     const children = [...group.children];
     children[index] = child;
@@ -104,7 +114,8 @@ const AwardRuleBuilder: React.FC<AwardRuleBuilderProps> = ({ group, onChange, cy
             onChange={(selectedCycleId) => updateChild(index, { ...condition, cycleId: selectedCycleId || null })}
             options={[
               { value: '', label: 'Cycle being issued for' },
-              ...cycles.map(cycle => ({ value: cycle.id, label: cycle.name }))
+              { value: ANY_QUALIFYING_CYCLE, label: 'Any qualifying cycle' },
+              ...pinnableCycles.map(cycle => ({ value: cycle.id, label: cycle.name }))
             ]}
           />
         </div>
@@ -182,7 +193,7 @@ const AwardRuleBuilder: React.FC<AwardRuleBuilderProps> = ({ group, onChange, cy
         ) : (
           <div key={child.id} style={{ display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
             <div style={{ flex: 1 }}>
-              <AwardRuleBuilder group={child} onChange={(sub) => updateChild(index, sub)} cycles={cycles} depth={depth + 1} />
+              <AwardRuleBuilder group={child} onChange={(sub) => updateChild(index, sub)} cycles={cycles} qualifyingCycleTypes={qualifyingCycleTypes} depth={depth + 1} />
             </div>
             <button
               onClick={() => removeChild(index)}

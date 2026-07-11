@@ -17,11 +17,15 @@ const DossierAwardsCard: React.FC<DossierAwardsCardProps> = ({
   canManage,
   onOpenManager
 }) => {
-  const [viewingGroup, setViewingGroup] = useState<PilotAwardDisplayGroup | null>(null);
+  // Viewer tracks the tile index so previous/next can step through the rail
+  const [viewingIndex, setViewingIndex] = useState<number | null>(null);
 
   // Repeat-mode awards (e.g. deployment ribbons) collapse to one tile whose
   // image variant carries the bronze/silver devices for the issuance count
   const displayGroups = useMemo(() => groupPilotAwardsForDisplay(awards), [awards]);
+
+  const viewingGroup: PilotAwardDisplayGroup | null =
+    viewingIndex !== null ? displayGroups[viewingIndex] || null : null;
 
   return (
     <>
@@ -79,7 +83,7 @@ const DossierAwardsCard: React.FC<DossierAwardsCardProps> = ({
             overflowX: 'auto',
             paddingBottom: '8px'
           }}>
-            {displayGroups.map(group => {
+            {displayGroups.map((group, groupIndex) => {
               const pilotAward = group.pilotAward;
               const award = pilotAward.award;
               // Tile image: the award's device variant (or plain image) wins;
@@ -98,7 +102,7 @@ const DossierAwardsCard: React.FC<DossierAwardsCardProps> = ({
                 <div
                   key={pilotAward.id}
                   title={[award?.name, group.count > 1 ? `${group.count} awards` : null, pilotAward.citation].filter(Boolean).join(' — ')}
-                  onClick={() => setViewingGroup(group)}
+                  onClick={() => setViewingIndex(groupIndex)}
                   style={{
                     display: 'flex',
                     flexDirection: 'column',
@@ -179,7 +183,13 @@ const DossierAwardsCard: React.FC<DossierAwardsCardProps> = ({
       pilotAward={viewingGroup?.pilotAward || null}
       repeatCount={viewingGroup?.count || 1}
       issuances={viewingGroup?.issuances}
-      onClose={() => setViewingGroup(null)}
+      onPrevious={viewingIndex !== null && viewingIndex > 0
+        ? () => setViewingIndex(viewingIndex - 1)
+        : null}
+      onNext={viewingIndex !== null && viewingIndex < displayGroups.length - 1
+        ? () => setViewingIndex(viewingIndex + 1)
+        : null}
+      onClose={() => setViewingIndex(null)}
     />
     </>
   );

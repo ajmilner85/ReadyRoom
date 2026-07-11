@@ -1141,8 +1141,15 @@ export async function getDossierProfile(pilotId: string, discordId: string | nul
       });
     });
 
-    // Newest first
-    timeline.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    // Newest first. Same-day ties: end-of-tenure entries (completed tour,
+    // departed squadron) happen before the starts that replace them, so the
+    // new billet/squadron shows above the one it ended.
+    const chronoRank = (event: TimelineEvent): number => (event.id.includes('-end-') ? 0 : 1);
+    timeline.sort((a, b) => {
+      const dateDiff = new Date(b.date).getTime() - new Date(a.date).getTime();
+      if (dateDiff !== 0) return dateDiff;
+      return chronoRank(b) - chronoRank(a);
+    });
 
     return {
       data: {

@@ -527,6 +527,24 @@ export async function revokeAward(pilotAwardId: string): Promise<{ success: bool
   return { success: true, error: null };
 }
 
+/** Revokes several issuances at once; `revoked` may be less than requested when RLS blocks some rows */
+export async function revokeAwards(pilotAwardIds: string[]): Promise<{ success: boolean; revoked: number; error: any }> {
+  if (pilotAwardIds.length === 0) return { success: true, revoked: 0, error: null };
+
+  const { data, error } = await sb
+    .from('pilot_awards')
+    .delete()
+    .in('id', pilotAwardIds)
+    .select('id');
+
+  if (error) return { success: false, revoked: 0, error };
+  const revoked = (data || []).length;
+  if (revoked === 0) {
+    return { success: false, revoked: 0, error: new Error('No awards were revoked. You may not have permission to do this.') };
+  }
+  return { success: true, revoked, error: null };
+}
+
 // ---------- Image upload ----------
 
 /** Compress to a small WebP suitable for an award insignia/certificate thumbnail */

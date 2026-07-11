@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, ExternalLink, Medal } from 'lucide-react';
+import { X, ExternalLink, Medal, ChevronLeft, ChevronRight } from 'lucide-react';
 import { formatDossierDate } from './dossierStyles';
 import {
   pilotAwardVariantImage,
@@ -13,6 +13,9 @@ interface AwardViewerDialogProps {
   repeatCount?: number;
   /** All issuances in the displayed group, most recent first */
   issuances?: PilotAward[];
+  /** Step to the previous/next award in the rail (also bound to ←/→ keys) */
+  onPrevious?: (() => void) | null;
+  onNext?: (() => void) | null;
   onClose: () => void;
 }
 
@@ -34,7 +37,7 @@ const iconButtonStyle: React.CSSProperties = {
  * attached to the issuance, otherwise the award insignia, with the award
  * details in a side panel.
  */
-const AwardViewerDialog: React.FC<AwardViewerDialogProps> = ({ pilotAward, repeatCount = 1, issuances, onClose }) => {
+const AwardViewerDialog: React.FC<AwardViewerDialogProps> = ({ pilotAward, repeatCount = 1, issuances, onPrevious, onNext, onClose }) => {
   // When both an award image and a certificate exist, the certificate shows
   // as an inset over the award image; clicking the inset swaps them.
   const [certificateAsMain, setCertificateAsMain] = useState(false);
@@ -42,6 +45,18 @@ const AwardViewerDialog: React.FC<AwardViewerDialogProps> = ({ pilotAward, repea
   useEffect(() => {
     setCertificateAsMain(false);
   }, [pilotAward?.id]);
+
+  // Arrow keys step through the pilot's awards
+  useEffect(() => {
+    if (!pilotAward) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowLeft' && onPrevious) onPrevious();
+      else if (e.key === 'ArrowRight' && onNext) onNext();
+      else if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [pilotAward, onPrevious, onNext, onClose]);
 
   if (!pilotAward) return null;
 
@@ -172,7 +187,34 @@ const AwardViewerDialog: React.FC<AwardViewerDialogProps> = ({ pilotAward, repea
           overflowY: 'auto',
           borderLeft: '1px solid #E2E8F0'
         }}>
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px' }}>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              {(onPrevious !== undefined || onNext !== undefined) && (
+                <>
+                  <button
+                    onClick={() => onPrevious?.()}
+                    disabled={!onPrevious}
+                    title="Previous award (←)"
+                    style={{ ...iconButtonStyle, opacity: onPrevious ? 1 : 0.4, cursor: onPrevious ? 'pointer' : 'default' }}
+                    onMouseEnter={(e) => { if (onPrevious) e.currentTarget.style.backgroundColor = '#F8FAFC'; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = '#FFFFFF'; }}
+                  >
+                    <ChevronLeft size={16} />
+                  </button>
+                  <button
+                    onClick={() => onNext?.()}
+                    disabled={!onNext}
+                    title="Next award (→)"
+                    style={{ ...iconButtonStyle, opacity: onNext ? 1 : 0.4, cursor: onNext ? 'pointer' : 'default' }}
+                    onMouseEnter={(e) => { if (onNext) e.currentTarget.style.backgroundColor = '#F8FAFC'; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = '#FFFFFF'; }}
+                  >
+                    <ChevronRight size={16} />
+                  </button>
+                </>
+              )}
+            </div>
+            <div style={{ display: 'flex', gap: '8px' }}>
             {originalUrl && (
               <button
                 onClick={() => window.open(originalUrl, '_blank', 'noopener')}
@@ -193,6 +235,7 @@ const AwardViewerDialog: React.FC<AwardViewerDialogProps> = ({ pilotAward, repea
             >
               <X size={16} />
             </button>
+            </div>
           </div>
 
           <div>

@@ -198,7 +198,7 @@ const PilotTrainingRecords: React.FC<PilotTrainingRecordsProps> = ({ error, setE
     }
   };
 
-  const handleGraduationConfirm = async (submissions: GraduationSubmission[]) => {
+  const handleGraduationConfirm = async (submissions: GraduationSubmission[], graduationDate: string) => {
     if (!selectedCycleId || !userProfile?.id) return;
     const cycle = cycles.find(c => c.id === selectedCycleId);
     if (!cycle?.syllabus_id) return;
@@ -210,6 +210,7 @@ const PilotTrainingRecords: React.FC<PilotTrainingRecordsProps> = ({ error, setE
         selectedCycleId,
         cycle.syllabus_id,
         userProfile.id,
+        graduationDate,
       );
 
       if (result.failed.length > 0) {
