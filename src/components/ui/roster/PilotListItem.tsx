@@ -163,7 +163,7 @@ const PilotListItem: React.FC<PilotListItemProps> = ({
       <div style={{ marginLeft: '-20px' }}>
         <PilotIDBadgeSm 
           squadronTailCode={pilot.currentSquadron?.tail_code || undefined}
-          boardNumber={String(pilot.boardNumber)}
+          boardNumber={pilot.boardNumber ? String(pilot.boardNumber) : ''}
           squadronInsigniaUrl={pilot.currentSquadron?.insignia_url || undefined}
         />
       </div>

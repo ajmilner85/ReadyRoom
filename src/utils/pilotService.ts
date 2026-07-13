@@ -582,7 +582,7 @@ export async function updatePilot(id: string, updates: UpdatePilot): Promise<{ d
         id,
         pilot_statuses!inner (
           statuses!inner (
-            name
+            isActive
           )
         )
       `)
@@ -594,11 +594,10 @@ export async function updatePilot(id: string, updates: UpdatePilot): Promise<{ d
       return { data: null, error: checkError };
     }
 
-    // Filter out pilots with Retired or Removed status
+    // Only pilots with a currently active status block a board number —
+    // inactive pilots (On Leave, AWOL, Retired, Removed) free theirs up
     const activePilots = existingPilots?.filter(p =>
-      !p.pilot_statuses?.some((ps: any) =>
-        ps.statuses?.name === 'Retired' || ps.statuses?.name === 'Removed'
-      )
+      p.pilot_statuses?.some((ps: any) => ps.statuses?.isActive)
     );
 
     if (activePilots && activePilots.length > 0) {
@@ -639,21 +638,15 @@ export async function updatePilot(id: string, updates: UpdatePilot): Promise<{ d
     return { data: null, error };
   }
 
-  // Handle case where no rows were updated (values were identical)
+  // Postgres returns the row even when the new values are identical, so zero
+  // rows back means RLS blocked the update (or the row vanished) — the write
+  // silently did not happen and must be reported as a failure
   if (!data || data.length === 0) {
-    // Fetch the existing pilot data since no update was needed
-    const { data: existingData, error: fetchError } = await supabase
-      .from('pilots')
-      .select()
-      .eq('id', id)
-      .single();
-
-    if (fetchError) {
-      console.error('Error fetching pilot after no-op update:', fetchError);
-      return { data: null, error: fetchError };
-    }
-
-    return { data: existingData, error: null };
+    console.error('Pilot update affected no rows (blocked by row-level security?):', { id, updates });
+    return {
+      data: null,
+      error: { message: 'The update was not applied. You may not have permission to modify this pilot — pilots without an active squadron assignment can only be edited by users with global roster permissions.' }
+    };
   }
 
   return { data: data[0], error };
