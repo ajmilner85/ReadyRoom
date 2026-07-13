@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { getUserSettings, updateUserSettings } from '../utils/userSettingsService';
+import type { SupportRoleRequirement } from '../utils/supabaseClient';
 
 export interface AppSettings {
   displayPilotsWithSquadronColors: boolean;
@@ -54,6 +55,9 @@ export interface AppSettings {
     groupResponsesByQualification: boolean;
     groupBySquadron: boolean;
     showNoResponse: boolean;
+
+    // Mission Support role requirements (array order = display order)
+    defaultSupportRoleRequirements: SupportRoleRequirement[];
 
     // Reference Materials
     defaultReferenceMaterialTypes: string[];
@@ -121,6 +125,9 @@ const defaultSettings: AppSettings = {
     groupResponsesByQualification: true,
     groupBySquadron: true,
     showNoResponse: true,
+
+    // Mission Support role requirements default
+    defaultSupportRoleRequirements: [],
 
     // Reference materials default
     defaultReferenceMaterialTypes: [

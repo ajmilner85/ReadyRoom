@@ -4,7 +4,9 @@ import { useAppSettings } from '../../../context/AppSettingsContext';
 import { fetchDiscordGuildRoles } from '../../../utils/discordService';
 import { supabase } from '../../../utils/supabaseClient';
 import ReferenceMaterialsInput from './ReferenceMaterialsInput';
+import SupportRoleRequirementsEditor from './SupportRoleRequirementsEditor';
 import type { ReferenceMaterial, TrainingSyllabusMission } from '../../../types/EventTypes';
+import type { SupportRoleRequirement } from '../../../utils/supabaseClient';
 
 interface EventDialogProps {
   onSave: (eventData: {
@@ -24,6 +26,7 @@ interface EventDialogProps {
     groupBySquadron?: boolean;
     showNoResponse?: boolean;
     aarOperationalOnly?: boolean;
+    supportRoleRequirements?: SupportRoleRequirement[];
     timezone?: string;
     reminders?: {
       firstReminder?: {
@@ -79,6 +82,7 @@ interface EventDialogProps {
       showNoResponse?: boolean;
       allowTentativeResponse?: boolean;
       aarOperationalOnly?: boolean;
+      supportRoleRequirements?: SupportRoleRequirement[];
       firstReminderEnabled?: boolean;
       firstReminderTime?: {
         value: number;
@@ -200,6 +204,14 @@ export const EventDialog: React.FC<EventDialogProps> = ({
     initialData?.eventSettings?.aarOperationalOnly !== undefined
       ? initialData.eventSettings.aarOperationalOnly
       : settings.eventDefaults.aarOperationalOnlyByDefault
+  );
+
+  // Mission Support role requirements - editing an event keeps its saved list
+  // (even if empty); new events start from the Settings > Events defaults
+  const [supportRoleRequirements, setSupportRoleRequirements] = useState<SupportRoleRequirement[]>(
+    initialData?.id
+      ? (initialData?.eventSettings?.supportRoleRequirements || [])
+      : (settings.eventDefaults.defaultSupportRoleRequirements || [])
   );
 
   // Include in attendance report setting - defaults to true, only relevant for cycle events
@@ -1184,6 +1196,7 @@ export const EventDialog: React.FC<EventDialogProps> = ({
         showNoResponse,
         allowTentativeResponse,
         aarOperationalOnly,
+        supportRoleRequirements,
         timezone,
         reminders: {
           firstReminder: {
@@ -2053,6 +2066,27 @@ export const EventDialog: React.FC<EventDialogProps> = ({
                     />
                   </div>
                 </div>
+              </div>
+
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{
+                  fontSize: '14px',
+                  fontWeight: 500,
+                  color: '#64748B',
+                  marginBottom: '4px',
+                  display: 'block'
+                }}>
+                  Mission Support roles
+                </label>
+                <p style={{ fontSize: '12px', color: '#64748B', margin: '0 0 8px 0', fontFamily: 'Inter' }}>
+                  Supporting roles needed for this event. Each selected role is shown in the Discord post as
+                  Available/Required (e.g. JTAC (1/3)); set required to 0 to list a role without requiring it.
+                  Roles appear in this order.
+                </p>
+                <SupportRoleRequirementsEditor
+                  requirements={supportRoleRequirements}
+                  onChange={setSupportRoleRequirements}
+                />
               </div>
 
               <div style={{ marginBottom: '16px' }}>

@@ -154,6 +154,7 @@ async function extractEmbedDataFromDatabaseEvent(dbEvent, overrideTimezone = nul
     groupBySquadron: settings.groupBySquadron || false,
     showNoResponse: settings.showNoResponse || false,
     allowTentativeResponse: settings.allowTentativeResponse ?? true,
+    supportRoleRequirements: settings.supportRoleRequirements || [],
     eventType: dbEvent.event_type || null,
     timezone: timezone
   };
@@ -384,6 +385,7 @@ async function loadEventResponses() {
                 callsign: pilotData.callsign,
                 boardNumber: pilotData.boardNumber?.toString() || '',
                 qualifications: pilotData.pilot_qualifications?.map(pq => pq.qualification?.name).filter(Boolean) || [],
+                qualificationIds: pilotData.pilot_qualifications?.map(pq => pq.qualification_id).filter(Boolean) || [],
                 currentStatus: { name: pilotData.status || 'Provisional' },
                 squadron: squadronData
               };
@@ -484,6 +486,7 @@ async function editEventMessageWrapped(messageId, title, description, eventTime,
                 callsign: pilotData.callsign,
                 boardNumber: pilotData.boardNumber?.toString() || '',
                 qualifications: pilotData.pilot_qualifications?.map(pq => pq.qualification?.name).filter(Boolean) || [],
+                qualificationIds: pilotData.pilot_qualifications?.map(pq => pq.qualification_id).filter(Boolean) || [],
                 currentStatus: { name: pilotData.status || 'Provisional' },
                 squadron: squadronData
               };

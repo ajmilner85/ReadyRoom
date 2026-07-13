@@ -495,6 +495,7 @@ const EventsManagement: React.FC = () => {
     showNoResponse?: boolean;
     allowTentativeResponse?: boolean;
     aarOperationalOnly?: boolean;
+    supportRoleRequirements?: Array<{ qualificationId: string; name: string; required: number }>;
     reminders?: {
       firstReminder?: {
         enabled: boolean;
@@ -752,6 +753,7 @@ const EventsManagement: React.FC = () => {
     showNoResponse?: boolean;
     allowTentativeResponse?: boolean;
     aarOperationalOnly?: boolean;
+    supportRoleRequirements?: Array<{ qualificationId: string; name: string; required: number }>;
     reminders?: {
       firstReminder?: {
         enabled: boolean;
@@ -805,6 +807,7 @@ const EventsManagement: React.FC = () => {
         showNoResponse: eventData.showNoResponse,
         allowTentativeResponse: eventData.allowTentativeResponse,
         aarOperationalOnly: eventData.aarOperationalOnly,
+        supportRoleRequirements: eventData.supportRoleRequirements ?? editingEvent.eventSettings?.supportRoleRequirements ?? [],
         groupResponsesByQualification: eventData.trackQualifications,
         includeInAttendanceReport: (eventData as any).includeInAttendanceReport,
         firstReminderEnabled: eventData.reminders?.firstReminder?.enabled,
@@ -1252,10 +1255,13 @@ const EventsManagement: React.FC = () => {
           syllabusMissionId: mission?.id,
           referenceMaterials: [],
           imageUrl,
+          // createEvent reads this from the top level when building event_settings
+          supportRoleRequirements: settings.eventDefaults.defaultSupportRoleRequirements || [],
           eventSettings: {
             timezone: settings.eventDefaults.referenceTimezone || 'America/New_York',
             showNoResponse: settings.eventDefaults.showNoResponse,
             groupBySquadron: settings.eventDefaults.groupBySquadron,
+            supportRoleRequirements: settings.eventDefaults.defaultSupportRoleRequirements || [],
             firstReminderTime: settings.eventDefaults.firstReminderTime,
             secondReminderTime: settings.eventDefaults.secondReminderTime,
             firstReminderEnabled: settings.eventDefaults.firstReminderEnabled,

@@ -60,6 +60,7 @@ const RosterSettings: React.FC<RosterSettingsProps> = ({ error, setError }) => {
   const [newQualificationIsExpirable, setNewQualificationIsExpirable] = useState(false);
   const [newQualificationValidityPeriod, setNewQualificationValidityPeriod] = useState<number | null>(null);
   const [newQualificationActive, setNewQualificationActive] = useState(true);
+  const [newQualificationIsSupportRole, setNewQualificationIsSupportRole] = useState(false);
   const [newQualificationColor, setNewQualificationColor] = useState('#646F7E'); // Default slate color
   const [editingQualificationName, setEditingQualificationName] = useState('');
   const [editingQualificationCode, setEditingQualificationCode] = useState('');
@@ -68,6 +69,7 @@ const RosterSettings: React.FC<RosterSettingsProps> = ({ error, setError }) => {
   const [editingQualificationIsExpirable, setEditingQualificationIsExpirable] = useState(false);
   const [editingQualificationValidityPeriod, setEditingQualificationValidityPeriod] = useState<number | null>(null);
   const [editingQualificationActive, setEditingQualificationActive] = useState(true);
+  const [editingQualificationIsSupportRole, setEditingQualificationIsSupportRole] = useState(false);
   const [editingQualificationColor, setEditingQualificationColor] = useState('#646F7E'); // Default slate color
 
   // Helper to set errors with parent component if available
@@ -779,6 +781,7 @@ const RosterSettings: React.FC<RosterSettingsProps> = ({ error, setError }) => {
         is_expirable: newQualificationIsExpirable,
         validity_period: newQualificationIsExpirable ? newQualificationValidityPeriod : null,
         active: newQualificationActive,
+        is_support_role: newQualificationIsSupportRole,
         color: newQualificationColor, // Include color property
         order: highestOrder + 10 // Set proper order for new qualification
       };
@@ -801,6 +804,7 @@ const RosterSettings: React.FC<RosterSettingsProps> = ({ error, setError }) => {
         setNewQualificationIsExpirable(false);
         setNewQualificationValidityPeriod(null);
         setNewQualificationActive(true);
+        setNewQualificationIsSupportRole(false);
         setNewQualificationColor('#646F7E'); // Reset to default color
         setIsAddingQualification(false);
       }
@@ -820,6 +824,7 @@ const RosterSettings: React.FC<RosterSettingsProps> = ({ error, setError }) => {
     setEditingQualificationIsExpirable(false);
     setEditingQualificationValidityPeriod(null);
     setEditingQualificationActive(true);
+    setEditingQualificationIsSupportRole(false);
     setEditingQualificationColor('#646F7E');
   };
 
@@ -857,6 +862,7 @@ const RosterSettings: React.FC<RosterSettingsProps> = ({ error, setError }) => {
         is_expirable: editingQualificationIsExpirable,
         validity_period: editingQualificationIsExpirable ? editingQualificationValidityPeriod : null,
         active: editingQualificationActive,
+        is_support_role: editingQualificationIsSupportRole,
         color: editingQualificationColor // Include color in updates
       };
       
@@ -1072,6 +1078,8 @@ const RosterSettings: React.FC<RosterSettingsProps> = ({ error, setError }) => {
           setNewQualificationValidityPeriod={setNewQualificationValidityPeriod}
           newQualificationActive={newQualificationActive}
           setNewQualificationActive={setNewQualificationActive}
+          newQualificationIsSupportRole={newQualificationIsSupportRole}
+          setNewQualificationIsSupportRole={setNewQualificationIsSupportRole}
           newQualificationColor={newQualificationColor}
           setNewQualificationColor={setNewQualificationColor}
           handleAddQualification={handleAddQualification}
@@ -1091,6 +1099,8 @@ const RosterSettings: React.FC<RosterSettingsProps> = ({ error, setError }) => {
           setEditingQualificationValidityPeriod={setEditingQualificationValidityPeriod}
           editingQualificationActive={editingQualificationActive}
           setEditingQualificationActive={setEditingQualificationActive}
+          editingQualificationIsSupportRole={editingQualificationIsSupportRole}
+          setEditingQualificationIsSupportRole={setEditingQualificationIsSupportRole}
           editingQualificationColor={editingQualificationColor}
           setEditingQualificationColor={setEditingQualificationColor}
           handleCancelEditQualification={handleCancelEditQualification}

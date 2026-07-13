@@ -1550,6 +1550,7 @@ export type Database = {
           created_at: string
           id: string
           is_expirable: boolean
+          is_support_role: boolean
           name: string
           order: number | null
           requirements: Json | null
@@ -1564,6 +1565,7 @@ export type Database = {
           created_at?: string
           id?: string
           is_expirable?: boolean
+          is_support_role?: boolean
           name: string
           order?: number | null
           requirements?: Json | null
@@ -1578,6 +1580,7 @@ export type Database = {
           created_at?: string
           id?: string
           is_expirable?: boolean
+          is_support_role?: boolean
           name?: string
           order?: number | null
           requirements?: Json | null

@@ -213,6 +213,7 @@ function setupDiscordEventHandlers(supabase, upsertEventAttendance, getEventByDi
           callsign: pilotData.callsign,
           boardNumber: pilotData.boardNumber?.toString() || '',
           qualifications: pilotData.pilot_qualifications?.map(pq => pq.qualification?.name).filter(Boolean) || [],
+          qualificationIds: pilotData.pilot_qualifications?.map(pq => pq.qualification_id).filter(Boolean) || [],
           currentStatus: { name: pilotData.status || 'Provisional' },
           squadron: squadronData
         };
@@ -388,6 +389,7 @@ function setupDiscordEventHandlers(supabase, upsertEventAttendance, getEventByDi
                     callsign: pilotData.callsign,
                     boardNumber: pilotData.boardNumber?.toString() || '',
                     qualifications: pilotData.pilot_qualifications?.map(pq => pq.qualification?.name).filter(Boolean) || [],
+                    qualificationIds: pilotData.pilot_qualifications?.map(pq => pq.qualification_id).filter(Boolean) || [],
                     currentStatus: { name: pilotData.status || 'Provisional' },
                     squadron: squadronData || null
                   };

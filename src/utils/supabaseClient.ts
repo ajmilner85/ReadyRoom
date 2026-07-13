@@ -558,6 +558,7 @@ export const createEvent = async (event: Omit<Event, 'id' | 'creator' | 'attenda
   // Build event_settings JSONB object
   const eventSettings = {
     timezone: event.timezone || 'America/New_York',
+    supportRoleRequirements: (event as any).supportRoleRequirements || [],
     groupResponsesByQualification: event.trackQualifications || false,
     groupBySquadron: (event as any).groupBySquadron || false,
     showNoResponse: (event as any).showNoResponse || false,
@@ -740,6 +741,7 @@ export const updateEvent = async (eventId: string, updates: Partial<Omit<Event, 
     console.log('[UPDATE-EVENT] updates.groupBySquadron:', (updates as any).groupBySquadron);
     console.log('[UPDATE-EVENT] updates.allowTentativeResponse:', (updates as any).allowTentativeResponse);
     if (updates.timezone !== undefined) eventSettings.timezone = updates.timezone;
+    if ((updates as any).supportRoleRequirements !== undefined) eventSettings.supportRoleRequirements = (updates as any).supportRoleRequirements;
     if (updates.trackQualifications !== undefined) eventSettings.groupResponsesByQualification = updates.trackQualifications;
     if ((updates as any).groupBySquadron !== undefined) eventSettings.groupBySquadron = (updates as any).groupBySquadron;
     if ((updates as any).showNoResponse !== undefined) eventSettings.showNoResponse = (updates as any).showNoResponse;
@@ -1118,9 +1120,18 @@ export const fetchCarriers = async () => {
   });
 };
 
+// A Mission Support role requirement for an event. Array order is display order
+// in the Discord post and the attendance section.
+export interface SupportRoleRequirement {
+  qualificationId: string;
+  name: string; // qualification name (the bot matches accepted pilots by name)
+  required: number; // 0 = optional role, still displayed
+}
+
 // EventSettings interface for type safety
 export interface EventSettings {
   timezone?: string;
+  supportRoleRequirements?: SupportRoleRequirement[];
   allowTentativeResponse?: boolean;
   groupResponsesByQualification?: boolean;
   groupBySquadron?: boolean;
