@@ -12,7 +12,7 @@ const { formatInTimeZone } = require('date-fns-tz');
  */
 async function createEventEmbed(title, description, eventTime, responses = {}, creator = null, images = null, eventOptions = {}) {
   // VERSION SENTINEL
-  console.log(`[CODE-VERSION-SENTINEL] createEventEmbed v3.2 - Added Training Event Support`);
+  console.log(`[CODE-VERSION-SENTINEL] createEventEmbed v3.3 - Configurable Mission Support role requirements`);
   console.log(`[CODE-VERSION-SENTINEL] Event: ${title}, trackQuals: ${eventOptions.trackQualifications}, groupSquad: ${eventOptions.groupBySquadron}, showNoResponse: ${eventOptions.showNoResponse}, allowTentative: ${eventOptions.allowTentativeResponse ?? true}, isTraining: ${!!eventOptions.trainingData}`);
 
   const accepted = responses.accepted || [];
@@ -124,8 +124,57 @@ async function createEventEmbed(title, description, eventTime, responses = {}, c
     return `>>> ${pilotLines}`;
   };
 
-  // MODIFIED: Mission Support Section Generator - ONLY accepted pilots with >>> block quote
+  // Mission Support roles configured on the event (event_settings.supportRoleRequirements).
+  // Array order is display order; each entry: { qualificationId, name, required }
+  const supportRoleRequirements = Array.isArray(eventOptions.supportRoleRequirements)
+    ? eventOptions.supportRoleRequirements.filter(r => r && r.name)
+    : [];
+
+  const supportRoleDisplayNames = {
+    'Landing Signals Officer': 'LSO'
+  };
+
+  // Mission Support Section Generator - ONLY accepted pilots with >>> block quote.
+  // When the event has configured role requirements: every configured role is shown
+  // (even 0/x), in configured order, as "Role (available/required)"; unconfigured
+  // roles are hidden. Otherwise falls back to the legacy hardcoded roles, occupied only.
   const generateMissionSupportSection = (entries) => {
+    if (supportRoleRequirements.length > 0) {
+      let totalAvailable = 0;
+      let totalRequired = 0;
+
+      const fields = supportRoleRequirements.map(req => {
+        const required = Math.max(0, parseInt(req.required, 10) || 0);
+        const qualPilots = entries.filter(entry => {
+          const rec = entry.pilotRecord;
+          if (!rec) return false;
+          // Match on the stable qualification ID so renaming a qualification
+          // doesn't break saved events; fall back to name for pilot records
+          // built before qualificationIds existed
+          if (req.qualificationId && Array.isArray(rec.qualificationIds)) {
+            return rec.qualificationIds.includes(req.qualificationId);
+          }
+          return (rec.qualifications || []).includes(req.name);
+        });
+        totalAvailable += qualPilots.length;
+        totalRequired += required;
+
+        const displayName = supportRoleDisplayNames[req.name] || req.name;
+        const value = qualPilots.length > 0
+          ? `>>> ${sortByBoardNumber(qualPilots).map(formatPilotEntry).join('\n')}`
+          : '>>> -';
+
+        return { name: `*${displayName} (${qualPilots.length}/${required})*`, value };
+      });
+
+      return {
+        fields,
+        header: `**Mission Support (${totalAvailable}/${totalRequired})**`,
+        hasSupportPilots: true
+      };
+    }
+
+    // Legacy behavior for events without configured requirements
     const auxiliaryQualifications = ['Mission Commander', 'JTAC', 'Landing Signals Officer'];
     const supportMap = new Map();
 
@@ -142,34 +191,55 @@ async function createEventEmbed(title, description, eventTime, responses = {}, c
     });
 
     const hasSupportPilots = Array.from(supportMap.values()).some(arr => arr.length > 0);
-    
+
     if (!hasSupportPilots) {
-      return '';
+      return null;
     }
 
-    const columns = [[], [], []];
-    let currentColumn = 0;
-
-    const displayNames = {
-      'Mission Commander': 'Mission Commander',
-      'JTAC': 'JTAC',
-      'Landing Signals Officer': 'LSO'
-    };
-
+    const fields = [];
     auxiliaryQualifications.forEach(qual => {
       const qualPilots = supportMap.get(qual) || [];
       if (qualPilots.length > 0) {
-        const displayName = displayNames[qual] || qual;
-        // Use >>> block quote format like qualification groups
+        const displayName = supportRoleDisplayNames[qual] || qual;
         const pilotLines = sortByBoardNumber(qualPilots).map(formatPilotEntry).join('\n');
-        const qualSection = `>>> ${pilotLines}`;
-        const qualName = `*${displayName} (${qualPilots.length})*`;
-        columns[currentColumn].push({ name: qualName, value: qualSection });
-        currentColumn = (currentColumn + 1) % 3;
+        fields.push({ name: `*${displayName} (${qualPilots.length})*`, value: `>>> ${pilotLines}` });
       }
     });
 
-    return { columns, hasSupportPilots: true };
+    return { fields, header: '**Mission Support**', hasSupportPilots: true };
+  };
+
+  // Build the Mission Support embed fields (rows of 3 inline fields, header on the
+  // first field, second/third fields of the first row padded for alignment).
+  // Renders when the event has configured role requirements, or - legacy - when
+  // qualification tracking is on and a hardcoded support role is occupied.
+  const buildMissionSupportEmbedFields = (entries) => {
+    const shouldTrack = eventOptions.trackQualifications || false;
+    if (supportRoleRequirements.length === 0 && !shouldTrack) return [];
+
+    const result = generateMissionSupportSection(entries);
+    if (!result || !result.hasSupportPilots) return [];
+
+    const embedFields = result.fields.map((field, index) => {
+      let name = field.name;
+      if (index === 0) {
+        name = `<:awacs:1229253561528090664> ${result.header}\n${field.name}`;
+      } else if (index < 3) {
+        name = `\u200B\n${field.name}`;
+      }
+      return { name, value: field.value, inline: true };
+    });
+
+    // Pad to a full row of 3 so following sections align correctly
+    while (embedFields.length % 3 !== 0) {
+      embedFields.push({
+        name: embedFields.length < 3 ? '\u200B\n\u200B' : '\u200B',
+        value: '\u200B',
+        inline: true
+      });
+    }
+
+    return embedFields;
   };
 
   // Helper to organize by squadron
@@ -416,32 +486,10 @@ async function createEventEmbed(title, description, eventTime, responses = {}, c
       }
 
       // Add Mission Support section for training events (after Other Participants)
-      if (shouldTrackQualifications) {
-        const missionSupportResult = generateMissionSupportSection(accepted);
-
-        if (missionSupportResult && missionSupportResult.hasSupportPilots) {
-          const { columns } = missionSupportResult;
-
-          // Build fields with proper alignment
-          const fields = columns.flatMap((column, colIndex) => {
-            if (column.length > 0) {
-              return column.map((field, fieldIndex) => {
-                // Add header to first field of first column, empty space to others
-                let fieldName = field.name;
-                if (colIndex === 0 && fieldIndex === 0) {
-                  fieldName = `<:awacs:1229253561528090664> **Mission Support**\n${field.name}`;
-                } else if (fieldIndex === 0 && colIndex > 0) {
-                  fieldName = `\u200B\n${field.name}`;
-                }
-                return { name: fieldName, value: field.value, inline: true };
-              });
-            } else {
-              // Empty column with matching spacing
-              return [{ name: colIndex === 0 ? `<:awacs:1229253561528090664> **Mission Support**\n\u200B` : `\u200B\n\u200B`, value: '>>> -', inline: true }];
-            }
-          });
-
-          embed.addFields(...fields);
+      {
+        const missionSupportFields = buildMissionSupportEmbedFields(accepted);
+        if (missionSupportFields.length > 0) {
+          embed.addFields(...missionSupportFields);
         }
       }
     } else {
@@ -522,32 +570,10 @@ async function createEventEmbed(title, description, eventTime, responses = {}, c
       });
 
       // Add Mission Support section (ONLY accepted pilots)
-      if (shouldTrackQualifications) {
-        const missionSupportResult = generateMissionSupportSection(accepted);
-
-        if (missionSupportResult && missionSupportResult.hasSupportPilots) {
-          const { columns } = missionSupportResult;
-
-          // Build fields with proper alignment
-          const fields = columns.flatMap((column, colIndex) => {
-            if (column.length > 0) {
-              return column.map((field, fieldIndex) => {
-                // Add header to first field of first column, empty space to others
-                let fieldName = field.name;
-                if (colIndex === 0 && fieldIndex === 0) {
-                  fieldName = `<:awacs:1229253561528090664> **Mission Support**\n${field.name}`;
-                } else if (fieldIndex === 0 && colIndex > 0) {
-                  fieldName = `\u200B\n${field.name}`;
-                }
-                return { name: fieldName, value: field.value, inline: true };
-              });
-            } else {
-              // Empty column with matching spacing
-              return [{ name: colIndex === 0 ? `<:awacs:1229253561528090664> **Mission Support**\n\u200B` : `\u200B\n\u200B`, value: '>>> -', inline: true }];
-            }
-          });
-
-          embed.addFields(...fields);
+      {
+        const missionSupportFields = buildMissionSupportEmbedFields(accepted);
+        if (missionSupportFields.length > 0) {
+          embed.addFields(...missionSupportFields);
         }
       }
     }
@@ -633,40 +659,20 @@ async function createEventEmbed(title, description, eventTime, responses = {}, c
         );
       }
 
-      // Add Mission Support section (ONLY accepted pilots)
-      {
-        const missionSupportResult = generateMissionSupportSection(accepted);
-
-        if (missionSupportResult && missionSupportResult.hasSupportPilots) {
-          const { columns } = missionSupportResult;
-
-          // Build field array dynamically
-          const missionSupportFields = [];
-          columns.forEach((column, index) => {
-            if (column.length > 0) {
-              column.forEach(field => {
-                missionSupportFields.push({ name: field.name, value: field.value, inline: true });
-              });
-            } else {
-              // Empty column
-              missionSupportFields.push({ name: '\u200B', value: '>>> -', inline: true });
-            }
-          });
-
-          // Add header in first field
-          if (missionSupportFields.length > 0) {
-            missionSupportFields[0].name = `<:awacs:1229253561528090664> **Mission Support**\n${missionSupportFields[0].name}`;
-          }
-
-          embed.addFields(...missionSupportFields);
-        }
-      }
     } else {
       // Show all accepted pilots without grouping
       const acceptedText = accepted.length > 0 ? createBlockQuote(accepted) : '-';
       embed.addFields(
         { name: 'All Pilots', value: acceptedText, inline: false }
       );
+    }
+
+    // Add Mission Support section (ONLY accepted pilots)
+    {
+      const missionSupportFields = buildMissionSupportEmbedFields(accepted);
+      if (missionSupportFields.length > 0) {
+        embed.addFields(...missionSupportFields);
+      }
     }
 
     // Add Tentative, Declined, and No Response sections at the end (in 3-column layout if showNoResponse)

@@ -12,6 +12,7 @@ export interface Qualification {
   is_expirable: boolean;
   validity_period: number | null; // In days
   active: boolean;
+  is_support_role?: boolean; // Selectable as a Mission Support role requirement on events
   order?: number | null; // Sort order for display
   created_at?: string;
   updated_at?: string | null;
@@ -51,6 +52,31 @@ export async function getActiveQualifications(): Promise<{ data: Qualification[]
     return { data, error };
   } catch (e) {
     return { data: null, error: e };
+  }
+}
+
+/**
+ * Fetch active qualifications flagged as selectable Mission Support roles.
+ * Returns an empty list (not an error) if the is_support_role column doesn't
+ * exist yet, so the UI degrades gracefully before the migration is applied.
+ */
+export async function getSupportRoleQualifications(): Promise<{ data: Qualification[] | null; error: any }> {
+  try {
+    const { data, error } = await supabase
+      .from('qualifications')
+      .select('*')
+      .eq('active', true)
+      .eq('is_support_role', true)
+      .order('order', { ascending: true });
+
+    if (error) {
+      console.warn('Failed to fetch support role qualifications (is_support_role migration applied?):', error);
+      return { data: [], error: null };
+    }
+
+    return { data, error };
+  } catch (e) {
+    return { data: [], error: null };
   }
 }
 

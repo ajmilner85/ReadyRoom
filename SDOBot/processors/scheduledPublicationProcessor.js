@@ -216,7 +216,8 @@ async function processScheduledPublications() {
             initialNotificationRoles: initialNotificationRoles || [],
             groupBySquadron: event.event_settings?.groupBySquadron || false,
             showNoResponse: event.event_settings?.showNoResponse || false,
-            allowTentativeResponse: event.event_settings?.allowTentativeResponse ?? true
+            allowTentativeResponse: event.event_settings?.allowTentativeResponse ?? true,
+            supportRoleRequirements: event.event_settings?.supportRoleRequirements || []
           };
 
           // Format the event time object with start and end dates

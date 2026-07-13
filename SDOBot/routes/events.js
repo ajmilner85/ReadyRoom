@@ -313,6 +313,7 @@ router.post('/events/publish', async (req, res) => {
             groupBySquadron: eventSettings.groupBySquadron || false,
             showNoResponse: eventSettings.showNoResponse || false,
             allowTentativeResponse: eventSettings.allowTentativeResponse ?? true,
+            supportRoleRequirements: eventSettings.supportRoleRequirements || [],
             participatingSquadrons: participatingSquadrons, // Pass to Discord bot
             initialNotificationRoles: eventSettings.initialNotificationRoles || [] // For @mentions on initial publication
           };
@@ -582,7 +583,8 @@ router.put('/events/:messageId/edit', async (req, res) => {
           trackQualifications: eventData.track_qualifications || eventSettings.groupResponsesByQualification || false,
           eventType: eventData.event_type || null,
           groupBySquadron: eventSettings.groupBySquadron || false,
-          showNoResponse: eventSettings.showNoResponse || false
+          showNoResponse: eventSettings.showNoResponse || false,
+          supportRoleRequirements: eventSettings.supportRoleRequirements || []
         };
 
         // Fetch training data if this is a training event

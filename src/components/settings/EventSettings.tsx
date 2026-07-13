@@ -1,5 +1,6 @@
 import React from 'react';
 import { useAppSettings } from '../../context/AppSettingsContext';
+import SupportRoleRequirementsEditor from '../ui/events/SupportRoleRequirementsEditor';
 
 interface EventSettingsProps {
   error?: string | null;
@@ -639,6 +640,25 @@ const EventSettings: React.FC<EventSettingsProps> = ({ error, setError }) => {
             {renderToggle(appSettings.eventDefaults.showNoResponse, (enabled) =>
               handleSettingChange('showNoResponse', enabled)
             )}
+          </div>
+        </div>
+
+        {/* Mission Support Roles Section */}
+        <div style={sectionStyle}>
+          <h3 style={{ fontSize: '18px', fontWeight: 600, color: '#0F172A', margin: '0 0 16px 0' }}>
+            Mission Support Roles
+          </h3>
+          <div>
+            <label style={fieldLabelStyle}>Default supporting role requirements</label>
+            <p style={{ fontSize: '12px', color: '#64748B', margin: '4px 0 12px 0', fontFamily: 'Inter' }}>
+              New events start with these Mission Support roles and required counts. Each role's grouping in the
+              Discord post shows accepted qualified pilots as Available/Required (e.g. JTAC (1/3)). Set required
+              to 0 to list a role without requiring it. Rows are shown in this order; use the arrows to reorder.
+            </p>
+            <SupportRoleRequirementsEditor
+              requirements={appSettings.eventDefaults.defaultSupportRoleRequirements || []}
+              onChange={(requirements) => handleSettingChange('defaultSupportRoleRequirements', requirements)}
+            />
           </div>
         </div>
 

@@ -24,6 +24,8 @@ interface QualificationsSectionProps {
   setNewQualificationValidityPeriod: (value: number | null) => void;
   newQualificationActive: boolean;
   setNewQualificationActive: (value: boolean) => void;
+  newQualificationIsSupportRole: boolean;
+  setNewQualificationIsSupportRole: (value: boolean) => void;
   newQualificationColor: string;
   setNewQualificationColor: (value: string) => void;
   handleAddQualification: () => Promise<void>;
@@ -43,6 +45,8 @@ interface QualificationsSectionProps {
   setEditingQualificationValidityPeriod: (value: number | null) => void;
   editingQualificationActive: boolean;
   setEditingQualificationActive: (value: boolean) => void;
+  editingQualificationIsSupportRole: boolean;
+  setEditingQualificationIsSupportRole: (value: boolean) => void;
   editingQualificationColor: string;
   setEditingQualificationColor: (value: string) => void;
   handleCancelEditQualification: () => void;
@@ -73,6 +77,8 @@ export const QualificationsSection: React.FC<QualificationsSectionProps> = ({
   setNewQualificationValidityPeriod,
   newQualificationActive,
   setNewQualificationActive,
+  newQualificationIsSupportRole,
+  setNewQualificationIsSupportRole,
   newQualificationColor,
   setNewQualificationColor,
   handleAddQualification,
@@ -92,6 +98,8 @@ export const QualificationsSection: React.FC<QualificationsSectionProps> = ({
   setEditingQualificationValidityPeriod,
   editingQualificationActive,
   setEditingQualificationActive,
+  editingQualificationIsSupportRole,
+  setEditingQualificationIsSupportRole,
   editingQualificationColor,
   setEditingQualificationColor,
   handleCancelEditQualification,
@@ -126,6 +134,7 @@ export const QualificationsSection: React.FC<QualificationsSectionProps> = ({
     setEditingQualificationIsExpirable(qualification.is_expirable || false);
     setEditingQualificationValidityPeriod(qualification.validity_period || null);
     setEditingQualificationActive(qualification.active !== undefined ? qualification.active : true);
+    setEditingQualificationIsSupportRole(qualification.is_support_role || false);
     setEditingQualificationColor(qualification.color || '#646F7E');
   };
 
@@ -273,6 +282,7 @@ export const QualificationsSection: React.FC<QualificationsSectionProps> = ({
               setNewQualificationIsExpirable(false);
               setNewQualificationValidityPeriod(null);
               setNewQualificationActive(true);
+              setNewQualificationIsSupportRole(false);
               setNewQualificationColor('#646F7E');
               setErrorMessage('');
               setIsAddingQualification(true);
@@ -338,6 +348,7 @@ export const QualificationsSection: React.FC<QualificationsSectionProps> = ({
             setNewQualificationIsExpirable(false);
             setNewQualificationValidityPeriod(null);
             setNewQualificationActive(true);
+            setNewQualificationIsSupportRole(false);
             setNewQualificationColor('#646F7E');
           }}
         >
@@ -555,6 +566,24 @@ export const QualificationsSection: React.FC<QualificationsSectionProps> = ({
                       Expires
                     </label>
                   </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center' }}>
+                    <input
+                      type="checkbox"
+                      id="new-qual-support-role-modal"
+                      checked={newQualificationIsSupportRole}
+                      onChange={() => setNewQualificationIsSupportRole(!newQualificationIsSupportRole)}
+                      style={{ marginRight: '8px' }}
+                    />
+                    <label htmlFor="new-qual-support-role-modal" style={{
+                      fontSize: '14px',
+                      color: '#374151',
+                      fontFamily: 'Inter',
+                      cursor: 'pointer'
+                    }}>
+                      Mission Support role
+                    </label>
+                  </div>
                 </div>
               </div>
 
@@ -610,6 +639,7 @@ export const QualificationsSection: React.FC<QualificationsSectionProps> = ({
                   setNewQualificationIsExpirable(false);
                   setNewQualificationValidityPeriod(null);
                   setNewQualificationActive(true);
+                  setNewQualificationIsSupportRole(false);
                   setNewQualificationColor('#646F7E');
                 }}
                 style={{
@@ -898,6 +928,25 @@ export const QualificationsSection: React.FC<QualificationsSectionProps> = ({
                       cursor: 'pointer'
                     }}>
                       Expires
+                    </label>
+                  </div>
+
+                  {/* Mission Support Role Checkbox */}
+                  <div style={{ display: 'flex', alignItems: 'center' }}>
+                    <input
+                      type="checkbox"
+                      id="edit-qual-support-role-modal"
+                      checked={editingQualificationIsSupportRole}
+                      onChange={() => setEditingQualificationIsSupportRole(!editingQualificationIsSupportRole)}
+                      style={{ marginRight: '8px' }}
+                    />
+                    <label htmlFor="edit-qual-support-role-modal" style={{
+                      fontSize: '14px',
+                      color: '#374151',
+                      fontFamily: 'Inter',
+                      cursor: 'pointer'
+                    }}>
+                      Mission Support role
                     </label>
                   </div>
                 </div>

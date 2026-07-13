@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import type { Event, Cycle } from '../../../types/EventTypes';
 import QualificationBadge from '../QualificationBadge';
 import { getPilotByDiscordId } from '../../../utils/pilotService';
@@ -45,7 +45,9 @@ interface EnhancedPilot extends Pilot {
 const EventAttendance: React.FC<EventAttendanceProps> = ({ event }) => {
   const [attendance, setAttendance] = useState<AttendanceData[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [pollInterval, setPollInterval] = useState<NodeJS.Timeout | null>(null);
+  // Tracks the currently displayed event so in-flight responses from a
+  // previously selected event can't overwrite the list
+  const activeEventIdRef = useRef<string | null>(null);
   const [cycles, setCycles] = useState<Cycle[]>([]);
   const [qualificationConfigs, setQualificationConfigs] = useState<any[]>([]);
   const [enrolledTraineePilotIds, setEnrolledTraineePilotIds] = useState<Set<string>>(new Set());
@@ -85,7 +87,12 @@ const EventAttendance: React.FC<EventAttendanceProps> = ({ event }) => {
       }
       
       const data: AttendanceResponse = await response.json();
-      
+
+      // Ignore responses that arrive after the user switched to another event
+      if (activeEventIdRef.current !== eventId) {
+        return;
+      }
+
       // If there's a note about no Discord message ID, show it as an error
       if (data.note) {
         setError(data.note);
@@ -125,6 +132,9 @@ const EventAttendance: React.FC<EventAttendanceProps> = ({ event }) => {
       );
 
       // Set attendance immediately without qualifications for fast initial render
+      if (activeEventIdRef.current !== eventId) {
+        return;
+      }
       setAttendance(attendeeWithPilotRecords);
 
       // Load qualifications in the background and update
@@ -156,8 +166,10 @@ const EventAttendance: React.FC<EventAttendanceProps> = ({ event }) => {
             }
             return attendee;
           });
-          
-          setAttendance(attendeeWithQualifications);
+
+          if (activeEventIdRef.current === eventId) {
+            setAttendance(attendeeWithQualifications);
+          }
         } catch (error) {
           console.warn('EventAttendance: Batch qualification loading failed:', error);
           // Don't fall back to individual calls to avoid the slow loading issue
@@ -166,8 +178,10 @@ const EventAttendance: React.FC<EventAttendanceProps> = ({ event }) => {
       }
     } catch (err) {
       console.error('Error fetching event attendance:', err);
-      setError(err instanceof Error ? err.message : 'Failed to fetch attendance');
-      setAttendance([]);
+      if (activeEventIdRef.current === eventId) {
+        setError(err instanceof Error ? err.message : 'Failed to fetch attendance');
+        setAttendance([]);
+      }
     } finally {
       // Hide the header spinner
       const spinner = document.getElementById('attendance-loading-spinner');
@@ -219,33 +233,25 @@ const EventAttendance: React.FC<EventAttendanceProps> = ({ event }) => {
     loadEnrolledTrainees();
   }, [event?.cycleId, cycles]);
 
-  // Start polling when event changes
+  // Start polling when event changes. The interval handle lives in the effect
+  // closure (NOT in state) - storing it in state made the cleanup read a stale
+  // value, leaking a poller on every unmount/HMR remount that kept overwriting
+  // the list with a previously selected event's attendance.
   useEffect(() => {
-    // Clear existing interval if any
-    if (pollInterval) {
-      clearInterval(pollInterval);
-      setPollInterval(null);
-    }
-    
-    // If there's an event, fetch attendance and set up polling
-    if (event?.id) {
-      // Fetch attendance immediately
-      fetchAttendance(event.id);
-      
-      // Set up polling every 5 seconds
-      const interval = setInterval(() => {
-        fetchAttendance(event.id);
-      }, 5000); // 5 seconds
-      
-      setPollInterval(interval);
-    }
-    
+    activeEventIdRef.current = event?.id || null;
+
+    if (!event?.id) return;
+
+    const eventId = event.id;
+
+    // Fetch attendance immediately, then poll every 5 seconds
+    fetchAttendance(eventId);
+    const interval = setInterval(() => {
+      fetchAttendance(eventId);
+    }, 5000);
+
     // Cleanup on unmount or when event changes
-    return () => {
-      if (pollInterval) {
-        clearInterval(pollInterval);
-      }
-    };
+    return () => clearInterval(interval);
   }, [event?.id]);
 
   // Sort qualification groups based on event type
@@ -409,23 +415,30 @@ const EventAttendance: React.FC<EventAttendanceProps> = ({ event }) => {
     return { attendeesWithPilots, attendeesWithoutPilots };
   };
 
-  // Render qualification group
-  const renderQualificationGroup = (pilots: AttendanceData[], groupName: string, index: number) => {
-    if (pilots.length === 0) return null;
+  // Render qualification group. countLabel overrides the "(n)" suffix and, when
+  // provided, the group renders even with no pilots (used for Mission Support roles).
+  const renderQualificationGroup = (pilots: AttendanceData[], groupName: string, index: number, countLabel?: string) => {
+    if (pilots.length === 0 && countLabel === undefined) return null;
 
     return (
       <div key={`${groupName}-${index}`} style={{ marginBottom: '16px' }}>
-        <div style={{ 
-          fontSize: '14px', 
-          fontWeight: 500, 
+        <div style={{
+          fontSize: '14px',
+          fontWeight: 500,
           color: '#64748B',
           borderBottom: '1px solid #E2E8F0',
           paddingBottom: '4px',
           marginBottom: '8px'
         }}>
-          {groupName} ({pilots.length})
+          {groupName} ({countLabel ?? pilots.length})
         </div>
-        
+
+        {pilots.length === 0 && (
+          <div style={{ color: '#94A3B8', padding: '0 10px', fontSize: '14px' }}>
+            None
+          </div>
+        )}
+
         {pilots.map((pilot, pilotIndex) => (
           <div
             key={`${groupName}-${pilot.discord_id || pilotIndex}-${pilot.callsign}`}
@@ -650,6 +663,63 @@ const EventAttendance: React.FC<EventAttendanceProps> = ({ event }) => {
               </div>
             </div>
           ));
+        })()}
+
+        {/* Mission Support roles (accepted pilots only, in the event's configured order) */}
+        {(() => {
+          const requirements = event?.eventSettings?.supportRoleRequirements || [];
+          if (requirements.length === 0) return null;
+
+          const acceptedWithPilots = attendance.filter(a => a.status === 'accepted' && a.pilotRecord);
+
+          let totalAvailable = 0;
+          let totalRequired = 0;
+          const roleGroups = requirements.map(req => {
+            const required = Math.max(0, req.required || 0);
+            // Match on qualification ID so renames don't break saved events;
+            // fall back to name for records without an ID
+            const pilots = acceptedWithPilots
+              .filter(a => a.pilotRecord?.qualifications?.some((q: any) =>
+                q.id ? q.id === req.qualificationId : q.type === req.name
+              ))
+              .sort((a, b) => Number(a.pilotRecord?.boardNumber || 0) - Number(b.pilotRecord?.boardNumber || 0));
+            // Show the qualification's current name, not the one saved on the event
+            const displayName = qualificationConfigs.find(c => c.id === req.qualificationId)?.name || req.name;
+            totalAvailable += pilots.length;
+            totalRequired += required;
+            return { req, required, pilots, displayName };
+          });
+
+          return (
+            <div style={{ marginTop: '16px' }}>
+              <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                padding: '10px 15px',
+                backgroundColor: '#F0F9FF',
+                borderLeft: '4px solid #0EA5E9',
+                borderRadius: '4px',
+                marginBottom: '12px'
+              }}>
+                <span style={{ fontWeight: 600, color: '#0EA5E9' }}>Mission Support</span>
+                <span style={{
+                  backgroundColor: '#0EA5E9',
+                  color: 'white',
+                  borderRadius: '9999px',
+                  padding: '2px 8px',
+                  fontSize: '14px',
+                  fontWeight: '500'
+                }}>
+                  {totalAvailable}/{totalRequired}
+                </span>
+              </div>
+
+              {roleGroups.map(({ required, pilots, displayName }, index) =>
+                renderQualificationGroup(pilots, displayName, index, `${pilots.length}/${required}`)
+              )}
+            </div>
+          );
         })()}
 
         {/* No matching pilot record section */}
