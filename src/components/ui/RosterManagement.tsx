@@ -94,6 +94,13 @@ const RosterManagement: React.FC = () => {
     onReplaceIncumbent?: () => void;
     onCancel?: () => void;
   }>({ show: false, pilotData: null });
+
+  // Board number conflict dialog state (shown when restoring a pilot to an
+  // active status while another active pilot holds the same board number)
+  const [boardNumberConflict, setBoardNumberConflict] = useState<{
+    show: boolean;
+    message: string;
+  }>({ show: false, message: '' });
   const [isAddingNewPilot, setIsAddingNewPilot] = useState(false);
   // Interface for new pilot creation form data
   interface NewPilotFormData {
@@ -402,18 +409,17 @@ const RosterManagement: React.FC = () => {
         id,
         pilot_statuses!inner (
           statuses!inner (
-            name
+            isActive
           )
         )
       `)
       .eq('boardNumber', parseInt(boardNumber))
       .is('pilot_statuses.end_date', null);
 
-    // Filter out pilots with Retired or Removed status
+    // Only pilots with a currently active status block a board number —
+    // inactive pilots (On Leave, AWOL, Retired, Removed) free theirs up
     const activePilots = existingPilots?.filter(p =>
-      !p.pilot_statuses?.some((ps: any) =>
-        ps.statuses?.name === 'Retired' || ps.statuses?.name === 'Removed'
-      )
+      p.pilot_statuses?.some((ps: any) => ps.statuses?.isActive)
     );
 
     if (activePilots && activePilots.length > 0) {
@@ -729,13 +735,61 @@ const RosterManagement: React.FC = () => {
     setPendingNewPilotEnrollments([]); // Clear pending enrollments on cancel
   };
 
+  // Find another pilot with a currently active status who already holds this
+  // board number. Returns the conflicting pilot's callsign, or null if free.
+  const findBoardNumberConflict = async (
+    boardNumber: number,
+    excludePilotId: string
+  ): Promise<{ callsign: string } | null> => {
+    try {
+      const actualPilotId = await getActualPilotId(excludePilotId);
+
+      const { data } = await supabase
+        .from('pilots')
+        .select(`
+          id,
+          callsign,
+          pilot_statuses!inner (
+            statuses!inner (
+              isActive
+            )
+          )
+        `)
+        .eq('boardNumber', boardNumber)
+        .neq('id', actualPilotId)
+        .is('pilot_statuses.end_date', null);
+
+      const conflict = data?.find(p =>
+        p.pilot_statuses?.some((ps: any) => ps.statuses?.isActive)
+      );
+
+      return conflict ? { callsign: conflict.callsign } : null;
+    } catch (error) {
+      console.error('Error checking board number conflict:', error);
+      return null;
+    }
+  };
+
   // Function to handle pilot status change
   const handleStatusChange = useCallback(async (statusId: string) => {
     if (!selectedPilot) return;
-    
+
     setUpdatingStatus(true);
-    
+
     try {
+      // Restoring an active status requires the pilot's board number to be free
+      const targetStatus = statuses.find(s => s.id === statusId);
+      if (targetStatus?.isActive && selectedPilot.boardNumber) {
+        const conflict = await findBoardNumberConflict(Number(selectedPilot.boardNumber), selectedPilot.id);
+        if (conflict) {
+          setBoardNumberConflict({
+            show: true,
+            message: `${selectedPilot.callsign} cannot be restored to an active status because board number ${selectedPilot.boardNumber} is now used by ${conflict.callsign}. Change one pilot's board number first.`
+          });
+          return;
+        }
+      }
+
       const { data, error } = await assignPilotStatus(selectedPilot.id, statusId);
       
       if (error) {
@@ -751,7 +805,7 @@ const RosterManagement: React.FC = () => {
     } finally {
       setUpdatingStatus(false);
     }
-  }, [selectedPilot]);
+  }, [selectedPilot, statuses]);
 
   // Function to handle pilot standing change
   const handleStandingChange = useCallback(async (standingId: string) => {
@@ -1952,15 +2006,49 @@ const RosterManagement: React.FC = () => {
     try {
       setUpdatingStatus(true);
 
-      // Update status for all selected pilots
-      const updates = selectedPilots.map(pilot =>
-        assignPilotStatus(pilot.id, statusId)
-      );
+      let pilotsToUpdate = selectedPilots;
 
-      await Promise.all(updates);
+      // Restoring an active status requires each pilot's board number to be free
+      const targetStatus = statuses.find(s => s.id === statusId);
+      if (targetStatus?.isActive) {
+        const conflictMessages: string[] = [];
+        const clearedPilots: typeof selectedPilots = [];
+        const batchBoardNumbers = new Set<number>();
 
-      // Refresh pilot data
-      await refreshPilots();
+        for (const pilot of selectedPilots) {
+          const boardNumber = Number(pilot.boardNumber);
+          const conflict = await findBoardNumberConflict(boardNumber, pilot.id);
+          if (conflict) {
+            conflictMessages.push(`${pilot.callsign}: board number ${boardNumber} is in use by ${conflict.callsign}`);
+          } else if (batchBoardNumbers.has(boardNumber)) {
+            conflictMessages.push(`${pilot.callsign}: board number ${boardNumber} is duplicated within the selection`);
+          } else {
+            batchBoardNumbers.add(boardNumber);
+            clearedPilots.push(pilot);
+          }
+        }
+
+        if (conflictMessages.length > 0) {
+          setBoardNumberConflict({
+            show: true,
+            message: `The following pilot(s) cannot be restored to an active status until their board number conflicts are resolved:\n${conflictMessages.join('\n')}`
+          });
+        }
+
+        pilotsToUpdate = clearedPilots;
+      }
+
+      if (pilotsToUpdate.length > 0) {
+        // Update status for all conflict-free selected pilots
+        const updates = pilotsToUpdate.map(pilot =>
+          assignPilotStatus(pilot.id, statusId)
+        );
+
+        await Promise.all(updates);
+
+        // Refresh pilot data
+        await refreshPilots();
+      }
     } catch (error) {
       console.error('Error updating status:', error);
     } finally {
@@ -2367,9 +2455,24 @@ const RosterManagement: React.FC = () => {
     try {
       // Get actual pilot ID if this is a discord ID (will be used in extracted function)
       // const actualPilotId = await getActualPilotId(updatedPilot.id);
-      
-      // Check for squadron conflicts before saving if squadron has changed
+
       const originalPilot = pilots.find(p => p.id === updatedPilot.id);
+
+      // Block the save if the pilot would hold an active status while another
+      // active pilot already has the same board number
+      if (updatedPilot.currentStatus?.isActive && updatedPilot.boardNumber) {
+        const conflict = await findBoardNumberConflict(Number(updatedPilot.boardNumber), updatedPilot.id);
+        if (conflict) {
+          const wasInactive = originalPilot?.currentStatus && !originalPilot.currentStatus.isActive;
+          const message = wasInactive
+            ? `${updatedPilot.callsign} cannot be restored to an active status because board number ${updatedPilot.boardNumber} is now used by ${conflict.callsign}. Change one pilot's board number first.`
+            : `Board number ${updatedPilot.boardNumber} is already in use by ${conflict.callsign}.`;
+          setBoardNumberConflict({ show: true, message });
+          return { success: false, error: message };
+        }
+      }
+
+      // Check for squadron conflicts before saving if squadron has changed
       const squadronChanged = (originalPilot as any)?.currentSquadron?.id !== (updatedPilot as any)?.currentSquadron?.id;
       
       if (squadronChanged && (updatedPilot as any)?.currentSquadron?.id && (updatedPilot.roles?.[0]?.role as any)?.exclusivity_scope && (updatedPilot.roles?.[0]?.role as any)?.exclusivity_scope !== 'none') {
@@ -2484,8 +2587,11 @@ const RosterManagement: React.FC = () => {
         throw new Error(error.message || 'Failed to update pilot');
       }
 
-      // Handle status updates via join table if status has changed
-      if (updatedPilot.currentStatus?.id) {
+      const originalPilot = pilots.find(p => p.id === updatedPilot.id);
+
+      // Handle status updates via join table only if the status actually changed —
+      // re-assigning an unchanged status creates duplicate history rows
+      if (updatedPilot.currentStatus?.id && updatedPilot.currentStatus.id !== originalPilot?.currentStatus?.id) {
         const { error: statusError } = await assignPilotStatus(actualPilotId, updatedPilot.currentStatus.id);
         if (statusError) {
           console.error('Error updating pilot status during save:', statusError);
@@ -2493,8 +2599,8 @@ const RosterManagement: React.FC = () => {
         }
       }
 
-      // Handle standing updates via join table if standing has changed  
-      if (updatedPilot.currentStanding?.id) {
+      // Handle standing updates via join table only if the standing actually changed
+      if (updatedPilot.currentStanding?.id && updatedPilot.currentStanding.id !== originalPilot?.currentStanding?.id) {
         const { error: standingError } = await assignPilotStanding(actualPilotId, updatedPilot.currentStanding.id);
         if (standingError) {
           console.error('Error updating pilot standing during save:', standingError);
@@ -2503,7 +2609,6 @@ const RosterManagement: React.FC = () => {
       }
 
       // Handle squadron updates via join table if squadron has changed
-      const originalPilot = pilots.find(p => p.id === updatedPilot.id);
       const originalSquadronId = (originalPilot as any)?.currentSquadron?.id;
       const newSquadronId = (updatedPilot as any)?.currentSquadron?.id || (updatedPilot as any)?.squadronAssignment?.squadron_id;
       const squadronChanged = originalSquadronId !== newSquadronId;
@@ -2518,33 +2623,38 @@ const RosterManagement: React.FC = () => {
 
       // Handle role updates - check pilot roles array instead of role field
       const currentRole = updatedPilot.roles?.[0]?.role;
+      const originalRoleId = originalPilot?.roles?.[0]?.role?.id;
       if (!currentRole || !currentRole.id) {
         // If no role is selected, end any existing role assignments
-        const { error: endRoleError } = await supabase
-          .from('pilot_roles')
-          .update({ 
-            end_date: new Date().toISOString().split('T')[0],
-            updated_at: new Date().toISOString()
-          })
-          .eq('pilot_id', actualPilotId)
-          .is('end_date', null);
-        
-        if (endRoleError) {
-          console.error("Error ending role assignments during save:", endRoleError);
-          throw new Error(endRoleError.message || 'Failed to remove pilot role');
+        if (originalRoleId) {
+          const { error: endRoleError } = await supabase
+            .from('pilot_roles')
+            .update({
+              end_date: new Date().toISOString().split('T')[0],
+              updated_at: new Date().toISOString()
+            })
+            .eq('pilot_id', actualPilotId)
+            .is('end_date', null);
+
+          if (endRoleError) {
+            console.error("Error ending role assignments during save:", endRoleError);
+            throw new Error(endRoleError.message || 'Failed to remove pilot role');
+          }
         }
       } else {
         // Find the role ID based on the current role
         const currentRoleName = currentRole.name;
         const matchingRole = roles.find(r => r.name === currentRoleName);
         const roleId = matchingRole?.id || null;
-        
-        if (roleId) {
+
+        // Only re-assign if the role actually changed — re-assigning an unchanged
+        // role ends and re-creates the assignment, duplicating billet history
+        if (roleId && roleId !== originalRoleId) {
           // Update to a specific role - use appropriate function based on allowDuplicates
-          const { error: roleError } = _allowDuplicates 
+          const { error: roleError } = _allowDuplicates
             ? await updatePilotRoleAllowDuplicates(actualPilotId, roleId)
             : await updatePilotRole(actualPilotId, roleId);
-          
+
           if (roleError) {
             throw new Error(roleError.message || 'Failed to update pilot role');
           }
@@ -2975,6 +3085,59 @@ const RosterManagement: React.FC = () => {
         </div>
       )}
       
+      {/* Board number conflict dialog */}
+      {boardNumberConflict.show && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            width: '100%',
+            height: '100%',
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            zIndex: 1000,
+          }}
+        >
+          <div
+            style={{
+              backgroundColor: '#FFFFFF',
+              padding: '24px',
+              borderRadius: '8px',
+              width: '500px',
+              textAlign: 'center',
+            }}
+          >
+            <h2 style={{ fontSize: '18px', fontWeight: 600, marginBottom: '16px', color: '#374151' }}>
+              Board Number Conflict
+            </h2>
+            <p style={{ marginBottom: '24px', color: '#374151', lineHeight: '1.5', whiteSpace: 'pre-line', textAlign: 'left' }}>
+              {boardNumberConflict.message}
+            </p>
+            <div style={{ display: 'flex', justifyContent: 'center' }}>
+              <button
+                onClick={() => setBoardNumberConflict({ show: false, message: '' })}
+                style={{
+                  minWidth: '120px',
+                  padding: '10px 12px',
+                  borderRadius: '6px',
+                  border: '1px solid #2563EB',
+                  backgroundColor: '#2563EB',
+                  color: '#FFFFFF',
+                  cursor: 'pointer',
+                  fontSize: '13px',
+                  fontWeight: 500
+                }}
+              >
+                OK
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {loading && !pilots.length ? (
         <StandardPageLoader message="Loading roster data..." />
       ) : (
