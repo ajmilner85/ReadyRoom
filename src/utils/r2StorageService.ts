@@ -71,47 +71,33 @@ export async function deleteFromR2(
 }
 
 /**
- * Delete a storage file by its public URL. Handles both R2 and Supabase Storage URLs.
- * Best-effort — logs a warning on failure but does not throw.
+ * Delete a storage file by its public R2 URL. Best-effort — logs a warning on
+ * failure but does not throw. Legacy Supabase Storage URLs are skipped: those
+ * buckets were deleted after the R2 migration, so the file no longer exists.
  */
 export async function deleteStorageFileByUrl(url: string): Promise<void> {
   if (!url) return;
   const cleanUrl = url.split('?')[0];
   if (!cleanUrl) return;
 
-  const isR2Url = !cleanUrl.includes('supabase.co');
+  if (cleanUrl.includes('supabase.co')) {
+    console.log('[GC] Skipping legacy Supabase Storage URL (file already gone):', cleanUrl);
+    return;
+  }
 
   try {
-    if (isR2Url) {
-      const r2Path = new URL(cleanUrl).pathname.slice(1);
-      console.log('[GC] Deleting R2 file, path:', r2Path);
-      const accessToken = await getAccessToken();
-      if (!accessToken) {
-        console.warn('[GC] No access token — skipping R2 delete for:', r2Path);
-        return;
-      }
-      const { success, error: deleteError } = await deleteFromR2(r2Path, accessToken);
-      if (!success) {
-        console.warn('[GC] R2 delete failed for path:', r2Path, 'error:', deleteError);
-      } else {
-        console.log('[GC] R2 file deleted successfully:', r2Path);
-      }
+    const r2Path = new URL(cleanUrl).pathname.slice(1);
+    console.log('[GC] Deleting R2 file, path:', r2Path);
+    const accessToken = await getAccessToken();
+    if (!accessToken) {
+      console.warn('[GC] No access token — skipping R2 delete for:', r2Path);
+      return;
+    }
+    const { success, error: deleteError } = await deleteFromR2(r2Path, accessToken);
+    if (!success) {
+      console.warn('[GC] R2 delete failed for path:', r2Path, 'error:', deleteError);
     } else {
-      // Supabase Storage public URL format:
-      // https://xxx.supabase.co/storage/v1/object/public/{bucket}/{path}
-      const match = cleanUrl.match(/\/storage\/v1\/object\/public\/([^/]+)\/(.*)/);
-      if (!match) {
-        console.warn('[GC] Could not parse Supabase Storage URL:', cleanUrl);
-        return;
-      }
-      const [, bucket, path] = match;
-      console.log('[GC] Deleting Supabase file, bucket:', bucket, 'path:', path);
-      const { error } = await supabase.storage.from(bucket).remove([path]);
-      if (error) {
-        console.warn('[GC] Supabase delete failed:', error);
-      } else {
-        console.log('[GC] Supabase file deleted successfully:', path);
-      }
+      console.log('[GC] R2 file deleted successfully:', r2Path);
     }
   } catch (err) {
     console.warn('[GC] Failed to delete storage file:', cleanUrl, err);
