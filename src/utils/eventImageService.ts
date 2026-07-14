@@ -79,39 +79,16 @@ export const uploadEventImage = async (eventId: string, file: File) => {
 
     console.log(`Upload path: ${filePath}`);
 
-    let storedUrl: string;
-    let publicUrl: string;
-
-    if (import.meta.env.VITE_USE_R2 === 'true') {
-      const accessToken = await getAccessToken();
-      if (!accessToken) return { url: null, error: new Error('Not authenticated') };
-      const r2Path = `event-images/${filePath}`;
-      const { url, error: r2Error } = await uploadToR2(compressedFile, r2Path, accessToken);
-      if (r2Error || !url) {
-        console.error('Error uploading event image to R2:', r2Error);
-        return { url: null, error: new Error(r2Error || 'Upload failed') };
-      }
-      storedUrl = url;
-      publicUrl = url + '?cache=' + Date.now();
-    } else {
-      // Upload the compressed file to the 'event-images' bucket with upsert=true
-      const { data: _data, error } = await supabase.storage
-        .from('event-images')
-        .upload(filePath, compressedFile, {
-          cacheControl: '2592000', // 30 days
-          upsert: true // Use upsert to override existing files
-        });
-
-      if (error) {
-        console.error('Error uploading event image:', error);
-        return { url: null, error };
-      }
-      const { data: publicUrlData } = supabase.storage
-        .from('event-images')
-        .getPublicUrl(filePath);
-      storedUrl = publicUrlData.publicUrl;
-      publicUrl = storedUrl + '?cache=' + Date.now();
+    const accessToken = await getAccessToken();
+    if (!accessToken) return { url: null, error: new Error('Not authenticated') };
+    const r2Path = `event-images/${filePath}`;
+    const { url, error: r2Error } = await uploadToR2(compressedFile, r2Path, accessToken);
+    if (r2Error || !url) {
+      console.error('Error uploading event image to R2:', r2Error);
+      return { url: null, error: new Error(r2Error || 'Upload failed') };
     }
+    const storedUrl = url;
+    const publicUrl = url + '?cache=' + Date.now();
 
     console.log(`Generated URL: ${publicUrl}`);
     console.log(`Storing URL: ${storedUrl}`);
@@ -147,9 +124,10 @@ export const deleteEventImage = async (imageUrl: string) => {
     console.log(`Attempting to delete image: ${imageUrl}`);
 
     const cleanUrl = imageUrl.split('?')[0];
-    const isR2Url = !cleanUrl.includes('supabase.co');
 
-    if (isR2Url) {
+    // Legacy Supabase Storage URLs point at buckets that were deleted after
+    // the R2 migration — the file is already gone, only clear the DB reference.
+    if (!cleanUrl.includes('supabase.co')) {
       // R2 URL: https://pub-xxx.r2.dev/event-images/evt-id/file.webp
       // R2 key:                                      event-images/evt-id/file.webp
       const r2Path = new URL(cleanUrl).pathname.slice(1);
@@ -160,22 +138,6 @@ export const deleteEventImage = async (imageUrl: string) => {
       if (r2Error) {
         console.error('Error deleting image from R2:', r2Error);
         return { error: new Error(r2Error) };
-      }
-    } else {
-      // Supabase URL: extract path relative to bucket
-      const urlParts = cleanUrl.split('/');
-      const bucketName = 'event-images';
-      const bucketIndex = urlParts.findIndex(part => part === bucketName);
-      if (bucketIndex === -1) {
-        console.error('Invalid image URL format:', imageUrl);
-        return { error: new Error('Invalid image URL') };
-      }
-      const path = urlParts.slice(bucketIndex + 1).join('/');
-      console.log(`Extracted Supabase path to delete: ${path}`);
-      const { error } = await supabase.storage.from(bucketName).remove([path]);
-      if (error) {
-        console.error('Error deleting image:', error);
-        return { error };
       }
     }
 
@@ -370,42 +332,16 @@ const uploadSingleImageFile = async (eventId: string, file: File, imageType: str
 
   console.log(`Upload path for ${imageType}: ${filePath}`);
 
-  if (import.meta.env.VITE_USE_R2 === 'true') {
-    const accessToken = await getAccessToken();
-    if (!accessToken) return { url: null, error: new Error('Not authenticated') };
-    const r2Path = `event-images/${filePath}`;
-    const { url, error: r2Error } = await uploadToR2(compressedFile, r2Path, accessToken);
-    if (r2Error || !url) {
-      console.error(`Error uploading ${imageType} image to R2:`, r2Error);
-      return { url: null, error: new Error(r2Error || 'Upload failed') };
-    }
-    const displayUrl = url + '?cache=' + Date.now();
-    console.log(`Generated R2 URL for ${imageType}: ${displayUrl}`);
-    return { url: displayUrl, error: null };
+  const accessToken = await getAccessToken();
+  if (!accessToken) return { url: null, error: new Error('Not authenticated') };
+  const r2Path = `event-images/${filePath}`;
+  const { url, error: r2Error } = await uploadToR2(compressedFile, r2Path, accessToken);
+  if (r2Error || !url) {
+    console.error(`Error uploading ${imageType} image to R2:`, r2Error);
+    return { url: null, error: new Error(r2Error || 'Upload failed') };
   }
-
-  // Upload the compressed file to the 'event-images' bucket with upsert=true
-  const { data: _data, error } = await supabase.storage
-    .from('event-images')
-    .upload(filePath, compressedFile, {
-      cacheControl: '2592000', // 30 days
-      upsert: true
-    });
-
-  if (error) {
-    console.error(`Error uploading ${imageType} image:`, error);
-    return { url: null, error };
-  }
-
-  // Get the public URL for the uploaded file
-  const { data: publicUrlData } = supabase.storage
-    .from('event-images')
-    .getPublicUrl(filePath);
-
-  const storedUrl = publicUrlData.publicUrl;
-  const displayUrl = storedUrl + '?cache=' + Date.now();
-
-  console.log(`Generated URL for ${imageType}: ${displayUrl}`);
+  const displayUrl = url + '?cache=' + Date.now();
+  console.log(`Generated R2 URL for ${imageType}: ${displayUrl}`);
   return { url: displayUrl, error: null };
 };
 

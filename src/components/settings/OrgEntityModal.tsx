@@ -357,7 +357,7 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
     }));
   };
 
-  // Handle image upload to storage (R2 or Supabase depending on feature flag)
+  // Handle image upload to R2 storage
   const uploadImageToStorage = async (file: File): Promise<string | null> => {
     try {
       setUploadingImage(true);
@@ -367,40 +367,18 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
       const fileName = `${entityType}-${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
       const filePath = `insignias/${fileName}`;
 
-      if (import.meta.env.VITE_USE_R2 === 'true') {
-        const accessToken = await getAccessToken();
-        if (!accessToken) {
-          setErrors(prev => ({ ...prev, insignia_url: 'Not authenticated' }));
-          return null;
-        }
-        const r2Path = `organization-assets/${filePath}`;
-        const { url, error: r2Error } = await uploadToR2(file, r2Path, accessToken);
-        if (r2Error || !url) {
-          setErrors(prev => ({ ...prev, insignia_url: 'Failed to upload image: ' + (r2Error || 'Unknown error') }));
-          return null;
-        }
-        return url;
+      const accessToken = await getAccessToken();
+      if (!accessToken) {
+        setErrors(prev => ({ ...prev, insignia_url: 'Not authenticated' }));
+        return null;
       }
-
-      // Upload file to Supabase storage
-      const { error } = await supabase.storage
-        .from('organization-assets')
-        .upload(filePath, file, {
-          cacheControl: '2592000', // 30 days
-          upsert: true
-        });
-
-      if (error) {
-        console.error('Upload error:', error);
-        throw error;
+      const r2Path = `organization-assets/${filePath}`;
+      const { url, error: r2Error } = await uploadToR2(file, r2Path, accessToken);
+      if (r2Error || !url) {
+        setErrors(prev => ({ ...prev, insignia_url: 'Failed to upload image: ' + (r2Error || 'Unknown error') }));
+        return null;
       }
-
-      // Get public URL
-      const { data: urlData } = supabase.storage
-        .from('organization-assets')
-        .getPublicUrl(filePath);
-
-      return urlData.publicUrl;
+      return url;
     } catch (error: any) {
       console.error('Error uploading image:', error);
       setErrors(prev => ({ ...prev, insignia_url: 'Failed to upload image: ' + error.message }));
