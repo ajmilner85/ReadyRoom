@@ -134,9 +134,9 @@ const PermissionsSettings: React.FC = () => {
         </div>
       </div>
 
-      {/* Scrollable Content */}
-      <div style={{ flex: 1, overflow: 'auto', padding: '24px 40px 40px 40px' }}>
-        <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
+      {/* Content - scrolling happens inside the matrix so its headers stay frozen */}
+      <div style={{ flex: 1, minHeight: 0, overflow: 'hidden', padding: '24px 40px 40px 40px', display: 'flex', flexDirection: 'column' }}>
+        <div style={{ maxWidth: '1200px', margin: '0 auto', width: '100%', flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
           <PermissionMatrix
             permissions={permissions}
             rules={rules}

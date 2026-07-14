@@ -280,9 +280,9 @@ export const PermissionMatrix: React.FC<PermissionMatrixProps> = ({
   const basisTypeOptions: BasisType[] = ['authenticated_user', 'standing', 'billet', 'qualification', 'team'];
   
   return (
-    <div style={{ height: '100%', display: 'flex', flexDirection: 'column', width: '100%' }}>
+    <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', width: '100%' }}>
       {/* Horizontal Tabs for Basis Type */}
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '24px' }}>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '24px', flexShrink: 0 }}>
         {basisTypeOptions.map(basisType => (
           <button
             key={basisType}
@@ -306,10 +306,11 @@ export const PermissionMatrix: React.FC<PermissionMatrixProps> = ({
       </div>
 
       {/* Permission Matrix */}
-      <div style={{ 
+      <div style={{
         flex: 1,
-        border: '1px solid #E5E7EB', 
-        borderRadius: '6px', 
+        minHeight: 0,
+        border: '1px solid #E5E7EB',
+        borderRadius: '6px',
         display: 'flex',
         flexDirection: 'column',
         overflow: 'hidden',
