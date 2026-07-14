@@ -307,27 +307,57 @@ const EventsManagement: React.FC = () => {
 
       setCycles(fetchedCycles);
 
-      // Auto-select the active cycle with the earliest start date
-      if (fetchedCycles.length > 0) {
-        const activeCycles = fetchedCycles.filter(cycle => cycle.status === 'active');
+      // Auto-select the cycle (or Standalone) containing the closest upcoming event.
+      // Cycle status stored in the DB can be stale, so selection is driven by event dates:
+      // in-progress event first, then nearest upcoming, then most recent past.
+      const { events: allEvents } = await fetchEvents();
+      const now = new Date();
 
-        if (activeCycles.length > 0) {
-          // Sort active cycles by start date (ascending) and select the earliest one
-          const sortedActiveCycles = [...activeCycles].sort((a, b) =>
-            new Date(a.startDate).getTime() - new Date(b.startDate).getTime()
-          );
+      const inProgress = allEvents
+        .filter(e => {
+          const start = new Date(e.datetime);
+          const end = e.endDatetime ? new Date(e.endDatetime) : start;
+          return start <= now && end >= now;
+        })
+        .sort((a, b) => new Date(a.datetime).getTime() - new Date(b.datetime).getTime());
+      const upcoming = allEvents
+        .filter(e => new Date(e.datetime) > now)
+        .sort((a, b) => new Date(a.datetime).getTime() - new Date(b.datetime).getTime());
+      const past = allEvents
+        .filter(e => {
+          const start = new Date(e.datetime);
+          const end = e.endDatetime ? new Date(e.endDatetime) : start;
+          return start <= now && end < now;
+        })
+        .sort((a, b) => new Date(b.datetime).getTime() - new Date(a.datetime).getTime());
 
-          const cycleToSelect = sortedActiveCycles[0];
-          setSelectedCycle(cycleToSelect);
+      const targetEvent = inProgress[0] || upcoming[0] || past[0] || null;
 
-          // Load events for this cycle
-          await loadEvents(cycleToSelect.id);
+      let cycleToSelect: Cycle | null = null;
+      if (targetEvent) {
+        if (targetEvent.cycleId) {
+          cycleToSelect = fetchedCycles.find(c => c.id === targetEvent.cycleId) || null;
         } else {
-          // No active cycles, but we're done loading
-          setLoading(prev => ({ ...prev, events: false, initial: false }));
+          // Standalone pseudo-cycle (mirrors CyclesList.tsx)
+          cycleToSelect = {
+            id: 'standalone',
+            name: 'Standalone Events',
+            description: 'Events not part of any cycle',
+            startDate: '',
+            endDate: '',
+            type: 'Other',
+            status: 'active',
+            creator: { boardNumber: '', callsign: '', billet: '' }
+          };
         }
+      }
+
+      if (cycleToSelect) {
+        setSelectedCycle(cycleToSelect);
+        // Load events for this cycle (also auto-selects the target event by display order)
+        await loadEvents(cycleToSelect.id);
       } else {
-        // No cycles at all, but we're done loading
+        // No events (or the target event's cycle is missing) — nothing to select
         setLoading(prev => ({ ...prev, events: false, initial: false }));
       }
     } catch (err: any) {
