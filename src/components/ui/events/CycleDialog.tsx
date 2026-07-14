@@ -25,7 +25,6 @@ interface CycleDialogProps {
     startDate: string;
     endDate: string;
     type: CycleType;
-    restrictedTo?: string[];
     participants?: string[];
     syllabusId?: string;
     autoCreateEvents?: boolean;
@@ -45,7 +44,6 @@ interface CycleDialogProps {
     startDate: string;
     endDate: string;
     type: CycleType;
-    restrictedTo?: string[];
     participants?: string[];
     syllabusId?: string;
   };
@@ -71,7 +69,6 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
   const [startDate, setStartDate] = useState(initialData?.startDate ? new Date(initialData.startDate).toISOString().split('T')[0] : '');
   const [endDate, setEndDate] = useState(initialData?.endDate ? new Date(initialData.endDate).toISOString().split('T')[0] : '');
   const [type, setType] = useState<CycleType>(initialData?.type || 'Training');
-  const [restrictedTo, setRestrictedTo] = useState<string[]>(initialData?.restrictedTo || []);
   const [participants, setParticipatingSquadrons] = useState<string[]>(initialData?.participants || []);
   const [weekCount, setWeekCount] = useState<number>(1);
   const [error, setError] = useState('');
@@ -836,7 +833,6 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
       startDate,
       endDate,
       type,
-      restrictedTo: restrictedTo.length > 0 ? restrictedTo : undefined,
       participants: participants.length > 0 ? participants : undefined,
       syllabusId: type === 'Training' ? (selectedSyllabusId || undefined) : undefined,
       autoCreateEvents: !hasEvents && autoCreateEvents, // Only for cycles with no events
@@ -846,7 +842,6 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
   };
 
   const cycleTypes: CycleType[] = ['Training', 'Cruise-WorkUp', 'Cruise-Mission', 'Other'];
-  const roleOptions = ['Cadre', 'Staff', 'Command', 'All Pilots'];
 
   return (
     <>
@@ -1325,47 +1320,6 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
                 </div>
               </div>
               {/* Remove the helper text as requested */}
-            </div>
-
-            <div style={{ marginBottom: '16px' }}>
-              <label style={{
-                display: 'block',
-                marginBottom: '8px',
-                fontSize: '14px',
-                fontWeight: 500,
-                color: '#64748B'
-              }}>
-                Eligibility
-              </label>
-              <select
-                multiple
-                value={restrictedTo}
-                onChange={(e) => {
-                  const values = Array.from(e.target.selectedOptions, option => option.value);
-                  setRestrictedTo(values);
-                }}
-                style={{
-                  width: '100%',
-                  padding: '8px', // Changed from 8px 12px to just 8px
-                  border: '1px solid #CBD5E1',
-                  borderRadius: '4px',
-                  fontSize: '14px',
-                  boxSizing: 'border-box'
-                }}
-              >
-                {roleOptions.map(role => (
-                  <option key={role} value={role}>
-                    {role}
-                  </option>
-                ))}
-              </select>
-              <div style={{
-                fontSize: '12px',
-                color: '#64748B',
-                marginTop: '4px'
-              }}>
-                Hold Ctrl/Cmd to select multiple roles. Leave empty for no restrictions.
-              </div>
             </div>
 
             {/* Participating Squadrons */}

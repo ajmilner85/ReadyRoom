@@ -18,7 +18,6 @@ interface EventDialogProps {
       hours: number;
       minutes: number;
     };
-    restrictedTo?: string[];
     participants?: string[];
     headerImage?: File | string | null;
     additionalImages?: (File | string | null)[];
@@ -68,7 +67,6 @@ interface EventDialogProps {
     description: string;
     datetime: string;
     endDatetime?: string;
-    restrictedTo?: string[];
     participants?: string[];
     isPublished?: boolean;
     imageUrl?: string;
@@ -125,7 +123,7 @@ interface EventDialogProps {
   cycles?: Array<{ id: string; name: string; type: string }>;
 }
 
-type WorkflowStep = 'details' | 'training' | 'participants' | 'reminders' | 'publish';
+type WorkflowStep = 'details' | 'training' | 'mission' | 'participants' | 'reminders' | 'publish';
 
 // Helper function to convert reminder time to milliseconds
 const reminderTimeToMilliseconds = (value: number, unit: 'minutes' | 'hours' | 'days'): number => {
@@ -169,7 +167,6 @@ export const EventDialog: React.FC<EventDialogProps> = ({
   const [durationHours, setDurationHours] = useState(settings.eventDefaults.defaultDurationHours);
   const [durationMinutes, setDurationMinutes] = useState(settings.eventDefaults.defaultDurationMinutes);
   const [endDatetime, setEndDatetime] = useState('');
-  const [restrictedTo, setRestrictedTo] = useState<string[]>(initialData?.restrictedTo || ['All Pilots']);
   const [participants, setParticipatingSquadrons] = useState<string[]>(
     initialData?.participants !== undefined ? initialData.participants : (selectedCycle?.participants || [])
   );
@@ -817,24 +814,8 @@ export const EventDialog: React.FC<EventDialogProps> = ({
       return;
     }
 
-    // Find the squadron's default notification roles
+    // Find the squadron's default notification roles - use the first squadron with defaults
     if (squadrons && squadrons.length > 0) {
-      // If restricted to a specific squadron, use that squadron's defaults
-      const restrictedSquadronNames = restrictedTo.filter(name => name !== 'All Pilots');
-      if (restrictedSquadronNames.length > 0) {
-        const squadron = squadrons.find(s => restrictedSquadronNames.includes(s.name));
-        if (squadron) {
-          const squadronData = squadron as any;
-          const discordIntegration = squadronData.discord_integration;
-          if (discordIntegration?.defaultNotificationRoles && Array.isArray(discordIntegration.defaultNotificationRoles) && discordIntegration.defaultNotificationRoles.length > 0) {
-            setSelectedNotificationRoles(discordIntegration.defaultNotificationRoles);
-            hasLoadedDefaultsRef.current = true;
-            return;
-          }
-        }
-      }
-      
-      // If "All Pilots" or no specific squadron, use the first squadron with defaults
       for (const squadron of squadrons) {
         const squadronData = squadron as any;
         const discordIntegration = squadronData.discord_integration;
@@ -845,7 +826,7 @@ export const EventDialog: React.FC<EventDialogProps> = ({
         }
       }
     }
-  }, [initialData, squadrons, restrictedTo]);
+  }, [initialData, squadrons]);
 
   const handleDatetimeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setDatetime(e.target.value);
@@ -872,13 +853,15 @@ export const EventDialog: React.FC<EventDialogProps> = ({
   const steps: Array<{ key: WorkflowStep; title: string; description: string }> = isTrainingEvent
     ? [
         { key: 'details', title: 'Event Details', description: 'Basic event information' },
-        { key: 'training', title: 'Training Details', description: 'Mission and objectives' },
+        { key: 'mission', title: 'Mission', description: 'Mission requirements' },
+        { key: 'training', title: 'Training', description: 'Mission and objectives' },
         { key: 'participants', title: 'Participants', description: 'Who can participate' },
         { key: 'reminders', title: 'Reminders', description: 'Notification settings' },
         { key: 'publish', title: 'Publish', description: 'Publication settings' }
       ]
     : [
         { key: 'details', title: 'Event Details', description: 'Basic event information' },
+        { key: 'mission', title: 'Mission', description: 'Mission requirements' },
         { key: 'participants', title: 'Participants', description: 'Who can participate' },
         { key: 'reminders', title: 'Reminders', description: 'Notification settings' },
         { key: 'publish', title: 'Publish', description: 'Publication settings' }
@@ -909,6 +892,10 @@ export const EventDialog: React.FC<EventDialogProps> = ({
 
       case 'training':
         // Training step validation (optional - no required fields)
+        return { isValid: true };
+
+      case 'mission':
+        // No specific validation required for mission step
         return { isValid: true };
 
       case 'participants':
@@ -1130,7 +1117,7 @@ export const EventDialog: React.FC<EventDialogProps> = ({
     console.log('[SUBMIT-DEBUG] Second reminder enabled:', secondReminderEnabled, 'value:', secondReminderValue, 'unit:', secondReminderUnit);
     
     // Validate ALL steps before submission
-    const stepsToValidate: WorkflowStep[] = ['details', 'participants', 'reminders', 'publish'];
+    const stepsToValidate: WorkflowStep[] = ['details', 'mission', 'participants', 'reminders', 'publish'];
     for (const step of stepsToValidate) {
       console.log('[SUBMIT-DEBUG] Validating step:', step);
       const validation = validateStep(step);
@@ -1187,7 +1174,6 @@ export const EventDialog: React.FC<EventDialogProps> = ({
           hours: durationHours,
           minutes: durationMinutes
         },
-        restrictedTo: restrictedTo.length > 0 ? restrictedTo : undefined,
         participants: participants.length > 0 ? participants : undefined,
         headerImage: headerImageForSubmit as File | string | null,
         additionalImages: additionalImagesForSubmit as (File | string)[],
@@ -1243,7 +1229,6 @@ export const EventDialog: React.FC<EventDialogProps> = ({
     }
   };
 
-  const roleOptions = ['Cadre', 'Staff', 'All Pilots'];
 
   // Progress bar component
   const ProgressBar = () => (
@@ -1252,7 +1237,7 @@ export const EventDialog: React.FC<EventDialogProps> = ({
         <div style={{
           display: 'flex',
           alignItems: 'flex-start',
-          maxWidth: '550px',
+          maxWidth: steps.length > 5 ? '645px' : '550px',
           margin: '0 auto'
         }}>
           {steps.map((step, index) => {
@@ -1803,6 +1788,78 @@ export const EventDialog: React.FC<EventDialogProps> = ({
             </div>
           )}
 
+          {currentStep === 'mission' && (
+            <div>
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{
+                  fontSize: '14px',
+                  fontWeight: 500,
+                  color: '#64748B',
+                  marginBottom: '4px',
+                  display: 'block'
+                }}>
+                  Mission Support roles
+                </label>
+                <p style={{ fontSize: '12px', color: '#64748B', margin: '0 0 8px 0', fontFamily: 'Inter' }}>
+                  Supporting roles needed for this event. Each selected role is shown in the Discord post as
+                  Available/Required (e.g. JTAC (1/3)); set required to 0 to list a role without requiring it.
+                  Roles appear in this order.
+                </p>
+                <SupportRoleRequirementsEditor
+                  requirements={supportRoleRequirements}
+                  onChange={setSupportRoleRequirements}
+                />
+              </div>
+
+              <div style={{ marginBottom: '16px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div style={{ flex: 1, marginRight: '16px' }}>
+                    <label style={{
+                      fontSize: '14px',
+                      fontWeight: 500,
+                      color: '#64748B',
+                      marginBottom: '4px',
+                      display: 'block'
+                    }}>
+                      After Action Reports required for Operational (non-Training) squadrons only
+                    </label>
+                    <p style={{ fontSize: '12px', color: '#64748B', margin: '0', fontFamily: 'Inter' }}>
+                      When enabled, only flights from operational squadrons will appear in the AAR section on the Mission Debriefing page.
+                    </p>
+                  </div>
+                  <div style={{ flexShrink: 0 }}>
+                    <div
+                      onClick={() => setAarOperationalOnly(!aarOperationalOnly)}
+                      style={{
+                        width: '44px',
+                        height: '24px',
+                        backgroundColor: aarOperationalOnly ? '#3B82F6' : '#E5E7EB',
+                        borderRadius: '12px',
+                        position: 'relative',
+                        cursor: 'pointer',
+                        transition: 'background-color 0.2s ease'
+                      }}
+                    >
+                      <div
+                        style={{
+                          width: '20px',
+                          height: '20px',
+                          backgroundColor: 'white',
+                          borderRadius: '50%',
+                          position: 'absolute',
+                          top: '2px',
+                          left: aarOperationalOnly ? '22px' : '2px',
+                          transition: 'left 0.2s ease',
+                          boxShadow: '0 2px 4px rgba(0, 0, 0, 0.2)'
+                        }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           {currentStep === 'participants' && (
             <div>
               <div style={{ marginBottom: '16px' }}>
@@ -1981,47 +2038,6 @@ export const EventDialog: React.FC<EventDialogProps> = ({
                 </div>
               </div>
 
-              <div style={{ marginBottom: '16px' }}>
-                <label style={{
-                  display: 'block',
-                  marginBottom: '8px',
-                  fontSize: '14px',
-                  fontWeight: 500,
-                  color: '#64748B'
-                }}>
-                  Eligibility
-                </label>
-                <select
-                  multiple
-                  value={restrictedTo}
-                  onChange={(e) => {
-                    const values = Array.from(e.target.selectedOptions, option => option.value);
-                    setRestrictedTo(values);
-                  }}
-                  style={{
-                    width: '100%',
-                    padding: '8px',
-                    border: '1px solid #CBD5E1',
-                    borderRadius: '4px',
-                    fontSize: '14px',
-                    boxSizing: 'border-box'
-                  }}
-                >
-                  {roleOptions.map(role => (
-                    <option key={role} value={role}>
-                      {role}
-                    </option>
-                  ))}
-                </select>
-                <div style={{
-                  fontSize: '12px',
-                  color: '#64748B',
-                  marginTop: '4px'
-                }}>
-                  Hold Ctrl/Cmd to select multiple roles. Leave empty for no restrictions.
-                </div>
-              </div>
-
               <div style={{ marginBottom: '16px', marginTop: '24px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <div>
@@ -2066,27 +2082,6 @@ export const EventDialog: React.FC<EventDialogProps> = ({
                     />
                   </div>
                 </div>
-              </div>
-
-              <div style={{ marginBottom: '16px' }}>
-                <label style={{
-                  fontSize: '14px',
-                  fontWeight: 500,
-                  color: '#64748B',
-                  marginBottom: '4px',
-                  display: 'block'
-                }}>
-                  Mission Support roles
-                </label>
-                <p style={{ fontSize: '12px', color: '#64748B', margin: '0 0 8px 0', fontFamily: 'Inter' }}>
-                  Supporting roles needed for this event. Each selected role is shown in the Discord post as
-                  Available/Required (e.g. JTAC (1/3)); set required to 0 to list a role without requiring it.
-                  Roles appear in this order.
-                </p>
-                <SupportRoleRequirementsEditor
-                  requirements={supportRoleRequirements}
-                  onChange={setSupportRoleRequirements}
-                />
               </div>
 
               <div style={{ marginBottom: '16px' }}>
@@ -2223,53 +2218,6 @@ export const EventDialog: React.FC<EventDialogProps> = ({
                         boxShadow: '0 2px 4px rgba(0, 0, 0, 0.2)'
                       }}
                     />
-                  </div>
-                </div>
-              </div>
-
-              <div style={{ marginBottom: '16px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <div style={{ flex: 1, marginRight: '16px' }}>
-                    <label style={{
-                      fontSize: '14px',
-                      fontWeight: 500,
-                      color: '#64748B',
-                      marginBottom: '4px',
-                      display: 'block'
-                    }}>
-                      After Action Reports required for Operational (non-Training) squadrons only
-                    </label>
-                    <p style={{ fontSize: '12px', color: '#64748B', margin: '0', fontFamily: 'Inter' }}>
-                      When enabled, only flights from operational squadrons will appear in the AAR section on the Mission Debriefing page.
-                    </p>
-                  </div>
-                  <div style={{ flexShrink: 0 }}>
-                    <div
-                      onClick={() => setAarOperationalOnly(!aarOperationalOnly)}
-                      style={{
-                        width: '44px',
-                        height: '24px',
-                        backgroundColor: aarOperationalOnly ? '#3B82F6' : '#E5E7EB',
-                        borderRadius: '12px',
-                        position: 'relative',
-                        cursor: 'pointer',
-                        transition: 'background-color 0.2s ease'
-                      }}
-                    >
-                      <div
-                        style={{
-                          width: '20px',
-                          height: '20px',
-                          backgroundColor: 'white',
-                          borderRadius: '50%',
-                          position: 'absolute',
-                          top: '2px',
-                          left: aarOperationalOnly ? '22px' : '2px',
-                          transition: 'left 0.2s ease',
-                          boxShadow: '0 2px 4px rgba(0, 0, 0, 0.2)'
-                        }}
-                      />
-                    </div>
                   </div>
                 </div>
               </div>
