@@ -129,16 +129,16 @@ const SupportRoleRequirementsEditor: React.FC<SupportRoleRequirementsEditorProps
                 border: '1px solid #D1D5DB',
                 borderRadius: '6px',
                 fontSize: '14px',
-                fontFamily: 'Inter',
+                fontFamily: "'Inter', sans-serif",
                 backgroundColor: '#FFFFFF',
                 color: '#374151'
               }}
             >
               {!selectedRole && (
-                <option value={req.qualificationId}>{req.name}</option>
+                <option value={req.qualificationId} style={{ fontFamily: "'Inter', sans-serif", fontSize: '14px' }}>{req.name}</option>
               )}
               {options.map(role => (
-                <option key={role.id} value={role.id}>{role.name}</option>
+                <option key={role.id} value={role.id} style={{ fontFamily: "'Inter', sans-serif", fontSize: '14px' }}>{role.name}</option>
               ))}
             </select>
             <input
@@ -154,7 +154,7 @@ const SupportRoleRequirementsEditor: React.FC<SupportRoleRequirementsEditorProps
                 border: '1px solid #D1D5DB',
                 borderRadius: '6px',
                 fontSize: '14px',
-                fontFamily: 'Inter',
+                fontFamily: "'Inter', sans-serif",
                 textAlign: 'center'
               }}
             />

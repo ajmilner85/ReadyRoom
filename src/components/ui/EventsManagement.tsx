@@ -2082,7 +2082,6 @@ const EventsManagement: React.FC = () => {
             description: editingEvent.description || '',
             datetime: editingEvent.datetime,
             endDatetime: editingEvent.endDatetime || undefined,
-            restrictedTo: editingEvent.restrictedTo,
             participants: editingEvent.participants,
             imageUrl: editingEvent.imageUrl, // Legacy support
             headerImageUrl: editingEvent.headerImageUrl || editingEvent.imageUrl,
