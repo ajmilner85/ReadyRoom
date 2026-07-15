@@ -6,6 +6,7 @@ export interface UserSettings {
 
 export interface DeveloperSettings {
   discordBotToken?: 'development' | 'production';
+  enableEventActivities?: boolean;
 }
 
 export interface UserPreferences {
@@ -78,7 +79,8 @@ export interface UserPreferences {
 // Default settings for new users
 export const defaultUserSettings: UserSettings = {
   developer: {
-    discordBotToken: 'production'
+    discordBotToken: 'production',
+    enableEventActivities: false
   },
   preferences: {
     theme: 'light',

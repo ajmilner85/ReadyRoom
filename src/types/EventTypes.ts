@@ -33,6 +33,34 @@ export interface TrainingSyllabusMission {
   updated_at?: string;
 }
 
+// --- Event Activities (developer-flagged feature) ---
+// An activity is defined by what it references, not who it's for:
+// 'lesson' points at a training_syllabus_missions row (from any syllabus kind),
+// 'objectives' carries an ad-hoc inline objective list,
+// 'qualification' references a qualification being pursued.
+export type EventActivityKind = 'lesson' | 'objectives' | 'qualification';
+
+// Mirrors syllabus_training_objectives shape for ad-hoc objective lists
+export interface AdHocObjective {
+  id: string;
+  text: string;
+  scope_level: string;
+  display_order: number;
+}
+
+export interface EventActivity {
+  id?: string; // undefined until persisted
+  eventId?: string;
+  cycleId?: string;
+  kind: EventActivityKind;
+  displayOrder: number;
+  syllabusMissionId?: string; // 'lesson' kind
+  qualificationId?: string; // 'qualification' kind
+  label?: string; // 'objectives' title / display override
+  adHocObjectives?: AdHocObjective[]; // 'objectives' kind
+  settings?: Record<string, unknown>;
+}
+
 export interface Cycle {
   id: string;
   name: string;
@@ -77,7 +105,8 @@ export interface Event {
     // Event-specific settings (stored in event_settings JSONB column)
     eventSettings?: EventSettings;
     // Training workflow fields
-    syllabusMissionId?: string; // Optional syllabus mission for training events
+    syllabusMissionId?: string; // Optional syllabus mission for training events (legacy/derived when activities are used)
+    activities?: EventActivity[]; // Event activities (developer-flagged; absent/empty = legacy behavior)
     referenceMaterials?: ReferenceMaterial[]; // Event-specific reference materials
     // Attendance report settings
     includeInAttendanceReport?: boolean; // Whether to include this event in cycle attendance reports (defaults to true)

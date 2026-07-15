@@ -284,6 +284,7 @@ export interface TrainingGrade {
   syllabusMissionId: string;
   cycleId: string;
   eventId?: string;
+  eventActivityId?: string; // Anchors the grade to a specific event activity (disambiguates duplicate lessons, required for ad-hoc objective grades)
   isMakeupFlight: boolean;
   makeupNotes?: string;
   attemptNumber: number;
