@@ -32,6 +32,7 @@ const {
   deleteThread
 } = require('../discordBot');
 const { sendReminderToDiscordChannels } = require('../processors/reminderProcessor');
+const { fetchActivityData } = require('../lib/activityData');
 
 // API endpoint to delete a Discord message
 router.delete('/events/:discordMessageId', async (req, res) => {
@@ -318,6 +319,10 @@ router.post('/events/publish', async (req, res) => {
             initialNotificationRoles: eventSettings.initialNotificationRoles || [] // For @mentions on initial publication
           };
 
+          // Event Activities grouping (null unless event_settings.groupByActivity
+          // is explicitly enabled AND the event has activity rows)
+          eventOptions.activityData = await fetchActivityData(supabase, eventId, eventSettings);
+
           // Fetch training data if this is a training event
           if (eventData.syllabus_mission_id) {
             try {
@@ -571,7 +576,7 @@ router.put('/events/:messageId/edit', async (req, res) => {
     try {
       const { data: eventData, error: eventError } = await supabase
         .from('events')
-        .select('track_qualifications, event_type, event_settings, syllabus_mission_id, cycle_id, reference_materials')
+        .select('id, track_qualifications, event_type, event_settings, syllabus_mission_id, cycle_id, reference_materials')
         .or(`discord_event_id.eq.${messageId},discord_event_id.cs.[{"messageId":"${messageId}"}]`)
         .single();
 
@@ -586,6 +591,10 @@ router.put('/events/:messageId/edit', async (req, res) => {
           showNoResponse: eventSettings.showNoResponse || false,
           supportRoleRequirements: eventSettings.supportRoleRequirements || []
         };
+
+        // Event Activities grouping (null unless event_settings.groupByActivity
+        // is explicitly enabled AND the event has activity rows)
+        eventOptions.activityData = await fetchActivityData(supabase, eventData.id, eventSettings);
 
         // Fetch training data if this is a training event
         if (eventData.syllabus_mission_id && eventData.cycle_id) {

@@ -308,6 +308,10 @@ export const EventDialog: React.FC<EventDialogProps> = ({
   const [eventActivities, setEventActivities] = useState<EventActivity[]>([]);
   const [activitiesLoaded, setActivitiesLoaded] = useState(false);
   const activitiesPrefilledRef = useRef(false);
+  // Discord post grouping by activity - event-level toggle, off by default
+  const [groupByActivity, setGroupByActivity] = useState(
+    (initialData?.eventSettings as any)?.groupByActivity ?? false
+  );
 
   // Training syllabus state
   const [syllabusMissions, setSyllabusMissions] = useState<TrainingSyllabusMission[]>([]);
@@ -1307,7 +1311,7 @@ export const EventDialog: React.FC<EventDialogProps> = ({
         // Event activities (developer-flagged): omit entirely when flag is off,
         // or while editing before the persisted activities finished loading
         ...(activitiesEnabled && (!initialData?.id || activitiesLoaded)
-          ? { activities: eventActivities }
+          ? { activities: eventActivities, groupByActivity }
           : {}),
         cycleId,
         // Only include if part of a cycle
@@ -1815,6 +1819,25 @@ export const EventDialog: React.FC<EventDialogProps> = ({
                   onChange={setEventActivities}
                   syllabusMissions={syllabusMissions}
                 />
+              </div>
+
+              {/* Discord post grouping toggle (off by default; the bot only
+                  groups by activity when this is explicitly enabled) */}
+              <div style={{ marginBottom: '16px', display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
+                <input
+                  type="checkbox"
+                  id="group-by-activity"
+                  checked={groupByActivity}
+                  onChange={(e) => setGroupByActivity(e.target.checked)}
+                  disabled={eventActivities.length === 0}
+                  style={{ marginTop: '2px' }}
+                />
+                <label htmlFor="group-by-activity" style={{ fontSize: '14px', color: '#374151', cursor: 'pointer' }}>
+                  Group the Discord post roster by activity
+                  <span style={{ display: 'block', fontSize: '12px', color: '#64748B' }}>
+                    Experimental. When off, the Discord post renders exactly as today.
+                  </span>
+                </label>
               </div>
 
               {/* Reference Materials Section */}

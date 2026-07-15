@@ -560,6 +560,7 @@ export const createEvent = async (event: Omit<Event, 'id' | 'creator' | 'attenda
     timezone: event.timezone || 'America/New_York',
     supportRoleRequirements: (event as any).supportRoleRequirements || [],
     groupResponsesByQualification: event.trackQualifications || false,
+    groupByActivity: (event as any).groupByActivity || false,
     groupBySquadron: (event as any).groupBySquadron || false,
     showNoResponse: (event as any).showNoResponse || false,
     allowTentativeResponse: (event as any).allowTentativeResponse ?? true,
@@ -734,7 +735,7 @@ export const updateEvent = async (eventId: string, updates: Partial<Omit<Event, 
   if (updates.participants !== undefined) dbUpdates.participants = updates.participants;
   // track_qualifications field not in current database schema
   // Handle event settings updates
-  if (updates.timezone !== undefined || updates.trackQualifications !== undefined || (updates as any).groupBySquadron !== undefined || (updates as any).showNoResponse !== undefined || (updates as any).allowTentativeResponse !== undefined || (updates as any).aarOperationalOnly !== undefined || updates.reminders !== undefined || updates.reminderRecipients !== undefined || updates.eventSettings !== undefined || (updates as any).event_settings !== undefined) {
+  if (updates.timezone !== undefined || updates.trackQualifications !== undefined || (updates as any).groupBySquadron !== undefined || (updates as any).groupByActivity !== undefined || (updates as any).showNoResponse !== undefined || (updates as any).allowTentativeResponse !== undefined || (updates as any).aarOperationalOnly !== undefined || updates.reminders !== undefined || updates.reminderRecipients !== undefined || updates.eventSettings !== undefined || (updates as any).event_settings !== undefined) {
     // If event_settings is passed directly, use it (from EventsManagement.tsx)
     if ((updates as any).event_settings !== undefined) {
       dbUpdates.event_settings = (updates as any).event_settings;
@@ -757,6 +758,7 @@ export const updateEvent = async (eventId: string, updates: Partial<Omit<Event, 
     if ((updates as any).supportRoleRequirements !== undefined) eventSettings.supportRoleRequirements = (updates as any).supportRoleRequirements;
     if (updates.trackQualifications !== undefined) eventSettings.groupResponsesByQualification = updates.trackQualifications;
     if ((updates as any).groupBySquadron !== undefined) eventSettings.groupBySquadron = (updates as any).groupBySquadron;
+    if ((updates as any).groupByActivity !== undefined) eventSettings.groupByActivity = (updates as any).groupByActivity;
     if ((updates as any).showNoResponse !== undefined) eventSettings.showNoResponse = (updates as any).showNoResponse;
     if ((updates as any).allowTentativeResponse !== undefined) eventSettings.allowTentativeResponse = (updates as any).allowTentativeResponse;
     if ((updates as any).aarOperationalOnly !== undefined) eventSettings.aarOperationalOnly = (updates as any).aarOperationalOnly;
@@ -1375,6 +1377,7 @@ export interface EventSettings {
   supportRoleRequirements?: SupportRoleRequirement[];
   allowTentativeResponse?: boolean;
   groupResponsesByQualification?: boolean;
+  groupByActivity?: boolean; // Discord post groups accepted pilots by event activity (Event Activities feature, off by default)
   groupBySquadron?: boolean;
   showNoResponse?: boolean;
   aarOperationalOnly?: boolean; // Show only operational squadron flights in AAR section
