@@ -11,8 +11,13 @@ import React from 'react';
 import { Plus, Trash2, X } from 'lucide-react';
 
 // Types
+// 'squadron' rules store the squadron UUID (tail codes/designations are never
+// unique identifiers); the other types store the record's name for backward
+// compatibility with existing saved rules.
+export type CriterionType = 'standing' | 'status' | 'qualification' | 'squadron';
+
 export interface EnrollmentRule {
-  type: 'standing' | 'status' | 'qualification';
+  type: CriterionType;
   value: string;
 }
 
@@ -26,6 +31,8 @@ interface CriteriaBlockEditorProps {
   standings: Array<{ id: string; name: string }>;
   statuses: Array<{ id: string; name: string }>;
   qualifications: Array<{ id: string; name: string }>;
+  /** When provided, a Squadron criterion type becomes available (value = squadron id) */
+  squadrons?: Array<{ id: string; name: string }>;
   title?: string;
   description?: string;
   blockLabel?: string;
@@ -38,6 +45,7 @@ const CriteriaBlockEditor: React.FC<CriteriaBlockEditorProps> = ({
   standings,
   statuses,
   qualifications,
+  squadrons,
   title = 'Criteria Rules',
   description = 'Define criteria for matching pilots. Criteria within a block use AND logic. Multiple blocks use OR logic.',
   blockLabel = 'Criteria Block',
@@ -78,7 +86,7 @@ const CriteriaBlockEditor: React.FC<CriteriaBlockEditorProps> = ({
   };
 
   // Update criterion type
-  const handleTypeChange = (blockIndex: number, criterionIndex: number, type: 'standing' | 'status' | 'qualification') => {
+  const handleTypeChange = (blockIndex: number, criterionIndex: number, type: CriterionType) => {
     const updated = [...blocks];
     updated[blockIndex] = {
       ...updated[blockIndex],
@@ -102,7 +110,7 @@ const CriteriaBlockEditor: React.FC<CriteriaBlockEditorProps> = ({
   };
 
   // Get options for a criterion type
-  const getOptions = (type: 'standing' | 'status' | 'qualification') => {
+  const getOptions = (type: CriterionType) => {
     switch (type) {
       case 'standing':
         return standings;
@@ -110,9 +118,22 @@ const CriteriaBlockEditor: React.FC<CriteriaBlockEditorProps> = ({
         return statuses;
       case 'qualification':
         return qualifications;
+      case 'squadron':
+        return squadrons || [];
       default:
         return [];
     }
+  };
+
+  // Squadron rules store the id; everything else stores the name
+  const getOptionValue = (type: CriterionType, option: { id: string; name: string }) =>
+    type === 'squadron' ? option.id : option.name;
+
+  const getDisplayValue = (criterion: EnrollmentRule) => {
+    if (criterion.type === 'squadron') {
+      return (squadrons || []).find(s => s.id === criterion.value)?.name || criterion.value;
+    }
+    return criterion.value;
   };
 
   return (
@@ -245,7 +266,7 @@ const CriteriaBlockEditor: React.FC<CriteriaBlockEditorProps> = ({
                         {/* Type selector */}
                         <select
                           value={criterion.type}
-                          onChange={(e) => handleTypeChange(blockIndex, criterionIndex, e.target.value as 'standing' | 'status' | 'qualification')}
+                          onChange={(e) => handleTypeChange(blockIndex, criterionIndex, e.target.value as CriterionType)}
                           style={{
                             padding: '8px 12px',
                             border: '1px solid #D1D5DB',
@@ -256,6 +277,9 @@ const CriteriaBlockEditor: React.FC<CriteriaBlockEditorProps> = ({
                             cursor: 'pointer'
                           }}
                         >
+                          {squadrons && squadrons.length > 0 && (
+                            <option value="squadron">Squadron</option>
+                          )}
                           <option value="standing">Standing</option>
                           <option value="status">Status</option>
                           <option value="qualification">Qualification</option>
@@ -277,7 +301,7 @@ const CriteriaBlockEditor: React.FC<CriteriaBlockEditorProps> = ({
                         >
                           <option value="">Select {criterion.type}...</option>
                           {getOptions(criterion.type).map(option => (
-                            <option key={option.id} value={option.name}>
+                            <option key={option.id} value={getOptionValue(criterion.type, option)}>
                               {option.name}
                             </option>
                           ))}
@@ -394,7 +418,7 @@ const CriteriaBlockEditor: React.FC<CriteriaBlockEditorProps> = ({
             {blocks.map((block) => {
               const blockDesc = block.criteria
                 .filter(c => c.value)
-                .map(c => `${c.type}: ${c.value}`)
+                .map(c => `${c.type}: ${getDisplayValue(c)}`)
                 .join(' AND ');
               return blockDesc || '(incomplete criteria)';
             }).join(' OR ')}

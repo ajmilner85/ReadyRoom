@@ -103,21 +103,22 @@ const EventAttendance: React.FC<EventAttendanceProps> = ({ event }) => {
       if (cancelled || error) return;
       setEventActivities(activities);
 
-      // Resolve lesson activity display names
+      // Resolve lesson activity display names using the canonical
+      // "Syllabus - Week N - Mission" format (matches the Discord post headers)
       const missionIds = activities
         .filter(a => a.kind === 'lesson' && a.syllabusMissionId)
         .map(a => a.syllabusMissionId as string);
       if (missionIds.length > 0) {
         const { data: missions } = await supabase
           .from('training_syllabus_missions')
-          .select('id, mission_number, mission_name')
+          .select('id, mission_name, week_number, training_syllabi(name)')
           .in('id', missionIds);
         if (!cancelled && missions) {
           const names: Record<string, string> = {};
           missions.forEach((m: any) => {
-            names[m.id] = m.mission_number != null
-              ? `Mission ${m.mission_number}: ${m.mission_name}`
-              : m.mission_name;
+            const syllabusName = m.training_syllabi?.name;
+            const weekPart = m.week_number != null ? `Week ${m.week_number} - ` : '';
+            names[m.id] = `${syllabusName ? `${syllabusName} - ` : ''}${weekPart}${m.mission_name}`;
           });
           setLessonMissionNames(names);
         }

@@ -35,18 +35,19 @@ async function fetchActivityData(supabase, eventId, settings) {
       .select('event_activity_id, pilot_id')
       .in('event_activity_id', activityIds);
 
-    // Resolve display names for lesson and qualification activities
+    // Resolve display names for lesson and qualification activities using the
+    // canonical "Syllabus - Week N - Mission" format
     const missionIds = activities.filter(a => a.syllabus_mission_id).map(a => a.syllabus_mission_id);
     const missionNames = {};
     if (missionIds.length > 0) {
       const { data: missions } = await supabase
         .from('training_syllabus_missions')
-        .select('id, mission_number, mission_name')
+        .select('id, mission_name, week_number, training_syllabi(name)')
         .in('id', missionIds);
       (missions || []).forEach(m => {
-        missionNames[m.id] = m.mission_number != null
-          ? `Mission ${m.mission_number}: ${m.mission_name}`
-          : m.mission_name;
+        const syllabusName = m.training_syllabi?.name;
+        const weekPart = m.week_number != null ? `Week ${m.week_number} - ` : '';
+        missionNames[m.id] = `${syllabusName ? `${syllabusName} - ` : ''}${weekPart}${m.mission_name}`;
       });
     }
 

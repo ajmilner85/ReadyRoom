@@ -507,7 +507,18 @@ export const EventDialog: React.FC<EventDialogProps> = ({
       if (cancelled) return;
       if (!error) {
         if (activities.length === 0 && initialData.syllabusMissionId) {
-          setEventActivities([{ kind: 'lesson', displayOrder: 0, syllabusMissionId: initialData.syllabusMissionId }]);
+          // Legacy event: surface its single mission as one lesson activity and
+          // seed it with the event-level support roles / reference materials so
+          // the save-time aggregation reproduces them exactly
+          setEventActivities([{
+            kind: 'lesson',
+            displayOrder: 0,
+            syllabusMissionId: initialData.syllabusMissionId,
+            settings: {
+              supportRoleRequirements: initialData.eventSettings?.supportRoleRequirements || [],
+              referenceMaterials: initialData.referenceMaterials || []
+            }
+          }]);
         } else {
           setEventActivities(activities);
         }
@@ -914,16 +925,24 @@ export const EventDialog: React.FC<EventDialogProps> = ({
   const isTrainingEvent = eventCycle?.type === 'Training';
 
   // Workflow navigation and validation. With the Event Activities flag on, the
-  // training step becomes an "Activities" step and is available on all events
-  // (parallel activities are not limited to Training cycles).
-  const hasTrainingStep = isTrainingEvent || activitiesEnabled;
-  const steps: Array<{ key: WorkflowStep; title: string; description: string }> = hasTrainingStep
+  // training step becomes an "Activities" step, is available on all events, and
+  // sits before Mission to match the Cycle > Event > Activity > Mission
+  // hierarchy; Participants becomes "Options" (participants are per-activity,
+  // the tab keeps event-wide squadron routing and other options).
+  const steps: Array<{ key: WorkflowStep; title: string; description: string }> = activitiesEnabled
+    ? [
+        { key: 'details', title: 'Event Details', description: 'Basic event information' },
+        { key: 'training', title: 'Activities', description: 'Event activities' },
+        { key: 'mission', title: 'Mission', description: 'Mission requirements' },
+        { key: 'participants', title: 'Options', description: 'Event-wide options' },
+        { key: 'reminders', title: 'Reminders', description: 'Notification settings' },
+        { key: 'publish', title: 'Publish', description: 'Publication settings' }
+      ]
+    : isTrainingEvent
     ? [
         { key: 'details', title: 'Event Details', description: 'Basic event information' },
         { key: 'mission', title: 'Mission', description: 'Mission requirements' },
-        activitiesEnabled
-          ? { key: 'training', title: 'Activities', description: 'Event activities' }
-          : { key: 'training', title: 'Training', description: 'Mission and objectives' },
+        { key: 'training', title: 'Training', description: 'Mission and objectives' },
         { key: 'participants', title: 'Participants', description: 'Who can participate' },
         { key: 'reminders', title: 'Reminders', description: 'Notification settings' },
         { key: 'publish', title: 'Publish', description: 'Publication settings' }
@@ -1199,6 +1218,37 @@ export const EventDialog: React.FC<EventDialogProps> = ({
     }
   };
 
+  // Event Activities: aggregate per-activity values up to the legacy event-level
+  // fields so the Discord bot and flag-off views keep working unchanged.
+  // Required counts are summed per qualification - concurrent activities each
+  // need their own support pilots.
+  const aggregateActivitySupportRoles = (): SupportRoleRequirement[] => {
+    const byQualification = new Map<string, SupportRoleRequirement>();
+    eventActivities.forEach(activity => {
+      (activity.settings?.supportRoleRequirements || []).forEach(req => {
+        const existing = byQualification.get(req.qualificationId);
+        if (existing) {
+          existing.required += req.required;
+        } else {
+          byQualification.set(req.qualificationId, { ...req });
+        }
+      });
+    });
+    return Array.from(byQualification.values());
+  };
+
+  const aggregateActivityReferenceMaterials = (): ReferenceMaterial[] => {
+    const merged: ReferenceMaterial[] = [];
+    eventActivities.forEach(activity => {
+      (activity.settings?.referenceMaterials || []).forEach(ref => {
+        if (!merged.some(existing => existing.url === ref.url)) {
+          merged.push(ref);
+        }
+      });
+    });
+    return merged;
+  };
+
   const handleSubmit = async (shouldPublish: boolean = false) => {
     if (isSubmitting) return; // Prevent multiple submissions
     
@@ -1255,6 +1305,12 @@ export const EventDialog: React.FC<EventDialogProps> = ({
       // console.log('[EVENT-DIALOG-DEBUG] Selected cycle participants:', selectedCycle?.participants);
       console.log('[EVENT-DIALOG-SAVE] allowTentativeResponse state value:', allowTentativeResponse);
 
+      // Per-activity values drive the event-level fields only when activities
+      // exist; an activity-less event keeps legacy behavior even with flag on
+      const useActivityAggregates = activitiesEnabled
+        && (!initialData?.id || activitiesLoaded)
+        && eventActivities.length > 0;
+
       await onSave({
         title: title.trim(),
         description: description.trim(),
@@ -1272,7 +1328,7 @@ export const EventDialog: React.FC<EventDialogProps> = ({
         showNoResponse,
         allowTentativeResponse,
         aarOperationalOnly,
-        supportRoleRequirements,
+        supportRoleRequirements: useActivityAggregates ? aggregateActivitySupportRoles() : supportRoleRequirements,
         timezone,
         reminders: {
           firstReminder: {
@@ -1306,7 +1362,8 @@ export const EventDialog: React.FC<EventDialogProps> = ({
           enabled: false
         },
         // Training workflow fields (Phase 2-3)
-        referenceMaterials: referenceMaterials, // Always pass array, even if empty, to allow deletion
+        // Always pass an array, even if empty, to allow deletion
+        referenceMaterials: useActivityAggregates ? aggregateActivityReferenceMaterials() : referenceMaterials,
         syllabusMissionId: selectedMissionId || undefined,
         // Event activities (developer-flagged): omit entirely when flag is off,
         // or while editing before the persisted activities finished loading
@@ -1811,13 +1868,15 @@ export const EventDialog: React.FC<EventDialogProps> = ({
                 </label>
                 <p style={{ fontSize: '12px', color: '#64748B', margin: '0 0 8px 0', fontFamily: 'Inter' }}>
                   Parallel activities running at this event (a syllabus lesson, separate cadre training,
-                  a qualification pursuit, ...). Accepted pilots are grouped by activity in the attendance
-                  section. Activities appear in this order.
+                  a qualification pursuit, ...). Each activity carries its own support roles, reference
+                  materials, and participant criteria. Accepted pilots are grouped by activity in the
+                  attendance section. Activities appear in this order.
                 </p>
                 <EventActivitiesEditor
                   activities={eventActivities}
                   onChange={setEventActivities}
                   syllabusMissions={syllabusMissions}
+                  squadrons={(squadrons || []).map(s => ({ id: s.id, name: s.designation || s.name }))}
                 />
               </div>
 
@@ -1839,13 +1898,6 @@ export const EventDialog: React.FC<EventDialogProps> = ({
                   </span>
                 </label>
               </div>
-
-              {/* Reference Materials Section */}
-              <ReferenceMaterialsInput
-                value={referenceMaterials}
-                onChange={setReferenceMaterials}
-                inheritedMaterials={inheritedReferences}
-              />
             </div>
           )}
 
@@ -1937,6 +1989,9 @@ export const EventDialog: React.FC<EventDialogProps> = ({
 
           {currentStep === 'mission' && (
             <div>
+              {/* With Event Activities on, support roles are configured per
+                  activity on the Activities step (aggregated on save) */}
+              {!activitiesEnabled && (
               <div style={{ marginBottom: '16px' }}>
                 <label style={{
                   fontSize: '14px',
@@ -1957,6 +2012,7 @@ export const EventDialog: React.FC<EventDialogProps> = ({
                   onChange={setSupportRoleRequirements}
                 />
               </div>
+              )}
 
               <div style={{ marginBottom: '16px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
