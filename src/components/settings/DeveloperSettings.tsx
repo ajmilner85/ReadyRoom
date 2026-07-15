@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Code, Server, CheckCircle, AlertCircle, Trash2 } from 'lucide-react';
+import { Code, Server, CheckCircle, AlertCircle, Trash2, FlaskConical } from 'lucide-react';
 import { getUserSettings, updateDeveloperSettings } from '../../utils/userSettingsService';
 import { UserSettings } from '../../types/UserSettings';
 import { permissionCache } from '../../utils/permissionCache';
@@ -97,6 +97,24 @@ const DeveloperSettings: React.FC<DeveloperSettingsProps> = ({ setError }) => {
     } catch (err: any) {
       setSaveStatus('error');
       setError?.(err.message || 'Error updating bot token setting');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleEventActivitiesToggle = async (enabled: boolean) => {
+    if (!settings) return;
+
+    setSaving(true);
+    try {
+      const result = await updateDeveloperSettings({ enableEventActivities: enabled });
+      if (result.success && result.data) {
+        setSettings(result.data);
+      } else {
+        setError?.(result.error || 'Failed to update event activities setting');
+      }
+    } catch (err: any) {
+      setError?.(err.message || 'Error updating event activities setting');
     } finally {
       setSaving(false);
     }
@@ -313,6 +331,48 @@ const DeveloperSettings: React.FC<DeveloperSettingsProps> = ({ setError }) => {
               </span>
             </div>
           )}
+        </div>
+
+        {/* Experimental Features Section */}
+        <div style={sectionStyle}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
+            <FlaskConical size={20} style={{ color: '#7C3AED' }} />
+            <h3 style={{ fontSize: '18px', fontWeight: 600, color: '#0F172A', margin: 0 }}>
+              Experimental Features
+            </h3>
+          </div>
+
+          <p style={{ fontSize: '14px', color: '#64748B', margin: '0 0 24px 0', fontFamily: 'Inter' }}>
+            Feature flags for in-development functionality. These only affect your account; other users see the current production behavior.
+          </p>
+
+          <label style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px',
+            padding: '16px',
+            border: settings?.developer?.enableEventActivities ? '2px solid #3B82F6' : '1px solid #E2E8F0',
+            borderRadius: '8px',
+            backgroundColor: settings?.developer?.enableEventActivities ? '#EFF6FF' : '#FFFFFF',
+            cursor: 'pointer',
+            transition: 'all 0.2s ease'
+          }}>
+            <input
+              type="checkbox"
+              checked={settings?.developer?.enableEventActivities || false}
+              onChange={(e) => handleEventActivitiesToggle(e.target.checked)}
+              disabled={saving}
+              style={{ marginRight: '4px' }}
+            />
+            <div>
+              <div style={{ fontWeight: 500, color: '#0F172A', fontSize: '14px' }}>
+                Event Activities
+              </div>
+              <div style={{ fontSize: '12px', color: '#64748B', marginTop: '2px' }}>
+                Per-event parallel activities (syllabus lessons, ad-hoc objectives, qualification pursuits) replacing the single Training mission step. Only test against new, unpublished events.
+              </div>
+            </div>
+          </label>
         </div>
 
         {/* Permission Cache Section */}

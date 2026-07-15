@@ -1,11 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { X, Clock, Image as ImageIcon, ChevronLeft, ChevronRight, Check, Plus, CheckSquare } from 'lucide-react';
 import { useAppSettings } from '../../../context/AppSettingsContext';
 import { fetchDiscordGuildRoles } from '../../../utils/discordService';
-import { supabase } from '../../../utils/supabaseClient';
+import { supabase, getEventActivities } from '../../../utils/supabaseClient';
+import { getUserSettings } from '../../../utils/userSettingsService';
 import ReferenceMaterialsInput from './ReferenceMaterialsInput';
 import SupportRoleRequirementsEditor from './SupportRoleRequirementsEditor';
-import type { ReferenceMaterial, TrainingSyllabusMission } from '../../../types/EventTypes';
+import EventActivitiesEditor from './EventActivitiesEditor';
+import type { ReferenceMaterial, TrainingSyllabusMission, EventActivity } from '../../../types/EventTypes';
 import type { SupportRoleRequirement } from '../../../utils/supabaseClient';
 
 interface EventDialogProps {
@@ -58,6 +60,7 @@ interface EventDialogProps {
     };
     referenceMaterials?: ReferenceMaterial[];
     syllabusMissionId?: string;
+    activities?: EventActivity[]; // developer-flagged; only present when the Event Activities flag is on
     includeInAttendanceReport?: boolean;
   }, shouldPublish?: boolean) => Promise<void>;
   onCancel: () => void;
@@ -299,6 +302,13 @@ export const EventDialog: React.FC<EventDialogProps> = ({
     settings.eventDefaults.scheduledPublicationOffset
   );
 
+  // Event Activities state (developer-flagged feature). When the flag is off,
+  // none of this is read and the dialog behaves exactly as before.
+  const [activitiesEnabled, setActivitiesEnabled] = useState(false);
+  const [eventActivities, setEventActivities] = useState<EventActivity[]>([]);
+  const [activitiesLoaded, setActivitiesLoaded] = useState(false);
+  const activitiesPrefilledRef = useRef(false);
+
   // Training syllabus state
   const [syllabusMissions, setSyllabusMissions] = useState<TrainingSyllabusMission[]>([]);
   const [selectedMissionId, setSelectedMissionId] = useState<string>(initialData?.syllabusMissionId || '');
@@ -471,6 +481,56 @@ export const EventDialog: React.FC<EventDialogProps> = ({
       setParticipatingSquadrons(selectedCycle.participants);
     }
   }, [selectedCycle?.participants, initialData?.participants]);
+
+  // Event Activities: read the developer feature flag once on mount
+  useEffect(() => {
+    let cancelled = false;
+    getUserSettings().then(result => {
+      if (!cancelled && result.success && result.data?.developer?.enableEventActivities) {
+        setActivitiesEnabled(true);
+      }
+    });
+    return () => { cancelled = true; };
+  }, []);
+
+  // Event Activities: load persisted activities when editing (flag on only).
+  // A legacy event with no activity rows surfaces its single syllabus mission as
+  // one lesson activity so saving can't silently null events.syllabus_mission_id.
+  useEffect(() => {
+    if (!activitiesEnabled || !initialData?.id || activitiesLoaded) return;
+    let cancelled = false;
+    getEventActivities(initialData.id).then(({ activities, error }) => {
+      if (cancelled) return;
+      if (!error) {
+        if (activities.length === 0 && initialData.syllabusMissionId) {
+          setEventActivities([{ kind: 'lesson', displayOrder: 0, syllabusMissionId: initialData.syllabusMissionId }]);
+        } else {
+          setEventActivities(activities);
+        }
+        setActivitiesLoaded(true);
+      }
+    });
+    return () => { cancelled = true; };
+  }, [activitiesEnabled, initialData?.id, initialData?.syllabusMissionId, activitiesLoaded]);
+
+  // Event Activities: prefill one lesson activity for new Training-cycle events
+  // using the auto-selected next mission (mirrors the legacy behavior)
+  useEffect(() => {
+    if (!activitiesEnabled || activitiesPrefilledRef.current || initialData?.id) return;
+    if (!selectedMissionId || eventActivities.length > 0) return;
+    activitiesPrefilledRef.current = true;
+    setEventActivities([{ kind: 'lesson', displayOrder: 0, syllabusMissionId: selectedMissionId }]);
+  }, [activitiesEnabled, selectedMissionId, eventActivities.length, initialData?.id]);
+
+  // Event Activities: keep the legacy selectedMissionId in sync with the first
+  // lesson activity so inherited reference materials keep working (flag on only)
+  useEffect(() => {
+    if (!activitiesEnabled) return;
+    if (initialData?.id && !activitiesLoaded) return; // don't clobber while loading
+    const firstLesson = eventActivities.find(a => a.kind === 'lesson' && a.syllabusMissionId);
+    const target = firstLesson?.syllabusMissionId || '';
+    setSelectedMissionId(prev => (prev === target ? prev : target));
+  }, [activitiesEnabled, activitiesLoaded, eventActivities, initialData?.id]);
 
   // Load syllabus missions when cycle has a syllabus
   useEffect(() => {
@@ -849,12 +909,17 @@ export const EventDialog: React.FC<EventDialogProps> = ({
   const eventCycle = selectedCycle || (cycleId ? cycles?.find(c => c.id === cycleId) : null);
   const isTrainingEvent = eventCycle?.type === 'Training';
 
-  // Workflow navigation and validation
-  const steps: Array<{ key: WorkflowStep; title: string; description: string }> = isTrainingEvent
+  // Workflow navigation and validation. With the Event Activities flag on, the
+  // training step becomes an "Activities" step and is available on all events
+  // (parallel activities are not limited to Training cycles).
+  const hasTrainingStep = isTrainingEvent || activitiesEnabled;
+  const steps: Array<{ key: WorkflowStep; title: string; description: string }> = hasTrainingStep
     ? [
         { key: 'details', title: 'Event Details', description: 'Basic event information' },
         { key: 'mission', title: 'Mission', description: 'Mission requirements' },
-        { key: 'training', title: 'Training', description: 'Mission and objectives' },
+        activitiesEnabled
+          ? { key: 'training', title: 'Activities', description: 'Event activities' }
+          : { key: 'training', title: 'Training', description: 'Mission and objectives' },
         { key: 'participants', title: 'Participants', description: 'Who can participate' },
         { key: 'reminders', title: 'Reminders', description: 'Notification settings' },
         { key: 'publish', title: 'Publish', description: 'Publication settings' }
@@ -891,7 +956,28 @@ export const EventDialog: React.FC<EventDialogProps> = ({
         return { isValid: true };
 
       case 'training':
-        // Training step validation (optional - no required fields)
+        // Legacy training step has no required fields. With the Event Activities
+        // flag on, every activity must satisfy its kind's payload requirement
+        // (mirrors the event_activities CHECK constraint).
+        if (activitiesEnabled) {
+          for (const activity of eventActivities) {
+            if (activity.kind === 'lesson' && !activity.syllabusMissionId) {
+              return { isValid: false, errorMessage: 'Each Syllabus Lesson activity needs a mission selected' };
+            }
+            if (activity.kind === 'objectives') {
+              const objectives = activity.adHocObjectives || [];
+              if (objectives.length === 0) {
+                return { isValid: false, errorMessage: 'Each Ad-hoc Objectives activity needs at least one objective' };
+              }
+              if (objectives.some(o => !o.text.trim())) {
+                return { isValid: false, errorMessage: 'Ad-hoc objectives cannot be empty' };
+              }
+            }
+            if (activity.kind === 'qualification' && !activity.qualificationId) {
+              return { isValid: false, errorMessage: 'Each Qualification Pursuit activity needs a qualification selected' };
+            }
+          }
+        }
         return { isValid: true };
 
       case 'mission':
@@ -1117,7 +1203,7 @@ export const EventDialog: React.FC<EventDialogProps> = ({
     console.log('[SUBMIT-DEBUG] Second reminder enabled:', secondReminderEnabled, 'value:', secondReminderValue, 'unit:', secondReminderUnit);
     
     // Validate ALL steps before submission
-    const stepsToValidate: WorkflowStep[] = ['details', 'mission', 'participants', 'reminders', 'publish'];
+    const stepsToValidate: WorkflowStep[] = ['details', 'mission', 'training', 'participants', 'reminders', 'publish'];
     for (const step of stepsToValidate) {
       console.log('[SUBMIT-DEBUG] Validating step:', step);
       const validation = validateStep(step);
@@ -1218,6 +1304,11 @@ export const EventDialog: React.FC<EventDialogProps> = ({
         // Training workflow fields (Phase 2-3)
         referenceMaterials: referenceMaterials, // Always pass array, even if empty, to allow deletion
         syllabusMissionId: selectedMissionId || undefined,
+        // Event activities (developer-flagged): omit entirely when flag is off,
+        // or while editing before the persisted activities finished loading
+        ...(activitiesEnabled && (!initialData?.id || activitiesLoaded)
+          ? { activities: eventActivities }
+          : {}),
         cycleId,
         // Only include if part of a cycle
         includeInAttendanceReport: cycleId ? includeInAttendanceReport : undefined
@@ -1702,7 +1793,40 @@ export const EventDialog: React.FC<EventDialogProps> = ({
             </div>
           )}
 
-          {currentStep === 'training' && (
+          {currentStep === 'training' && activitiesEnabled && (
+            <div>
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{
+                  fontSize: '14px',
+                  fontWeight: 500,
+                  color: '#64748B',
+                  marginBottom: '4px',
+                  display: 'block'
+                }}>
+                  Activities
+                </label>
+                <p style={{ fontSize: '12px', color: '#64748B', margin: '0 0 8px 0', fontFamily: 'Inter' }}>
+                  Parallel activities running at this event (a syllabus lesson, separate cadre training,
+                  a qualification pursuit, ...). Accepted pilots are grouped by activity in the attendance
+                  section. Activities appear in this order.
+                </p>
+                <EventActivitiesEditor
+                  activities={eventActivities}
+                  onChange={setEventActivities}
+                  syllabusMissions={syllabusMissions}
+                />
+              </div>
+
+              {/* Reference Materials Section */}
+              <ReferenceMaterialsInput
+                value={referenceMaterials}
+                onChange={setReferenceMaterials}
+                inheritedMaterials={inheritedReferences}
+              />
+            </div>
+          )}
+
+          {currentStep === 'training' && !activitiesEnabled && (
             <div>
               {/* Syllabus Mission Selector */}
               {syllabusMissions.length > 0 && (

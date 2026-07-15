@@ -1,6 +1,6 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { Database } from '../types/supabase';
-import { Cycle, CycleType, Event, EventType } from '../types/EventTypes';
+import { Cycle, CycleType, Event, EventType, EventActivity } from '../types/EventTypes';
 
 let client: SupabaseClient<Database> | null = null;
 
@@ -648,6 +648,18 @@ export const createEvent = async (event: Omit<Event, 'id' | 'creator' | 'attenda
     return { event: null, error };
   }
 
+  // Event activities (developer-flagged): only present when the flag-gated
+  // editor supplied them; flag-off saves never reach this branch.
+  let savedActivities: EventActivity[] | undefined;
+  const activitiesToSave = (event as any).activities as EventActivity[] | undefined;
+  if (activitiesToSave !== undefined) {
+    const { activities, error: activitiesError } = await saveEventActivities(data.id, data.cycle_id || null, activitiesToSave);
+    if (activitiesError) {
+      console.error('[CREATE-EVENT] Event created but saving activities failed:', activitiesError);
+    } else {
+      savedActivities = activities;
+    }
+  }
 
   // Transform to frontend format
   const newEvent: Event = {
@@ -675,7 +687,8 @@ export const createEvent = async (event: Omit<Event, 'id' | 'creator' | 'attenda
     },
     // Training workflow fields (Phase 2-3)
     syllabusMissionId: data.syllabus_mission_id || undefined,
-    referenceMaterials: (Array.isArray(data.reference_materials) ? data.reference_materials : []) as any
+    referenceMaterials: (Array.isArray(data.reference_materials) ? data.reference_materials : []) as any,
+    activities: savedActivities
   };
 
   return { event: newEvent, error: null };
@@ -808,6 +821,23 @@ export const updateEvent = async (eventId: string, updates: Partial<Omit<Event, 
   }
   if ((updates as any).syllabusMissionId !== undefined) {
     dbUpdates.syllabus_mission_id = (updates as any).syllabusMissionId;
+  }
+
+  // Event activities (developer-flagged): only present when the flag-gated
+  // editor supplied them; flag-off saves never reach this branch.
+  const activitiesToSave = (updates as any).activities as EventActivity[] | undefined;
+  if (activitiesToSave !== undefined) {
+    const cycleIdForActivities = 'cycleId' in (updates as any)
+      ? ((updates as any).cycleId || null)
+      : null;
+    const { error: activitiesError } = await saveEventActivities(eventId, cycleIdForActivities, activitiesToSave);
+    if (activitiesError) {
+      console.error('[UPDATE-EVENT] Saving activities failed:', activitiesError);
+      return { event: null, error: activitiesError };
+    }
+    // saveEventActivities dual-writes syllabus_mission_id; drop any stale copy
+    // from dbUpdates so the row update below can't overwrite it inconsistently
+    delete dbUpdates.syllabus_mission_id;
   }
 
   // Check if we have any updates to apply
@@ -985,6 +1015,142 @@ export const deleteEvent = async (eventId: string) => {
   }
 
   return { error };
+};
+
+// Event Activities API (developer-flagged feature)
+// An event with zero activity rows behaves exactly as today everywhere; these
+// functions are only called from flag-gated code paths.
+
+const mapDbEventActivity = (row: any): EventActivity => ({
+  id: row.id,
+  eventId: row.event_id,
+  cycleId: row.cycle_id || undefined,
+  kind: row.kind,
+  displayOrder: row.display_order ?? 0,
+  syllabusMissionId: row.syllabus_mission_id || undefined,
+  qualificationId: row.qualification_id || undefined,
+  label: row.label || undefined,
+  adHocObjectives: Array.isArray(row.ad_hoc_objectives) ? row.ad_hoc_objectives : undefined,
+  settings: row.settings || {}
+});
+
+export const getEventActivities = async (eventId: string): Promise<{ activities: EventActivity[]; error: any }> => {
+  const { data, error } = await (supabase as any)
+    .from('event_activities')
+    .select('*')
+    .eq('event_id', eventId)
+    .order('display_order');
+
+  if (error) {
+    console.error('[EVENT-ACTIVITIES] Error loading activities:', error);
+    return { activities: [], error };
+  }
+
+  return { activities: (data || []).map(mapDbEventActivity), error: null };
+};
+
+// Batch variant for roster grouping (one query for a page of events)
+export const getEventActivitiesForEvents = async (eventIds: string[]): Promise<{ activitiesByEvent: Record<string, EventActivity[]>; error: any }> => {
+  if (eventIds.length === 0) return { activitiesByEvent: {}, error: null };
+
+  const { data, error } = await (supabase as any)
+    .from('event_activities')
+    .select('*')
+    .in('event_id', eventIds)
+    .order('display_order');
+
+  if (error) {
+    console.error('[EVENT-ACTIVITIES] Error batch loading activities:', error);
+    return { activitiesByEvent: {}, error };
+  }
+
+  const activitiesByEvent: Record<string, EventActivity[]> = {};
+  (data || []).forEach((row: any) => {
+    const activity = mapDbEventActivity(row);
+    if (!activitiesByEvent[row.event_id]) activitiesByEvent[row.event_id] = [];
+    activitiesByEvent[row.event_id].push(activity);
+  });
+  return { activitiesByEvent, error: null };
+};
+
+/**
+ * Replace the full set of activities for an event (array order = display_order).
+ * Also dual-writes events.syllabus_mission_id from the first 'lesson' activity so
+ * PTR/grading/Discord keep reading the legacy column unchanged.
+ */
+export const saveEventActivities = async (
+  eventId: string,
+  cycleId: string | null,
+  activities: EventActivity[]
+): Promise<{ activities: EventActivity[]; error: any }> => {
+  // Load existing rows to compute deletions (grades referencing a deleted
+  // activity fall back to NULL via ON DELETE SET NULL)
+  const { data: existing, error: loadError } = await (supabase as any)
+    .from('event_activities')
+    .select('id')
+    .eq('event_id', eventId);
+
+  if (loadError) return { activities: [], error: loadError };
+
+  const keptIds = new Set(activities.filter(a => a.id).map(a => a.id as string));
+  const toDelete = (existing || []).map((r: any) => r.id).filter((id: string) => !keptIds.has(id));
+
+  if (toDelete.length > 0) {
+    const { error: deleteError } = await (supabase as any)
+      .from('event_activities')
+      .delete()
+      .in('id', toDelete);
+    if (deleteError) return { activities: [], error: deleteError };
+  }
+
+  const saved: EventActivity[] = [];
+  for (let i = 0; i < activities.length; i++) {
+    const activity = activities[i];
+    const row: any = {
+      event_id: eventId,
+      cycle_id: cycleId,
+      kind: activity.kind,
+      display_order: i,
+      syllabus_mission_id: activity.kind === 'lesson' ? (activity.syllabusMissionId || null) : null,
+      qualification_id: activity.kind === 'qualification' ? (activity.qualificationId || null) : null,
+      label: activity.label || null,
+      ad_hoc_objectives: activity.kind === 'objectives' ? (activity.adHocObjectives || []) : null,
+      settings: activity.settings || {}
+    };
+
+    if (activity.id) {
+      const { data, error } = await (supabase as any)
+        .from('event_activities')
+        .update(row)
+        .eq('id', activity.id)
+        .select()
+        .single();
+      if (error) return { activities: saved, error };
+      saved.push(mapDbEventActivity(data));
+    } else {
+      const { data, error } = await (supabase as any)
+        .from('event_activities')
+        .insert(row)
+        .select()
+        .single();
+      if (error) return { activities: saved, error };
+      saved.push(mapDbEventActivity(data));
+    }
+  }
+
+  // Dual-write: keep events.syllabus_mission_id in sync with the first 'lesson'
+  // activity so PTR/grading and the Discord bot read it exactly as before.
+  const firstLesson = activities.find(a => a.kind === 'lesson' && a.syllabusMissionId);
+  const { error: dualWriteError } = await supabase
+    .from('events')
+    .update({ syllabus_mission_id: firstLesson?.syllabusMissionId || null } as any)
+    .eq('id', eventId);
+  if (dualWriteError) {
+    console.error('[EVENT-ACTIVITIES] Dual-write of syllabus_mission_id failed:', dualWriteError);
+    return { activities: saved, error: dualWriteError };
+  }
+
+  return { activities: saved, error: null };
 };
 
 // Event Attendance API
