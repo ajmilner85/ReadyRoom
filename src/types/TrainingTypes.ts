@@ -326,6 +326,7 @@ export interface PTRCellData {
   missionNumber: number | null;
   syllabusMissionId: string;
   studentId: string;
+  eventActivityId?: string; // Set when grading in the context of a specific event activity
 
   // Attendance (from roll_call_response)
   wasPresent: boolean;

@@ -1,11 +1,12 @@
 import React, { useEffect, useRef, useState } from 'react';
-import type { Event, Cycle } from '../../../types/EventTypes';
+import type { Event, Cycle, EventActivity } from '../../../types/EventTypes';
 import QualificationBadge from '../QualificationBadge';
 import { getPilotByDiscordId } from '../../../utils/pilotService';
 import type { Pilot } from '../../../utils/pilotTypes';
-import { fetchCycles } from '../../../utils/supabaseClient';
+import { supabase, fetchCycles, getEventActivities, getEventActivityParticipantsForEvent, setPilotActivityAssignment } from '../../../utils/supabaseClient';
 import { getBatchPilotQualifications, getAllQualifications } from '../../../utils/qualificationService';
 import { getCycleEnrollments } from '../../../utils/trainingEnrollmentService';
+import { getUserSettings } from '../../../utils/userSettingsService';
 
 interface EventAttendanceProps {
   event: Event | null;
@@ -52,6 +53,13 @@ const EventAttendance: React.FC<EventAttendanceProps> = ({ event }) => {
   const [qualificationConfigs, setQualificationConfigs] = useState<any[]>([]);
   const [enrolledTraineePilotIds, setEnrolledTraineePilotIds] = useState<Set<string>>(new Set());
 
+  // Event Activities (developer-flagged). When the flag is off or the event has
+  // no activity rows, grouping behaves exactly as before.
+  const [activitiesEnabled, setActivitiesEnabled] = useState(false);
+  const [eventActivities, setEventActivities] = useState<EventActivity[]>([]);
+  const [lessonMissionNames, setLessonMissionNames] = useState<Record<string, string>>({});
+  const [activityOverrides, setActivityOverrides] = useState<Record<string, string>>({}); // pilotId -> activityId
+
   // Load qualification configs once on component mount
   useEffect(() => {
     const loadQualificationConfigs = async () => {
@@ -67,6 +75,95 @@ const EventAttendance: React.FC<EventAttendanceProps> = ({ event }) => {
     
     loadQualificationConfigs();
   }, []);
+
+  // Event Activities: read the developer feature flag once on mount
+  useEffect(() => {
+    let cancelled = false;
+    getUserSettings().then(result => {
+      if (!cancelled && result.success && result.data?.developer?.enableEventActivities) {
+        setActivitiesEnabled(true);
+      }
+    });
+    return () => { cancelled = true; };
+  }, []);
+
+  // Event Activities: load activities + explicit assignments when the event changes
+  useEffect(() => {
+    if (!activitiesEnabled || !event?.id) {
+      setEventActivities([]);
+      setActivityOverrides({});
+      setLessonMissionNames({});
+      return;
+    }
+
+    let cancelled = false;
+    const load = async () => {
+      const eventId = event.id;
+      const { activities, error } = await getEventActivities(eventId);
+      if (cancelled || error) return;
+      setEventActivities(activities);
+
+      // Resolve lesson activity display names
+      const missionIds = activities
+        .filter(a => a.kind === 'lesson' && a.syllabusMissionId)
+        .map(a => a.syllabusMissionId as string);
+      if (missionIds.length > 0) {
+        const { data: missions } = await supabase
+          .from('training_syllabus_missions')
+          .select('id, mission_number, mission_name')
+          .in('id', missionIds);
+        if (!cancelled && missions) {
+          const names: Record<string, string> = {};
+          missions.forEach((m: any) => {
+            names[m.id] = m.mission_number != null
+              ? `Mission ${m.mission_number}: ${m.mission_name}`
+              : m.mission_name;
+          });
+          setLessonMissionNames(names);
+        }
+      } else {
+        setLessonMissionNames({});
+      }
+
+      const { participants } = await getEventActivityParticipantsForEvent(eventId);
+      if (!cancelled) {
+        const overrides: Record<string, string> = {};
+        participants.forEach(p => { overrides[p.pilotId] = p.eventActivityId; });
+        setActivityOverrides(overrides);
+      }
+    };
+    load();
+    return () => { cancelled = true; };
+  }, [activitiesEnabled, event?.id]);
+
+  // Event Activities: display name for a group header
+  const getActivityDisplayName = (activity: EventActivity): string => {
+    if (activity.label) return activity.label;
+    if (activity.kind === 'lesson' && activity.syllabusMissionId) {
+      return lessonMissionNames[activity.syllabusMissionId] || 'Syllabus Lesson';
+    }
+    if (activity.kind === 'qualification' && activity.qualificationId) {
+      const qual = qualificationConfigs.find(q => q.id === activity.qualificationId);
+      return qual ? `${qual.name} Pursuit` : 'Qualification Pursuit';
+    }
+    return 'Objectives';
+  };
+
+  // Event Activities: change a pilot's explicit assignment ('' = back to Auto)
+  const handleAssignPilotToActivity = async (pilotId: string, activityId: string) => {
+    if (!event?.id) return;
+    const previous = activityOverrides;
+    setActivityOverrides(prev => {
+      const next = { ...prev };
+      if (activityId) next[pilotId] = activityId; else delete next[pilotId];
+      return next;
+    });
+    const { error: assignError } = await setPilotActivityAssignment(event.id, pilotId, activityId || null);
+    if (assignError) {
+      console.error('Failed to save activity assignment:', assignError);
+      setActivityOverrides(previous);
+    }
+  };
 
   // Function to fetch attendance data from API
   const fetchAttendance = async (eventId: string) => {
@@ -256,6 +353,12 @@ const EventAttendance: React.FC<EventAttendanceProps> = ({ event }) => {
 
   // Sort qualification groups based on event type
   const sortQualificationGroups = (groups: [string, AttendanceData[]][]) => {
+    // Activity grouping builds groups already in display order (activity
+    // display_order); re-sorting by name/qualification would scramble it
+    if (activitiesEnabled && eventActivities.length > 0) {
+      return groups;
+    }
+
     const isTrainingEvent = event?.eventType === 'Hop' ||
                             (event?.cycleId && cycles.find(c => c.id === event.cycleId)?.type === 'Training');
 
@@ -290,9 +393,76 @@ const EventAttendance: React.FC<EventAttendanceProps> = ({ event }) => {
     const attendeesWithoutPilots = attendance
       .filter(a => a.status === status && !a.pilotRecord);
 
+    // Event Activities (flag-gated): group by what each pilot is doing.
+    // Explicit override wins; otherwise IPs group together, cycle enrollees go
+    // to the first lesson activity, and everyone else groups by squadron.
+    if (activitiesEnabled && eventActivities.length > 0 && attendeesWithPilots.length > 0) {
+      const instructorPilots: AttendanceData[] = [];
+      const activityGroups: Record<string, AttendanceData[]> = {};
+      eventActivities.forEach(a => { if (a.id) activityGroups[a.id] = []; });
+      const firstLesson = eventActivities.find(a => a.kind === 'lesson' && a.id);
+
+      const squadronGroups: Record<string, AttendanceData[]> = {};
+      const squadronDesignations: Record<string, string> = {};
+
+      attendeesWithPilots.forEach(attendee => {
+        const pilotId = attendee.pilotRecord?.id;
+
+        // 1. Explicit organizer override
+        const overrideActivityId = pilotId ? activityOverrides[pilotId] : undefined;
+        if (overrideActivityId && activityGroups[overrideActivityId]) {
+          activityGroups[overrideActivityId].push(attendee);
+          return;
+        }
+
+        // 2. Instructor Pilots group together
+        if (attendee.pilotRecord?.qualifications?.some((q: any) => q.type === 'Instructor Pilot')) {
+          instructorPilots.push(attendee);
+          return;
+        }
+
+        // 3. Cycle enrollees are inferred onto the first lesson activity
+        if (pilotId && enrolledTraineePilotIds.has(pilotId) && firstLesson?.id) {
+          activityGroups[firstLesson.id].push(attendee);
+          return;
+        }
+
+        // 4. Everyone else groups by squadron (never key by tail code)
+        const squadronId = attendee.pilotRecord?.currentSquadron?.id || 'no-squadron';
+        const designation = attendee.pilotRecord?.currentSquadron?.designation || 'No Squadron';
+        if (!squadronDesignations[squadronId]) squadronDesignations[squadronId] = designation;
+        if (!squadronGroups[squadronId]) squadronGroups[squadronId] = [];
+        squadronGroups[squadronId].push(attendee);
+      });
+
+      // Assemble in display order: IPs, activities (display_order), squadrons.
+      // Suffix duplicate display names so groups can't collide in the record.
+      const orderedGroups: Record<string, AttendanceData[]> = {};
+      if (instructorPilots.length > 0) orderedGroups['Instructor Pilots'] = instructorPilots;
+      eventActivities.forEach(activity => {
+        if (!activity.id) return;
+        let name = getActivityDisplayName(activity);
+        while (name in orderedGroups) name = `${name} •`;
+        orderedGroups[name] = activityGroups[activity.id];
+      });
+      Object.entries(squadronGroups)
+        .sort(([idA], [idB]) => squadronDesignations[idA].localeCompare(squadronDesignations[idB]))
+        .forEach(([squadronId, pilots]) => {
+          let name = squadronDesignations[squadronId];
+          while (name in orderedGroups) name = `${name} •`;
+          orderedGroups[name] = pilots;
+        });
+
+      return {
+        attendeesWithPilots: [],
+        attendeesWithoutPilots,
+        qualificationGroups: orderedGroups
+      };
+    }
+
     // Check if qualification grouping is enabled
-    const shouldGroupByQualifications = event?.eventSettings?.groupResponsesByQualification || 
-                                        event?.trackQualifications || 
+    const shouldGroupByQualifications = event?.eventSettings?.groupResponsesByQualification ||
+                                        event?.trackQualifications ||
                                         (event?.eventType === 'Hop' || event?.cycleId && cycles.find(c => c.id === event.cycleId)?.type === 'Training');
 
     if (shouldGroupByQualifications && attendeesWithPilots.length > 0) {
@@ -505,6 +675,35 @@ const EventAttendance: React.FC<EventAttendanceProps> = ({ event }) => {
                 });
               })()}
             </div>
+
+            {/* Event Activities: explicit assignment override (flag-gated).
+                Hidden on Mission Support groups (countLabel) which are
+                orthogonal to activities. */}
+            {activitiesEnabled && eventActivities.length > 0 && countLabel === undefined && pilot.pilotRecord?.id && (
+              <select
+                value={activityOverrides[pilot.pilotRecord.id] || ''}
+                onChange={(e) => handleAssignPilotToActivity(pilot.pilotRecord!.id, e.target.value)}
+                title="Assign this pilot to an activity (Auto = inferred from enrollment/qualifications)"
+                style={{
+                  marginLeft: '8px',
+                  maxWidth: '110px',
+                  padding: '2px 4px',
+                  border: '1px solid #E2E8F0',
+                  borderRadius: '4px',
+                  fontSize: '12px',
+                  color: '#64748B',
+                  backgroundColor: '#FFFFFF',
+                  fontFamily: "'Inter', sans-serif"
+                }}
+              >
+                <option value="">Auto</option>
+                {eventActivities.filter(a => a.id).map(activity => (
+                  <option key={activity.id} value={activity.id}>
+                    {getActivityDisplayName(activity)}
+                  </option>
+                ))}
+              </select>
+            )}
           </div>
         ))}
       </div>
