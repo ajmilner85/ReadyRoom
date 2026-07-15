@@ -393,11 +393,113 @@ async function createEventEmbed(title, description, eventTime, responses = {}, c
   const hasNoResponses = accepted.length === 0 && tentative.length === 0 && declined.length === 0;
   const shouldShowNoResponse = eventOptions.showNoResponse && noResponse.length > 0;
 
+  // Event Activities grouping (opt-in per event via event_settings.groupByActivity;
+  // eventOptions.activityData is null for every event that hasn't enabled it)
+  const activityData = eventOptions.activityData || null;
+
   if (hasNoResponses && !shouldShowNoResponse) {
     // Add placeholder text when no responses have been recorded yet AND showNoResponse is disabled or has no users
     embed.addFields(
       { name: '\u200B', value: '*No Responses Recorded Yet*', inline: false }
     );
+  } else if (activityData && activityData.activities.length > 0) {
+    // ACTIVITY GROUPING: accepted pilots grouped by what they're doing.
+    // Explicit override wins; then enrolled instructors (or IP qualification as
+    // fallback) group as IP; cycle enrollees go to the first lesson activity;
+    // everyone else lands in Other Participants.
+    console.log(`[EMBED-STRUCTURE] Building with activity grouping (${activityData.activities.length} activities)`);
+
+    const traineeIds = new Set(trainingEnrollees.map(e => e.pilot_id));
+    const instructorIds = new Set(instructorEnrollees.map(e => e.pilot_id));
+    const byActivity = new Map(activityData.activities.map(a => [a.id, []]));
+    const firstLesson = activityData.activities.find(a => a.kind === 'lesson');
+    const ips = [];
+    const others = [];
+
+    accepted.forEach(entry => {
+      const pilotId = entry.pilotRecord?.id;
+
+      const overrideId = pilotId ? activityData.overridesByPilot[pilotId] : undefined;
+      if (overrideId && byActivity.has(overrideId)) {
+        byActivity.get(overrideId).push(entry);
+        return;
+      }
+
+      const isIP = instructorIds.size > 0
+        ? (pilotId && instructorIds.has(pilotId) && !traineeIds.has(pilotId))
+        : (entry.pilotRecord?.qualifications || []).includes('Instructor Pilot');
+      if (isIP) {
+        ips.push(entry);
+        return;
+      }
+
+      if (pilotId && traineeIds.has(pilotId) && firstLesson) {
+        byActivity.get(firstLesson.id).push(entry);
+        return;
+      }
+
+      others.push(entry);
+    });
+
+    const activityFields = [];
+    if (ips.length > 0) {
+      activityFields.push({ name: `<:Hornet:541484781515440128> *IP (${ips.length})*`, value: formatQualGroup(ips), inline: true });
+    }
+    activityData.activities.forEach(activity => {
+      const pilots = byActivity.get(activity.id) || [];
+      activityFields.push({ name: `*${activity.displayName} (${pilots.length})*`, value: formatQualGroup(pilots), inline: true });
+    });
+    if (others.length > 0) {
+      activityFields.push({ name: `*Other Participants (${others.length})*`, value: formatQualGroup(others), inline: true });
+    }
+    // Pad to full rows of 3 so following sections align correctly
+    while (activityFields.length % 3 !== 0) {
+      activityFields.push({ name: '\u200B', value: '\u200B', inline: true });
+    }
+    embed.addFields(...activityFields);
+
+    // Mission Support section (ONLY accepted pilots)
+    {
+      const missionSupportFields = buildMissionSupportEmbedFields(accepted);
+      if (missionSupportFields.length > 0) {
+        embed.addFields(...missionSupportFields);
+      }
+    }
+
+    // Tentative / Declined / No Response tail (same as the other layouts)
+    if (shouldShowNoResponse) {
+      if (allowTentative) {
+        const tentativeText = tentative.length > 0 ? createBlockQuote(tentative) : '-';
+        const declinedText = declined.length > 0 ? createBlockQuote(declined) : '-';
+        const noResponseText = createBlockQuote(noResponse);
+
+        embed.addFields(
+          { name: `\u2753 **Tentative** (${tentative.length})`, value: tentativeText, inline: true },
+          { name: `\u274C **Declined** (${declined.length})`, value: declinedText, inline: true },
+          { name: `\u23F3 **No Response** (${noResponse.length})`, value: noResponseText, inline: true }
+        );
+      } else {
+        const declinedText = declined.length > 0 ? createBlockQuote(declined) : '-';
+        const noResponseText = createBlockQuote(noResponse);
+
+        embed.addFields(
+          { name: `\u274C **Declined** (${declined.length})`, value: declinedText, inline: true },
+          { name: `\u23F3 **No Response** (${noResponse.length})`, value: noResponseText, inline: true }
+        );
+      }
+    } else {
+      if (allowTentative && tentative.length > 0) {
+        embed.addFields(
+          { name: `\u2753 **Tentative** (${tentative.length})`, value: createBlockQuote(tentative), inline: false }
+        );
+      }
+
+      if (declined.length > 0) {
+        embed.addFields(
+          { name: `\u274C **Declined** (${declined.length})`, value: createBlockQuote(declined), inline: false }
+        );
+      }
+    }
   } else if (shouldGroupBySquadron) {
     console.log(`[EMBED-STRUCTURE] Building with squadron grouping`);
 

@@ -17,6 +17,7 @@ import { Status } from '../../../utils/statusService';
 import { Standing } from '../../../utils/standingService';
 import { Role } from '../../../utils/roleService';
 import { Qualification, getBatchPilotQualifications } from '../../../utils/qualificationService';
+import { getUserSettings } from '../../../utils/userSettingsService';
 
 interface CycleDialogProps {
   onSave: (cycleData: {
@@ -82,6 +83,12 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
   );
   const [selectedSyllabusId, setSelectedSyllabusId] = useState<string>(initialData?.syllabusId || '');
   const [autoCreateEvents, setAutoCreateEvents] = useState<boolean>(false);
+
+  // Event Activities (developer-flagged): reusable modules attached to this
+  // cycle via cycle_modules. Only editable on saved cycles (needs cycle id).
+  const [activitiesEnabled, setActivitiesEnabled] = useState(false);
+  const [moduleSyllabi, setModuleSyllabi] = useState<TrainingSyllabus[]>([]);
+  const [attachedModuleIds, setAttachedModuleIds] = useState<string[]>([]);
 
   // Tab state (show tabs for Training cycles with syllabus selected OR when editing)
   const showTabs = type === 'Training' && (!!cycleId || !!selectedSyllabusId);
@@ -285,17 +292,68 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
     setSelectedSyllabusId(initialData?.syllabusId || '');
   }, [initialData?.syllabusId]);
 
+  // Event Activities: read the developer feature flag once on mount
+  useEffect(() => {
+    let cancelled = false;
+    getUserSettings().then(result => {
+      if (!cancelled && result.success && result.data?.developer?.enableEventActivities) {
+        setActivitiesEnabled(true);
+      }
+    });
+    return () => { cancelled = true; };
+  }, []);
+
+  // Event Activities: load modules already attached to this cycle
+  useEffect(() => {
+    if (!activitiesEnabled || !cycleId) return;
+    let cancelled = false;
+    const load = async () => {
+      const { data, error } = await (supabase as any)
+        .from('cycle_modules')
+        .select('module_syllabus_id')
+        .eq('cycle_id', cycleId);
+      if (!cancelled && !error && data) {
+        setAttachedModuleIds(data.map((row: any) => row.module_syllabus_id));
+      }
+    };
+    load();
+    return () => { cancelled = true; };
+  }, [activitiesEnabled, cycleId]);
+
+  // Event Activities: attach/detach a module (writes immediately; requires a
+  // saved cycle since cycle_modules needs the cycle id)
+  const handleToggleModule = async (moduleSyllabusId: string, attach: boolean) => {
+    if (!cycleId) return;
+    const previous = attachedModuleIds;
+    setAttachedModuleIds(prev => attach
+      ? [...prev, moduleSyllabusId]
+      : prev.filter(id => id !== moduleSyllabusId));
+
+    const query = attach
+      ? (supabase as any).from('cycle_modules').insert({ cycle_id: cycleId, module_syllabus_id: moduleSyllabusId, display_order: previous.length })
+      : (supabase as any).from('cycle_modules').delete().eq('cycle_id', cycleId).eq('module_syllabus_id', moduleSyllabusId);
+
+    const { error: toggleError } = await query;
+    if (toggleError) {
+      console.error('Failed to update cycle modules:', toggleError);
+      setAttachedModuleIds(previous);
+    }
+  };
+
   // Load syllabi when component mounts if type is Training
   useEffect(() => {
     if (type === 'Training') {
       const loadSyllabi = async () => {
-        const { data, error } = await supabase
+        const { data, error } = await (supabase as any)
           .from('training_syllabi')
-          .select('id, name, description')
-          .order('name') as any;
+          .select('id, name, description, kind')
+          .order('name');
 
         if (!error && data) {
-          setSyllabi(data);
+          // Only linear syllabi drive a cycle's weekly progression; pools and
+          // modules are attached via event activities / cycle modules instead
+          setSyllabi(data.filter((s: any) => (s.kind || 'linear') === 'linear'));
+          setModuleSyllabi(data.filter((s: any) => s.kind === 'module'));
         }
       };
       loadSyllabi();
@@ -1113,6 +1171,39 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
                 </div>
               )}
             </div>
+
+            {/* Modules (Event Activities feature, developer-flagged) */}
+            {activitiesEnabled && type === 'Training' && moduleSyllabi.length > 0 && (
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{
+                  display: 'block',
+                  marginBottom: '8px',
+                  fontSize: '14px',
+                  fontWeight: 500,
+                  color: '#64748B'
+                }}>
+                  Modules (Optional)
+                </label>
+                {!cycleId ? (
+                  <p style={{ fontSize: '12px', color: '#94A3B8', margin: 0, fontFamily: 'Inter', fontStyle: 'italic' }}>
+                    Save the cycle first, then reopen it to attach modules.
+                  </p>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    {moduleSyllabi.map(module => (
+                      <label key={module.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px', color: '#374151', cursor: 'pointer' }}>
+                        <input
+                          type="checkbox"
+                          checked={attachedModuleIds.includes(module.id)}
+                          onChange={(e) => handleToggleModule(module.id, e.target.checked)}
+                        />
+                        {module.name}
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Auto-create Events Toggle - show for new cycles OR cycles with no events */}
             {!hasEvents && type === 'Training' && selectedSyllabusId && (

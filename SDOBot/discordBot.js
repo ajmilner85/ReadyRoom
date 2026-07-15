@@ -32,6 +32,7 @@ const { createThreadFromMessage, getExistingThreadFromMessage, postMessageToThre
 const { getAvailableGuilds, getGuildRoles, getGuildMember, getGuildChannels, getEventAttendance } = require('./lib/guildHelpers');
 const { setupDiscordEventHandlers } = require('./lib/eventHandlers');
 const { CountdownUpdateManager } = require('./lib/countdownManager');
+const { fetchActivityData } = require('./lib/activityData');
 
 // Check BOT_TOKEN
 console.log('Environment variables loaded, BOT_TOKEN present:', !!process.env.BOT_TOKEN);
@@ -160,6 +161,10 @@ async function extractEmbedDataFromDatabaseEvent(dbEvent, overrideTimezone = nul
   };
 
   console.log(`[EXTRACT-EMBED-DATA] Event ${dbEvent.id} allowTentativeResponse: ${eventOptions.allowTentativeResponse} (from event_settings: ${settings.allowTentativeResponse})`);
+
+  // Event Activities grouping (null unless event_settings.groupByActivity is
+  // explicitly enabled AND the event has activity rows - inert for legacy events)
+  eventOptions.activityData = await fetchActivityData(supabase, dbEvent.id, settings);
 
   // Fetch training data if this is a training event
   if (dbEvent.syllabus_mission_id) {
