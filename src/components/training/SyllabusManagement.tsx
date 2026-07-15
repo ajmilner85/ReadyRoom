@@ -12,7 +12,19 @@ interface Syllabus {
   description?: string;
   aircraft_type?: string;
   estimated_hours?: number;
+  kind?: 'linear' | 'pool' | 'module';
 }
+
+const KIND_SECTIONS: Array<{ kind: 'linear' | 'pool' | 'module'; title: string; blurb: string }> = [
+  { kind: 'linear', title: 'Training Syllabi', blurb: 'Ordered weekly progressions (Initial Training / PTR)' },
+  { kind: 'pool', title: 'Lesson Pools', blurb: 'Flat, unordered lesson libraries selectable as event activities' },
+  { kind: 'module', title: 'Modules', blurb: 'Reusable multi-lesson collections' }
+];
+
+const KIND_BADGE_COLORS: Record<string, { bg: string; fg: string }> = {
+  pool: { bg: '#EFF6FF', fg: '#2563EB' },
+  module: { bg: '#F5F3FF', fg: '#7C3AED' }
+};
 
 interface SyllabusManagementProps {
   error: string | null;
@@ -148,10 +160,24 @@ const SyllabusManagement: React.FC<SyllabusManagementProps> = ({ error, setError
           </button>
         </div>
 
-        {/* Syllabi List */}
+        {/* Syllabi List, grouped by kind (linear first; pool/module sections
+            only appear once such a library exists) */}
         {syllabi.length > 0 ? (
+          KIND_SECTIONS.map(section => {
+            const sectionSyllabi = syllabi.filter(s => (s.kind || 'linear') === section.kind);
+            if (sectionSyllabi.length === 0) return null;
+            return (
+          <div key={section.kind} style={{ marginBottom: '32px' }}>
+            <div style={{ marginBottom: '12px' }}>
+              <h3 style={{ fontSize: '14px', fontWeight: 600, color: '#6B7280', textTransform: 'uppercase', margin: 0 }}>
+                {section.title}
+              </h3>
+              <p style={{ fontSize: '12px', color: '#9CA3AF', margin: '2px 0 0 0' }}>
+                {section.blurb}
+              </p>
+            </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            {syllabi.map((syllabus) => (
+            {sectionSyllabi.map((syllabus) => (
               <div
                 key={syllabus.id}
                 style={{
@@ -164,8 +190,21 @@ const SyllabusManagement: React.FC<SyllabusManagementProps> = ({ error, setError
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: '16px', fontWeight: 600, color: '#374151', marginBottom: '4px' }}>
+                    <div style={{ fontSize: '16px', fontWeight: 600, color: '#374151', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                       {syllabus.name}
+                      {syllabus.kind && syllabus.kind !== 'linear' && (
+                        <span style={{
+                          fontSize: '11px',
+                          fontWeight: 600,
+                          textTransform: 'uppercase',
+                          padding: '2px 8px',
+                          borderRadius: '9999px',
+                          backgroundColor: KIND_BADGE_COLORS[syllabus.kind].bg,
+                          color: KIND_BADGE_COLORS[syllabus.kind].fg
+                        }}>
+                          {syllabus.kind}
+                        </span>
+                      )}
                     </div>
                     {syllabus.description && (
                       <div style={{ fontSize: '13px', color: '#6B7280', marginBottom: '8px' }}>
@@ -225,6 +264,9 @@ const SyllabusManagement: React.FC<SyllabusManagementProps> = ({ error, setError
               </div>
             ))}
           </div>
+          </div>
+            );
+          })
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '80px 20px', textAlign: 'center', backgroundColor: 'white', border: '1px solid #E5E7EB', borderRadius: '8px' }}>
             <BookOpen size={48} style={{ color: '#9CA3AF', marginBottom: '16px' }} />

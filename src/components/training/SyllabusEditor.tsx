@@ -46,6 +46,7 @@ const SyllabusEditor: React.FC<SyllabusEditorProps> = ({ syllabusId: propSyllabu
   const [syllabus, setSyllabus] = useState({
     name: '',
     description: '',
+    kind: 'linear', // 'linear' | 'pool' | 'module' - pools/modules have no week progression
     starts_at_week_zero: false,
     auto_enrollment_rules: [] as CriteriaBlock[],
     instructor_qualification_rules: [] as CriteriaBlock[],
@@ -131,6 +132,7 @@ const SyllabusEditor: React.FC<SyllabusEditorProps> = ({ syllabusId: propSyllabu
       setSyllabus({
         name: syllabusData.name,
         description: syllabusData.description || '',
+        kind: syllabusData.kind || 'linear',
         starts_at_week_zero: syllabusData.starts_at_week_zero || false,
         auto_enrollment_rules: convertToBlockFormat(syllabusData.auto_enrollment_rules),
         instructor_qualification_rules: convertToBlockFormat(syllabusData.instructor_qualification_rules),
@@ -196,6 +198,7 @@ const SyllabusEditor: React.FC<SyllabusEditorProps> = ({ syllabusId: propSyllabu
           .insert({
             name: syllabus.name,
             description: syllabus.description,
+            kind: syllabus.kind,
             starts_at_week_zero: syllabus.starts_at_week_zero,
             auto_enrollment_rules: syllabus.auto_enrollment_rules,
             instructor_qualification_rules: syllabus.instructor_qualification_rules,
@@ -212,6 +215,7 @@ const SyllabusEditor: React.FC<SyllabusEditorProps> = ({ syllabusId: propSyllabu
           .update({
             name: syllabus.name,
             description: syllabus.description,
+            kind: syllabus.kind,
             starts_at_week_zero: syllabus.starts_at_week_zero,
             auto_enrollment_rules: syllabus.auto_enrollment_rules,
             instructor_qualification_rules: syllabus.instructor_qualification_rules,
@@ -222,7 +226,9 @@ const SyllabusEditor: React.FC<SyllabusEditorProps> = ({ syllabusId: propSyllabu
         if (updateError) throw updateError;
       }
 
-      // Save missions with calculated week numbers based on order
+      // Save missions with calculated week numbers based on order.
+      // Pools and modules have no week progression - week_number stays null.
+      const isLinear = syllabus.kind === 'linear';
       const startWeek = syllabus.starts_at_week_zero ? 0 : 1;
 
       // Prepare batched mission operations
@@ -236,7 +242,7 @@ const SyllabusEditor: React.FC<SyllabusEditorProps> = ({ syllabusId: propSyllabu
           mission_number: mission.mission_number,
           mission_name: mission.mission_name,
           description: mission.description,
-          week_number: startWeek + index,
+          week_number: isLinear ? startWeek + index : null,
           reference_materials: mission.reference_materials || []
         };
 
@@ -474,13 +480,13 @@ const SyllabusEditor: React.FC<SyllabusEditorProps> = ({ syllabusId: propSyllabu
       const startWeek = syllabus.starts_at_week_zero ? 0 : 1;
 
       if (missionIndex === -1) {
-        // Insert new mission first without images
+        // Insert new mission first without images (pools/modules have no weeks)
         const missionData = {
           syllabus_id: syllabusId,
           mission_number: mission.mission_number,
           mission_name: mission.mission_name,
           description: mission.description,
-          week_number: startWeek + missions.length,
+          week_number: syllabus.kind === 'linear' ? startWeek + missions.length : null,
           reference_materials: mission.reference_materials || []
         };
 
@@ -853,6 +859,37 @@ const SyllabusEditor: React.FC<SyllabusEditorProps> = ({ syllabusId: propSyllabu
         <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '20px' }}>
           <div>
             <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: 500 }}>
+              Type
+            </label>
+            <select
+              value={syllabus.kind}
+              onChange={(e) => {
+                setSyllabus({ ...syllabus, kind: e.target.value });
+                setHasUnsavedChanges(true);
+              }}
+              style={{
+                width: '100%',
+                padding: '8px 12px',
+                border: '1px solid #D1D5DB',
+                borderRadius: '6px',
+                fontSize: '14px',
+                boxSizing: 'border-box',
+                backgroundColor: 'white'
+              }}
+            >
+              <option value="linear">Linear Syllabus — ordered weekly progression (Initial Training / PTR)</option>
+              <option value="pool">Lesson Pool — flat, unordered lesson library</option>
+              <option value="module">Module — reusable multi-lesson collection</option>
+            </select>
+            {syllabus.kind !== 'linear' && (
+              <p style={{ fontSize: '12px', color: '#6B7280', margin: '6px 0 0 0' }}>
+                Lessons in a {syllabus.kind} have no week numbers and do not appear in the PTR grid.
+                They are selectable as event activities.
+              </p>
+            )}
+          </div>
+          <div>
+            <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: 500 }}>
               Name *
             </label>
             <input
@@ -1000,6 +1037,7 @@ const SyllabusEditor: React.FC<SyllabusEditorProps> = ({ syllabusId: propSyllabu
             <h3 style={{ fontSize: '14px', fontWeight: 600, color: '#6B7280', textTransform: 'uppercase', margin: 0 }}>
               Events ({missions.length})
             </h3>
+            {syllabus.kind === 'linear' && (
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <span style={{ fontSize: '13px', color: '#6B7280' }}>Starts at:</span>
               <button
@@ -1034,6 +1072,7 @@ const SyllabusEditor: React.FC<SyllabusEditorProps> = ({ syllabusId: propSyllabu
                 Week {syllabus.starts_at_week_zero ? '0' : '1'}
               </span>
             </div>
+            )}
           </div>
           <button
             onClick={handleAddMission}
@@ -1132,7 +1171,7 @@ const SyllabusEditor: React.FC<SyllabusEditorProps> = ({ syllabusId: propSyllabu
                     <span>{mission.mission_name || '(Unnamed Event)'}</span>
                   </div>
                   <div style={{ fontSize: '12px', color: '#6B7280' }}>
-                    Week {calculatedWeek} • {mission.objectives.length} objectives
+                    {syllabus.kind === 'linear' ? `Week ${calculatedWeek} • ` : ''}{mission.objectives.length} objectives
                   </div>
                 </div>
                 <button

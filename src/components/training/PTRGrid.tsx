@@ -217,6 +217,9 @@ const PTRGrid: React.FC<PTRGridProps> = ({ syllabusId, cycleId, onCellClick, onG
       }>();
 
       (missionsData || []).forEach((mission: any) => {
+        // Pool/module lessons have no week number and are not part of the
+        // linear PTR progression
+        if (mission.week_number == null) return;
         if (!weekMap.has(mission.week_number)) {
           // Merge syllabus and mission references - both are inherited (show book icon)
           const syllabusRefs = mission.training_syllabi?.reference_materials || [];

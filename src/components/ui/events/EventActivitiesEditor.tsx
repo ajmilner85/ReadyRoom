@@ -103,12 +103,20 @@ const LessonObjectivesPreview: React.FC<{ syllabusMissionId: string }> = ({ syll
  * in the attendance section (and, later, Discord posts).
  * Modeled on SupportRoleRequirementsEditor.
  */
+interface LessonSource {
+  syllabusId: string;
+  syllabusName: string;
+  kind: string; // 'linear' | 'pool' | 'module'
+  missions: Array<{ id: string; mission_number: number | null; mission_name: string }>;
+}
+
 const EventActivitiesEditor: React.FC<EventActivitiesEditorProps> = ({
   activities,
   onChange,
   syllabusMissions
 }) => {
   const [qualifications, setQualifications] = useState<Qualification[]>([]);
+  const [lessonSources, setLessonSources] = useState<LessonSource[]>([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -119,6 +127,45 @@ const EventActivitiesEditor: React.FC<EventActivitiesEditorProps> = ({
     load();
     return () => { cancelled = true; };
   }, []);
+
+  // Lessons can come from any syllabus: the cycle's linear syllabus first, then
+  // other linear syllabi, pools, and modules
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      const [{ data: syllabi }, { data: missions }] = await Promise.all([
+        supabase.from('training_syllabi').select('id, name').order('name') as any,
+        supabase.from('training_syllabus_missions').select('id, syllabus_id, mission_number, mission_name').order('mission_number') as any
+      ]);
+      if (cancelled || !syllabi || !missions) return;
+
+      // kind was added in a later migration; tolerate stale generated types
+      const { data: kinds } = await (supabase as any).from('training_syllabi').select('id, kind');
+      const kindById: Record<string, string> = {};
+      (kinds || []).forEach((row: any) => { kindById[row.id] = row.kind || 'linear'; });
+
+      const cycleSyllabusId = syllabusMissions[0]?.syllabus_id;
+      const kindOrder: Record<string, number> = { linear: 0, pool: 1, module: 2 };
+      const sources: LessonSource[] = (syllabi as any[])
+        .map(s => ({
+          syllabusId: s.id,
+          syllabusName: s.name,
+          kind: kindById[s.id] || 'linear',
+          missions: (missions as any[]).filter(m => m.syllabus_id === s.id)
+        }))
+        .filter(s => s.missions.length > 0)
+        .sort((a, b) => {
+          if (a.syllabusId === cycleSyllabusId) return -1;
+          if (b.syllabusId === cycleSyllabusId) return 1;
+          const kindDiff = (kindOrder[a.kind] ?? 9) - (kindOrder[b.kind] ?? 9);
+          return kindDiff !== 0 ? kindDiff : a.syllabusName.localeCompare(b.syllabusName);
+        });
+      if (!cancelled) setLessonSources(sources);
+    };
+    load();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [syllabusMissions.length]);
 
   const updateActivity = (index: number, updates: Partial<EventActivity>) => {
     const next = activities.map((activity, i) => (i === index ? { ...activity, ...updates } : activity));
@@ -138,7 +185,7 @@ const EventActivitiesEditor: React.FC<EventActivitiesEditorProps> = ({
   };
 
   const addActivity = () => {
-    const kind: EventActivityKind = syllabusMissions.length > 0 ? 'lesson' : 'objectives';
+    const kind: EventActivityKind = (syllabusMissions.length > 0 || lessonSources.length > 0) ? 'lesson' : 'objectives';
     onChange([
       ...activities,
       {
@@ -268,16 +315,25 @@ const EventActivitiesEditor: React.FC<EventActivitiesEditorProps> = ({
                 onChange={(e) => updateActivity(index, { syllabusMissionId: e.target.value || undefined })}
                 style={selectStyle}
               >
-                <option value="">Select a mission...</option>
-                {syllabusMissions.map(mission => (
-                  <option key={mission.id} value={mission.id}>
-                    Mission {mission.mission_number}: {mission.mission_name}
-                  </option>
+                <option value="">Select a lesson...</option>
+                {lessonSources.map(source => (
+                  <optgroup
+                    key={source.syllabusId}
+                    label={source.kind === 'linear' ? source.syllabusName : `${source.syllabusName} (${source.kind})`}
+                  >
+                    {source.missions.map(mission => (
+                      <option key={mission.id} value={mission.id}>
+                        {mission.mission_number != null
+                          ? `Mission ${mission.mission_number}: ${mission.mission_name}`
+                          : mission.mission_name}
+                      </option>
+                    ))}
+                  </optgroup>
                 ))}
               </select>
-              {syllabusMissions.length === 0 && (
+              {lessonSources.length === 0 && (
                 <p style={{ fontSize: '12px', color: '#94A3B8', margin: '4px 0 0 0', fontFamily: 'Inter', fontStyle: 'italic' }}>
-                  No syllabus missions available. Lessons come from the cycle's training syllabus.
+                  No lessons available. Lessons come from training syllabi, lesson pools, and modules (Training page).
                 </p>
               )}
               {activity.syllabusMissionId && (
