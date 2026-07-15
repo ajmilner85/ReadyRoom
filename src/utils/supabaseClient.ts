@@ -1153,6 +1153,81 @@ export const saveEventActivities = async (
   return { activities: saved, error: null };
 };
 
+// Explicit pilot->activity assignment overrides (Phase 2)
+export interface EventActivityParticipant {
+  id: string;
+  eventActivityId: string;
+  pilotId: string;
+  assignedBy?: string;
+}
+
+export const getEventActivityParticipantsForEvent = async (
+  eventId: string
+): Promise<{ participants: EventActivityParticipant[]; error: any }> => {
+  const { data: activityRows, error: activityError } = await (supabase as any)
+    .from('event_activities')
+    .select('id')
+    .eq('event_id', eventId);
+
+  if (activityError) return { participants: [], error: activityError };
+  const activityIds = (activityRows || []).map((r: any) => r.id);
+  if (activityIds.length === 0) return { participants: [], error: null };
+
+  const { data, error } = await (supabase as any)
+    .from('event_activity_participants')
+    .select('*')
+    .in('event_activity_id', activityIds);
+
+  if (error) return { participants: [], error };
+
+  return {
+    participants: (data || []).map((row: any) => ({
+      id: row.id,
+      eventActivityId: row.event_activity_id,
+      pilotId: row.pilot_id,
+      assignedBy: row.assigned_by || undefined
+    })),
+    error: null
+  };
+};
+
+/**
+ * Set (or clear, with activityId=null) a pilot's explicit activity assignment
+ * for an event. A pilot has at most one override per event; clearing falls back
+ * to inference (enrollment / IP / squadron).
+ */
+export const setPilotActivityAssignment = async (
+  eventId: string,
+  pilotId: string,
+  activityId: string | null
+): Promise<{ error: any }> => {
+  const { data: activityRows, error: activityError } = await (supabase as any)
+    .from('event_activities')
+    .select('id')
+    .eq('event_id', eventId);
+
+  if (activityError) return { error: activityError };
+  const activityIds = (activityRows || []).map((r: any) => r.id);
+  if (activityIds.length === 0) return { error: null };
+
+  const { error: deleteError } = await (supabase as any)
+    .from('event_activity_participants')
+    .delete()
+    .eq('pilot_id', pilotId)
+    .in('event_activity_id', activityIds);
+
+  if (deleteError) return { error: deleteError };
+
+  if (activityId) {
+    const { error: insertError } = await (supabase as any)
+      .from('event_activity_participants')
+      .insert({ event_activity_id: activityId, pilot_id: pilotId });
+    if (insertError) return { error: insertError };
+  }
+
+  return { error: null };
+};
+
 // Event Attendance API
 export const updateEventAttendance = async (eventId: string, status: 'accepted' | 'declined' | 'tentative') => {
   const { user, error: userError } = await getCurrentUser();

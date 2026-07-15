@@ -718,6 +718,12 @@ const GradingDialog: React.FC<GradingDialogProps> = ({
 
       console.log('Saving grade with instructor:', { selectedInstructorId, currentUserPilotId, graded_by_pilot_id: gradeData.graded_by_pilot_id });
 
+      // Anchor the grade to a specific event activity when grading in an
+      // activity context (developer-flagged Event Activities feature)
+      if (cellData.eventActivityId) {
+        gradeData.event_activity_id = cellData.eventActivityId;
+      }
+
       // Include id when updating an existing attempt
       if (isEditingExisting) {
         gradeData.id = dialogData.existingAttempts[selectedAttemptIndex].id;
