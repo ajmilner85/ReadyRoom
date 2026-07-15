@@ -9,10 +9,13 @@ export interface ReferenceMaterial {
   url: string;
 }
 
+export type TrainingSyllabusKind = 'linear' | 'pool' | 'module';
+
 export interface TrainingSyllabus {
   id: string;
   name: string;
   description: string;
+  kind?: TrainingSyllabusKind; // defaults to 'linear'
   reference_materials?: ReferenceMaterial[];
   created_at?: string;
   updated_at?: string;
@@ -21,7 +24,8 @@ export interface TrainingSyllabus {
 export interface TrainingSyllabusMission {
   id: string;
   syllabus_id: string;
-  mission_number: number;
+  mission_number: number | null;
+  week_number?: number | null; // null for pool/module lessons
   mission_name: string;
   description?: string;
   reference_materials?: ReferenceMaterial[];
