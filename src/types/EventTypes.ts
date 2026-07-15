@@ -1,4 +1,4 @@
-import type { EventSettings } from '../utils/supabaseClient';
+import type { EventSettings, SupportRoleRequirement } from '../utils/supabaseClient';
 
 export type CycleType = 'Training' | 'Cruise-WorkUp' | 'Cruise-Mission' | 'Other';
 export type EventType = 'Hop' | 'Evolution' | 'Episode' | 'Re-attack' | 'Free Fly' | 'Foothold' | 'Pretense' | 'Other';
@@ -52,6 +52,29 @@ export interface AdHocObjective {
   display_order: number;
 }
 
+// One eligibility rule inside a participant criteria block. Matches the
+// CriteriaBlockEditor shape: 'squadron' rules store the squadron UUID (never
+// tail code / designation); the other types store the record's name.
+export interface EventActivityParticipantRule {
+  type: 'squadron' | 'standing' | 'status' | 'qualification';
+  value: string;
+}
+
+// AND within a block, OR across blocks (same semantics as syllabus
+// auto-enrollment rules)
+export interface EventActivityParticipantBlock {
+  criteria: EventActivityParticipantRule[];
+}
+
+// Per-activity configuration stored in event_activities.settings (JSONB).
+// Support roles and reference materials are aggregated up to the legacy
+// event-level fields on save so the Discord bot and flag-off views keep working.
+export interface EventActivitySettings {
+  supportRoleRequirements?: SupportRoleRequirement[];
+  referenceMaterials?: ReferenceMaterial[];
+  participantCriteria?: EventActivityParticipantBlock[];
+}
+
 export interface EventActivity {
   id?: string; // undefined until persisted
   eventId?: string;
@@ -62,7 +85,7 @@ export interface EventActivity {
   qualificationId?: string; // 'qualification' kind
   label?: string; // 'objectives' title / display override
   adHocObjectives?: AdHocObjective[]; // 'objectives' kind
-  settings?: Record<string, unknown>;
+  settings?: EventActivitySettings;
 }
 
 export interface Cycle {
