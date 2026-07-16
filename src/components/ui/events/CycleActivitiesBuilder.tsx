@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+﻿import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Plus, Minus } from 'lucide-react';
 import type { CycleActivity } from '../../../types/EventTypes';
 
@@ -229,7 +229,7 @@ const CycleActivitiesBuilder: React.FC<CycleActivitiesBuilderProps> = ({
     <div>
       {/* Toolbar */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
-        <button
+        <button type="button"
           onClick={onAddActivity}
           style={{
             padding: '8px 16px',
@@ -249,7 +249,7 @@ const CycleActivitiesBuilder: React.FC<CycleActivitiesBuilderProps> = ({
         <span style={{ fontSize: '13px', color: '#64748B', fontFamily: 'Inter' }}>
           Weeks: {weekCount}
         </span>
-        <button
+        <button type="button"
           onClick={() => onWeekCountChange(Math.max(1, weekCount - 1))}
           disabled={weekCount <= 1 || activities.some(a => a.endWeek >= weekCount)}
           title={activities.some(a => a.endWeek >= weekCount) ? 'An activity occupies the last week' : 'Remove a week'}
@@ -268,7 +268,7 @@ const CycleActivitiesBuilder: React.FC<CycleActivitiesBuilderProps> = ({
         >
           <Minus size={14} />
         </button>
-        <button
+        <button type="button"
           onClick={() => onWeekCountChange(weekCount + 1)}
           title="Add a week"
           style={{

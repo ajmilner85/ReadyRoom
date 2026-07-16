@@ -606,7 +606,7 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
     }
   };
 
-  const handleEnrollPilot = async (pilotId: string) => {
+  const handleEnrollPilot = async (pilotId: string, activityId?: string | null) => {
     try {
       // Find the pilot in suggested list or all pilots list
       const pilotToEnroll = suggestedPilots.find(p => p.pilot_id === pilotId) || allPilots.find(p => p.pilot_id === pilotId);
@@ -638,8 +638,8 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
           userProfileId = profile?.id || null;
         }
 
-        // Actually enroll in database (scoped to an activity when one is selected)
-        await enrollPilots(cycleId, [pilotId], userProfileId, enrollmentActivityScopeId || null);
+        // Actually enroll in database (scoped to an activity when one is given)
+        await enrollPilots(cycleId, [pilotId], userProfileId, activityId !== undefined ? activityId : (enrollmentActivityScopeId || null));
 
         // Refresh to get the real enrollment_id from database
         const enrolled = await getCycleEnrollments(cycleId);
@@ -731,7 +731,7 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
     }
   };
 
-  const handleEnrollInstructor = async (pilotId: string) => {
+  const handleEnrollInstructor = async (pilotId: string, activityId?: string | null) => {
     try {
       // Find the pilot in suggested list or all candidates list
       const instructorToEnroll = suggestedInstructors.find(p => p.pilot_id === pilotId) 
@@ -765,8 +765,8 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
           userProfileId = profile?.id || null;
         }
 
-        // Actually enroll in database (scoped to an activity when one is selected)
-        await enrollInstructors(cycleId, [pilotId], userProfileId, enrollmentActivityScopeId || null);
+        // Actually enroll in database (scoped to an activity when one is given)
+        await enrollInstructors(cycleId, [pilotId], userProfileId, activityId !== undefined ? activityId : (enrollmentActivityScopeId || null));
 
         // Refresh to get the real enrollment_id from database
         const enrolled = await getCycleInstructorEnrollments(cycleId);
@@ -970,8 +970,15 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
       autoCreateEvents: !hasEvents && autoCreateEvents, // Only for cycles with no events
       stagedEnrollmentIds: stagedEnrollmentIds.length > 0 ? stagedEnrollmentIds : undefined,
       stagedInstructorIds: stagedInstructorIds.length > 0 ? stagedInstructorIds : undefined,
-      // Developer-flagged: cycle-level event defaults + blocked-out activities
-      ...(activitiesEnabled ? { settings: cycleSettings, cycleActivities } : {})
+      // Developer-flagged: cycle-level event defaults + blocked-out activities.
+      // Incomplete activities (no syllabus picked yet) are not persisted - the
+      // DB CHECK requires a syllabus_id for syllabus-kind rows.
+      ...(activitiesEnabled
+        ? {
+            settings: cycleSettings,
+            cycleActivities: cycleActivities.filter(a => a.kind === 'objectives' || a.syllabusId)
+          }
+        : {})
     });
   };
 
@@ -996,7 +1003,9 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
         top: '50%',
         left: '50%',
         transform: 'translate(-50%, -50%)',
-        width: '663px',
+        // The gantt builder is a horizontal element - give it room when the
+        // Activities flag is on
+        width: activitiesEnabled ? 'min(1160px, 95vw)' : '663px',
         backgroundColor: '#FFFFFF',
         boxShadow: '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)',
         borderRadius: '8px',
@@ -1052,7 +1061,98 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
         </div>
 
         {/* Tabs - only show for editing Training cycles with a syllabus */}
-        {showTabs && (
+        {/* Stepped navigation (Event dialog style) when the Activities flag is
+            on; Students/Instructors moved into each activity's config panel */}
+        {activitiesEnabled && (
+          <div style={{ padding: '16px 24px', borderBottom: '1px solid #E2E8F0' }}>
+            <nav aria-label="Progress">
+              <div style={{ display: 'flex', alignItems: 'flex-start', maxWidth: '550px', margin: '0 auto' }}>
+                {([
+                  { key: 'details', title: 'Details' },
+                  { key: 'activities', title: 'Activities' },
+                  { key: 'options', title: 'Options' },
+                  { key: 'reminders', title: 'Reminders' },
+                  { key: 'publication', title: 'Publication' }
+                ] as Array<{ key: typeof activeTab; title: string }>).map((step, index, steps) => {
+                  const isCurrent = activeTab === step.key;
+                  const showLine = index < steps.length - 1;
+                  return (
+                    <div key={step.key} style={{
+                      display: 'flex',
+                      alignItems: 'flex-start',
+                      flex: index === steps.length - 1 ? '0 0 auto' : '1',
+                      position: 'relative'
+                    }}>
+                      <div style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        position: 'relative',
+                        zIndex: 1
+                      }}>
+                        <button
+                          type="button"
+                          onClick={() => setActiveTab(step.key)}
+                          style={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            background: 'none',
+                            border: 'none',
+                            cursor: 'pointer',
+                            padding: '0'
+                          }}
+                        >
+                          <div style={{
+                            width: '32px',
+                            height: '32px',
+                            borderRadius: '12px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            backgroundColor: isCurrent ? '#3B82F6' : '#E5E7EB',
+                            color: isCurrent ? 'white' : '#6B7280',
+                            fontSize: '14px',
+                            fontWeight: 500,
+                            marginBottom: '8px',
+                            border: '5px solid #FFFFFF',
+                            boxSizing: 'content-box'
+                          }}>
+                            {index + 1}
+                          </div>
+                          <div style={{
+                            fontSize: '14px',
+                            fontWeight: isCurrent ? 600 : 500,
+                            color: isCurrent ? '#1F2937' : '#6B7280',
+                            textAlign: 'center',
+                            whiteSpace: 'nowrap',
+                            width: '90px',
+                            minWidth: '90px'
+                          }}>
+                            {step.title}
+                          </div>
+                        </button>
+                      </div>
+                      {showLine && (
+                        <div style={{
+                          position: 'absolute',
+                          left: '45px',
+                          right: '-45px',
+                          top: '21px',
+                          height: '2px',
+                          backgroundColor: '#E5E7EB',
+                          zIndex: 0
+                        }} />
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </nav>
+          </div>
+        )}
+
+        {showTabs && !activitiesEnabled && (
           <div style={{
             display: 'flex',
             borderBottom: '1px solid #E2E8F0',
@@ -1074,30 +1174,8 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
                 transition: 'all 0.2s'
               }}
             >
-              {type === 'Training' ? 'Training Cycle Details' : 'Details'}
+              Training Cycle Details
             </button>
-            {activitiesEnabled && (
-              <button
-                type="button"
-                onClick={() => setActiveTab('activities')}
-                style={{
-                  flex: 1,
-                  padding: '12px 16px',
-                  border: 'none',
-                  backgroundColor: 'transparent',
-                  color: activeTab === 'activities' ? '#2563EB' : '#64748B',
-                  fontWeight: activeTab === 'activities' ? 600 : 500,
-                  fontSize: '14px',
-                  cursor: 'pointer',
-                  borderBottom: activeTab === 'activities' ? '2px solid #2563EB' : 'none',
-                  transition: 'all 0.2s'
-                }}
-              >
-                Activities ({cycleActivities.length})
-              </button>
-            )}
-            {type === 'Training' && (
-            <>
             <button
               type="button"
               onClick={() => setActiveTab('enrollments')}
@@ -1144,29 +1222,6 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
               <UserCheck size={16} />
               Instructors ({cycleId ? enrolledInstructors.length : stagedInstructorIds.length})
             </button>
-            </>
-            )}
-            {activitiesEnabled && (['options', 'reminders', 'publication'] as const).map(tab => (
-              <button
-                key={tab}
-                type="button"
-                onClick={() => setActiveTab(tab)}
-                style={{
-                  flex: 1,
-                  padding: '12px 16px',
-                  border: 'none',
-                  backgroundColor: 'transparent',
-                  color: activeTab === tab ? '#2563EB' : '#64748B',
-                  fontWeight: activeTab === tab ? 600 : 500,
-                  fontSize: '14px',
-                  cursor: 'pointer',
-                  borderBottom: activeTab === tab ? '2px solid #2563EB' : 'none',
-                  transition: 'all 0.2s'
-                }}
-              >
-                {tab === 'options' ? 'Options' : tab === 'reminders' ? 'Reminders' : 'Publication'}
-              </button>
-            ))}
           </div>
         )}
 
@@ -2390,6 +2445,20 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
                     activity={cycleActivities[selectedActivityIndex]}
                     onChange={handleUpdateSelectedActivity}
                     squadrons={squadrons.map(s => ({ id: s.id, name: s.name, designation: s.designation, insignia_url: s.insignia_url }))}
+                    enrollment={(() => {
+                      const activityId = cycleActivities[selectedActivityIndex].id;
+                      return {
+                        activityId,
+                        students: enrolledPilots.filter(p => (p as any).cycle_activity_id === activityId),
+                        instructors: enrolledInstructors.filter(i => (i as any).cycle_activity_id === activityId),
+                        availableStudents: [...suggestedPilots, ...allPilots],
+                        availableInstructors: [...suggestedInstructors, ...allInstructorCandidates],
+                        onEnrollStudent: (pilotId: string) => handleEnrollPilot(pilotId, activityId || null),
+                        onRemoveStudent: handleRemoveEnrollment,
+                        onEnrollInstructor: (pilotId: string) => handleEnrollInstructor(pilotId, activityId || null),
+                        onRemoveInstructor: handleRemoveInstructor
+                      };
+                    })()}
                   />
                 </>
               )}
