@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ChevronUp, ChevronDown, ChevronRight, CheckSquare, Plus, X, Trash2 } from 'lucide-react';
+import { ChevronUp, ChevronDown, ChevronRight, CheckSquare, Plus, X, Trash2, Info } from 'lucide-react';
 import { supabase } from '../../../utils/supabaseClient';
 import { getActiveQualifications, Qualification } from '../../../utils/qualificationService';
 import SupportRoleRequirementsEditor from './SupportRoleRequirementsEditor';
@@ -464,6 +464,7 @@ const ActivityCard: React.FC<{
   const settings = activity.settings || {};
   const [syllabusObjectives, setSyllabusObjectives] = useState<SyllabusObjective[]>([]);
   const [inheritedRefs, setInheritedRefs] = useState<ReferenceMaterial[]>([]);
+  const [showAarTooltip, setShowAarTooltip] = useState(false);
 
   // Load the selected lesson's DLOs and inherited reference materials
   // (mission + syllabus) whenever the lesson changes
@@ -787,39 +788,80 @@ const ActivityCard: React.FC<{
           />
         </CollapsibleSection>
 
-        {/* AAR opt-in: training needs no AAR, so this defaults off. Flights from
-            this activity's participating squadrons appear in Mission Debriefing */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '12px' }}>
-          <label style={{ fontSize: '13px', fontWeight: 500, color: '#374151', fontFamily: 'Inter' }}>
-            Require After Action Reports
-          </label>
-          <div
-            onClick={() => onUpdateSettings({ requiresAar: !settings.requiresAar })}
-            style={{
-              width: '44px',
-              height: '24px',
-              backgroundColor: settings.requiresAar ? '#3B82F6' : '#E5E7EB',
-              borderRadius: '12px',
-              position: 'relative',
-              cursor: 'pointer',
-              transition: 'background-color 0.2s ease'
-            }}
-          >
+        <CollapsibleSection
+          title="Debriefing"
+          summary={settings.requiresAar ? 'AAR required' : ''}
+          expanded={isExpanded('debriefing')}
+          onToggle={() => onToggleSection(sectionKey('debriefing'))}
+        >
+          {/* AAR opt-in: training needs no AAR, so this defaults off. Flights
+              from this activity's participating squadrons appear in the AAR
+              section of the Mission Debriefing page */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <label style={{ fontSize: '13px', fontWeight: 500, color: '#374151', fontFamily: 'Inter' }}>
+                Require After Action Reports
+              </label>
+              <div
+                style={{ display: 'flex', alignItems: 'center', position: 'relative' }}
+                onMouseEnter={() => setShowAarTooltip(true)}
+                onMouseLeave={() => setShowAarTooltip(false)}
+              >
+                <Info size={14} style={{ color: '#94A3B8', cursor: 'help' }} />
+                {showAarTooltip && (
+                  <div style={{
+                    position: 'absolute',
+                    left: '22px',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    backgroundColor: '#1E293B',
+                    color: 'white',
+                    padding: '8px 10px',
+                    borderRadius: '4px',
+                    fontSize: '12px',
+                    lineHeight: '1.5',
+                    width: '280px',
+                    zIndex: 1003,
+                    pointerEvents: 'none'
+                  }}>
+                    After Action Reports capture mission outcomes (kills, losses,
+                    narrative) on the Mission Debriefing page. They are separate
+                    from — and in addition to — training grades: DLOs are still
+                    graded through the Pilot Training Records grid regardless of
+                    this setting.
+                  </div>
+                )}
+              </div>
+            </div>
             <div
+              onClick={() => onUpdateSettings({ requiresAar: !settings.requiresAar })}
               style={{
-                width: '20px',
-                height: '20px',
-                backgroundColor: 'white',
-                borderRadius: '50%',
-                position: 'absolute',
-                top: '2px',
-                left: settings.requiresAar ? '22px' : '2px',
-                transition: 'left 0.2s ease',
-                boxShadow: '0 2px 4px rgba(0, 0, 0, 0.2)'
+                width: '44px',
+                height: '24px',
+                backgroundColor: settings.requiresAar ? '#3B82F6' : '#E5E7EB',
+                borderRadius: '12px',
+                position: 'relative',
+                cursor: 'pointer',
+                transition: 'background-color 0.2s ease',
+                flexShrink: 0
               }}
-            />
+            >
+              <div
+                style={{
+                  width: '20px',
+                  height: '20px',
+                  backgroundColor: 'white',
+                  borderRadius: '50%',
+                  position: 'absolute',
+                  top: '2px',
+                  left: settings.requiresAar ? '22px' : '2px',
+                  transition: 'left 0.2s ease',
+                  boxShadow: '0 2px 4px rgba(0, 0, 0, 0.2)'
+                }}
+              />
+            </div>
           </div>
-        </div>
+        </CollapsibleSection>
       </div>
     </div>
   );
