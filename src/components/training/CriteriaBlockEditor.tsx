@@ -19,6 +19,9 @@ export type CriterionType = 'standing' | 'status' | 'qualification' | 'squadron'
 export interface EnrollmentRule {
   type: CriterionType;
   value: string;
+  /** squadron rules are multi-select: pilot matches ANY of these squadron ids
+      (value mirrors values[0] so incomplete-criteria checks keep working) */
+  values?: string[];
 }
 
 export interface CriteriaBlock {
@@ -90,9 +93,26 @@ const CriteriaBlockEditor: React.FC<CriteriaBlockEditorProps> = ({
     const updated = [...blocks];
     updated[blockIndex] = {
       ...updated[blockIndex],
-      criteria: updated[blockIndex].criteria.map((c, i) => 
-        i === criterionIndex ? { type, value: '' } : c
+      criteria: updated[blockIndex].criteria.map((c, i) =>
+        i === criterionIndex ? (type === 'squadron' ? { type, value: '', values: [] } : { type, value: '' }) : c
       )
+    };
+    onChange(updated);
+  };
+
+  // Toggle one squadron in a multi-select squadron criterion
+  const handleSquadronToggle = (blockIndex: number, criterionIndex: number, squadronId: string) => {
+    const updated = [...blocks];
+    updated[blockIndex] = {
+      ...updated[blockIndex],
+      criteria: updated[blockIndex].criteria.map((c, i) => {
+        if (i !== criterionIndex) return c;
+        const current = c.values ?? (c.value ? [c.value] : []);
+        const next = current.includes(squadronId)
+          ? current.filter(id => id !== squadronId)
+          : [...current, squadronId];
+        return { ...c, values: next, value: next[0] || '' };
+      })
     };
     onChange(updated);
   };
@@ -131,7 +151,10 @@ const CriteriaBlockEditor: React.FC<CriteriaBlockEditorProps> = ({
 
   const getDisplayValue = (criterion: EnrollmentRule) => {
     if (criterion.type === 'squadron') {
-      return (squadrons || []).find(s => s.id === criterion.value)?.name || criterion.value;
+      const ids = criterion.values ?? (criterion.value ? [criterion.value] : []);
+      return ids
+        .map(id => (squadrons || []).find(s => s.id === id)?.name || id)
+        .join(' or ');
     }
     return criterion.value;
   };
@@ -285,7 +308,53 @@ const CriteriaBlockEditor: React.FC<CriteriaBlockEditorProps> = ({
                           <option value="qualification">Qualification</option>
                         </select>
 
-                        {/* Value selector */}
+                        {/* Value selector: squadron rules are multi-select
+                            (match ANY checked squadron), others single-select */}
+                        {criterion.type === 'squadron' ? (
+                          <div style={{
+                            flex: 1,
+                            display: 'flex',
+                            flexWrap: 'wrap',
+                            gap: '6px',
+                            padding: '6px 8px',
+                            border: '1px solid #D1D5DB',
+                            borderRadius: '6px',
+                            backgroundColor: 'white',
+                            minHeight: '24px',
+                            alignItems: 'center'
+                          }}>
+                            {(squadrons || []).map(squadron => {
+                              const selectedIds = criterion.values ?? (criterion.value ? [criterion.value] : []);
+                              const isSelected = selectedIds.includes(squadron.id);
+                              return (
+                                <label
+                                  key={squadron.id}
+                                  style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '5px',
+                                    padding: '3px 8px',
+                                    borderRadius: '12px',
+                                    border: isSelected ? '1px solid #BFDBFE' : '1px solid #E5E7EB',
+                                    backgroundColor: isSelected ? '#EFF6FF' : '#F9FAFB',
+                                    color: isSelected ? '#1E40AF' : '#6B7280',
+                                    fontSize: '13px',
+                                    cursor: 'pointer',
+                                    userSelect: 'none'
+                                  }}
+                                >
+                                  <input
+                                    type="checkbox"
+                                    checked={isSelected}
+                                    onChange={() => handleSquadronToggle(blockIndex, criterionIndex, squadron.id)}
+                                    style={{ margin: 0 }}
+                                  />
+                                  {squadron.name}
+                                </label>
+                              );
+                            })}
+                          </div>
+                        ) : (
                         <select
                           value={criterion.value}
                           onChange={(e) => handleValueChange(blockIndex, criterionIndex, e.target.value)}
@@ -306,6 +375,7 @@ const CriteriaBlockEditor: React.FC<CriteriaBlockEditorProps> = ({
                             </option>
                           ))}
                         </select>
+                        )}
 
                         {/* Remove criterion button */}
                         <button
