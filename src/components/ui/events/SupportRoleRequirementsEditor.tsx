@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ChevronUp, ChevronDown } from 'lucide-react';
+import { ChevronUp, ChevronDown, Trash2 } from 'lucide-react';
 import { getSupportRoleQualifications, Qualification } from '../../../utils/qualificationService';
 import type { SupportRoleRequirement } from '../../../utils/supabaseClient';
 
@@ -161,18 +161,29 @@ const SupportRoleRequirementsEditor: React.FC<SupportRoleRequirementsEditorProps
             <button
               onClick={() => removeRequirement(index)}
               style={{
-                padding: '8px 12px',
-                border: 'none',
-                backgroundColor: '#FEE2E2',
-                color: '#DC2626',
+                padding: '8px',
+                backgroundColor: 'white',
+                color: '#9CA3AF',
+                border: '1px solid #E5E7EB',
                 borderRadius: '6px',
                 cursor: 'pointer',
-                fontSize: '14px',
-                fontFamily: 'Inter',
-                fontWeight: 500
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
               }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = '#FEE2E2';
+                e.currentTarget.style.color = '#DC2626';
+                e.currentTarget.style.borderColor = '#FECACA';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = 'white';
+                e.currentTarget.style.color = '#9CA3AF';
+                e.currentTarget.style.borderColor = '#E5E7EB';
+              }}
+              title="Remove role"
             >
-              Remove
+              <Trash2 size={16} />
             </button>
           </div>
         );
