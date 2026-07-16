@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ChevronUp, ChevronDown, ChevronRight, CheckSquare, Plus } from 'lucide-react';
+import { ChevronUp, ChevronDown, ChevronRight, CheckSquare, Plus, X } from 'lucide-react';
 import { supabase } from '../../../utils/supabaseClient';
 import { getActiveQualifications, Qualification } from '../../../utils/qualificationService';
 import SupportRoleRequirementsEditor from './SupportRoleRequirementsEditor';
@@ -541,6 +541,24 @@ const ActivityCard: React.FC<{
         borderBottom: '1px solid #E2E8F0',
         borderRadius: '8px 8px 0 0'
       }}>
+        <div style={{ display: 'flex', flexDirection: 'column' }}>
+          <button
+            onClick={() => onMove(-1)}
+            disabled={index === 0}
+            style={{ ...arrowButtonStyle(index === 0), borderRadius: '4px 4px 0 0', borderBottom: 'none' }}
+            title="Move up"
+          >
+            <ChevronUp size={12} />
+          </button>
+          <button
+            onClick={() => onMove(1)}
+            disabled={index === total - 1}
+            style={{ ...arrowButtonStyle(index === total - 1), borderRadius: '0 0 4px 4px' }}
+            title="Move down"
+          >
+            <ChevronDown size={12} />
+          </button>
+        </div>
         <div style={{
           width: '24px',
           height: '24px',
@@ -567,39 +585,21 @@ const ActivityCard: React.FC<{
           ))}
         </select>
         <div style={{ flex: 1 }} />
-        <div style={{ display: 'flex', flexDirection: 'column' }}>
-          <button
-            onClick={() => onMove(-1)}
-            disabled={index === 0}
-            style={{ ...arrowButtonStyle(index === 0), borderRadius: '4px 4px 0 0', borderBottom: 'none' }}
-            title="Move up"
-          >
-            <ChevronUp size={12} />
-          </button>
-          <button
-            onClick={() => onMove(1)}
-            disabled={index === total - 1}
-            style={{ ...arrowButtonStyle(index === total - 1), borderRadius: '0 0 4px 4px' }}
-            title="Move down"
-          >
-            <ChevronDown size={12} />
-          </button>
-        </div>
         <button
           onClick={onRemove}
+          title="Remove activity"
           style={{
-            padding: '8px 12px',
+            background: 'none',
             border: 'none',
-            backgroundColor: '#FEE2E2',
-            color: '#DC2626',
-            borderRadius: '6px',
+            padding: '4px',
             cursor: 'pointer',
-            fontSize: '14px',
-            fontFamily: 'Inter',
-            fontWeight: 500
+            borderRadius: '4px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
           }}
         >
-          Remove
+          <X size={20} color="#64748B" />
         </button>
       </div>
 
