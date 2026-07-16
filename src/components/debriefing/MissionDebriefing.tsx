@@ -69,6 +69,11 @@ const MissionDebriefing: React.FC = () => {
   const [missionDebriefId, setMissionDebriefId] = useState<string | null>(null);
   const [flightDebriefs, setFlightDebriefs] = useState<Map<string, FlightDebrief>>(new Map());
   const [aarOperationalOnly, setAarOperationalOnly] = useState<boolean>(true); // Default to true
+  // Event Activities AAR derivation: undefined on legacy events (legacy
+  // aarOperationalOnly behavior applies); false hides the AAR section entirely;
+  // true filters flights to aarSquadronIds (empty = all squadrons)
+  const [aarRequired, setAarRequired] = useState<boolean | undefined>(undefined);
+  const [aarSquadronIds, setAarSquadronIds] = useState<string[]>([]);
 
   // Form state
   const [showDebriefForm, setShowDebriefForm] = useState(false);
@@ -186,13 +191,20 @@ const MissionDebriefing: React.FC = () => {
           const settings = eventData.event_settings as any;
           // Use event setting if defined, otherwise default to true
           setAarOperationalOnly(settings.aarOperationalOnly !== undefined ? settings.aarOperationalOnly : true);
+          // Event Activities AAR derivation (undefined on legacy events)
+          setAarRequired(typeof settings.aarRequired === 'boolean' ? settings.aarRequired : undefined);
+          setAarSquadronIds(Array.isArray(settings.aarSquadronIds) ? settings.aarSquadronIds : []);
         } else {
           // No event or no settings, use default
           setAarOperationalOnly(true);
+          setAarRequired(undefined);
+          setAarSquadronIds([]);
         }
       } else {
         // No linked event, use default
         setAarOperationalOnly(true);
+        setAarRequired(undefined);
+        setAarSquadronIds([]);
       }
 
       // Get or create mission debrief
@@ -561,6 +573,8 @@ const MissionDebriefing: React.FC = () => {
             selectedFlight={selectedFlight}
             canSubmitAAR={canSubmitAAR}
             aarOperationalOnly={aarOperationalOnly}
+            aarRequired={aarRequired}
+            aarSquadronIds={aarSquadronIds}
             onSubmitAAR={handleSubmitAAR}
             onCloseForm={handleCloseForm}
             onFormSuccess={handleFormSuccess}

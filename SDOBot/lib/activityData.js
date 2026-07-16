@@ -2,23 +2,21 @@
  * EVENT ACTIVITY DATA MODULE (Event Activities feature)
  *
  * Fetches the data needed to group a Discord event roster by activity.
- * Returns null unless BOTH of these hold:
- *   1. event_settings.groupByActivity === true (event-level toggle, off by default)
- *   2. the event has at least one event_activities row
- * so this is entirely inert for every existing/legacy event.
+ * Returns null when the event has no event_activities rows - an event either
+ * has sub-activities (and renders grouped) or it doesn't (and renders exactly
+ * as today), so this is inert for every existing/legacy event.
  */
 
 /**
  * @param {object} supabase - supabase client
  * @param {string} eventId - events.id (uuid)
- * @param {object} settings - parsed event_settings JSONB
  * @returns {Promise<null | {
  *   activities: Array<{ id: string, kind: string, displayName: string }>,
  *   overridesByPilot: Record<string, string>
  * }>}
  */
-async function fetchActivityData(supabase, eventId, settings) {
-  if (!eventId || !settings || settings.groupByActivity !== true) return null;
+async function fetchActivityData(supabase, eventId) {
+  if (!eventId) return null;
 
   try {
     const { data: activities, error } = await supabase

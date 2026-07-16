@@ -786,6 +786,40 @@ const ActivityCard: React.FC<{
             compact
           />
         </CollapsibleSection>
+
+        {/* AAR opt-in: training needs no AAR, so this defaults off. Flights from
+            this activity's participating squadrons appear in Mission Debriefing */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '12px' }}>
+          <label style={{ fontSize: '13px', fontWeight: 500, color: '#374151', fontFamily: 'Inter' }}>
+            Require After Action Reports
+          </label>
+          <div
+            onClick={() => onUpdateSettings({ requiresAar: !settings.requiresAar })}
+            style={{
+              width: '44px',
+              height: '24px',
+              backgroundColor: settings.requiresAar ? '#3B82F6' : '#E5E7EB',
+              borderRadius: '12px',
+              position: 'relative',
+              cursor: 'pointer',
+              transition: 'background-color 0.2s ease'
+            }}
+          >
+            <div
+              style={{
+                width: '20px',
+                height: '20px',
+                backgroundColor: 'white',
+                borderRadius: '50%',
+                position: 'absolute',
+                top: '2px',
+                left: settings.requiresAar ? '22px' : '2px',
+                transition: 'left 0.2s ease',
+                boxShadow: '0 2px 4px rgba(0, 0, 0, 0.2)'
+              }}
+            />
+          </div>
+        </div>
       </div>
     </div>
   );

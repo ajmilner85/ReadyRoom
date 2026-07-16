@@ -319,9 +319,8 @@ router.post('/events/publish', async (req, res) => {
             initialNotificationRoles: eventSettings.initialNotificationRoles || [] // For @mentions on initial publication
           };
 
-          // Event Activities grouping (null unless event_settings.groupByActivity
-          // is explicitly enabled AND the event has activity rows)
-          eventOptions.activityData = await fetchActivityData(supabase, eventId, eventSettings);
+          // Event Activities grouping (null when the event has no activity rows)
+          eventOptions.activityData = await fetchActivityData(supabase, eventId);
 
           // Fetch training data if this is a training event
           if (eventData.syllabus_mission_id) {
@@ -592,9 +591,8 @@ router.put('/events/:messageId/edit', async (req, res) => {
           supportRoleRequirements: eventSettings.supportRoleRequirements || []
         };
 
-        // Event Activities grouping (null unless event_settings.groupByActivity
-        // is explicitly enabled AND the event has activity rows)
-        eventOptions.activityData = await fetchActivityData(supabase, eventData.id, eventSettings);
+        // Event Activities grouping (null when the event has no activity rows)
+        eventOptions.activityData = await fetchActivityData(supabase, eventData.id);
 
         // Fetch training data if this is a training event
         if (eventData.syllabus_mission_id && eventData.cycle_id) {

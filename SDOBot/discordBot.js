@@ -162,9 +162,9 @@ async function extractEmbedDataFromDatabaseEvent(dbEvent, overrideTimezone = nul
 
   console.log(`[EXTRACT-EMBED-DATA] Event ${dbEvent.id} allowTentativeResponse: ${eventOptions.allowTentativeResponse} (from event_settings: ${settings.allowTentativeResponse})`);
 
-  // Event Activities grouping (null unless event_settings.groupByActivity is
-  // explicitly enabled AND the event has activity rows - inert for legacy events)
-  eventOptions.activityData = await fetchActivityData(supabase, dbEvent.id, settings);
+  // Event Activities grouping (null when the event has no activity rows -
+  // inert for legacy events)
+  eventOptions.activityData = await fetchActivityData(supabase, dbEvent.id);
 
   // Fetch training data if this is a training event
   if (dbEvent.syllabus_mission_id) {

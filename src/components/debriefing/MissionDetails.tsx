@@ -46,6 +46,10 @@ interface MissionDetailsProps {
   selectedFlight: FlightInfo | null;
   canSubmitAAR: (flight: FlightInfo) => boolean;
   aarOperationalOnly: boolean; // Filter to show only operational squadron flights
+  // Event Activities AAR derivation: undefined = legacy aarOperationalOnly
+  // behavior; false = no AARs for this event; true = filter to aarSquadronIds
+  aarRequired?: boolean;
+  aarSquadronIds?: string[]; // squadrons whose flights need AARs (empty = all)
   onSubmitAAR: (flight: FlightInfo) => void;
   onCloseForm: () => void;
   onFormSuccess: () => void;
@@ -63,6 +67,8 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
   selectedFlight,
   canSubmitAAR,
   aarOperationalOnly,
+  aarRequired,
+  aarSquadronIds,
   onSubmitAAR,
   onCloseForm,
   onFormSuccess,
@@ -123,8 +129,15 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
     missionFlights.forEach(flight => {
       if (!flight.squadronId) return;
 
-      // Filter by squadron type if aarOperationalOnly is enabled
-      if (aarOperationalOnly) {
+      if (aarRequired !== undefined) {
+        // Event Activities derivation: no activity requires an AAR -> empty
+        // section; otherwise only flights from the AAR activities' squadrons
+        if (!aarRequired) return;
+        if (aarSquadronIds && aarSquadronIds.length > 0 && !aarSquadronIds.includes(flight.squadronId)) {
+          return;
+        }
+      } else if (aarOperationalOnly) {
+        // Legacy behavior: filter by squadron type
         const squadron = squadrons.find(s => s.id === flight.squadronId);
         // Skip training squadrons when aarOperationalOnly is true
         if (squadron?.squadron_type === 'training') {
@@ -139,7 +152,7 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
     });
 
     return grouped;
-  }, [missionFlights, aarOperationalOnly, squadrons]);
+  }, [missionFlights, aarOperationalOnly, aarRequired, aarSquadronIds, squadrons]);
 
   if (!selectedMission) {
     return (
@@ -378,7 +391,9 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
             border: '1px solid #E2E8F0'
           }}
         >
-          No flights found for this mission.
+          {aarRequired === false
+            ? 'No After Action Reports required for this event.'
+            : 'No flights found for this mission.'}
         </div>
       )}
 
