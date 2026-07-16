@@ -75,6 +75,7 @@ export interface EventActivitySettings {
   supportRoleRequirements?: SupportRoleRequirement[];
   referenceMaterials?: ReferenceMaterial[];
   participantCriteria?: EventActivityParticipantBlock[];
+  requiresAar?: boolean; // opt-in: this activity's flights need After Action Reports (default false - training needs none)
 }
 
 export interface EventActivity {

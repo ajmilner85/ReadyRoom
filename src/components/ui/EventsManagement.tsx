@@ -839,7 +839,8 @@ const EventsManagement: React.FC = () => {
         aarOperationalOnly: eventData.aarOperationalOnly,
         supportRoleRequirements: eventData.supportRoleRequirements ?? editingEvent.eventSettings?.supportRoleRequirements ?? [],
         groupResponsesByQualification: eventData.trackQualifications,
-        groupByActivity: (eventData as any).groupByActivity ?? (editingEvent.eventSettings as any)?.groupByActivity ?? false,
+        aarRequired: (eventData as any).aarRequired ?? (editingEvent.eventSettings as any)?.aarRequired,
+        aarSquadronIds: (eventData as any).aarSquadronIds ?? (editingEvent.eventSettings as any)?.aarSquadronIds,
         includeInAttendanceReport: (eventData as any).includeInAttendanceReport,
         firstReminderEnabled: eventData.reminders?.firstReminder?.enabled,
         firstReminderTime: eventData.reminders?.firstReminder ? {

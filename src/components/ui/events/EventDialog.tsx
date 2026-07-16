@@ -308,10 +308,6 @@ export const EventDialog: React.FC<EventDialogProps> = ({
   const [eventActivities, setEventActivities] = useState<EventActivity[]>([]);
   const [activitiesLoaded, setActivitiesLoaded] = useState(false);
   const activitiesPrefilledRef = useRef(false);
-  // Discord post grouping by activity - event-level toggle, off by default
-  const [groupByActivity, setGroupByActivity] = useState(
-    (initialData?.eventSettings as any)?.groupByActivity ?? false
-  );
 
   // Training syllabus state
   const [syllabusMissions, setSyllabusMissions] = useState<TrainingSyllabusMission[]>([]);
@@ -1248,18 +1244,16 @@ export const EventDialog: React.FC<EventDialogProps> = ({
     return merged;
   };
 
-  // Derive events.participants (squadron routing for Discord publish / Mission
-  // Prep) from the activities' participant criteria. Squadron rules contribute
-  // their squadrons; a completed block with no squadron rule matches pilots of
-  // any squadron, so it implies all squadrons. Returns undefined when no
-  // activity has criteria - callers then keep the legacy behavior (existing
-  // selection / cycle inheritance).
-  const deriveParticipantsFromActivities = (): string[] | undefined => {
+  // Derive participating squadrons from a set of activities' participant
+  // criteria. Squadron rules contribute their squadrons; a completed block with
+  // no squadron rule matches pilots of any squadron, so it implies all
+  // squadrons. Returns undefined when no activity in the set has criteria.
+  const deriveSquadronsFromCriteria = (activitiesSubset: EventActivity[]): string[] | undefined => {
     let anyCriteria = false;
     let matchesAllSquadrons = false;
     const squadronIds = new Set<string>();
 
-    eventActivities.forEach(activity => {
+    activitiesSubset.forEach(activity => {
       (activity.settings?.participantCriteria || []).forEach(block => {
         const completedCriteria = block.criteria.filter(c => c.value || (c.values && c.values.length > 0));
         if (completedCriteria.length === 0) return; // ignore incomplete blocks
@@ -1278,6 +1272,21 @@ export const EventDialog: React.FC<EventDialogProps> = ({
     if (!anyCriteria) return undefined;
     if (matchesAllSquadrons) return (squadrons || []).map(s => s.id);
     return Array.from(squadronIds);
+  };
+
+  // events.participants (squadron routing for Discord publish / Mission Prep):
+  // undefined keeps the legacy behavior (existing selection / cycle inheritance)
+  const deriveParticipantsFromActivities = (): string[] | undefined =>
+    deriveSquadronsFromCriteria(eventActivities);
+
+  // AAR requirement: any activity opting in makes the event require AARs, and
+  // the AAR section in Mission Debriefing filters to those activities'
+  // squadrons (an AAR activity without criteria means all squadrons)
+  const deriveAarFromActivities = (): { aarRequired: boolean; aarSquadronIds: string[] } => {
+    const aarActivities = eventActivities.filter(a => a.settings?.requiresAar);
+    if (aarActivities.length === 0) return { aarRequired: false, aarSquadronIds: [] };
+    const squadronIds = deriveSquadronsFromCriteria(aarActivities);
+    return { aarRequired: true, aarSquadronIds: squadronIds ?? [] }; // [] = all squadrons
   };
 
   const handleSubmit = async (shouldPublish: boolean = false) => {
@@ -1401,8 +1410,10 @@ export const EventDialog: React.FC<EventDialogProps> = ({
         // Event activities (developer-flagged): omit entirely when flag is off,
         // or while editing before the persisted activities finished loading
         ...(activitiesEnabled && (!initialData?.id || activitiesLoaded)
-          ? { activities: eventActivities, groupByActivity }
+          ? { activities: eventActivities }
           : {}),
+        // Per-activity AAR flags roll up to event_settings for Mission Debriefing
+        ...(useActivityAggregates ? deriveAarFromActivities() : {}),
         cycleId,
         // Only include if part of a cycle
         includeInAttendanceReport: cycleId ? includeInAttendanceReport : undefined
@@ -1912,25 +1923,6 @@ export const EventDialog: React.FC<EventDialogProps> = ({
                   squadrons={squadrons || []}
                 />
               </div>
-
-              {/* Discord post grouping toggle (off by default; the bot only
-                  groups by activity when this is explicitly enabled) */}
-              <div style={{ marginBottom: '16px', display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
-                <input
-                  type="checkbox"
-                  id="group-by-activity"
-                  checked={groupByActivity}
-                  onChange={(e) => setGroupByActivity(e.target.checked)}
-                  disabled={eventActivities.length === 0}
-                  style={{ marginTop: '2px' }}
-                />
-                <label htmlFor="group-by-activity" style={{ fontSize: '14px', color: '#374151', cursor: 'pointer' }}>
-                  Group the Discord post roster by activity
-                  <span style={{ display: 'block', fontSize: '12px', color: '#64748B' }}>
-                    Experimental. When off, the Discord post renders exactly as today.
-                  </span>
-                </label>
-              </div>
             </div>
           )}
 
@@ -2280,57 +2272,6 @@ export const EventDialog: React.FC<EventDialogProps> = ({
                   }
                 </div>
               </div>
-              )}
-
-              {/* With Event Activities on, the Mission step is gone and its
-                  remaining AAR option lives here on the Options tab */}
-              {activitiesEnabled && (
-                <div style={{ marginBottom: '16px', marginTop: '24px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <div style={{ flex: 1, marginRight: '16px' }}>
-                      <label style={{
-                        fontSize: '14px',
-                        fontWeight: 500,
-                        color: '#64748B',
-                        marginBottom: '4px',
-                        display: 'block'
-                      }}>
-                        After Action Reports required for Operational (non-Training) squadrons only
-                      </label>
-                      <p style={{ fontSize: '12px', color: '#64748B', margin: '0', fontFamily: 'Inter' }}>
-                        When enabled, only flights from operational squadrons will appear in the AAR section on the Mission Debriefing page.
-                      </p>
-                    </div>
-                    <div style={{ flexShrink: 0 }}>
-                      <div
-                        onClick={() => setAarOperationalOnly(!aarOperationalOnly)}
-                        style={{
-                          width: '44px',
-                          height: '24px',
-                          backgroundColor: aarOperationalOnly ? '#3B82F6' : '#E5E7EB',
-                          borderRadius: '12px',
-                          position: 'relative',
-                          cursor: 'pointer',
-                          transition: 'background-color 0.2s ease'
-                        }}
-                      >
-                        <div
-                          style={{
-                            width: '20px',
-                            height: '20px',
-                            backgroundColor: 'white',
-                            borderRadius: '50%',
-                            position: 'absolute',
-                            top: '2px',
-                            left: aarOperationalOnly ? '22px' : '2px',
-                            transition: 'left 0.2s ease',
-                            boxShadow: '0 2px 4px rgba(0, 0, 0, 0.2)'
-                          }}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </div>
               )}
 
               <div style={{ marginBottom: '16px', marginTop: '24px' }}>
