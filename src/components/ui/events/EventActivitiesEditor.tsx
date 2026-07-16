@@ -19,8 +19,8 @@ interface EventActivitiesEditorProps {
   onChange: (activities: EventActivity[]) => void;
   /** The cycle's syllabus missions - used to order the cycle's syllabus first in the lesson picker */
   syllabusMissions: TrainingSyllabusMission[];
-  /** Squadrons for participant criteria (name should be the designation, id the squadron UUID) */
-  squadrons: Array<{ id: string; name: string }>;
+  /** Squadrons for participant criteria (id = squadron UUID; designation/insignia for display) */
+  squadrons: Array<{ id: string; name: string; designation?: string; insignia_url?: string | null }>;
 }
 
 /**
@@ -425,7 +425,7 @@ const ActivityCard: React.FC<{
   qualifications: Qualification[];
   standings: Array<{ id: string; name: string }>;
   statuses: Array<{ id: string; name: string }>;
-  squadrons: Array<{ id: string; name: string }>;
+  squadrons: Array<{ id: string; name: string; designation?: string; insignia_url?: string | null }>;
   sectionKeyPrefix: string;
   expandedSections: Set<string>;
   onToggleSection: (key: string) => void;
@@ -771,10 +771,8 @@ const ActivityCard: React.FC<{
             statuses={statuses}
             qualifications={qualifications}
             squadrons={squadrons}
-            title="Participants"
-            description="Who this activity is for. Criteria within a block use AND logic; blocks use OR logic."
-            blockLabel="Participant Block"
             addBlockLabel="Add Participant Block"
+            compact
           />
         </CollapsibleSection>
       </div>

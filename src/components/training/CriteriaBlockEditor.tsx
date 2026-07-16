@@ -35,11 +35,13 @@ interface CriteriaBlockEditorProps {
   statuses: Array<{ id: string; name: string }>;
   qualifications: Array<{ id: string; name: string }>;
   /** When provided, a Squadron criterion type becomes available (value = squadron id) */
-  squadrons?: Array<{ id: string; name: string }>;
+  squadrons?: Array<{ id: string; name: string; designation?: string; insignia_url?: string | null }>;
   title?: string;
   description?: string;
   blockLabel?: string;
   addBlockLabel?: string;
+  /** Minimal layout: no header, block labels, or summary; remove-block is a gray X */
+  compact?: boolean;
 }
 
 const CriteriaBlockEditor: React.FC<CriteriaBlockEditorProps> = ({
@@ -52,7 +54,8 @@ const CriteriaBlockEditor: React.FC<CriteriaBlockEditorProps> = ({
   title = 'Criteria Rules',
   description = 'Define criteria for matching pilots. Criteria within a block use AND logic. Multiple blocks use OR logic.',
   blockLabel = 'Criteria Block',
-  addBlockLabel = 'Add Criteria Block'
+  addBlockLabel = 'Add Criteria Block',
+  compact = false
 }) => {
   // Add a new empty block
   const handleAddBlock = () => {
@@ -153,7 +156,10 @@ const CriteriaBlockEditor: React.FC<CriteriaBlockEditorProps> = ({
     if (criterion.type === 'squadron') {
       const ids = criterion.values ?? (criterion.value ? [criterion.value] : []);
       return ids
-        .map(id => (squadrons || []).find(s => s.id === id)?.name || id)
+        .map(id => {
+          const squadron = (squadrons || []).find(s => s.id === id);
+          return squadron?.designation || squadron?.name || id;
+        })
         .join(' or ');
     }
     return criterion.value;
@@ -162,13 +168,14 @@ const CriteriaBlockEditor: React.FC<CriteriaBlockEditorProps> = ({
   return (
     <div>
       {/* Header */}
+      {!compact && (
       <div style={{ marginBottom: '20px' }}>
-        <h3 style={{ 
-          fontSize: '14px', 
-          fontWeight: 600, 
-          marginBottom: '8px', 
-          color: '#6B7280', 
-          textTransform: 'uppercase' 
+        <h3 style={{
+          fontSize: '14px',
+          fontWeight: 600,
+          marginBottom: '8px',
+          color: '#6B7280',
+          textTransform: 'uppercase'
         }}>
           {title}
         </h3>
@@ -176,6 +183,7 @@ const CriteriaBlockEditor: React.FC<CriteriaBlockEditorProps> = ({
           {description}
         </p>
       </div>
+      )}
 
       {/* Blocks */}
       {blocks.length > 0 && (
@@ -206,23 +214,47 @@ const CriteriaBlockEditor: React.FC<CriteriaBlockEditorProps> = ({
               )}
 
               {/* Block container */}
-              <div style={{ 
-                backgroundColor: '#F9FAFB', 
-                border: '1px solid #E5E7EB', 
+              <div style={{
+                backgroundColor: '#F9FAFB',
+                border: '1px solid #E5E7EB',
                 borderRadius: '8px',
-                padding: '16px'
+                // Compact mode reserves right padding for the corner remove-X
+                padding: compact ? '12px 36px 12px 12px' : '16px',
+                position: 'relative'
               }}>
-                {/* Block header */}
-                <div style={{ 
-                  display: 'flex', 
-                  justifyContent: 'space-between', 
+                {/* Block header: compact mode collapses it to a corner X */}
+                {compact ? (
+                  <button
+                    onClick={() => handleRemoveBlock(blockIndex)}
+                    style={{
+                      position: 'absolute',
+                      top: '6px',
+                      right: '6px',
+                      padding: '4px',
+                      backgroundColor: 'transparent',
+                      border: 'none',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      zIndex: 1
+                    }}
+                    title="Remove block"
+                  >
+                    <X size={16} color="#64748B" />
+                  </button>
+                ) : (
+                <div style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
                   alignItems: 'center',
                   marginBottom: '12px'
                 }}>
-                  <span style={{ 
-                    fontSize: '13px', 
-                    fontWeight: 500, 
-                    color: '#374151' 
+                  <span style={{
+                    fontSize: '13px',
+                    fontWeight: 500,
+                    color: '#374151'
                   }}>
                     {blockLabel} {blockIndex + 1}
                   </span>
@@ -254,6 +286,7 @@ const CriteriaBlockEditor: React.FC<CriteriaBlockEditorProps> = ({
                     Remove Block
                   </button>
                 </div>
+                )}
 
                 {/* Criteria within block */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -309,48 +342,99 @@ const CriteriaBlockEditor: React.FC<CriteriaBlockEditorProps> = ({
                         </select>
 
                         {/* Value selector: squadron rules are multi-select
-                            (match ANY checked squadron), others single-select */}
+                            (match ANY checked squadron), others single-select.
+                            Rows mirror the Participating Squadrons list. */}
                         {criterion.type === 'squadron' ? (
                           <div style={{
                             flex: 1,
-                            display: 'flex',
-                            flexWrap: 'wrap',
-                            gap: '6px',
-                            padding: '6px 8px',
-                            border: '1px solid #D1D5DB',
-                            borderRadius: '6px',
-                            backgroundColor: 'white',
-                            minHeight: '24px',
-                            alignItems: 'center'
+                            border: '1px solid #E5E7EB',
+                            borderRadius: '4px',
+                            padding: '4px',
+                            backgroundColor: '#FAFAFA'
                           }}>
                             {(squadrons || []).map(squadron => {
                               const selectedIds = criterion.values ?? (criterion.value ? [criterion.value] : []);
                               const isSelected = selectedIds.includes(squadron.id);
                               return (
-                                <label
+                                <div
                                   key={squadron.id}
+                                  onClick={() => handleSquadronToggle(blockIndex, criterionIndex, squadron.id)}
                                   style={{
+                                    padding: '6px 8px',
+                                    cursor: 'pointer',
                                     display: 'flex',
                                     alignItems: 'center',
-                                    gap: '5px',
-                                    padding: '3px 8px',
-                                    borderRadius: '12px',
-                                    border: isSelected ? '1px solid #BFDBFE' : '1px solid #E5E7EB',
-                                    backgroundColor: isSelected ? '#EFF6FF' : '#F9FAFB',
-                                    color: isSelected ? '#1E40AF' : '#6B7280',
-                                    fontSize: '13px',
-                                    cursor: 'pointer',
-                                    userSelect: 'none'
+                                    gap: '8px',
+                                    backgroundColor: isSelected ? '#EFF6FF' : 'transparent',
+                                    borderRadius: '3px',
+                                    transition: 'background-color 0.2s',
+                                    marginBottom: '2px'
+                                  }}
+                                  onMouseEnter={e => {
+                                    if (!isSelected) {
+                                      e.currentTarget.style.backgroundColor = '#F8FAFC';
+                                    }
+                                  }}
+                                  onMouseLeave={e => {
+                                    if (!isSelected) {
+                                      e.currentTarget.style.backgroundColor = 'transparent';
+                                    }
                                   }}
                                 >
-                                  <input
-                                    type="checkbox"
-                                    checked={isSelected}
-                                    onChange={() => handleSquadronToggle(blockIndex, criterionIndex, squadron.id)}
-                                    style={{ margin: 0 }}
-                                  />
-                                  {squadron.name}
-                                </label>
+                                  <div style={{
+                                    width: '14px',
+                                    height: '14px',
+                                    border: '1px solid #CBD5E1',
+                                    borderRadius: '3px',
+                                    backgroundColor: isSelected ? '#3B82F6' : '#FFFFFF',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    flexShrink: 0
+                                  }}>
+                                    {isSelected && (
+                                      <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
+                                        <path d="M1 4L3 6L7 2" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                                      </svg>
+                                    )}
+                                  </div>
+
+                                  {squadron.insignia_url ? (
+                                    <div style={{
+                                      width: '20px',
+                                      height: '20px',
+                                      backgroundImage: `url(${squadron.insignia_url})`,
+                                      backgroundSize: 'contain',
+                                      backgroundRepeat: 'no-repeat',
+                                      backgroundPosition: 'center',
+                                      flexShrink: 0
+                                    }} />
+                                  ) : (
+                                    <div style={{
+                                      width: '20px',
+                                      height: '20px',
+                                      backgroundColor: '#E5E7EB',
+                                      borderRadius: '3px',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'center',
+                                      flexShrink: 0
+                                    }}>
+                                      <span style={{ fontSize: '10px', color: '#6B7280' }}>?</span>
+                                    </div>
+                                  )}
+
+                                  <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, flex: 1 }}>
+                                    <span style={{ fontSize: '12px', fontWeight: 500, fontFamily: 'Inter' }}>
+                                      {squadron.designation || squadron.name}
+                                    </span>
+                                    {squadron.designation && (
+                                      <span style={{ fontSize: '10px', color: '#64748B', fontFamily: 'Inter' }}>
+                                        {squadron.name}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
                               );
                             })}
                           </div>
@@ -470,7 +554,7 @@ const CriteriaBlockEditor: React.FC<CriteriaBlockEditorProps> = ({
       </button>
 
       {/* Summary of rules */}
-      {blocks.length > 0 && (
+      {!compact && blocks.length > 0 && (
         <div style={{ 
           marginTop: '16px', 
           padding: '12px', 

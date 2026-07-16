@@ -1875,7 +1875,7 @@ export const EventDialog: React.FC<EventDialogProps> = ({
                   activities={eventActivities}
                   onChange={setEventActivities}
                   syllabusMissions={syllabusMissions}
-                  squadrons={(squadrons || []).map(s => ({ id: s.id, name: s.designation || s.name }))}
+                  squadrons={squadrons || []}
                 />
               </div>
 
