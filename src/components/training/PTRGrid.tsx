@@ -14,6 +14,8 @@ interface PTRGridProps {
   onCellClick?: (cellData: PTRCellData) => void;
   onGraduateClick?: (studentIds: string[]) => void;
   suppressTooltips?: boolean;
+  /** When set (own_students scope), only show students this pilot has graded or been assigned to as IP */
+  ownStudentsPilotId?: string;
 }
 
 interface Student {
@@ -46,7 +48,7 @@ interface StudentRow {
   weekCells: Map<number, PTRCellData>;
 }
 
-const PTRGrid: React.FC<PTRGridProps> = ({ syllabusId, cycleId, onCellClick, onGraduateClick, suppressTooltips }) => {
+const PTRGrid: React.FC<PTRGridProps> = ({ syllabusId, cycleId, onCellClick, onGraduateClick, suppressTooltips, ownStudentsPilotId }) => {
   const navigate = useNavigate();
   const [studentRows, setStudentRows] = useState<StudentRow[]>([]);
   const [weekInfo, setWeekInfo] = useState<WeekInfo[]>([]);
@@ -66,7 +68,7 @@ const PTRGrid: React.FC<PTRGridProps> = ({ syllabusId, cycleId, onCellClick, onG
 
   useEffect(() => {
     loadPTRData();
-  }, [syllabusId, cycleId]);
+  }, [syllabusId, cycleId, ownStudentsPilotId]);
 
   // Handle click outside for popup
   useEffect(() => {
@@ -127,13 +129,29 @@ const PTRGrid: React.FC<PTRGridProps> = ({ syllabusId, cycleId, onCellClick, onG
 
       if (enrollmentsError) throw enrollmentsError;
 
-      if (!enrollments || enrollments.length === 0) {
+      // Own-students scope: limit to students this pilot has flown with in this
+      // cycle (has graded them, or was their assigned IP on a grade record)
+      let visibleEnrollments = enrollments || [];
+      if (ownStudentsPilotId) {
+        const { data: ownGrades, error: ownGradesError } = await supabase
+          .from('training_grades')
+          .select('student_id')
+          .eq('cycle_id', cycleId)
+          .or(`graded_by_pilot_id.eq.${ownStudentsPilotId},assigned_ip_pilot_id.eq.${ownStudentsPilotId}`);
+
+        if (ownGradesError) throw ownGradesError;
+
+        const ownStudentIds = new Set((ownGrades || []).map((g: any) => g.student_id));
+        visibleEnrollments = visibleEnrollments.filter((e: any) => ownStudentIds.has(e.pilot_id));
+      }
+
+      if (visibleEnrollments.length === 0) {
         setStudentRows([]);
         setLoading(false);
         return;
       }
 
-      const pilotIds = enrollments.map((e: any) => e.pilot_id);
+      const pilotIds = visibleEnrollments.map((e: any) => e.pilot_id);
 
       // Load squadron assignments for enrolled pilots
       const { data: assignmentsData } = await supabase
@@ -156,7 +174,7 @@ const PTRGrid: React.FC<PTRGridProps> = ({ syllabusId, cycleId, onCellClick, onG
 
       // Build enriched pilot data from enrollments; a pilot is active when
       // their current (open-ended) status row is an active status
-      const enrichedPilotsData = enrollments.map((enrollment: any) => {
+      const enrichedPilotsData = visibleEnrollments.map((enrollment: any) => {
         const statusRows = enrollment.pilots.pilot_statuses || [];
         const isActive = statusRows.some((row: any) => row.end_date === null && row.statuses?.isActive);
         return {

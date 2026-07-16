@@ -8,7 +8,7 @@ import type {
   BasisType,
   PermissionScope
 } from '../types/PermissionTypes';
-import { BASIS_PRIORITIES } from '../types/PermissionTypes';
+import { BASIS_PRIORITIES, TRAINING_PROGRESS_SCOPE_RANK, normalizeTrainingProgressScope } from '../types/PermissionTypes';
 
 export class PermissionCalculator {
   
@@ -426,7 +426,7 @@ export class PermissionCalculator {
       manage_training_debriefs: false,
       submit_training_debriefs: false,
       manage_training_enrollments: false,
-      view_all_training_progress: false,
+      view_all_training_progress: 'none',
       lock_unlock_missions: false,
       access_my_training: false,
       access_training_management: false,
@@ -685,9 +685,14 @@ export class PermissionCalculator {
       case 'manage_training_enrollments':
         permissions.manage_training_enrollments = true;
         break;
-      case 'view_all_training_progress':
-        permissions.view_all_training_progress = true;
+      case 'view_all_training_progress': {
+        // Scoped permission: keep the most permissive scope across all rules
+        const ruleScope = normalizeTrainingProgressScope(rule.scope);
+        if (TRAINING_PROGRESS_SCOPE_RANK[ruleScope] > TRAINING_PROGRESS_SCOPE_RANK[permissions.view_all_training_progress]) {
+          permissions.view_all_training_progress = ruleScope;
+        }
         break;
+      }
       case 'lock_unlock_missions':
         permissions.lock_unlock_missions = true;
         break;

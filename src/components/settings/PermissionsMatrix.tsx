@@ -221,6 +221,9 @@ export const PermissionMatrix: React.FC<PermissionMatrixProps> = ({
           case 'own_squadron': return 'Squadron';
           case 'own_wing': return 'Wing';
           case 'global': return 'Global';
+          case 'own_students': return 'Own Students';
+          case 'enrolled_cycles': return 'Own Cycles';
+          case 'all_cycles': return 'All Cycles';
           default: return 'None';
         }
       };
@@ -236,6 +239,12 @@ export const PermissionMatrix: React.FC<PermissionMatrixProps> = ({
           case 'own_wing':
             return { color: '#7C3AED', backgroundColor: '#F5F3FF', hoverColor: '#6D28D9' };
           case 'global':
+            return { color: '#DC2626', backgroundColor: '#FEF2F2', hoverColor: '#B91C1C' };
+          case 'own_students':
+            return { color: '#059669', backgroundColor: '#ECFDF5', hoverColor: '#047857' };
+          case 'enrolled_cycles':
+            return { color: '#2563EB', backgroundColor: '#EFF6FF', hoverColor: '#1D4ED8' };
+          case 'all_cycles':
             return { color: '#DC2626', backgroundColor: '#FEF2F2', hoverColor: '#B91C1C' };
           default:
             return { color: '#9CA3AF', backgroundColor: 'transparent', hoverColor: '#6B7280' };

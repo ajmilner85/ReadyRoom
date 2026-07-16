@@ -520,7 +520,7 @@ export class PermissionCacheService {
       manage_training_syllabi: false,
       manage_training_debriefs: false,
       manage_training_enrollments: false,
-      view_all_training_progress: false,
+      view_all_training_progress: 'none',
       lock_unlock_missions: false,
       access_my_training: false,
       access_training_management: false,
