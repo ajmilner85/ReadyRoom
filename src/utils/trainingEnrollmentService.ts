@@ -40,6 +40,7 @@ export interface EnrolledPilot {
   } | null;
   status: 'active' | 'completed' | 'dropped' | 'graduated';
   enrolled_at: string;
+  cycle_activity_id?: string | null; // Cycle Activities feature: which activity this enrollment belongs to (null = cycle-wide)
   // Pilot attributes for filtering
   currentStatus?: { id: string; name: string; isActive: boolean } | null;
   currentStanding?: { id: string; name: string } | null;
@@ -318,7 +319,8 @@ export async function getSuggestedEnrollments(syllabusId: string): Promise<Enrol
 export async function enrollPilots(
   cycleId: string,
   pilotIds: string[],
-  enrolledByUserId: string | null = null
+  enrolledByUserId: string | null = null,
+  cycleActivityId: string | null = null
 ): Promise<void> {
   try {
     const enrollments = pilotIds.map(pilotId => ({
@@ -326,7 +328,8 @@ export async function enrollPilots(
       pilot_id: pilotId,
       enrolled_by: enrolledByUserId,
       status: 'active',
-      enrolled_at: new Date().toISOString()
+      enrolled_at: new Date().toISOString(),
+      cycle_activity_id: cycleActivityId
     }));
 
     const { error } = await supabase
@@ -394,6 +397,7 @@ export async function getCycleEnrollments(cycleId: string): Promise<EnrolledPilo
         pilot_id,
         status,
         enrolled_at,
+        cycle_activity_id,
         pilots!inner(id, callsign, boardNumber)
       `)
       .eq('cycle_id', cycleId)
@@ -514,6 +518,7 @@ export async function getCycleEnrollments(cycleId: string): Promise<EnrolledPilo
       squadron: squadronMap.get(enrollment.pilot_id) || null,
       status: enrollment.status,
       enrolled_at: enrollment.enrolled_at,
+      cycle_activity_id: enrollment.cycle_activity_id || null,
       currentStatus: statusMap.get(enrollment.pilot_id) || null,
       currentStanding: standingMap.get(enrollment.pilot_id) || null,
       roles: rolesMap.get(enrollment.pilot_id) || [],
