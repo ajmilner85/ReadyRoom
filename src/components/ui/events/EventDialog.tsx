@@ -1248,6 +1248,38 @@ export const EventDialog: React.FC<EventDialogProps> = ({
     return merged;
   };
 
+  // Derive events.participants (squadron routing for Discord publish / Mission
+  // Prep) from the activities' participant criteria. Squadron rules contribute
+  // their squadrons; a completed block with no squadron rule matches pilots of
+  // any squadron, so it implies all squadrons. Returns undefined when no
+  // activity has criteria - callers then keep the legacy behavior (existing
+  // selection / cycle inheritance).
+  const deriveParticipantsFromActivities = (): string[] | undefined => {
+    let anyCriteria = false;
+    let matchesAllSquadrons = false;
+    const squadronIds = new Set<string>();
+
+    eventActivities.forEach(activity => {
+      (activity.settings?.participantCriteria || []).forEach(block => {
+        const completedCriteria = block.criteria.filter(c => c.value || (c.values && c.values.length > 0));
+        if (completedCriteria.length === 0) return; // ignore incomplete blocks
+        anyCriteria = true;
+        const squadronRules = completedCriteria.filter(c => c.type === 'squadron');
+        if (squadronRules.length === 0) {
+          matchesAllSquadrons = true;
+        } else {
+          squadronRules.forEach(rule => {
+            (rule.values ?? (rule.value ? [rule.value] : [])).forEach(id => squadronIds.add(id));
+          });
+        }
+      });
+    });
+
+    if (!anyCriteria) return undefined;
+    if (matchesAllSquadrons) return (squadrons || []).map(s => s.id);
+    return Array.from(squadronIds);
+  };
+
   const handleSubmit = async (shouldPublish: boolean = false) => {
     if (isSubmitting) return; // Prevent multiple submissions
     
@@ -1319,7 +1351,9 @@ export const EventDialog: React.FC<EventDialogProps> = ({
           hours: durationHours,
           minutes: durationMinutes
         },
-        participants: participants.length > 0 ? participants : undefined,
+        participants: useActivityAggregates
+          ? (deriveParticipantsFromActivities() ?? (participants.length > 0 ? participants : undefined))
+          : (participants.length > 0 ? participants : undefined),
         headerImage: headerImageForSubmit as File | string | null,
         additionalImages: additionalImagesForSubmit as (File | string)[],
         trackQualifications,
@@ -2062,6 +2096,15 @@ export const EventDialog: React.FC<EventDialogProps> = ({
 
           {currentStep === 'participants' && (
             <div>
+              {/* With Event Activities on, participating squadrons are derived
+                  from each activity's Participants criteria on save */}
+              {activitiesEnabled && (
+                <p style={{ fontSize: '12px', color: '#64748B', margin: '0 0 16px 0', fontFamily: 'Inter' }}>
+                  Participating squadrons are determined by each activity's Participants criteria
+                  (Activities step). Events whose activities have no criteria inherit the cycle's squadrons.
+                </p>
+              )}
+              {!activitiesEnabled && (
               <div style={{ marginBottom: '16px' }}>
                 <div style={{
                   display: 'flex',
@@ -2231,12 +2274,13 @@ export const EventDialog: React.FC<EventDialogProps> = ({
                   color: '#64748B',
                   marginTop: '4px'
                 }}>
-                  {participants.length === 0 ? 
+                  {participants.length === 0 ?
                     'No squadrons selected. Event will inherit from cycle.' :
                     `${participants.length} squadron${participants.length !== 1 ? 's' : ''} selected.`
                   }
                 </div>
               </div>
+              )}
 
               {/* With Event Activities on, the Mission step is gone and its
                   remaining AAR option lives here on the Options tab */}
