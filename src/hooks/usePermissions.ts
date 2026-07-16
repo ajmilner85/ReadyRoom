@@ -1,11 +1,12 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { permissionService } from '../utils/permissionService';
-import type { 
-  UserPermissions, 
-  PermissionCheckContext, 
-  PermissionScopeContext 
+import type {
+  UserPermissions,
+  PermissionCheckContext,
+  PermissionScopeContext
 } from '../types/PermissionTypes';
+import { normalizeTrainingProgressScope } from '../types/PermissionTypes';
 
 // Hook state interface
 interface PermissionHookState {
@@ -96,7 +97,12 @@ export function usePermissions() {
     if (typeof permissionValue === 'boolean') {
       return permissionValue;
     }
-    
+
+    // String-scope permissions (e.g. view_all_training_progress)
+    if (typeof permissionValue === 'string') {
+      return permissionValue !== 'none';
+    }
+
     // Scoped permissions
     if (Array.isArray(permissionValue)) {
       // Check if it's PermissionScopeContext[] or PermissionBasis[]
@@ -200,7 +206,7 @@ export function usePermissions() {
     // Training permissions
     manage_training_syllabi: state.permissions?.manage_training_syllabi || false,
     manage_training_debriefs: state.permissions?.manage_training_debriefs || false,
-    view_all_training_progress: state.permissions?.view_all_training_progress || false,
+    view_all_training_progress: normalizeTrainingProgressScope(state.permissions?.view_all_training_progress),
     lock_unlock_missions: state.permissions?.lock_unlock_missions || false,
     access_my_training: state.permissions?.access_my_training || false,
     access_training_management: state.permissions?.access_training_management || false,

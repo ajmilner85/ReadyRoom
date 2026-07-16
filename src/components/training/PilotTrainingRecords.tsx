@@ -12,6 +12,7 @@ import { graduateStudents } from '../../services/graduationService';
 import { clearAllQualificationsCache } from '../../utils/qualificationService';
 import { PTRCellData, GraduationOutcome } from '../../types/TrainingTypes';
 import { useAuth } from '../../context/AuthContext';
+import { usePermissions } from '../../hooks/usePermissions';
 
 interface TrainingCycle {
   id: string;
@@ -28,6 +29,8 @@ interface PilotTrainingRecordsProps {
 
 const PilotTrainingRecords: React.FC<PilotTrainingRecordsProps> = ({ error, setError }) => {
   const { userProfile } = useAuth();
+  // Scope of PTR visibility: none | own_students | enrolled_cycles | all_cycles
+  const { view_all_training_progress: ptrScope, loading: permissionsLoading } = usePermissions();
   const [cycles, setCycles] = useState<TrainingCycle[]>([]);
   const [selectedCycleId, setSelectedCycleId] = useState<string | undefined>();
   const [loading, setLoading] = useState(true);
@@ -44,8 +47,9 @@ const PilotTrainingRecords: React.FC<PilotTrainingRecordsProps> = ({ error, setE
   const [isGraduationPending, setIsGraduationPending] = useState(false);
 
   useEffect(() => {
+    if (permissionsLoading) return;
     loadCycles();
-  }, [userProfile]);
+  }, [userProfile, ptrScope, permissionsLoading]);
 
   const loadCycles = async () => {
     try {
@@ -63,24 +67,17 @@ const PilotTrainingRecords: React.FC<PilotTrainingRecordsProps> = ({ error, setE
 
       if (cyclesError) throw cyclesError;
 
-      // Filter cycles to only those where user is an enrolled instructor
-      let accessibleCycles: TrainingCycle[] = allCycles || [];
-      
-      if (userPilotId) {
-        // Get cycles where this pilot is an enrolled instructor
+      // Which cycles are visible is driven by the view_all_training_progress scope:
+      //   all_cycles                     -> every training cycle
+      //   enrolled_cycles / own_students -> only cycles the user instructs
+      //   none                           -> nothing
+      let accessibleCycles: TrainingCycle[] = [];
+
+      if (ptrScope === 'all_cycles') {
+        accessibleCycles = allCycles || [];
+      } else if ((ptrScope === 'enrolled_cycles' || ptrScope === 'own_students') && userPilotId) {
         const instructorCycleIds = await getPilotInstructorCycles(userPilotId);
-        
-        if (instructorCycleIds.length > 0) {
-          // User has instructor access to some cycles
-          accessibleCycles = (allCycles || []).filter(c => instructorCycleIds.includes(c.id));
-        } else {
-          // No instructor enrollments - show empty list
-          // In the future, we could add permission-based access here
-          accessibleCycles = [];
-        }
-      } else {
-        // No pilot record linked to user - show empty list
-        accessibleCycles = [];
+        accessibleCycles = (allCycles || []).filter(c => instructorCycleIds.includes(c.id));
       }
 
       setCycles(accessibleCycles);
@@ -269,8 +266,9 @@ const PilotTrainingRecords: React.FC<PilotTrainingRecordsProps> = ({ error, setE
             No Training Cycles Available
           </h3>
           <p style={{ fontSize: '14px', color: '#6B7280', margin: 0, maxWidth: '400px' }}>
-            You are not enrolled as an instructor for any training cycles. 
-            Contact your training officer to be added as an instructor.
+            {ptrScope === 'none'
+              ? 'You do not have permission to view pilot training records. Contact your training officer for access.'
+              : 'You are not enrolled as an instructor for any training cycles. Contact your training officer to be added as an instructor.'}
           </p>
         </div>
       ) : (
@@ -347,7 +345,8 @@ const PilotTrainingRecords: React.FC<PilotTrainingRecordsProps> = ({ error, setE
                 cycleId={selectedCycleId}
                 onCellClick={handleCellClick}
                 onGraduateClick={handleGraduateClick}
-              suppressTooltips={isGraduationPending || !!graduationStudentIds}
+                suppressTooltips={isGraduationPending || !!graduationStudentIds}
+                ownStudentsPilotId={ptrScope === 'own_students' ? userProfile?.pilotId : undefined}
               />
             ) : selectedCycleId ? (
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', textAlign: 'center', color: '#6B7280', backgroundColor: 'white', border: '1px solid #E5E7EB', borderRadius: '8px', padding: '40px' }}>

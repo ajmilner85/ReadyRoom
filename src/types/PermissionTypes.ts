@@ -3,11 +3,36 @@
 
 export type PermissionCategory = 'navigation' | 'roster' | 'events' | 'settings' | 'mission_prep' | 'debriefing' | 'training' | 'other';
 
-export type ScopeType = 'global' | 'squadron' | 'wing';
+export type ScopeType = 'global' | 'squadron' | 'wing' | 'training';
 
 export type BasisType = 'standing' | 'qualification' | 'billet' | 'team' | 'squadron' | 'wing' | 'authenticated_user' | 'manual_override';
 
-export type PermissionScope = 'global' | 'own_squadron' | 'all_squadrons' | 'own_wing' | 'all_wings' | 'flight';
+export type PermissionScope = 'global' | 'own_squadron' | 'all_squadrons' | 'own_wing' | 'all_wings' | 'flight' | 'own_students' | 'enrolled_cycles' | 'all_cycles';
+
+// Training progress visibility scopes (ordered least to most permissive):
+//   own_students    - students the user has flown with, in cycles they instruct
+//   enrolled_cycles - all students in cycles the user instructs
+//   all_cycles      - all students in all training cycles
+export type TrainingProgressScope = 'none' | 'own_students' | 'enrolled_cycles' | 'all_cycles';
+
+export const TRAINING_PROGRESS_SCOPE_RANK: Record<TrainingProgressScope, number> = {
+  none: 0,
+  own_students: 1,
+  enrolled_cycles: 2,
+  all_cycles: 3
+};
+
+/**
+ * Normalize a stored view_all_training_progress value to a TrainingProgressScope.
+ * Handles legacy cached values (boolean true from the pre-scoped permission, or
+ * a rule scope of 'global') by mapping them to 'all_cycles'.
+ */
+export function normalizeTrainingProgressScope(value: unknown): TrainingProgressScope {
+  if (value === true || value === 'global' || value === 'all_cycles') return 'all_cycles';
+  if (value === 'enrolled_cycles') return 'enrolled_cycles';
+  if (value === 'own_students') return 'own_students';
+  return 'none';
+}
 
 export interface AppPermission {
   id: string;
@@ -107,7 +132,7 @@ export interface UserPermissions {
   manage_training_debriefs: boolean;             // Global only
   submit_training_debriefs: boolean;             // Global only
   manage_training_enrollments: boolean;          // Global only
-  view_all_training_progress: boolean;           // Global only
+  view_all_training_progress: TrainingProgressScope; // Scoped: none | own_students | enrolled_cycles | all_cycles
   lock_unlock_missions: boolean;                 // Global only
   access_my_training: boolean;                   // Global only
   access_training_management: boolean;           // Global only
@@ -285,7 +310,10 @@ export const SCOPE_LABELS: Record<PermissionScope, string> = {
   all_squadrons: 'All Squadrons',
   own_wing: 'Own Wing',
   all_wings: 'All Wings',
-  flight: 'Flight Lead Only'
+  flight: 'Flight Lead Only',
+  own_students: 'Own Students',
+  enrolled_cycles: 'Own Cycles',
+  all_cycles: 'All Cycles'
 };
 
 export const BASIS_TYPE_LABELS: Record<BasisType, string> = {
