@@ -12,7 +12,7 @@ import { DeleteDivisionDialog } from './dialogs/DeleteDivisionDialog';
 import { Trash2 } from 'lucide-react';
 import type { Event, Cycle, CycleType, ReferenceMaterial } from '../../types/EventTypes';
 import { supabase, fetchCycles, createCycle, updateCycle, deleteCycle,
-         fetchEvents, createEvent, updateEvent, deleteEvent } from '../../utils/supabaseClient';
+         fetchEvents, createEvent, updateEvent, deleteEvent, saveCycleActivities } from '../../utils/supabaseClient';
 import { deleteMultiChannelEvent, updateMultiChannelEvent } from '../../utils/discordService';
 import { uploadMultipleEventImages, deleteEventImageFiles } from '../../utils/eventImageService';
 import LoadingSpinner from './LoadingSpinner';
@@ -1372,6 +1372,14 @@ const EventsManagement: React.FC = () => {
         await enrollPilots(cycle.id, cycleData.stagedEnrollmentIds, userProfileId);
       }
 
+      // Persist the cycle's blocked-out activities (developer-flagged)
+      if (cycle && (cycleData as any).cycleActivities !== undefined) {
+        const { error: activitiesError } = await saveCycleActivities(cycle.id, (cycleData as any).cycleActivities);
+        if (activitiesError) {
+          console.error('Cycle created but saving activities failed:', activitiesError);
+        }
+      }
+
       // If auto-create events is enabled, create events for the syllabus
       if (cycleData.autoCreateEvents && cycle && cycleData.syllabusId) {
         await createEventsForCycle(cycle.id, cycleData);
@@ -1428,6 +1436,14 @@ const EventsManagement: React.FC = () => {
       });
 
       if (error) throw error;
+
+      // Persist the cycle's blocked-out activities (developer-flagged)
+      if ((cycleData as any).cycleActivities !== undefined) {
+        const { error: activitiesError } = await saveCycleActivities(editingCycle.id, (cycleData as any).cycleActivities);
+        if (activitiesError) {
+          console.error('Cycle updated but saving activities failed:', activitiesError);
+        }
+      }
 
       // If auto-create events is enabled, create events for the syllabus
       if (cycleData.autoCreateEvents && cycle && cycleData.syllabusId) {

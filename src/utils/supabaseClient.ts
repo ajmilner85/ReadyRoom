@@ -1,6 +1,6 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { Database } from '../types/supabase';
-import { Cycle, CycleType, Event, EventType, EventActivity } from '../types/EventTypes';
+import { Cycle, CycleType, Event, EventType, EventActivity, CycleActivity } from '../types/EventTypes';
 
 let client: SupabaseClient<Database> | null = null;
 
@@ -231,6 +231,7 @@ export const fetchCycles = async (discordGuildId?: string) => {
       participants: Array.isArray(dbCycle.participants) ? dbCycle.participants as string[] : [], // Get participants from database
       discordGuildId: dbCycle.discord_guild_id || undefined,
       syllabusId: dbCycle.syllabus_id || undefined,
+      settings: (dbCycle as any).settings || undefined,
       creator: {
         boardNumber: dbCycle.creator_board_number || '',
         callsign: dbCycle.creator_call_sign || '',
@@ -270,6 +271,11 @@ export const createCycle = async (cycle: Omit<Cycle, 'id' | 'creator'> & { disco
     insertData.syllabus_id = cycle.syllabusId || null;
   }
 
+  // Cycle-level event defaults (developer-flagged)
+  if (cycle.settings !== undefined) {
+    insertData.settings = cycle.settings;
+  }
+
   const { data, error } = await supabase
     .from('cycles')
     .insert(insertData)
@@ -292,6 +298,7 @@ export const createCycle = async (cycle: Omit<Cycle, 'id' | 'creator'> & { disco
     status: data.status as 'active' | 'completed' | 'upcoming',
     restrictedTo: data.restricted_to || [],
     syllabusId: data.syllabus_id || undefined,
+    settings: (data as any).settings || undefined,
     creator: {
       boardNumber: data.creator_board_number || '',
       callsign: data.creator_call_sign || '',
@@ -318,6 +325,11 @@ export const updateCycle = async (cycleId: string, updates: Partial<Omit<Cycle, 
   // Training workflow field (Phase 3) - only include if provided (null means clear the field)
   if (updates.syllabusId !== undefined) {
     dbUpdates.syllabus_id = updates.syllabusId || null;
+  }
+
+  // Cycle-level event defaults (developer-flagged)
+  if (updates.settings !== undefined) {
+    dbUpdates.settings = updates.settings;
   }
 
   // Debug: Check user permissions before update
@@ -372,6 +384,7 @@ export const updateCycle = async (cycleId: string, updates: Partial<Omit<Cycle, 
     restrictedTo: data.restricted_to || [],
     participants: Array.isArray(data.participants) ? data.participants as string[] : [], // Get participants from database
     discordGuildId: data.discord_guild_id || undefined,
+    settings: (data as any).settings || undefined,
     creator: {
       boardNumber: data.creator_board_number || '',
       callsign: data.creator_call_sign || '',
@@ -389,6 +402,98 @@ export const deleteCycle = async (cycleId: string) => {
     .eq('id', cycleId);
 
   return { error };
+};
+
+// Cycle Activities API (developer-flagged feature). A cycle with zero activity
+// rows behaves exactly as today; these are only called from flag-gated paths.
+
+const mapDbCycleActivity = (row: any): CycleActivity => ({
+  id: row.id,
+  cycleId: row.cycle_id,
+  kind: row.kind,
+  syllabusId: row.syllabus_id || undefined,
+  label: row.label || undefined,
+  adHocObjectives: Array.isArray(row.ad_hoc_objectives) ? row.ad_hoc_objectives : undefined,
+  startWeek: row.start_week ?? 1,
+  endWeek: row.end_week ?? 1,
+  displayOrder: row.display_order ?? 0,
+  settings: row.settings || {}
+});
+
+export const getCycleActivities = async (cycleId: string): Promise<{ activities: CycleActivity[]; error: any }> => {
+  const { data, error } = await (supabase as any)
+    .from('cycle_activities')
+    .select('*')
+    .eq('cycle_id', cycleId)
+    .order('display_order');
+
+  if (error) {
+    console.error('[CYCLE-ACTIVITIES] Error loading activities:', error);
+    return { activities: [], error };
+  }
+
+  return { activities: (data || []).map(mapDbCycleActivity), error: null };
+};
+
+/** Replace the full set of activities for a cycle (array order = display_order) */
+export const saveCycleActivities = async (
+  cycleId: string,
+  activities: CycleActivity[]
+): Promise<{ activities: CycleActivity[]; error: any }> => {
+  const { data: existing, error: loadError } = await (supabase as any)
+    .from('cycle_activities')
+    .select('id')
+    .eq('cycle_id', cycleId);
+
+  if (loadError) return { activities: [], error: loadError };
+
+  const keptIds = new Set(activities.filter(a => a.id).map(a => a.id as string));
+  const toDelete = (existing || []).map((r: any) => r.id).filter((id: string) => !keptIds.has(id));
+
+  if (toDelete.length > 0) {
+    const { error: deleteError } = await (supabase as any)
+      .from('cycle_activities')
+      .delete()
+      .in('id', toDelete);
+    if (deleteError) return { activities: [], error: deleteError };
+  }
+
+  const saved: CycleActivity[] = [];
+  for (let i = 0; i < activities.length; i++) {
+    const activity = activities[i];
+    const row: any = {
+      cycle_id: cycleId,
+      kind: activity.kind,
+      syllabus_id: activity.kind === 'syllabus' ? (activity.syllabusId || null) : null,
+      label: activity.label || null,
+      ad_hoc_objectives: activity.kind === 'objectives' ? (activity.adHocObjectives || []) : null,
+      start_week: activity.startWeek,
+      end_week: Math.max(activity.startWeek, activity.endWeek),
+      display_order: i,
+      settings: activity.settings || {}
+    };
+
+    if (activity.id) {
+      const { data, error } = await (supabase as any)
+        .from('cycle_activities')
+        .update(row)
+        .eq('id', activity.id)
+        .select()
+        .single();
+      if (error) return { activities: saved, error };
+      saved.push(mapDbCycleActivity(data));
+    } else {
+      const { data, error } = await (supabase as any)
+        .from('cycle_activities')
+        .insert(row)
+        .select()
+        .single();
+      if (error) return { activities: saved, error };
+      saved.push(mapDbCycleActivity(data));
+    }
+  }
+
+  return { activities: saved, error: null };
 };
 
 // Events API

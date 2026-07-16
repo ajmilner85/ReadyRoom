@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { X, Users, Trash2, ArrowUpDown, UserCheck } from 'lucide-react';
-import { CycleType, TrainingSyllabus } from '../../../types/EventTypes';
+import { CycleType, TrainingSyllabus, CycleActivity, CycleSettings } from '../../../types/EventTypes';
 import { Squadron } from '../../../types/OrganizationTypes';
-import { supabase } from '../../../utils/supabaseClient';
+import { supabase, getCycleActivities } from '../../../utils/supabaseClient';
+import CycleActivitiesBuilder from './CycleActivitiesBuilder';
+import CycleActivityConfigPanel from './CycleActivityConfigPanel';
 import { enrollPilots, removeEnrollment, getCycleEnrollments, getSuggestedEnrollments, type EnrolledPilot } from '../../../utils/trainingEnrollmentService';
 import { 
   enrollInstructors, 
@@ -31,6 +33,8 @@ interface CycleDialogProps {
     autoCreateEvents?: boolean;
     stagedEnrollmentIds?: string[];
     stagedInstructorIds?: string[];
+    settings?: CycleSettings; // developer-flagged: cycle-level event defaults
+    cycleActivities?: CycleActivity[]; // developer-flagged: activities blocked out for the cycle
   }) => void;
   onCancel: () => void;
   squadrons: Squadron[];
@@ -47,6 +51,7 @@ interface CycleDialogProps {
     type: CycleType;
     participants?: string[];
     syllabusId?: string;
+    settings?: CycleSettings;
   };
   hasEvents?: boolean;
   isSaving?: boolean;
@@ -84,15 +89,18 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
   const [selectedSyllabusId, setSelectedSyllabusId] = useState<string>(initialData?.syllabusId || '');
   const [autoCreateEvents, setAutoCreateEvents] = useState<boolean>(false);
 
-  // Event Activities (developer-flagged): reusable modules attached to this
-  // cycle via cycle_modules. Only editable on saved cycles (needs cycle id).
+  // Event Activities (developer-flagged): cycle activities blocked out on the
+  // builder, plus cycle-level event defaults
   const [activitiesEnabled, setActivitiesEnabled] = useState(false);
-  const [moduleSyllabi, setModuleSyllabi] = useState<TrainingSyllabus[]>([]);
-  const [attachedModuleIds, setAttachedModuleIds] = useState<string[]>([]);
+  const [cycleActivities, setCycleActivities] = useState<CycleActivity[]>([]);
+  const [selectedActivityIndex, setSelectedActivityIndex] = useState<number | null>(null);
+  const [syllabusNames, setSyllabusNames] = useState<Record<string, string>>({});
+  const [cycleSettings, setCycleSettings] = useState<CycleSettings>(initialData?.settings || {});
 
-  // Tab state (show tabs for Training cycles with syllabus selected OR when editing)
-  const showTabs = type === 'Training' && (!!cycleId || !!selectedSyllabusId);
-  const [activeTab, setActiveTab] = useState<'details' | 'enrollments' | 'instructors'>('details');
+  // Tab state (show tabs for Training cycles with syllabus selected OR when
+  // editing; with the Activities flag on, tabs always show)
+  const showTabs = (type === 'Training' && (!!cycleId || !!selectedSyllabusId)) || activitiesEnabled;
+  const [activeTab, setActiveTab] = useState<'details' | 'activities' | 'enrollments' | 'instructors' | 'options' | 'reminders' | 'publication'>('details');
 
   // Enrollment state (students)
   const [enrolledPilots, setEnrolledPilots] = useState<EnrolledPilot[]>([]);
@@ -303,41 +311,49 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
     return () => { cancelled = true; };
   }, []);
 
-  // Event Activities: load modules already attached to this cycle
+  // Event Activities: load this cycle's activities when editing
   useEffect(() => {
     if (!activitiesEnabled || !cycleId) return;
     let cancelled = false;
     const load = async () => {
-      const { data, error } = await (supabase as any)
-        .from('cycle_modules')
-        .select('module_syllabus_id')
-        .eq('cycle_id', cycleId);
-      if (!cancelled && !error && data) {
-        setAttachedModuleIds(data.map((row: any) => row.module_syllabus_id));
+      const { activities, error } = await getCycleActivities(cycleId);
+      if (!cancelled && !error) {
+        setCycleActivities(activities);
       }
     };
     load();
     return () => { cancelled = true; };
   }, [activitiesEnabled, cycleId]);
 
-  // Event Activities: attach/detach a module (writes immediately; requires a
-  // saved cycle since cycle_modules needs the cycle id)
-  const handleToggleModule = async (moduleSyllabusId: string, attach: boolean) => {
-    if (!cycleId) return;
-    const previous = attachedModuleIds;
-    setAttachedModuleIds(prev => attach
-      ? [...prev, moduleSyllabusId]
-      : prev.filter(id => id !== moduleSyllabusId));
+  // Event Activities: builder handlers
+  const handleAddCycleActivity = () => {
+    setCycleActivities(prev => {
+      const next: CycleActivity[] = [
+        ...prev,
+        {
+          kind: 'syllabus' as const,
+          startWeek: 1,
+          endWeek: Math.max(1, weekCount),
+          displayOrder: prev.length,
+          settings: {}
+        }
+      ];
+      setSelectedActivityIndex(next.length - 1);
+      return next;
+    });
+  };
 
-    const query = attach
-      ? (supabase as any).from('cycle_modules').insert({ cycle_id: cycleId, module_syllabus_id: moduleSyllabusId, display_order: previous.length })
-      : (supabase as any).from('cycle_modules').delete().eq('cycle_id', cycleId).eq('module_syllabus_id', moduleSyllabusId);
+  const handleUpdateSelectedActivity = (updates: Partial<CycleActivity>) => {
+    if (selectedActivityIndex === null) return;
+    setCycleActivities(prev => prev.map((a, i) => (i === selectedActivityIndex ? { ...a, ...updates } : a)));
+  };
 
-    const { error: toggleError } = await query;
-    if (toggleError) {
-      console.error('Failed to update cycle modules:', toggleError);
-      setAttachedModuleIds(previous);
-    }
+  const handleRemoveSelectedActivity = () => {
+    if (selectedActivityIndex === null) return;
+    setCycleActivities(prev => prev
+      .filter((_, i) => i !== selectedActivityIndex)
+      .map((a, i) => ({ ...a, displayOrder: i })));
+    setSelectedActivityIndex(null);
   };
 
   // Load syllabi when component mounts if type is Training
@@ -350,10 +366,12 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
           .order('name');
 
         if (!error && data) {
-          // Only linear syllabi drive a cycle's weekly progression; pools and
-          // modules are attached via event activities / cycle modules instead
+          // Only linear syllabi drive a cycle's weekly progression; other kinds
+          // are attached as cycle/event activities instead
           setSyllabi(data.filter((s: any) => (s.kind || 'linear') === 'linear'));
-          setModuleSyllabi(data.filter((s: any) => s.kind === 'module'));
+          const names: Record<string, string> = {};
+          data.forEach((s: any) => { names[s.id] = s.name; });
+          setSyllabusNames(names);
         }
       };
       loadSyllabi();
@@ -885,6 +903,14 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
       return;
     }
 
+    // With the Activities flag on, cycles.syllabus_id dual-writes from the
+    // first linear-syllabus activity so PTR / enrollment suggestions / legacy
+    // event prefill keep working unchanged
+    const linearSyllabusIds = new Set(syllabi.map(s => s.id));
+    const derivedSyllabusId = activitiesEnabled
+      ? cycleActivities.find(a => a.kind === 'syllabus' && a.syllabusId && linearSyllabusIds.has(a.syllabusId))?.syllabusId
+      : undefined;
+
     onSave({
       name: name.trim(),
       description: description.trim(),
@@ -892,10 +918,14 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
       endDate,
       type,
       participants: participants.length > 0 ? participants : undefined,
-      syllabusId: type === 'Training' ? (selectedSyllabusId || undefined) : undefined,
+      syllabusId: type === 'Training'
+        ? (activitiesEnabled ? (derivedSyllabusId || selectedSyllabusId || undefined) : (selectedSyllabusId || undefined))
+        : undefined,
       autoCreateEvents: !hasEvents && autoCreateEvents, // Only for cycles with no events
       stagedEnrollmentIds: stagedEnrollmentIds.length > 0 ? stagedEnrollmentIds : undefined,
-      stagedInstructorIds: stagedInstructorIds.length > 0 ? stagedInstructorIds : undefined
+      stagedInstructorIds: stagedInstructorIds.length > 0 ? stagedInstructorIds : undefined,
+      // Developer-flagged: cycle-level event defaults + blocked-out activities
+      ...(activitiesEnabled ? { settings: cycleSettings, cycleActivities } : {})
     });
   };
 
@@ -998,8 +1028,30 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
                 transition: 'all 0.2s'
               }}
             >
-              Training Cycle Details
+              {type === 'Training' ? 'Training Cycle Details' : 'Details'}
             </button>
+            {activitiesEnabled && (
+              <button
+                type="button"
+                onClick={() => setActiveTab('activities')}
+                style={{
+                  flex: 1,
+                  padding: '12px 16px',
+                  border: 'none',
+                  backgroundColor: 'transparent',
+                  color: activeTab === 'activities' ? '#2563EB' : '#64748B',
+                  fontWeight: activeTab === 'activities' ? 600 : 500,
+                  fontSize: '14px',
+                  cursor: 'pointer',
+                  borderBottom: activeTab === 'activities' ? '2px solid #2563EB' : 'none',
+                  transition: 'all 0.2s'
+                }}
+              >
+                Activities ({cycleActivities.length})
+              </button>
+            )}
+            {type === 'Training' && (
+            <>
             <button
               type="button"
               onClick={() => setActiveTab('enrollments')}
@@ -1046,6 +1098,29 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
               <UserCheck size={16} />
               Instructors ({cycleId ? enrolledInstructors.length : stagedInstructorIds.length})
             </button>
+            </>
+            )}
+            {activitiesEnabled && (['options', 'reminders', 'publication'] as const).map(tab => (
+              <button
+                key={tab}
+                type="button"
+                onClick={() => setActiveTab(tab)}
+                style={{
+                  flex: 1,
+                  padding: '12px 16px',
+                  border: 'none',
+                  backgroundColor: 'transparent',
+                  color: activeTab === tab ? '#2563EB' : '#64748B',
+                  fontWeight: activeTab === tab ? 600 : 500,
+                  fontSize: '14px',
+                  cursor: 'pointer',
+                  borderBottom: activeTab === tab ? '2px solid #2563EB' : 'none',
+                  transition: 'all 0.2s'
+                }}
+              >
+                {tab === 'options' ? 'Options' : tab === 'reminders' ? 'Reminders' : 'Publication'}
+              </button>
+            ))}
           </div>
         )}
 
@@ -1131,8 +1206,10 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
                 </select>
               </div>
 
-              {/* Training Syllabus Selector - only show for Training type */}
-              {type === 'Training' && (
+              {/* Training Syllabus Selector - only show for Training type.
+                  With the Activities flag on, syllabi are attached as cycle
+                  activities and cycles.syllabus_id is derived on save. */}
+              {!activitiesEnabled && type === 'Training' && (
                 <div style={{ flex: '1' }}>
                   <label style={{
                     display: 'block',
@@ -1172,38 +1249,6 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
               )}
             </div>
 
-            {/* Modules (Event Activities feature, developer-flagged) */}
-            {activitiesEnabled && type === 'Training' && moduleSyllabi.length > 0 && (
-              <div style={{ marginBottom: '16px' }}>
-                <label style={{
-                  display: 'block',
-                  marginBottom: '8px',
-                  fontSize: '14px',
-                  fontWeight: 500,
-                  color: '#64748B'
-                }}>
-                  Modules (Optional)
-                </label>
-                {!cycleId ? (
-                  <p style={{ fontSize: '12px', color: '#94A3B8', margin: 0, fontFamily: 'Inter', fontStyle: 'italic' }}>
-                    Save the cycle first, then reopen it to attach modules.
-                  </p>
-                ) : (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                    {moduleSyllabi.map(module => (
-                      <label key={module.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px', color: '#374151', cursor: 'pointer' }}>
-                        <input
-                          type="checkbox"
-                          checked={attachedModuleIds.includes(module.id)}
-                          onChange={(e) => handleToggleModule(module.id, e.target.checked)}
-                        />
-                        {module.name}
-                      </label>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
 
             {/* Auto-create Events Toggle - show for new cycles OR cycles with no events */}
             {!hasEvents && type === 'Training' && selectedSyllabusId && (
@@ -2206,6 +2251,217 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
                     </div>
                   </div>
                 </>
+              )}
+            </div>
+          )}
+
+          {/* Activities Tab (developer-flagged): visual cycle builder */}
+          {activeTab === 'activities' && activitiesEnabled && (
+            <div style={{ padding: '24px', height: '900px', overflowY: 'auto' }}>
+              <CycleActivitiesBuilder
+                activities={cycleActivities}
+                onChange={setCycleActivities}
+                weekCount={weekCount}
+                onWeekCountChange={(weeks) => {
+                  setWeekCount(weeks);
+                  lastChanged.current = 'weeks';
+                }}
+                startDate={startDate}
+                squadrons={squadrons}
+                syllabusNames={syllabusNames}
+                selectedIndex={selectedActivityIndex}
+                onSelect={setSelectedActivityIndex}
+                onAddActivity={handleAddCycleActivity}
+              />
+
+              {selectedActivityIndex !== null && cycleActivities[selectedActivityIndex] && (
+                <>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '16px' }}>
+                    <span style={{ fontSize: '13px', fontWeight: 600, color: '#64748B', fontFamily: 'Inter', textTransform: 'uppercase' }}>
+                      Activity {selectedActivityIndex + 1} — Weeks {cycleActivities[selectedActivityIndex].startWeek}–{cycleActivities[selectedActivityIndex].endWeek}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={handleRemoveSelectedActivity}
+                      style={{
+                        padding: '6px 12px',
+                        border: '1px solid #E5E7EB',
+                        backgroundColor: 'white',
+                        color: '#9CA3AF',
+                        borderRadius: '6px',
+                        cursor: 'pointer',
+                        fontSize: '13px',
+                        fontFamily: 'Inter',
+                        fontWeight: 500
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.backgroundColor = '#FEE2E2';
+                        e.currentTarget.style.color = '#DC2626';
+                        e.currentTarget.style.borderColor = '#FECACA';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.backgroundColor = 'white';
+                        e.currentTarget.style.color = '#9CA3AF';
+                        e.currentTarget.style.borderColor = '#E5E7EB';
+                      }}
+                    >
+                      Remove Activity
+                    </button>
+                  </div>
+                  <CycleActivityConfigPanel
+                    activity={cycleActivities[selectedActivityIndex]}
+                    onChange={handleUpdateSelectedActivity}
+                    squadrons={squadrons.map(s => ({ id: s.id, name: s.name, designation: s.designation, insignia_url: s.insignia_url }))}
+                  />
+                </>
+              )}
+            </div>
+          )}
+
+          {/* Options Tab (developer-flagged): defaults for events in this cycle */}
+          {activeTab === 'options' && activitiesEnabled && (
+            <div style={{ padding: '24px', height: '900px', overflowY: 'auto' }}>
+              <p style={{ fontSize: '12px', color: '#64748B', margin: '0 0 16px 0', fontFamily: 'Inter' }}>
+                Defaults for events created in this cycle. Each event can still override them.
+              </p>
+              {([
+                { key: 'trackQualifications', label: 'Group responses by qualification in Discord' },
+                { key: 'groupBySquadron', label: 'Group responses by squadron in Discord' },
+                { key: 'showNoResponse', label: 'Show non-responders in Discord' },
+                { key: 'allowTentativeResponse', label: 'Allow tentative responses' }
+              ] as Array<{ key: keyof CycleSettings; label: string }>).map(option => (
+                <div key={option.key} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+                  <label style={{ fontSize: '14px', fontWeight: 500, color: '#64748B' }}>{option.label}</label>
+                  <div
+                    onClick={() => setCycleSettings(prev => ({ ...prev, [option.key]: !prev[option.key] }))}
+                    style={{
+                      width: '44px',
+                      height: '24px',
+                      backgroundColor: cycleSettings[option.key] ? '#3B82F6' : '#E5E7EB',
+                      borderRadius: '12px',
+                      position: 'relative',
+                      cursor: 'pointer',
+                      transition: 'background-color 0.2s ease',
+                      flexShrink: 0
+                    }}
+                  >
+                    <div style={{
+                      width: '20px',
+                      height: '20px',
+                      backgroundColor: 'white',
+                      borderRadius: '50%',
+                      position: 'absolute',
+                      top: '2px',
+                      left: cycleSettings[option.key] ? '22px' : '2px',
+                      transition: 'left 0.2s ease',
+                      boxShadow: '0 2px 4px rgba(0, 0, 0, 0.2)'
+                    }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Reminders Tab (developer-flagged): defaults for events in this cycle */}
+          {activeTab === 'reminders' && activitiesEnabled && (
+            <div style={{ padding: '24px', height: '900px', overflowY: 'auto' }}>
+              <p style={{ fontSize: '12px', color: '#64748B', margin: '0 0 16px 0', fontFamily: 'Inter' }}>
+                Default reminders for events created in this cycle. Each event can still override them.
+              </p>
+              {([
+                { enabledKey: 'firstReminderEnabled', timeKey: 'firstReminderTime', label: 'First reminder' },
+                { enabledKey: 'secondReminderEnabled', timeKey: 'secondReminderTime', label: 'Second reminder' }
+              ] as Array<{ enabledKey: 'firstReminderEnabled' | 'secondReminderEnabled'; timeKey: 'firstReminderTime' | 'secondReminderTime'; label: string }>).map(reminder => (
+                <div key={reminder.enabledKey} style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
+                  <input
+                    type="checkbox"
+                    checked={cycleSettings[reminder.enabledKey] ?? false}
+                    onChange={(e) => setCycleSettings(prev => ({ ...prev, [reminder.enabledKey]: e.target.checked }))}
+                  />
+                  <label style={{ fontSize: '14px', fontWeight: 500, color: '#64748B', width: '130px' }}>{reminder.label}</label>
+                  <input
+                    type="number"
+                    min={1}
+                    value={cycleSettings[reminder.timeKey]?.value ?? (reminder.timeKey === 'firstReminderTime' ? 3 : 15)}
+                    onChange={(e) => setCycleSettings(prev => ({
+                      ...prev,
+                      [reminder.timeKey]: {
+                        value: Math.max(1, parseInt(e.target.value) || 1),
+                        unit: prev[reminder.timeKey]?.unit ?? (reminder.timeKey === 'firstReminderTime' ? 'days' : 'minutes')
+                      }
+                    }))}
+                    style={{ width: '70px', padding: '6px 8px', border: '1px solid #CBD5E1', borderRadius: '4px', fontSize: '14px' }}
+                  />
+                  <select
+                    value={cycleSettings[reminder.timeKey]?.unit ?? (reminder.timeKey === 'firstReminderTime' ? 'days' : 'minutes')}
+                    onChange={(e) => setCycleSettings(prev => ({
+                      ...prev,
+                      [reminder.timeKey]: {
+                        value: prev[reminder.timeKey]?.value ?? (reminder.timeKey === 'firstReminderTime' ? 3 : 15),
+                        unit: e.target.value as 'minutes' | 'hours' | 'days'
+                      }
+                    }))}
+                    style={{ padding: '6px 8px', border: '1px solid #CBD5E1', borderRadius: '4px', fontSize: '14px', backgroundColor: 'white' }}
+                  >
+                    <option value="minutes">minutes</option>
+                    <option value="hours">hours</option>
+                    <option value="days">days</option>
+                  </select>
+                  <span style={{ fontSize: '13px', color: '#94A3B8' }}>before the event</span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Publication Tab (developer-flagged): defaults for events in this cycle */}
+          {activeTab === 'publication' && activitiesEnabled && (
+            <div style={{ padding: '24px', height: '900px', overflowY: 'auto' }}>
+              <p style={{ fontSize: '12px', color: '#64748B', margin: '0 0 16px 0', fontFamily: 'Inter' }}>
+                Default publication behavior for events created in this cycle. Each event can still override it.
+              </p>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
+                <input
+                  type="checkbox"
+                  checked={cycleSettings.scheduledPublicationEnabled ?? false}
+                  onChange={(e) => setCycleSettings(prev => ({ ...prev, scheduledPublicationEnabled: e.target.checked }))}
+                />
+                <label style={{ fontSize: '14px', fontWeight: 500, color: '#64748B' }}>
+                  Schedule event publication
+                </label>
+              </div>
+              {cycleSettings.scheduledPublicationEnabled && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <span style={{ fontSize: '14px', color: '#64748B' }}>Publish</span>
+                  <input
+                    type="number"
+                    min={1}
+                    value={cycleSettings.scheduledPublicationOffset?.value ?? 3}
+                    onChange={(e) => setCycleSettings(prev => ({
+                      ...prev,
+                      scheduledPublicationOffset: {
+                        value: Math.max(1, parseInt(e.target.value) || 1),
+                        unit: prev.scheduledPublicationOffset?.unit ?? 'days'
+                      }
+                    }))}
+                    style={{ width: '70px', padding: '6px 8px', border: '1px solid #CBD5E1', borderRadius: '4px', fontSize: '14px' }}
+                  />
+                  <select
+                    value={cycleSettings.scheduledPublicationOffset?.unit ?? 'days'}
+                    onChange={(e) => setCycleSettings(prev => ({
+                      ...prev,
+                      scheduledPublicationOffset: {
+                        value: prev.scheduledPublicationOffset?.value ?? 3,
+                        unit: e.target.value as 'minutes' | 'hours' | 'days'
+                      }
+                    }))}
+                    style={{ padding: '6px 8px', border: '1px solid #CBD5E1', borderRadius: '4px', fontSize: '14px', backgroundColor: 'white' }}
+                  >
+                    <option value="minutes">minutes</option>
+                    <option value="hours">hours</option>
+                    <option value="days">days</option>
+                  </select>
+                  <span style={{ fontSize: '13px', color: '#94A3B8' }}>before each event starts</span>
+                </div>
               )}
             </div>
           )}
