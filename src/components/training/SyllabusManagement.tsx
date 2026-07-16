@@ -12,18 +12,26 @@ interface Syllabus {
   description?: string;
   aircraft_type?: string;
   estimated_hours?: number;
-  kind?: 'linear' | 'pool' | 'module';
+  kind?: 'linear' | 'pool' | 'module' | 'advanced_qualification';
 }
 
-const KIND_SECTIONS: Array<{ kind: 'linear' | 'pool' | 'module'; title: string; blurb: string }> = [
+const KIND_SECTIONS: Array<{ kind: 'linear' | 'pool' | 'module' | 'advanced_qualification'; title: string; blurb: string }> = [
   { kind: 'linear', title: 'Training Syllabi', blurb: 'Ordered weekly progressions (Initial Training / PTR)' },
   { kind: 'pool', title: 'Lesson Pools', blurb: 'Flat, unordered lesson libraries selectable as event activities' },
+  { kind: 'advanced_qualification', title: 'Advanced Qualifications', blurb: 'Lesson libraries for specific advanced qualifications (e.g. JTAC)' },
   { kind: 'module', title: 'Modules', blurb: 'Reusable multi-lesson collections' }
 ];
 
 const KIND_BADGE_COLORS: Record<string, { bg: string; fg: string }> = {
   pool: { bg: '#EFF6FF', fg: '#2563EB' },
-  module: { bg: '#F5F3FF', fg: '#7C3AED' }
+  module: { bg: '#F5F3FF', fg: '#7C3AED' },
+  advanced_qualification: { bg: '#FEF3C7', fg: '#D97706' }
+};
+
+const KIND_BADGE_LABELS: Record<string, string> = {
+  pool: 'Pool',
+  module: 'Module',
+  advanced_qualification: 'Adv Qual'
 };
 
 interface SyllabusManagementProps {
@@ -202,7 +210,7 @@ const SyllabusManagement: React.FC<SyllabusManagementProps> = ({ error, setError
                           backgroundColor: KIND_BADGE_COLORS[syllabus.kind].bg,
                           color: KIND_BADGE_COLORS[syllabus.kind].fg
                         }}>
-                          {syllabus.kind}
+                          {KIND_BADGE_LABELS[syllabus.kind] || syllabus.kind}
                         </span>
                       )}
                     </div>

@@ -880,10 +880,11 @@ const SyllabusEditor: React.FC<SyllabusEditorProps> = ({ syllabusId: propSyllabu
               <option value="linear">Linear Syllabus — ordered weekly progression (Initial Training / PTR)</option>
               <option value="pool">Lesson Pool — flat, unordered lesson library</option>
               <option value="module">Module — reusable multi-lesson collection</option>
+              <option value="advanced_qualification">Advanced Qualification — lessons for a specific advanced qualification (e.g. JTAC)</option>
             </select>
             {syllabus.kind !== 'linear' && (
               <p style={{ fontSize: '12px', color: '#6B7280', margin: '6px 0 0 0' }}>
-                Lessons in a {syllabus.kind} have no week numbers and do not appear in the PTR grid.
+                Lessons in this syllabus type have no week numbers and do not appear in the PTR grid.
                 They are selectable as event activities.
               </p>
             )}

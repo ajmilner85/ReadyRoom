@@ -9,7 +9,7 @@ export interface ReferenceMaterial {
   url: string;
 }
 
-export type TrainingSyllabusKind = 'linear' | 'pool' | 'module';
+export type TrainingSyllabusKind = 'linear' | 'pool' | 'module' | 'advanced_qualification';
 
 export interface TrainingSyllabus {
   id: string;
