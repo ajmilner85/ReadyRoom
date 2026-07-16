@@ -2,12 +2,12 @@ import React, { useState, useEffect, useRef } from 'react';
 import { X, Clock, Image as ImageIcon, ChevronLeft, ChevronRight, Check, Plus, CheckSquare } from 'lucide-react';
 import { useAppSettings } from '../../../context/AppSettingsContext';
 import { fetchDiscordGuildRoles } from '../../../utils/discordService';
-import { supabase, getEventActivities } from '../../../utils/supabaseClient';
+import { supabase, getEventActivities, getCycleActivities } from '../../../utils/supabaseClient';
 import { getUserSettings } from '../../../utils/userSettingsService';
 import ReferenceMaterialsInput from './ReferenceMaterialsInput';
 import SupportRoleRequirementsEditor from './SupportRoleRequirementsEditor';
 import EventActivitiesEditor from './EventActivitiesEditor';
-import type { ReferenceMaterial, TrainingSyllabusMission, EventActivity } from '../../../types/EventTypes';
+import type { ReferenceMaterial, TrainingSyllabusMission, EventActivity, CycleActivity, CycleSettings } from '../../../types/EventTypes';
 import type { SupportRoleRequirement } from '../../../utils/supabaseClient';
 
 interface EventDialogProps {
@@ -308,6 +308,13 @@ export const EventDialog: React.FC<EventDialogProps> = ({
   const [eventActivities, setEventActivities] = useState<EventActivity[]>([]);
   const [activitiesLoaded, setActivitiesLoaded] = useState(false);
   const activitiesPrefilledRef = useRef(false);
+  // Cycle-level activities + event defaults (developer-flagged)
+  const [cycleData, setCycleData] = useState<{
+    startDate?: string;
+    settings: CycleSettings | null;
+    activities: CycleActivity[];
+  } | null>(null);
+  const cycleDefaultsAppliedRef = useRef(false);
 
   // Training syllabus state
   const [syllabusMissions, setSyllabusMissions] = useState<TrainingSyllabusMission[]>([]);
@@ -524,14 +531,134 @@ export const EventDialog: React.FC<EventDialogProps> = ({
     return () => { cancelled = true; };
   }, [activitiesEnabled, initialData?.id, initialData?.syllabusMissionId, activitiesLoaded]);
 
+  // Cycle Activities: load the cycle's blocked-out activities + event defaults
+  useEffect(() => {
+    if (!activitiesEnabled || !cycleId) {
+      setCycleData(null);
+      return;
+    }
+    let cancelled = false;
+    const load = async () => {
+      const [cycleResult, { activities }] = await Promise.all([
+        (supabase as any).from('cycles').select('start_date, settings').eq('id', cycleId).single(),
+        getCycleActivities(cycleId)
+      ]);
+      if (!cancelled) {
+        setCycleData({
+          startDate: cycleResult.data?.start_date || undefined,
+          settings: cycleResult.data?.settings || null,
+          activities
+        });
+      }
+    };
+    load();
+    return () => { cancelled = true; };
+  }, [activitiesEnabled, cycleId]);
+
+  // Cycle settings act as defaults for NEW events in the cycle (precedence:
+  // event's own values > cycle settings > user settings). Applied once.
+  useEffect(() => {
+    if (!activitiesEnabled || initialData?.id || cycleDefaultsAppliedRef.current) return;
+    const cycleSettings = cycleData?.settings;
+    if (!cycleSettings) return;
+    cycleDefaultsAppliedRef.current = true;
+
+    if (cycleSettings.trackQualifications !== undefined) setTrackQualifications(cycleSettings.trackQualifications);
+    if (cycleSettings.groupBySquadron !== undefined) setGroupBySquadron(cycleSettings.groupBySquadron);
+    if (cycleSettings.showNoResponse !== undefined) setShowNoResponse(cycleSettings.showNoResponse);
+    if (cycleSettings.allowTentativeResponse !== undefined) setAllowTentativeResponse(cycleSettings.allowTentativeResponse);
+    if (cycleSettings.firstReminderEnabled !== undefined) setFirstReminderEnabled(cycleSettings.firstReminderEnabled);
+    if (cycleSettings.firstReminderTime) {
+      setFirstReminderValue(cycleSettings.firstReminderTime.value);
+      setFirstReminderUnit(cycleSettings.firstReminderTime.unit);
+    }
+    if (cycleSettings.secondReminderEnabled !== undefined) setSecondReminderEnabled(cycleSettings.secondReminderEnabled);
+    if (cycleSettings.secondReminderTime) {
+      setSecondReminderValue(cycleSettings.secondReminderTime.value);
+      setSecondReminderUnit(cycleSettings.secondReminderTime.unit);
+    }
+    if (cycleSettings.scheduledPublicationEnabled !== undefined) setScheduledPublicationEnabled(cycleSettings.scheduledPublicationEnabled);
+    if (cycleSettings.scheduledPublicationOffset) setScheduledPublicationOffset(cycleSettings.scheduledPublicationOffset);
+  }, [activitiesEnabled, cycleData, initialData?.id]);
+
+  // Cycle Activities: prefill a NEW event's activities from the cycle
+  // activities covering the event's week. Syllabus-kind activities pick the
+  // next unused lesson of their syllabus within this cycle.
+  useEffect(() => {
+    if (!activitiesEnabled || activitiesPrefilledRef.current || initialData?.id) return;
+    if (!cycleData || cycleData.activities.length === 0 || eventActivities.length > 0) return;
+    if (!datetime || !cycleData.startDate || !cycleId) return;
+
+    activitiesPrefilledRef.current = true;
+    let cancelled = false;
+
+    const prefill = async () => {
+      // Event week within the cycle (week 1 = the cycle's first 7 days)
+      const cycleStart = new Date(cycleData.startDate as string);
+      const eventDate = new Date(datetime);
+      const week = Math.max(1, Math.floor((eventDate.getTime() - cycleStart.getTime()) / (7 * 24 * 60 * 60 * 1000)) + 1);
+
+      const covering = cycleData.activities.filter(a => a.startWeek <= week && week <= a.endWeek);
+      if (covering.length === 0) return;
+
+      // Missions already used by events in this cycle (for next-lesson picking)
+      const { data: cycleEvents } = await supabase
+        .from('events')
+        .select('syllabus_mission_id')
+        .eq('cycle_id', cycleId)
+        .not('syllabus_mission_id', 'is', null);
+      const usedMissionIds = new Set((cycleEvents || []).map(e => e.syllabus_mission_id));
+
+      const prefilled: EventActivity[] = [];
+      for (const cycleActivity of covering) {
+        if (cycleActivity.kind === 'objectives') {
+          prefilled.push({
+            kind: 'objectives',
+            displayOrder: prefilled.length,
+            label: cycleActivity.label,
+            adHocObjectives: cycleActivity.adHocObjectives || [],
+            settings: cycleActivity.settings || {}
+          });
+          continue;
+        }
+        // Syllabus-kind: pick the next unused lesson of that syllabus
+        let missionId: string | undefined;
+        if (cycleActivity.syllabusId) {
+          // week_number is missing from the stale generated types - cast
+          const { data: missions } = await (supabase as any)
+            .from('training_syllabus_missions')
+            .select('id, week_number, mission_number')
+            .eq('syllabus_id', cycleActivity.syllabusId)
+            .order('week_number');
+          missionId = ((missions || []) as Array<{ id: string }>).find(m => !usedMissionIds.has(m.id))?.id;
+        }
+        prefilled.push({
+          kind: 'lesson',
+          displayOrder: prefilled.length,
+          syllabusMissionId: missionId,
+          label: cycleActivity.label,
+          settings: cycleActivity.settings || {}
+        });
+      }
+
+      if (!cancelled && prefilled.length > 0) {
+        setEventActivities(prefilled);
+      }
+    };
+    prefill();
+    return () => { cancelled = true; };
+  }, [activitiesEnabled, cycleData, eventActivities.length, initialData?.id, datetime, cycleId]);
+
   // Event Activities: prefill one lesson activity for new Training-cycle events
-  // using the auto-selected next mission (mirrors the legacy behavior)
+  // using the auto-selected next mission (legacy behavior; skipped when the
+  // cycle defines activities - the cycle-driven prefill above handles those)
   useEffect(() => {
     if (!activitiesEnabled || activitiesPrefilledRef.current || initialData?.id) return;
     if (!selectedMissionId || eventActivities.length > 0) return;
+    if (cycleId && (!cycleData || cycleData.activities.length > 0)) return; // wait for / defer to cycle activities
     activitiesPrefilledRef.current = true;
     setEventActivities([{ kind: 'lesson', displayOrder: 0, syllabusMissionId: selectedMissionId }]);
-  }, [activitiesEnabled, selectedMissionId, eventActivities.length, initialData?.id]);
+  }, [activitiesEnabled, selectedMissionId, eventActivities.length, initialData?.id, cycleId, cycleData]);
 
   // Event Activities: keep the legacy selectedMissionId in sync with the first
   // lesson activity so inherited reference materials keep working (flag on only)

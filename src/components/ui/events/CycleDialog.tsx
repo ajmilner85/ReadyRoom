@@ -94,6 +94,8 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
   const [activitiesEnabled, setActivitiesEnabled] = useState(false);
   const [cycleActivities, setCycleActivities] = useState<CycleActivity[]>([]);
   const [selectedActivityIndex, setSelectedActivityIndex] = useState<number | null>(null);
+  // Students/Instructors tabs enroll into this activity ('' = cycle-wide)
+  const [enrollmentActivityScopeId, setEnrollmentActivityScopeId] = useState<string>('');
   const [syllabusNames, setSyllabusNames] = useState<Record<string, string>>({});
   const [cycleSettings, setCycleSettings] = useState<CycleSettings>(initialData?.settings || {});
 
@@ -356,6 +358,50 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
     setSelectedActivityIndex(null);
   };
 
+  // Saved syllabus-kind activities that enrollment can be scoped to
+  const scopableActivities = cycleActivities.filter(a => a.id && a.kind === 'syllabus');
+
+  const activityNameById = (activityId: string): string => {
+    const activity = cycleActivities.find(a => a.id === activityId);
+    if (!activity) return 'Activity';
+    return activity.label || (activity.syllabusId ? syllabusNames[activity.syllabusId] : undefined) || 'Activity';
+  };
+
+  // Enrollment tabs: pick which activity new enrollments attach to, and filter
+  // the lists to it. Only meaningful once the cycle (and its activities) exist.
+  const renderActivityScopeSelector = () => {
+    if (!activitiesEnabled || !cycleId || scopableActivities.length === 0) return null;
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+        <label style={{ fontSize: '13px', fontWeight: 500, color: '#64748B', flexShrink: 0 }}>
+          Activity
+        </label>
+        <select
+          value={enrollmentActivityScopeId}
+          onChange={(e) => setEnrollmentActivityScopeId(e.target.value)}
+          style={{
+            flex: 1,
+            padding: '6px 8px',
+            border: '1px solid #CBD5E1',
+            borderRadius: '4px',
+            fontSize: '13px',
+            backgroundColor: 'white'
+          }}
+        >
+          <option value="">Entire cycle</option>
+          {scopableActivities.map(activity => (
+            <option key={activity.id} value={activity.id}>
+              {activityNameById(activity.id as string)} (Weeks {activity.startWeek}–{activity.endWeek})
+            </option>
+          ))}
+        </select>
+      </div>
+    );
+  };
+
+  const matchesEnrollmentScope = (cycleActivityId?: string | null) =>
+    !enrollmentActivityScopeId || cycleActivityId === enrollmentActivityScopeId;
+
   // Load syllabi when component mounts if type is Training
   useEffect(() => {
     if (type === 'Training') {
@@ -592,8 +638,8 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
           userProfileId = profile?.id || null;
         }
 
-        // Actually enroll in database
-        await enrollPilots(cycleId, [pilotId], userProfileId);
+        // Actually enroll in database (scoped to an activity when one is selected)
+        await enrollPilots(cycleId, [pilotId], userProfileId, enrollmentActivityScopeId || null);
 
         // Refresh to get the real enrollment_id from database
         const enrolled = await getCycleEnrollments(cycleId);
@@ -719,8 +765,8 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
           userProfileId = profile?.id || null;
         }
 
-        // Actually enroll in database
-        await enrollInstructors(cycleId, [pilotId], userProfileId);
+        // Actually enroll in database (scoped to an activity when one is selected)
+        await enrollInstructors(cycleId, [pilotId], userProfileId, enrollmentActivityScopeId || null);
 
         // Refresh to get the real enrollment_id from database
         const enrolled = await getCycleInstructorEnrollments(cycleId);
@@ -1682,6 +1728,8 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
                 </div>
               ) : (
                 <>
+                  {renderActivityScopeSelector()}
+
                   {/* Filter Drawer */}
                   <FilterDrawer
                     squadrons={squadrons as any}
@@ -1721,7 +1769,7 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
                       </div>
                     ) : (
                       <div style={{ display: 'flex', flexDirection: 'column' }}>
-                        {sortPilots(enrolledPilots).map(pilot => (
+                        {sortPilots(enrolledPilots.filter(p => matchesEnrollmentScope((p as any).cycle_activity_id))).map(pilot => (
                           <div
                             key={pilot.pilot_id}
                             style={{
@@ -1754,6 +1802,20 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
                             }}>
                               {pilot.callsign}
                             </span>
+                            {activitiesEnabled && !enrollmentActivityScopeId && (pilot as any).cycle_activity_id && (
+                              <span style={{
+                                fontSize: '10px',
+                                fontWeight: 500,
+                                color: '#1E40AF',
+                                backgroundColor: '#EFF6FF',
+                                border: '1px solid #BFDBFE',
+                                borderRadius: '9999px',
+                                padding: '1px 6px',
+                                whiteSpace: 'nowrap'
+                              }}>
+                                {activityNameById((pilot as any).cycle_activity_id)}
+                              </span>
+                            )}
                             <div style={{ marginLeft: 'auto' }}>
                               {hoveredPilotId === pilot.pilot_id && (
                                 <button
@@ -2056,6 +2118,8 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
                     </button>
                   </div>
 
+                  {renderActivityScopeSelector()}
+
                   {/* Scrollable content area */}
                   <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden' }}>
                     {/* Currently Enrolled Instructors */}
@@ -2069,7 +2133,7 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
                         </div>
                       ) : (
                         <div style={{ display: 'flex', flexDirection: 'column' }}>
-                          {sortInstructors(enrolledInstructors).map(instructor => (
+                          {sortInstructors(enrolledInstructors.filter(i => matchesEnrollmentScope((i as any).cycle_activity_id))).map(instructor => (
                             <div
                               key={instructor.pilot_id}
                               style={{
@@ -2102,6 +2166,20 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
                               }}>
                                 {instructor.callsign}
                               </span>
+                              {activitiesEnabled && !enrollmentActivityScopeId && (instructor as any).cycle_activity_id && (
+                                <span style={{
+                                  fontSize: '10px',
+                                  fontWeight: 500,
+                                  color: '#1E40AF',
+                                  backgroundColor: '#EFF6FF',
+                                  border: '1px solid #BFDBFE',
+                                  borderRadius: '9999px',
+                                  padding: '1px 6px',
+                                  whiteSpace: 'nowrap'
+                                }}>
+                                  {activityNameById((instructor as any).cycle_activity_id)}
+                                </span>
+                              )}
                               <div style={{ marginLeft: 'auto' }}>
                                 {hoveredInstructorId === instructor.pilot_id && (
                                   <button

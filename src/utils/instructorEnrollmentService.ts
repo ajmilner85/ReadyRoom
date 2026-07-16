@@ -373,7 +373,8 @@ export async function getSuggestedInstructors(syllabusId: string): Promise<Enrol
 export async function enrollInstructors(
   cycleId: string,
   pilotIds: string[],
-  enrolledByUserId: string | null = null
+  enrolledByUserId: string | null = null,
+  cycleActivityId: string | null = null
 ): Promise<void> {
   try {
     // For each pilot, either insert new record or reactivate removed one
@@ -396,7 +397,8 @@ export async function enrollInstructors(
               enrolled_at: new Date().toISOString(),
               enrolled_by: enrolledByUserId,
               removed_at: null,
-              removed_by: null
+              removed_by: null,
+              cycle_activity_id: cycleActivityId
             })
             .eq('id', existing.id);
         }
@@ -410,7 +412,8 @@ export async function enrollInstructors(
             pilot_id: pilotId,
             enrolled_by: enrolledByUserId,
             status: 'active',
-            enrolled_at: new Date().toISOString()
+            enrolled_at: new Date().toISOString(),
+            cycle_activity_id: cycleActivityId
           });
       }
     }
@@ -456,6 +459,7 @@ export async function getCycleInstructorEnrollments(cycleId: string): Promise<En
         pilot_id,
         status,
         enrolled_at,
+        cycle_activity_id,
         pilots!inner(id, callsign, boardNumber)
       `)
       .eq('cycle_id', cycleId)
@@ -482,6 +486,7 @@ export async function getCycleInstructorEnrollments(cycleId: string): Promise<En
       squadron: squadronMap.get(enrollment.pilot_id) || null,
       status: enrollment.status,
       enrolled_at: enrollment.enrolled_at,
+      cycle_activity_id: enrollment.cycle_activity_id || null,
       currentStatus: statusMap.get(enrollment.pilot_id) || null,
       currentStanding: standingMap.get(enrollment.pilot_id) || null,
       roles: rolesMap.get(enrollment.pilot_id) || [],
