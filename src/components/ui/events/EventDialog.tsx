@@ -1905,17 +1905,11 @@ export const EventDialog: React.FC<EventDialogProps> = ({
                   fontSize: '14px',
                   fontWeight: 500,
                   color: '#64748B',
-                  marginBottom: '4px',
+                  marginBottom: '8px',
                   display: 'block'
                 }}>
                   Activities
                 </label>
-                <p style={{ fontSize: '12px', color: '#64748B', margin: '0 0 8px 0', fontFamily: 'Inter' }}>
-                  Parallel activities running at this event (a syllabus lesson, separate cadre training,
-                  a qualification pursuit, ...). Each activity carries its own support roles, reference
-                  materials, and participant criteria. Accepted pilots are grouped by activity in the
-                  attendance section. Activities appear in this order.
-                </p>
                 <EventActivitiesEditor
                   activities={eventActivities}
                   onChange={setEventActivities}
@@ -2090,12 +2084,6 @@ export const EventDialog: React.FC<EventDialogProps> = ({
             <div>
               {/* With Event Activities on, participating squadrons are derived
                   from each activity's Participants criteria on save */}
-              {activitiesEnabled && (
-                <p style={{ fontSize: '12px', color: '#64748B', margin: '0 0 16px 0', fontFamily: 'Inter' }}>
-                  Participating squadrons are determined by each activity's Participants criteria
-                  (Activities step). Events whose activities have no criteria inherit the cycle's squadrons.
-                </p>
-              )}
               {!activitiesEnabled && (
               <div style={{ marginBottom: '16px' }}>
                 <div style={{
