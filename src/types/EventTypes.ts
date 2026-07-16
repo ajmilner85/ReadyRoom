@@ -91,6 +91,47 @@ export interface EventActivity {
   settings?: EventActivitySettings;
 }
 
+// --- Cycle Activities (developer-flagged feature) ---
+// A cycle-level activity spans a range of the cycle's weeks. Events created
+// inside the cycle inherit the activities covering their week. 'syllabus'
+// references a whole training_syllabi row (its kind - linear/pool/module/
+// advanced_qualification - determines the UI treatment); 'objectives' carries
+// an ad-hoc objective list.
+export type CycleActivityKind = 'syllabus' | 'objectives';
+
+export interface CycleActivity {
+  id?: string; // undefined until persisted
+  cycleId?: string;
+  kind: CycleActivityKind;
+  syllabusId?: string; // 'syllabus' kind
+  label?: string;
+  adHocObjectives?: AdHocObjective[]; // 'objectives' kind
+  startWeek: number;
+  endWeek: number;
+  displayOrder: number;
+  settings?: EventActivitySettings; // same shape as event activities
+}
+
+// Cycle-level Options/Reminders/Publication defaults for events created in the
+// cycle (precedence: event's own settings > cycle settings > user settings).
+// Mirrors the event-defaults fields the EventDialog reads from user settings.
+export interface CycleSettings {
+  timezone?: string;
+  trackQualifications?: boolean;
+  groupBySquadron?: boolean;
+  showNoResponse?: boolean;
+  allowTentativeResponse?: boolean;
+  firstReminderEnabled?: boolean;
+  firstReminderTime?: { value: number; unit: 'minutes' | 'hours' | 'days' };
+  firstReminderRecipients?: { accepted: boolean; tentative: boolean; declined: boolean; noResponse: boolean };
+  secondReminderEnabled?: boolean;
+  secondReminderTime?: { value: number; unit: 'minutes' | 'hours' | 'days' };
+  secondReminderRecipients?: { accepted: boolean; tentative: boolean; declined: boolean; noResponse: boolean };
+  initialNotificationRoles?: Array<{ id: string; name: string }>;
+  scheduledPublicationEnabled?: boolean;
+  scheduledPublicationOffset?: { value: number; unit: 'minutes' | 'hours' | 'days' };
+}
+
 export interface Cycle {
   id: string;
   name: string;
@@ -108,6 +149,7 @@ export interface Cycle {
   participants?: string[]; // Array of squadron IDs that participate in this cycle
   discordGuildId?: string; // Legacy field for backward compatibility
   syllabusId?: string; // Optional training syllabus for Training cycles
+  settings?: CycleSettings; // Cycle-level event defaults (developer-flagged)
 }
 
 export interface Event {

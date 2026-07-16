@@ -135,8 +135,9 @@ const LessonSelect: React.FC<{
   );
 };
 
-/** Uniform collapsible section used for the four per-activity config groups */
-const CollapsibleSection: React.FC<{
+/** Uniform collapsible section used for the per-activity config groups
+    (shared with the cycle activity config panel) */
+export const CollapsibleSection: React.FC<{
   title: string;
   summary?: string;
   expanded: boolean;
