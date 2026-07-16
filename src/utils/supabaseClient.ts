@@ -1113,7 +1113,11 @@ export const saveEventActivities = async (
       cycle_id: cycleId,
       kind: activity.kind,
       display_order: i,
-      syllabus_mission_id: activity.kind === 'lesson' ? (activity.syllabusMissionId || null) : null,
+      // 'qualification' activities may also reference the lesson being flown
+      // for that qualification (e.g. a JTAC checkride mission)
+      syllabus_mission_id: (activity.kind === 'lesson' || activity.kind === 'qualification')
+        ? (activity.syllabusMissionId || null)
+        : null,
       qualification_id: activity.kind === 'qualification' ? (activity.qualificationId || null) : null,
       label: activity.label || null,
       ad_hoc_objectives: activity.kind === 'objectives' ? (activity.adHocObjectives || []) : null,

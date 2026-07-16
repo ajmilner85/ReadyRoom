@@ -926,14 +926,13 @@ export const EventDialog: React.FC<EventDialogProps> = ({
 
   // Workflow navigation and validation. With the Event Activities flag on, the
   // training step becomes an "Activities" step, is available on all events, and
-  // sits before Mission to match the Cycle > Event > Activity > Mission
-  // hierarchy; Participants becomes "Options" (participants are per-activity,
-  // the tab keeps event-wide squadron routing and other options).
+  // replaces the Mission step (support roles are per-activity; the remaining
+  // AAR option moves to Options); Participants becomes "Options" (participants
+  // are per-activity, the tab keeps event-wide squadron routing and options).
   const steps: Array<{ key: WorkflowStep; title: string; description: string }> = activitiesEnabled
     ? [
         { key: 'details', title: 'Event Details', description: 'Basic event information' },
         { key: 'training', title: 'Activities', description: 'Event activities' },
-        { key: 'mission', title: 'Mission', description: 'Mission requirements' },
         { key: 'participants', title: 'Options', description: 'Event-wide options' },
         { key: 'reminders', title: 'Reminders', description: 'Notification settings' },
         { key: 'publish', title: 'Publish', description: 'Publication settings' }
@@ -985,19 +984,19 @@ export const EventDialog: React.FC<EventDialogProps> = ({
         if (activitiesEnabled) {
           for (const activity of eventActivities) {
             if (activity.kind === 'lesson' && !activity.syllabusMissionId) {
-              return { isValid: false, errorMessage: 'Each Syllabus Lesson activity needs a mission selected' };
+              return { isValid: false, errorMessage: 'Each training activity needs a lesson selected' };
             }
             if (activity.kind === 'objectives') {
               const objectives = activity.adHocObjectives || [];
               if (objectives.length === 0) {
-                return { isValid: false, errorMessage: 'Each Ad-hoc Objectives activity needs at least one objective' };
+                return { isValid: false, errorMessage: 'Each Other Training Exercise activity needs at least one objective' };
               }
               if (objectives.some(o => !o.text.trim())) {
-                return { isValid: false, errorMessage: 'Ad-hoc objectives cannot be empty' };
+                return { isValid: false, errorMessage: 'Training objectives cannot be empty' };
               }
             }
             if (activity.kind === 'qualification' && !activity.qualificationId) {
-              return { isValid: false, errorMessage: 'Each Qualification Pursuit activity needs a qualification selected' };
+              return { isValid: false, errorMessage: 'Each Advanced Qualifications activity needs a qualification selected' };
             }
           }
         }
@@ -1987,11 +1986,10 @@ export const EventDialog: React.FC<EventDialogProps> = ({
             </div>
           )}
 
+          {/* Mission step only exists when the Activities flag is off (support
+              roles are per-activity and AAR moves to Options when it's on) */}
           {currentStep === 'mission' && (
             <div>
-              {/* With Event Activities on, support roles are configured per
-                  activity on the Activities step (aggregated on save) */}
-              {!activitiesEnabled && (
               <div style={{ marginBottom: '16px' }}>
                 <label style={{
                   fontSize: '14px',
@@ -2012,7 +2010,6 @@ export const EventDialog: React.FC<EventDialogProps> = ({
                   onChange={setSupportRoleRequirements}
                 />
               </div>
-              )}
 
               <div style={{ marginBottom: '16px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -2240,6 +2237,57 @@ export const EventDialog: React.FC<EventDialogProps> = ({
                   }
                 </div>
               </div>
+
+              {/* With Event Activities on, the Mission step is gone and its
+                  remaining AAR option lives here on the Options tab */}
+              {activitiesEnabled && (
+                <div style={{ marginBottom: '16px', marginTop: '24px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <div style={{ flex: 1, marginRight: '16px' }}>
+                      <label style={{
+                        fontSize: '14px',
+                        fontWeight: 500,
+                        color: '#64748B',
+                        marginBottom: '4px',
+                        display: 'block'
+                      }}>
+                        After Action Reports required for Operational (non-Training) squadrons only
+                      </label>
+                      <p style={{ fontSize: '12px', color: '#64748B', margin: '0', fontFamily: 'Inter' }}>
+                        When enabled, only flights from operational squadrons will appear in the AAR section on the Mission Debriefing page.
+                      </p>
+                    </div>
+                    <div style={{ flexShrink: 0 }}>
+                      <div
+                        onClick={() => setAarOperationalOnly(!aarOperationalOnly)}
+                        style={{
+                          width: '44px',
+                          height: '24px',
+                          backgroundColor: aarOperationalOnly ? '#3B82F6' : '#E5E7EB',
+                          borderRadius: '12px',
+                          position: 'relative',
+                          cursor: 'pointer',
+                          transition: 'background-color 0.2s ease'
+                        }}
+                      >
+                        <div
+                          style={{
+                            width: '20px',
+                            height: '20px',
+                            backgroundColor: 'white',
+                            borderRadius: '50%',
+                            position: 'absolute',
+                            top: '2px',
+                            left: aarOperationalOnly ? '22px' : '2px',
+                            transition: 'left 0.2s ease',
+                            boxShadow: '0 2px 4px rgba(0, 0, 0, 0.2)'
+                          }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               <div style={{ marginBottom: '16px', marginTop: '24px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
