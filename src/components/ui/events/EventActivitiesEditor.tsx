@@ -24,11 +24,12 @@ interface EventActivitiesEditorProps {
 }
 
 /**
- * UI-level activity types. These map onto the two DB kinds that reference a
- * lesson ('lesson') plus 'qualification' and 'objectives':
- *  - syllabus   -> 'lesson' from a linear syllabus (or module)
- *  - standalone -> 'lesson' from a lesson pool
- *  - advanced   -> 'qualification' (+ optional lesson tied to the qualification)
+ * UI-level activity types. The first three all persist as DB kind 'lesson'
+ * (an activity is defined by what it references); which one shows on reload is
+ * derived from the selected lesson's source syllabus kind:
+ *  - syllabus   -> lesson from a linear syllabus (or module)
+ *  - standalone -> lesson from a lesson pool
+ *  - advanced   -> lesson from an advanced-qualification syllabus
  *  - other      -> 'objectives' (ad-hoc objective list)
  */
 type ActivityUiKind = 'syllabus' | 'standalone' | 'advanced' | 'other';
@@ -221,7 +222,7 @@ const EventActivitiesEditor: React.FC<EventActivitiesEditorProps> = ({
       if (cancelled || !syllabiResult.data || !missionsResult.data) return;
 
       const cycleSyllabusId = syllabusMissions[0]?.syllabus_id;
-      const kindOrder: Record<string, number> = { linear: 0, pool: 1, module: 2 };
+      const kindOrder: Record<string, number> = { linear: 0, pool: 1, advanced_qualification: 2, module: 3 };
       const sources: LessonSource[] = (syllabiResult.data as any[])
         .map(s => ({
           syllabusId: s.id,
@@ -258,14 +259,18 @@ const EventActivitiesEditor: React.FC<EventActivitiesEditorProps> = ({
     const override = uiKindOverrides[activityKey(activity, index)];
     if (override) return override;
     if (activity.kind === 'objectives') return 'other';
-    if (activity.kind === 'qualification') return 'advanced';
-    return missionSourceKind(activity.syllabusMissionId) === 'pool' ? 'standalone' : 'syllabus';
+    if (activity.kind === 'qualification') return 'advanced'; // legacy rows from before adv-qual syllabi
+    const sourceKind = missionSourceKind(activity.syllabusMissionId);
+    if (sourceKind === 'pool') return 'standalone';
+    if (sourceKind === 'advanced_qualification') return 'advanced';
+    return 'syllabus';
   };
 
   const sourcesForUiKind = (uiKind: ActivityUiKind): LessonSource[] => {
     if (uiKind === 'syllabus') return lessonSources.filter(s => s.kind === 'linear' || s.kind === 'module');
     if (uiKind === 'standalone') return lessonSources.filter(s => s.kind === 'pool');
-    return lessonSources; // advanced: qualification lessons may live anywhere
+    if (uiKind === 'advanced') return lessonSources.filter(s => s.kind === 'advanced_qualification');
+    return [];
   };
 
   const updateActivity = (index: number, updates: Partial<EventActivity>) => {
@@ -296,7 +301,7 @@ const EventActivitiesEditor: React.FC<EventActivitiesEditorProps> = ({
   };
 
   const changeUiKind = (index: number, uiKind: ActivityUiKind) => {
-    const dbKind: EventActivityKind = uiKind === 'other' ? 'objectives' : uiKind === 'advanced' ? 'qualification' : 'lesson';
+    const dbKind: EventActivityKind = uiKind === 'other' ? 'objectives' : 'lesson';
     setUiKindOverrides(prev => ({ ...prev, [activityKey(activities[index], index)]: uiKind }));
     // Reset kind-specific payload when switching; per-activity settings persist
     updateActivity(index, {
@@ -600,32 +605,20 @@ const ActivityCard: React.FC<{
 
       {/* Body: kind-specific pickers */}
       <div style={{ padding: '12px' }}>
-        {uiKind === 'advanced' && (
-          <select
-            value={activity.qualificationId || ''}
-            onChange={(e) => onUpdate({ qualificationId: e.target.value || undefined })}
-            style={{ ...selectStyle, marginBottom: '8px' }}
-          >
-            <option value="">Select a qualification...</option>
-            {qualifications.map(qualification => (
-              <option key={qualification.id} value={qualification.id}>{qualification.name}</option>
-            ))}
-          </select>
-        )}
-
         {usesLessonPicker && (
           <div>
             <LessonSelect
               value={activity.syllabusMissionId}
               onChange={(missionId) => onUpdate({ syllabusMissionId: missionId })}
               sources={sources}
-              placeholder={uiKind === 'advanced' ? 'Select a lesson (optional)...' : 'Select a lesson...'}
             />
             {sources.length === 0 && (
               <p style={{ fontSize: '12px', color: '#94A3B8', margin: '4px 0 0 0', fontFamily: 'Inter', fontStyle: 'italic' }}>
                 {uiKind === 'standalone'
                   ? 'No lesson pools exist yet. Create one on the Training page (Syllabus Management > Type: Lesson Pool).'
-                  : 'No lessons available. Lessons come from training syllabi on the Training page.'}
+                  : uiKind === 'advanced'
+                    ? 'No Advanced Qualification syllabi exist yet. Create one on the Training page (Syllabus Management > Type: Advanced Qualification).'
+                    : 'No lessons available. Lessons come from training syllabi on the Training page.'}
               </p>
             )}
           </div>
