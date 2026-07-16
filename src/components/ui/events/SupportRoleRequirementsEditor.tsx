@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+﻿import React, { useEffect, useState } from 'react';
 import { ChevronUp, ChevronDown, Trash2 } from 'lucide-react';
 import { getSupportRoleQualifications, Qualification } from '../../../utils/qualificationService';
 import type { SupportRoleRequirement } from '../../../utils/supabaseClient';
@@ -98,7 +98,7 @@ const SupportRoleRequirementsEditor: React.FC<SupportRoleRequirementsEditorProps
         return (
           <div key={req.qualificationId} style={{ marginBottom: '8px', display: 'flex', gap: '8px', alignItems: 'center' }}>
             <div style={{ display: 'flex', flexDirection: 'column' }}>
-              <button
+              <button type="button"
                 onClick={() => moveRequirement(index, -1)}
                 disabled={index === 0}
                 style={{ ...arrowButtonStyle(index === 0), borderRadius: '4px 4px 0 0', borderBottom: 'none' }}
@@ -106,7 +106,7 @@ const SupportRoleRequirementsEditor: React.FC<SupportRoleRequirementsEditorProps
               >
                 <ChevronUp size={12} />
               </button>
-              <button
+              <button type="button"
                 onClick={() => moveRequirement(index, 1)}
                 disabled={index === requirements.length - 1}
                 style={{ ...arrowButtonStyle(index === requirements.length - 1), borderRadius: '0 0 4px 4px' }}
@@ -158,7 +158,7 @@ const SupportRoleRequirementsEditor: React.FC<SupportRoleRequirementsEditorProps
                 textAlign: 'center'
               }}
             />
-            <button
+            <button type="button"
               onClick={() => removeRequirement(index)}
               style={{
                 padding: '8px',
@@ -195,7 +195,7 @@ const SupportRoleRequirementsEditor: React.FC<SupportRoleRequirementsEditorProps
         </p>
       )}
 
-      <button
+      <button type="button"
         onClick={addRequirement}
         disabled={unusedRoles.length === 0}
         style={{

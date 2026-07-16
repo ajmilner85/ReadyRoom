@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+﻿import React, { useEffect, useState } from 'react';
 import { Plus, Trash2, Info } from 'lucide-react';
 import { supabase } from '../../../utils/supabaseClient';
 import { getActiveQualifications, Qualification } from '../../../utils/qualificationService';
@@ -19,10 +19,32 @@ interface SyllabusOption {
   kind: string; // 'linear' | 'pool' | 'module' | 'advanced_qualification'
 }
 
+interface EnrollablePilot {
+  pilot_id: string;
+  callsign: string;
+  board_number?: string | null;
+  enrollment_id?: string;
+}
+
+/** Enrollment wiring passed down from CycleDialog for syllabus-kind activities */
+export interface ActivityEnrollmentContext {
+  /** The saved cycle_activities id; undefined until the cycle has been saved */
+  activityId?: string;
+  students: EnrollablePilot[];
+  instructors: EnrollablePilot[];
+  availableStudents: EnrollablePilot[];
+  availableInstructors: EnrollablePilot[];
+  onEnrollStudent: (pilotId: string) => void;
+  onRemoveStudent: (enrollmentId: string) => void;
+  onEnrollInstructor: (pilotId: string) => void;
+  onRemoveInstructor: (enrollmentId: string) => void;
+}
+
 interface CycleActivityConfigPanelProps {
   activity: CycleActivity;
   onChange: (updates: Partial<CycleActivity>) => void;
   squadrons: Array<{ id: string; name: string; designation?: string; insignia_url?: string | null }>;
+  enrollment?: ActivityEnrollmentContext;
 }
 
 const KIND_GROUPS: Array<{ title: string; kinds: string[] }> = [
@@ -62,10 +84,70 @@ const inputStyle: React.CSSProperties = {
  * settings as event activities: support roles, reference materials,
  * participant criteria, and the AAR opt-in.
  */
+/** One enrollment list (students or instructors) inside an activity */
+const ActivityEnrollmentSection: React.FC<{
+  people: EnrollablePilot[];
+  available: EnrollablePilot[];
+  addLabel: string;
+  onEnroll: (pilotId: string) => void;
+  onRemove: (enrollmentId: string) => void;
+}> = ({ people, available, addLabel, onEnroll, onRemove }) => (
+  <div>
+    {people.map(person => (
+      <div key={person.pilot_id} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '4px 0' }}>
+        <span style={{ fontSize: '13px', color: '#646F7E', width: '46px', textAlign: 'center', fontFamily: 'Inter' }}>
+          {person.board_number || ''}
+        </span>
+        <span style={{ fontSize: '14px', fontWeight: 600, color: '#374151', fontFamily: 'Inter' }}>
+          {person.callsign}
+        </span>
+        <button
+          type="button"
+          onClick={() => person.enrollment_id && onRemove(person.enrollment_id)}
+          style={{
+            marginLeft: 'auto',
+            padding: '4px',
+            backgroundColor: 'transparent',
+            color: '#9CA3AF',
+            border: 'none',
+            borderRadius: '4px',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center'
+          }}
+          onMouseEnter={(e) => { e.currentTarget.style.color = '#DC2626'; }}
+          onMouseLeave={(e) => { e.currentTarget.style.color = '#9CA3AF'; }}
+          title="Remove"
+        >
+          <Trash2 size={14} />
+        </button>
+      </div>
+    ))}
+    {people.length === 0 && (
+      <p style={{ fontSize: '12px', color: '#94A3B8', margin: '0 0 8px 0', fontFamily: 'Inter', fontStyle: 'italic' }}>
+        No one enrolled in this activity yet.
+      </p>
+    )}
+    <select
+      value=""
+      onChange={(e) => { if (e.target.value) onEnroll(e.target.value); }}
+      style={{ ...selectStyle, marginTop: '8px' }}
+    >
+      <option value="">{addLabel}</option>
+      {available.map(person => (
+        <option key={person.pilot_id} value={person.pilot_id}>
+          {person.board_number ? `${person.board_number} ` : ''}{person.callsign}
+        </option>
+      ))}
+    </select>
+  </div>
+);
+
 const CycleActivityConfigPanel: React.FC<CycleActivityConfigPanelProps> = ({
   activity,
   onChange,
-  squadrons
+  squadrons,
+  enrollment
 }) => {
   const [syllabi, setSyllabi] = useState<SyllabusOption[]>([]);
   const [qualifications, setQualifications] = useState<Qualification[]>([]);
@@ -211,7 +293,7 @@ const CycleActivityConfigPanel: React.FC<CycleActivityConfigPanelProps> = ({
                 placeholder="Objective text"
                 style={inputStyle}
               />
-              <button
+              <button type="button"
                 onClick={() => onChange({
                   adHocObjectives: adHocObjectives
                     .filter((_, i) => i !== objectiveIndex)
@@ -244,7 +326,7 @@ const CycleActivityConfigPanel: React.FC<CycleActivityConfigPanelProps> = ({
               </button>
             </div>
           ))}
-          <button
+          <button type="button"
             onClick={addObjective}
             style={{
               padding: '6px 12px',
@@ -265,6 +347,46 @@ const CycleActivityConfigPanel: React.FC<CycleActivityConfigPanelProps> = ({
             Add Objective
           </button>
         </CollapsibleSection>
+      )}
+
+      {/* Students / Instructors enrollment, per activity (syllabus kind only) */}
+      {activity.kind === 'syllabus' && enrollment && (
+        !enrollment.activityId ? (
+          <p style={{ fontSize: '12px', color: '#94A3B8', margin: '8px 0', fontFamily: 'Inter', fontStyle: 'italic' }}>
+            Save the cycle, then reopen it to enroll students and instructors for this activity.
+          </p>
+        ) : (
+          <>
+            <CollapsibleSection
+              title="Students"
+              summary={`${enrollment.students.length}`}
+              expanded={expanded.has('students')}
+              onToggle={() => toggle('students')}
+            >
+              <ActivityEnrollmentSection
+                people={enrollment.students}
+                available={enrollment.availableStudents}
+                addLabel="Add student..."
+                onEnroll={enrollment.onEnrollStudent}
+                onRemove={enrollment.onRemoveStudent}
+              />
+            </CollapsibleSection>
+            <CollapsibleSection
+              title="Instructors"
+              summary={`${enrollment.instructors.length}`}
+              expanded={expanded.has('instructors')}
+              onToggle={() => toggle('instructors')}
+            >
+              <ActivityEnrollmentSection
+                people={enrollment.instructors}
+                available={enrollment.availableInstructors}
+                addLabel="Add instructor..."
+                onEnroll={enrollment.onEnrollInstructor}
+                onRemove={enrollment.onRemoveInstructor}
+              />
+            </CollapsibleSection>
+          </>
+        )
       )}
 
       <CollapsibleSection
@@ -345,7 +467,7 @@ const CycleActivityConfigPanel: React.FC<CycleActivityConfigPanelProps> = ({
                 }}>
                   After Action Reports capture mission outcomes (kills, losses,
                   narrative) on the Mission Debriefing page. They are separate
-                  from — and in addition to — training grades: DLOs are still
+                  from â€” and in addition to â€” training grades: DLOs are still
                   graded through the Pilot Training Records grid regardless of
                   this setting.
                 </div>

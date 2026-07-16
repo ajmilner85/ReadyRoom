@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { Pencil, Trash2, BookOpen } from 'lucide-react';
 import { useAppSettings } from '../../../context/AppSettingsContext';
 import type { ReferenceMaterial } from '../../../types/EventTypes';
@@ -182,7 +182,7 @@ const ReferenceMaterialsInput: React.FC<ReferenceMaterialsInputProps> = ({
             {/* Action buttons - only show on hover and only for non-inherited */}
             {!item.isInherited && hoveredIndex === index && (
               <>
-                <button
+                <button type="button"
                   onClick={() => handleOpenDialog(item.originalIndex)}
                   style={{
                     padding: '6px',
@@ -197,7 +197,7 @@ const ReferenceMaterialsInput: React.FC<ReferenceMaterialsInputProps> = ({
                 >
                   <Pencil size={16} />
                 </button>
-                <button
+                <button type="button"
                   onClick={() => handleRemove(item.originalIndex)}
                   style={{
                     padding: '6px',
@@ -220,7 +220,7 @@ const ReferenceMaterialsInput: React.FC<ReferenceMaterialsInputProps> = ({
 
       {/* Add button */}
       {localMaterials.length < maxItems && (
-        <button
+        <button type="button"
           onClick={() => handleOpenDialog()}
           style={{
             fontSize: '14px',
@@ -346,7 +346,7 @@ const ReferenceMaterialsInput: React.FC<ReferenceMaterialsInputProps> = ({
 
             {/* Dialog buttons */}
             <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '20px' }}>
-              <button
+              <button type="button"
                 onClick={() => setShowDialog(false)}
                 style={{
                   padding: '8px 16px',
@@ -361,7 +361,7 @@ const ReferenceMaterialsInput: React.FC<ReferenceMaterialsInputProps> = ({
               >
                 Cancel
               </button>
-              <button
+              <button type="button"
                 onClick={handleSaveDialog}
                 style={{
                   padding: '8px 16px',

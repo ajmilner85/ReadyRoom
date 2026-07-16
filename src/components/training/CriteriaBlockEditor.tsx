@@ -1,4 +1,4 @@
-/**
+﻿/**
  * CriteriaBlockEditor Component
  * 
  * A reusable component for editing block-based enrollment/qualification criteria.
@@ -224,7 +224,7 @@ const CriteriaBlockEditor: React.FC<CriteriaBlockEditorProps> = ({
               }}>
                 {/* Block header: compact mode collapses it to a corner X */}
                 {compact ? (
-                  <button
+                  <button type="button"
                     onClick={() => handleRemoveBlock(blockIndex)}
                     style={{
                       position: 'absolute',
@@ -258,7 +258,7 @@ const CriteriaBlockEditor: React.FC<CriteriaBlockEditorProps> = ({
                   }}>
                     {blockLabel} {blockIndex + 1}
                   </span>
-                  <button
+                  <button type="button"
                     onClick={() => handleRemoveBlock(blockIndex)}
                     style={{
                       padding: '4px 8px',
@@ -462,7 +462,7 @@ const CriteriaBlockEditor: React.FC<CriteriaBlockEditorProps> = ({
                         )}
 
                         {/* Remove criterion button */}
-                        <button
+                        <button type="button"
                           onClick={() => handleRemoveCriterion(blockIndex, criterionIndex)}
                           style={{
                             padding: '8px',
@@ -494,7 +494,7 @@ const CriteriaBlockEditor: React.FC<CriteriaBlockEditorProps> = ({
                   ))}
 
                   {/* Add criterion button */}
-                  <button
+                  <button type="button"
                     onClick={() => handleAddCriterion(blockIndex)}
                     style={{
                       padding: '6px 12px',
@@ -527,7 +527,7 @@ const CriteriaBlockEditor: React.FC<CriteriaBlockEditorProps> = ({
       )}
 
       {/* Add block button */}
-      <button
+      <button type="button"
         onClick={handleAddBlock}
         style={{
           padding: '10px 16px',

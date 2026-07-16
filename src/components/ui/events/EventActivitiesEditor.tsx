@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+﻿import React, { useEffect, useState } from 'react';
 import { ChevronUp, ChevronDown, ChevronRight, CheckSquare, Plus, X, Trash2, Info } from 'lucide-react';
 import { supabase } from '../../../utils/supabaseClient';
 import { getActiveQualifications, Qualification } from '../../../utils/qualificationService';
@@ -145,7 +145,7 @@ export const CollapsibleSection: React.FC<{
   children: React.ReactNode;
 }> = ({ title, summary, expanded, onToggle, children }) => (
   <div style={{ border: '1px solid #E5E7EB', borderRadius: '6px', marginTop: '8px', backgroundColor: '#FFFFFF' }}>
-    <button
+    <button type="button"
       onClick={onToggle}
       style={{
         width: '100%',
@@ -363,7 +363,7 @@ const EventActivitiesEditor: React.FC<EventActivitiesEditorProps> = ({
 
   return (
     <div>
-      <button
+      <button type="button"
         onClick={addActivity}
         style={{
           padding: '8px 16px',
@@ -544,7 +544,7 @@ const ActivityCard: React.FC<{
         borderRadius: '8px 8px 0 0'
       }}>
         <div style={{ display: 'flex', flexDirection: 'column' }}>
-          <button
+          <button type="button"
             onClick={() => onMove(-1)}
             disabled={index === 0}
             style={{ ...arrowButtonStyle(index === 0), borderRadius: '4px 4px 0 0', borderBottom: 'none' }}
@@ -552,7 +552,7 @@ const ActivityCard: React.FC<{
           >
             <ChevronUp size={12} />
           </button>
-          <button
+          <button type="button"
             onClick={() => onMove(1)}
             disabled={index === total - 1}
             style={{ ...arrowButtonStyle(index === total - 1), borderRadius: '0 0 4px 4px' }}
@@ -587,7 +587,7 @@ const ActivityCard: React.FC<{
           ))}
         </select>
         <div style={{ flex: 1 }} />
-        <button
+        <button type="button"
           onClick={onRemove}
           title="Remove activity"
           style={{
@@ -664,7 +664,7 @@ const ActivityCard: React.FC<{
                     placeholder="Objective text"
                     style={inputStyle}
                   />
-                  <button
+                  <button type="button"
                     onClick={() => onRemoveObjective(objectiveIndex)}
                     style={{
                       padding: '8px',
@@ -693,7 +693,7 @@ const ActivityCard: React.FC<{
                   </button>
                 </div>
               ))}
-              <button
+              <button type="button"
                 onClick={onAddObjective}
                 style={{
                   padding: '6px 12px',
@@ -827,7 +827,7 @@ const ActivityCard: React.FC<{
                   }}>
                     After Action Reports capture mission outcomes (kills, losses,
                     narrative) on the Mission Debriefing page. They are separate
-                    from — and in addition to — training grades: DLOs are still
+                    from â€” and in addition to â€” training grades: DLOs are still
                     graded through the Pilot Training Records grid regardless of
                     this setting.
                   </div>
