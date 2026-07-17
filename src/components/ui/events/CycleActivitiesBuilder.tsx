@@ -258,10 +258,11 @@ const CycleActivitiesBuilder: React.FC<CycleActivitiesBuilderProps> = ({
         const squadronIds = new Set<string>();
         const otherCriteria: string[] = [];
         block.criteria.forEach(criterion => {
+          const values = criterion.values ?? (criterion.value ? [criterion.value] : []);
           if (criterion.type === 'squadron') {
-            (criterion.values ?? (criterion.value ? [criterion.value] : [])).forEach(id => squadronIds.add(id));
-          } else if (criterion.value) {
-            otherCriteria.push(criterion.value);
+            values.forEach(id => squadronIds.add(id));
+          } else {
+            values.forEach(v => otherCriteria.push(v));
           }
         });
         return { squadrons: squadrons.filter(s => squadronIds.has(s.id)), otherCriteria };

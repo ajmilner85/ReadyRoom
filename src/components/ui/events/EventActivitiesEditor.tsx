@@ -4,7 +4,7 @@ import { supabase } from '../../../utils/supabaseClient';
 import { getActiveQualifications, Qualification } from '../../../utils/qualificationService';
 import SupportRoleRequirementsEditor from './SupportRoleRequirementsEditor';
 import ReferenceMaterialsInput from './ReferenceMaterialsInput';
-import CriteriaBlockEditor from '../../training/CriteriaBlockEditor';
+import ParticipantBlocksEditor from './ParticipantBlocksEditor';
 import type {
   EventActivity,
   EventActivityKind,
@@ -777,15 +777,13 @@ const ActivityCard: React.FC<{
           expanded={isExpanded('participants')}
           onToggle={() => onToggleSection(sectionKey('participants'))}
         >
-          <CriteriaBlockEditor
-            blocks={participantBlocks as any}
-            onChange={(blocks) => onUpdateSettings({ participantCriteria: blocks as any })}
+          <ParticipantBlocksEditor
+            blocks={participantBlocks}
+            onChange={(blocks) => onUpdateSettings({ participantCriteria: blocks })}
             standings={standings}
             statuses={statuses}
             qualifications={qualifications}
             squadrons={squadrons}
-            addBlockLabel="Add Participant Block"
-            compact
           />
         </CollapsibleSection>
 

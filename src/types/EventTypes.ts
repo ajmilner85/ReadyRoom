@@ -52,14 +52,13 @@ export interface AdHocObjective {
   display_order: number;
 }
 
-// One eligibility rule inside a participant criteria block. Matches the
-// CriteriaBlockEditor shape: 'squadron' rules store squadron UUIDs (never
-// tail code / designation) and are multi-select (pilot matches ANY listed
-// squadron); the other types store a single record name.
+// One eligibility rule inside a participant criteria block. All rule types are
+// multi-select (pilot matches ANY listed value); 'squadron' stores squadron
+// UUIDs (never tail code / designation), the other types store record names.
 export interface EventActivityParticipantRule {
   type: 'squadron' | 'standing' | 'status' | 'qualification';
-  value: string;
-  values?: string[]; // squadron ids for multi-select squadron rules (value mirrors values[0])
+  value: string; // mirrors values[0] for backward compatibility
+  values?: string[];
 }
 
 // AND within a block, OR across blocks (same semantics as syllabus
