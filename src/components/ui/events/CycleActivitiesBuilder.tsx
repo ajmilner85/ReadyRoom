@@ -384,7 +384,7 @@ const CycleActivitiesBuilder: React.FC<CycleActivitiesBuilderProps> = ({
         <div style={{ width: `${gridWidth}px`, minWidth: '100%', userSelect: dragging ? 'none' : undefined }}>
           {/* Header row */}
           <div style={{ display: 'flex', borderBottom: '2px solid #CBD5E1' }}>
-            <div style={{ width: `${HEADER_COL_WIDTH}px`, flexShrink: 0, padding: '8px', fontSize: '11px', fontWeight: 600, color: '#64748B', fontFamily: 'Inter', textTransform: 'uppercase' }}>
+            <div style={{ width: `${HEADER_COL_WIDTH}px`, flexShrink: 0, padding: '8px', boxSizing: 'border-box', fontSize: '11px', fontWeight: 600, color: '#64748B', fontFamily: 'Inter', textTransform: 'uppercase' }}>
               Participants
             </div>
             {Array.from({ length: weekCount }, (_, i) => (

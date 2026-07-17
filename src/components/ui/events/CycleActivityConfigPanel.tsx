@@ -438,7 +438,7 @@ const CycleActivityConfigPanel: React.FC<CycleActivityConfigPanelProps> = ({
                 }}>
                   After Action Reports capture mission outcomes (kills, losses,
                   narrative) on the Mission Debriefing page. They are separate
-                  from â€” and in addition to â€” training grades: DLOs are still
+                  from — and in addition to — training grades: DLOs are still
                   graded through the Pilot Training Records grid regardless of
                   this setting.
                 </div>
