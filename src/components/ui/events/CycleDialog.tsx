@@ -427,7 +427,7 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
           <option value="">Entire cycle</option>
           {scopableActivities.map(activity => (
             <option key={activity.id} value={activity.id}>
-              {activityNameById(activity.id as string)} (Weeks {activity.startWeek}â€“{activity.endWeek})
+              {activityNameById(activity.id as string)} (Weeks {activity.startWeek}–{activity.endWeek})
             </option>
           ))}
         </select>
@@ -1174,15 +1174,42 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
           {/* Flag-on: two panes - settings column (Details/Options/Reminders/
               Publication stacked) on the left, activities calendar on the right */}
           <div style={activitiesEnabled ? { display: 'flex', alignItems: 'stretch', height: 'min(760px, calc(92vh - 150px))' } : undefined}>
-          <div style={activitiesEnabled ? { width: '340px', flexShrink: 0, overflowY: 'auto', borderRight: '1px solid #E2E8F0' } : { display: 'contents' }}>
+          <div style={activitiesEnabled ? { width: '340px', flexShrink: 0, display: 'flex', flexDirection: 'column', borderRight: '1px solid #E2E8F0' } : { display: 'contents' }}>
+          {/* Left-pane step tabs (flag-on): one settings section at a time,
+              the activities calendar stays on the right */}
+          {activitiesEnabled && (
+            <div style={{ display: 'flex', borderBottom: '1px solid #E2E8F0', backgroundColor: '#F8FAFC', flexShrink: 0 }}>
+              {([
+                { key: 'details', title: 'Details' },
+                { key: 'options', title: 'Options' },
+                { key: 'reminders', title: 'Reminders' },
+                { key: 'publication', title: 'Publication' }
+              ] as Array<{ key: typeof activeTab; title: string }>).map(tab => (
+                <button
+                  key={tab.key}
+                  type="button"
+                  onClick={() => setActiveTab(tab.key)}
+                  style={{
+                    flex: 1,
+                    padding: '10px 4px',
+                    border: 'none',
+                    backgroundColor: 'transparent',
+                    color: activeTab === tab.key ? '#2563EB' : '#64748B',
+                    fontWeight: activeTab === tab.key ? 600 : 500,
+                    fontSize: '13px',
+                    cursor: 'pointer',
+                    borderBottom: activeTab === tab.key ? '2px solid #2563EB' : '2px solid transparent',
+                    transition: 'all 0.2s'
+                  }}
+                >
+                  {tab.title}
+                </button>
+              ))}
+            </div>
+          )}
           {/* Details Content */}
-          {(activitiesEnabled || activeTab === 'details') && (
-          <div style={activitiesEnabled ? { padding: '16px' } : { padding: '24px', height: '900px', overflowY: 'auto' }}>
-            {activitiesEnabled && (
-              <h3 style={{ fontSize: '13px', fontWeight: 600, color: '#64748B', textTransform: 'uppercase', margin: '0 0 12px 0', fontFamily: 'Inter' }}>
-                Details
-              </h3>
-            )}
+          {activeTab === 'details' && (
+          <div style={activitiesEnabled ? { padding: '16px', overflowY: 'auto', flex: 1 } : { padding: '24px', height: '900px', overflowY: 'auto' }}>
             <div style={{ marginBottom: '16px' }}>
               <label style={{
                 display: 'block',
@@ -1485,7 +1512,7 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
                       fontSize: '10px', 
                       color: '#4B5563',
                       lineHeight: 1
-                    }}>â–²</span>
+                    }}>▲</span>
                   </button>
                   <button
                     type="button"
@@ -1506,7 +1533,7 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
                       fontSize: '10px', 
                       color: '#4B5563',
                       lineHeight: 1
-                    }}>â–¼</span>
+                    }}>▼</span>
                   </button>
                 </div>
               </div>
@@ -1715,13 +1742,14 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
           )}
 
           {/* Left-pane Options / Reminders / Publication sections (flag-on):
-              defaults for events created in this cycle, reviewable up front */}
+              defaults for events created in this cycle, one per tab */}
           {activitiesEnabled && (
             <>
-              <div style={{ padding: '16px', borderTop: '1px solid #E2E8F0' }}>
-                <h3 style={{ fontSize: '13px', fontWeight: 600, color: '#64748B', textTransform: 'uppercase', margin: '0 0 12px 0', fontFamily: 'Inter' }}>
-                  Options
-                </h3>
+              {activeTab === 'options' && (
+              <div style={{ padding: '16px', overflowY: 'auto', flex: 1 }}>
+                <p style={{ fontSize: '12px', color: '#94A3B8', margin: '0 0 16px 0', fontFamily: 'Inter' }}>
+                  Defaults for events created in this cycle. Each event can still override them.
+                </p>
                 {([
                   { key: 'trackQualifications', label: 'Group responses by qualification' },
                   { key: 'groupBySquadron', label: 'Group responses by squadron' },
@@ -1758,11 +1786,13 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
                   </div>
                 ))}
               </div>
+              )}
 
-              <div style={{ padding: '16px', borderTop: '1px solid #E2E8F0' }}>
-                <h3 style={{ fontSize: '13px', fontWeight: 600, color: '#64748B', textTransform: 'uppercase', margin: '0 0 12px 0', fontFamily: 'Inter' }}>
-                  Reminders
-                </h3>
+              {activeTab === 'reminders' && (
+              <div style={{ padding: '16px', overflowY: 'auto', flex: 1 }}>
+                <p style={{ fontSize: '12px', color: '#94A3B8', margin: '0 0 16px 0', fontFamily: 'Inter' }}>
+                  Default reminders for events created in this cycle. Each event can still override them.
+                </p>
                 {([
                   { enabledKey: 'firstReminderEnabled', timeKey: 'firstReminderTime', label: 'First' },
                   { enabledKey: 'secondReminderEnabled', timeKey: 'secondReminderTime', label: 'Second' }
@@ -1806,11 +1836,13 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
                 ))}
                 <p style={{ fontSize: '11px', color: '#94A3B8', margin: 0, fontFamily: 'Inter' }}>before each event</p>
               </div>
+              )}
 
-              <div style={{ padding: '16px', borderTop: '1px solid #E2E8F0' }}>
-                <h3 style={{ fontSize: '13px', fontWeight: 600, color: '#64748B', textTransform: 'uppercase', margin: '0 0 12px 0', fontFamily: 'Inter' }}>
-                  Publication
-                </h3>
+              {activeTab === 'publication' && (
+              <div style={{ padding: '16px', overflowY: 'auto', flex: 1 }}>
+                <p style={{ fontSize: '12px', color: '#94A3B8', margin: '0 0 16px 0', fontFamily: 'Inter' }}>
+                  Default publication behavior for events created in this cycle. Each event can still override it.
+                </p>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
                   <input
                     type="checkbox"
@@ -1856,6 +1888,7 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
                   </div>
                 )}
               </div>
+              )}
             </>
           )}
           </div>
@@ -1903,7 +1936,7 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
                 <>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '16px' }}>
                     <span style={{ fontSize: '13px', fontWeight: 600, color: '#64748B', fontFamily: 'Inter', textTransform: 'uppercase' }}>
-                      Activity â€” Weeks {cycleActivities[selectedActivityIndex].startWeek}â€“{cycleActivities[selectedActivityIndex].endWeek}
+                      Activity — Weeks {cycleActivities[selectedActivityIndex].startWeek}–{cycleActivities[selectedActivityIndex].endWeek}
                     </span>
                     <button
                       type="button"
