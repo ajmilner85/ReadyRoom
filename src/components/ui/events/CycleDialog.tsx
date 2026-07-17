@@ -5,7 +5,7 @@ import { Squadron } from '../../../types/OrganizationTypes';
 import { supabase, getCycleActivities } from '../../../utils/supabaseClient';
 import CycleActivitiesBuilder, { BuilderSelection, PendingParticipantRow, criteriaRowKey } from './CycleActivitiesBuilder';
 import CycleActivityConfigPanel from './CycleActivityConfigPanel';
-import CriteriaBlockEditor from '../../training/CriteriaBlockEditor';
+import ParticipantBlocksEditor from './ParticipantBlocksEditor';
 import { enrollPilots, removeEnrollment, getCycleEnrollments, getSuggestedEnrollments, type EnrolledPilot } from '../../../utils/trainingEnrollmentService';
 import { 
   enrollInstructors, 
@@ -1003,13 +1003,43 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
       ? cycleActivities.find(a => a.kind === 'syllabus' && a.syllabusId && linearSyllabusIds.has(a.syllabusId))?.syllabusId
       : undefined;
 
+    // Flag-on: cycles.participants (Discord routing) derives from the
+    // activities' participant criteria - squadron selections contribute their
+    // squadrons, a completed group with no squadron selection implies all
+    // squadrons, and no criteria anywhere keeps the existing selection
+    const deriveCycleParticipants = (): string[] | undefined => {
+      let anyCriteria = false;
+      let matchesAllSquadrons = false;
+      const squadronIds = new Set<string>();
+      cycleActivities.forEach(activity => {
+        (activity.settings?.participantCriteria || []).forEach(block => {
+          const completed = block.criteria.filter(c => (c.values && c.values.length > 0) || c.value);
+          if (completed.length === 0) return;
+          anyCriteria = true;
+          const squadronRules = completed.filter(c => c.type === 'squadron');
+          if (squadronRules.length === 0) {
+            matchesAllSquadrons = true;
+          } else {
+            squadronRules.forEach(rule => {
+              (rule.values ?? (rule.value ? [rule.value] : [])).forEach(id => squadronIds.add(id));
+            });
+          }
+        });
+      });
+      if (!anyCriteria) return undefined;
+      if (matchesAllSquadrons) return squadrons.map(s => s.id);
+      return Array.from(squadronIds);
+    };
+
     onSave({
       name: name.trim(),
       description: description.trim(),
       startDate,
       endDate,
       type,
-      participants: participants.length > 0 ? participants : undefined,
+      participants: activitiesEnabled
+        ? (deriveCycleParticipants() ?? (participants.length > 0 ? participants : undefined))
+        : (participants.length > 0 ? participants : undefined),
       syllabusId: type === 'Training'
         ? (activitiesEnabled ? (derivedSyllabusId || selectedSyllabusId || undefined) : (selectedSyllabusId || undefined))
         : undefined,
@@ -1184,7 +1214,7 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
           {/* Flag-on: two panes - settings column (Details/Options/Reminders/
               Publication stacked) on the left, activities calendar on the right */}
           <div style={activitiesEnabled ? { display: 'flex', alignItems: 'stretch', height: 'min(760px, calc(92vh - 150px))' } : undefined}>
-          <div style={activitiesEnabled ? { width: '700px', flexShrink: 0, display: 'flex', flexDirection: 'column', borderRight: '1px solid #E2E8F0' } : { display: 'contents' }}>
+          <div style={activitiesEnabled ? { width: '500px', flexShrink: 0, display: 'flex', flexDirection: 'column', borderRight: '1px solid #E2E8F0' } : { display: 'contents' }}>
           {/* Left-pane step tabs (flag-on): one settings section at a time,
               the activities calendar stays on the right */}
           {activitiesEnabled && (
@@ -1550,7 +1580,9 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
               {/* Remove the helper text as requested */}
             </div>
 
-            {/* Participating Squadrons */}
+            {/* Participating Squadrons - hidden flag-on: participation derives
+                from the activities' participant criteria on save */}
+            {!activitiesEnabled && (
             <div style={{ marginBottom: '16px' }}>
               <div style={{
                 display: 'flex',
@@ -1711,6 +1743,7 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
                 }
               </div>
             </div>
+            )}
 
             <div style={{ marginBottom: '16px' }}>
               <label style={{
@@ -1930,15 +1963,13 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
                   <h3 style={{ fontSize: '13px', fontWeight: 600, color: '#64748B', textTransform: 'uppercase', margin: '0 0 12px 0', fontFamily: 'Inter' }}>
                     Participants
                   </h3>
-                  <CriteriaBlockEditor
+                  <ParticipantBlocksEditor
                     blocks={selectedRowCriteria as any}
                     onChange={(blocks) => handleUpdateRowCriteria(blocks)}
                     standings={standings}
                     statuses={statuses}
                     qualifications={qualifications}
                     squadrons={squadrons.map(s => ({ id: s.id, name: s.name, designation: s.designation, insignia_url: s.insignia_url }))}
-                    addBlockLabel="Add Participant Block"
-                    compact
                   />
                 </div>
               )}
