@@ -1,12 +1,36 @@
-﻿import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Plus, Minus } from 'lucide-react';
-import type { CycleActivity } from '../../../types/EventTypes';
+import type { CycleActivity, EventActivityParticipantBlock } from '../../../types/EventTypes';
 
 interface SquadronInfo {
   id: string;
   name: string;
   designation?: string;
   insignia_url?: string | null;
+}
+
+export type BuilderSelection =
+  | { type: 'activity'; index: number }
+  | { type: 'row'; rowKey: string }
+  | null;
+
+export interface PendingParticipantRow {
+  rowKey: string;
+  criteria: EventActivityParticipantBlock[];
+}
+
+/** Stable signature for a participant criteria set - activities sharing it share a row */
+export const criteriaRowKey = (blocks: EventActivityParticipantBlock[] | undefined): string =>
+  JSON.stringify((blocks || []).map(block =>
+    block.criteria
+      .map(c => `${c.type}:${(c.values ?? (c.value ? [c.value] : [])).slice().sort().join('|')}`)
+      .sort()
+  ));
+
+interface BuilderRow {
+  rowKey: string;
+  criteria: EventActivityParticipantBlock[];
+  activityIndices: number[];
 }
 
 interface CycleActivitiesBuilderProps {
@@ -19,14 +43,17 @@ interface CycleActivitiesBuilderProps {
   squadrons: SquadronInfo[];
   /** Names for syllabus-kind blocks, keyed by syllabus id */
   syllabusNames: Record<string, string>;
-  selectedIndex: number | null;
-  onSelect: (index: number | null) => void;
-  onAddActivity: () => void;
+  selection: BuilderSelection;
+  onSelect: (selection: BuilderSelection) => void;
+  /** Participant rows that exist before any activity has been added to them */
+  pendingRows: PendingParticipantRow[];
+  onAddParticipantRow: () => void;
+  onAddActivityInRow: (criteria: EventActivityParticipantBlock[], week: number) => void;
 }
 
-const WEEK_COL_WIDTH = 96;
-const ROW_HEIGHT = 44;
-const HEADER_COL_WIDTH = 150;
+const ROW_HEIGHT = 48;
+const HEADER_COL_WIDTH = 170;
+const MIN_WEEK_COL_WIDTH = 56;
 
 type DragMode = 'move' | 'resize-left' | 'resize-right';
 
@@ -34,14 +61,20 @@ interface DragState {
   mode: DragMode;
   activityIndex: number;
   startClientX: number;
+  startClientY: number;
   originalStartWeek: number;
   originalEndWeek: number;
+  originRowIndex: number;
 }
 
 /**
- * Visual cycle builder: weeks as columns, one row per activity, blocks spanning
- * the activity's week range. Blocks drag to move and resize from either edge;
- * clicking selects the activity for the config panel below.
+ * Visual cycle builder. Rows are participant groups (defined by their criteria
+ * blocks); activities live in their group's row. Add a participant group with
+ * the button in the first empty row, then click inside the group's row to add
+ * an activity for it. Blocks drag horizontally to re-sequence, vertically to
+ * move to another participant group, and resize from either edge. Week columns
+ * stretch to fit the available width, scrolling only when they'd drop below a
+ * minimum width.
  */
 const CycleActivitiesBuilder: React.FC<CycleActivitiesBuilderProps> = ({
   activities,
@@ -51,14 +84,63 @@ const CycleActivitiesBuilder: React.FC<CycleActivitiesBuilderProps> = ({
   startDate,
   squadrons,
   syllabusNames,
-  selectedIndex,
+  selection,
   onSelect,
-  onAddActivity
+  pendingRows,
+  onAddParticipantRow,
+  onAddActivityInRow
 }) => {
   const dragStateRef = useRef<DragState | null>(null);
   const activitiesRef = useRef(activities);
   activitiesRef.current = activities;
   const [dragging, setDragging] = useState(false);
+  const [hoverRowIndex, setHoverRowIndex] = useState<number | null>(null);
+
+  // Dynamic week column width: stretch to fill, scroll only under the minimum
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [containerWidth, setContainerWidth] = useState(0);
+  useLayoutEffect(() => {
+    const element = containerRef.current;
+    if (!element) return;
+    const measure = () => setContainerWidth(element.clientWidth);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
+  const weekColWidth = Math.max(
+    MIN_WEEK_COL_WIDTH,
+    containerWidth > 0 ? Math.floor((containerWidth - HEADER_COL_WIDTH - 2) / Math.max(1, weekCount)) : 96
+  );
+  const weekColWidthRef = useRef(weekColWidth);
+  weekColWidthRef.current = weekColWidth;
+
+  // Rows: activities grouped by participant-criteria signature, then pending
+  // (still-empty) participant rows
+  const rows = useMemo<BuilderRow[]>(() => {
+    const map = new Map<string, BuilderRow>();
+    activities.forEach((activity, index) => {
+      const key = criteriaRowKey(activity.settings?.participantCriteria);
+      const existing = map.get(key);
+      if (existing) {
+        existing.activityIndices.push(index);
+      } else {
+        map.set(key, {
+          rowKey: key,
+          criteria: activity.settings?.participantCriteria || [],
+          activityIndices: [index]
+        });
+      }
+    });
+    pendingRows.forEach(pending => {
+      if (!map.has(pending.rowKey)) {
+        map.set(pending.rowKey, { rowKey: pending.rowKey, criteria: pending.criteria, activityIndices: [] });
+      }
+    });
+    return Array.from(map.values());
+  }, [activities, pendingRows]);
+  const rowsRef = useRef(rows);
+  rowsRef.current = rows;
 
   // Window-level listeners while a drag is in progress
   useEffect(() => {
@@ -67,10 +149,8 @@ const CycleActivitiesBuilder: React.FC<CycleActivitiesBuilderProps> = ({
     const handleMove = (e: MouseEvent) => {
       const drag = dragStateRef.current;
       if (!drag) return;
-      const deltaWeeks = Math.round((e.clientX - drag.startClientX) / WEEK_COL_WIDTH);
-      if (deltaWeeks === 0 && e.type === 'mousemove') {
-        // still apply (supports returning to origin after having moved)
-      }
+      const colWidth = weekColWidthRef.current;
+      const deltaWeeks = Math.round((e.clientX - drag.startClientX) / colWidth);
 
       const current = activitiesRef.current;
       const activity = current[drag.activityIndex];
@@ -81,10 +161,12 @@ const CycleActivitiesBuilder: React.FC<CycleActivitiesBuilderProps> = ({
       const span = drag.originalEndWeek - drag.originalStartWeek;
 
       if (drag.mode === 'move') {
-        startWeek = drag.originalStartWeek + deltaWeeks;
-        // Clamp the whole block inside [1, weekCount]
-        startWeek = Math.max(1, Math.min(weekCount - span, startWeek));
+        startWeek = Math.max(1, Math.min(weekCount - span, drag.originalStartWeek + deltaWeeks));
         endWeek = startWeek + span;
+        // Track the hovered participant row for vertical moves
+        const deltaRows = Math.round((e.clientY - drag.startClientY) / ROW_HEIGHT);
+        const targetRow = drag.originRowIndex + deltaRows;
+        setHoverRowIndex(targetRow >= 0 && targetRow < rowsRef.current.length ? targetRow : null);
       } else if (drag.mode === 'resize-left') {
         startWeek = Math.max(1, Math.min(drag.originalEndWeek, drag.originalStartWeek + deltaWeeks));
       } else {
@@ -96,9 +178,26 @@ const CycleActivitiesBuilder: React.FC<CycleActivitiesBuilderProps> = ({
       }
     };
 
-    const handleUp = () => {
+    const handleUp = (e: MouseEvent) => {
+      const drag = dragStateRef.current;
+      if (drag && drag.mode === 'move') {
+        // Vertical drop: adopt the target participant row's criteria
+        const deltaRows = Math.round((e.clientY - drag.startClientY) / ROW_HEIGHT);
+        const targetRowIndex = drag.originRowIndex + deltaRows;
+        const currentRows = rowsRef.current;
+        if (deltaRows !== 0 && targetRowIndex >= 0 && targetRowIndex < currentRows.length) {
+          const targetRow = currentRows[targetRowIndex];
+          const current = activitiesRef.current;
+          onChange(current.map((a, i) => (
+            i === drag.activityIndex
+              ? { ...a, settings: { ...(a.settings || {}), participantCriteria: targetRow.criteria } }
+              : a
+          )));
+        }
+      }
       dragStateRef.current = null;
       setDragging(false);
+      setHoverRowIndex(null);
     };
 
     window.addEventListener('mousemove', handleMove);
@@ -109,7 +208,7 @@ const CycleActivitiesBuilder: React.FC<CycleActivitiesBuilderProps> = ({
     };
   }, [dragging, weekCount, onChange]);
 
-  const beginDrag = (e: React.MouseEvent, activityIndex: number, mode: DragMode) => {
+  const beginDrag = (e: React.MouseEvent, activityIndex: number, rowIndex: number, mode: DragMode) => {
     e.preventDefault();
     e.stopPropagation();
     const activity = activities[activityIndex];
@@ -117,11 +216,13 @@ const CycleActivitiesBuilder: React.FC<CycleActivitiesBuilderProps> = ({
       mode,
       activityIndex,
       startClientX: e.clientX,
+      startClientY: e.clientY,
       originalStartWeek: activity.startWeek,
-      originalEndWeek: activity.endWeek
+      originalEndWeek: activity.endWeek,
+      originRowIndex: rowIndex
     };
     setDragging(true);
-    onSelect(activityIndex);
+    onSelect({ type: 'activity', index: activityIndex });
   };
 
   // Week header dates: week n starts at cycle start + 7*(n-1) days
@@ -132,7 +233,7 @@ const CycleActivitiesBuilder: React.FC<CycleActivitiesBuilderProps> = ({
     return Array.from({ length: weekCount }, (_, i) => {
       const d = new Date(base);
       d.setDate(d.getDate() + i * 7);
-      return d.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' });
+      return d.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: '2-digit' });
     });
   }, [startDate, weekCount]);
 
@@ -141,28 +242,28 @@ const CycleActivitiesBuilder: React.FC<CycleActivitiesBuilderProps> = ({
     if (activity.kind === 'syllabus' && activity.syllabusId) {
       return syllabusNames[activity.syllabusId] || 'Syllabus';
     }
-    return activity.kind === 'objectives' ? 'Training Exercise' : 'Activity';
+    return activity.kind === 'objectives' ? 'Training Exercise' : 'New Activity';
   };
 
-  // Row header: squadron insignias from the activity's participant criteria,
-  // plus a bubble listing the non-squadron criteria (e.g. "Instructor Pilot")
-  const renderParticipantHeader = (activity: CycleActivity) => {
-    const blocks = activity.settings?.participantCriteria || [];
-    const squadronIds = new Set<string>();
-    const otherCriteria = new Set<string>();
-    blocks.forEach(block => {
-      block.criteria.forEach(criterion => {
-        if (criterion.type === 'squadron') {
-          (criterion.values ?? (criterion.value ? [criterion.value] : [])).forEach(id => squadronIds.add(id));
-        } else if (criterion.value) {
-          otherCriteria.add(criterion.value);
-        }
-      });
-    });
+  // Row header: one bubble per criteria block - the block's squadron insignias
+  // together with its non-squadron criteria names
+  const renderParticipantHeader = (row: BuilderRow) => {
+    const completedBlocks = row.criteria
+      .map(block => {
+        const squadronIds = new Set<string>();
+        const otherCriteria: string[] = [];
+        block.criteria.forEach(criterion => {
+          if (criterion.type === 'squadron') {
+            (criterion.values ?? (criterion.value ? [criterion.value] : [])).forEach(id => squadronIds.add(id));
+          } else if (criterion.value) {
+            otherCriteria.push(criterion.value);
+          }
+        });
+        return { squadrons: squadrons.filter(s => squadronIds.has(s.id)), otherCriteria };
+      })
+      .filter(block => block.squadrons.length > 0 || block.otherCriteria.length > 0);
 
-    const squadronList = squadrons.filter(s => squadronIds.has(s.id));
-
-    if (squadronList.length === 0 && otherCriteria.size === 0) {
+    if (completedBlocks.length === 0) {
       return (
         <span style={{ fontSize: '11px', color: '#94A3B8', fontFamily: 'Inter', fontStyle: 'italic' }}>
           All participants
@@ -172,84 +273,70 @@ const CycleActivitiesBuilder: React.FC<CycleActivitiesBuilderProps> = ({
 
     return (
       <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap' }}>
-        {squadronList.map(squadron => (
-          squadron.insignia_url ? (
-            <div
-              key={squadron.id}
-              title={squadron.designation || squadron.name}
-              style={{
-                width: '22px',
-                height: '22px',
-                backgroundImage: `url(${squadron.insignia_url})`,
-                backgroundSize: 'contain',
-                backgroundRepeat: 'no-repeat',
-                backgroundPosition: 'center',
-                flexShrink: 0
-              }}
-            />
-          ) : (
-            <span
-              key={squadron.id}
-              style={{
+        {completedBlocks.map((block, blockIndex) => (
+          <span
+            key={blockIndex}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '4px',
+              backgroundColor: '#F1F5F9',
+              border: '1px solid #E2E8F0',
+              borderRadius: '9999px',
+              padding: '2px 8px 2px 4px',
+              maxWidth: `${HEADER_COL_WIDTH - 14}px`
+            }}
+          >
+            {block.squadrons.map(squadron => (
+              squadron.insignia_url ? (
+                <span
+                  key={squadron.id}
+                  title={squadron.designation || squadron.name}
+                  style={{
+                    width: '18px',
+                    height: '18px',
+                    backgroundImage: `url(${squadron.insignia_url})`,
+                    backgroundSize: 'contain',
+                    backgroundRepeat: 'no-repeat',
+                    backgroundPosition: 'center',
+                    flexShrink: 0
+                  }}
+                />
+              ) : (
+                <span key={squadron.id} style={{ fontSize: '10px', fontWeight: 600, color: '#475569' }}>
+                  {squadron.designation || squadron.name}
+                </span>
+              )
+            ))}
+            {block.otherCriteria.length > 0 && (
+              <span style={{
                 fontSize: '10px',
-                fontWeight: 600,
-                color: '#475569',
-                backgroundColor: '#F1F5F9',
-                border: '1px solid #E2E8F0',
-                borderRadius: '9999px',
-                padding: '1px 6px'
-              }}
-            >
-              {squadron.designation || squadron.name}
-            </span>
-          )
-        ))}
-        {otherCriteria.size > 0 && (
-          <span style={{
-            fontSize: '10px',
-            fontWeight: 500,
-            color: '#1E40AF',
-            backgroundColor: '#EFF6FF',
-            border: '1px solid #BFDBFE',
-            borderRadius: '9999px',
-            padding: '1px 6px',
-            whiteSpace: 'nowrap',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            maxWidth: `${HEADER_COL_WIDTH - 16}px`
-          }}>
-            {Array.from(otherCriteria).join(', ')}
+                fontWeight: 500,
+                color: '#1E40AF',
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis'
+              }}>
+                {block.otherCriteria.join(', ')}
+              </span>
+            )}
           </span>
-        )}
+        ))}
       </div>
     );
   };
 
+  const gridWidth = HEADER_COL_WIDTH + weekCount * weekColWidth;
+
   return (
     <div>
-      {/* Toolbar */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
-        <button type="button"
-          onClick={onAddActivity}
-          style={{
-            padding: '8px 16px',
-            border: '1px solid #3B82F6',
-            backgroundColor: '#EFF6FF',
-            color: '#3B82F6',
-            borderRadius: '6px',
-            cursor: 'pointer',
-            fontSize: '14px',
-            fontFamily: 'Inter',
-            fontWeight: 500
-          }}
-        >
-          + Add Activity
-        </button>
-        <div style={{ flex: 1 }} />
+      {/* Toolbar: week count only - activities are added inside participant rows */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', justifyContent: 'flex-end' }}>
         <span style={{ fontSize: '13px', color: '#64748B', fontFamily: 'Inter' }}>
           Weeks: {weekCount}
         </span>
-        <button type="button"
+        <button
+          type="button"
           onClick={() => onWeekCountChange(Math.max(1, weekCount - 1))}
           disabled={weekCount <= 1 || activities.some(a => a.endWeek >= weekCount)}
           title={activities.some(a => a.endWeek >= weekCount) ? 'An activity occupies the last week' : 'Remove a week'}
@@ -268,7 +355,8 @@ const CycleActivitiesBuilder: React.FC<CycleActivitiesBuilderProps> = ({
         >
           <Minus size={14} />
         </button>
-        <button type="button"
+        <button
+          type="button"
           onClick={() => onWeekCountChange(weekCount + 1)}
           title="Add a week"
           style={{
@@ -289,8 +377,11 @@ const CycleActivitiesBuilder: React.FC<CycleActivitiesBuilderProps> = ({
       </div>
 
       {/* Gantt grid */}
-      <div style={{ overflowX: 'auto', border: '1px solid #E2E8F0', borderRadius: '8px', backgroundColor: '#FFFFFF' }}>
-        <div style={{ minWidth: `${HEADER_COL_WIDTH + weekCount * WEEK_COL_WIDTH}px`, userSelect: dragging ? 'none' : undefined }}>
+      <div
+        ref={containerRef}
+        style={{ overflowX: 'auto', border: '1px solid #E2E8F0', borderRadius: '8px', backgroundColor: '#FFFFFF' }}
+      >
+        <div style={{ width: `${gridWidth}px`, minWidth: '100%', userSelect: dragging ? 'none' : undefined }}>
           {/* Header row */}
           <div style={{ display: 'flex', borderBottom: '2px solid #CBD5E1' }}>
             <div style={{ width: `${HEADER_COL_WIDTH}px`, flexShrink: 0, padding: '8px', fontSize: '11px', fontWeight: 600, color: '#64748B', fontFamily: 'Inter', textTransform: 'uppercase' }}>
@@ -300,11 +391,12 @@ const CycleActivitiesBuilder: React.FC<CycleActivitiesBuilderProps> = ({
               <div
                 key={i}
                 style={{
-                  width: `${WEEK_COL_WIDTH}px`,
+                  width: `${weekColWidth}px`,
                   flexShrink: 0,
-                  padding: '6px 4px',
+                  padding: '6px 2px',
                   textAlign: 'center',
-                  borderLeft: '1px solid #E2E8F0'
+                  borderLeft: '1px solid #E2E8F0',
+                  boxSizing: 'border-box'
                 }}
               >
                 <div style={{ fontSize: '12px', fontWeight: 600, color: '#374151', fontFamily: 'Inter' }}>
@@ -317,90 +409,145 @@ const CycleActivitiesBuilder: React.FC<CycleActivitiesBuilderProps> = ({
             ))}
           </div>
 
-          {/* Activity rows */}
-          {activities.length === 0 && (
-            <div style={{ padding: '24px', textAlign: 'center', fontSize: '13px', color: '#94A3B8', fontFamily: 'Inter', fontStyle: 'italic' }}>
-              No activities yet. Add one to block out what runs during this cycle.
-            </div>
-          )}
-          {activities.map((activity, index) => {
-            const isSelected = selectedIndex === index;
-            const left = (activity.startWeek - 1) * WEEK_COL_WIDTH;
-            const width = (activity.endWeek - activity.startWeek + 1) * WEEK_COL_WIDTH;
+          {/* Participant rows */}
+          {rows.map((row, rowIndex) => {
+            const isRowSelected = selection?.type === 'row' && selection.rowKey === row.rowKey;
+            const isDropTarget = dragging && hoverRowIndex === rowIndex;
             return (
-              <div key={activity.id || `new-${index}`} style={{ display: 'flex', borderBottom: '1px solid #F1F5F9' }}>
-                {/* Participant header */}
-                <div style={{
-                  width: `${HEADER_COL_WIDTH}px`,
-                  flexShrink: 0,
-                  padding: '6px 8px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  minHeight: `${ROW_HEIGHT}px`,
-                  boxSizing: 'border-box'
-                }}>
-                  {renderParticipantHeader(activity)}
+              <div key={row.rowKey} style={{ display: 'flex', borderBottom: '1px solid #F1F5F9', backgroundColor: isDropTarget ? '#F0F9FF' : undefined }}>
+                {/* Participant header - click to edit the group's criteria */}
+                <div
+                  onClick={() => onSelect(isRowSelected ? null : { type: 'row', rowKey: row.rowKey })}
+                  title="Edit participants"
+                  style={{
+                    width: `${HEADER_COL_WIDTH}px`,
+                    flexShrink: 0,
+                    padding: '6px 8px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    minHeight: `${ROW_HEIGHT}px`,
+                    boxSizing: 'border-box',
+                    cursor: 'pointer',
+                    backgroundColor: isRowSelected ? '#EFF6FF' : undefined,
+                    borderRight: '1px solid #E2E8F0'
+                  }}
+                >
+                  {renderParticipantHeader(row)}
                 </div>
-                {/* Track */}
+                {/* Track - click an empty spot to add an activity at that week */}
                 <div
                   style={{
                     position: 'relative',
                     height: `${ROW_HEIGHT}px`,
-                    width: `${weekCount * WEEK_COL_WIDTH}px`,
+                    width: `${weekCount * weekColWidth}px`,
                     flexShrink: 0,
-                    // Week gridlines
                     backgroundImage: 'linear-gradient(to right, #E2E8F0 1px, transparent 1px)',
-                    backgroundSize: `${WEEK_COL_WIDTH}px 100%`
+                    backgroundSize: `${weekColWidth}px 100%`,
+                    cursor: 'copy'
                   }}
-                  onClick={() => onSelect(isSelected ? null : index)}
+                  onClick={(e) => {
+                    const rect = (e.currentTarget as HTMLDivElement).getBoundingClientRect();
+                    const week = Math.min(weekCount, Math.max(1, Math.floor((e.clientX - rect.left) / weekColWidth) + 1));
+                    onAddActivityInRow(row.criteria, week);
+                  }}
+                  title="Click to add an activity for this participant group"
                 >
-                  <div
-                    onMouseDown={(e) => beginDrag(e, index, 'move')}
-                    onClick={(e) => { e.stopPropagation(); onSelect(index); }}
-                    title={activityTitle(activity)}
-                    style={{
-                      position: 'absolute',
-                      left: `${left + 3}px`,
-                      width: `${width - 6}px`,
-                      top: '6px',
-                      height: `${ROW_HEIGHT - 12}px`,
-                      border: `2px solid ${isSelected ? '#1D4ED8' : '#38BDF8'}`,
-                      backgroundColor: isSelected ? '#DBEAFE' : '#F0F9FF',
-                      borderRadius: '4px',
-                      cursor: dragging ? 'grabbing' : 'grab',
-                      display: 'flex',
-                      alignItems: 'center',
-                      padding: '0 10px',
-                      boxSizing: 'border-box',
-                      overflow: 'hidden'
-                    }}
-                  >
-                    <span style={{
-                      fontSize: '12px',
-                      fontWeight: 500,
-                      color: '#0C4A6E',
-                      fontFamily: 'Inter',
-                      whiteSpace: 'nowrap',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      pointerEvents: 'none'
-                    }}>
-                      {activityTitle(activity)}
-                    </span>
-                    {/* Resize handles */}
-                    <div
-                      onMouseDown={(e) => beginDrag(e, index, 'resize-left')}
-                      style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: '8px', cursor: 'ew-resize' }}
-                    />
-                    <div
-                      onMouseDown={(e) => beginDrag(e, index, 'resize-right')}
-                      style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: '8px', cursor: 'ew-resize' }}
-                    />
-                  </div>
+                  {row.activityIndices.map(activityIndex => {
+                    const activity = activities[activityIndex];
+                    const isSelected = selection?.type === 'activity' && selection.index === activityIndex;
+                    const left = (activity.startWeek - 1) * weekColWidth;
+                    const width = (activity.endWeek - activity.startWeek + 1) * weekColWidth;
+                    return (
+                      <div
+                        key={activity.id || `new-${activityIndex}`}
+                        onMouseDown={(e) => beginDrag(e, activityIndex, rowIndex, 'move')}
+                        onClick={(e) => { e.stopPropagation(); onSelect({ type: 'activity', index: activityIndex }); }}
+                        title={activityTitle(activity)}
+                        style={{
+                          position: 'absolute',
+                          left: `${left + 3}px`,
+                          width: `${width - 6}px`,
+                          top: '7px',
+                          height: `${ROW_HEIGHT - 14}px`,
+                          border: `2px solid ${isSelected ? '#1D4ED8' : '#38BDF8'}`,
+                          backgroundColor: isSelected ? '#DBEAFE' : '#F0F9FF',
+                          borderRadius: '4px',
+                          cursor: dragging ? 'grabbing' : 'grab',
+                          display: 'flex',
+                          alignItems: 'center',
+                          padding: '0 10px',
+                          boxSizing: 'border-box',
+                          overflow: 'hidden'
+                        }}
+                      >
+                        <span style={{
+                          fontSize: '12px',
+                          fontWeight: 500,
+                          color: '#0C4A6E',
+                          fontFamily: 'Inter',
+                          whiteSpace: 'nowrap',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          pointerEvents: 'none'
+                        }}>
+                          {activityTitle(activity)}
+                        </span>
+                        <div
+                          onMouseDown={(e) => beginDrag(e, activityIndex, rowIndex, 'resize-left')}
+                          style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: '8px', cursor: 'ew-resize' }}
+                        />
+                        <div
+                          onMouseDown={(e) => beginDrag(e, activityIndex, rowIndex, 'resize-right')}
+                          style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: '8px', cursor: 'ew-resize' }}
+                        />
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             );
           })}
+
+          {/* Add-participants row */}
+          <div style={{ display: 'flex' }}>
+            <div style={{
+              width: `${HEADER_COL_WIDTH}px`,
+              flexShrink: 0,
+              padding: '8px',
+              boxSizing: 'border-box',
+              borderRight: '1px solid #E2E8F0'
+            }}>
+              <button
+                type="button"
+                onClick={onAddParticipantRow}
+                style={{
+                  width: '100%',
+                  padding: '6px 8px',
+                  border: '1px dashed #93C5FD',
+                  backgroundColor: '#F8FAFC',
+                  color: '#3B82F6',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontSize: '12px',
+                  fontFamily: 'Inter',
+                  fontWeight: 500,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '4px'
+                }}
+              >
+                <Plus size={12} />
+                Add Participants
+              </button>
+            </div>
+            <div style={{
+              width: `${weekCount * weekColWidth}px`,
+              flexShrink: 0,
+              backgroundImage: 'linear-gradient(to right, #E2E8F0 1px, transparent 1px)',
+              backgroundSize: `${weekColWidth}px 100%`
+            }} />
+          </div>
         </div>
       </div>
     </div>
