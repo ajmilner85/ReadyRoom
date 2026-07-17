@@ -1,5 +1,6 @@
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { Plus, Minus } from 'lucide-react';
+import { Plus, Minus, X } from 'lucide-react';
+import { ConfirmationDialog } from '../dialogs/ConfirmationDialog';
 import type { CycleActivity, EventActivityParticipantBlock } from '../../../types/EventTypes';
 
 interface SquadronInfo {
@@ -49,6 +50,7 @@ interface CycleActivitiesBuilderProps {
   pendingRows: PendingParticipantRow[];
   onAddParticipantRow: () => void;
   onAddActivityInRow: (criteria: EventActivityParticipantBlock[], week: number) => void;
+  onRemoveActivity: (index: number) => void;
 }
 
 const ROW_HEIGHT = 48;
@@ -88,13 +90,16 @@ const CycleActivitiesBuilder: React.FC<CycleActivitiesBuilderProps> = ({
   onSelect,
   pendingRows,
   onAddParticipantRow,
-  onAddActivityInRow
+  onAddActivityInRow,
+  onRemoveActivity
 }) => {
   const dragStateRef = useRef<DragState | null>(null);
   const activitiesRef = useRef(activities);
   activitiesRef.current = activities;
   const [dragging, setDragging] = useState(false);
   const [hoverRowIndex, setHoverRowIndex] = useState<number | null>(null);
+  const [hoveredActivityIndex, setHoveredActivityIndex] = useState<number | null>(null);
+  const [confirmDeleteIndex, setConfirmDeleteIndex] = useState<number | null>(null);
 
   // Dynamic week column width: stretch to fill, scroll only under the minimum
   const containerRef = useRef<HTMLDivElement>(null);
@@ -462,6 +467,8 @@ const CycleActivitiesBuilder: React.FC<CycleActivitiesBuilderProps> = ({
                         key={activity.id || `new-${activityIndex}`}
                         onMouseDown={(e) => beginDrag(e, activityIndex, rowIndex, 'move')}
                         onClick={(e) => { e.stopPropagation(); onSelect({ type: 'activity', index: activityIndex }); }}
+                        onMouseEnter={() => setHoveredActivityIndex(activityIndex)}
+                        onMouseLeave={() => setHoveredActivityIndex(prev => (prev === activityIndex ? null : prev))}
                         title={activityTitle(activity)}
                         style={{
                           position: 'absolute',
@@ -492,6 +499,34 @@ const CycleActivitiesBuilder: React.FC<CycleActivitiesBuilderProps> = ({
                         }}>
                           {activityTitle(activity)}
                         </span>
+                        {/* Hover delete (confirmation required) */}
+                        {hoveredActivityIndex === activityIndex && !dragging && (
+                          <button
+                            type="button"
+                            onMouseDown={(e) => e.stopPropagation()}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setConfirmDeleteIndex(activityIndex);
+                            }}
+                            title="Delete activity"
+                            style={{
+                              position: 'absolute',
+                              right: '10px',
+                              top: '50%',
+                              transform: 'translateY(-50%)',
+                              padding: '2px',
+                              backgroundColor: 'transparent',
+                              border: 'none',
+                              borderRadius: '4px',
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center'
+                            }}
+                          >
+                            <X size={14} color="#64748B" />
+                          </button>
+                        )}
                         <div
                           onMouseDown={(e) => beginDrag(e, activityIndex, rowIndex, 'resize-left')}
                           style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: '8px', cursor: 'ew-resize' }}
@@ -550,6 +585,23 @@ const CycleActivitiesBuilder: React.FC<CycleActivitiesBuilderProps> = ({
           </div>
         </div>
       </div>
+
+      <ConfirmationDialog
+        isOpen={confirmDeleteIndex !== null}
+        title="Delete Activity"
+        message={confirmDeleteIndex !== null && activities[confirmDeleteIndex]
+          ? `Delete "${activityTitle(activities[confirmDeleteIndex])}" (Weeks ${activities[confirmDeleteIndex].startWeek}–${activities[confirmDeleteIndex].endWeek}) from this cycle?`
+          : ''}
+        confirmText="Delete"
+        type="danger"
+        icon="trash"
+        onConfirm={() => {
+          if (confirmDeleteIndex !== null) onRemoveActivity(confirmDeleteIndex);
+          setConfirmDeleteIndex(null);
+          setHoveredActivityIndex(null);
+        }}
+        onCancel={() => setConfirmDeleteIndex(null)}
+      />
     </div>
   );
 };

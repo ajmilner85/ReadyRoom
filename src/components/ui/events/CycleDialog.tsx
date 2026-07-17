@@ -361,12 +361,22 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
     setCycleActivities(prev => prev.map((a, i) => (i === selectedActivityIndex ? { ...a, ...updates } : a)));
   };
 
+  const handleRemoveActivityAt = (index: number) => {
+    setCycleActivities(prev => prev
+      .filter((_, i) => i !== index)
+      .map((a, i) => ({ ...a, displayOrder: i })));
+    setBuilderSelection(prev => {
+      if (prev?.type === 'activity') {
+        if (prev.index === index) return null;
+        if (prev.index > index) return { type: 'activity', index: prev.index - 1 };
+      }
+      return prev;
+    });
+  };
+
   const handleRemoveSelectedActivity = () => {
     if (selectedActivityIndex === null) return;
-    setCycleActivities(prev => prev
-      .filter((_, i) => i !== selectedActivityIndex)
-      .map((a, i) => ({ ...a, displayOrder: i })));
-    setBuilderSelection(null);
+    handleRemoveActivityAt(selectedActivityIndex);
   };
 
   // Selected participant row: its criteria come from any activity in the row,
@@ -1174,7 +1184,7 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
           {/* Flag-on: two panes - settings column (Details/Options/Reminders/
               Publication stacked) on the left, activities calendar on the right */}
           <div style={activitiesEnabled ? { display: 'flex', alignItems: 'stretch', height: 'min(760px, calc(92vh - 150px))' } : undefined}>
-          <div style={activitiesEnabled ? { width: '340px', flexShrink: 0, display: 'flex', flexDirection: 'column', borderRight: '1px solid #E2E8F0' } : { display: 'contents' }}>
+          <div style={activitiesEnabled ? { width: '700px', flexShrink: 0, display: 'flex', flexDirection: 'column', borderRight: '1px solid #E2E8F0' } : { display: 'contents' }}>
           {/* Left-pane step tabs (flag-on): one settings section at a time,
               the activities calendar stays on the right */}
           {activitiesEnabled && (
@@ -1912,6 +1922,7 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
                 pendingRows={pendingRows}
                 onAddParticipantRow={handleAddParticipantRow}
                 onAddActivityInRow={handleAddActivityInRow}
+                onRemoveActivity={handleRemoveActivityAt}
               />
 
               {builderSelection?.type === 'row' && (

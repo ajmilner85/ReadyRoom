@@ -185,23 +185,40 @@ const CriteriaBlockEditor: React.FC<CriteriaBlockEditorProps> = ({
       </div>
       )}
 
-      {/* Blocks */}
+      {/* Blocks: compact mode flows them horizontally (~3 per row) with inline
+          OR pills; full mode keeps the stacked layout with divider lines */}
       {blocks.length > 0 && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '16px' }}>
+        <div style={compact
+          ? { display: 'flex', flexWrap: 'wrap', alignItems: 'stretch', gap: '12px', marginBottom: '16px' }
+          : { display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '16px' }
+        }>
           {blocks.map((block, blockIndex) => (
-            <div key={blockIndex}>
+            <React.Fragment key={blockIndex}>
               {/* OR separator between blocks */}
-              {blockIndex > 0 && (
-                <div style={{ 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  gap: '12px', 
-                  marginBottom: '16px' 
+              {blockIndex > 0 && (compact ? (
+                <span style={{
+                  alignSelf: 'center',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  color: '#9CA3AF',
+                  padding: '4px 10px',
+                  backgroundColor: '#F3F4F6',
+                  borderRadius: '12px',
+                  flexShrink: 0
+                }}>
+                  OR
+                </span>
+              ) : (
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '12px',
+                  marginBottom: '16px'
                 }}>
                   <div style={{ flex: 1, height: '1px', backgroundColor: '#E5E7EB' }} />
-                  <span style={{ 
-                    fontSize: '12px', 
-                    fontWeight: 600, 
+                  <span style={{
+                    fontSize: '12px',
+                    fontWeight: 600,
                     color: '#9CA3AF',
                     padding: '4px 12px',
                     backgroundColor: '#F3F4F6',
@@ -211,10 +228,11 @@ const CriteriaBlockEditor: React.FC<CriteriaBlockEditorProps> = ({
                   </span>
                   <div style={{ flex: 1, height: '1px', backgroundColor: '#E5E7EB' }} />
                 </div>
-              )}
+              ))}
 
               {/* Block container */}
               <div style={{
+                ...(compact ? { flex: '1 1 280px', minWidth: '250px', maxWidth: '380px', boxSizing: 'border-box' as const } : {}),
                 backgroundColor: '#F9FAFB',
                 border: '1px solid #E5E7EB',
                 borderRadius: '8px',
@@ -324,12 +342,13 @@ const CriteriaBlockEditor: React.FC<CriteriaBlockEditorProps> = ({
                           value={criterion.type}
                           onChange={(e) => handleTypeChange(blockIndex, criterionIndex, e.target.value as CriterionType)}
                           style={{
-                            padding: '8px 12px',
+                            padding: compact ? '8px 6px' : '8px 12px',
                             border: '1px solid #D1D5DB',
                             borderRadius: '6px',
-                            fontSize: '14px',
+                            fontSize: compact ? '13px' : '14px',
                             backgroundColor: 'white',
-                            width: '140px',
+                            width: compact ? '104px' : '140px',
+                            flexShrink: 0,
                             cursor: 'pointer'
                           }}
                         >
@@ -521,7 +540,7 @@ const CriteriaBlockEditor: React.FC<CriteriaBlockEditorProps> = ({
                   </button>
                 </div>
               </div>
-            </div>
+            </React.Fragment>
           ))}
         </div>
       )}
