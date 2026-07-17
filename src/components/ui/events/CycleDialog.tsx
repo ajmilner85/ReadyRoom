@@ -1,10 +1,11 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+﻿import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { X, Users, Trash2, ArrowUpDown, UserCheck } from 'lucide-react';
-import { CycleType, TrainingSyllabus, CycleActivity, CycleSettings } from '../../../types/EventTypes';
+import { CycleType, TrainingSyllabus, CycleActivity, CycleSettings, EventActivityParticipantBlock } from '../../../types/EventTypes';
 import { Squadron } from '../../../types/OrganizationTypes';
 import { supabase, getCycleActivities } from '../../../utils/supabaseClient';
-import CycleActivitiesBuilder from './CycleActivitiesBuilder';
+import CycleActivitiesBuilder, { BuilderSelection, PendingParticipantRow, criteriaRowKey } from './CycleActivitiesBuilder';
 import CycleActivityConfigPanel from './CycleActivityConfigPanel';
+import CriteriaBlockEditor from '../../training/CriteriaBlockEditor';
 import { enrollPilots, removeEnrollment, getCycleEnrollments, getSuggestedEnrollments, type EnrolledPilot } from '../../../utils/trainingEnrollmentService';
 import { 
   enrollInstructors, 
@@ -93,9 +94,12 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
   // builder, plus cycle-level event defaults
   const [activitiesEnabled, setActivitiesEnabled] = useState(false);
   const [cycleActivities, setCycleActivities] = useState<CycleActivity[]>([]);
-  const [selectedActivityIndex, setSelectedActivityIndex] = useState<number | null>(null);
+  const [builderSelection, setBuilderSelection] = useState<BuilderSelection>(null);
+  // Participant rows added on the builder that don't have an activity yet
+  const [pendingRows, setPendingRows] = useState<PendingParticipantRow[]>([]);
   // Students/Instructors tabs enroll into this activity ('' = cycle-wide)
   const [enrollmentActivityScopeId, setEnrollmentActivityScopeId] = useState<string>('');
+  const selectedActivityIndex = builderSelection?.type === 'activity' ? builderSelection.index : null;
   const [syllabusNames, setSyllabusNames] = useState<Record<string, string>>({});
   const [cycleSettings, setCycleSettings] = useState<CycleSettings>(initialData?.settings || {});
 
@@ -327,20 +331,27 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
     return () => { cancelled = true; };
   }, [activitiesEnabled, cycleId]);
 
-  // Event Activities: builder handlers
-  const handleAddCycleActivity = () => {
+  // Event Activities: builder handlers. A participant group (row) is created
+  // first; clicking inside its row adds an activity for that group.
+  const handleAddParticipantRow = () => {
+    const rowKey = criteriaRowKey([]);
+    setPendingRows(prev => (prev.some(r => r.rowKey === rowKey) ? prev : [...prev, { rowKey, criteria: [] }]));
+    setBuilderSelection({ type: 'row', rowKey });
+  };
+
+  const handleAddActivityInRow = (criteria: EventActivityParticipantBlock[], week: number) => {
     setCycleActivities(prev => {
       const next: CycleActivity[] = [
         ...prev,
         {
           kind: 'syllabus' as const,
-          startWeek: 1,
-          endWeek: Math.max(1, weekCount),
+          startWeek: week,
+          endWeek: week,
           displayOrder: prev.length,
-          settings: {}
+          settings: { participantCriteria: criteria }
         }
       ];
-      setSelectedActivityIndex(next.length - 1);
+      setBuilderSelection({ type: 'activity', index: next.length - 1 });
       return next;
     });
   };
@@ -355,7 +366,32 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
     setCycleActivities(prev => prev
       .filter((_, i) => i !== selectedActivityIndex)
       .map((a, i) => ({ ...a, displayOrder: i })));
-    setSelectedActivityIndex(null);
+    setBuilderSelection(null);
+  };
+
+  // Selected participant row: its criteria come from any activity in the row,
+  // or the pending (still-empty) row entry
+  const selectedRowCriteria = builderSelection?.type === 'row'
+    ? (cycleActivities.find(a => criteriaRowKey(a.settings?.participantCriteria) === builderSelection.rowKey)?.settings?.participantCriteria
+      ?? pendingRows.find(r => r.rowKey === builderSelection.rowKey)?.criteria
+      ?? [])
+    : [];
+
+  const handleUpdateRowCriteria = (blocks: any) => {
+    if (builderSelection?.type !== 'row') return;
+    const oldKey = builderSelection.rowKey;
+    const newKey = criteriaRowKey(blocks);
+    setCycleActivities(prev => prev.map(a =>
+      criteriaRowKey(a.settings?.participantCriteria) === oldKey
+        ? { ...a, settings: { ...(a.settings || {}), participantCriteria: blocks } }
+        : a
+    ));
+    setPendingRows(prev => {
+      const updated = prev.map(r => (r.rowKey === oldKey ? { rowKey: newKey, criteria: blocks } : r));
+      const seen = new Set<string>();
+      return updated.filter(r => (seen.has(r.rowKey) ? false : (seen.add(r.rowKey), true)));
+    });
+    setBuilderSelection({ type: 'row', rowKey: newKey });
   };
 
   // Saved syllabus-kind activities that enrollment can be scoped to
@@ -391,7 +427,7 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
           <option value="">Entire cycle</option>
           {scopableActivities.map(activity => (
             <option key={activity.id} value={activity.id}>
-              {activityNameById(activity.id as string)} (Weeks {activity.startWeek}–{activity.endWeek})
+              {activityNameById(activity.id as string)} (Weeks {activity.startWeek}â€“{activity.endWeek})
             </option>
           ))}
         </select>
@@ -1003,9 +1039,9 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
         top: '50%',
         left: '50%',
         transform: 'translate(-50%, -50%)',
-        // The gantt builder is a horizontal element - give it room when the
-        // Activities flag is on
-        width: activitiesEnabled ? 'min(1160px, 95vw)' : '663px',
+        // The gantt builder is a horizontal element - go near-fullscreen when
+        // the Activities flag is on (left settings pane + wide calendar)
+        width: activitiesEnabled ? 'min(96vw, 1800px)' : '663px',
         backgroundColor: '#FFFFFF',
         boxShadow: '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)',
         borderRadius: '8px',
@@ -1061,97 +1097,6 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
         </div>
 
         {/* Tabs - only show for editing Training cycles with a syllabus */}
-        {/* Stepped navigation (Event dialog style) when the Activities flag is
-            on; Students/Instructors moved into each activity's config panel */}
-        {activitiesEnabled && (
-          <div style={{ padding: '16px 24px', borderBottom: '1px solid #E2E8F0' }}>
-            <nav aria-label="Progress">
-              <div style={{ display: 'flex', alignItems: 'flex-start', maxWidth: '550px', margin: '0 auto' }}>
-                {([
-                  { key: 'details', title: 'Details' },
-                  { key: 'activities', title: 'Activities' },
-                  { key: 'options', title: 'Options' },
-                  { key: 'reminders', title: 'Reminders' },
-                  { key: 'publication', title: 'Publication' }
-                ] as Array<{ key: typeof activeTab; title: string }>).map((step, index, steps) => {
-                  const isCurrent = activeTab === step.key;
-                  const showLine = index < steps.length - 1;
-                  return (
-                    <div key={step.key} style={{
-                      display: 'flex',
-                      alignItems: 'flex-start',
-                      flex: index === steps.length - 1 ? '0 0 auto' : '1',
-                      position: 'relative'
-                    }}>
-                      <div style={{
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'center',
-                        position: 'relative',
-                        zIndex: 1
-                      }}>
-                        <button
-                          type="button"
-                          onClick={() => setActiveTab(step.key)}
-                          style={{
-                            display: 'flex',
-                            flexDirection: 'column',
-                            alignItems: 'center',
-                            background: 'none',
-                            border: 'none',
-                            cursor: 'pointer',
-                            padding: '0'
-                          }}
-                        >
-                          <div style={{
-                            width: '32px',
-                            height: '32px',
-                            borderRadius: '12px',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            backgroundColor: isCurrent ? '#3B82F6' : '#E5E7EB',
-                            color: isCurrent ? 'white' : '#6B7280',
-                            fontSize: '14px',
-                            fontWeight: 500,
-                            marginBottom: '8px',
-                            border: '5px solid #FFFFFF',
-                            boxSizing: 'content-box'
-                          }}>
-                            {index + 1}
-                          </div>
-                          <div style={{
-                            fontSize: '14px',
-                            fontWeight: isCurrent ? 600 : 500,
-                            color: isCurrent ? '#1F2937' : '#6B7280',
-                            textAlign: 'center',
-                            whiteSpace: 'nowrap',
-                            width: '90px',
-                            minWidth: '90px'
-                          }}>
-                            {step.title}
-                          </div>
-                        </button>
-                      </div>
-                      {showLine && (
-                        <div style={{
-                          position: 'absolute',
-                          left: '45px',
-                          right: '-45px',
-                          top: '21px',
-                          height: '2px',
-                          backgroundColor: '#E5E7EB',
-                          zIndex: 0
-                        }} />
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </nav>
-          </div>
-        )}
-
         {showTabs && !activitiesEnabled && (
           <div style={{
             display: 'flex',
@@ -1226,9 +1171,18 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
         )}
 
         <form onSubmit={handleSubmit}>
-          {/* Details Tab Content */}
-          {activeTab === 'details' && (
-          <div style={{ padding: '24px', height: '900px', overflowY: 'auto' }}>
+          {/* Flag-on: two panes - settings column (Details/Options/Reminders/
+              Publication stacked) on the left, activities calendar on the right */}
+          <div style={activitiesEnabled ? { display: 'flex', alignItems: 'stretch', height: 'min(760px, calc(92vh - 150px))' } : undefined}>
+          <div style={activitiesEnabled ? { width: '340px', flexShrink: 0, overflowY: 'auto', borderRight: '1px solid #E2E8F0' } : { display: 'contents' }}>
+          {/* Details Content */}
+          {(activitiesEnabled || activeTab === 'details') && (
+          <div style={activitiesEnabled ? { padding: '16px' } : { padding: '24px', height: '900px', overflowY: 'auto' }}>
+            {activitiesEnabled && (
+              <h3 style={{ fontSize: '13px', fontWeight: 600, color: '#64748B', textTransform: 'uppercase', margin: '0 0 12px 0', fontFamily: 'Inter' }}>
+                Details
+              </h3>
+            )}
             <div style={{ marginBottom: '16px' }}>
               <label style={{
                 display: 'block',
@@ -1531,7 +1485,7 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
                       fontSize: '10px', 
                       color: '#4B5563',
                       lineHeight: 1
-                    }}>▲</span>
+                    }}>â–²</span>
                   </button>
                   <button
                     type="button"
@@ -1552,7 +1506,7 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
                       fontSize: '10px', 
                       color: '#4B5563',
                       lineHeight: 1
-                    }}>▼</span>
+                    }}>â–¼</span>
                   </button>
                 </div>
               </div>
@@ -1759,6 +1713,250 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
             )}
           </div>
           )}
+
+          {/* Left-pane Options / Reminders / Publication sections (flag-on):
+              defaults for events created in this cycle, reviewable up front */}
+          {activitiesEnabled && (
+            <>
+              <div style={{ padding: '16px', borderTop: '1px solid #E2E8F0' }}>
+                <h3 style={{ fontSize: '13px', fontWeight: 600, color: '#64748B', textTransform: 'uppercase', margin: '0 0 12px 0', fontFamily: 'Inter' }}>
+                  Options
+                </h3>
+                {([
+                  { key: 'trackQualifications', label: 'Group responses by qualification' },
+                  { key: 'groupBySquadron', label: 'Group responses by squadron' },
+                  { key: 'showNoResponse', label: 'Show non-responders' },
+                  { key: 'allowTentativeResponse', label: 'Allow tentative responses' }
+                ] as Array<{ key: keyof CycleSettings; label: string }>).map(option => (
+                  <div key={option.key} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+                    <label style={{ fontSize: '13px', fontWeight: 500, color: '#64748B', fontFamily: 'Inter' }}>{option.label}</label>
+                    <div
+                      onClick={() => setCycleSettings(prev => ({ ...prev, [option.key]: !prev[option.key] }))}
+                      style={{
+                        width: '38px',
+                        height: '21px',
+                        backgroundColor: cycleSettings[option.key] ? '#3B82F6' : '#E5E7EB',
+                        borderRadius: '11px',
+                        position: 'relative',
+                        cursor: 'pointer',
+                        transition: 'background-color 0.2s ease',
+                        flexShrink: 0
+                      }}
+                    >
+                      <div style={{
+                        width: '17px',
+                        height: '17px',
+                        backgroundColor: 'white',
+                        borderRadius: '50%',
+                        position: 'absolute',
+                        top: '2px',
+                        left: cycleSettings[option.key] ? '19px' : '2px',
+                        transition: 'left 0.2s ease',
+                        boxShadow: '0 2px 4px rgba(0, 0, 0, 0.2)'
+                      }} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div style={{ padding: '16px', borderTop: '1px solid #E2E8F0' }}>
+                <h3 style={{ fontSize: '13px', fontWeight: 600, color: '#64748B', textTransform: 'uppercase', margin: '0 0 12px 0', fontFamily: 'Inter' }}>
+                  Reminders
+                </h3>
+                {([
+                  { enabledKey: 'firstReminderEnabled', timeKey: 'firstReminderTime', label: 'First' },
+                  { enabledKey: 'secondReminderEnabled', timeKey: 'secondReminderTime', label: 'Second' }
+                ] as Array<{ enabledKey: 'firstReminderEnabled' | 'secondReminderEnabled'; timeKey: 'firstReminderTime' | 'secondReminderTime'; label: string }>).map(reminder => (
+                  <div key={reminder.enabledKey} style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
+                    <input
+                      type="checkbox"
+                      checked={cycleSettings[reminder.enabledKey] ?? false}
+                      onChange={(e) => setCycleSettings(prev => ({ ...prev, [reminder.enabledKey]: e.target.checked }))}
+                    />
+                    <label style={{ fontSize: '13px', fontWeight: 500, color: '#64748B', width: '52px', fontFamily: 'Inter' }}>{reminder.label}</label>
+                    <input
+                      type="number"
+                      min={1}
+                      value={cycleSettings[reminder.timeKey]?.value ?? (reminder.timeKey === 'firstReminderTime' ? 3 : 15)}
+                      onChange={(e) => setCycleSettings(prev => ({
+                        ...prev,
+                        [reminder.timeKey]: {
+                          value: Math.max(1, parseInt(e.target.value) || 1),
+                          unit: prev[reminder.timeKey]?.unit ?? (reminder.timeKey === 'firstReminderTime' ? 'days' : 'minutes')
+                        }
+                      }))}
+                      style={{ width: '56px', padding: '5px 6px', border: '1px solid #CBD5E1', borderRadius: '4px', fontSize: '13px' }}
+                    />
+                    <select
+                      value={cycleSettings[reminder.timeKey]?.unit ?? (reminder.timeKey === 'firstReminderTime' ? 'days' : 'minutes')}
+                      onChange={(e) => setCycleSettings(prev => ({
+                        ...prev,
+                        [reminder.timeKey]: {
+                          value: prev[reminder.timeKey]?.value ?? (reminder.timeKey === 'firstReminderTime' ? 3 : 15),
+                          unit: e.target.value as 'minutes' | 'hours' | 'days'
+                        }
+                      }))}
+                      style={{ padding: '5px 6px', border: '1px solid #CBD5E1', borderRadius: '4px', fontSize: '13px', backgroundColor: 'white', flex: 1 }}
+                    >
+                      <option value="minutes">minutes</option>
+                      <option value="hours">hours</option>
+                      <option value="days">days</option>
+                    </select>
+                  </div>
+                ))}
+                <p style={{ fontSize: '11px', color: '#94A3B8', margin: 0, fontFamily: 'Inter' }}>before each event</p>
+              </div>
+
+              <div style={{ padding: '16px', borderTop: '1px solid #E2E8F0' }}>
+                <h3 style={{ fontSize: '13px', fontWeight: 600, color: '#64748B', textTransform: 'uppercase', margin: '0 0 12px 0', fontFamily: 'Inter' }}>
+                  Publication
+                </h3>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
+                  <input
+                    type="checkbox"
+                    checked={cycleSettings.scheduledPublicationEnabled ?? false}
+                    onChange={(e) => setCycleSettings(prev => ({ ...prev, scheduledPublicationEnabled: e.target.checked }))}
+                  />
+                  <label style={{ fontSize: '13px', fontWeight: 500, color: '#64748B', fontFamily: 'Inter' }}>
+                    Schedule event publication
+                  </label>
+                </div>
+                {cycleSettings.scheduledPublicationEnabled && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontSize: '13px', color: '#64748B' }}>Publish</span>
+                    <input
+                      type="number"
+                      min={1}
+                      value={cycleSettings.scheduledPublicationOffset?.value ?? 3}
+                      onChange={(e) => setCycleSettings(prev => ({
+                        ...prev,
+                        scheduledPublicationOffset: {
+                          value: Math.max(1, parseInt(e.target.value) || 1),
+                          unit: prev.scheduledPublicationOffset?.unit ?? 'days'
+                        }
+                      }))}
+                      style={{ width: '56px', padding: '5px 6px', border: '1px solid #CBD5E1', borderRadius: '4px', fontSize: '13px' }}
+                    />
+                    <select
+                      value={cycleSettings.scheduledPublicationOffset?.unit ?? 'days'}
+                      onChange={(e) => setCycleSettings(prev => ({
+                        ...prev,
+                        scheduledPublicationOffset: {
+                          value: prev.scheduledPublicationOffset?.value ?? 3,
+                          unit: e.target.value as 'minutes' | 'hours' | 'days'
+                        }
+                      }))}
+                      style={{ padding: '5px 6px', border: '1px solid #CBD5E1', borderRadius: '4px', fontSize: '13px', backgroundColor: 'white', flex: 1 }}
+                    >
+                      <option value="minutes">minutes</option>
+                      <option value="hours">hours</option>
+                      <option value="days">days</option>
+                    </select>
+                    <span style={{ fontSize: '11px', color: '#94A3B8', whiteSpace: 'nowrap' }}>before start</span>
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+          </div>
+
+          {/* Right pane: activities calendar + selected activity/participants panel */}
+          {activitiesEnabled && (
+            <div style={{ flex: 1, overflowY: 'auto', padding: '16px', minWidth: 0 }}>
+              <CycleActivitiesBuilder
+                activities={cycleActivities}
+                onChange={setCycleActivities}
+                weekCount={weekCount}
+                onWeekCountChange={(weeks) => {
+                  setWeekCount(weeks);
+                  lastChanged.current = 'weeks';
+                }}
+                startDate={startDate}
+                squadrons={squadrons}
+                syllabusNames={syllabusNames}
+                selection={builderSelection}
+                onSelect={setBuilderSelection}
+                pendingRows={pendingRows}
+                onAddParticipantRow={handleAddParticipantRow}
+                onAddActivityInRow={handleAddActivityInRow}
+              />
+
+              {builderSelection?.type === 'row' && (
+                <div style={{ marginTop: '16px', padding: '12px', border: '1px solid #CBD5E1', borderRadius: '8px', backgroundColor: '#FFFFFF' }}>
+                  <h3 style={{ fontSize: '13px', fontWeight: 600, color: '#64748B', textTransform: 'uppercase', margin: '0 0 12px 0', fontFamily: 'Inter' }}>
+                    Participants
+                  </h3>
+                  <CriteriaBlockEditor
+                    blocks={selectedRowCriteria as any}
+                    onChange={(blocks) => handleUpdateRowCriteria(blocks)}
+                    standings={standings}
+                    statuses={statuses}
+                    qualifications={qualifications}
+                    squadrons={squadrons.map(s => ({ id: s.id, name: s.name, designation: s.designation, insignia_url: s.insignia_url }))}
+                    addBlockLabel="Add Participant Block"
+                    compact
+                  />
+                </div>
+              )}
+
+              {selectedActivityIndex !== null && cycleActivities[selectedActivityIndex] && (
+                <>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '16px' }}>
+                    <span style={{ fontSize: '13px', fontWeight: 600, color: '#64748B', fontFamily: 'Inter', textTransform: 'uppercase' }}>
+                      Activity â€” Weeks {cycleActivities[selectedActivityIndex].startWeek}â€“{cycleActivities[selectedActivityIndex].endWeek}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={handleRemoveSelectedActivity}
+                      style={{
+                        padding: '6px 12px',
+                        border: '1px solid #E5E7EB',
+                        backgroundColor: 'white',
+                        color: '#9CA3AF',
+                        borderRadius: '6px',
+                        cursor: 'pointer',
+                        fontSize: '13px',
+                        fontFamily: 'Inter',
+                        fontWeight: 500
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.backgroundColor = '#FEE2E2';
+                        e.currentTarget.style.color = '#DC2626';
+                        e.currentTarget.style.borderColor = '#FECACA';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.backgroundColor = 'white';
+                        e.currentTarget.style.color = '#9CA3AF';
+                        e.currentTarget.style.borderColor = '#E5E7EB';
+                      }}
+                    >
+                      Remove Activity
+                    </button>
+                  </div>
+                  <CycleActivityConfigPanel
+                    activity={cycleActivities[selectedActivityIndex]}
+                    onChange={handleUpdateSelectedActivity}
+                    squadrons={squadrons.map(s => ({ id: s.id, name: s.name, designation: s.designation, insignia_url: s.insignia_url }))}
+                    enrollment={(() => {
+                      const activityId = cycleActivities[selectedActivityIndex].id;
+                      return {
+                        activityId,
+                        students: enrolledPilots.filter(p => (p as any).cycle_activity_id === activityId),
+                        instructors: enrolledInstructors.filter(i => (i as any).cycle_activity_id === activityId),
+                        availableStudents: [...suggestedPilots, ...allPilots],
+                        availableInstructors: [...suggestedInstructors, ...allInstructorCandidates],
+                        onEnrollStudent: (pilotId: string) => handleEnrollPilot(pilotId, activityId || null),
+                        onRemoveStudent: handleRemoveEnrollment,
+                        onEnrollInstructor: (pilotId: string) => handleEnrollInstructor(pilotId, activityId || null),
+                        onRemoveInstructor: handleRemoveInstructor
+                      };
+                    })()}
+                  />
+                </>
+              )}
+            </div>
+          )}
+          </div>
 
           {/* Enrollments Tab Content */}
           {activeTab === 'enrollments' && (
@@ -2384,231 +2582,6 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
                     </div>
                   </div>
                 </>
-              )}
-            </div>
-          )}
-
-          {/* Activities Tab (developer-flagged): visual cycle builder */}
-          {activeTab === 'activities' && activitiesEnabled && (
-            <div style={{ padding: '24px', height: '900px', overflowY: 'auto' }}>
-              <CycleActivitiesBuilder
-                activities={cycleActivities}
-                onChange={setCycleActivities}
-                weekCount={weekCount}
-                onWeekCountChange={(weeks) => {
-                  setWeekCount(weeks);
-                  lastChanged.current = 'weeks';
-                }}
-                startDate={startDate}
-                squadrons={squadrons}
-                syllabusNames={syllabusNames}
-                selectedIndex={selectedActivityIndex}
-                onSelect={setSelectedActivityIndex}
-                onAddActivity={handleAddCycleActivity}
-              />
-
-              {selectedActivityIndex !== null && cycleActivities[selectedActivityIndex] && (
-                <>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '16px' }}>
-                    <span style={{ fontSize: '13px', fontWeight: 600, color: '#64748B', fontFamily: 'Inter', textTransform: 'uppercase' }}>
-                      Activity {selectedActivityIndex + 1} — Weeks {cycleActivities[selectedActivityIndex].startWeek}–{cycleActivities[selectedActivityIndex].endWeek}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={handleRemoveSelectedActivity}
-                      style={{
-                        padding: '6px 12px',
-                        border: '1px solid #E5E7EB',
-                        backgroundColor: 'white',
-                        color: '#9CA3AF',
-                        borderRadius: '6px',
-                        cursor: 'pointer',
-                        fontSize: '13px',
-                        fontFamily: 'Inter',
-                        fontWeight: 500
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.backgroundColor = '#FEE2E2';
-                        e.currentTarget.style.color = '#DC2626';
-                        e.currentTarget.style.borderColor = '#FECACA';
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.backgroundColor = 'white';
-                        e.currentTarget.style.color = '#9CA3AF';
-                        e.currentTarget.style.borderColor = '#E5E7EB';
-                      }}
-                    >
-                      Remove Activity
-                    </button>
-                  </div>
-                  <CycleActivityConfigPanel
-                    activity={cycleActivities[selectedActivityIndex]}
-                    onChange={handleUpdateSelectedActivity}
-                    squadrons={squadrons.map(s => ({ id: s.id, name: s.name, designation: s.designation, insignia_url: s.insignia_url }))}
-                    enrollment={(() => {
-                      const activityId = cycleActivities[selectedActivityIndex].id;
-                      return {
-                        activityId,
-                        students: enrolledPilots.filter(p => (p as any).cycle_activity_id === activityId),
-                        instructors: enrolledInstructors.filter(i => (i as any).cycle_activity_id === activityId),
-                        availableStudents: [...suggestedPilots, ...allPilots],
-                        availableInstructors: [...suggestedInstructors, ...allInstructorCandidates],
-                        onEnrollStudent: (pilotId: string) => handleEnrollPilot(pilotId, activityId || null),
-                        onRemoveStudent: handleRemoveEnrollment,
-                        onEnrollInstructor: (pilotId: string) => handleEnrollInstructor(pilotId, activityId || null),
-                        onRemoveInstructor: handleRemoveInstructor
-                      };
-                    })()}
-                  />
-                </>
-              )}
-            </div>
-          )}
-
-          {/* Options Tab (developer-flagged): defaults for events in this cycle */}
-          {activeTab === 'options' && activitiesEnabled && (
-            <div style={{ padding: '24px', height: '900px', overflowY: 'auto' }}>
-              <p style={{ fontSize: '12px', color: '#64748B', margin: '0 0 16px 0', fontFamily: 'Inter' }}>
-                Defaults for events created in this cycle. Each event can still override them.
-              </p>
-              {([
-                { key: 'trackQualifications', label: 'Group responses by qualification in Discord' },
-                { key: 'groupBySquadron', label: 'Group responses by squadron in Discord' },
-                { key: 'showNoResponse', label: 'Show non-responders in Discord' },
-                { key: 'allowTentativeResponse', label: 'Allow tentative responses' }
-              ] as Array<{ key: keyof CycleSettings; label: string }>).map(option => (
-                <div key={option.key} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
-                  <label style={{ fontSize: '14px', fontWeight: 500, color: '#64748B' }}>{option.label}</label>
-                  <div
-                    onClick={() => setCycleSettings(prev => ({ ...prev, [option.key]: !prev[option.key] }))}
-                    style={{
-                      width: '44px',
-                      height: '24px',
-                      backgroundColor: cycleSettings[option.key] ? '#3B82F6' : '#E5E7EB',
-                      borderRadius: '12px',
-                      position: 'relative',
-                      cursor: 'pointer',
-                      transition: 'background-color 0.2s ease',
-                      flexShrink: 0
-                    }}
-                  >
-                    <div style={{
-                      width: '20px',
-                      height: '20px',
-                      backgroundColor: 'white',
-                      borderRadius: '50%',
-                      position: 'absolute',
-                      top: '2px',
-                      left: cycleSettings[option.key] ? '22px' : '2px',
-                      transition: 'left 0.2s ease',
-                      boxShadow: '0 2px 4px rgba(0, 0, 0, 0.2)'
-                    }} />
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Reminders Tab (developer-flagged): defaults for events in this cycle */}
-          {activeTab === 'reminders' && activitiesEnabled && (
-            <div style={{ padding: '24px', height: '900px', overflowY: 'auto' }}>
-              <p style={{ fontSize: '12px', color: '#64748B', margin: '0 0 16px 0', fontFamily: 'Inter' }}>
-                Default reminders for events created in this cycle. Each event can still override them.
-              </p>
-              {([
-                { enabledKey: 'firstReminderEnabled', timeKey: 'firstReminderTime', label: 'First reminder' },
-                { enabledKey: 'secondReminderEnabled', timeKey: 'secondReminderTime', label: 'Second reminder' }
-              ] as Array<{ enabledKey: 'firstReminderEnabled' | 'secondReminderEnabled'; timeKey: 'firstReminderTime' | 'secondReminderTime'; label: string }>).map(reminder => (
-                <div key={reminder.enabledKey} style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
-                  <input
-                    type="checkbox"
-                    checked={cycleSettings[reminder.enabledKey] ?? false}
-                    onChange={(e) => setCycleSettings(prev => ({ ...prev, [reminder.enabledKey]: e.target.checked }))}
-                  />
-                  <label style={{ fontSize: '14px', fontWeight: 500, color: '#64748B', width: '130px' }}>{reminder.label}</label>
-                  <input
-                    type="number"
-                    min={1}
-                    value={cycleSettings[reminder.timeKey]?.value ?? (reminder.timeKey === 'firstReminderTime' ? 3 : 15)}
-                    onChange={(e) => setCycleSettings(prev => ({
-                      ...prev,
-                      [reminder.timeKey]: {
-                        value: Math.max(1, parseInt(e.target.value) || 1),
-                        unit: prev[reminder.timeKey]?.unit ?? (reminder.timeKey === 'firstReminderTime' ? 'days' : 'minutes')
-                      }
-                    }))}
-                    style={{ width: '70px', padding: '6px 8px', border: '1px solid #CBD5E1', borderRadius: '4px', fontSize: '14px' }}
-                  />
-                  <select
-                    value={cycleSettings[reminder.timeKey]?.unit ?? (reminder.timeKey === 'firstReminderTime' ? 'days' : 'minutes')}
-                    onChange={(e) => setCycleSettings(prev => ({
-                      ...prev,
-                      [reminder.timeKey]: {
-                        value: prev[reminder.timeKey]?.value ?? (reminder.timeKey === 'firstReminderTime' ? 3 : 15),
-                        unit: e.target.value as 'minutes' | 'hours' | 'days'
-                      }
-                    }))}
-                    style={{ padding: '6px 8px', border: '1px solid #CBD5E1', borderRadius: '4px', fontSize: '14px', backgroundColor: 'white' }}
-                  >
-                    <option value="minutes">minutes</option>
-                    <option value="hours">hours</option>
-                    <option value="days">days</option>
-                  </select>
-                  <span style={{ fontSize: '13px', color: '#94A3B8' }}>before the event</span>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Publication Tab (developer-flagged): defaults for events in this cycle */}
-          {activeTab === 'publication' && activitiesEnabled && (
-            <div style={{ padding: '24px', height: '900px', overflowY: 'auto' }}>
-              <p style={{ fontSize: '12px', color: '#64748B', margin: '0 0 16px 0', fontFamily: 'Inter' }}>
-                Default publication behavior for events created in this cycle. Each event can still override it.
-              </p>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
-                <input
-                  type="checkbox"
-                  checked={cycleSettings.scheduledPublicationEnabled ?? false}
-                  onChange={(e) => setCycleSettings(prev => ({ ...prev, scheduledPublicationEnabled: e.target.checked }))}
-                />
-                <label style={{ fontSize: '14px', fontWeight: 500, color: '#64748B' }}>
-                  Schedule event publication
-                </label>
-              </div>
-              {cycleSettings.scheduledPublicationEnabled && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <span style={{ fontSize: '14px', color: '#64748B' }}>Publish</span>
-                  <input
-                    type="number"
-                    min={1}
-                    value={cycleSettings.scheduledPublicationOffset?.value ?? 3}
-                    onChange={(e) => setCycleSettings(prev => ({
-                      ...prev,
-                      scheduledPublicationOffset: {
-                        value: Math.max(1, parseInt(e.target.value) || 1),
-                        unit: prev.scheduledPublicationOffset?.unit ?? 'days'
-                      }
-                    }))}
-                    style={{ width: '70px', padding: '6px 8px', border: '1px solid #CBD5E1', borderRadius: '4px', fontSize: '14px' }}
-                  />
-                  <select
-                    value={cycleSettings.scheduledPublicationOffset?.unit ?? 'days'}
-                    onChange={(e) => setCycleSettings(prev => ({
-                      ...prev,
-                      scheduledPublicationOffset: {
-                        value: prev.scheduledPublicationOffset?.value ?? 3,
-                        unit: e.target.value as 'minutes' | 'hours' | 'days'
-                      }
-                    }))}
-                    style={{ padding: '6px 8px', border: '1px solid #CBD5E1', borderRadius: '4px', fontSize: '14px', backgroundColor: 'white' }}
-                  >
-                    <option value="minutes">minutes</option>
-                    <option value="hours">hours</option>
-                    <option value="days">days</option>
-                  </select>
-                  <span style={{ fontSize: '13px', color: '#94A3B8' }}>before each event starts</span>
-                </div>
               )}
             </div>
           )}

@@ -1,10 +1,8 @@
 ﻿import React, { useEffect, useState } from 'react';
 import { Plus, Trash2, Info } from 'lucide-react';
 import { supabase } from '../../../utils/supabaseClient';
-import { getActiveQualifications, Qualification } from '../../../utils/qualificationService';
 import SupportRoleRequirementsEditor from './SupportRoleRequirementsEditor';
 import ReferenceMaterialsInput from './ReferenceMaterialsInput';
-import CriteriaBlockEditor from '../../training/CriteriaBlockEditor';
 import { CollapsibleSection } from './EventActivitiesEditor';
 import type {
   CycleActivity,
@@ -146,13 +144,9 @@ const ActivityEnrollmentSection: React.FC<{
 const CycleActivityConfigPanel: React.FC<CycleActivityConfigPanelProps> = ({
   activity,
   onChange,
-  squadrons,
   enrollment
 }) => {
   const [syllabi, setSyllabi] = useState<SyllabusOption[]>([]);
-  const [qualifications, setQualifications] = useState<Qualification[]>([]);
-  const [standings, setStandings] = useState<Array<{ id: string; name: string }>>([]);
-  const [statuses, setStatuses] = useState<Array<{ id: string; name: string }>>([]);
   const [inheritedRefs, setInheritedRefs] = useState<ReferenceMaterial[]>([]);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [showAarTooltip, setShowAarTooltip] = useState(false);
@@ -160,17 +154,9 @@ const CycleActivityConfigPanel: React.FC<CycleActivityConfigPanelProps> = ({
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
-      const [syllabiResult, { data: quals }, standingsData, statusesData] = await Promise.all([
-        (supabase as any).from('training_syllabi').select('id, name, kind').order('name'),
-        getActiveQualifications(),
-        supabase.from('standings').select('id, name').order('name'),
-        supabase.from('statuses').select('id, name').order('name')
-      ]);
+      const syllabiResult = await (supabase as any).from('training_syllabi').select('id, name, kind').order('name');
       if (cancelled) return;
       setSyllabi(((syllabiResult.data as any[]) || []).map(s => ({ id: s.id, name: s.name, kind: s.kind || 'linear' })));
-      setQualifications(quals || []);
-      setStandings(standingsData.data || []);
-      setStatuses(statusesData.data || []);
     };
     load();
     return () => { cancelled = true; };
@@ -414,23 +400,8 @@ const CycleActivityConfigPanel: React.FC<CycleActivityConfigPanelProps> = ({
         />
       </CollapsibleSection>
 
-      <CollapsibleSection
-        title="Participants"
-        summary={`${(settings.participantCriteria || []).length}`}
-        expanded={expanded.has('participants')}
-        onToggle={() => toggle('participants')}
-      >
-        <CriteriaBlockEditor
-          blocks={(settings.participantCriteria || []) as any}
-          onChange={(blocks) => updateSettings({ participantCriteria: blocks as any })}
-          standings={standings}
-          statuses={statuses}
-          qualifications={qualifications}
-          squadrons={squadrons}
-          addBlockLabel="Add Participant Block"
-          compact
-        />
-      </CollapsibleSection>
+      {/* Participants are edited at the row level in the builder (click the
+          participant group's header) - not per activity */}
 
       <CollapsibleSection
         title="Debriefing"
