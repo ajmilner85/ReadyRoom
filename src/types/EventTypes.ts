@@ -81,6 +81,7 @@ export interface EventActivity {
   id?: string; // undefined until persisted
   eventId?: string;
   cycleId?: string;
+  cycleActivityId?: string; // the cycle activity this was derived from (two-way reflection)
   kind: EventActivityKind;
   displayOrder: number;
   syllabusMissionId?: string; // 'lesson' kind

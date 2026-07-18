@@ -1,18 +1,20 @@
 ﻿import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { X, Users, Trash2, ArrowUpDown, UserCheck } from 'lucide-react';
+import { X, Users, Trash2, ArrowUpDown, UserCheck, ChevronsLeft, ChevronsRight } from 'lucide-react';
 import { CycleType, TrainingSyllabus, CycleActivity, CycleSettings, EventActivityParticipantBlock } from '../../../types/EventTypes';
 import { Squadron } from '../../../types/OrganizationTypes';
-import { supabase, getCycleActivities } from '../../../utils/supabaseClient';
-import CycleActivitiesBuilder, { BuilderSelection, PendingParticipantRow, criteriaRowKey } from './CycleActivitiesBuilder';
+import { supabase, getCycleActivities, createEvent, deleteEvent } from '../../../utils/supabaseClient';
+import { createPortal } from 'react-dom';
+import CycleActivitiesBuilder, { BuilderSelection, PendingParticipantRow, CycleBuilderEvent, criteriaRowKey } from './CycleActivitiesBuilder';
 import CycleActivityConfigPanel from './CycleActivityConfigPanel';
 import ParticipantBlocksEditor from './ParticipantBlocksEditor';
-import { enrollPilots, removeEnrollment, getCycleEnrollments, getSuggestedEnrollments, type EnrolledPilot } from '../../../utils/trainingEnrollmentService';
-import { 
-  enrollInstructors, 
-  removeInstructor, 
-  getCycleInstructorEnrollments, 
+import { enrollPilots, removeEnrollment, getCycleEnrollments, type EnrolledPilot } from '../../../utils/trainingEnrollmentService';
+import {
+  enrollInstructors,
+  removeInstructor,
+  getCycleInstructorEnrollments,
   getSuggestedInstructors,
-  type EnrolledInstructor 
+  getSuggestedStudentEnrollments,
+  type EnrolledInstructor
 } from '../../../utils/instructorEnrollmentService';
 import PilotIDBadgeSm from '../PilotIDBadgeSm';
 import FilterDrawer, { QualificationFilterMode } from '../roster/FilterDrawer';
@@ -21,6 +23,7 @@ import { Standing } from '../../../utils/standingService';
 import { Role } from '../../../utils/roleService';
 import { Qualification, getBatchPilotQualifications } from '../../../utils/qualificationService';
 import { getUserSettings } from '../../../utils/userSettingsService';
+import { useAppSettings } from '../../../context/AppSettingsContext';
 
 interface CycleDialogProps {
   onSave: (cycleData: {
@@ -95,13 +98,36 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
   const [activitiesEnabled, setActivitiesEnabled] = useState(false);
   const [cycleActivities, setCycleActivities] = useState<CycleActivity[]>([]);
   const [builderSelection, setBuilderSelection] = useState<BuilderSelection>(null);
-  // Participant rows added on the builder that don't have an activity yet
-  const [pendingRows, setPendingRows] = useState<PendingParticipantRow[]>([]);
+  // Ordered participant rows - the authoritative row order for the builder
+  // (rows persist even while empty so cross-row drags don't reshuffle them)
+  const [participantRows, setParticipantRows] = useState<PendingParticipantRow[]>([]);
   // Students/Instructors tabs enroll into this activity ('' = cycle-wide)
   const [enrollmentActivityScopeId, setEnrollmentActivityScopeId] = useState<string>('');
   const selectedActivityIndex = builderSelection?.type === 'activity' ? builderSelection.index : null;
   const [syllabusNames, setSyllabusNames] = useState<Record<string, string>>({});
-  const [cycleSettings, setCycleSettings] = useState<CycleSettings>(initialData?.settings || {});
+  // Options/Reminders/Publication: an edited cycle restores its saved settings;
+  // a new cycle (or a legacy one without settings) seeds from the user's
+  // default event settings so the defaults are visible and reviewable
+  const { settings: appSettings } = useAppSettings();
+  const [cycleSettings, setCycleSettings] = useState<CycleSettings>(() => {
+    if (initialData?.settings) return initialData.settings;
+    const defaults = appSettings.eventDefaults;
+    return {
+      trackQualifications: defaults.groupResponsesByQualification ?? false,
+      groupBySquadron: defaults.groupBySquadron ?? false,
+      showNoResponse: defaults.showNoResponse ?? false,
+      allowTentativeResponse: defaults.allowTentativeResponse ?? true,
+      firstReminderEnabled: defaults.firstReminderEnabled ?? false,
+      firstReminderTime: defaults.firstReminderTime,
+      firstReminderRecipients: defaults.firstReminderRecipients,
+      secondReminderEnabled: defaults.secondReminderEnabled ?? false,
+      secondReminderTime: defaults.secondReminderTime,
+      secondReminderRecipients: defaults.secondReminderRecipients,
+      initialNotificationRoles: defaults.initialNotificationRoles,
+      scheduledPublicationEnabled: defaults.scheduledPublicationEnabledByDefault ?? false,
+      scheduledPublicationOffset: defaults.scheduledPublicationOffset
+    };
+  });
 
   // Tab state (show tabs for Training cycles with syllabus selected OR when
   // editing; with the Activities flag on, tabs always show)
@@ -317,6 +343,302 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
     return () => { cancelled = true; };
   }, []);
 
+  // The cycle's events linked to activities, shown as cells inside the bars
+  const [cycleEventItems, setCycleEventItems] = useState<CycleBuilderEvent[]>([]);
+
+  const loadCycleEventItems = async () => {
+    if (!cycleId) return;
+    const [{ data: eventRows }, { data: linkRows }] = await Promise.all([
+      supabase.from('events').select('id, name, start_datetime, end_datetime').eq('cycle_id', cycleId),
+      (supabase as any)
+        .from('event_activities')
+        .select('event_id, cycle_activity_id')
+        .eq('cycle_id', cycleId)
+        .not('cycle_activity_id', 'is', null)
+    ]);
+    const eventsById = new Map<string, any>();
+    (eventRows || []).forEach((row: any) => eventsById.set(row.id, row));
+    const items: CycleBuilderEvent[] = [];
+    ((linkRows || []) as any[]).forEach(link => {
+      const eventRow = eventsById.get(link.event_id);
+      if (!eventRow) return;
+      items.push({
+        id: eventRow.id,
+        name: eventRow.name,
+        startDatetime: eventRow.start_datetime,
+        endDatetime: eventRow.end_datetime,
+        cycleActivityId: link.cycle_activity_id
+      });
+    });
+    setCycleEventItems(items);
+  };
+
+  useEffect(() => {
+    if (!activitiesEnabled || !cycleId) return;
+    loadCycleEventItems();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activitiesEnabled, cycleId]);
+
+  // Drag-reorder of an event cell: shift the event to the target week (same
+  // weekday/time); if another of the activity's events occupies that week the
+  // two swap dates
+  const handleMoveEventToWeek = async (eventId: string, targetWeek: number, cycleActivityId: string) => {
+    if (!startDate) return;
+    const base = new Date(startDate);
+    const weekOf = (iso: string) => Math.max(1, Math.floor((new Date(iso).getTime() - base.getTime()) / (7 * 24 * 60 * 60 * 1000)) + 1);
+
+    const item = cycleEventItems.find(e => e.id === eventId);
+    if (!item) return;
+    const originWeek = weekOf(item.startDatetime);
+    const deltaMs = (targetWeek - originWeek) * 7 * 24 * 60 * 60 * 1000;
+    if (deltaMs === 0) return;
+
+    const occupant = cycleEventItems.find(e =>
+      e.cycleActivityId === cycleActivityId && e.id !== eventId && weekOf(e.startDatetime) === targetWeek
+    );
+
+    const shifted = (iso: string, ms: number) => new Date(new Date(iso).getTime() + ms).toISOString();
+
+    // Optimistic update first - the drag preview clears on mouseup, so waiting
+    // for the DB round-trip makes the event snap back to its old week briefly.
+    // An event can appear under several activities; its dates shift everywhere.
+    setCycleEventItems(prev => prev.map(e => {
+      if (e.id === item.id) {
+        return { ...e, startDatetime: shifted(e.startDatetime, deltaMs), endDatetime: e.endDatetime ? shifted(e.endDatetime, deltaMs) : e.endDatetime };
+      }
+      if (occupant && e.id === occupant.id) {
+        return { ...e, startDatetime: shifted(e.startDatetime, -deltaMs), endDatetime: e.endDatetime ? shifted(e.endDatetime, -deltaMs) : e.endDatetime };
+      }
+      return e;
+    }));
+
+    const shiftEvent = async (target: CycleBuilderEvent, ms: number) => {
+      const updates: any = {
+        start_datetime: shifted(target.startDatetime, ms)
+      };
+      if (target.endDatetime) {
+        updates.end_datetime = shifted(target.endDatetime, ms);
+      }
+      const { error: shiftError } = await supabase.from('events').update(updates).eq('id', target.id);
+      if (shiftError) throw shiftError;
+    };
+
+    try {
+      await shiftEvent(item, deltaMs);
+      if (occupant) await shiftEvent(occupant, -deltaMs);
+    } catch (err: any) {
+      console.error('Failed to move event:', err);
+      setError(err.message || 'Failed to move event');
+      await loadCycleEventItems(); // revert the optimistic update
+    }
+  };
+
+  // --- Event management inside activity bars ---
+
+  // Click-to-add picker: recommends the syllabus missions not yet scheduled
+  // inside the activity
+  const [addEventPicker, setAddEventPicker] = useState<{
+    activityIndex: number;
+    week: number;
+    x: number;
+    y: number;
+    missing: Array<{ id: string; mission_name: string }>;
+  } | null>(null);
+
+  const eventTimesForWeek = (week: number): { start: string; end: string } | null => {
+    if (!startDate) return null;
+    const [y, m, d] = startDate.split('-').map(Number);
+    const date = new Date(y, m - 1, d);
+    date.setDate(date.getDate() + (week - 1) * 7);
+    const [hh, mm] = (appSettings.eventDefaults.defaultStartTime || '20:30').split(':').map(Number);
+    date.setHours(hh, mm, 0, 0);
+    const end = new Date(date.getTime() + ((appSettings.eventDefaults.defaultDurationHours ?? 2) * 60 + (appSettings.eventDefaults.defaultDurationMinutes ?? 0)) * 60000);
+    return { start: date.toISOString(), end: end.toISOString() };
+  };
+
+  const createEventForActivityWeek = async (
+    activity: CycleActivity,
+    week: number,
+    mission?: { id: string; mission_name: string }
+  ) => {
+    if (!cycleId || !activity.id) return;
+    const times = eventTimesForWeek(week);
+    if (!times) return;
+    const title = mission?.mission_name
+      || activity.label
+      || (activity.syllabusId ? syllabusNames[activity.syllabusId] : undefined)
+      || 'Training Exercise';
+    const activityPayload = mission
+      ? {
+          kind: 'lesson' as const,
+          displayOrder: 0,
+          cycleActivityId: activity.id,
+          syllabusMissionId: mission.id,
+          label: activity.label,
+          settings: activity.settings || {}
+        }
+      : activity.kind === 'objectives'
+        ? {
+            kind: 'objectives' as const,
+            displayOrder: 0,
+            cycleActivityId: activity.id,
+            label: activity.label,
+            adHocObjectives: activity.adHocObjectives || [],
+            settings: activity.settings || {}
+          }
+        : null;
+    if (!activityPayload) return;
+
+    const { error: createError } = await createEvent({
+      title,
+      description: '',
+      datetime: times.start,
+      endDatetime: times.end,
+      eventType: 'Hop',
+      cycleId,
+      status: 'upcoming',
+      participants,
+      trackQualifications: cycleSettings.trackQualifications ?? false,
+      activities: [activityPayload]
+    } as any);
+    if (createError) {
+      setError((createError as any).message || 'Failed to create event');
+      return;
+    }
+    await loadCycleEventItems();
+  };
+
+  const handleAddEventInWeek = async (activityIndex: number, week: number, position: { x: number; y: number }) => {
+    const activity = cycleActivities[activityIndex];
+    if (!activity?.id) return;
+    if (activity.kind === 'objectives') {
+      await createEventForActivityWeek(activity, week);
+      return;
+    }
+    if (!activity.syllabusId) return;
+    // Recommend missions not already scheduled inside this activity
+    const [{ data: missions }, { data: links }] = await Promise.all([
+      (supabase as any).from('training_syllabus_missions').select('id, mission_name, week_number').eq('syllabus_id', activity.syllabusId).order('week_number'),
+      (supabase as any).from('event_activities').select('syllabus_mission_id').eq('cycle_activity_id', activity.id)
+    ]);
+    const usedMissionIds = new Set(((links || []) as any[]).map(l => l.syllabus_mission_id).filter(Boolean));
+    const missing = ((missions || []) as any[]).filter(m => !usedMissionIds.has(m.id));
+    setAddEventPicker({ activityIndex, week, x: position.x, y: position.y, missing });
+  };
+
+  const handleDeleteEventFromActivity = async (eventItem: CycleBuilderEvent) => {
+    try {
+      const { data: links } = await (supabase as any)
+        .from('event_activities')
+        .select('id, cycle_activity_id')
+        .eq('event_id', eventItem.id);
+      const otherLinks = ((links || []) as any[]).filter(l => l.cycle_activity_id !== eventItem.cycleActivityId);
+      if (otherLinks.length > 0) {
+        // The event hosts other activities too - only detach this one
+        await (supabase as any)
+          .from('event_activities')
+          .delete()
+          .eq('event_id', eventItem.id)
+          .eq('cycle_activity_id', eventItem.cycleActivityId);
+      } else {
+        await deleteEvent(eventItem.id);
+      }
+      await loadCycleEventItems();
+    } catch (err: any) {
+      console.error('Failed to remove event:', err);
+      setError(err.message || 'Failed to remove event');
+    }
+  };
+
+  // Reset a syllabus activity: block spans one week per lesson again, and its
+  // events are rebuilt to match the syllabus order (relinking, renaming solely
+  // owned events, creating missing weeks, dropping leftover/duplicate links)
+  const handleResetActivity = async (index: number) => {
+    const activity = cycleActivities[index];
+    if (!activity?.id || activity.kind !== 'syllabus' || !activity.syllabusId || !cycleId || !startDate) return;
+    try {
+      const { data: missions } = await (supabase as any)
+        .from('training_syllabus_missions')
+        .select('id, mission_name')
+        .eq('syllabus_id', activity.syllabusId)
+        .order('week_number');
+      const missionList = (missions || []) as Array<{ id: string; mission_name: string }>;
+      if (missionList.length === 0) return;
+
+      const newEndWeek = activity.startWeek + missionList.length - 1;
+      if (newEndWeek > weekCount) {
+        setWeekCount(newEndWeek);
+        lastChanged.current = 'weeks';
+      }
+      setCycleActivities(prev => prev.map((a, i) => (i === index ? { ...a, endWeek: newEndWeek } : a)));
+
+      const [{ data: links }, { data: eventRows }] = await Promise.all([
+        (supabase as any).from('event_activities').select('id, event_id, syllabus_mission_id').eq('cycle_activity_id', activity.id),
+        supabase.from('events').select('id, name, start_datetime').eq('cycle_id', cycleId)
+      ]);
+      const base = new Date(startDate);
+      const weekOf = (iso: string) => Math.max(1, Math.floor((new Date(iso).getTime() - base.getTime()) / (7 * 24 * 60 * 60 * 1000)) + 1);
+      const eventsByWeek = new Map<number, any[]>();
+      ((eventRows || []) as any[]).forEach(ev => {
+        const w = weekOf(ev.start_datetime);
+        if (!eventsByWeek.has(w)) eventsByWeek.set(w, []);
+        eventsByWeek.get(w)!.push(ev);
+      });
+      const linksByEvent = new Map(((links || []) as any[]).map(l => [l.event_id, l]));
+
+      const consumedLinkIds = new Set<string>();
+      for (let k = 0; k < missionList.length; k++) {
+        const week = activity.startWeek + k;
+        const mission = missionList[k];
+        const weekEvents = eventsByWeek.get(week) || [];
+        const targetEvent = weekEvents.find(ev => linksByEvent.has(ev.id)) || weekEvents[0];
+        if (targetEvent) {
+          const link = linksByEvent.get(targetEvent.id);
+          if (link) {
+            consumedLinkIds.add(link.id);
+            if (link.syllabus_mission_id !== mission.id) {
+              await (supabase as any).from('event_activities').update({ kind: 'lesson', syllabus_mission_id: mission.id, ad_hoc_objectives: null }).eq('id', link.id);
+            }
+          } else {
+            const { data: inserted } = await (supabase as any).from('event_activities').insert({
+              event_id: targetEvent.id,
+              cycle_id: cycleId,
+              cycle_activity_id: activity.id,
+              kind: 'lesson',
+              syllabus_mission_id: mission.id,
+              display_order: 0,
+              label: activity.label || null,
+              settings: activity.settings || {}
+            }).select('id').single();
+            if (inserted?.id) consumedLinkIds.add(inserted.id);
+          }
+          // If this activity is the event's only content, retitle it to the
+          // lesson and keep the legacy PTR column in sync
+          const { count: linkCount } = await (supabase as any)
+            .from('event_activities')
+            .select('id', { count: 'exact', head: true })
+            .eq('event_id', targetEvent.id);
+          if ((linkCount ?? 0) <= 1) {
+            await supabase.from('events').update({ name: mission.mission_name, syllabus_mission_id: mission.id } as any).eq('id', targetEvent.id);
+          }
+        } else {
+          await createEventForActivityWeek({ ...activity, endWeek: newEndWeek }, week, mission);
+        }
+      }
+
+      // Drop leftover links (out-of-span weeks or duplicates)
+      const leftoverLinks = ((links || []) as any[]).filter(l => !consumedLinkIds.has(l.id));
+      for (const link of leftoverLinks) {
+        await (supabase as any).from('event_activities').delete().eq('id', link.id);
+      }
+
+      await loadCycleEventItems();
+    } catch (err: any) {
+      console.error('Failed to reset activity:', err);
+      setError(err.message || 'Failed to reset activity');
+    }
+  };
+
   // Event Activities: load this cycle's activities when editing
   useEffect(() => {
     if (!activitiesEnabled || !cycleId) return;
@@ -325,6 +647,17 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
       const { activities, error } = await getCycleActivities(cycleId);
       if (!cancelled && !error) {
         setCycleActivities(activities);
+        // Seed the ordered row list from the loaded activities
+        const rowsInOrder: PendingParticipantRow[] = [];
+        const seen = new Set<string>();
+        activities.forEach(a => {
+          const rowKey = criteriaRowKey(a.settings?.participantCriteria);
+          if (!seen.has(rowKey)) {
+            seen.add(rowKey);
+            rowsInOrder.push({ rowKey, criteria: a.settings?.participantCriteria || [] });
+          }
+        });
+        setParticipantRows(rowsInOrder);
       }
     };
     load();
@@ -335,11 +668,14 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
   // first; clicking inside its row adds an activity for that group.
   const handleAddParticipantRow = () => {
     const rowKey = criteriaRowKey([]);
-    setPendingRows(prev => (prev.some(r => r.rowKey === rowKey) ? prev : [...prev, { rowKey, criteria: [] }]));
+    setParticipantRows(prev => (prev.some(r => r.rowKey === rowKey) ? prev : [...prev, { rowKey, criteria: [] }]));
     setBuilderSelection({ type: 'row', rowKey });
   };
 
   const handleAddActivityInRow = (criteria: EventActivityParticipantBlock[], week: number) => {
+    // Make sure the row is tracked in the ordered list (covers derived rows)
+    const rowKey = criteriaRowKey(criteria);
+    setParticipantRows(prev => (prev.some(r => r.rowKey === rowKey) ? prev : [...prev, { rowKey, criteria }]));
     setCycleActivities(prev => {
       const next: CycleActivity[] = [
         ...prev,
@@ -374,16 +710,354 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
     });
   };
 
-  const handleRemoveSelectedActivity = () => {
-    if (selectedActivityIndex === null) return;
-    handleRemoveActivityAt(selectedActivityIndex);
+  // Enrollment for the selected training activity: Students/Instructors tabs;
+  // available pilots on the left (click to enroll), enrolled on the right
+  // (hover to remove). Both containers lay pilots out in multiple columns.
+  type ActivityEnrollmentRowPilot = Pick<EnrolledPilot, 'pilot_id' | 'callsign' | 'board_number' | 'enrollment_id' | 'squadron'>;
+  const [enrollmentTab, setEnrollmentTab] = useState<'students' | 'instructors'>('students');
+  const [availableView, setAvailableView] = useState<'suggested' | 'all'>('suggested');
+
+  // Training squadrons first, then by squadron designation, then board number
+  const sortPilotsForActivity = (list: ActivityEnrollmentRowPilot[]): ActivityEnrollmentRowPilot[] => {
+    const metaById = new Map(squadrons.map(s => [s.id, { type: s.squadron_type, designation: s.designation }]));
+    return [...list].sort((a, b) => {
+      const aMeta = a.squadron ? metaById.get(a.squadron.id) : undefined;
+      const bMeta = b.squadron ? metaById.get(b.squadron.id) : undefined;
+      const aTraining = aMeta?.type === 'training' ? 0 : 1;
+      const bTraining = bMeta?.type === 'training' ? 0 : 1;
+      if (aTraining !== bTraining) return aTraining - bTraining;
+      const aDesignation = aMeta?.designation || '￿';
+      const bDesignation = bMeta?.designation || '￿';
+      if (aDesignation !== bDesignation) return aDesignation.localeCompare(bDesignation);
+      return (parseInt(a.board_number || '', 10) || 9999) - (parseInt(b.board_number || '', 10) || 9999);
+    });
   };
 
-  // Selected participant row: its criteria come from any activity in the row,
-  // or the pending (still-empty) row entry
+  // Does a pilot satisfy the activity's Participants criteria? Empty/incomplete
+  // criteria match everyone; blocks are OR'd, criteria within a block AND'd,
+  // and multi-select values within one criterion are OR'd.
+  const pilotMatchesParticipantCriteria = (pilot: any, blocks: EventActivityParticipantBlock[] | undefined): boolean => {
+    const completedBlocks = (blocks || []).filter(b => b.criteria.some(c => (c.values && c.values.length > 0) || c.value));
+    if (completedBlocks.length === 0) return true;
+    return completedBlocks.some(block => block.criteria.every(criterion => {
+      const values = criterion.values ?? (criterion.value ? [criterion.value] : []);
+      if (values.length === 0) return true;
+      switch (criterion.type) {
+        case 'squadron':
+          return !!pilot.squadron?.id && values.includes(pilot.squadron.id);
+        case 'standing':
+          return !!pilot.currentStanding?.name && values.includes(pilot.currentStanding.name);
+        case 'status':
+          return !!pilot.currentStatus?.name && values.includes(pilot.currentStatus.name);
+        case 'qualification':
+          return (pilot.qualifications || []).some((q: any) => q.qualification?.type && values.includes(q.qualification.type));
+        default:
+          return true;
+      }
+    }));
+  };
+
+  const renderActivityEnrollment = (activity: CycleActivity) => {
+    const activityId = activity.id as string;
+    const participantCriteria = activity.settings?.participantCriteria;
+    const studentsEnrolled = enrolledPilots.filter(p => (p as any).cycle_activity_id === activityId);
+    const instructorsEnrolled = enrolledInstructors.filter(i => (i as any).cycle_activity_id === activityId);
+    const isStudents = enrollmentTab === 'students';
+    const enrolled: ActivityEnrollmentRowPilot[] = sortPilotsForActivity(isStudents ? studentsEnrolled : instructorsEnrolled);
+    // Available pilots are filtered by the activity's participant criteria
+    const suggested: ActivityEnrollmentRowPilot[] = (isStudents ? suggestedPilots : suggestedInstructors)
+      .filter(p => pilotMatchesParticipantCriteria(p, participantCriteria));
+    const others: ActivityEnrollmentRowPilot[] = (isStudents ? allPilots : allInstructorCandidates)
+      .filter(p => pilotMatchesParticipantCriteria(p, participantCriteria));
+    const available = sortPilotsForActivity(availableView === 'suggested' ? suggested : [...suggested, ...others]);
+    const onEnroll = (pilotId: string) => (isStudents ? handleEnrollPilot(pilotId, activityId) : handleEnrollInstructor(pilotId, activityId));
+    const onRemove = (enrollmentId: string) => (isStudents ? handleRemoveEnrollment(enrollmentId) : handleRemoveInstructor(enrollmentId));
+
+    // Transfer-all: enroll every currently visible available pilot (respects
+    // the Suggested/All toggle and criteria filter), or clear the enrolled list
+    const handleEnrollAllVisible = async () => {
+      if (!cycleId || available.length === 0) return;
+      const pilotIds = available.map(p => p.pilot_id);
+      try {
+        const { data: userData } = await supabase.auth.getUser();
+        let userProfileId: string | null = null;
+        if (userData.user) {
+          const { data: profile } = await supabase
+            .from('user_profiles')
+            .select('id')
+            .eq('auth_user_id', userData.user.id)
+            .single();
+          userProfileId = profile?.id || null;
+        }
+        if (isStudents) {
+          await enrollPilots(cycleId, pilotIds, userProfileId, activityId);
+          setEnrolledPilots(await getCycleEnrollments(cycleId));
+          const idSet = new Set(pilotIds);
+          setSuggestedPilots(prev => prev.filter(p => !idSet.has(p.pilot_id)));
+          setAllPilots(prev => prev.filter(p => !idSet.has(p.pilot_id)));
+        } else {
+          await enrollInstructors(cycleId, pilotIds, userProfileId, activityId);
+          setEnrolledInstructors(await getCycleInstructorEnrollments(cycleId));
+          const idSet = new Set(pilotIds);
+          setSuggestedInstructors(prev => prev.filter(p => !idSet.has(p.pilot_id)));
+          setAllInstructorCandidates(prev => prev.filter(p => !idSet.has(p.pilot_id)));
+        }
+      } catch (err: any) {
+        console.error('Error enrolling all pilots:', err);
+        setError(err.message || 'Failed to enroll pilots');
+        await (isStudents ? loadEnrollmentData() : loadInstructorData());
+      }
+    };
+
+    const handleRemoveAllEnrolled = async () => {
+      if (enrolled.length === 0) return;
+      try {
+        const { data: userData } = await supabase.auth.getUser();
+        let userProfileId: string | null = null;
+        if (userData.user) {
+          const { data: profile } = await supabase
+            .from('user_profiles')
+            .select('id')
+            .eq('auth_user_id', userData.user.id)
+            .single();
+          userProfileId = profile?.id || null;
+        }
+        for (const pilot of enrolled) {
+          if (!pilot.enrollment_id) continue;
+          if (isStudents) {
+            await removeEnrollment(pilot.enrollment_id);
+          } else {
+            await removeInstructor(pilot.enrollment_id, userProfileId);
+          }
+        }
+        // Full reload so removed pilots return to the available pools
+        await (isStudents ? loadEnrollmentData() : loadInstructorData());
+      } catch (err: any) {
+        console.error('Error removing all enrolled pilots:', err);
+        setError(err.message || 'Failed to remove pilots');
+        await (isStudents ? loadEnrollmentData() : loadInstructorData());
+      }
+    };
+
+    const renderRow = (pilot: ActivityEnrollmentRowPilot, action: 'remove' | 'enroll') => {
+      const hoverKey = `${enrollmentTab}:${action}:${pilot.pilot_id}`;
+      const isHovered = hoveredPilotId === hoverKey;
+      return (
+        <div
+          key={pilot.pilot_id}
+          onClick={action === 'enroll' ? () => onEnroll(pilot.pilot_id) : undefined}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            height: '26px',
+            cursor: 'pointer',
+            backgroundColor: isHovered ? 'rgba(100, 116, 139, 0.1)' : 'transparent',
+            transition: 'background-color 0.2s ease',
+            borderRadius: '6px',
+            padding: '2px 6px 2px 24px',
+            gap: '10px',
+            minWidth: 0,
+            boxSizing: 'border-box'
+          }}
+          onMouseEnter={() => setHoveredPilotId(hoverKey)}
+          onMouseLeave={() => setHoveredPilotId(null)}
+        >
+          <div style={{ marginLeft: '-20px', flexShrink: 0 }}>
+            <PilotIDBadgeSm
+              squadronTailCode={pilot.squadron?.tail_code}
+              boardNumber={pilot.board_number ?? undefined}
+              squadronInsigniaUrl={pilot.squadron?.insignia_url ?? undefined}
+            />
+          </div>
+          <span style={{
+            fontSize: '14px',
+            fontWeight: 700,
+            color: pilot.squadron?.primary_color || '#374151',
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            minWidth: 0,
+            flex: 1
+          }}>
+            {pilot.callsign}
+          </span>
+          {action === 'remove' && isHovered && (
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); if (pilot.enrollment_id) onRemove(pilot.enrollment_id); }}
+              style={{
+                padding: '2px',
+                backgroundColor: 'transparent',
+                color: '#DC2626',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                flexShrink: 0
+              }}
+              title="Remove"
+            >
+              <X size={14} />
+            </button>
+          )}
+        </div>
+      );
+    };
+
+    const pilotGrid = (pilots: ActivityEnrollmentRowPilot[], action: 'remove' | 'enroll') => (
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(170px, 1fr))', gap: '2px 16px' }}>
+        {pilots.map(pilot => renderRow(pilot, action))}
+      </div>
+    );
+
+    const containerStyle: React.CSSProperties = {
+      flex: 1,
+      minWidth: 0,
+      minHeight: 0,
+      border: '1px solid #E5E7EB',
+      borderRadius: '6px',
+      padding: '10px 12px',
+      overflowY: 'auto',
+      boxSizing: 'border-box'
+    };
+
+    return (
+      <div style={{ marginTop: '16px', flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+        {/* Students / Instructors tabs */}
+        <div style={{ display: 'flex', borderBottom: '1px solid #E2E8F0', marginBottom: '12px', flexShrink: 0 }}>
+          {(['students', 'instructors'] as const).map(tab => (
+            <button
+              key={tab}
+              type="button"
+              onClick={() => setEnrollmentTab(tab)}
+              style={{
+                padding: '8px 16px',
+                border: 'none',
+                backgroundColor: 'transparent',
+                color: enrollmentTab === tab ? '#2563EB' : '#64748B',
+                fontWeight: enrollmentTab === tab ? 600 : 500,
+                fontSize: '13px',
+                cursor: 'pointer',
+                borderBottom: enrollmentTab === tab ? '2px solid #2563EB' : '2px solid transparent',
+                fontFamily: 'Inter'
+              }}
+            >
+              {tab === 'students' ? `Students (${studentsEnrolled.length})` : `Instructors (${instructorsEnrolled.length})`}
+            </button>
+          ))}
+        </div>
+
+        {/* Available (left) | Enrolled (right) - both fill the remaining pane
+            height and scroll internally */}
+        <div style={{ display: 'flex', gap: '16px', alignItems: 'stretch', flex: 1, minHeight: 0 }}>
+          <div style={containerStyle}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+              <h3 style={{ fontSize: '12px', fontWeight: 600, color: '#374151', margin: 0, textTransform: 'uppercase', fontFamily: 'Inter' }}>
+                Available
+              </h3>
+              {/* Suggested / All toggle */}
+              <div style={{ display: 'flex', border: '1px solid #E2E8F0', borderRadius: '6px', overflow: 'hidden' }}>
+                {(['suggested', 'all'] as const).map(view => (
+                  <button
+                    key={view}
+                    type="button"
+                    onClick={() => setAvailableView(view)}
+                    style={{
+                      padding: '3px 10px',
+                      border: 'none',
+                      backgroundColor: availableView === view ? '#EFF6FF' : '#FFFFFF',
+                      color: availableView === view ? '#2563EB' : '#64748B',
+                      fontWeight: availableView === view ? 600 : 500,
+                      fontSize: '11px',
+                      cursor: 'pointer',
+                      fontFamily: 'Inter'
+                    }}
+                  >
+                    {view === 'suggested'
+                      ? (isStudents ? 'Suggested Students' : 'Suggested Instructors')
+                      : 'All Pilots'}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {available.length > 0 ? (
+              pilotGrid(available, 'enroll')
+            ) : (
+              <div style={{ padding: '12px', color: '#94A3B8', fontSize: '12px', fontStyle: 'italic', fontFamily: 'Inter' }}>
+                {availableView === 'suggested'
+                  ? 'No available pilots match the auto-enrollment rules. Try All Pilots.'
+                  : 'Everyone is already enrolled.'}
+              </div>
+            )}
+          </div>
+
+          {/* Transfer-all controls */}
+          <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: '8px', flexShrink: 0 }}>
+            <button
+              type="button"
+              onClick={handleEnrollAllVisible}
+              disabled={available.length === 0}
+              title={`Enroll all ${available.length} shown`}
+              style={{
+                width: '28px',
+                height: '28px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                border: '1px solid #CBD5E1',
+                backgroundColor: '#FFFFFF',
+                color: available.length === 0 ? '#D1D5DB' : '#2563EB',
+                borderRadius: '6px',
+                cursor: available.length === 0 ? 'default' : 'pointer'
+              }}
+            >
+              <ChevronsRight size={16} />
+            </button>
+            <button
+              type="button"
+              onClick={handleRemoveAllEnrolled}
+              disabled={enrolled.length === 0}
+              title="Remove all enrolled"
+              style={{
+                width: '28px',
+                height: '28px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                border: '1px solid #CBD5E1',
+                backgroundColor: '#FFFFFF',
+                color: enrolled.length === 0 ? '#D1D5DB' : '#64748B',
+                borderRadius: '6px',
+                cursor: enrolled.length === 0 ? 'default' : 'pointer'
+              }}
+            >
+              <ChevronsLeft size={16} />
+            </button>
+          </div>
+
+          <div style={containerStyle}>
+            <h3 style={{ fontSize: '12px', fontWeight: 600, color: '#374151', margin: '0 0 8px 0', textTransform: 'uppercase', fontFamily: 'Inter' }}>
+              Enrolled ({enrolled.length})
+            </h3>
+            {enrolled.length === 0 ? (
+              <div style={{ padding: '12px', backgroundColor: '#F9FAFB', borderRadius: '6px', color: '#6B7280', fontSize: '12px', textAlign: 'center', fontFamily: 'Inter' }}>
+                No {enrollmentTab} enrolled yet — click a pilot on the left
+              </div>
+            ) : (
+              pilotGrid(enrolled, 'remove')
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // Selected participant row: its criteria come from the ordered row list, or
+  // any activity in the row (derived fallback)
   const selectedRowCriteria = builderSelection?.type === 'row'
-    ? (cycleActivities.find(a => criteriaRowKey(a.settings?.participantCriteria) === builderSelection.rowKey)?.settings?.participantCriteria
-      ?? pendingRows.find(r => r.rowKey === builderSelection.rowKey)?.criteria
+    ? (participantRows.find(r => r.rowKey === builderSelection.rowKey)?.criteria
+      ?? cycleActivities.find(a => criteriaRowKey(a.settings?.participantCriteria) === builderSelection.rowKey)?.settings?.participantCriteria
       ?? [])
     : [];
 
@@ -396,8 +1070,9 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
         ? { ...a, settings: { ...(a.settings || {}), participantCriteria: blocks } }
         : a
     ));
-    setPendingRows(prev => {
+    setParticipantRows(prev => {
       const updated = prev.map(r => (r.rowKey === oldKey ? { rowKey: newKey, criteria: blocks } : r));
+      // If two rows end up with identical criteria they merge - keep the first
       const seen = new Set<string>();
       return updated.filter(r => (seen.has(r.rowKey) ? false : (seen.add(r.rowKey), true)));
     });
@@ -523,10 +1198,13 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
         enrolledIds = new Set(stagedEnrollmentIds);
       }
 
-      // Load suggested pilots based on syllabus rules (only if syllabus is selected)
+      // Load suggested pilots based on syllabus rules (only if syllabus is
+      // selected). Block-aware evaluator - the legacy getSuggestedEnrollments
+      // only understands the old flat rule format and returns nothing for
+      // block-format rules.
       let suggested: EnrolledPilot[] = [];
       if (selectedSyllabusId) {
-        suggested = await getSuggestedEnrollments(selectedSyllabusId);
+        suggested = await getSuggestedStudentEnrollments(selectedSyllabusId);
         // Filter out already enrolled/staged pilots
         const filteredSuggestions = suggested.filter(p => !enrolledIds.has(p.pilot_id));
         setSuggestedPilots(filteredSuggestions);
@@ -974,6 +1652,10 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
+    // Guard against a double-click/double-submit firing onSave twice before
+    // the parent's isSaving state re-renders the button as disabled
+    if (isSaving) return;
+
     if (!name.trim()) {
       setError('Please enter a cycle name');
       return;
@@ -1043,7 +1725,9 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
       syllabusId: type === 'Training'
         ? (activitiesEnabled ? (derivedSyllabusId || selectedSyllabusId || undefined) : (selectedSyllabusId || undefined))
         : undefined,
-      autoCreateEvents: !hasEvents && autoCreateEvents, // Only for cycles with no events
+      // Flag-on, weekly events are always generated from the activities; the
+      // legacy opt-in toggle only applies flag-off
+      autoCreateEvents: !activitiesEnabled && !hasEvents && autoCreateEvents,
       stagedEnrollmentIds: stagedEnrollmentIds.length > 0 ? stagedEnrollmentIds : undefined,
       stagedInstructorIds: stagedInstructorIds.length > 0 ? stagedInstructorIds : undefined,
       // Developer-flagged: cycle-level event defaults + blocked-out activities.
@@ -1213,7 +1897,7 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
         <form onSubmit={handleSubmit}>
           {/* Flag-on: two panes - settings column (Details/Options/Reminders/
               Publication stacked) on the left, activities calendar on the right */}
-          <div style={activitiesEnabled ? { display: 'flex', alignItems: 'stretch', height: 'min(760px, calc(92vh - 150px))' } : undefined}>
+          <div style={activitiesEnabled ? { display: 'flex', alignItems: 'stretch', height: 'min(940px, calc(94vh - 130px))' } : undefined}>
           <div style={activitiesEnabled ? { width: '500px', flexShrink: 0, display: 'flex', flexDirection: 'column', borderRight: '1px solid #E2E8F0' } : { display: 'contents' }}>
           {/* Left-pane step tabs (flag-on): one settings section at a time,
               the activities calendar stays on the right */}
@@ -1372,8 +2056,9 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
             </div>
 
 
-            {/* Auto-create Events Toggle - show for new cycles OR cycles with no events */}
-            {!hasEvents && type === 'Training' && selectedSyllabusId && (
+            {/* Auto-create Events Toggle - flag-off only (flag-on always
+                generates weekly events from the activities) */}
+            {!activitiesEnabled && !hasEvents && type === 'Training' && selectedSyllabusId && (
               <div style={{
                 marginBottom: '16px',
                 padding: '12px',
@@ -1936,9 +2621,11 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
           )}
           </div>
 
-          {/* Right pane: activities calendar + selected activity/participants panel */}
+          {/* Right pane: activities calendar + selected activity/participants
+              panel on top (scrolls), enrollment lists filling what remains */}
           {activitiesEnabled && (
-            <div style={{ flex: 1, overflowY: 'auto', padding: '16px', minWidth: 0 }}>
+            <div style={{ flex: 1, padding: '16px', minWidth: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+            <div style={{ flexShrink: 1, minHeight: 0, overflowY: 'auto' }}>
               <CycleActivitiesBuilder
                 activities={cycleActivities}
                 onChange={setCycleActivities}
@@ -1952,11 +2639,80 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
                 syllabusNames={syllabusNames}
                 selection={builderSelection}
                 onSelect={setBuilderSelection}
-                pendingRows={pendingRows}
+                participantRows={participantRows}
                 onAddParticipantRow={handleAddParticipantRow}
                 onAddActivityInRow={handleAddActivityInRow}
                 onRemoveActivity={handleRemoveActivityAt}
+                cycleEvents={cycleEventItems}
+                onMoveEvent={handleMoveEventToWeek}
+                onResetActivity={handleResetActivity}
+                onDeleteEvent={handleDeleteEventFromActivity}
+                onAddEventInWeek={handleAddEventInWeek}
               />
+
+              {/* Add-event picker: recommends syllabus missions not yet inside
+                  the activity (portaled so nothing in the dialog clips it) */}
+              {addEventPicker && createPortal(
+                <>
+                  <div
+                    onClick={() => setAddEventPicker(null)}
+                    style={{ position: 'fixed', inset: 0, zIndex: 2999 }}
+                  />
+                  <div style={{
+                    position: 'fixed',
+                    left: `${Math.min(addEventPicker.x, window.innerWidth - 280)}px`,
+                    top: `${Math.min(addEventPicker.y, window.innerHeight - 300)}px`,
+                    width: '260px',
+                    maxHeight: '280px',
+                    overflowY: 'auto',
+                    backgroundColor: '#FFFFFF',
+                    border: '1px solid #E5E7EB',
+                    borderRadius: '8px',
+                    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+                    padding: '8px',
+                    zIndex: 3000
+                  }}>
+                    <div style={{ fontSize: '11px', fontWeight: 600, color: '#64748B', textTransform: 'uppercase', fontFamily: 'Inter', padding: '2px 6px 6px 6px' }}>
+                      Add event — Week {addEventPicker.week}
+                    </div>
+                    {addEventPicker.missing.length === 0 ? (
+                      <div style={{ fontSize: '12px', color: '#94A3B8', fontFamily: 'Inter', fontStyle: 'italic', padding: '4px 6px' }}>
+                        Every lesson in this syllabus is already scheduled.
+                      </div>
+                    ) : (
+                      addEventPicker.missing.map(mission => (
+                        <button
+                          key={mission.id}
+                          type="button"
+                          onClick={async () => {
+                            const activity = cycleActivities[addEventPicker.activityIndex];
+                            setAddEventPicker(null);
+                            if (activity) await createEventForActivityWeek(activity, addEventPicker.week, mission);
+                          }}
+                          style={{
+                            display: 'block',
+                            width: '100%',
+                            textAlign: 'left',
+                            padding: '6px 8px',
+                            border: 'none',
+                            backgroundColor: 'transparent',
+                            borderRadius: '4px',
+                            fontSize: '13px',
+                            color: '#374151',
+                            fontFamily: 'Inter',
+                            cursor: 'pointer'
+                          }}
+                          onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#F1F5F9'; }}
+                          onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
+                        >
+                          {mission.mission_name}
+                        </button>
+                      ))
+                    )}
+                  </div>
+                </>,
+                document.body
+              )}
 
               {builderSelection?.type === 'row' && (
                 <div style={{ marginTop: '16px', padding: '12px', border: '1px solid #CBD5E1', borderRadius: '8px', backgroundColor: '#FFFFFF' }}>
@@ -1967,7 +2723,6 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
                     blocks={selectedRowCriteria as any}
                     onChange={(blocks) => handleUpdateRowCriteria(blocks)}
                     standings={standings}
-                    statuses={statuses}
                     qualifications={qualifications}
                     squadrons={squadrons.map(s => ({ id: s.id, name: s.name, designation: s.designation, insignia_url: s.insignia_url }))}
                   />
@@ -1976,59 +2731,42 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
 
               {selectedActivityIndex !== null && cycleActivities[selectedActivityIndex] && (
                 <>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '16px' }}>
+                  <div style={{ marginTop: '16px' }}>
                     <span style={{ fontSize: '13px', fontWeight: 600, color: '#64748B', fontFamily: 'Inter', textTransform: 'uppercase' }}>
                       Activity — Weeks {cycleActivities[selectedActivityIndex].startWeek}–{cycleActivities[selectedActivityIndex].endWeek}
                     </span>
-                    <button
-                      type="button"
-                      onClick={handleRemoveSelectedActivity}
-                      style={{
-                        padding: '6px 12px',
-                        border: '1px solid #E5E7EB',
-                        backgroundColor: 'white',
-                        color: '#9CA3AF',
-                        borderRadius: '6px',
-                        cursor: 'pointer',
-                        fontSize: '13px',
-                        fontFamily: 'Inter',
-                        fontWeight: 500
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.backgroundColor = '#FEE2E2';
-                        e.currentTarget.style.color = '#DC2626';
-                        e.currentTarget.style.borderColor = '#FECACA';
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.backgroundColor = 'white';
-                        e.currentTarget.style.color = '#9CA3AF';
-                        e.currentTarget.style.borderColor = '#E5E7EB';
-                      }}
-                    >
-                      Remove Activity
-                    </button>
                   </div>
                   <CycleActivityConfigPanel
                     activity={cycleActivities[selectedActivityIndex]}
                     onChange={handleUpdateSelectedActivity}
-                    squadrons={squadrons.map(s => ({ id: s.id, name: s.name, designation: s.designation, insignia_url: s.insignia_url }))}
-                    enrollment={(() => {
-                      const activityId = cycleActivities[selectedActivityIndex].id;
-                      return {
-                        activityId,
-                        students: enrolledPilots.filter(p => (p as any).cycle_activity_id === activityId),
-                        instructors: enrolledInstructors.filter(i => (i as any).cycle_activity_id === activityId),
-                        availableStudents: [...suggestedPilots, ...allPilots],
-                        availableInstructors: [...suggestedInstructors, ...allInstructorCandidates],
-                        onEnrollStudent: (pilotId: string) => handleEnrollPilot(pilotId, activityId || null),
-                        onRemoveStudent: handleRemoveEnrollment,
-                        onEnrollInstructor: (pilotId: string) => handleEnrollInstructor(pilotId, activityId || null),
-                        onRemoveInstructor: handleRemoveInstructor
-                      };
-                    })()}
+                    weekCount={weekCount}
+                    onRequireWeeks={(weeks) => {
+                      if (weeks > weekCount) {
+                        setWeekCount(weeks);
+                        lastChanged.current = 'weeks'; // recalculates the end date
+                      }
+                    }}
                   />
+
+                  {/* Enrollment renders below this scroll section so it can
+                      fill the remaining pane height */}
+                  {cycleActivities[selectedActivityIndex].kind === 'syllabus'
+                    && (!cycleId || !cycleActivities[selectedActivityIndex].id) && (
+                    <p style={{ fontSize: '12px', color: '#94A3B8', margin: '12px 0 0 0', fontFamily: 'Inter', fontStyle: 'italic' }}>
+                      Save the cycle, then reopen it to enroll students and instructors for this activity.
+                    </p>
+                  )}
                 </>
               )}
+            </div>
+
+            {/* Training activities carry their own Students/Instructors
+                enrollment (rows keep cycle_id so PTR keeps working) */}
+            {selectedActivityIndex !== null
+              && cycleActivities[selectedActivityIndex]?.kind === 'syllabus'
+              && cycleId
+              && cycleActivities[selectedActivityIndex]?.id
+              && renderActivityEnrollment(cycleActivities[selectedActivityIndex])}
             </div>
           )}
           </div>
