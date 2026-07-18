@@ -17,11 +17,99 @@ interface ParticipantBlocksEditorProps {
   onChange: (blocks: EventActivityParticipantBlock[]) => void;
   squadrons: SquadronOption[];
   standings: NamedOption[];
-  statuses: NamedOption[];
   qualifications: NamedOption[];
 }
 
 type RuleType = EventActivityParticipantRule['type'];
+
+/**
+ * Read-only participant summary: one bubble per criteria block, containing the
+ * block's squadron insignias together with its other criteria names. Shared by
+ * the cycle builder row headers and the event dialog activity cards.
+ */
+export const ParticipantCriteriaBubbles: React.FC<{
+  blocks: EventActivityParticipantBlock[];
+  squadrons: SquadronOption[];
+  maxWidth?: number;
+}> = ({ blocks, squadrons, maxWidth }) => {
+  const completedBlocks = blocks
+    .map(block => {
+      const squadronIds = new Set<string>();
+      const otherCriteria: string[] = [];
+      block.criteria.forEach(criterion => {
+        const values = criterion.values ?? (criterion.value ? [criterion.value] : []);
+        if (criterion.type === 'squadron') {
+          values.forEach(id => squadronIds.add(id));
+        } else {
+          values.forEach(v => otherCriteria.push(v));
+        }
+      });
+      return { squadrons: squadrons.filter(s => squadronIds.has(s.id)), otherCriteria };
+    })
+    .filter(block => block.squadrons.length > 0 || block.otherCriteria.length > 0);
+
+  if (completedBlocks.length === 0) {
+    return (
+      <span style={{ fontSize: '11px', color: '#94A3B8', fontFamily: 'Inter', fontStyle: 'italic' }}>
+        All participants
+      </span>
+    );
+  }
+
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap' }}>
+      {completedBlocks.map((block, blockIndex) => (
+        <span
+          key={blockIndex}
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '4px',
+            backgroundColor: '#F1F5F9',
+            border: '1px solid #E2E8F0',
+            borderRadius: '9999px',
+            padding: '2px 8px 2px 4px',
+            maxWidth: maxWidth ? `${maxWidth}px` : undefined
+          }}
+        >
+          {block.squadrons.map(squadron => (
+            squadron.insignia_url ? (
+              <span
+                key={squadron.id}
+                title={squadron.designation || squadron.name}
+                style={{
+                  width: '18px',
+                  height: '18px',
+                  backgroundImage: `url(${squadron.insignia_url})`,
+                  backgroundSize: 'contain',
+                  backgroundRepeat: 'no-repeat',
+                  backgroundPosition: 'center',
+                  flexShrink: 0
+                }}
+              />
+            ) : (
+              <span key={squadron.id} style={{ fontSize: '10px', fontWeight: 600, color: '#475569' }}>
+                {squadron.designation || squadron.name}
+              </span>
+            )
+          ))}
+          {block.otherCriteria.length > 0 && (
+            <span style={{
+              fontSize: '10px',
+              fontWeight: 500,
+              color: '#1E40AF',
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis'
+            }}>
+              {block.otherCriteria.join(', ')}
+            </span>
+          )}
+        </span>
+      ))}
+    </div>
+  );
+};
 
 /** Selected values for a rule type within a block (squadron stores ids, others names) */
 const selectedValues = (block: EventActivityParticipantBlock, type: RuleType): string[] => {
@@ -56,7 +144,6 @@ const ParticipantBlocksEditor: React.FC<ParticipantBlocksEditorProps> = ({
   onChange,
   squadrons,
   standings,
-  statuses,
   qualifications
 }) => {
   // Always present at least one (possibly empty) group to fill in - no extra
@@ -103,8 +190,10 @@ const ParticipantBlocksEditor: React.FC<ParticipantBlocksEditorProps> = ({
           borderRadius: '4px',
           padding: '4px',
           backgroundColor: '#FFFFFF',
-          maxHeight: '164px',
-          overflowY: 'auto'
+          // Uniform height across all four lists: exactly five rows visible
+          height: '148px',
+          overflowY: 'auto',
+          boxSizing: 'border-box'
         }}>
           {options.map(option => {
             const value = useIdValues ? option.id : option.name;
@@ -115,7 +204,9 @@ const ParticipantBlocksEditor: React.FC<ParticipantBlocksEditorProps> = ({
                 key={option.id}
                 onClick={() => commitBlock(blockIndex, withToggledValue(block, type, value))}
                 style={{
-                  padding: '4px 6px',
+                  height: '26px',
+                  padding: '0 6px',
+                  boxSizing: 'border-box',
                   cursor: 'pointer',
                   display: 'flex',
                   alignItems: 'center',
@@ -191,7 +282,7 @@ const ParticipantBlocksEditor: React.FC<ParticipantBlocksEditorProps> = ({
 
   return (
     <div>
-      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'stretch', gap: '12px' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
         {displayBlocks.map((block, blockIndex) => (
           <React.Fragment key={blockIndex}>
             {blockIndex > 0 && (
@@ -209,8 +300,6 @@ const ParticipantBlocksEditor: React.FC<ParticipantBlocksEditorProps> = ({
               </span>
             )}
             <div style={{
-              flex: '1 1 460px',
-              minWidth: '380px',
               backgroundColor: '#F9FAFB',
               border: '1px solid #E5E7EB',
               borderRadius: '8px',
@@ -241,11 +330,12 @@ const ParticipantBlocksEditor: React.FC<ParticipantBlocksEditorProps> = ({
                   <X size={16} color="#64748B" />
                 </button>
               )}
+              {/* Status is deliberately absent - On Leave/Retired/AWOL/Removed
+                  members aren't participating in anything */}
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
                 {renderOptionList(block, blockIndex, 'squadron', 'Squadron', squadrons, true)}
-                {renderOptionList(block, blockIndex, 'qualification', 'Qualification', qualifications, false)}
                 {renderOptionList(block, blockIndex, 'standing', 'Standing', standings, false)}
-                {renderOptionList(block, blockIndex, 'status', 'Status', statuses, false)}
+                {renderOptionList(block, blockIndex, 'qualification', 'Qualification', qualifications, false)}
               </div>
             </div>
           </React.Fragment>

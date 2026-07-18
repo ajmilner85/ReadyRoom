@@ -1135,6 +1135,7 @@ const mapDbEventActivity = (row: any): EventActivity => ({
   id: row.id,
   eventId: row.event_id,
   cycleId: row.cycle_id || undefined,
+  cycleActivityId: row.cycle_activity_id || undefined,
   kind: row.kind,
   displayOrder: row.display_order ?? 0,
   syllabusMissionId: row.syllabus_mission_id || undefined,
@@ -1193,17 +1194,80 @@ export const saveEventActivities = async (
   cycleId: string | null,
   activities: EventActivity[]
 ): Promise<{ activities: EventActivity[]; error: any }> => {
+  // Two-way reflection: an activity added ad-hoc on a cycle event (no cycle
+  // activity link) gets a matching single-week cycle activity created, so the
+  // cycle builder shows what is actually scheduled.
+  if (cycleId && activities.some(a => !a.cycleActivityId && a.kind !== 'qualification')) {
+    try {
+      const [{ data: eventRow }, { data: cycleRow }] = await Promise.all([
+        (supabase as any).from('events').select('start_datetime').eq('id', eventId).single(),
+        (supabase as any).from('cycles').select('start_date').eq('id', cycleId).single()
+      ]);
+      if (eventRow?.start_datetime && cycleRow?.start_date) {
+        const week = Math.max(1, Math.floor(
+          (new Date(eventRow.start_datetime).getTime() - new Date(cycleRow.start_date).getTime()) / (7 * 24 * 60 * 60 * 1000)
+        ) + 1);
+
+        for (const activity of activities) {
+          if (activity.cycleActivityId || activity.kind === 'qualification') continue;
+
+          let cycleActivityRow: any = null;
+          if (activity.kind === 'lesson' && activity.syllabusMissionId) {
+            const { data: mission } = await (supabase as any)
+              .from('training_syllabus_missions')
+              .select('syllabus_id')
+              .eq('id', activity.syllabusMissionId)
+              .single();
+            if (!mission?.syllabus_id) continue;
+            cycleActivityRow = {
+              cycle_id: cycleId,
+              kind: 'syllabus',
+              syllabus_id: mission.syllabus_id,
+              label: activity.label || null,
+              start_week: week,
+              end_week: week,
+              settings: activity.settings || {}
+            };
+          } else if (activity.kind === 'objectives') {
+            cycleActivityRow = {
+              cycle_id: cycleId,
+              kind: 'objectives',
+              ad_hoc_objectives: activity.adHocObjectives || [],
+              label: activity.label || null,
+              start_week: week,
+              end_week: week,
+              settings: activity.settings || {}
+            };
+          }
+          if (!cycleActivityRow) continue;
+
+          const { data: createdCycleActivity } = await (supabase as any)
+            .from('cycle_activities')
+            .insert(cycleActivityRow)
+            .select('id')
+            .single();
+          if (createdCycleActivity?.id) {
+            activity.cycleActivityId = createdCycleActivity.id;
+          }
+        }
+      }
+    } catch (reflectionError) {
+      console.warn('[EVENT-ACTIVITIES] Could not reflect ad-hoc activities into the cycle:', reflectionError);
+    }
+  }
+
   // Load existing rows to compute deletions (grades referencing a deleted
   // activity fall back to NULL via ON DELETE SET NULL)
   const { data: existing, error: loadError } = await (supabase as any)
     .from('event_activities')
-    .select('id')
+    .select('id, cycle_activity_id')
     .eq('event_id', eventId);
 
   if (loadError) return { activities: [], error: loadError };
 
   const keptIds = new Set(activities.filter(a => a.id).map(a => a.id as string));
-  const toDelete = (existing || []).map((r: any) => r.id).filter((id: string) => !keptIds.has(id));
+  const toDeleteRows = (existing || []).filter((r: any) => !keptIds.has(r.id));
+  const toDelete = toDeleteRows.map((r: any) => r.id);
 
   if (toDelete.length > 0) {
     const { error: deleteError } = await (supabase as any)
@@ -1211,6 +1275,35 @@ export const saveEventActivities = async (
       .delete()
       .in('id', toDelete);
     if (deleteError) return { activities: [], error: deleteError };
+
+    // Reflection cleanup: a deleted event activity that was reflected into a
+    // single-week cycle block (start_week === end_week) had that block
+    // created solely to represent it, so remove the block too. Multi-week
+    // gantt-authored activities are left alone - dropping one event's copy
+    // shouldn't delete a syllabus's whole week span.
+    const linkedCycleActivityIds = Array.from(new Set(
+      toDeleteRows.map((r: any) => r.cycle_activity_id).filter(Boolean)
+    ));
+    if (linkedCycleActivityIds.length > 0) {
+      const { data: cycleActivityRows } = await (supabase as any)
+        .from('cycle_activities')
+        .select('id, start_week, end_week')
+        .in('id', linkedCycleActivityIds);
+
+      const singleWeekIds = (cycleActivityRows || [])
+        .filter((r: any) => r.start_week === r.end_week)
+        .map((r: any) => r.id);
+
+      for (const cycleActivityId of singleWeekIds) {
+        const { count } = await (supabase as any)
+          .from('event_activities')
+          .select('id', { count: 'exact', head: true })
+          .eq('cycle_activity_id', cycleActivityId);
+        if (!count) {
+          await (supabase as any).from('cycle_activities').delete().eq('id', cycleActivityId);
+        }
+      }
+    }
   }
 
   const saved: EventActivity[] = [];
@@ -1219,6 +1312,7 @@ export const saveEventActivities = async (
     const row: any = {
       event_id: eventId,
       cycle_id: cycleId,
+      cycle_activity_id: activity.cycleActivityId || null,
       kind: activity.kind,
       display_order: i,
       // 'qualification' activities may also reference the lesson being flown

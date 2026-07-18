@@ -581,6 +581,43 @@ export const EventDialog: React.FC<EventDialogProps> = ({
     if (cycleSettings.scheduledPublicationOffset) setScheduledPublicationOffset(cycleSettings.scheduledPublicationOffset);
   }, [activitiesEnabled, cycleData, initialData?.id]);
 
+  // Map a cycle activity to an event activity (shared by prefill and merge):
+  // syllabus-kind picks the next unused lesson of its syllabus in this cycle
+  const cycleActivityToEventActivity = async (
+    cycleActivity: CycleActivity,
+    displayOrder: number,
+    usedMissionIds: Set<string | null>
+  ): Promise<EventActivity> => {
+    if (cycleActivity.kind === 'objectives') {
+      return {
+        kind: 'objectives',
+        displayOrder,
+        cycleActivityId: cycleActivity.id,
+        label: cycleActivity.label,
+        adHocObjectives: cycleActivity.adHocObjectives || [],
+        settings: cycleActivity.settings || {}
+      };
+    }
+    let missionId: string | undefined;
+    if (cycleActivity.syllabusId) {
+      // week_number is missing from the stale generated types - cast
+      const { data: missions } = await (supabase as any)
+        .from('training_syllabus_missions')
+        .select('id, week_number, mission_number')
+        .eq('syllabus_id', cycleActivity.syllabusId)
+        .order('week_number');
+      missionId = ((missions || []) as Array<{ id: string }>).find(m => !usedMissionIds.has(m.id))?.id;
+    }
+    return {
+      kind: 'lesson',
+      displayOrder,
+      cycleActivityId: cycleActivity.id,
+      syllabusMissionId: missionId,
+      label: cycleActivity.label,
+      settings: cycleActivity.settings || {}
+    };
+  };
+
   // Cycle Activities: prefill a NEW event's activities from the cycle
   // activities covering the event's week. Syllabus-kind activities pick the
   // next unused lesson of their syllabus within this cycle.
@@ -611,34 +648,7 @@ export const EventDialog: React.FC<EventDialogProps> = ({
 
       const prefilled: EventActivity[] = [];
       for (const cycleActivity of covering) {
-        if (cycleActivity.kind === 'objectives') {
-          prefilled.push({
-            kind: 'objectives',
-            displayOrder: prefilled.length,
-            label: cycleActivity.label,
-            adHocObjectives: cycleActivity.adHocObjectives || [],
-            settings: cycleActivity.settings || {}
-          });
-          continue;
-        }
-        // Syllabus-kind: pick the next unused lesson of that syllabus
-        let missionId: string | undefined;
-        if (cycleActivity.syllabusId) {
-          // week_number is missing from the stale generated types - cast
-          const { data: missions } = await (supabase as any)
-            .from('training_syllabus_missions')
-            .select('id, week_number, mission_number')
-            .eq('syllabus_id', cycleActivity.syllabusId)
-            .order('week_number');
-          missionId = ((missions || []) as Array<{ id: string }>).find(m => !usedMissionIds.has(m.id))?.id;
-        }
-        prefilled.push({
-          kind: 'lesson',
-          displayOrder: prefilled.length,
-          syllabusMissionId: missionId,
-          label: cycleActivity.label,
-          settings: cycleActivity.settings || {}
-        });
+        prefilled.push(await cycleActivityToEventActivity(cycleActivity, prefilled.length, usedMissionIds));
       }
 
       if (!cancelled && prefilled.length > 0) {
@@ -648,6 +658,50 @@ export const EventDialog: React.FC<EventDialogProps> = ({
     prefill();
     return () => { cancelled = true; };
   }, [activitiesEnabled, cycleData, eventActivities.length, initialData?.id, datetime, cycleId]);
+
+  // Cycle Activities: when EDITING an event, merge in any cycle activities that
+  // cover its week but aren't represented yet (added to the cycle after this
+  // event was created). Linked via cycleActivityId, so nothing duplicates.
+  const cycleMergeAppliedRef = useRef(false);
+  useEffect(() => {
+    if (!activitiesEnabled || !initialData?.id || !activitiesLoaded || cycleMergeAppliedRef.current) return;
+    if (!cycleData || cycleData.activities.length === 0 || !cycleData.startDate || !cycleId) return;
+    if (!initialData.datetime) return;
+
+    cycleMergeAppliedRef.current = true;
+    let cancelled = false;
+
+    const merge = async () => {
+      const cycleStart = new Date(cycleData.startDate as string);
+      const eventDate = new Date(initialData.datetime);
+      const week = Math.max(1, Math.floor((eventDate.getTime() - cycleStart.getTime()) / (7 * 24 * 60 * 60 * 1000)) + 1);
+
+      const representedCycleActivityIds = new Set(eventActivities.map(a => a.cycleActivityId).filter(Boolean));
+      const missing = cycleData.activities.filter(a =>
+        a.id && a.startWeek <= week && week <= a.endWeek && !representedCycleActivityIds.has(a.id)
+      );
+      if (missing.length === 0) return;
+
+      const { data: cycleEvents } = await supabase
+        .from('events')
+        .select('syllabus_mission_id')
+        .eq('cycle_id', cycleId)
+        .not('syllabus_mission_id', 'is', null);
+      const usedMissionIds = new Set((cycleEvents || []).map(e => e.syllabus_mission_id));
+
+      const appended: EventActivity[] = [];
+      for (const cycleActivity of missing) {
+        appended.push(await cycleActivityToEventActivity(cycleActivity, eventActivities.length + appended.length, usedMissionIds));
+      }
+
+      if (!cancelled && appended.length > 0) {
+        setEventActivities(prev => [...prev, ...appended]);
+      }
+    };
+    merge();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activitiesEnabled, activitiesLoaded, cycleData, initialData?.id, cycleId]);
 
   // Event Activities: prefill one lesson activity for new Training-cycle events
   // using the auto-selected next mission (legacy behavior; skipped when the

@@ -4,7 +4,7 @@ import { supabase } from '../../../utils/supabaseClient';
 import { getActiveQualifications, Qualification } from '../../../utils/qualificationService';
 import SupportRoleRequirementsEditor from './SupportRoleRequirementsEditor';
 import ReferenceMaterialsInput from './ReferenceMaterialsInput';
-import ParticipantBlocksEditor from './ParticipantBlocksEditor';
+import ParticipantBlocksEditor, { ParticipantCriteriaBubbles } from './ParticipantBlocksEditor';
 import type {
   EventActivity,
   EventActivityKind,
@@ -139,7 +139,7 @@ const LessonSelect: React.FC<{
     (shared with the cycle activity config panel) */
 export const CollapsibleSection: React.FC<{
   title: string;
-  summary?: string;
+  summary?: React.ReactNode;
   expanded: boolean;
   onToggle: () => void;
   children: React.ReactNode;
@@ -188,7 +188,6 @@ const EventActivitiesEditor: React.FC<EventActivitiesEditorProps> = ({
 }) => {
   const [qualifications, setQualifications] = useState<Qualification[]>([]);
   const [standings, setStandings] = useState<Array<{ id: string; name: string }>>([]);
-  const [statuses, setStatuses] = useState<Array<{ id: string; name: string }>>([]);
   const [lessonSources, setLessonSources] = useState<LessonSource[]>([]);
   // UI kind chosen before a lesson is picked (both 'syllabus' and 'standalone'
   // persist as DB kind 'lesson'; the source syllabus disambiguates after selection)
@@ -198,15 +197,13 @@ const EventActivitiesEditor: React.FC<EventActivitiesEditorProps> = ({
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
-      const [{ data: quals }, standingsData, statusesData] = await Promise.all([
+      const [{ data: quals }, standingsData] = await Promise.all([
         getActiveQualifications(),
-        supabase.from('standings').select('id, name').order('name'),
-        supabase.from('statuses').select('id, name').order('name')
+        supabase.from('standings').select('id, name').order('name')
       ]);
       if (cancelled) return;
       setQualifications(quals || []);
       setStandings(standingsData.data || []);
-      setStatuses(statusesData.data || []);
     };
     load();
     return () => { cancelled = true; };
@@ -397,7 +394,6 @@ const EventActivitiesEditor: React.FC<EventActivitiesEditorProps> = ({
           sources={sourcesForUiKind(deriveUiKind(activity, index))}
           qualifications={qualifications}
           standings={standings}
-          statuses={statuses}
           squadrons={squadrons}
           sectionKeyPrefix={activityKey(activity, index)}
           expandedSections={expandedSections}
@@ -425,7 +421,6 @@ const ActivityCard: React.FC<{
   sources: LessonSource[];
   qualifications: Qualification[];
   standings: Array<{ id: string; name: string }>;
-  statuses: Array<{ id: string; name: string }>;
   squadrons: Array<{ id: string; name: string; designation?: string; insignia_url?: string | null }>;
   sectionKeyPrefix: string;
   expandedSections: Set<string>;
@@ -447,7 +442,6 @@ const ActivityCard: React.FC<{
   sources,
   qualifications,
   standings,
-  statuses,
   squadrons,
   sectionKeyPrefix,
   expandedSections,
@@ -773,7 +767,7 @@ const ActivityCard: React.FC<{
 
         <CollapsibleSection
           title="Participants"
-          summary={`${participantBlocks.length}`}
+          summary={<ParticipantCriteriaBubbles blocks={participantBlocks} squadrons={squadrons} maxWidth={280} />}
           expanded={isExpanded('participants')}
           onToggle={() => onToggleSection(sectionKey('participants'))}
         >
@@ -781,7 +775,6 @@ const ActivityCard: React.FC<{
             blocks={participantBlocks}
             onChange={(blocks) => onUpdateSettings({ participantCriteria: blocks })}
             standings={standings}
-            statuses={statuses}
             qualifications={qualifications}
             squadrons={squadrons}
           />

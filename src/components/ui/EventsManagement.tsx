@@ -10,7 +10,7 @@ import CyclesList from './events/CyclesList';
 import CycleDialog from './events/CycleDialog';
 import { DeleteDivisionDialog } from './dialogs/DeleteDivisionDialog';
 import { Trash2 } from 'lucide-react';
-import type { Event, Cycle, CycleType, ReferenceMaterial } from '../../types/EventTypes';
+import type { Event, Cycle, CycleType, ReferenceMaterial, CycleActivity, CycleSettings, EventActivity } from '../../types/EventTypes';
 import { supabase, fetchCycles, createCycle, updateCycle, deleteCycle,
          fetchEvents, createEvent, updateEvent, deleteEvent, saveCycleActivities } from '../../utils/supabaseClient';
 import { deleteMultiChannelEvent, updateMultiChannelEvent } from '../../utils/discordService';
@@ -1315,6 +1315,173 @@ const EventsManagement: React.FC = () => {
     }
   };
 
+  // Cycle Activities (flag-on): events are always generated for every week of
+  // the cycle, populated from the activities covering that week. The event is
+  // named for the topmost covering activity (its lesson for that week when it
+  // is a syllabus activity), or "Week N" when nothing covers the week.
+  const createWeeklyEventsForCycleActivities = async (
+    cycleId: string,
+    cycleData: {
+      startDate: string;
+      endDate: string;
+      participants?: string[];
+      settings?: CycleSettings;
+    },
+    cycleActivities: CycleActivity[]
+  ) => {
+    try {
+      // Preload missions (ordered) for each syllabus-kind activity
+      const syllabusIds = Array.from(new Set(
+        cycleActivities.filter(a => a.kind === 'syllabus' && a.syllabusId).map(a => a.syllabusId as string)
+      ));
+      const missionsBySyllabus: Record<string, Array<{ id: string; mission_name: string; image_url?: any }>> = {};
+      for (const syllabusId of syllabusIds) {
+        const { data: missions } = await (supabase as any)
+          .from('training_syllabus_missions')
+          .select('id, week_number, mission_name, image_url')
+          .eq('syllabus_id', syllabusId)
+          .order('week_number');
+        missionsBySyllabus[syllabusId] = missions || [];
+      }
+
+      // Parse dates as local dates to avoid timezone offset issues
+      const [startYear, startMonth, startDay] = cycleData.startDate.split('-').map(Number);
+      const [endYear, endMonth, endDay] = cycleData.endDate.split('-').map(Number);
+      const startDate = new Date(startYear, startMonth - 1, startDay);
+      const endDate = new Date(endYear, endMonth - 1, endDay);
+      const diffDays = Math.ceil(Math.abs(endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+      const totalWeeks = Math.ceil(diffDays / 7);
+
+      const defaultTime = settings.eventDefaults.defaultStartTime || '20:30';
+      const [hours, minutes] = defaultTime.split(':').map(Number);
+      const cycleSettings = cycleData.settings || {};
+
+      for (let week = 1; week <= totalWeeks; week++) {
+        const eventDate = new Date(startDate);
+        eventDate.setDate(startDate.getDate() + (week - 1) * 7);
+        eventDate.setHours(hours, minutes, 0, 0);
+
+        // Activities covering this week, topmost (builder order) first
+        const covering = cycleActivities.filter(a => a.startWeek <= week && week <= a.endWeek);
+
+        // Build the event's activities; a syllabus activity contributes its
+        // k-th lesson where k is the week's offset into the activity's span
+        const eventActivities: EventActivity[] = [];
+        let firstLessonImageUrl: any;
+        covering.forEach(cycleActivity => {
+          if (cycleActivity.kind === 'objectives') {
+            eventActivities.push({
+              kind: 'objectives',
+              displayOrder: eventActivities.length,
+              cycleActivityId: cycleActivity.id,
+              label: cycleActivity.label,
+              adHocObjectives: cycleActivity.adHocObjectives || [],
+              settings: cycleActivity.settings || {}
+            });
+            return;
+          }
+          const missions = cycleActivity.syllabusId ? (missionsBySyllabus[cycleActivity.syllabusId] || []) : [];
+          const mission = missions[week - cycleActivity.startWeek];
+          if (!mission) return; // span outruns the syllabus - nothing to run this week
+          if (firstLessonImageUrl === undefined) firstLessonImageUrl = mission.image_url || undefined;
+          eventActivities.push({
+            kind: 'lesson',
+            displayOrder: eventActivities.length,
+            cycleActivityId: cycleActivity.id,
+            syllabusMissionId: mission.id,
+            label: cycleActivity.label,
+            settings: cycleActivity.settings || {}
+          });
+        });
+
+        // Event name from the topmost configured activity
+        const topmost = covering[0];
+        let eventTitle = `Week ${week}`;
+        if (topmost) {
+          if (topmost.label) {
+            eventTitle = topmost.label;
+          } else if (topmost.kind === 'syllabus' && topmost.syllabusId) {
+            const mission = (missionsBySyllabus[topmost.syllabusId] || [])[week - topmost.startWeek];
+            if (mission) eventTitle = mission.mission_name;
+          }
+        }
+
+        // Aggregate per-activity support roles / AAR the same way EventDialog does
+        const supportByQualification = new Map<string, { qualificationId: string; name: string; required: number }>();
+        let aarRequired = false;
+        const aarSquadronIds = new Set<string>();
+        let aarMatchesAll = false;
+        eventActivities.forEach(activity => {
+          (activity.settings?.supportRoleRequirements || []).forEach(req => {
+            const existing = supportByQualification.get(req.qualificationId);
+            if (existing) existing.required += req.required;
+            else supportByQualification.set(req.qualificationId, { ...req });
+          });
+          if (activity.settings?.requiresAar) {
+            aarRequired = true;
+            const blocks = activity.settings?.participantCriteria || [];
+            let hasSquadronRule = false;
+            blocks.forEach(block => {
+              const completed = block.criteria.filter(c => (c.values && c.values.length > 0) || c.value);
+              if (completed.length === 0) return;
+              const squadronRules = completed.filter(c => c.type === 'squadron');
+              if (squadronRules.length === 0) {
+                aarMatchesAll = true;
+              } else {
+                hasSquadronRule = true;
+                squadronRules.forEach(rule => {
+                  (rule.values ?? (rule.value ? [rule.value] : [])).forEach(id => aarSquadronIds.add(id));
+                });
+              }
+            });
+            if (blocks.length === 0 && !hasSquadronRule) aarMatchesAll = true;
+          }
+        });
+
+        const eventData = {
+          title: eventTitle,
+          description: '',
+          datetime: eventDate.toISOString(),
+          endDatetime: new Date(eventDate.getTime() + (settings.eventDefaults.defaultDurationHours * 60 + settings.eventDefaults.defaultDurationMinutes) * 60000).toISOString(),
+          eventType: 'Hop' as const,
+          cycleId: cycleId,
+          status: 'upcoming' as const,
+          participants: cycleData.participants || [],
+          trackQualifications: cycleSettings.trackQualifications ?? settings.eventDefaults.groupResponsesByQualification,
+          groupBySquadron: cycleSettings.groupBySquadron ?? settings.eventDefaults.groupBySquadron,
+          showNoResponse: cycleSettings.showNoResponse ?? (settings.eventDefaults as any).showNoResponse,
+          allowTentativeResponse: cycleSettings.allowTentativeResponse ?? true,
+          referenceMaterials: [],
+          imageUrl: firstLessonImageUrl,
+          activities: eventActivities,
+          supportRoleRequirements: Array.from(supportByQualification.values()),
+          aarRequired,
+          aarSquadronIds: aarRequired && !aarMatchesAll ? Array.from(aarSquadronIds) : [],
+          reminders: {
+            firstReminder: {
+              enabled: cycleSettings.firstReminderEnabled ?? settings.eventDefaults.firstReminderEnabled ?? false,
+              value: (cycleSettings.firstReminderTime ?? settings.eventDefaults.firstReminderTime)?.value ?? 3,
+              unit: (cycleSettings.firstReminderTime ?? settings.eventDefaults.firstReminderTime)?.unit ?? 'days',
+              recipients: settings.eventDefaults.firstReminderRecipients
+            },
+            secondReminder: {
+              enabled: cycleSettings.secondReminderEnabled ?? settings.eventDefaults.secondReminderEnabled ?? false,
+              value: (cycleSettings.secondReminderTime ?? settings.eventDefaults.secondReminderTime)?.value ?? 15,
+              unit: (cycleSettings.secondReminderTime ?? settings.eventDefaults.secondReminderTime)?.unit ?? 'minutes',
+              recipients: settings.eventDefaults.secondReminderRecipients
+            },
+            initialNotificationRoles: settings.eventDefaults.initialNotificationRoles || []
+          }
+        };
+
+        await createEvent(eventData as any);
+      }
+    } catch (err: any) {
+      console.error('Failed to create weekly events for cycle activities:', err);
+      throw err;
+    }
+  };
+
   // Cycle handlers
   const handleCreateCycle = async (cycleData: {
     name: string;
@@ -1372,16 +1539,19 @@ const EventsManagement: React.FC = () => {
         await enrollPilots(cycle.id, cycleData.stagedEnrollmentIds, userProfileId);
       }
 
-      // Persist the cycle's blocked-out activities (developer-flagged)
+      // Persist the cycle's blocked-out activities (developer-flagged), then
+      // always generate one event per week populated from those activities
+      let generatedWeeklyEvents = false;
       if (cycle && (cycleData as any).cycleActivities !== undefined) {
-        const { error: activitiesError } = await saveCycleActivities(cycle.id, (cycleData as any).cycleActivities);
+        const { activities: savedActivities, error: activitiesError } = await saveCycleActivities(cycle.id, (cycleData as any).cycleActivities);
         if (activitiesError) {
           console.error('Cycle created but saving activities failed:', activitiesError);
+        } else {
+          await createWeeklyEventsForCycleActivities(cycle.id, cycleData as any, savedActivities);
+          generatedWeeklyEvents = true;
         }
-      }
-
-      // If auto-create events is enabled, create events for the syllabus
-      if (cycleData.autoCreateEvents && cycle && cycleData.syllabusId) {
+      } else if (cycleData.autoCreateEvents && cycle && cycleData.syllabusId) {
+        // Legacy (flag-off) auto-create from the cycle syllabus
         await createEventsForCycle(cycle.id, cycleData);
       }
 
@@ -1389,7 +1559,7 @@ const EventsManagement: React.FC = () => {
       await loadCycles();
 
       // If events were created, reload them too
-      if (cycleData.autoCreateEvents && cycle) {
+      if ((cycleData.autoCreateEvents || generatedWeeklyEvents) && cycle) {
         await loadEvents(cycle.id);
         setSelectedCycle(cycle);
       }
@@ -1437,16 +1607,27 @@ const EventsManagement: React.FC = () => {
 
       if (error) throw error;
 
-      // Persist the cycle's blocked-out activities (developer-flagged)
+      // Persist the cycle's blocked-out activities (developer-flagged). A cycle
+      // that still has no events gets its weekly events generated on save.
+      // Checked against the database directly (not the local `events` state,
+      // which can be stale/scoped to a different view and previously caused
+      // events to be regenerated - and duplicated - on a second edit).
       if ((cycleData as any).cycleActivities !== undefined) {
-        const { error: activitiesError } = await saveCycleActivities(editingCycle.id, (cycleData as any).cycleActivities);
+        const { activities: savedActivities, error: activitiesError } = await saveCycleActivities(editingCycle.id, (cycleData as any).cycleActivities);
         if (activitiesError) {
           console.error('Cycle updated but saving activities failed:', activitiesError);
+        } else {
+          const { count: existingEventCount } = await supabase
+            .from('events')
+            .select('id', { count: 'exact', head: true })
+            .eq('cycle_id', editingCycle.id);
+          if (!existingEventCount) {
+            await createWeeklyEventsForCycleActivities(editingCycle.id, cycleData as any, savedActivities);
+            await loadEvents(editingCycle.id);
+          }
         }
-      }
-
-      // If auto-create events is enabled, create events for the syllabus
-      if (cycleData.autoCreateEvents && cycle && cycleData.syllabusId) {
+      } else if (cycleData.autoCreateEvents && cycle && cycleData.syllabusId) {
+        // Legacy (flag-off) auto-create from the cycle syllabus
         await createEventsForCycle(cycle.id, cycleData);
       }
 
