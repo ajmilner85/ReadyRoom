@@ -130,6 +130,11 @@ export interface CycleSettings {
   initialNotificationRoles?: Array<{ id: string; name: string }>;
   scheduledPublicationEnabled?: boolean;
   scheduledPublicationOffset?: { value: number; unit: 'minutes' | 'hours' | 'days' };
+  // Ordered participant rows for the cycle builder gantt. Rows are otherwise
+  // derived from activity criteria, so a row whose last activity is removed
+  // (or that never had one) would vanish - this list keeps rows alive until
+  // they are explicitly deleted.
+  participantRows?: EventActivityParticipantBlock[][];
 }
 
 export interface Cycle {

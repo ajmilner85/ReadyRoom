@@ -1,13 +1,15 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Card } from '../card';
-import { Check, Send, Users, Bell, Clock, Calendar, Settings, CheckCircle2 } from 'lucide-react';
-import type { Event } from '../../../types/EventTypes';
+import { Check, Send, Users, Bell, Clock, CheckCircle2, Layers, Link2, ClipboardList } from 'lucide-react';
+import type { Event, EventActivity, EventActivityParticipantBlock, ReferenceMaterial } from '../../../types/EventTypes';
 import { publishEventFromCycle, updateEventMultipleDiscordIds } from '../../../utils/discordService';
-import { fetchEvents, supabase } from '../../../utils/supabaseClient';
+import { fetchEvents, supabase, getEventActivities } from '../../../utils/supabaseClient';
+import type { SupportRoleRequirement } from '../../../utils/supabaseClient';
 import { uploadEventImage } from '../../../utils/eventImageService';
 import { getAllSquadrons } from '../../../utils/organizationService';
 import type { Squadron } from '../../../types/OrganizationTypes';
 import { SendReminderDialog, type ReminderRecipientTypes } from './SendReminderDialog';
+import { ParticipantCriteriaBubbles } from './ParticipantBlocksEditor';
 
 /**
  * Check if the server is available before attempting to publish
@@ -18,12 +20,12 @@ async function checkServerAvailability(): Promise<boolean> {
     // Use a simple HEAD request to check if the server is responding
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 3000);
-    
+
     const response = await fetch(`${import.meta.env.VITE_API_URL}/api/health`, {
       method: 'HEAD',
       signal: controller.signal
     });
-    
+
     clearTimeout(timeoutId);
     return response.ok;
   } catch (error) {
@@ -36,8 +38,58 @@ interface EventDetailsProps {
   onEventUpdated?: () => void;
 }
 
-const EventDetails: React.FC<EventDetailsProps> = ({ 
-  event, 
+// A fully-resolved activity ready for display: lesson names, objectives and
+// reference materials looked up, ad-hoc payloads normalized to the same shape
+interface ActivityDisplay {
+  key: string;
+  name: string;
+  context?: string; // e.g. "Fleet Replacement Syllabus · Week 3"
+  kindLabel: string; // chip text: Syllabus Mission / Standalone / Advanced Qualification / Exercise
+  objectives: Array<{ id: string; text: string }>;
+  references: ReferenceMaterial[];
+  supportRoles: SupportRoleRequirement[];
+  participantBlocks: EventActivityParticipantBlock[];
+  requiresAar: boolean;
+}
+
+// Shared small-caps section label used by every card in this pane
+const sectionLabelStyle: React.CSSProperties = {
+  fontSize: '12px',
+  fontWeight: 500,
+  color: '#64748B',
+  textTransform: 'uppercase',
+  letterSpacing: '0.5px',
+  display: 'flex',
+  alignItems: 'center',
+  gap: '6px',
+  marginBottom: '10px'
+};
+
+const dedupeRefs = (refs: ReferenceMaterial[]): ReferenceMaterial[] =>
+  refs.filter((ref, i, self) => i === self.findIndex(r => r.url === ref.url));
+
+// Row shapes for the activity-resolution queries (training tables are absent
+// from the stale generated Supabase types, so results are cast to these)
+interface MissionRow {
+  id: string;
+  mission_name: string;
+  week_number: number | null;
+  reference_materials?: ReferenceMaterial[] | null;
+  training_syllabi?: {
+    name: string;
+    kind?: string | null;
+    reference_materials?: ReferenceMaterial[] | null;
+  } | null;
+}
+
+interface ObjectiveRow {
+  id: string;
+  objective_text: string;
+  syllabus_mission_id: string;
+}
+
+const EventDetails: React.FC<EventDetailsProps> = ({
+  event,
   onEventUpdated
 }) => {
   const [publishing, setPublishing] = useState(false);
@@ -48,10 +100,12 @@ const EventDetails: React.FC<EventDetailsProps> = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [squadrons, setSquadrons] = useState<Squadron[]>([]);
   const [scheduledReminders, setScheduledReminders] = useState<any[]>([]);
-  const [serverConnectivity, ] = useState<'connected' | 'pending' | 'error'>('connected');
   const [sendingReminder, setSendingReminder] = useState(false);
   const [showReminderDialog, setShowReminderDialog] = useState(false);
   const [scheduledPublication, setScheduledPublication] = useState<{scheduled_time: string} | null>(null);
+  const [activityDisplays, setActivityDisplays] = useState<ActivityDisplay[]>([]);
+  // Legacy fallback for events without activity rows: the event-level syllabus
+  // mission's objectives (pre-Activities behavior)
   const [trainingObjectives, setTrainingObjectives] = useState<Array<{
     id: string;
     objective_text: string;
@@ -62,7 +116,7 @@ const EventDetails: React.FC<EventDetailsProps> = ({
   // Set initial image preview from event data
   useEffect(() => {
     const eventObj = event as any; // Cast to access non-standard properties
-    
+
     if (event?.imageUrl) {
       setImagePreview(event.imageUrl);
     } else if (eventObj?.image_url) {
@@ -141,80 +195,185 @@ const EventDetails: React.FC<EventDetailsProps> = ({
 
     loadSquadrons();
     loadReminders();
+  }, [event]);
 
-    // Load training objectives if event has a syllabus mission
-    const loadObjectives = async () => {
+  // Load and resolve this event's activities. Events without activity rows fall
+  // back to the legacy event-level syllabus mission objectives.
+  useEffect(() => {
+    if (!event) {
+      setActivityDisplays([]);
+      setTrainingObjectives([]);
+      return;
+    }
+
+    let cancelled = false;
+
+    const loadLegacyObjectives = async () => {
       const eventObj = event as any;
       const syllabusMissionId = event.syllabusMissionId || eventObj.syllabus_mission_id;
-
-      if (syllabusMissionId) {
-        try {
-          const { data, error } = await supabase
-            .from('syllabus_training_objectives')
-            .select('id, objective_text, scope_level, display_order')
-            .eq('syllabus_mission_id', syllabusMissionId)
-            .order('display_order');
-
-          if (data && !error) {
-            setTrainingObjectives(data as any);
-          } else {
-            setTrainingObjectives([]);
-          }
-        } catch (error) {
-          console.error('Failed to load training objectives:', error);
-          setTrainingObjectives([]);
-        }
-      } else {
+      if (!syllabusMissionId) {
         setTrainingObjectives([]);
+        return;
+      }
+      const { data, error } = await supabase
+        .from('syllabus_training_objectives')
+        .select('id, objective_text, scope_level, display_order')
+        .eq('syllabus_mission_id', syllabusMissionId)
+        .order('display_order');
+      if (!cancelled) setTrainingObjectives(!error && data ? (data as any) : []);
+    };
+
+    const load = async () => {
+      try {
+        const { activities } = await getEventActivities(event.id);
+        if (cancelled) return;
+
+        if (activities.length === 0) {
+          setActivityDisplays([]);
+          await loadLegacyObjectives();
+          return;
+        }
+
+        const missionIds = [...new Set(activities.map(a => a.syllabusMissionId).filter(Boolean))] as string[];
+        const qualIds = [...new Set(activities.map(a => a.qualificationId).filter(Boolean))] as string[];
+
+        const [missionsResult, objectivesResult, qualsResult] = await Promise.all([
+          missionIds.length > 0
+            ? (supabase as any)
+                .from('training_syllabus_missions')
+                .select('id, mission_name, week_number, reference_materials, training_syllabi(name, kind, reference_materials)')
+                .in('id', missionIds)
+            : Promise.resolve({ data: [] }),
+          missionIds.length > 0
+            ? supabase
+                .from('syllabus_training_objectives')
+                .select('id, objective_text, display_order, syllabus_mission_id')
+                .in('syllabus_mission_id', missionIds)
+                .order('display_order')
+            : Promise.resolve({ data: [] }),
+          qualIds.length > 0
+            ? supabase.from('qualifications').select('id, name').in('id', qualIds)
+            : Promise.resolve({ data: [] })
+        ]);
+        if (cancelled) return;
+
+        const missionRows = (missionsResult.data || []) as unknown as MissionRow[];
+        const qualRows = (qualsResult.data || []) as unknown as Array<{ id: string; name: string }>;
+        const objectiveRows = (objectivesResult.data || []) as unknown as ObjectiveRow[];
+
+        const missionsById = new Map(missionRows.map(m => [m.id, m]));
+        const qualNamesById = new Map(qualRows.map(q => [q.id, q.name]));
+        const objectivesByMission = new Map<string, Array<{ id: string; text: string }>>();
+        objectiveRows.forEach(o => {
+          const list = objectivesByMission.get(o.syllabus_mission_id) || [];
+          list.push({ id: o.id, text: o.objective_text });
+          objectivesByMission.set(o.syllabus_mission_id, list);
+        });
+
+        const displays: ActivityDisplay[] = [...activities]
+          .sort((a, b) => a.displayOrder - b.displayOrder)
+          .map((activity: EventActivity, index) => {
+            const settings = activity.settings || {};
+            const base = {
+              key: activity.id || `activity-${index}`,
+              references: dedupeRefs(settings.referenceMaterials || []),
+              supportRoles: settings.supportRoleRequirements || [],
+              participantBlocks: settings.participantCriteria || [],
+              requiresAar: Boolean(settings.requiresAar)
+            };
+
+            if (activity.kind === 'objectives') {
+              return {
+                ...base,
+                name: activity.label || 'Training Exercise',
+                kindLabel: 'Exercise',
+                objectives: (activity.adHocObjectives || []).map(o => ({ id: o.id, text: o.text }))
+              };
+            }
+
+            if (activity.kind === 'qualification') {
+              return {
+                ...base,
+                name: qualNamesById.get(activity.qualificationId || '') || 'Qualification',
+                kindLabel: 'Advanced Qualification',
+                objectives: []
+              };
+            }
+
+            // 'lesson' - resolve mission, source syllabus and inherited references
+            const mission = activity.syllabusMissionId ? missionsById.get(activity.syllabusMissionId) : undefined;
+            const syllabus = mission?.training_syllabi;
+            const kindLabel = syllabus?.kind === 'pool'
+              ? 'Standalone'
+              : syllabus?.kind === 'advanced_qualification'
+                ? 'Advanced Qualification'
+                : 'Syllabus Mission';
+            const inheritedRefs = [
+              ...(syllabus?.reference_materials || []),
+              ...(mission?.reference_materials || [])
+            ];
+            return {
+              ...base,
+              name: mission?.mission_name || activity.label || 'Lesson',
+              context: syllabus
+                ? `${syllabus.name}${mission?.week_number != null ? ` · Week ${mission.week_number}` : ''}`
+                : undefined,
+              kindLabel,
+              objectives: activity.syllabusMissionId
+                ? (objectivesByMission.get(activity.syllabusMissionId) || [])
+                : [],
+              references: dedupeRefs([...inheritedRefs, ...(settings.referenceMaterials || [])])
+            };
+          });
+
+        setActivityDisplays(displays);
+        setTrainingObjectives([]);
+      } catch (error) {
+        console.error('Failed to load event activities:', error);
+        if (!cancelled) {
+          setActivityDisplays([]);
+          await loadLegacyObjectives();
+        }
       }
     };
 
-    loadObjectives();
+    load();
+    return () => { cancelled = true; };
   }, [event]);
-
-  // Debug logging for event status
-  useEffect(() => {
-    if (!event) return;
-    const eventObj = event as any;
-    console.log('[EVENT-STATUS-DEBUG] Event:', event.id);
-    console.log('[EVENT-STATUS-DEBUG] discordEventId:', event.discordEventId);
-    console.log('[EVENT-STATUS-DEBUG] discord_event_id:', eventObj.discord_event_id);
-    console.log('[EVENT-STATUS-DEBUG] scheduledPublication:', scheduledPublication);
-  }, [event, scheduledPublication]);
 
   // Handle image upload
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!event || !e.target.files || e.target.files.length === 0) return;
-    
+
     const file = e.target.files[0];
-    
+
     // Validate file type
     if (!file.type.startsWith('image/')) {
       setImageError('Please select an image file');
       return;
     }
-    
+
     // Validate file size (max 5MB)
     if (file.size > 5 * 1024 * 1024) {
       setImageError('Image size should be less than 5MB');
       return;
     }
-    
+
     setImageLoading(true);
     setImageError(null);
-    
+
     try {
       // Create object URL for preview
       const previewUrl = URL.createObjectURL(file);
       setImagePreview(previewUrl);
-      
+
       // Upload to Supabase
       const { url, error } = await uploadEventImage(event.id, file);
-      
+
       if (error) {
         throw new Error(error.message);
       }
-      
+
       // Update local state with the Supabase URL
       if (url) {
         setImagePreview(url);
@@ -233,20 +392,20 @@ const EventDetails: React.FC<EventDetailsProps> = ({
       }
     }
   };
-  
+
 
   // Function to refresh event data from database
   const refreshEventData = useCallback(async () => {
     if (!event) return;
-    
+
     try {
-      
+
       // Get latest event data from database
       const { events: fetchedEvents } = await fetchEvents(event.cycleId);
-      
+
       // Find this event in the results
       const updatedEvent = fetchedEvents.find(e => e.id === event.id);
-      
+
       if (updatedEvent) {
         // Manually trigger a re-render by updating the DOM
         // This allows parent component to handle the actual event state
@@ -274,83 +433,73 @@ const EventDetails: React.FC<EventDetailsProps> = ({
     } finally {
     }
   }, [event]);
-  
+
   const handlePublishToDiscord = async () => {
-    // console.log('[PUBLISH-BUTTON-DEBUG] Publish button clicked for event:', event?.id);
     if (!event) {
-      // console.log('[PUBLISH-BUTTON-DEBUG] No event available');
       return;
     }
-    
+
     // Check if the event already has a discord message ID (already published)
     if (event.discordEventId || event.discord_event_id) {
-      // console.log('[PUBLISH-BUTTON-DEBUG] Event already published, exiting');
       return;
     }
-    
-    // console.log('[PUBLISH-BUTTON-DEBUG] Starting publish process, setting publishing state to true');
+
     // Check if server is available before attempting to publish
     setPublishing(true);
     setPublishMessage(null);
-    
+
     let timeoutId: NodeJS.Timeout | undefined;
     let publishTimeoutId: NodeJS.Timeout | undefined;
-    
+
     try {
       // First check if the server is available
       const isServerAvailable = await checkServerAvailability();
-      
+
       if (!isServerAvailable) {
         throw new Error('Cannot connect to the server. Please check if the server is running and try again.');
       }
-      
+
       // Check database directly for the image_url and participants for this event
       const dbEventPromise = supabase
         .from('events')
         .select('image_url, participants')
         .eq('id', event.id)
         .single();
-      
+
       let timeoutId: NodeJS.Timeout | undefined;
       const timeoutPromise = new Promise((_, reject) => {
         timeoutId = setTimeout(() => reject(new Error('Database query timed out')), 10000);
       });
-      
+
       const { data: dbEvent } = await Promise.race([dbEventPromise, timeoutPromise]) as any;
       if (timeoutId) clearTimeout(timeoutId);
-      
+
       // Create an enhanced version of the event with guaranteed image URL
-      // console.log('[PUBLISH-DEBUG] Raw dbEvent.image_url:', dbEvent?.image_url);
-      // console.log('[PUBLISH-DEBUG] Raw dbEvent.participants:', dbEvent?.participants);
-      // console.log('[PUBLISH-DEBUG] Type of image_url:', typeof dbEvent?.image_url);
-      
       const publishableEvent = {
         ...event,
         // Handle JSONB image_url structure for multiple images
-        imageUrl: typeof dbEvent?.image_url === 'object' && dbEvent.image_url?.headerImage 
-          ? dbEvent.image_url.headerImage 
+        imageUrl: typeof dbEvent?.image_url === 'object' && dbEvent.image_url?.headerImage
+          ? dbEvent.image_url.headerImage
           : dbEvent?.image_url || imagePreview || event.imageUrl || (event as any).image_url,
         // Also pass the full JSONB structure for multi-image support
         images: typeof dbEvent?.image_url === 'object' ? dbEvent.image_url : undefined,
         // Ensure participants is included from database
         participants: dbEvent?.participants || event.participants
       };
-      
-      // console.log('[PUBLISH-DEBUG] publishableEvent:', publishableEvent);
-      
+
       // Add timeout to the publish call
       const publishPromise = publishEventFromCycle(publishableEvent);
       let publishTimeoutId: NodeJS.Timeout | undefined;
       const publishTimeoutPromise = new Promise((_, reject) => {
         publishTimeoutId = setTimeout(() => reject(new Error('Publish request timed out')), 30000);
       });
-      
+
       const response = await Promise.race([publishPromise, publishTimeoutPromise]) as any;
       if (publishTimeoutId) clearTimeout(publishTimeoutId);
-      
+
       if (!response.success) {
         if (response.errors.length > 0) {
-          const errorMessages = response.errors.map((err: any) => 
+          const errorMessages = response.errors.map((err: any) =>
             `Squadron ${err.squadronId}: ${err.error}`
           ).join('; ');
           throw new Error(`Failed to publish to some squadrons: ${errorMessages}`);
@@ -358,11 +507,11 @@ const EventDetails: React.FC<EventDetailsProps> = ({
           throw new Error('Failed to publish event to Discord');
         }
       }
-      
+
       // Update event with multiple Discord message IDs
       if (response.publishedChannels.length > 0) {
         await updateEventMultipleDiscordIds(event.id, response.publishedChannels);
-        
+
         // Schedule reminders if the event has reminder settings
         if (event.eventSettings?.firstReminderEnabled || event.eventSettings?.secondReminderEnabled) {
           try {
@@ -390,28 +539,26 @@ const EventDetails: React.FC<EventDetailsProps> = ({
                 }
               }
             };
-            
+
             const { scheduleEventReminders } = await import('../../../utils/reminderService');
             const reminderResult = await scheduleEventReminders(
               event.id,
               event.datetime,
               reminderSettings
             );
-            
+
             if (!reminderResult.success) {
               console.warn('[PUBLISH-REMINDER-DEBUG] Failed to schedule reminders for published event:', reminderResult.error);
-            } else {
-              // console.log('[PUBLISH-REMINDER-DEBUG] Successfully scheduled reminders for published event:', event.id);
             }
           } catch (reminderError) {
             console.error('[PUBLISH-REMINDER-DEBUG] Error scheduling reminders for published event:', reminderError);
           }
         }
       }
-      
+
       const publishedCount = response.publishedChannels.length;
       const errorCount = response.errors.length;
-      
+
       // Only show error messages, not success messages (button state serves as confirmation)
       if (publishedCount === 0) {
         setPublishMessage({
@@ -420,22 +567,22 @@ const EventDetails: React.FC<EventDetailsProps> = ({
         });
       } else if (errorCount > 0) {
         setPublishMessage({
-          type: 'error', 
+          type: 'error',
           text: `Published to ${publishedCount} squadron${publishedCount !== 1 ? 's' : ''}, but ${errorCount} failed`
         });
       } else {
         // Clear any existing messages on successful publish
         setPublishMessage(null);
       }
-      
+
       // Refresh data from database to get updated Discord IDs
       await refreshEventData();
-      
+
       // Notify parent component to refresh events list
       if (onEventUpdated) {
         onEventUpdated();
       }
-      
+
       // Clear the message after 5 seconds
       setTimeout(() => {
         setPublishMessage(null);
@@ -443,7 +590,7 @@ const EventDetails: React.FC<EventDetailsProps> = ({
     } catch (error) {
       // Provide more helpful error messages
       let errorMessage = 'Unknown error occurred';
-      
+
       if (error instanceof Error) {
         if (error.message.includes('NetworkError') || error.message.includes('Failed to fetch')) {
           errorMessage = `Network error: Unable to reach the server. Make sure the server is running at ${import.meta.env.VITE_API_URL}`;
@@ -453,7 +600,7 @@ const EventDetails: React.FC<EventDetailsProps> = ({
           errorMessage = error.message;
         }
       }
-      
+
       setPublishMessage({
         type: 'error',
         text: errorMessage
@@ -462,54 +609,46 @@ const EventDetails: React.FC<EventDetailsProps> = ({
       // Clean up any remaining timeouts
       if (timeoutId !== undefined) clearTimeout(timeoutId);
       if (publishTimeoutId !== undefined) clearTimeout(publishTimeoutId);
-      
-      // console.log('[PUBLISH-BUTTON-DEBUG] Setting publishing state to false');
+
       setPublishing(false);
     }
   };
 
+  // Compact duration, e.g. "1h 30m"
   const formatDuration = (startTime: string, endTime?: string) => {
     if (!endTime) return null;
-    
+
     const start = new Date(startTime);
     const end = new Date(endTime);
-    
+
     if (isNaN(start.getTime()) || isNaN(end.getTime())) return null;
-    
-    // Calculate duration in minutes
+
     const diffMs = end.getTime() - start.getTime();
     const totalMinutes = Math.round(diffMs / (1000 * 60));
-    
-    // Format as hours and minutes
+
     const hours = Math.floor(totalMinutes / 60);
     const minutes = totalMinutes % 60;
-    
-    let durationStr = '';
-    if (hours > 0) {
-      durationStr += `${hours} hour${hours !== 1 ? 's' : ''}`;
-    }
-    if (minutes > 0) {
-      durationStr += `${durationStr ? ' ' : ''}${minutes} minute${minutes !== 1 ? 's' : ''}`;
-    }
-    
-    return durationStr || '0 minutes';
+
+    if (hours > 0 && minutes > 0) return `${hours}h ${minutes}m`;
+    if (hours > 0) return `${hours}h`;
+    return `${minutes}m`;
   };
 
   // Get timezone display with UTC offset
   const getTimezoneDisplay = (timezone?: string) => {
     if (!timezone) return null;
-    
+
     try {
       const now = new Date();
       const formatter = new Intl.DateTimeFormat('en', {
         timeZone: timezone,
         timeZoneName: 'longOffset'
       });
-      
+
       const parts = formatter.formatToParts(now);
       const offsetPart = parts.find(part => part.type === 'timeZoneName');
       const offset = offsetPart?.value || '';
-      
+
       return `${timezone} ${offset}`;
     } catch (error) {
       return timezone;
@@ -590,6 +729,7 @@ const EventDetails: React.FC<EventDetailsProps> = ({
   // Check which Discord ID field is actually populated
   const isPublished = Boolean(event.discordEventId) || Boolean(event.discord_event_id);
   const isScheduled = !isPublished && scheduledPublication !== null;
+  const publishedChannelCount = Array.isArray(event.discord_event_id) ? event.discord_event_id.length : 0;
 
   // Format scheduled publication time
   const formatScheduledTime = (isoString: string) => {
@@ -603,6 +743,51 @@ const EventDetails: React.FC<EventDetailsProps> = ({
       hour12: true
     });
   };
+
+  const formatDatePart = (isoString: string) =>
+    new Date(isoString).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+  const formatTimePart = (isoString: string) =>
+    new Date(isoString).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+
+  const participatingSquadrons = (event.participants || [])
+    .map(id => squadrons.find(s => s.id === id))
+    .filter(Boolean) as Squadron[];
+
+  const duration = formatDuration(event.datetime, event.endDatetime || undefined);
+
+  const reminderSummary = (
+    enabled?: boolean,
+    time?: { value: number; unit: string }
+  ) => (enabled && time ? `${time.value} ${time.unit} before start` : 'Disabled');
+
+  // One column of the Start / End / Duration strip
+  const scheduleStat = (label: string, primary: string, secondary?: string) => (
+    <div style={{ flex: 1, minWidth: 0 }}>
+      <div style={{
+        fontSize: '11px',
+        fontWeight: 500,
+        color: '#94A3B8',
+        textTransform: 'uppercase',
+        letterSpacing: '0.5px',
+        marginBottom: '2px'
+      }}>{label}</div>
+      <div style={{ fontSize: '14px', fontWeight: 600, color: '#334155', lineHeight: 1.3 }}>{primary}</div>
+      {secondary && (
+        <div style={{ fontSize: '12px', color: '#64748B', lineHeight: 1.3 }}>{secondary}</div>
+      )}
+    </div>
+  );
+
+  const renderObjectives = (objectives: Array<{ id: string; text: string }>) => (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+      {objectives.map(objective => (
+        <div key={objective.id} style={{ display: 'flex', alignItems: 'flex-start', gap: '6px' }}>
+          <CheckCircle2 size={13} style={{ color: '#94A3B8', flexShrink: 0, marginTop: '3px' }} />
+          <span style={{ fontSize: '13px', color: '#374151', lineHeight: 1.5 }}>{objective.text}</span>
+        </div>
+      ))}
+    </div>
+  );
 
   return (
     <div
@@ -623,454 +808,422 @@ const EventDetails: React.FC<EventDetailsProps> = ({
           padding: '0 16px 0 16px'
         }}
       >
+      {/* Title + creator */}
       <div style={{ marginBottom: '10px' }}>
         <h1 style={{
           fontSize: '18px',
           fontWeight: 700,
           color: '#0F172A',
-          marginBottom: '8px'
+          marginBottom: '4px'
         }}>
           {event.title}
         </h1>
-        
-        {event.creator && (event.creator.callsign || event.creator.boardNumber) ? (
-          <div style={{
-            fontSize: '14px',
-            color: '#64748B',
-            marginBottom: '4px'
-          }}>
-            Created by <span style={{ fontWeight: 500, color: '#475569' }}>
-              {event.creator.boardNumber && `${event.creator.boardNumber} `}
-              {event.creator.callsign || 'Unknown'}
-            </span>
-            {event.creator.billet && <span style={{ color: '#64748B' }}> - {event.creator.billet}</span>}
-          </div>
-        ) : event.creator ? (
-          <div style={{
-            fontSize: '14px',
-            color: '#64748B',
-            marginBottom: '4px'
-          }}>
-            Created by <span style={{ fontWeight: 500, color: '#475569' }}>Unknown User</span>
-          </div>
-        ) : (
-          <div style={{
-            fontSize: '14px',
-            color: '#64748B',
-            marginBottom: '4px'
-          }}>
-            Created by <span style={{ fontWeight: 500, color: '#475569' }}>System</span>
-          </div>
-        )}
+        <div style={{ fontSize: '13px', color: '#64748B' }}>
+          Created by{' '}
+          <span style={{ fontWeight: 500, color: '#475569' }}>
+            {event.creator && (event.creator.callsign || event.creator.boardNumber)
+              ? `${event.creator.boardNumber ? `${event.creator.boardNumber} ` : ''}${event.creator.callsign || 'Unknown'}`
+              : event.creator ? 'Unknown User' : 'System'}
+          </span>
+          {event.creator?.billet && <span> · {event.creator.billet}</span>}
+        </div>
       </div>
 
+      {/* Schedule: compact Start / End / Duration strip */}
       <Card className="p-4" style={{ marginBottom: '10px' }}>
-        {/* Timezone Display */}
+        <div style={{ display: 'flex', gap: '12px' }}>
+          {scheduleStat('Start', formatDatePart(event.datetime), formatTimePart(event.datetime))}
+          {event.endDatetime && scheduleStat('End', formatDatePart(event.endDatetime), formatTimePart(event.endDatetime))}
+          {duration && scheduleStat('Duration', duration)}
+        </div>
         {event.eventSettings?.timezone && (
           <div style={{
-            fontSize: '12px',
-            color: '#6B7280',
-            fontFamily: 'monospace',
-            backgroundColor: '#F9FAFB',
-            padding: '8px 12px',
-            borderRadius: '6px',
-            border: '1px solid #E5E7EB',
-            marginBottom: '16px',
             display: 'flex',
             alignItems: 'center',
-            gap: '8px'
+            gap: '6px',
+            marginTop: '10px',
+            paddingTop: '10px',
+            borderTop: '1px solid #F1F5F9',
+            fontSize: '12px',
+            color: '#6B7280',
+            fontFamily: 'monospace'
           }}>
             <Clock size={12} />
-            <span>Timezone: {getTimezoneDisplay(event.eventSettings.timezone)}</span>
+            <span>{getTimezoneDisplay(event.eventSettings.timezone)}</span>
           </div>
         )}
-        <div style={{ display: 'grid', gap: '16px' }}>
-          {/* Start Date & Time */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <div style={{
+        {event.restrictedTo && event.restrictedTo.length > 0 && (
+          <div style={{ marginTop: '10px' }}>
+            <span style={{
               fontSize: '12px',
               fontWeight: 500,
-              color: '#64748B',
-              textTransform: 'uppercase',
-              letterSpacing: '0.5px',
-              minWidth: '100px'
-            }}>Start</div>
-            <div style={{
-              fontSize: '14px',
-              fontWeight: 500,
-              color: '#334155',
-              flex: 1
+              color: '#B45309',
+              backgroundColor: '#FEF3C7',
+              padding: '3px 8px',
+              borderRadius: '4px'
             }}>
-              {new Date(event.datetime).toLocaleString('en-US', {
-                weekday: 'short',
-                year: 'numeric',
-                month: 'short',
-                day: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit'
-              })}
-            </div>
+              Restricted: {event.restrictedTo.join(', ')}
+            </span>
           </div>
-          
-          {event.endDatetime && (
-            <>
-              {/* End Date & Time */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <div style={{
-                  fontSize: '12px',
-                  fontWeight: 500,
-                  color: '#64748B',
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.5px',
-                  minWidth: '100px'
-                }}>End</div>
-                <div style={{
-                  fontSize: '14px',
-                  fontWeight: 500,
-                  color: '#334155',
-                  flex: 1
-                }}>
-                  {new Date(event.endDatetime).toLocaleString('en-US', {
-                    weekday: 'short',
-                    year: 'numeric',
-                    month: 'short',
-                    day: 'numeric',
-                    hour: '2-digit',
-                    minute: '2-digit'
-                  })}
-                </div>
-              </div>
-              
-              {/* Duration */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <div style={{
-                  fontSize: '12px',
-                  fontWeight: 500,
-                  color: '#64748B',
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.5px',
-                  minWidth: '100px'
-                }}>Duration</div>
-                <div style={{
-                  fontSize: '14px',
-                  fontWeight: 500,
-                  color: '#334155'
-                }}>
-                  {formatDuration(event.datetime, event.endDatetime)}
-                </div>
-              </div>
-            </>
-          )}
-          
-          {event.restrictedTo && event.restrictedTo.length > 0 && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <div style={{
-                fontSize: '12px',
-                fontWeight: 500,
-                color: '#64748B',
-                textTransform: 'uppercase',
-                letterSpacing: '0.5px',
-                minWidth: '100px'
-              }}>Restricted</div>
-              <div style={{
-                fontSize: '14px',
-                fontWeight: 500,
-                color: '#B45309',
-                backgroundColor: '#FEF3C7',
-                padding: '4px 8px',
-                borderRadius: '4px',
-                display: 'inline-block'
-              }}>{event.restrictedTo.join(', ')}</div>
-            </div>
-          )}
-        </div>
+        )}
       </Card>
 
-
-      <Card className="p-4" style={{ marginBottom: '10px' }}>
-        <h2 style={{ fontSize: '18px', fontWeight: 600, color: '#1E293B', marginBottom: '16px' }}>Description</h2>
-        <div style={{
-          fontSize: '14px',
-          color: '#374151',
-          whiteSpace: 'pre-wrap',
-          lineHeight: '1.5'
-        }}>
-          {event.description || 'No description provided'}
-        </div>
-      </Card>
-
-      {/* Training Objectives - only for events with syllabus missions */}
-      {trainingObjectives.length > 0 && (
+      {/* Description */}
+      {event.description && (
         <Card className="p-4" style={{ marginBottom: '10px' }}>
-          <h2 style={{ fontSize: '18px', fontWeight: 600, color: '#1E293B', marginBottom: '16px' }}>
-            Training Objectives (DLOs)
-          </h2>
+          <div style={sectionLabelStyle}>
+            <ClipboardList size={14} />
+            Description
+          </div>
+          <div style={{
+            fontSize: '13px',
+            color: '#374151',
+            whiteSpace: 'pre-wrap',
+            lineHeight: '1.5'
+          }}>
+            {event.description}
+          </div>
+        </Card>
+      )}
+
+      {/* Activities: what's happening at this event, who each activity is for,
+          and its objectives / support roles / references */}
+      {activityDisplays.length > 0 && (
+        <Card className="p-4" style={{ marginBottom: '10px' }}>
+          <div style={sectionLabelStyle}>
+            <Layers size={14} />
+            Activities
+            <span style={{ fontWeight: 400, color: '#94A3B8', textTransform: 'none', letterSpacing: 0 }}>
+              ({activityDisplays.length})
+            </span>
+          </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            {trainingObjectives.map((objective) => (
+            {activityDisplays.map((display, index) => (
               <div
-                key={objective.id}
+                key={display.key}
                 style={{
-                  display: 'flex',
-                  alignItems: 'flex-start',
-                  gap: '12px',
-                  padding: '12px',
-                  backgroundColor: '#F9FAFB',
-                  borderRadius: '6px',
-                  border: '1px solid #E5E7EB'
+                  border: '1px solid #E5E7EB',
+                  borderRadius: '8px',
+                  overflow: 'hidden'
                 }}
               >
-                <CheckCircle2
-                  size={16}
-                  style={{ color: '#9CA3AF', flexShrink: 0, marginTop: '2px' }}
-                />
-                <p style={{ fontSize: '14px', color: '#374151', lineHeight: '1.6', margin: 0 }}>
-                  {objective.objective_text}
-                </p>
+                {/* Activity header: number, name, source context, kind chip */}
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  padding: '8px 10px',
+                  backgroundColor: '#F8FAFC',
+                  borderBottom: '1px solid #F1F5F9'
+                }}>
+                  <div style={{
+                    width: '20px',
+                    height: '20px',
+                    borderRadius: '50%',
+                    backgroundColor: '#64748B',
+                    color: '#FFFFFF',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '11px',
+                    fontWeight: 600,
+                    flexShrink: 0
+                  }}>
+                    {index + 1}
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{
+                      fontSize: '13px',
+                      fontWeight: 600,
+                      color: '#1E293B',
+                      lineHeight: 1.3,
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap'
+                    }}>
+                      {display.name}
+                    </div>
+                    {display.context && (
+                      <div style={{
+                        fontSize: '11px',
+                        color: '#64748B',
+                        lineHeight: 1.3,
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap'
+                      }}>
+                        {display.context}
+                      </div>
+                    )}
+                  </div>
+                  <span style={{
+                    fontSize: '10px',
+                    fontWeight: 600,
+                    color: '#475569',
+                    backgroundColor: '#E2E8F0',
+                    padding: '2px 8px',
+                    borderRadius: '9999px',
+                    whiteSpace: 'nowrap',
+                    flexShrink: 0
+                  }}>
+                    {display.kindLabel}
+                  </span>
+                </div>
+
+                <div style={{ padding: '8px 10px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {/* Who this activity is for */}
+                  <ParticipantCriteriaBubbles blocks={display.participantBlocks} squadrons={squadrons} />
+
+                  {display.objectives.length > 0 && renderObjectives(display.objectives)}
+
+                  {display.supportRoles.length > 0 && (
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '6px' }}>
+                      <Users size={13} style={{ color: '#94A3B8', flexShrink: 0, marginTop: '2px' }} />
+                      <span style={{ fontSize: '12px', color: '#64748B', lineHeight: 1.5 }}>
+                        Support:{' '}
+                        {display.supportRoles
+                          .map(role => `${role.name}${role.required > 0 ? ` ×${role.required}` : ' (optional)'}`)
+                          .join(', ')}
+                      </span>
+                    </div>
+                  )}
+
+                  {display.references.length > 0 && (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                      {display.references.map((ref, refIndex) => (
+                        <a
+                          key={`${ref.url}-${refIndex}`}
+                          href={ref.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            fontSize: '11px',
+                            fontWeight: 500,
+                            color: '#2563EB',
+                            backgroundColor: '#EFF6FF',
+                            border: '1px solid #BFDBFE',
+                            borderRadius: '9999px',
+                            padding: '2px 8px',
+                            textDecoration: 'none',
+                            maxWidth: '220px'
+                          }}
+                        >
+                          <Link2 size={10} style={{ flexShrink: 0 }} />
+                          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {ref.name || ref.url}
+                          </span>
+                        </a>
+                      ))}
+                    </div>
+                  )}
+
+                  {display.requiresAar && (
+                    <div>
+                      <span style={{
+                        fontSize: '10px',
+                        fontWeight: 600,
+                        color: '#B45309',
+                        backgroundColor: '#FEF3C7',
+                        padding: '2px 8px',
+                        borderRadius: '9999px'
+                      }}>
+                        AAR required
+                      </span>
+                    </div>
+                  )}
+                </div>
               </div>
             ))}
           </div>
         </Card>
       )}
 
-      {/* Event Settings */}
-      <Card className="p-4" style={{ marginBottom: '10px' }}>
-        <h2 style={{ fontSize: '18px', fontWeight: 600, color: '#1E293B', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-            <Calendar size={18} className="text-slate-500" />
-            <Settings size={10} style={{ 
-              position: 'absolute', 
-              bottom: -2, 
-              right: -2, 
-              color: '#64748B',
-              backgroundColor: 'white',
-              borderRadius: '50%',
-              padding: '1px'
-            }} />
+      {/* Legacy fallback: events without activity rows show the event-level
+          syllabus mission's objectives (pre-Activities behavior) */}
+      {activityDisplays.length === 0 && trainingObjectives.length > 0 && (
+        <Card className="p-4" style={{ marginBottom: '10px' }}>
+          <div style={sectionLabelStyle}>
+            <CheckCircle2 size={14} />
+            Training Objectives (DLOs)
           </div>
-          Event Settings
-        </h2>
-        <div style={{ display: 'grid', gap: '16px' }}>
-          {/* Participating Squadrons */}
-          {event.participants && event.participants.length > 0 && (
-            <div>
+          {renderObjectives(trainingObjectives.map(o => ({ id: o.id, text: o.objective_text })))}
+        </Card>
+      )}
+
+      {/* Discord & Reminders: publication status, publish targets, reminder plan */}
+      <Card className="p-4" style={{ marginBottom: '10px' }}>
+        <div style={sectionLabelStyle}>
+          <DiscordIcon size={14} className="text-indigo-500" />
+          Discord & Reminders
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          {/* Publication status */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            {isScheduled ? (
+              <Clock size={14} style={{ color: '#5865F2', flexShrink: 0 }} />
+            ) : (
               <div style={{
-                fontSize: '12px',
-                fontWeight: 500,
-                color: '#64748B',
-                textTransform: 'uppercase',
-                letterSpacing: '0.5px',
-                marginBottom: '8px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '4px'
-              }}>
-                <Users size={14} />
-                Participating Squadrons
-              </div>
-              <div style={{
-                display: 'grid',
-                gridTemplateColumns: '1fr 1fr',
-                gap: '12px',
-                marginTop: '8px'
-              }}>
-                {event.participants.map((squadronId) => {
-                  const squadron = squadrons.find(s => s.id === squadronId);
-                  return (
-                    <div key={squadronId} style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '8px',
-                      padding: '8px',
-                      border: '1px solid #E5E7EB',
-                      borderRadius: '6px',
-                      backgroundColor: '#FAFAFA'
-                    }}>
-                      {squadron?.insignia_url && (
-                        <img 
-                          src={squadron.insignia_url} 
-                          alt={`${squadron.designation} insignia`}
-                          loading="lazy"
-                          style={{
-                            width: '24px',
-                            height: '24px',
-                            objectFit: 'contain',
-                            flexShrink: 0
-                          }}
-                        />
-                      )}
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                        <div style={{
-                          fontSize: '13px',
-                          fontWeight: 600,
-                          color: '#000000',
-                          lineHeight: 1.2
-                        }}>
-                          {squadron?.designation || 'Unknown'}
-                        </div>
-                        <div style={{
-                          fontSize: '11px',
-                          color: '#6B7280',
-                          lineHeight: 1.2
-                        }}>
-                          {squadron?.name || `Squadron ${squadronId}`}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+                width: '8px',
+                height: '8px',
+                borderRadius: '50%',
+                backgroundColor: isPublished ? '#10B981' : '#CBD5E1',
+                flexShrink: 0
+              }} />
+            )}
+            <span style={{ fontSize: '13px', fontWeight: 500, color: '#374151' }}>
+              {isScheduled
+                ? `Scheduled for publication on ${formatScheduledTime(scheduledPublication!.scheduled_time)}`
+                : isPublished
+                  ? `Published to Discord${publishedChannelCount > 1 ? ` (${publishedChannelCount} squadrons)` : ''}`
+                  : 'Not yet published'}
+            </span>
+          </div>
+
+          {/* Publish targets (participating squadrons) */}
+          {participatingSquadrons.length > 0 && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+              <span style={{ fontSize: '12px', color: '#64748B' }}>Publishes to:</span>
+              {participatingSquadrons.map(squadron => (
+                <span
+                  key={squadron.id}
+                  title={squadron.name}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    backgroundColor: '#F1F5F9',
+                    border: '1px solid #E2E8F0',
+                    borderRadius: '9999px',
+                    padding: '2px 8px 2px 4px'
+                  }}
+                >
+                  {squadron.insignia_url && (
+                    <span style={{
+                      width: '18px',
+                      height: '18px',
+                      backgroundImage: `url(${squadron.insignia_url})`,
+                      backgroundSize: 'contain',
+                      backgroundRepeat: 'no-repeat',
+                      backgroundPosition: 'center',
+                      flexShrink: 0
+                    }} />
+                  )}
+                  <span style={{ fontSize: '11px', fontWeight: 600, color: '#475569' }}>
+                    {squadron.designation || squadron.name}
+                  </span>
+                </span>
+              ))}
             </div>
           )}
 
-          {/* Reminder Settings */}
+          {/* Reminder plan */}
           {event.eventSettings && (
-            <div>
-              <div style={{
-                fontSize: '12px',
-                fontWeight: 500,
-                color: '#64748B',
-                textTransform: 'uppercase',
-                letterSpacing: '0.5px',
-                marginBottom: '8px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '4px'
-              }}>
-                <Bell size={14} />
-                Reminder Settings
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <Bell size={12} style={{ color: '#94A3B8', flexShrink: 0 }} />
+                <span style={{ fontSize: '12px', color: '#64748B' }}>
+                  First reminder · {reminderSummary(event.eventSettings.firstReminderEnabled, event.eventSettings.firstReminderTime)}
+                </span>
               </div>
-              <div style={{ display: 'grid', gap: '8px' }}>
-                <div style={{
-                  fontSize: '13px',
-                  color: '#475569',
-                  backgroundColor: '#F8FAFC',
-                  padding: '8px 12px',
-                  borderRadius: '6px',
-                  border: '1px solid #E2E8F0'
-                }}>
-                  First reminder: {event.eventSettings.firstReminderEnabled && event.eventSettings.firstReminderTime ? 
-                    `${event.eventSettings.firstReminderTime.value} ${event.eventSettings.firstReminderTime.unit} before start` : 
-                    'Disabled'}
-                </div>
-                <div style={{
-                  fontSize: '13px',
-                  color: '#475569',
-                  backgroundColor: '#F8FAFC',
-                  padding: '8px 12px',
-                  borderRadius: '6px',
-                  border: '1px solid #E2E8F0'
-                }}>
-                  Second reminder: {event.eventSettings.secondReminderEnabled && event.eventSettings.secondReminderTime ? 
-                    `${event.eventSettings.secondReminderTime.value} ${event.eventSettings.secondReminderTime.unit} before start` : 
-                    'Disabled'}
-                </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <Bell size={12} style={{ color: '#94A3B8', flexShrink: 0 }} />
+                <span style={{ fontSize: '12px', color: '#64748B' }}>
+                  Second reminder · {reminderSummary(event.eventSettings.secondReminderEnabled, event.eventSettings.secondReminderTime)}
+                </span>
               </div>
             </div>
           )}
 
-          {/* Next Scheduled Reminder */}
+          {/* Next scheduled reminder + manual send */}
           {scheduledReminders.length > 0 && (
-            <div>
-              <div style={{
-                fontSize: '12px',
-                fontWeight: 500,
-                color: '#64748B',
-                textTransform: 'uppercase',
-                letterSpacing: '0.5px',
-                marginBottom: '8px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '4px'
-              }}>
-                <Clock size={14} />
-                Next Reminder
-              </div>
-              <div style={{
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '8px'
-              }}>
-                <div style={{
-                  fontSize: '13px',
-                  color: '#475569',
-                  backgroundColor: '#F8FAFC',
-                  padding: '8px 12px',
-                  borderRadius: '6px',
-                  border: '1px solid #E2E8F0'
-                }}>
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '8px',
+              backgroundColor: '#F8FAFC',
+              border: '1px solid #E2E8F0',
+              borderRadius: '6px',
+              padding: '6px 10px'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0 }}>
+                <Clock size={12} style={{ color: '#94A3B8', flexShrink: 0 }} />
+                <span style={{ fontSize: '12px', color: '#475569', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   Next reminder: {new Date(scheduledReminders[0].scheduled_time).toLocaleString('en-US', {
-                    weekday: 'long',
-                    year: 'numeric',
-                    month: 'long',
+                    weekday: 'short',
+                    month: 'short',
                     day: 'numeric',
                     hour: 'numeric',
                     minute: '2-digit',
                     hour12: true
                   })}
-                </div>
-                <button
-                  onClick={handleSendReminder}
-                  disabled={sendingReminder}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    padding: '6px 12px',
-                    backgroundColor: '#3B82F6',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '6px',
-                    fontSize: '12px',
-                    fontWeight: 500,
-                    cursor: sendingReminder ? 'not-allowed' : 'pointer',
-                    opacity: sendingReminder ? 0.6 : 1,
-                    transition: 'all 0.2s ease',
-                    alignSelf: 'flex-start'
-                  }}
-                  onMouseEnter={(e) => {
-                    if (!sendingReminder) {
-                      e.currentTarget.style.backgroundColor = '#2563EB';
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    if (!sendingReminder) {
-                      e.currentTarget.style.backgroundColor = '#3B82F6';
-                    }
-                  }}
-                >
-                  {sendingReminder ? (
-                    <>
-                      <div className="w-3 h-3 border-2 border-t-transparent rounded-full animate-spin" 
-                           style={{ borderColor: 'white', borderTopColor: 'transparent' }} />
-                      <span>Sending...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Bell size={12} />
-                      <span>Send Reminder Now</span>
-                    </>
-                  )}
-                </button>
+                </span>
               </div>
+              <button
+                onClick={handleSendReminder}
+                disabled={sendingReminder}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '4px 10px',
+                  backgroundColor: '#3B82F6',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  fontSize: '12px',
+                  fontWeight: 500,
+                  cursor: sendingReminder ? 'not-allowed' : 'pointer',
+                  opacity: sendingReminder ? 0.6 : 1,
+                  transition: 'all 0.2s ease',
+                  flexShrink: 0
+                }}
+                onMouseEnter={(e) => {
+                  if (!sendingReminder) {
+                    e.currentTarget.style.backgroundColor = '#2563EB';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!sendingReminder) {
+                    e.currentTarget.style.backgroundColor = '#3B82F6';
+                  }
+                }}
+              >
+                {sendingReminder ? (
+                  <>
+                    <div className="w-3 h-3 border-2 border-t-transparent rounded-full animate-spin"
+                         style={{ borderColor: 'white', borderTopColor: 'transparent' }} />
+                    <span>Sending...</span>
+                  </>
+                ) : (
+                  <>
+                    <Bell size={12} />
+                    <span>Send Now</span>
+                  </>
+                )}
+              </button>
             </div>
           )}
         </div>
       </Card>
-      
+
       {/* Event Image Section */}
       {(imagePreview || imageLoading) && (
-        <Card className="p-6" style={{ marginBottom: '10px' }}>
+        <Card className="p-4" style={{ marginBottom: '10px' }}>
           {imageLoading && (
             <div className="text-sm text-slate-500 flex items-center justify-center mb-3">
               <div className="w-4 h-4 mr-2 border-2 border-t-transparent border-slate-500 rounded-full animate-spin" />
               Processing image...
             </div>
           )}
-          
+
           {imageError && (
             <div className="p-2 mb-3 bg-red-50 text-red-700 text-sm rounded-md">
               {imageError}
-              <button 
+              <button
                 className="ml-2 text-red-500 hover:text-red-700"
                 onClick={() => setImageError(null)}
               >
@@ -1078,7 +1231,7 @@ const EventDetails: React.FC<EventDetailsProps> = ({
               </button>
             </div>
           )}
-          
+
           {imagePreview && (
             <div className="relative">
               <div className="relative rounded-lg overflow-hidden bg-slate-100" style={{
@@ -1089,9 +1242,9 @@ const EventDetails: React.FC<EventDetailsProps> = ({
                 alignItems: 'center',
                 padding: '10px'
               }}>
-                <img 
+                <img
                   src={imagePreview}
-                  alt="Event image" 
+                  alt="Event image"
                   style={{
                     maxWidth: '100%',
                     maxHeight: '300px',
@@ -1101,13 +1254,13 @@ const EventDetails: React.FC<EventDetailsProps> = ({
                     borderRadius: '8px'
                   }}
                 />
-                
+
               </div>
             </div>
           )}
-          
+
           {/* Hidden file input for image replacement */}
-          <input 
+          <input
             type="file"
             ref={fileInputRef}
             onChange={handleImageUpload}
@@ -1116,83 +1269,8 @@ const EventDetails: React.FC<EventDetailsProps> = ({
           />
         </Card>
       )}
-      
-      {/* Discord Integration Status */}
-      {(isPublished || isScheduled) && (
-        <Card className="p-4" style={{ marginBottom: '4px' }}>
-          <h2 style={{ fontSize: '18px', fontWeight: 600, color: '#1E293B', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <DiscordIcon size={18} className="text-indigo-500" />
-            Discord Integration
-          </h2>
-          <div style={{ display: 'grid', gap: '12px' }}>
-            {/* Publication Status */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              {isScheduled ? (
-                <Clock size={16} style={{ color: '#5865F2', flexShrink: 0 }} />
-              ) : (
-                <div style={{
-                  width: '8px',
-                  height: '8px',
-                  borderRadius: '50%',
-                  backgroundColor: '#10B981', // Green for published/active
-                  flexShrink: 0
-                }} />
-              )}
-              <div style={{
-                fontSize: '13px',
-                fontWeight: 500,
-                backgroundColor: isScheduled ? '#5865F2' : 'transparent',
-                color: isScheduled ? 'white' : '#374151',
-                padding: isScheduled ? '4px 8px' : '0',
-                borderRadius: isScheduled ? '4px' : '0'
-              }}>
-                {isScheduled
-                  ? `Scheduled for Publication on ${formatScheduledTime(scheduledPublication!.scheduled_time)}`
-                  : 'Published to Discord'
-                }
-              </div>
-            </div>
-            
-            {/* Connectivity Status */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <div style={{
-                width: '8px',
-                height: '8px',
-                borderRadius: '50%',
-                backgroundColor: serverConnectivity === 'connected' ? '#10B981' : 
-                                serverConnectivity === 'pending' ? '#6B7280' : '#EF4444',
-                flexShrink: 0
-              }} />
-              <div style={{
-                fontSize: '13px',
-                color: '#374151',
-                fontWeight: 500
-              }}>
-                Server monitoring {serverConnectivity === 'connected' ? 'active' : 
-                                  serverConnectivity === 'pending' ? 'pending' : 'error'}
-              </div>
-            </div>
-            
-            {/* Features List */}
-            <div style={{ marginLeft: '16px', marginTop: '4px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
-                <Check size={12} style={{ color: '#10B981' }} />
-                <span style={{ fontSize: '12px', color: '#6B7280' }}>Real-time attendance tracking</span>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
-                <Check size={12} style={{ color: '#10B981' }} />
-                <span style={{ fontSize: '12px', color: '#6B7280' }}>Event countdown updates</span>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <Check size={12} style={{ color: '#10B981' }} />
-                <span style={{ fontSize: '12px', color: '#6B7280' }}>Event reminder messages</span>
-              </div>
-            </div>
-          </div>
-        </Card>
-      )}
       </div>
-      
+
       {/* Fixed Publish to Discord Button Footer */}
       <div
         style={{
@@ -1240,9 +1318,9 @@ const EventDetails: React.FC<EventDetailsProps> = ({
             </span>
           )}
         </div>
-        
+
         {publishMessage && (
-          <div 
+          <div
             className={`p-3 mb-4 rounded-md ${publishMessage.type === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}
           >
             {publishMessage.text}

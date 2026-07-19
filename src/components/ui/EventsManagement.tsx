@@ -1482,6 +1482,75 @@ const EventsManagement: React.FC = () => {
     }
   };
 
+  // Reflect activities newly added in the cycle builder into the cycle's
+  // existing weekly events: each week in the activity's span that already has
+  // an event gets an event_activities link on that week's first event (same
+  // targeting as reset-to-syllabus). Weeks without an event are left alone -
+  // events there are added from inside the builder. Only genuinely new
+  // activities go through this, so links a user deliberately detached from an
+  // event are never re-created for pre-existing activities.
+  const attachNewActivitiesToExistingEvents = async (
+    cycleId: string,
+    cycleStartDate: string,
+    newActivities: CycleActivity[]
+  ) => {
+    const { data: eventRows } = await supabase
+      .from('events')
+      .select('id, start_datetime')
+      .eq('cycle_id', cycleId);
+    if (!eventRows || eventRows.length === 0) return;
+
+    // Same week formula as the cycle builder's event mapping
+    const base = new Date(cycleStartDate);
+    const weekOf = (iso: string) =>
+      Math.max(1, Math.floor((new Date(iso).getTime() - base.getTime()) / (7 * 24 * 60 * 60 * 1000)) + 1);
+    const eventsByWeek = new Map<number, Array<{ id: string; start_datetime: string }>>();
+    (eventRows as Array<{ id: string; start_datetime: string }>).forEach(ev => {
+      const week = weekOf(ev.start_datetime);
+      if (!eventsByWeek.has(week)) eventsByWeek.set(week, []);
+      eventsByWeek.get(week)!.push(ev);
+    });
+    eventsByWeek.forEach(list => list.sort((a, b) => a.start_datetime.localeCompare(b.start_datetime)));
+
+    for (const activity of newActivities) {
+      if (!activity.id) continue;
+      // A syllabus activity contributes its k-th lesson where k is the week's
+      // offset into the activity's span (matching weekly event generation)
+      let missions: Array<{ id: string }> = [];
+      if (activity.kind === 'syllabus' && activity.syllabusId) {
+        const { data } = await supabase
+          .from('training_syllabus_missions')
+          .select('id')
+          .eq('syllabus_id', activity.syllabusId)
+          .order('week_number');
+        missions = (data as Array<{ id: string }>) || [];
+      }
+
+      for (let week = activity.startWeek; week <= activity.endWeek; week++) {
+        const target = eventsByWeek.get(week)?.[0];
+        if (!target) continue;
+        const mission = activity.kind === 'syllabus' ? missions[week - activity.startWeek] : undefined;
+        if (activity.kind === 'syllabus' && !mission) continue; // span outruns the syllabus
+
+        const { count } = await (supabase as any)
+          .from('event_activities')
+          .select('id', { count: 'exact', head: true })
+          .eq('event_id', target.id);
+        await (supabase as any).from('event_activities').insert({
+          event_id: target.id,
+          cycle_id: cycleId,
+          cycle_activity_id: activity.id,
+          kind: mission ? 'lesson' : 'objectives',
+          syllabus_mission_id: mission?.id || null,
+          display_order: count ?? 0,
+          label: activity.label || null,
+          ad_hoc_objectives: activity.kind === 'objectives' ? (activity.adHocObjectives || []) : null,
+          settings: activity.settings || {}
+        });
+      }
+    }
+  };
+
   // Cycle handlers
   const handleCreateCycle = async (cycleData: {
     name: string;
@@ -1624,6 +1693,16 @@ const EventsManagement: React.FC = () => {
           if (!existingEventCount) {
             await createWeeklyEventsForCycleActivities(editingCycle.id, cycleData as any, savedActivities);
             await loadEvents(editingCycle.id);
+          } else {
+            // Activities added in this save (no id yet) attach to the existing
+            // weekly events covering their weeks instead of being orphaned.
+            // saveCycleActivities returns rows index-aligned with its input.
+            const inputActivities = (cycleData as any).cycleActivities as CycleActivity[];
+            const newActivities = savedActivities.filter((_, i) => !inputActivities[i]?.id);
+            if (newActivities.length > 0) {
+              await attachNewActivitiesToExistingEvents(editingCycle.id, cycleData.startDate, newActivities);
+              await loadEvents(editingCycle.id);
+            }
           }
         }
       } else if (cycleData.autoCreateEvents && cycle && cycleData.syllabusId) {
