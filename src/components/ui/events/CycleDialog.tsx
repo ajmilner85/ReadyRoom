@@ -555,7 +555,14 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
           discord_event_id: (eventRow as any)?.discord_event_id
         });
         if (historical) {
-          if ((eventRow as any)?.discord_event_id) {
+          // Discord posts only removed when canceling an unstarted published
+          // event; past events keep their Discord history when archived
+          const started = (eventRow as any)?.start_datetime
+            ? new Date((eventRow as any).start_datetime).getTime() < Date.now()
+            : false;
+          const published = Array.isArray((eventRow as any)?.discord_event_id)
+            && (eventRow as any).discord_event_id.length > 0;
+          if (published && !started) {
             try {
               const { deleteMultiChannelEvent } = await import('../../../utils/discordService');
               await deleteMultiChannelEvent(eventRow as any);
