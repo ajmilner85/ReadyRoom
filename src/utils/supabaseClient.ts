@@ -211,6 +211,9 @@ export const fetchCycles = async (discordGuildId?: string) => {
       query = query.eq('discord_guild_id', discordGuildId);
     }
 
+    // Hide soft-deleted cycles (restorable by clearing deleted_at)
+    query = (query as any).is('deleted_at', null);
+
     const { data, error } = await query;
 
     if (error) {
@@ -396,12 +399,54 @@ export const updateCycle = async (cycleId: string, updates: Partial<Omit<Cycle, 
 };
 
 export const deleteCycle = async (cycleId: string) => {
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from('cycles')
     .delete()
-    .eq('id', cycleId);
+    .eq('id', cycleId)
+    .select('id');
+
+  // RLS blocks hard deletion of historical cycles (ended, or carrying grades/
+  // graduation records) by filtering rather than erroring - surface it
+  if (!error && (!data || data.length === 0)) {
+    return { error: { message: 'Cycle could not be deleted. Historical cycles are archived instead of deleted.' } as any };
+  }
 
   return { error };
+};
+
+/**
+ * Soft-delete a cycle: recoverable tombstone for cycles with history
+ * (restore by clearing deleted_at in the database).
+ */
+export const softDeleteCycle = async (cycleId: string) => {
+  const profileId = await getCurrentUserProfileId();
+  const { data, error } = await (supabase as any)
+    .from('cycles')
+    .update({ deleted_at: new Date().toISOString(), deleted_by: profileId })
+    .eq('id', cycleId)
+    .select('id');
+
+  if (!error && (!data || data.length === 0)) {
+    return { error: { message: 'Cycle could not be removed. You may not have permission to manage it.' } as any };
+  }
+
+  return { error };
+};
+
+/** user_profiles.id for the signed-in user (deleted_by attribution); null if unavailable */
+const getCurrentUserProfileId = async (): Promise<string | null> => {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return null;
+    const { data: profile } = await supabase
+      .from('user_profiles')
+      .select('id')
+      .eq('auth_user_id', user.id)
+      .single();
+    return profile?.id ?? null;
+  } catch {
+    return null;
+  }
 };
 
 // Cycle Activities API (developer-flagged feature). A cycle with zero activity
@@ -526,6 +571,10 @@ export const fetchEvents = async (cycleId?: string) => {
   if (cycleId) {
     query = query.eq('cycle_id', cycleId);
   }
+
+  // Soft-deleted events are hidden everywhere (restorable by clearing
+  // deleted_at in the database). Column is newer than the generated types.
+  query = (query as any).is('deleted_at', null);
 
 
   // Note: Removed Discord guild ID filtering to support multi-squadron publishing
@@ -1122,6 +1171,56 @@ export const deleteEvent = async (eventId: string) => {
   if (!error && (!data || data.length === 0)) {
     console.error(`[DELETE-EVENT-DB] No rows deleted - likely blocked by RLS policy`);
     return { error: { message: 'Event could not be deleted. This may be due to insufficient permissions or the event may have already been deleted.' } as any };
+  }
+
+  return { error };
+};
+
+/**
+ * Frontend mirror of the DB's event_has_history() test: an event is historical
+ * once it has been published to Discord or has already started. (The DB check
+ * additionally counts attendance rows, which can't exist without publication.)
+ * Historical events must be soft-deleted; hard DELETE is RLS-blocked for them.
+ */
+export const isEventHistorical = (event: {
+  datetime?: string;
+  discordEventId?: string;
+  discord_event_id?: unknown;
+}): boolean => {
+  const published = Boolean(event.discordEventId)
+    || (Array.isArray(event.discord_event_id) && event.discord_event_id.length > 0);
+  const past = event.datetime ? new Date(event.datetime).getTime() < Date.now() : false;
+  return published || past;
+};
+
+/**
+ * Soft-delete an event: cancels its reminders and scheduled publication, then
+ * sets the recoverable deleted_at tombstone (restore by clearing deleted_at in
+ * the database). Discord message deletion is the caller's responsibility (the
+ * existing flows do it before this call), and is NOT restorable.
+ */
+export const softDeleteEvent = async (eventId: string) => {
+  try {
+    const { cancelEventReminders } = await import('./reminderService');
+    await cancelEventReminders(eventId);
+  } catch (reminderError) {
+    console.warn('Failed to cancel reminders for removed event:', reminderError);
+  }
+
+  await supabase
+    .from('scheduled_event_publications')
+    .delete()
+    .eq('event_id', eventId);
+
+  const profileId = await getCurrentUserProfileId();
+  const { data, error } = await (supabase as any)
+    .from('events')
+    .update({ deleted_at: new Date().toISOString(), deleted_by: profileId })
+    .eq('id', eventId)
+    .select('id');
+
+  if (!error && (!data || data.length === 0)) {
+    return { error: { message: 'Event could not be removed. You may not have permission to manage it.' } as any };
   }
 
   return { error };

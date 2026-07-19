@@ -57,10 +57,11 @@ async function fetchCycleData(cycleId: string): Promise<CycleReportData | null> 
  */
 async function fetchCycleEvents(cycleId: string): Promise<EventReportData[]> {
   try {
-    const { data, error } = await supabase
+    const { data, error } = await (supabase
       .from('events')
       .select('id, name, start_datetime, discord_event_id')
-      .eq('cycle_id', cycleId)
+      .eq('cycle_id', cycleId) as any)
+      .is('deleted_at', null)
       .order('start_datetime', { ascending: true });
 
     if (error) {
@@ -73,7 +74,7 @@ async function fetchCycleEvents(cycleId: string): Promise<EventReportData[]> {
       return [];
     }
 
-    return data.map(event => ({
+    return (data as any[]).map((event: any) => ({
       id: event.id,
       name: event.name,
       startDatetime: event.start_datetime,

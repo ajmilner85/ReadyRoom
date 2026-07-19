@@ -2,7 +2,7 @@
 import { X, Users, Trash2, ArrowUpDown, UserCheck, ChevronsLeft, ChevronsRight } from 'lucide-react';
 import { CycleType, TrainingSyllabus, CycleActivity, CycleSettings, EventActivityParticipantBlock } from '../../../types/EventTypes';
 import { Squadron } from '../../../types/OrganizationTypes';
-import { supabase, getCycleActivities, createEvent, deleteEvent } from '../../../utils/supabaseClient';
+import { supabase, getCycleActivities, createEvent, deleteEvent, softDeleteEvent, isEventHistorical } from '../../../utils/supabaseClient';
 import { createPortal } from 'react-dom';
 import CycleActivitiesBuilder, { BuilderSelection, PendingParticipantRow, CycleBuilderEvent, criteriaRowKey } from './CycleActivitiesBuilder';
 import CycleActivityConfigPanel from './CycleActivityConfigPanel';
@@ -351,7 +351,7 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
   const loadCycleEventItems = async () => {
     if (!cycleId) return;
     const [{ data: eventRows }, { data: linkRows }] = await Promise.all([
-      supabase.from('events').select('id, name, start_datetime, end_datetime').eq('cycle_id', cycleId),
+      (supabase.from('events').select('id, name, start_datetime, end_datetime').eq('cycle_id', cycleId) as any).is('deleted_at', null),
       (supabase as any)
         .from('event_activities')
         .select('event_id, cycle_activity_id')
@@ -543,7 +543,30 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
           .eq('event_id', eventItem.id)
           .eq('cycle_activity_id', eventItem.cycleActivityId);
       } else {
-        await deleteEvent(eventItem.id);
+        // Historical events (published or already started) soft-delete after
+        // pulling their Discord messages; drafts hard-delete as before
+        const { data: eventRow } = await supabase
+          .from('events')
+          .select('id, discord_event_id, start_datetime')
+          .eq('id', eventItem.id)
+          .single();
+        const historical = isEventHistorical({
+          datetime: (eventRow as any)?.start_datetime,
+          discord_event_id: (eventRow as any)?.discord_event_id
+        });
+        if (historical) {
+          if ((eventRow as any)?.discord_event_id) {
+            try {
+              const { deleteMultiChannelEvent } = await import('../../../utils/discordService');
+              await deleteMultiChannelEvent(eventRow as any);
+            } catch (discordError) {
+              console.warn('Failed to delete Discord messages for removed event:', discordError);
+            }
+          }
+          await softDeleteEvent(eventItem.id);
+        } else {
+          await deleteEvent(eventItem.id);
+        }
       }
       await loadCycleEventItems();
     } catch (err: any) {
@@ -576,7 +599,7 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
 
       const [{ data: links }, { data: eventRows }] = await Promise.all([
         (supabase as any).from('event_activities').select('id, event_id, syllabus_mission_id').eq('cycle_activity_id', activity.id),
-        supabase.from('events').select('id, name, start_datetime').eq('cycle_id', cycleId)
+        (supabase.from('events').select('id, name, start_datetime').eq('cycle_id', cycleId) as any).is('deleted_at', null)
       ]);
       const base = new Date(startDate);
       const weekOf = (iso: string) => Math.max(1, Math.floor((new Date(iso).getTime() - base.getTime()) / (7 * 24 * 60 * 60 * 1000)) + 1);

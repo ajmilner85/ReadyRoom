@@ -106,7 +106,7 @@ export async function computeCycleMetrics(cycleId: string): Promise<{
   try {
     const [cycleRes, eventsRes, pilotsRes] = await Promise.all([
       sb.from('cycles').select('id, start_date, end_date').eq('id', cycleId).single(),
-      sb.from('events').select('id, discord_event_id, start_datetime').eq('cycle_id', cycleId),
+      (sb.from('events').select('id, discord_event_id, start_datetime').eq('cycle_id', cycleId) as any).is('deleted_at', null),
       sb.from('pilots').select('id, discord_id')
     ]);
 

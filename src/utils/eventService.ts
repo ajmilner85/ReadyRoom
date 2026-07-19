@@ -10,9 +10,10 @@ export type UpdateEvent = Database['public']['Tables']['events']['Update'];
  * Fetch all events from the database
  */
 export async function getAllEvents(): Promise<{ data: Event[] | null; error: any }> {
-  const { data, error } = await supabase
+  const { data, error } = await (supabase
     .from('events')
-    .select('*')
+    .select('*') as any)
+    .is('deleted_at', null)
     .order('start_datetime', { ascending: true });
 
   return { data, error };
@@ -25,10 +26,11 @@ export async function getAllEvents(): Promise<{ data: Event[] | null; error: any
 export async function getEventsByGuildId(guildId: string): Promise<{ data: Event[] | null; error: any }> {
   // Since guild ID is now stored in discord_event_id JSONB array, we need to use a JSONB query
   // Query for events where the discord_event_id contains an object with the matching guildId
-  const { data, error } = await supabase
+  const { data, error } = await (supabase
     .from('events')
     .select('*')
-    .contains('discord_event_id', [{ guildId }])
+    .contains('discord_event_id', [{ guildId }]) as any)
+    .is('deleted_at', null)
     .order('start_datetime', { ascending: false });  // Reverse chronological order
 
   return { data, error };
