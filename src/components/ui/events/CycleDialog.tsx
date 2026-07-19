@@ -105,6 +105,8 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
   const [enrollmentActivityScopeId, setEnrollmentActivityScopeId] = useState<string>('');
   const selectedActivityIndex = builderSelection?.type === 'activity' ? builderSelection.index : null;
   const [syllabusNames, setSyllabusNames] = useState<Record<string, string>>({});
+  // Ordered lesson names per syllabus id (builder preview of unsaved activities)
+  const [syllabusMissionNames, setSyllabusMissionNames] = useState<Record<string, string[]>>({});
   // Options/Reminders/Publication: an edited cycle restores its saved settings;
   // a new cycle (or a legacy one without settings) seeds from the user's
   // default event settings so the defaults are visible and reviewable
@@ -647,9 +649,19 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
       const { activities, error } = await getCycleActivities(cycleId);
       if (!cancelled && !error) {
         setCycleActivities(activities);
-        // Seed the ordered row list from the loaded activities
+        // Seed the ordered row list from the saved row order first (rows
+        // survive having no activities until explicitly deleted), then append
+        // any rows only derivable from the activities (legacy cycles, or
+        // criteria introduced through the event dialog's reflection)
         const rowsInOrder: PendingParticipantRow[] = [];
         const seen = new Set<string>();
+        (initialData?.settings?.participantRows || []).forEach(criteria => {
+          const rowKey = criteriaRowKey(criteria);
+          if (!seen.has(rowKey)) {
+            seen.add(rowKey);
+            rowsInOrder.push({ rowKey, criteria });
+          }
+        });
         activities.forEach(a => {
           const rowKey = criteriaRowKey(a.settings?.participantCriteria);
           if (!seen.has(rowKey)) {
@@ -662,6 +674,9 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
     };
     load();
     return () => { cancelled = true; };
+    // initialData is deliberately not a dependency: re-running on parent
+    // re-renders would refetch and clobber unsaved row edits
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activitiesEnabled, cycleId]);
 
   // Event Activities: builder handlers. A participant group (row) is created
@@ -695,6 +710,27 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
   const handleUpdateSelectedActivity = (updates: Partial<CycleActivity>) => {
     if (selectedActivityIndex === null) return;
     setCycleActivities(prev => prev.map((a, i) => (i === selectedActivityIndex ? { ...a, ...updates } : a)));
+  };
+
+  // Explicitly delete a participant row: removes the row and any activities
+  // still in it (the only way a row leaves the cycle)
+  const handleRemoveParticipantRow = (rowKey: string) => {
+    const removedIndices = new Set(cycleActivities
+      .map((a, i) => (criteriaRowKey(a.settings?.participantCriteria) === rowKey ? i : -1))
+      .filter(i => i !== -1));
+    setCycleActivities(prev => prev
+      .filter((_, i) => !removedIndices.has(i))
+      .map((a, i) => ({ ...a, displayOrder: i })));
+    setParticipantRows(prev => prev.filter(r => r.rowKey !== rowKey));
+    setBuilderSelection(prev => {
+      if (prev?.type === 'row' && prev.rowKey === rowKey) return null;
+      if (prev?.type === 'activity') {
+        if (removedIndices.has(prev.index)) return null;
+        const shift = [...removedIndices].filter(i => i < prev.index).length;
+        return { type: 'activity', index: prev.index - shift };
+      }
+      return prev;
+    });
   };
 
   const handleRemoveActivityAt = (index: number) => {
@@ -1127,10 +1163,19 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
   useEffect(() => {
     if (type === 'Training') {
       const loadSyllabi = async () => {
-        const { data, error } = await (supabase as any)
-          .from('training_syllabi')
-          .select('id, name, description, kind')
-          .order('name');
+        const [{ data, error }, missionsResult] = await Promise.all([
+          (supabase as any)
+            .from('training_syllabi')
+            .select('id, name, description, kind')
+            .order('name'),
+          // Ordered lesson names per syllabus - lets the builder preview an
+          // unsaved syllabus activity's per-week lesson cells before the save
+          // creates the real events
+          (supabase as any)
+            .from('training_syllabus_missions')
+            .select('syllabus_id, mission_name, week_number')
+            .order('week_number')
+        ]);
 
         if (!error && data) {
           // Only linear syllabi drive a cycle's weekly progression; other kinds
@@ -1139,6 +1184,14 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
           const names: Record<string, string> = {};
           data.forEach((s: any) => { names[s.id] = s.name; });
           setSyllabusNames(names);
+        }
+        if (missionsResult.data) {
+          const bySyllabus: Record<string, string[]> = {};
+          (missionsResult.data as any[]).forEach(m => {
+            if (!bySyllabus[m.syllabus_id]) bySyllabus[m.syllabus_id] = [];
+            bySyllabus[m.syllabus_id].push(m.mission_name);
+          });
+          setSyllabusMissionNames(bySyllabus);
         }
       };
       loadSyllabi();
@@ -1735,7 +1788,9 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
       // DB CHECK requires a syllabus_id for syllabus-kind rows.
       ...(activitiesEnabled
         ? {
-            settings: cycleSettings,
+            // Persist the builder's row order so participant rows survive
+            // having no activities (only explicit deletion removes a row)
+            settings: { ...cycleSettings, participantRows: participantRows.map(r => r.criteria) },
             cycleActivities: cycleActivities.filter(a => a.kind === 'objectives' || a.syllabusId)
           }
         : {})
@@ -2637,10 +2692,12 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
                 startDate={startDate}
                 squadrons={squadrons}
                 syllabusNames={syllabusNames}
+                syllabusMissionNames={syllabusMissionNames}
                 selection={builderSelection}
                 onSelect={setBuilderSelection}
                 participantRows={participantRows}
                 onAddParticipantRow={handleAddParticipantRow}
+                onRemoveParticipantRow={handleRemoveParticipantRow}
                 onAddActivityInRow={handleAddActivityInRow}
                 onRemoveActivity={handleRemoveActivityAt}
                 cycleEvents={cycleEventItems}

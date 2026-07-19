@@ -55,12 +55,17 @@ interface CycleActivitiesBuilderProps {
   squadrons: SquadronInfo[];
   /** Names for syllabus-kind blocks, keyed by syllabus id */
   syllabusNames: Record<string, string>;
+  /** Ordered lesson names per syllabus id - previews an unsaved syllabus
+      activity's per-week cells before saving creates the real events */
+  syllabusMissionNames: Record<string, string[]>;
   selection: BuilderSelection;
   onSelect: (selection: BuilderSelection) => void;
   /** Ordered participant rows (the authoritative row order; may include rows
       with no activities yet) */
   participantRows: PendingParticipantRow[];
   onAddParticipantRow: () => void;
+  /** Explicitly delete a participant row (and any activities still in it) */
+  onRemoveParticipantRow: (rowKey: string) => void;
   onAddActivityInRow: (criteria: EventActivityParticipantBlock[], week: number) => void;
   onRemoveActivity: (index: number) => void;
   /** The cycle's events, linked to their activities (shown as cells in the bars) */
@@ -113,10 +118,12 @@ const CycleActivitiesBuilder: React.FC<CycleActivitiesBuilderProps> = ({
   startDate,
   squadrons,
   syllabusNames,
+  syllabusMissionNames,
   selection,
   onSelect,
   participantRows,
   onAddParticipantRow,
+  onRemoveParticipantRow,
   onAddActivityInRow,
   onRemoveActivity,
   cycleEvents,
@@ -134,6 +141,8 @@ const CycleActivitiesBuilder: React.FC<CycleActivitiesBuilderProps> = ({
   const [confirmDeleteIndex, setConfirmDeleteIndex] = useState<number | null>(null);
   const [confirmResetIndex, setConfirmResetIndex] = useState<number | null>(null);
   const [confirmDeleteEvent, setConfirmDeleteEvent] = useState<CycleBuilderEvent | null>(null);
+  const [hoveredRowKey, setHoveredRowKey] = useState<string | null>(null);
+  const [confirmDeleteRow, setConfirmDeleteRow] = useState<BuilderRow | null>(null);
   // Composite key (activityId:eventId) - an event linked to two activities
   // renders in both bars and must not pop details in both at once. The popup
   // itself portals to document.body (fixed) so the gantt's scroll container
@@ -485,8 +494,11 @@ const CycleActivitiesBuilder: React.FC<CycleActivitiesBuilderProps> = ({
                 {/* Participant header - click to edit the group's criteria */}
                 <div
                   onClick={() => onSelect(isRowSelected ? null : { type: 'row', rowKey: row.rowKey })}
+                  onMouseEnter={() => setHoveredRowKey(row.rowKey)}
+                  onMouseLeave={() => setHoveredRowKey(prev => (prev === row.rowKey ? null : prev))}
                   title="Edit participants"
                   style={{
+                    position: 'relative',
                     width: `${HEADER_COL_WIDTH}px`,
                     flexShrink: 0,
                     padding: '6px 8px',
@@ -500,6 +512,34 @@ const CycleActivitiesBuilder: React.FC<CycleActivitiesBuilderProps> = ({
                   }}
                 >
                   {renderParticipantHeader(row)}
+                  {/* Hover delete: the only way a participant row leaves the cycle */}
+                  {hoveredRowKey === row.rowKey && !dragging && (
+                    <button
+                      type="button"
+                      onMouseDown={(e) => e.stopPropagation()}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setConfirmDeleteRow(row);
+                      }}
+                      title="Delete participant row"
+                      style={{
+                        position: 'absolute',
+                        right: '4px',
+                        top: '4px',
+                        padding: '2px',
+                        backgroundColor: 'transparent',
+                        border: 'none',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        zIndex: 1
+                      }}
+                    >
+                      <X size={14} color="#64748B" />
+                    </button>
+                  )}
                 </div>
                 {/* Track - click an empty spot to add an activity at that week */}
                 <div
@@ -612,7 +652,7 @@ const CycleActivitiesBuilder: React.FC<CycleActivitiesBuilderProps> = ({
                             return (
                               <div
                                 key={week}
-                                onMouseDown={weekEvents.length === 0 ? (e) => e.stopPropagation() : undefined}
+                                onMouseDown={weekEvents.length === 0 && activity.id ? (e) => e.stopPropagation() : undefined}
                                 onClick={weekEvents.length === 0 ? (e) => {
                                   e.stopPropagation();
                                   if (justDraggedRef.current || !activity.id) return;
@@ -713,6 +753,43 @@ const CycleActivitiesBuilder: React.FC<CycleActivitiesBuilderProps> = ({
                                     )}
                                   </div>
                                 ))}
+                                {/* Unsaved activity: preview the event cells
+                                    that saving will create - the live-typed
+                                    Activity Title for ad-hoc exercises, or the
+                                    week's lesson name for syllabus activities */}
+                                {weekEvents.length === 0 && !activity.id && (() => {
+                                  const previewLabel = activity.kind === 'objectives'
+                                    ? (activity.label || '')
+                                    : activity.syllabusId
+                                      ? (syllabusMissionNames[activity.syllabusId] || [])[week - activity.startWeek]
+                                      : undefined;
+                                  if (previewLabel === undefined) return null; // no syllabus picked / span outruns the lessons
+                                  return (
+                                    <div style={{
+                                      flex: 1,
+                                      minHeight: 0,
+                                      padding: '3px 5px',
+                                      backgroundColor: 'rgba(255, 255, 255, 0.75)',
+                                      border: '1px solid #BAE6FD',
+                                      borderRadius: '3px',
+                                      boxSizing: 'border-box'
+                                    }}>
+                                      <div style={{
+                                        fontSize: '10px',
+                                        fontWeight: 500,
+                                        color: '#334155',
+                                        fontFamily: 'Inter',
+                                        lineHeight: 1.25,
+                                        whiteSpace: 'normal',
+                                        wordBreak: 'break-word',
+                                        overflow: 'hidden',
+                                        maxHeight: '100%'
+                                      }}>
+                                        {previewLabel}
+                                      </div>
+                                    </div>
+                                  );
+                                })()}
                               </div>
                             );
                           })}
@@ -892,6 +969,25 @@ const CycleActivitiesBuilder: React.FC<CycleActivitiesBuilderProps> = ({
           setHoveredActivityIndex(null);
         }}
         onCancel={() => setConfirmResetIndex(null)}
+      />
+
+      <ConfirmationDialog
+        isOpen={confirmDeleteRow !== null}
+        title="Delete Participant Row"
+        message={confirmDeleteRow
+          ? (confirmDeleteRow.activityIndices.length > 0
+            ? `Delete this participant row and its ${confirmDeleteRow.activityIndices.length} ${confirmDeleteRow.activityIndices.length === 1 ? 'activity' : 'activities'} from the cycle?`
+            : 'Delete this participant row from the cycle?')
+          : ''}
+        confirmText="Delete"
+        type="danger"
+        icon="trash"
+        onConfirm={() => {
+          if (confirmDeleteRow) onRemoveParticipantRow(confirmDeleteRow.rowKey);
+          setConfirmDeleteRow(null);
+          setHoveredRowKey(null);
+        }}
+        onCancel={() => setConfirmDeleteRow(null)}
       />
 
       <ConfirmationDialog

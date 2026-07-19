@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Clock, Image as ImageIcon, ChevronLeft, ChevronRight, Check, Plus, CheckSquare } from 'lucide-react';
+import { X, Clock, Image as ImageIcon, ChevronLeft, ChevronRight, Check, Plus, CheckCircle2 } from 'lucide-react';
 import { useAppSettings } from '../../../context/AppSettingsContext';
 import { fetchDiscordGuildRoles } from '../../../utils/discordService';
 import { supabase, getEventActivities, getCycleActivities } from '../../../utils/supabaseClient';
@@ -2151,25 +2151,17 @@ export const EventDialog: React.FC<EventDialogProps> = ({
                   }}>
                     Training Objectives (DLOs)
                   </label>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                     {trainingObjectives.map((objective) => (
                       <div
                         key={objective.id}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'flex-start',
-                          gap: '12px',
-                          padding: '12px',
-                          backgroundColor: '#F9FAFB',
-                          borderRadius: '6px',
-                          border: '1px solid #E5E7EB'
-                        }}
+                        style={{ display: 'flex', alignItems: 'flex-start', gap: '6px' }}
                       >
-                        <CheckSquare
-                          size={20}
-                          style={{ color: '#64748B', flexShrink: 0, marginTop: '2px' }}
+                        <CheckCircle2
+                          size={13}
+                          style={{ color: '#94A3B8', flexShrink: 0, marginTop: '3px' }}
                         />
-                        <p style={{ fontSize: '14px', color: '#374151', lineHeight: '1.6', margin: 0 }}>
+                        <p style={{ fontSize: '13px', color: '#374151', lineHeight: 1.5, margin: 0 }}>
                           {objective.objective_text}
                         </p>
                       </div>

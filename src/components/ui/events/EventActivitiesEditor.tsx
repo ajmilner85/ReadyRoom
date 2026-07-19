@@ -1,5 +1,5 @@
 ﻿import React, { useEffect, useState } from 'react';
-import { ChevronUp, ChevronDown, ChevronRight, CheckSquare, Plus, X, Trash2, Info } from 'lucide-react';
+import { ChevronUp, ChevronDown, ChevronRight, CheckCircle2, Plus, X, Trash2, Info } from 'lucide-react';
 import { supabase } from '../../../utils/supabaseClient';
 import { getActiveQualifications, Qualification } from '../../../utils/qualificationService';
 import SupportRoleRequirementsEditor from './SupportRoleRequirementsEditor';
@@ -709,25 +709,17 @@ const ActivityCard: React.FC<{
               </button>
             </div>
           ) : syllabusObjectives.length > 0 ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
               {syllabusObjectives.map((objective) => (
                 <div
                   key={objective.id}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'flex-start',
-                    gap: '12px',
-                    padding: '12px',
-                    backgroundColor: '#F9FAFB',
-                    borderRadius: '6px',
-                    border: '1px solid #E5E7EB'
-                  }}
+                  style={{ display: 'flex', alignItems: 'flex-start', gap: '6px' }}
                 >
-                  <CheckSquare
-                    size={20}
-                    style={{ color: '#64748B', flexShrink: 0, marginTop: '2px' }}
+                  <CheckCircle2
+                    size={13}
+                    style={{ color: '#94A3B8', flexShrink: 0, marginTop: '3px' }}
                   />
-                  <p style={{ fontSize: '14px', color: '#374151', lineHeight: '1.6', margin: 0 }}>
+                  <p style={{ fontSize: '13px', color: '#374151', lineHeight: 1.5, margin: 0 }}>
                     {objective.objective_text}
                   </p>
                 </div>
