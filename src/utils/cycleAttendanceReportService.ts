@@ -568,11 +568,12 @@ export async function fetchCycleAttendanceReport(
 
   // Fetch events in this cycle (filter out future events)
   const now = new Date().toISOString();
-  const { data: eventsData, error: eventsError} = await supabase
+  const { data: eventsData, error: eventsError} = await (supabase
     .from('events')
     .select('id, name, start_datetime, cycle_id, discord_event_id, event_settings')
     .eq('cycle_id', cycleId)
-    .lte('start_datetime', now) // Only past events
+    .lte('start_datetime', now) as any) // Only past events
+    .is('deleted_at', null)
     .order('start_datetime', { ascending: true });
 
   if (eventsError) {
@@ -581,13 +582,13 @@ export async function fetchCycleAttendanceReport(
   }
 
   // Filter out events excluded from attendance reports (via event_settings.includeInAttendanceReport)
-  const includedEvents = (eventsData || []).filter(event => {
+  const includedEvents = ((eventsData || []) as any[]).filter((event: any) => {
     const eventSettings = event.event_settings as any;
     // Include event if includeInAttendanceReport is undefined (default) or true
     return eventSettings?.includeInAttendanceReport !== false;
   });
 
-  const events: EventData[] = includedEvents.map(event => ({
+  const events: EventData[] = includedEvents.map((event: any) => ({
     id: event.id,
     name: event.name,
     start_datetime: event.start_datetime,

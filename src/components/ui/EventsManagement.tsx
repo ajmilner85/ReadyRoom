@@ -11,8 +11,9 @@ import CycleDialog from './events/CycleDialog';
 import { DeleteDivisionDialog } from './dialogs/DeleteDivisionDialog';
 import { Trash2 } from 'lucide-react';
 import type { Event, Cycle, CycleType, ReferenceMaterial, CycleActivity, CycleSettings, EventActivity } from '../../types/EventTypes';
-import { supabase, fetchCycles, createCycle, updateCycle, deleteCycle,
-         fetchEvents, createEvent, updateEvent, deleteEvent, saveCycleActivities } from '../../utils/supabaseClient';
+import { supabase, fetchCycles, createCycle, updateCycle, deleteCycle, softDeleteCycle,
+         fetchEvents, createEvent, updateEvent, deleteEvent, softDeleteEvent, isEventHistorical,
+         saveCycleActivities } from '../../utils/supabaseClient';
 import { deleteMultiChannelEvent, updateMultiChannelEvent } from '../../utils/discordService';
 import { uploadMultipleEventImages, deleteEventImageFiles } from '../../utils/eventImageService';
 import LoadingSpinner from './LoadingSpinner';
@@ -1494,10 +1495,11 @@ const EventsManagement: React.FC = () => {
     cycleStartDate: string,
     newActivities: CycleActivity[]
   ) => {
-    const { data: eventRows } = await supabase
+    const { data: eventRows } = await (supabase
       .from('events')
       .select('id, start_datetime')
-      .eq('cycle_id', cycleId);
+      .eq('cycle_id', cycleId) as any)
+      .is('deleted_at', null);
     if (!eventRows || eventRows.length === 0) return;
 
     // Same week formula as the cycle builder's event mapping
@@ -1753,8 +1755,11 @@ const EventsManagement: React.FC = () => {
           console.warn(`Failed to delete Discord messages for event ${event.id}:`, discordError);
         }
 
+        // Historical events soft-delete (recoverable, images kept); drafts hard-delete
+        const historical = isEventHistorical(event);
+
         // GC: delete associated image files
-        if (event.imageUrl || event.headerImageUrl || event.additionalImageUrls?.length) {
+        if (!historical && (event.imageUrl || event.headerImageUrl || event.additionalImageUrls?.length)) {
           await deleteEventImageFiles({
             imageUrl: event.imageUrl,
             headerImageUrl: event.headerImageUrl,
@@ -1762,8 +1767,9 @@ const EventsManagement: React.FC = () => {
           }).catch(err => console.warn(`[GC] Failed to delete images for event ${event.id}:`, err));
         }
 
-        // Delete the event from database
-        const { error } = await deleteEvent(event.id);
+        const { error } = historical
+          ? await softDeleteEvent(event.id)
+          : await deleteEvent(event.id);
         if (error) {
           console.error(`Failed to delete event ${event.id}:`, error);
         }
@@ -1800,8 +1806,19 @@ const EventsManagement: React.FC = () => {
   const confirmDelete = async () => {
     try {
       if (isDeleteCycle && cycleToDelete) {
-        // Delete cycle
-        const { error } = await deleteCycle(cycleToDelete.id);
+        // Ended cycles are soft-deleted (recoverable); active ones hard-delete.
+        // If a hard delete is blocked (grades/graduations, or soft-deleted
+        // events still referencing the cycle), fall back to soft delete.
+        const cycleEnded = new Date(cycleToDelete.endDate) < new Date();
+        let error;
+        if (cycleEnded) {
+          ({ error } = await softDeleteCycle(cycleToDelete.id));
+        } else {
+          ({ error } = await deleteCycle(cycleToDelete.id));
+          if (error) {
+            ({ error } = await softDeleteCycle(cycleToDelete.id));
+          }
+        }
         if (error) throw error;
         
         // If we're deleting the selected cycle, clear the selection
@@ -1833,8 +1850,12 @@ const EventsManagement: React.FC = () => {
           // Continue with event deletion even if Discord deletion fails
         }
         
+        // Historical events (published or already started) soft-delete:
+        // recoverable tombstone, images kept for restore. Only drafts hard-delete.
+        const historical = isEventHistorical(eventToDelete);
+
         // GC: delete associated image files before removing the DB row
-        if (eventToDelete.imageUrl || eventToDelete.headerImageUrl || eventToDelete.additionalImageUrls?.length) {
+        if (!historical && (eventToDelete.imageUrl || eventToDelete.headerImageUrl || eventToDelete.additionalImageUrls?.length)) {
           await deleteEventImageFiles({
             imageUrl: eventToDelete.imageUrl,
             headerImageUrl: eventToDelete.headerImageUrl,
@@ -1842,9 +1863,10 @@ const EventsManagement: React.FC = () => {
           }).catch(err => console.warn('[GC] Failed to delete event images:', err));
         }
 
-        // Delete event from database
-        console.log(`[DELETE-EVENT] Attempting to delete event ${eventToDelete.id} from database`);
-        const { error } = await deleteEvent(eventToDelete.id);
+        console.log(`[DELETE-EVENT] ${historical ? 'Soft-deleting' : 'Deleting'} event ${eventToDelete.id}`);
+        const { error } = historical
+          ? await softDeleteEvent(eventToDelete.id)
+          : await deleteEvent(eventToDelete.id);
         console.log(`[DELETE-EVENT] Delete result - error:`, error);
         if (error) {
           console.error(`[DELETE-EVENT] Failed to delete event:`, error);
