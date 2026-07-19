@@ -6,6 +6,9 @@ interface DeleteDivisionDialogProps {
   sectionTitle: string;
   divisionLabel: string;
   isPublished?: boolean;
+  /** Event has already started / cycle has ended - it will be archived
+      (recoverable), and Discord posts are left in place */
+  isPast?: boolean;
 }
 
 export const DeleteDivisionDialog: React.FC<DeleteDivisionDialogProps> = ({
@@ -14,7 +17,14 @@ export const DeleteDivisionDialog: React.FC<DeleteDivisionDialogProps> = ({
   sectionTitle,
   divisionLabel,
   isPublished = false,
+  isPast = false,
 }) => {
+  // Events/cycles with history are archived (soft-deleted, restorable by an
+  // administrator) rather than permanently deleted; the dialog states exactly
+  // what is and isn't recoverable for each case.
+  const archives = isPublished || isPast;
+  const verb = isPast ? 'archive' : 'delete';
+
   return (
     <div style={{
       position: 'absolute',
@@ -25,7 +35,7 @@ export const DeleteDivisionDialog: React.FC<DeleteDivisionDialogProps> = ({
       padding: '20px',
       borderRadius: '8px',
       boxShadow: '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)',
-      width: '300px',
+      width: '320px',
       zIndex: 1001,
       pointerEvents: 'auto'
     }}>
@@ -36,18 +46,49 @@ export const DeleteDivisionDialog: React.FC<DeleteDivisionDialogProps> = ({
         color: '#64748B',
         textAlign: 'center'
       }}>
-        {sectionTitle === 'Event' 
-          ? `Are you sure you want to delete the "${divisionLabel}" event?`
-          : `Are you sure you want to delete the ${sectionTitle} division "${divisionLabel}"?`
+        {sectionTitle === 'Event'
+          ? `Are you sure you want to ${verb} the "${divisionLabel}" event?`
+          : sectionTitle === 'Cycle'
+            ? `Are you sure you want to ${verb} the cycle "${divisionLabel}"?`
+            : `Are you sure you want to delete the ${sectionTitle} division "${divisionLabel}"?`
         }
-        {sectionTitle === 'Event' && isPublished && (
+        {sectionTitle === 'Event' && isPast && (
+          <div style={{
+            marginTop: '12px',
+            fontSize: '13px',
+            color: '#475569',
+            fontWeight: 500,
+            textAlign: 'left'
+          }}>
+            This event has already taken place. It will be archived: attendance,
+            training records, and Discord posts are all preserved, and an
+            administrator can restore it.
+          </div>
+        )}
+        {sectionTitle === 'Event' && isPublished && !isPast && (
           <div style={{
             marginTop: '12px',
             fontSize: '13px',
             color: '#DC2626',
-            fontWeight: 500
+            fontWeight: 500,
+            textAlign: 'left'
           }}>
-            Deleting this event will also delete the Discord event post, responses, and reminders.
+            This event is published to Discord. Deleting it removes the Discord
+            post and cancels reminders — that cannot be undone. Responses
+            already collected are preserved, and the event itself is archived
+            and restorable by an administrator.
+          </div>
+        )}
+        {sectionTitle === 'Cycle' && isPast && (
+          <div style={{
+            marginTop: '12px',
+            fontSize: '13px',
+            color: '#475569',
+            fontWeight: 500,
+            textAlign: 'left'
+          }}>
+            This cycle has ended. It will be archived with its records intact,
+            and an administrator can restore it.
           </div>
         )}
       </div>
@@ -76,12 +117,12 @@ export const DeleteDivisionDialog: React.FC<DeleteDivisionDialogProps> = ({
             padding: '8px 16px',
             border: 'none',
             borderRadius: '4px',
-            backgroundColor: '#EF4444',
+            backgroundColor: archives && isPast ? '#475569' : '#EF4444',
             color: 'white',
             cursor: 'pointer'
           }}
         >
-          Delete
+          {isPast ? 'Archive' : 'Delete'}
         </button>
       </div>
     </div>

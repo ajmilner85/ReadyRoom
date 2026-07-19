@@ -1745,18 +1745,24 @@ const EventsManagement: React.FC = () => {
 
       // Delete each event
       for (const event of cycleEvents) {
-        // Try to delete Discord messages first
-        try {
-          const { errors } = await deleteMultiChannelEvent(event);
-          if (errors.length > 0) {
-            console.warn(`Warning: Some Discord deletions failed for event ${event.id}:`, errors);
-          }
-        } catch (discordError) {
-          console.warn(`Failed to delete Discord messages for event ${event.id}:`, discordError);
-        }
-
         // Historical events soft-delete (recoverable, images kept); drafts hard-delete
         const historical = isEventHistorical(event);
+        const started = new Date(event.datetime).getTime() < Date.now();
+        const published = Boolean(event.discordEventId)
+          || (Array.isArray(event.discord_event_id) && event.discord_event_id.length > 0);
+
+        // Discord posts only removed when canceling an unstarted published
+        // event; past events keep their Discord history when archived
+        if (published && !started) {
+          try {
+            const { errors } = await deleteMultiChannelEvent(event);
+            if (errors.length > 0) {
+              console.warn(`Warning: Some Discord deletions failed for event ${event.id}:`, errors);
+            }
+          } catch (discordError) {
+            console.warn(`Failed to delete Discord messages for event ${event.id}:`, discordError);
+          }
+        }
 
         // GC: delete associated image files
         if (!historical && (event.imageUrl || event.headerImageUrl || event.additionalImageUrls?.length)) {
@@ -1829,30 +1835,30 @@ const EventsManagement: React.FC = () => {
         // Reload cycles
         await loadCycles();      
       } else if (eventToDelete) {
-        
-        // First try to delete any associated Discord messages from all channels
-        try {
-          // Use the new multi-channel deletion function
-          const { success, errors } = await deleteMultiChannelEvent(eventToDelete);
-          
-          
-          if (errors.length > 0) {
-            console.warn(`Warning: Some Discord deletions failed:`, errors);
-            // Continue with event deletion even if some Discord deletions fail
-          }
-          
-          if (success) {
-          } else {
-            console.warn(`Failed to delete Discord messages for event: ${eventToDelete.id}`);
-          }
-        } catch (discordError) {
-          console.error('[DEBUG] Error deleting Discord message:', discordError);
-          // Continue with event deletion even if Discord deletion fails
-        }
-        
         // Historical events (published or already started) soft-delete:
         // recoverable tombstone, images kept for restore. Only drafts hard-delete.
         const historical = isEventHistorical(eventToDelete);
+        const started = new Date(eventToDelete.datetime).getTime() < Date.now();
+        const published = Boolean(eventToDelete.discordEventId)
+          || (Array.isArray(eventToDelete.discord_event_id) && eventToDelete.discord_event_id.length > 0);
+
+        // Discord posts are only removed when CANCELING a published event that
+        // hasn't started. Past events keep their Discord history when archived.
+        if (published && !started) {
+          try {
+            const { success, errors } = await deleteMultiChannelEvent(eventToDelete);
+            if (errors.length > 0) {
+              console.warn(`Warning: Some Discord deletions failed:`, errors);
+              // Continue with event deletion even if some Discord deletions fail
+            }
+            if (!success) {
+              console.warn(`Failed to delete Discord messages for event: ${eventToDelete.id}`);
+            }
+          } catch (discordError) {
+            console.error('[DEBUG] Error deleting Discord message:', discordError);
+            // Continue with event deletion even if Discord deletion fails
+          }
+        }
 
         // GC: delete associated image files before removing the DB row
         if (!historical && (eventToDelete.imageUrl || eventToDelete.headerImageUrl || eventToDelete.additionalImageUrls?.length)) {
@@ -2435,6 +2441,9 @@ const EventsManagement: React.FC = () => {
             eventToDelete?.discordEventId ||
             eventToDelete?.discord_event_id
           )}
+          isPast={isDeleteCycle
+            ? (cycleToDelete ? new Date(cycleToDelete.endDate) < new Date() : false)
+            : (eventToDelete ? new Date(eventToDelete.datetime).getTime() < Date.now() : false)}
         />
       )}
 
@@ -2548,8 +2557,11 @@ const EventsManagement: React.FC = () => {
               marginBottom: '16px',
               lineHeight: '1.6'
             }}>
-              This will permanently delete all {filteredEvents.length} event{filteredEvents.length !== 1 ? 's' : ''} in the selected cycle.
-              This action cannot be undone.
+              This will remove all {filteredEvents.length} event{filteredEvents.length !== 1 ? 's' : ''} in the selected cycle.
+              Unpublished future events are permanently deleted. Published or past events
+              are archived instead (attendance and training records preserved, restorable
+              by an administrator); Discord posts are removed only for events that
+              haven&apos;t started yet.
             </p>
             <p style={{
               fontSize: '14px',

@@ -994,7 +994,7 @@ const CycleActivitiesBuilder: React.FC<CycleActivitiesBuilderProps> = ({
         isOpen={confirmDeleteEvent !== null}
         title="Remove Event"
         message={confirmDeleteEvent
-          ? `Remove "${confirmDeleteEvent.name}" from this activity? If nothing else uses the event, it will be deleted.`
+          ? `Remove "${confirmDeleteEvent.name}" from this activity? If nothing else uses the event, it will be removed from the schedule. Published or past events are archived (recoverable by an administrator); unpublished future events are permanently deleted.`
           : ''}
         confirmText="Remove"
         type="danger"
