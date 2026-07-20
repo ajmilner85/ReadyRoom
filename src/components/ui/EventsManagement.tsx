@@ -1471,7 +1471,7 @@ const EventsManagement: React.FC = () => {
               unit: (cycleSettings.secondReminderTime ?? settings.eventDefaults.secondReminderTime)?.unit ?? 'minutes',
               recipients: settings.eventDefaults.secondReminderRecipients
             },
-            initialNotificationRoles: settings.eventDefaults.initialNotificationRoles || []
+            initialNotificationRoles: cycleSettings.initialNotificationRoles ?? settings.eventDefaults.initialNotificationRoles ?? []
           }
         };
 
