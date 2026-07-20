@@ -1,5 +1,5 @@
 ﻿import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { X, Users, Trash2, ArrowUpDown, UserCheck, ChevronsLeft, ChevronsRight } from 'lucide-react';
+import { X, Users, Trash2, ArrowUpDown, UserCheck, ChevronsLeft, ChevronsRight, Plus } from 'lucide-react';
 import { CycleType, TrainingSyllabus, CycleActivity, CycleSettings, EventActivityParticipantBlock } from '../../../types/EventTypes';
 import { Squadron } from '../../../types/OrganizationTypes';
 import { supabase, getCycleActivities, createEvent, deleteEvent, softDeleteEvent, isEventHistorical } from '../../../utils/supabaseClient';
@@ -23,6 +23,7 @@ import { Standing } from '../../../utils/standingService';
 import { Role } from '../../../utils/roleService';
 import { Qualification, getBatchPilotQualifications } from '../../../utils/qualificationService';
 import { getUserSettings } from '../../../utils/userSettingsService';
+import { fetchDiscordGuildRoles } from '../../../utils/discordService';
 import { useAppSettings } from '../../../context/AppSettingsContext';
 
 interface CycleDialogProps {
@@ -130,6 +131,81 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
       scheduledPublicationOffset: defaults.scheduledPublicationOffset
     };
   });
+
+  // Discord role notifications state (Publication tab: default initial
+  // notification roles for events created in this cycle)
+  const [availableDiscordRoles, setAvailableDiscordRoles] = useState<Array<{ id: string; name: string; mentionable: boolean }>>([]);
+  const [loadingRoles, setLoadingRoles] = useState(false);
+  const [selectedRoleId, setSelectedRoleId] = useState('');
+
+  // Fetch Discord roles when squadrons are available
+  useEffect(() => {
+    const fetchRoles = async () => {
+      // Get the guild ID from the first squadron with Discord integration
+      let guildId: string | null = null;
+
+      if (squadrons && squadrons.length > 0) {
+        for (const squadron of squadrons) {
+          const squadronData = squadron as any;
+          const discordIntegration = squadronData.discord_integration;
+          if (discordIntegration && discordIntegration.selectedGuildId) {
+            guildId = discordIntegration.selectedGuildId;
+            break;
+          }
+        }
+      }
+
+      if (!guildId) {
+        setAvailableDiscordRoles([]);
+        return;
+      }
+
+      setLoadingRoles(true);
+      try {
+        const result = await fetchDiscordGuildRoles(guildId);
+        if (!result.error && result.roles) {
+          // Filter to only mentionable roles
+          const mentionableRoles = result.roles
+            .filter(role => role.mentionable && role.name !== '@everyone')
+            .map(role => ({ id: role.id, name: role.name, mentionable: role.mentionable }));
+          setAvailableDiscordRoles(mentionableRoles);
+        }
+      } catch (error) {
+        console.error('Error fetching Discord roles:', error);
+      } finally {
+        setLoadingRoles(false);
+      }
+    };
+
+    fetchRoles();
+  }, [squadrons]);
+
+  const handleAddNotificationRole = () => {
+    if (!selectedRoleId) return;
+
+    const role = availableDiscordRoles.find(r => r.id === selectedRoleId);
+    if (!role) return;
+
+    const currentRoles = cycleSettings.initialNotificationRoles || [];
+    if (currentRoles.some(r => r.id === role.id)) {
+      setError('This role has already been added');
+      setTimeout(() => setError(''), 3000);
+      return;
+    }
+
+    setCycleSettings(prev => ({
+      ...prev,
+      initialNotificationRoles: [...(prev.initialNotificationRoles || []), { id: role.id, name: role.name }]
+    }));
+    setSelectedRoleId('');
+  };
+
+  const handleRemoveNotificationRole = (roleId: string) => {
+    setCycleSettings(prev => ({
+      ...prev,
+      initialNotificationRoles: (prev.initialNotificationRoles || []).filter(r => r.id !== roleId)
+    }));
+  };
 
   // Tab state (show tabs for Training cycles with syllabus selected OR when
   // editing; with the Activities flag on, tabs always show)
@@ -501,6 +577,24 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
       status: 'upcoming',
       participants,
       trackQualifications: cycleSettings.trackQualifications ?? false,
+      groupBySquadron: cycleSettings.groupBySquadron ?? appSettings.eventDefaults.groupBySquadron,
+      showNoResponse: cycleSettings.showNoResponse ?? (appSettings.eventDefaults as any).showNoResponse,
+      allowTentativeResponse: cycleSettings.allowTentativeResponse ?? true,
+      reminders: {
+        firstReminder: {
+          enabled: cycleSettings.firstReminderEnabled ?? appSettings.eventDefaults.firstReminderEnabled ?? false,
+          value: (cycleSettings.firstReminderTime ?? appSettings.eventDefaults.firstReminderTime)?.value ?? 3,
+          unit: (cycleSettings.firstReminderTime ?? appSettings.eventDefaults.firstReminderTime)?.unit ?? 'days',
+          recipients: appSettings.eventDefaults.firstReminderRecipients
+        },
+        secondReminder: {
+          enabled: cycleSettings.secondReminderEnabled ?? appSettings.eventDefaults.secondReminderEnabled ?? false,
+          value: (cycleSettings.secondReminderTime ?? appSettings.eventDefaults.secondReminderTime)?.value ?? 15,
+          unit: (cycleSettings.secondReminderTime ?? appSettings.eventDefaults.secondReminderTime)?.unit ?? 'minutes',
+          recipients: appSettings.eventDefaults.secondReminderRecipients
+        },
+        initialNotificationRoles: cycleSettings.initialNotificationRoles ?? appSettings.eventDefaults.initialNotificationRoles ?? []
+      },
       activities: [activityPayload]
     } as any);
     if (createError) {
@@ -2656,6 +2750,117 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
                 <p style={{ fontSize: '12px', color: '#94A3B8', margin: '0 0 16px 0', fontFamily: 'Inter' }}>
                   Default publication behavior for events created in this cycle. Each event can still override it.
                 </p>
+                {/* Initial Notification roles (same UI as EventDialog's Publish step) */}
+                <div style={{ marginBottom: '16px' }}>
+                  <div style={{ marginBottom: '12px' }}>
+                    <span style={{ fontSize: '13px', fontWeight: 500, color: '#64748B', fontFamily: 'Inter' }}>Initial Notification</span>
+                    <p style={{ fontSize: '12px', color: '#94A3B8', marginTop: '4px', fontStyle: 'italic' }}>
+                      Mention Discord roles when each event is first published
+                    </p>
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '8px', marginBottom: (cycleSettings.initialNotificationRoles?.length ?? 0) > 0 ? '12px' : '0' }}>
+                    <select
+                      value={selectedRoleId}
+                      onChange={(e) => setSelectedRoleId(e.target.value)}
+                      disabled={loadingRoles || availableDiscordRoles.length === 0}
+                      style={{
+                        flex: 1,
+                        minWidth: 0,
+                        padding: '8px',
+                        border: '1px solid #CBD5E1',
+                        borderRadius: '4px',
+                        fontSize: '14px',
+                        backgroundColor: loadingRoles ? '#F9FAFB' : 'white',
+                        cursor: loadingRoles ? 'not-allowed' : 'pointer'
+                      }}
+                    >
+                      <option value="">
+                        {loadingRoles ? 'Loading roles...' : availableDiscordRoles.length === 0 ? 'No mentionable roles available' : 'Select a Discord role'}
+                      </option>
+                      {availableDiscordRoles.map((role) => (
+                        <option key={role.id} value={role.id}>
+                          {role.name}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      onClick={handleAddNotificationRole}
+                      disabled={!selectedRoleId || loadingRoles}
+                      style={{
+                        padding: '8px 16px',
+                        backgroundColor: !selectedRoleId || loadingRoles ? '#9CA3AF' : '#3B82F6',
+                        color: '#FFFFFF',
+                        border: 'none',
+                        borderRadius: '4px',
+                        cursor: !selectedRoleId || loadingRoles ? 'not-allowed' : 'pointer',
+                        fontSize: '14px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px'
+                      }}
+                    >
+                      <Plus size={16} />
+                      Add
+                    </button>
+                  </div>
+
+                  {(cycleSettings.initialNotificationRoles?.length ?? 0) > 0 ? (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                      {(cycleSettings.initialNotificationRoles || []).map((role) => (
+                        <div
+                          key={role.id}
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            padding: '4px 8px 4px 10px',
+                            borderRadius: '8px',
+                            fontSize: '12px',
+                            fontWeight: '500',
+                            height: '26px',
+                            boxSizing: 'border-box',
+                            whiteSpace: 'nowrap',
+                            backgroundColor: '#DBEAFE',
+                            color: '#1D4ED8',
+                            border: '1px solid #3B82F6'
+                          }}
+                        >
+                          <span>@{role.name}</span>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveNotificationRole(role.id)}
+                            style={{
+                              padding: '0',
+                              width: '14px',
+                              height: '14px',
+                              backgroundColor: 'transparent',
+                              border: 'none',
+                              cursor: 'pointer',
+                              color: '#1D4ED8',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              borderRadius: '50%',
+                              transition: 'background-color 0.2s'
+                            }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.backgroundColor = 'rgba(29, 78, 216, 0.1)';
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.backgroundColor = 'transparent';
+                            }}
+                            title="Remove role"
+                          >
+                            <X size={12} strokeWidth={2.5} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
                   <input
                     type="checkbox"
