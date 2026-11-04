@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { usePageLoading } from '../../context/PageLoadingContext';
 import { Card } from '../ui/card';
 import { PermissionGate } from '../ui/PermissionGate';
-import { User, Users, PaintBucket, Calendar, Network, Shield, Code, Database } from 'lucide-react';
+import { User, Users, PaintBucket, Calendar, Network, Shield, Code, Database, Radio } from 'lucide-react';
 
 // Import settings subpages
 import Appearance from './Appearance';
@@ -11,12 +11,13 @@ import RosterSettings from './RosterSettings';
 import OrganizationSettings from './OrganizationSettings';
 import EventSettings from './EventSettings';
 import MissionDebriefingSettings from './MissionDebriefingSettings';
+import MissionPrepSettings from './MissionPrepSettings';
 import PermissionsSettings from './PermissionsSettings';
 import DeveloperSettings from './DeveloperSettings';
 import DCSReferenceSettings from './DCSReferenceSettings';
 
 // Define the types of settings pages
-type SettingsPage = 'roster' | 'organization' | 'events' | 'mission-debriefing' | 'dcs-reference' | 'permissions' | 'appearance' | 'accounts' | 'developer';
+type SettingsPage = 'roster' | 'organization' | 'events' | 'mission-prep' | 'mission-debriefing' | 'dcs-reference' | 'permissions' | 'appearance' | 'accounts' | 'developer';
 
 interface SettingsNavItem {
   id: SettingsPage;
@@ -75,6 +76,11 @@ const settingsNavSections: SettingsNavSection[] = [
         label: 'Events'
       },
       {
+        id: 'mission-prep',
+        icon: <Radio size={20} />,
+        label: 'Mission Preparation'
+      },
+      {
         id: 'mission-debriefing',
         icon: <Calendar size={20} />,
         label: 'Mission Debriefing'
@@ -128,6 +134,8 @@ const Settings: React.FC = () => {
         return <OrganizationSettings error={error} setError={setError} />;
       case 'events':
         return <EventSettings error={error} setError={setError} />;
+      case 'mission-prep':
+        return <MissionPrepSettings error={error} setError={setError} />;
       case 'mission-debriefing':
         return <MissionDebriefingSettings error={error} setError={setError} />;
       case 'dcs-reference':
