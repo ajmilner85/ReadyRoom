@@ -414,6 +414,7 @@ export class PermissionCalculator {
       canEditFlightAssignments: [],
       canAssignMissionRoles: [],
       canPublishToDiscord: [],
+      manage_comms_templates: false,
 
       // Mission Debriefing (scoped)
       view_debriefs: [],
@@ -665,6 +666,11 @@ export class PermissionCalculator {
         break;
       case 'react_to_posts':
         permissions.canReactToPosts = true;
+        break;
+
+      // Comms card templates (global only)
+      case 'manage_comms_templates':
+        permissions.manage_comms_templates = true;
         break;
 
       // DCS Reference Data permissions (global only)
