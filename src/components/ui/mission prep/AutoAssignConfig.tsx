@@ -112,9 +112,9 @@ const AutoAssignConfigModal: React.FC<AutoAssignConfigModalProps> = ({
     
     const getScopeColors = (isSelected: boolean) => {
       if (isSelected) {
-        return { color: '#2563EB', backgroundColor: '#EFF6FF', hoverColor: '#1D4ED8' };
+        return { color: 'var(--rr-accent-text)', backgroundColor: 'var(--rr-accent-weak)', hoverColor: '#1D4ED8' };
       } else {
-        return { color: '#9CA3AF', backgroundColor: 'transparent', hoverColor: '#6B7280' };
+        return { color: 'var(--rr-text3)', backgroundColor: 'transparent', hoverColor: '#6B7280' };
       }
     };
     
@@ -163,7 +163,7 @@ const AutoAssignConfigModal: React.FC<AutoAssignConfigModalProps> = ({
         <div style={{
           fontSize: '14px',
           fontWeight: 500,
-          color: '#1F2937',
+          color: 'var(--rr-text)',
           lineHeight: '1.4',
           marginBottom: '2px'
         }}>
@@ -171,7 +171,7 @@ const AutoAssignConfigModal: React.FC<AutoAssignConfigModalProps> = ({
         </div>
         <div style={{
           fontSize: '12px',
-          color: '#6B7280',
+          color: 'var(--rr-text2)',
           lineHeight: '1.3',
           wordWrap: 'break-word'
         }}>
@@ -201,7 +201,7 @@ const AutoAssignConfigModal: React.FC<AutoAssignConfigModalProps> = ({
         border: 'none',
         cursor: 'pointer',
         outline: 'none',
-        backgroundColor: checked ? '#3B82F6' : '#D1D5DB',
+        backgroundColor: checked ? 'var(--rr-accent)' : 'var(--rr-panel3)',
         padding: '2px'
       }}
     >
@@ -210,10 +210,10 @@ const AutoAssignConfigModal: React.FC<AutoAssignConfigModalProps> = ({
           height: '16px',
           width: '16px',
           borderRadius: '50%',
-          backgroundColor: '#FFFFFF',
+          backgroundColor: 'var(--rr-panel)',
           transition: 'transform 0.15s ease-in-out',
           transform: checked ? 'translateX(16px)' : 'translateX(0px)',
-          boxShadow: '0 1px 2px rgba(0, 0, 0, 0.2)'
+          boxShadow: 'var(--rr-shadow)'
         }}
       />
     </button>
@@ -235,9 +235,9 @@ const AutoAssignConfigModal: React.FC<AutoAssignConfigModalProps> = ({
       zIndex: 1000
     }}>
       <div style={{
-        backgroundColor: '#FFFFFF',
+        backgroundColor: 'var(--rr-panel)',
         borderRadius: '8px',
-        boxShadow: '0 10px 25px rgba(0, 0, 0, 0.15)',
+        boxShadow: 'var(--rr-shadow-lg)',
         width: '500px',
         maxHeight: '70vh',
         overflowY: 'auto'
@@ -246,9 +246,9 @@ const AutoAssignConfigModal: React.FC<AutoAssignConfigModalProps> = ({
           <h2 style={{
             fontSize: '18px',
             fontWeight: 600,
-            color: '#0F172A',
+            color: 'var(--rr-text)',
             margin: '0 0 24px 0',
-            fontFamily: 'Inter'
+            fontFamily: 'inherit'
           }}>
             Auto-Assignment Configuration
           </h2>
@@ -257,8 +257,8 @@ const AutoAssignConfigModal: React.FC<AutoAssignConfigModalProps> = ({
           {config.trainingMode && (
             <div style={{
               padding: '12px 16px',
-              backgroundColor: '#EFF6FF',
-              border: '1px solid #BFDBFE',
+              backgroundColor: 'var(--rr-accent-weak)',
+              border: '1px solid var(--rr-accent)',
               borderRadius: '6px',
               marginBottom: '24px',
               display: 'flex',
@@ -268,7 +268,7 @@ const AutoAssignConfigModal: React.FC<AutoAssignConfigModalProps> = ({
               <span style={{ fontSize: '16px' }}>ℹ️</span>
               <span style={{
                 fontSize: '13px',
-                color: '#1E40AF',
+                color: 'var(--rr-accent-text)',
                 fontWeight: 500,
                 lineHeight: '1.4'
               }}>
@@ -316,7 +316,7 @@ const AutoAssignConfigModal: React.FC<AutoAssignConfigModalProps> = ({
 
                 <div style={{
                   height: '1px',
-                  backgroundColor: '#E5E7EB',
+                  backgroundColor: 'var(--rr-panel3)',
                   margin: '16px 0'
                 }} />
               </>
@@ -415,7 +415,7 @@ const AutoAssignConfigModal: React.FC<AutoAssignConfigModalProps> = ({
             gap: '12px',
             marginTop: '32px',
             paddingTop: '24px',
-            borderTop: '1px solid #E5E7EB'
+            borderTop: '1px solid var(--rr-border)'
           }}>
             <button
               onClick={onCancel}
@@ -423,19 +423,19 @@ const AutoAssignConfigModal: React.FC<AutoAssignConfigModalProps> = ({
                 padding: '8px 16px',
                 fontSize: '14px',
                 fontWeight: 500,
-                color: '#374151',
-                backgroundColor: '#FFFFFF',
-                border: '1px solid #D1D5DB',
+                color: 'var(--rr-text)',
+                backgroundColor: 'var(--rr-panel)',
+                border: '1px solid var(--rr-border2)',
                 borderRadius: '6px',
                 cursor: 'pointer',
-                fontFamily: 'Inter',
+                fontFamily: 'inherit',
                 transition: 'all 0.2s ease'
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = '#F9FAFB';
+                e.currentTarget.style.backgroundColor = 'var(--rr-panel2)';
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = '#FFFFFF';
+                e.currentTarget.style.backgroundColor = 'var(--rr-panel)';
               }}
             >
               Cancel
@@ -447,18 +447,18 @@ const AutoAssignConfigModal: React.FC<AutoAssignConfigModalProps> = ({
                 fontSize: '14px',
                 fontWeight: 500,
                 color: '#FFFFFF',
-                backgroundColor: '#3B82F6',
+                backgroundColor: 'var(--rr-accent)',
                 border: '1px solid transparent',
                 borderRadius: '6px',
                 cursor: 'pointer',
-                fontFamily: 'Inter',
+                fontFamily: 'inherit',
                 transition: 'all 0.2s ease'
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = '#2563EB';
+                e.currentTarget.style.backgroundColor = 'var(--rr-accent)';
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = '#3B82F6';
+                e.currentTarget.style.backgroundColor = 'var(--rr-accent)';
               }}
             >
               Save

@@ -50,7 +50,7 @@ const SingleFlightCard: React.FC<SingleFlightCardProps> = ({
     position: 'relative',
     width: '442px',
     height: '43px',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'var(--rr-panel)',
     boxShadow: isDragging 
       ? '0px 20px 25px -5px rgba(0, 0, 0, 0.3), 0px 10px 10px -5px rgba(0, 0, 0, 0.2)'
       : '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)',
@@ -77,7 +77,7 @@ const SingleFlightCard: React.FC<SingleFlightCardProps> = ({
         height: '35px',
         left: '4px',
         top: '4px',
-        backgroundColor: '#F8FAFC',
+        backgroundColor: 'var(--rr-panel2)',
         borderRadius: '8px'
       }}>
         <div 
@@ -95,7 +95,7 @@ const SingleFlightCard: React.FC<SingleFlightCardProps> = ({
             display: 'flex',
             alignItems: 'center',
             textAlign: 'center',
-            color: '#575A58'
+            color: 'var(--rr-text2)'
           }}
           title={aircraft.pilotCallsign}
           data-board-number={aircraft.boardNumber}
@@ -111,7 +111,7 @@ const SingleFlightCard: React.FC<SingleFlightCardProps> = ({
         height: '35px',
         left: '75px',
         top: '4px',
-        backgroundColor: '#F8FAFC',
+        backgroundColor: 'var(--rr-panel2)',
         borderRadius: '8px'
       }}>
         <div style={{
@@ -119,7 +119,7 @@ const SingleFlightCard: React.FC<SingleFlightCardProps> = ({
           width: '108px',
           height: '35px',
           left: '0px',
-          fontFamily: 'Inter',
+          fontFamily: 'inherit',
           fontStyle: 'normal',
           fontWeight: 700,
           fontSize: '12px',
@@ -127,7 +127,7 @@ const SingleFlightCard: React.FC<SingleFlightCardProps> = ({
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          color: '#575A58'
+          color: 'var(--rr-text2)'
         }}>
           {callsign} {flightNumber}-{aircraft.dashNumber}
         </div>
@@ -140,7 +140,7 @@ const SingleFlightCard: React.FC<SingleFlightCardProps> = ({
         height: '35px',
         left: '187px',
         top: '4px',
-        backgroundColor: '#F8FAFC',
+        backgroundColor: 'var(--rr-panel2)',
         borderRadius: '8px'
       }}>
         <div style={{
@@ -148,7 +148,7 @@ const SingleFlightCard: React.FC<SingleFlightCardProps> = ({
           width: '171px',
           height: '35px',
           left: '5.48px',
-          fontFamily: 'Inter',
+          fontFamily: 'inherit',
           fontStyle: 'normal',
           fontWeight: 500,
           fontSize: '14px',
@@ -156,7 +156,7 @@ const SingleFlightCard: React.FC<SingleFlightCardProps> = ({
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          color: '#64748B',
+          color: 'var(--rr-text2)',
           textTransform: 'uppercase'
         }}>
           {displayPosition ? (
@@ -174,7 +174,7 @@ const SingleFlightCard: React.FC<SingleFlightCardProps> = ({
         height: '35px',
         left: '372px',
         top: '4px',
-        backgroundColor: '#F8FAFC',
+        backgroundColor: 'var(--rr-panel2)',
         borderRadius: '8px'
       }}>
         <div style={{

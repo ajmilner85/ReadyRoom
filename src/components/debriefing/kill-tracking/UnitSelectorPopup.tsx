@@ -70,10 +70,10 @@ const UnitSelectorPopup: React.FC<UnitSelectorPopupProps> = ({
         position: 'fixed',
         top: position.top,
         left: position.left,
-        backgroundColor: '#FFFFFF',
-        border: friendlyMode ? '1px solid #3B82F6' : '1px solid #E2E8F0',
+        backgroundColor: 'var(--rr-panel)',
+        border: friendlyMode ? '1px solid var(--rr-accent)' : '1px solid var(--rr-border)',
         borderRadius: '8px',
-        boxShadow: '0px 10px 15px -3px rgba(0, 0, 0, 0.1), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)',
+        boxShadow: 'var(--rr-shadow)',
         zIndex: 1000,
         minWidth: '220px',
         maxWidth: '280px',
@@ -88,11 +88,11 @@ const UnitSelectorPopup: React.FC<UnitSelectorPopupProps> = ({
         <div
           style={{
             padding: '6px 12px',
-            backgroundColor: '#EFF6FF',
-            borderBottom: '1px solid #BFDBFE',
+            backgroundColor: 'var(--rr-accent-weak)',
+            borderBottom: '1px solid var(--rr-accent)',
             fontSize: '11px',
             fontWeight: 600,
-            color: '#2563EB',
+            color: 'var(--rr-accent-text)',
             textTransform: 'uppercase',
             letterSpacing: '0.5px',
             textAlign: 'center'
@@ -125,7 +125,7 @@ const UnitSelectorPopup: React.FC<UnitSelectorPopupProps> = ({
               cursor: 'pointer',
               fontSize: '13px',
               fontWeight: unit.isGeneric ? 600 : 400,
-              color: unit.isGeneric ? '#3B82F6' : '#1F2937',
+              color: unit.isGeneric ? 'var(--rr-accent-text)' : 'var(--rr-text)',
               transition: 'background-color 0.15s ease',
               display: 'flex',
               flexDirection: 'column',
@@ -143,7 +143,7 @@ const UnitSelectorPopup: React.FC<UnitSelectorPopupProps> = ({
               <div
                 style={{
                   fontSize: '11px',
-                  color: '#64748B',
+                  color: 'var(--rr-text2)',
                   fontWeight: 400
                 }}
               >
@@ -157,7 +157,7 @@ const UnitSelectorPopup: React.FC<UnitSelectorPopupProps> = ({
       {/* OTHER + FRIENDLY FIRE buttons */}
       <div
         style={{
-          borderTop: '1px solid #E2E8F0',
+          borderTop: '1px solid var(--rr-border)',
           padding: '4px',
           display: 'flex',
           flexDirection: 'column',
@@ -196,7 +196,7 @@ const UnitSelectorPopup: React.FC<UnitSelectorPopupProps> = ({
           style={{
             width: '100%',
             padding: '10px 12px',
-            backgroundColor: friendlyMode ? '#1D4ED8' : '#3B82F6',
+            backgroundColor: friendlyMode ? 'var(--rr-accent)' : 'var(--rr-accent)',
             border: 'none',
             borderRadius: '4px',
             color: '#FFFFFF',
@@ -208,7 +208,7 @@ const UnitSelectorPopup: React.FC<UnitSelectorPopupProps> = ({
             transition: 'background-color 0.15s ease'
           }}
           onMouseEnter={(e) => {
-            e.currentTarget.style.backgroundColor = '#1D4ED8';
+            e.currentTarget.style.backgroundColor = 'var(--rr-accent)';
           }}
           onMouseLeave={(e) => {
             e.currentTarget.style.backgroundColor = friendlyMode ? '#1D4ED8' : '#3B82F6';

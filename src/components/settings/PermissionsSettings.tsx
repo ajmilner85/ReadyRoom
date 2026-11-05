@@ -83,13 +83,13 @@ const PermissionsSettings: React.FC = () => {
 
   if (loading && !permissions) {
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', height: '100%', backgroundColor: '#FFFFFF' }}>
-        <div style={{ padding: '40px 40px 24px 40px', borderBottom: '1px solid #E2E8F0' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', height: '100%', backgroundColor: 'var(--rr-panel)' }}>
+        <div style={{ padding: '40px 40px 24px 40px', borderBottom: '1px solid var(--rr-border)' }}>
           <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
-            <h2 style={{ fontSize: '24px', fontWeight: 600, margin: 0, color: '#0F172A' }}>
+            <h2 style={{ fontSize: '24px', fontWeight: 600, margin: 0, color: 'var(--rr-text)' }}>
               Permissions Management
             </h2>
-            <p style={{ fontSize: '14px', color: '#64748B', margin: '8px 0 0 0', fontFamily: 'Inter' }}>
+            <p style={{ fontSize: '14px', color: 'var(--rr-text2)', margin: '8px 0 0 0', fontFamily: 'inherit' }}>
               Manage user permissions and access control for your squadron.
             </p>
           </div>
@@ -99,7 +99,7 @@ const PermissionsSettings: React.FC = () => {
             maxWidth: '1200px',
             margin: '0 auto',
             textAlign: 'center',
-            color: '#64748B',
+            color: 'var(--rr-text2)',
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
@@ -107,7 +107,7 @@ const PermissionsSettings: React.FC = () => {
             paddingTop: '60px'
           }}>
             <LoadingSpinner size="medium" />
-            <div style={{ fontSize: '14px', fontFamily: 'Inter' }}>Loading permissions...</div>
+            <div style={{ fontSize: '14px', fontFamily: 'inherit' }}>Loading permissions...</div>
           </div>
         </div>
       </div>
@@ -115,16 +115,16 @@ const PermissionsSettings: React.FC = () => {
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', backgroundColor: '#FFFFFF' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', backgroundColor: 'var(--rr-panel)' }}>
       {/* Fixed Header */}
       <div style={{ padding: '40px 40px 0 40px', flexShrink: 0 }}>
-        <div style={{ maxWidth: '1200px', margin: '0 auto', borderBottom: '1px solid #E2E8F0', paddingBottom: '24px' }}>
+        <div style={{ maxWidth: '1200px', margin: '0 auto', borderBottom: '1px solid var(--rr-border)', paddingBottom: '24px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <div>
-              <h2 style={{ fontSize: '24px', fontWeight: 600, margin: 0, color: '#0F172A' }}>
+              <h2 style={{ fontSize: '24px', fontWeight: 600, margin: 0, color: 'var(--rr-text)' }}>
                 Permissions Management
               </h2>
-              <p style={{ fontSize: '14px', color: '#64748B', margin: '8px 0 0 0', fontFamily: 'Inter' }}>
+              <p style={{ fontSize: '14px', color: 'var(--rr-text2)', margin: '8px 0 0 0', fontFamily: 'inherit' }}>
                 Manage user permissions and access control for your squadron.
               </p>
             </div>

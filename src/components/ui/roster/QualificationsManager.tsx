@@ -138,7 +138,7 @@ const QualificationsManager: React.FC<QualificationsManagerProps> = ({
         <div style={{
           textAlign: 'center',
           padding: '24px',
-          color: '#64748B',
+          color: 'var(--rr-text2)',
           fontSize: '14px'
         }}>
           Loading qualifications...
@@ -151,31 +151,31 @@ const QualificationsManager: React.FC<QualificationsManagerProps> = ({
           }}>
             {/* Qualifications Table */}
             <div style={{
-              border: '1px solid #E5E7EB',
+              border: '1px solid var(--rr-border)',
               borderRadius: '6px',
-              backgroundColor: '#FFFFFF'
+              backgroundColor: 'var(--rr-panel)'
             }}>
               {/* Table Header */}
               <div style={{
                 display: 'flex',
-                backgroundColor: '#F9FAFB',
-                borderBottom: '1px solid #E5E7EB',
+                backgroundColor: 'var(--rr-panel2)',
+                borderBottom: '1px solid var(--rr-border)',
                 borderRadius: '6px 6px 0 0'
               }}>
                 <div style={{
                   padding: '8px 12px',
                   width: '50px',
-                  borderRight: '1px solid #E5E7EB'
+                  borderRight: '1px solid var(--rr-border)'
                 }}>
                 </div>
                 <div style={{
                   padding: '8px 12px',
                   fontSize: '12px',
                   fontWeight: 500,
-                  color: '#6B7280',
+                  color: 'var(--rr-text2)',
                   textTransform: 'uppercase',
                   width: '300px',
-                  borderRight: '1px solid #E5E7EB'
+                  borderRight: '1px solid var(--rr-border)'
                 }}>
                   Qualification
                 </div>
@@ -183,10 +183,10 @@ const QualificationsManager: React.FC<QualificationsManagerProps> = ({
                   padding: '8px 12px',
                   fontSize: '12px',
                   fontWeight: 500,
-                  color: '#6B7280',
+                  color: 'var(--rr-text2)',
                   textTransform: 'uppercase',
                   width: '80px',
-                  borderRight: '1px solid #E5E7EB',
+                  borderRight: '1px solid var(--rr-border)',
                   textAlign: 'center'
                 }}>
                   Achieved
@@ -195,10 +195,10 @@ const QualificationsManager: React.FC<QualificationsManagerProps> = ({
                   padding: '8px 12px',
                   fontSize: '12px',
                   fontWeight: 500,
-                  color: '#6B7280',
+                  color: 'var(--rr-text2)',
                   textTransform: 'uppercase',
                   width: '150px',
-                  borderRight: '1px solid #E5E7EB',
+                  borderRight: '1px solid var(--rr-border)',
                   textAlign: 'center'
                 }}>
                   Expires
@@ -228,8 +228,8 @@ const QualificationsManager: React.FC<QualificationsManagerProps> = ({
                     key={pilotQual.id}
                     style={{
                       display: 'flex',
-                      borderBottom: index < pilotQualifications.length - 1 ? '1px solid #F3F4F6' : 'none',
-                      backgroundColor: '#FFFFFF',
+                      borderBottom: index < pilotQualifications.length - 1 ? '1px solid var(--rr-border)' : 'none',
+                      backgroundColor: 'var(--rr-panel)',
                       height: '34px'
                     }}
                   >
@@ -240,7 +240,7 @@ const QualificationsManager: React.FC<QualificationsManagerProps> = ({
                       alignItems: 'center',
                       justifyContent: 'center',
                       width: '50px',
-                      borderRight: '1px solid #F3F4F6'
+                      borderRight: '1px solid var(--rr-border)'
                     }}>
                       <QualificationBadge
                         type={pilotQual.qualification.name}
@@ -255,13 +255,13 @@ const QualificationsManager: React.FC<QualificationsManagerProps> = ({
                       display: 'flex',
                       alignItems: 'center',
                       width: '300px',
-                      borderRight: '1px solid #F3F4F6',
+                      borderRight: '1px solid var(--rr-border)',
                       gap: '8px'
                     }}>
                       <span style={{
                         fontSize: '14px',
                         fontWeight: 500,
-                        color: '#111827'
+                        color: 'var(--rr-text)'
                       }}>
                         {pilotQual.qualification.name}
                       </span>
@@ -269,8 +269,8 @@ const QualificationsManager: React.FC<QualificationsManagerProps> = ({
                       {pilotQualifications.filter(pq => pq.qualification_id === pilotQual.qualification_id).length > 1 && (
                         <span style={{
                           fontSize: '11px',
-                          color: '#6B7280',
-                          backgroundColor: '#F3F4F6',
+                          color: 'var(--rr-text2)',
+                          backgroundColor: 'var(--rr-panel2)',
                           padding: '2px 6px',
                           borderRadius: '4px',
                           fontWeight: 400
@@ -290,11 +290,11 @@ const QualificationsManager: React.FC<QualificationsManagerProps> = ({
                       alignItems: 'center',
                       justifyContent: 'center',
                       width: '80px',
-                      borderRight: '1px solid #F3F4F6'
+                      borderRight: '1px solid var(--rr-border)'
                     }}>
                       <span style={{
                         fontSize: '13px',
-                        color: '#6B7280'
+                        color: 'var(--rr-text2)'
                       }}>
                         {pilotQual.achieved_date ?
                           new Date(pilotQual.achieved_date).toLocaleDateString() :
@@ -310,7 +310,7 @@ const QualificationsManager: React.FC<QualificationsManagerProps> = ({
                       alignItems: 'center',
                       justifyContent: 'center',
                       width: '150px',
-                      borderRight: '1px solid #F3F4F6'
+                      borderRight: '1px solid var(--rr-border)'
                     }}>
                       {(() => {
                         const expiryDate = calculateExpiryDate(pilotQual.achieved_date, pilotQual.qualification);
@@ -321,7 +321,7 @@ const QualificationsManager: React.FC<QualificationsManagerProps> = ({
                         return (
                           <span style={{
                             fontSize: '13px',
-                            color: isExpired ? '#DC2626' : isExpiringSoon ? '#F59E0B' : '#6B7280',
+                            color: isExpired ? 'var(--rr-bad)' : isExpiringSoon ? 'var(--rr-warn)' : 'var(--rr-text2)',
                             fontWeight: isExpired || isExpiringSoon ? '500' : 'normal'
                           }}>
                             {formatExpiryDisplay(expiryDate)}
@@ -353,18 +353,18 @@ const QualificationsManager: React.FC<QualificationsManagerProps> = ({
                           alignItems: 'center',
                           justifyContent: 'center',
                           cursor: updatingQualifications ? 'not-allowed' : 'pointer',
-                          color: '#9CA3AF',
+                          color: 'var(--rr-text3)',
                           opacity: updatingQualifications ? 0.5 : 1
                         }}
                         onMouseEnter={(e) => {
                           if (!updatingQualifications) {
-                            e.currentTarget.style.color = '#EF4444';
-                            e.currentTarget.style.backgroundColor = '#FEF2F2';
+                            e.currentTarget.style.color = 'var(--rr-bad)';
+                            e.currentTarget.style.backgroundColor = 'rgba(224,82,78,.12)';
                           }
                         }}
                         onMouseLeave={(e) => {
                           if (!updatingQualifications) {
-                            e.currentTarget.style.color = '#9CA3AF';
+                            e.currentTarget.style.color = 'var(--rr-text3)';
                             e.currentTarget.style.backgroundColor = 'transparent';
                           }
                         }}
@@ -379,7 +379,7 @@ const QualificationsManager: React.FC<QualificationsManagerProps> = ({
                   padding: '16px',
                   textAlign: 'center',
                   fontSize: '14px',
-                  color: '#9CA3AF'
+                  color: 'var(--rr-text3)'
                 }}>
                   No qualifications added
                 </div>
@@ -399,17 +399,17 @@ const QualificationsManager: React.FC<QualificationsManagerProps> = ({
                 style={{
                   width: '119px',
                   height: '30px',
-                  background: '#FFFFFF',
+                  background: 'var(--rr-panel)',
                   borderRadius: '8px',
                   border: 'none',
                   cursor: isAddingQualification || updatingQualifications ? 'not-allowed' : 'pointer',
                   transition: 'box-shadow 0.2s ease-in-out',
-                  fontFamily: 'Inter',
+                  fontFamily: 'inherit',
                   fontStyle: 'normal',
                   fontWeight: 400,
                   fontSize: '20px',
                   lineHeight: '24px',
-                  color: '#64748B',
+                  color: 'var(--rr-text2)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -452,12 +452,12 @@ const QualificationsManager: React.FC<QualificationsManagerProps> = ({
         >
           <div
             style={{
-              backgroundColor: '#FFFFFF',
+              backgroundColor: 'var(--rr-panel)',
               borderRadius: '8px',
               padding: '24px',
               minWidth: '600px',
               maxWidth: '700px',
-              boxShadow: '0 10px 25px rgba(0, 0, 0, 0.1)'
+              boxShadow: 'var(--rr-shadow-lg)'
             }}
             onClick={(e) => e.stopPropagation()}
           >
@@ -470,7 +470,7 @@ const QualificationsManager: React.FC<QualificationsManagerProps> = ({
                 margin: '0',
                 fontSize: '18px',
                 fontWeight: '600',
-                color: '#1F2937'
+                color: 'var(--rr-text)'
               }}>
                 Add Qualification
               </h3>
@@ -482,9 +482,9 @@ const QualificationsManager: React.FC<QualificationsManagerProps> = ({
               gap: '12px',
               marginBottom: '24px',
               padding: '16px',
-              backgroundColor: '#F8FAFC',
+              backgroundColor: 'var(--rr-panel2)',
               borderRadius: '8px',
-              border: '1px solid #E2E8F0'
+              border: '1px solid var(--rr-border)'
             }}>
               {/* Qualification Selector */}
               <div ref={dropdownRef} style={{ flex: '1', minWidth: '200px', position: 'relative' }}>
@@ -494,10 +494,10 @@ const QualificationsManager: React.FC<QualificationsManagerProps> = ({
                   style={{
                     width: '100%',
                     padding: '8px 12px',
-                    border: '1px solid #D1D5DB',
+                    border: '1px solid var(--rr-border2)',
                     borderRadius: '6px',
                     fontSize: '14px',
-                    backgroundColor: '#FFFFFF',
+                    backgroundColor: 'var(--rr-panel)',
                     cursor: isAddingQualification ? 'not-allowed' : 'pointer',
                     display: 'flex',
                     alignItems: 'center',
@@ -529,10 +529,10 @@ const QualificationsManager: React.FC<QualificationsManagerProps> = ({
                     top: '100%',
                     left: 0,
                     right: 0,
-                    backgroundColor: '#FFFFFF',
-                    border: '1px solid #D1D5DB',
+                    backgroundColor: 'var(--rr-panel)',
+                    border: '1px solid var(--rr-border2)',
                     borderRadius: '6px',
-                    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
+                    boxShadow: 'var(--rr-shadow)',
                     zIndex: 1000,
                     maxHeight: '200px',
                     overflowY: 'auto'
@@ -549,7 +549,7 @@ const QualificationsManager: React.FC<QualificationsManagerProps> = ({
                             width: '100%',
                             padding: '6px 12px',
                             border: 'none',
-                            backgroundColor: selectedQualification === qual.id ? '#F3F4F6' : 'transparent',
+                            backgroundColor: selectedQualification === qual.id ? 'var(--rr-panel2)' : 'transparent',
                             cursor: 'pointer',
                             display: 'flex',
                             alignItems: 'center',
@@ -560,7 +560,7 @@ const QualificationsManager: React.FC<QualificationsManagerProps> = ({
                           }}
                           onMouseEnter={(e) => {
                             if (selectedQualification !== qual.id) {
-                              e.currentTarget.style.backgroundColor = '#F9FAFB';
+                              e.currentTarget.style.backgroundColor = 'var(--rr-panel2)';
                             }
                           }}
                           onMouseLeave={(e) => {
@@ -587,10 +587,10 @@ const QualificationsManager: React.FC<QualificationsManagerProps> = ({
                 disabled={isAddingQualification}
                 style={{
                   padding: '8px 12px',
-                  border: '1px solid #D1D5DB',
+                  border: '1px solid var(--rr-border2)',
                   borderRadius: '6px',
                   fontSize: '14px',
-                  backgroundColor: '#FFFFFF',
+                  backgroundColor: 'var(--rr-panel)',
                   width: '140px',
                   height: '40px',
                   boxSizing: 'border-box',
@@ -606,9 +606,9 @@ const QualificationsManager: React.FC<QualificationsManagerProps> = ({
                 disabled={isAddingQualification}
                 style={{
                   padding: '8px 16px',
-                  backgroundColor: '#FFFFFF',
-                  color: '#6B7280',
-                  border: '1px solid #D1D5DB',
+                  backgroundColor: 'var(--rr-panel)',
+                  color: 'var(--rr-text2)',
+                  border: '1px solid var(--rr-border2)',
                   borderRadius: '6px',
                   fontSize: '14px',
                   cursor: isAddingQualification ? 'not-allowed' : 'pointer',
@@ -622,7 +622,7 @@ const QualificationsManager: React.FC<QualificationsManagerProps> = ({
                 disabled={!selectedQualification || isAddingQualification}
                 style={{
                   padding: '8px 16px',
-                  backgroundColor: !selectedQualification || isAddingQualification ? '#9CA3AF' : '#3B82F6',
+                  backgroundColor: !selectedQualification || isAddingQualification ? '#9CA3AF' : 'var(--rr-accent)',
                   color: '#FFFFFF',
                   border: 'none',
                   borderRadius: '6px',

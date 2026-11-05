@@ -112,22 +112,22 @@ const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({
     >
       <div
         style={{
-          backgroundColor: '#FFFFFF',
+          backgroundColor: 'var(--rr-panel)',
           borderRadius: '8px',
           padding: '24px',
           minWidth: '400px',
           maxWidth: '500px',
-          boxShadow: '0 10px 25px rgba(0, 0, 0, 0.1)'
+          boxShadow: 'var(--rr-shadow-lg)'
         }}
         onClick={(e) => e.stopPropagation()}
       >
-        <h2 style={{ fontSize: '18px', fontWeight: 600, marginBottom: '16px', color: '#1F2937' }}>
+        <h2 style={{ fontSize: '18px', fontWeight: 600, marginBottom: '16px', color: 'var(--rr-text)' }}>
           {title}
         </h2>
-        <p style={{ marginBottom: '16px', color: '#6B7280', fontSize: '14px' }}>
+        <p style={{ marginBottom: '16px', color: 'var(--rr-text2)', fontSize: '14px' }}>
           {message}
         </p>
-        <p style={{ marginBottom: '8px', color: '#374151', fontSize: '14px', fontWeight: 500 }}>
+        <p style={{ marginBottom: '8px', color: 'var(--rr-text)', fontSize: '14px', fontWeight: 500 }}>
           Type "yes" to confirm:
         </p>
         <input
@@ -139,7 +139,7 @@ const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({
           style={{
             width: '100%',
             padding: '8px 12px',
-            border: '1px solid #D1D5DB',
+            border: '1px solid var(--rr-border2)',
             borderRadius: '6px',
             fontSize: '14px',
             marginBottom: '20px',
@@ -151,9 +151,9 @@ const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({
             onClick={onCancel}
             style={{
               padding: '8px 16px',
-              backgroundColor: '#FFFFFF',
-              color: '#6B7280',
-              border: '1px solid #D1D5DB',
+              backgroundColor: 'var(--rr-panel)',
+              color: 'var(--rr-text2)',
+              border: '1px solid var(--rr-border2)',
               borderRadius: '6px',
               fontSize: '14px',
               cursor: 'pointer'
@@ -170,7 +170,7 @@ const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({
             disabled={!isConfirmEnabled}
             style={{
               padding: '8px 16px',
-              backgroundColor: isConfirmEnabled ? '#EF4444' : '#FCA5A5',
+              backgroundColor: isConfirmEnabled ? 'var(--rr-bad)' : '#FCA5A5',
               color: '#FFFFFF',
               border: 'none',
               borderRadius: '6px',
@@ -236,13 +236,13 @@ const BulkEditPilotDetails: React.FC<BulkEditPilotDetailsProps> = ({
     alignItems: 'center',
     gap: '8px',
     padding: '8px 16px',
-    backgroundColor: '#FFFFFF',
-    color: '#64748B',
+    backgroundColor: 'var(--rr-panel)',
+    color: 'var(--rr-text2)',
     borderRadius: '8px',
-    border: '1px solid #CBD5E1',
+    border: '1px solid var(--rr-border2)',
     cursor: 'pointer',
     transition: 'background-color 0.2s ease',
-    fontFamily: 'Inter',
+    fontFamily: 'inherit',
     fontSize: '14px',
     fontWeight: 400,
     minWidth: '120px',
@@ -562,7 +562,7 @@ const BulkEditPilotDetails: React.FC<BulkEditPilotDetailsProps> = ({
           <h2 className="text-lg font-semibold mb-4" style={pilotDetailsStyles.sectionTitle}>
             Discord Information
           </h2>
-          <div style={{ marginBottom: '16px', color: '#64748B', fontSize: '14px' }}>
+          <div style={{ marginBottom: '16px', color: 'var(--rr-text2)', fontSize: '14px' }}>
             {hasDiscordLinked
               ? `All ${selectedPilots.length} selected pilots have Discord accounts linked`
               : `Some selected pilots do not have Discord accounts linked`}
@@ -572,15 +572,15 @@ const BulkEditPilotDetails: React.FC<BulkEditPilotDetailsProps> = ({
               onClick={() => setConfirmDialog({ type: 'clear_discord' })}
               style={{
                 ...exportButtonStyle,
-                backgroundColor: '#FEE2E2',
-                color: '#B91C1C',
-                border: '1px solid #FCA5A5',
+                backgroundColor: 'rgba(224,82,78,.12)',
+                color: 'var(--rr-bad)',
+                border: '1px solid var(--rr-bad)',
               }}
               onMouseEnter={(e) => {
                 e.currentTarget.style.backgroundColor = '#FECACA';
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = '#FEE2E2';
+                e.currentTarget.style.backgroundColor = 'rgba(224,82,78,.12)';
               }}
             >
               Clear Discord Usernames
@@ -599,15 +599,15 @@ const BulkEditPilotDetails: React.FC<BulkEditPilotDetailsProps> = ({
               onClick={() => setShowAddQualDialog(true)}
               style={{
                 ...exportButtonStyle,
-                backgroundColor: '#3B82F6',
+                backgroundColor: 'var(--rr-accent)',
                 color: '#FFFFFF',
                 border: 'none',
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = '#2563EB';
+                e.currentTarget.style.backgroundColor = 'var(--rr-accent)';
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = '#3B82F6';
+                e.currentTarget.style.backgroundColor = 'var(--rr-accent)';
               }}
             >
               <Plus size={16} />
@@ -618,32 +618,32 @@ const BulkEditPilotDetails: React.FC<BulkEditPilotDetailsProps> = ({
           {commonQualifications.length > 0 ? (
             <div style={{
               marginTop: '16px',
-              border: '1px solid #E5E7EB',
+              border: '1px solid var(--rr-border)',
               borderRadius: '6px',
-              backgroundColor: '#FFFFFF',
+              backgroundColor: 'var(--rr-panel)',
               width: 'fit-content'
             }}>
               {/* Table Header */}
               <div style={{
                 display: 'flex',
-                backgroundColor: '#F9FAFB',
-                borderBottom: '1px solid #E5E7EB',
+                backgroundColor: 'var(--rr-panel2)',
+                borderBottom: '1px solid var(--rr-border)',
                 borderRadius: '6px 6px 0 0'
               }}>
                 <div style={{
                   padding: '8px 12px',
                   width: '50px',
-                  borderRight: '1px solid #E5E7EB'
+                  borderRight: '1px solid var(--rr-border)'
                 }}>
                 </div>
                 <div style={{
                   padding: '8px 12px',
                   fontSize: '12px',
                   fontWeight: 500,
-                  color: '#6B7280',
+                  color: 'var(--rr-text2)',
                   textTransform: 'uppercase',
                   minWidth: '250px',
-                  borderRight: '1px solid #E5E7EB'
+                  borderRight: '1px solid var(--rr-border)'
                 }}>
                   Qualification
                 </div>
@@ -651,10 +651,10 @@ const BulkEditPilotDetails: React.FC<BulkEditPilotDetailsProps> = ({
                   padding: '8px 12px',
                   fontSize: '12px',
                   fontWeight: 500,
-                  color: '#6B7280',
+                  color: 'var(--rr-text2)',
                   textTransform: 'uppercase',
                   minWidth: '200px',
-                  borderRight: '1px solid #E5E7EB',
+                  borderRight: '1px solid var(--rr-border)',
                   textAlign: 'center'
                 }}>
                   Achieved
@@ -663,10 +663,10 @@ const BulkEditPilotDetails: React.FC<BulkEditPilotDetailsProps> = ({
                   padding: '8px 12px',
                   fontSize: '12px',
                   fontWeight: 500,
-                  color: '#6B7280',
+                  color: 'var(--rr-text2)',
                   textTransform: 'uppercase',
                   minWidth: '200px',
-                  borderRight: '1px solid #E5E7EB',
+                  borderRight: '1px solid var(--rr-border)',
                   textAlign: 'center'
                 }}>
                   Expires
@@ -719,8 +719,8 @@ const BulkEditPilotDetails: React.FC<BulkEditPilotDetailsProps> = ({
                     key={qual.id}
                     style={{
                       display: 'flex',
-                      borderBottom: index < commonQualifications.length - 1 ? '1px solid #F3F4F6' : 'none',
-                      backgroundColor: '#FFFFFF',
+                      borderBottom: index < commonQualifications.length - 1 ? '1px solid var(--rr-border)' : 'none',
+                      backgroundColor: 'var(--rr-panel)',
                       height: '34px'
                     }}
                   >
@@ -731,7 +731,7 @@ const BulkEditPilotDetails: React.FC<BulkEditPilotDetailsProps> = ({
                       alignItems: 'center',
                       justifyContent: 'center',
                       width: '50px',
-                      borderRight: '1px solid #F3F4F6'
+                      borderRight: '1px solid var(--rr-border)'
                     }}>
                       <QualificationBadge
                         type={qual.name as any}
@@ -746,12 +746,12 @@ const BulkEditPilotDetails: React.FC<BulkEditPilotDetailsProps> = ({
                       display: 'flex',
                       alignItems: 'center',
                       minWidth: '250px',
-                      borderRight: '1px solid #F3F4F6'
+                      borderRight: '1px solid var(--rr-border)'
                     }}>
                       <span style={{
                         fontSize: '14px',
                         fontWeight: 500,
-                        color: '#111827'
+                        color: 'var(--rr-text)'
                       }}>
                         {qual.name}
                       </span>
@@ -764,11 +764,11 @@ const BulkEditPilotDetails: React.FC<BulkEditPilotDetailsProps> = ({
                       alignItems: 'center',
                       justifyContent: 'center',
                       minWidth: '200px',
-                      borderRight: '1px solid #F3F4F6'
+                      borderRight: '1px solid var(--rr-border)'
                     }}>
                       <span style={{
                         fontSize: '13px',
-                        color: '#6B7280'
+                        color: 'var(--rr-text2)'
                       }}>
                         {achievedRange}
                       </span>
@@ -781,11 +781,11 @@ const BulkEditPilotDetails: React.FC<BulkEditPilotDetailsProps> = ({
                       alignItems: 'center',
                       justifyContent: 'center',
                       minWidth: '200px',
-                      borderRight: '1px solid #F3F4F6'
+                      borderRight: '1px solid var(--rr-border)'
                     }}>
                       <span style={{
                         fontSize: '13px',
-                        color: '#6B7280'
+                        color: 'var(--rr-text2)'
                       }}>
                         {expiryRange}
                       </span>
@@ -813,14 +813,14 @@ const BulkEditPilotDetails: React.FC<BulkEditPilotDetailsProps> = ({
                           alignItems: 'center',
                           justifyContent: 'center',
                           cursor: 'pointer',
-                          color: '#9CA3AF'
+                          color: 'var(--rr-text3)'
                         }}
                         onMouseEnter={(e) => {
-                          e.currentTarget.style.color = '#DC2626';
-                          e.currentTarget.style.backgroundColor = '#FEE2E2';
+                          e.currentTarget.style.color = 'var(--rr-bad)';
+                          e.currentTarget.style.backgroundColor = 'rgba(224,82,78,.12)';
                         }}
                         onMouseLeave={(e) => {
-                          e.currentTarget.style.color = '#9CA3AF';
+                          e.currentTarget.style.color = 'var(--rr-text3)';
                           e.currentTarget.style.backgroundColor = 'transparent';
                         }}
                       >
@@ -832,7 +832,7 @@ const BulkEditPilotDetails: React.FC<BulkEditPilotDetailsProps> = ({
               })}
             </div>
           ) : (
-            <div style={{ color: '#9CA3AF', fontSize: '14px', textAlign: 'center', padding: '16px' }}>
+            <div style={{ color: 'var(--rr-text3)', fontSize: '14px', textAlign: 'center', padding: '16px' }}>
               No qualifications common to all selected pilots
             </div>
           )}
@@ -852,7 +852,7 @@ const BulkEditPilotDetails: React.FC<BulkEditPilotDetailsProps> = ({
                 disabled={!onBulkAddEnrollment || availableTrainingCycles.length === 0}
                 style={{
                   ...exportButtonStyle,
-                  backgroundColor: !onBulkAddEnrollment || availableTrainingCycles.length === 0 ? '#93C5FD' : '#3B82F6',
+                  backgroundColor: !onBulkAddEnrollment || availableTrainingCycles.length === 0 ? '#93C5FD' : 'var(--rr-accent)',
                   color: '#FFFFFF',
                   border: 'none',
                   cursor: !onBulkAddEnrollment || availableTrainingCycles.length === 0 ? 'not-allowed' : 'pointer',
@@ -860,12 +860,12 @@ const BulkEditPilotDetails: React.FC<BulkEditPilotDetailsProps> = ({
                 }}
                 onMouseEnter={(e) => {
                   if (onBulkAddEnrollment && availableTrainingCycles.length > 0) {
-                    e.currentTarget.style.backgroundColor = '#2563EB';
+                    e.currentTarget.style.backgroundColor = 'var(--rr-accent)';
                   }
                 }}
                 onMouseLeave={(e) => {
                   if (onBulkAddEnrollment && availableTrainingCycles.length > 0) {
-                    e.currentTarget.style.backgroundColor = '#3B82F6';
+                    e.currentTarget.style.backgroundColor = 'var(--rr-accent)';
                   }
                 }}
               >
@@ -875,22 +875,22 @@ const BulkEditPilotDetails: React.FC<BulkEditPilotDetailsProps> = ({
             </div>
 
             {commonEnrollments.length > 0 ? (
-              <div style={{ border: '1px solid #E5E7EB', borderRadius: '6px', backgroundColor: '#FFFFFF' }}>
+              <div style={{ border: '1px solid var(--rr-border)', borderRadius: '6px', backgroundColor: 'var(--rr-panel)' }}>
               {/* Table Header */}
               <div style={{
                 display: 'flex',
-                backgroundColor: '#F9FAFB',
-                borderBottom: '1px solid #E5E7EB',
+                backgroundColor: 'var(--rr-panel2)',
+                borderBottom: '1px solid var(--rr-border)',
                 borderRadius: '6px 6px 0 0'
               }}>
                 <div style={{
                   padding: '8px 12px',
                   fontSize: '12px',
                   fontWeight: 500,
-                  color: '#6B7280',
+                  color: 'var(--rr-text2)',
                   textTransform: 'uppercase',
                   width: '300px',
-                  borderRight: '1px solid #E5E7EB'
+                  borderRight: '1px solid var(--rr-border)'
                 }}>
                   Cycle / Training
                 </div>
@@ -898,10 +898,10 @@ const BulkEditPilotDetails: React.FC<BulkEditPilotDetailsProps> = ({
                   padding: '8px 12px',
                   fontSize: '12px',
                   fontWeight: 500,
-                  color: '#6B7280',
+                  color: 'var(--rr-text2)',
                   textTransform: 'uppercase',
                   width: '100px',
-                  borderRight: '1px solid #E5E7EB',
+                  borderRight: '1px solid var(--rr-border)',
                   textAlign: 'center'
                 }}>
                   Status
@@ -910,10 +910,10 @@ const BulkEditPilotDetails: React.FC<BulkEditPilotDetailsProps> = ({
                   padding: '8px 12px',
                   fontSize: '12px',
                   fontWeight: 500,
-                  color: '#6B7280',
+                  color: 'var(--rr-text2)',
                   textTransform: 'uppercase',
                   width: '220px',
-                  borderRight: '1px solid #E5E7EB',
+                  borderRight: '1px solid var(--rr-border)',
                   textAlign: 'center'
                 }}>
                   Enrolled
@@ -931,8 +931,8 @@ const BulkEditPilotDetails: React.FC<BulkEditPilotDetailsProps> = ({
                   key={enrollment.cycleId}
                   style={{
                     display: 'flex',
-                    borderBottom: index < commonEnrollments.length - 1 ? '1px solid #F3F4F6' : 'none',
-                    backgroundColor: '#FFFFFF',
+                    borderBottom: index < commonEnrollments.length - 1 ? '1px solid var(--rr-border)' : 'none',
+                    backgroundColor: 'var(--rr-panel)',
                     height: '34px'
                   }}
                 >
@@ -942,12 +942,12 @@ const BulkEditPilotDetails: React.FC<BulkEditPilotDetailsProps> = ({
                     display: 'flex',
                     alignItems: 'center',
                     width: '300px',
-                    borderRight: '1px solid #F3F4F6'
+                    borderRight: '1px solid var(--rr-border)'
                   }}>
                     <span style={{
                       fontSize: '14px',
                       fontWeight: 500,
-                      color: '#111827'
+                      color: 'var(--rr-text)'
                     }}>
                       {enrollment.cycleName}
                     </span>
@@ -960,7 +960,7 @@ const BulkEditPilotDetails: React.FC<BulkEditPilotDetailsProps> = ({
                     alignItems: 'center',
                     justifyContent: 'center',
                     width: '100px',
-                    borderRight: '1px solid #F3F4F6'
+                    borderRight: '1px solid var(--rr-border)'
                   }}>
                     <span style={{
                       display: 'inline-block',
@@ -969,7 +969,7 @@ const BulkEditPilotDetails: React.FC<BulkEditPilotDetailsProps> = ({
                       fontSize: '12px',
                       fontWeight: 500,
                       color: '#FFFFFF',
-                      backgroundColor: '#10B981',
+                      backgroundColor: 'var(--rr-good)',
                       textTransform: 'capitalize'
                     }}>
                       {enrollment.status}
@@ -983,13 +983,13 @@ const BulkEditPilotDetails: React.FC<BulkEditPilotDetailsProps> = ({
                     alignItems: 'center',
                     justifyContent: 'center',
                     width: '220px',
-                    borderRight: '1px solid #F3F4F6',
+                    borderRight: '1px solid var(--rr-border)',
                     flexDirection: 'column',
                     gap: '2px'
                   }}>
                     <span style={{
                       fontSize: '13px',
-                      color: '#6B7280'
+                      color: 'var(--rr-text2)'
                     }}>
                       {enrollment.earliestEnrolled === enrollment.latestEnrolled
                         ? new Date(enrollment.earliestEnrolled).toLocaleDateString()
@@ -1019,14 +1019,14 @@ const BulkEditPilotDetails: React.FC<BulkEditPilotDetailsProps> = ({
                         alignItems: 'center',
                         justifyContent: 'center',
                         cursor: 'pointer',
-                        color: '#9CA3AF'
+                        color: 'var(--rr-text3)'
                       }}
                       onMouseEnter={(e) => {
-                        e.currentTarget.style.color = '#EF4444';
-                        e.currentTarget.style.backgroundColor = '#FEF2F2';
+                        e.currentTarget.style.color = 'var(--rr-bad)';
+                        e.currentTarget.style.backgroundColor = 'rgba(224,82,78,.12)';
                       }}
                       onMouseLeave={(e) => {
-                        e.currentTarget.style.color = '#9CA3AF';
+                        e.currentTarget.style.color = 'var(--rr-text3)';
                         e.currentTarget.style.backgroundColor = 'transparent';
                       }}
                     >
@@ -1037,7 +1037,7 @@ const BulkEditPilotDetails: React.FC<BulkEditPilotDetailsProps> = ({
               ))}
             </div>
           ) : (
-            <div style={{ color: '#9CA3AF', fontSize: '14px', textAlign: 'center', padding: '16px' }}>
+            <div style={{ color: 'var(--rr-text3)', fontSize: '14px', textAlign: 'center', padding: '16px' }}>
               No training enrollments common to all selected pilots
             </div>
           )}
@@ -1055,15 +1055,15 @@ const BulkEditPilotDetails: React.FC<BulkEditPilotDetailsProps> = ({
               onClick={() => setShowAddTeamDialog(true)}
               style={{
                 ...exportButtonStyle,
-                backgroundColor: '#3B82F6',
+                backgroundColor: 'var(--rr-accent)',
                 color: '#FFFFFF',
                 border: 'none',
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = '#2563EB';
+                e.currentTarget.style.backgroundColor = 'var(--rr-accent)';
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = '#3B82F6';
+                e.currentTarget.style.backgroundColor = 'var(--rr-accent)';
               }}
             >
               <Plus size={16} />
@@ -1072,22 +1072,22 @@ const BulkEditPilotDetails: React.FC<BulkEditPilotDetailsProps> = ({
           </div>
 
           {commonTeams.length > 0 ? (
-            <div style={{ border: '1px solid #E5E7EB', borderRadius: '6px', backgroundColor: '#FFFFFF' }}>
+            <div style={{ border: '1px solid var(--rr-border)', borderRadius: '6px', backgroundColor: 'var(--rr-panel)' }}>
               {/* Table Header */}
               <div style={{
                 display: 'flex',
-                backgroundColor: '#F9FAFB',
-                borderBottom: '1px solid #E5E7EB',
+                backgroundColor: 'var(--rr-panel2)',
+                borderBottom: '1px solid var(--rr-border)',
                 borderRadius: '6px 6px 0 0'
               }}>
                 <div style={{
                   padding: '8px 12px',
                   fontSize: '12px',
                   fontWeight: 500,
-                  color: '#6B7280',
+                  color: 'var(--rr-text2)',
                   textTransform: 'uppercase',
                   width: '300px',
-                  borderRight: '1px solid #E5E7EB'
+                  borderRight: '1px solid var(--rr-border)'
                 }}>
                   Team
                 </div>
@@ -1095,10 +1095,10 @@ const BulkEditPilotDetails: React.FC<BulkEditPilotDetailsProps> = ({
                   padding: '8px 12px',
                   fontSize: '12px',
                   fontWeight: 500,
-                  color: '#6B7280',
+                  color: 'var(--rr-text2)',
                   textTransform: 'uppercase',
                   width: '100px',
-                  borderRight: '1px solid #E5E7EB',
+                  borderRight: '1px solid var(--rr-border)',
                   textAlign: 'center'
                 }}>
                   Scope
@@ -1107,10 +1107,10 @@ const BulkEditPilotDetails: React.FC<BulkEditPilotDetailsProps> = ({
                   padding: '8px 12px',
                   fontSize: '12px',
                   fontWeight: 500,
-                  color: '#6B7280',
+                  color: 'var(--rr-text2)',
                   textTransform: 'uppercase',
                   width: '150px',
-                  borderRight: '1px solid #E5E7EB',
+                  borderRight: '1px solid var(--rr-border)',
                   textAlign: 'center'
                 }}>
                   Joined
@@ -1128,8 +1128,8 @@ const BulkEditPilotDetails: React.FC<BulkEditPilotDetailsProps> = ({
                   key={team.id}
                   style={{
                     display: 'flex',
-                    borderBottom: index < commonTeams.length - 1 ? '1px solid #F3F4F6' : 'none',
-                    backgroundColor: '#FFFFFF',
+                    borderBottom: index < commonTeams.length - 1 ? '1px solid var(--rr-border)' : 'none',
+                    backgroundColor: 'var(--rr-panel)',
                     height: '34px'
                   }}
                 >
@@ -1139,12 +1139,12 @@ const BulkEditPilotDetails: React.FC<BulkEditPilotDetailsProps> = ({
                     display: 'flex',
                     alignItems: 'center',
                     width: '300px',
-                    borderRight: '1px solid #F3F4F6'
+                    borderRight: '1px solid var(--rr-border)'
                   }}>
                     <span style={{
                       fontSize: '14px',
                       fontWeight: 500,
-                      color: '#111827'
+                      color: 'var(--rr-text)'
                     }}>
                       {team.name}
                     </span>
@@ -1157,11 +1157,11 @@ const BulkEditPilotDetails: React.FC<BulkEditPilotDetailsProps> = ({
                     alignItems: 'center',
                     justifyContent: 'center',
                     width: '100px',
-                    borderRight: '1px solid #F3F4F6'
+                    borderRight: '1px solid var(--rr-border)'
                   }}>
                     <span style={{
                       fontSize: '13px',
-                      color: '#6B7280',
+                      color: 'var(--rr-text2)',
                       textTransform: 'capitalize'
                     }}>
                       {team.scope}
@@ -1175,13 +1175,13 @@ const BulkEditPilotDetails: React.FC<BulkEditPilotDetailsProps> = ({
                     alignItems: 'center',
                     justifyContent: 'center',
                     width: '150px',
-                    borderRight: '1px solid #F3F4F6',
+                    borderRight: '1px solid var(--rr-border)',
                     flexDirection: 'column',
                     gap: '2px'
                   }}>
                     <span style={{
                       fontSize: '13px',
-                      color: '#6B7280'
+                      color: 'var(--rr-text2)'
                     }}>
                       {team.earliestJoined === team.latestJoined
                         ? new Date(team.earliestJoined).toLocaleDateString()
@@ -1211,14 +1211,14 @@ const BulkEditPilotDetails: React.FC<BulkEditPilotDetailsProps> = ({
                         alignItems: 'center',
                         justifyContent: 'center',
                         cursor: 'pointer',
-                        color: '#9CA3AF'
+                        color: 'var(--rr-text3)'
                       }}
                       onMouseEnter={(e) => {
-                        e.currentTarget.style.color = '#EF4444';
-                        e.currentTarget.style.backgroundColor = '#FEF2F2';
+                        e.currentTarget.style.color = 'var(--rr-bad)';
+                        e.currentTarget.style.backgroundColor = 'rgba(224,82,78,.12)';
                       }}
                       onMouseLeave={(e) => {
-                        e.currentTarget.style.color = '#9CA3AF';
+                        e.currentTarget.style.color = 'var(--rr-text3)';
                         e.currentTarget.style.backgroundColor = 'transparent';
                       }}
                     >
@@ -1229,7 +1229,7 @@ const BulkEditPilotDetails: React.FC<BulkEditPilotDetailsProps> = ({
               ))}
             </div>
           ) : (
-            <div style={{ color: '#9CA3AF', fontSize: '14px', textAlign: 'center', padding: '16px' }}>
+            <div style={{ color: 'var(--rr-text3)', fontSize: '14px', textAlign: 'center', padding: '16px' }}>
               No teams common to all selected pilots
             </div>
           )}
@@ -1242,21 +1242,21 @@ const BulkEditPilotDetails: React.FC<BulkEditPilotDetailsProps> = ({
         justifyContent: 'space-between',
         alignItems: 'center',
         padding: '18px',
-        borderTop: '1px solid #E2E8F0'
+        borderTop: '1px solid var(--rr-border)'
       }}>
         <button
           onClick={() => setConfirmDialog({ type: 'delete_pilots' })}
           style={{
             ...exportButtonStyle,
-            backgroundColor: '#FEE2E2',
-            color: '#B91C1C',
-            border: '1px solid #FCA5A5',
+            backgroundColor: 'rgba(224,82,78,.12)',
+            color: 'var(--rr-bad)',
+            border: '1px solid var(--rr-bad)',
           }}
           onMouseEnter={(e) => {
             e.currentTarget.style.backgroundColor = '#FECACA';
           }}
           onMouseLeave={(e) => {
-            e.currentTarget.style.backgroundColor = '#FEE2E2';
+            e.currentTarget.style.backgroundColor = 'rgba(224,82,78,.12)';
           }}
         >
           <Trash2 size={16} />
@@ -1269,9 +1269,9 @@ const BulkEditPilotDetails: React.FC<BulkEditPilotDetailsProps> = ({
             disabled={!hasUnsavedChanges}
             style={{
               ...exportButtonStyle,
-              backgroundColor: '#FFFFFF',
-              color: hasUnsavedChanges ? '#6B7280' : '#9CA3AF',
-              border: '1px solid #D1D5DB',
+              backgroundColor: 'var(--rr-panel)',
+              color: hasUnsavedChanges ? 'var(--rr-text2)' : 'var(--rr-text3)',
+              border: '1px solid var(--rr-border2)',
               cursor: hasUnsavedChanges ? 'pointer' : 'not-allowed',
               opacity: hasUnsavedChanges ? 1 : 0.6
             }}
@@ -1283,19 +1283,19 @@ const BulkEditPilotDetails: React.FC<BulkEditPilotDetailsProps> = ({
             disabled={!hasUnsavedChanges}
             style={{
               ...exportButtonStyle,
-              backgroundColor: hasUnsavedChanges ? '#3B82F6' : '#93C5FD',
+              backgroundColor: hasUnsavedChanges ? 'var(--rr-accent)' : '#93C5FD',
               color: '#FFFFFF',
               border: 'none',
               cursor: hasUnsavedChanges ? 'pointer' : 'not-allowed'
             }}
             onMouseEnter={(e) => {
               if (hasUnsavedChanges) {
-                e.currentTarget.style.backgroundColor = '#2563EB';
+                e.currentTarget.style.backgroundColor = 'var(--rr-accent)';
               }
             }}
             onMouseLeave={(e) => {
               if (hasUnsavedChanges) {
-                e.currentTarget.style.backgroundColor = '#3B82F6';
+                e.currentTarget.style.backgroundColor = 'var(--rr-accent)';
               }
             }}
           >
@@ -1323,24 +1323,24 @@ const BulkEditPilotDetails: React.FC<BulkEditPilotDetailsProps> = ({
           >
             <div
               style={{
-                backgroundColor: '#FFFFFF',
+                backgroundColor: 'var(--rr-panel)',
                 borderRadius: '8px',
                 padding: '24px',
                 minWidth: '400px',
                 maxWidth: '500px',
-                boxShadow: '0 10px 25px rgba(0, 0, 0, 0.1)'
+                boxShadow: 'var(--rr-shadow-lg)'
               }}
               onClick={(e) => e.stopPropagation()}
             >
-              <h2 style={{ fontSize: '18px', fontWeight: 600, marginBottom: '16px', color: '#1F2937' }}>
+              <h2 style={{ fontSize: '18px', fontWeight: 600, marginBottom: '16px', color: 'var(--rr-text)' }}>
                 Bulk Add Qualification
               </h2>
-              <p style={{ marginBottom: '16px', color: '#6B7280', fontSize: '14px' }}>
+              <p style={{ marginBottom: '16px', color: 'var(--rr-text2)', fontSize: '14px' }}>
                 Add a qualification to all {selectedPilots.length} selected pilots
               </p>
 
               <div style={{ marginBottom: '16px' }}>
-                <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: 500, color: '#374151' }}>
+                <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: 500, color: 'var(--rr-text)' }}>
                   Qualification
                 </label>
                 <select
@@ -1349,7 +1349,7 @@ const BulkEditPilotDetails: React.FC<BulkEditPilotDetailsProps> = ({
                   style={{
                     width: '100%',
                     padding: '8px 12px',
-                    border: '1px solid #D1D5DB',
+                    border: '1px solid var(--rr-border2)',
                     borderRadius: '6px',
                     fontSize: '14px',
                     boxSizing: 'border-box'
@@ -1365,7 +1365,7 @@ const BulkEditPilotDetails: React.FC<BulkEditPilotDetailsProps> = ({
               </div>
 
               <div style={{ marginBottom: '20px' }}>
-                <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: 500, color: '#374151' }}>
+                <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: 500, color: 'var(--rr-text)' }}>
                   Achieved Date
                 </label>
                 <input
@@ -1375,7 +1375,7 @@ const BulkEditPilotDetails: React.FC<BulkEditPilotDetailsProps> = ({
                   style={{
                     width: '100%',
                     padding: '8px 12px',
-                    border: '1px solid #D1D5DB',
+                    border: '1px solid var(--rr-border2)',
                     borderRadius: '6px',
                     fontSize: '14px',
                     boxSizing: 'border-box'
@@ -1388,9 +1388,9 @@ const BulkEditPilotDetails: React.FC<BulkEditPilotDetailsProps> = ({
                   onClick={() => setShowAddQualDialog(false)}
                   style={{
                     padding: '8px 16px',
-                    backgroundColor: '#FFFFFF',
-                    color: '#6B7280',
-                    border: '1px solid #D1D5DB',
+                    backgroundColor: 'var(--rr-panel)',
+                    color: 'var(--rr-text2)',
+                    border: '1px solid var(--rr-border2)',
                     borderRadius: '6px',
                     fontSize: '14px',
                     cursor: 'pointer'
@@ -1403,7 +1403,7 @@ const BulkEditPilotDetails: React.FC<BulkEditPilotDetailsProps> = ({
                   disabled={!selectedQualification}
                   style={{
                     padding: '8px 16px',
-                    backgroundColor: selectedQualification ? '#3B82F6' : '#93C5FD',
+                    backgroundColor: selectedQualification ? 'var(--rr-accent)' : '#93C5FD',
                     color: '#FFFFFF',
                     border: 'none',
                     borderRadius: '6px',
@@ -1476,21 +1476,21 @@ const BulkEditPilotDetails: React.FC<BulkEditPilotDetailsProps> = ({
           >
             <div
               style={{
-                backgroundColor: '#FFFFFF',
+                backgroundColor: 'var(--rr-panel)',
                 borderRadius: '8px',
                 padding: '24px',
                 minWidth: '500px',
                 maxWidth: '600px',
-                boxShadow: '0 10px 25px rgba(0, 0, 0, 0.1)'
+                boxShadow: 'var(--rr-shadow-lg)'
               }}
               onClick={(e) => e.stopPropagation()}
             >
-              <h3 style={{ fontSize: '18px', fontWeight: 600, marginBottom: '20px', color: '#1F2937' }}>
+              <h3 style={{ fontSize: '18px', fontWeight: 600, marginBottom: '20px', color: 'var(--rr-text)' }}>
                 Add Team to {selectedPilots.length} Pilot{selectedPilots.length > 1 ? 's' : ''}
               </h3>
 
               <div style={{ marginBottom: '16px' }}>
-                <label style={{ display: 'block', fontSize: '14px', fontWeight: 500, color: '#64748B', marginBottom: '8px' }}>
+                <label style={{ display: 'block', fontSize: '14px', fontWeight: 500, color: 'var(--rr-text2)', marginBottom: '8px' }}>
                   Team *
                 </label>
                 <select
@@ -1499,10 +1499,10 @@ const BulkEditPilotDetails: React.FC<BulkEditPilotDetailsProps> = ({
                   style={{
                     width: '100%',
                     padding: '8px 12px',
-                    border: '1px solid #D1D5DB',
+                    border: '1px solid var(--rr-border2)',
                     borderRadius: '6px',
                     fontSize: '14px',
-                    backgroundColor: 'white',
+                    backgroundColor: 'var(--rr-panel)',
                     boxSizing: 'border-box'
                   }}
                 >
@@ -1516,7 +1516,7 @@ const BulkEditPilotDetails: React.FC<BulkEditPilotDetailsProps> = ({
               </div>
 
               <div style={{ marginBottom: '24px' }}>
-                <label style={{ display: 'block', fontSize: '14px', fontWeight: 500, color: '#64748B', marginBottom: '8px' }}>
+                <label style={{ display: 'block', fontSize: '14px', fontWeight: 500, color: 'var(--rr-text2)', marginBottom: '8px' }}>
                   Start Date
                 </label>
                 <input
@@ -1526,7 +1526,7 @@ const BulkEditPilotDetails: React.FC<BulkEditPilotDetailsProps> = ({
                   style={{
                     width: '100%',
                     padding: '8px 12px',
-                    border: '1px solid #D1D5DB',
+                    border: '1px solid var(--rr-border2)',
                     borderRadius: '6px',
                     fontSize: '14px',
                     boxSizing: 'border-box'
@@ -1539,9 +1539,9 @@ const BulkEditPilotDetails: React.FC<BulkEditPilotDetailsProps> = ({
                   onClick={() => setShowAddTeamDialog(false)}
                   style={{
                     padding: '8px 16px',
-                    backgroundColor: '#FFFFFF',
-                    color: '#6B7280',
-                    border: '1px solid #D1D5DB',
+                    backgroundColor: 'var(--rr-panel)',
+                    color: 'var(--rr-text2)',
+                    border: '1px solid var(--rr-border2)',
                     borderRadius: '6px',
                     fontSize: '14px',
                     cursor: 'pointer'
@@ -1554,7 +1554,7 @@ const BulkEditPilotDetails: React.FC<BulkEditPilotDetailsProps> = ({
                   disabled={!selectedTeam}
                   style={{
                     padding: '8px 16px',
-                    backgroundColor: !selectedTeam ? '#9CA3AF' : '#3B82F6',
+                    backgroundColor: !selectedTeam ? '#9CA3AF' : 'var(--rr-accent)',
                     color: '#FFFFFF',
                     border: 'none',
                     borderRadius: '6px',
@@ -1587,21 +1587,21 @@ const BulkEditPilotDetails: React.FC<BulkEditPilotDetailsProps> = ({
           >
             <div
               style={{
-                backgroundColor: '#FFFFFF',
+                backgroundColor: 'var(--rr-panel)',
                 borderRadius: '8px',
                 padding: '24px',
                 minWidth: '500px',
                 maxWidth: '600px',
-                boxShadow: '0 10px 25px rgba(0, 0, 0, 0.1)'
+                boxShadow: 'var(--rr-shadow-lg)'
               }}
               onClick={(e) => e.stopPropagation()}
             >
-              <h3 style={{ fontSize: '18px', fontWeight: 600, marginBottom: '20px', color: '#1F2937' }}>
+              <h3 style={{ fontSize: '18px', fontWeight: 600, marginBottom: '20px', color: 'var(--rr-text)' }}>
                 Enroll {selectedPilots.length} Pilot{selectedPilots.length > 1 ? 's' : ''} in Training
               </h3>
 
               <div style={{ marginBottom: '16px' }}>
-                <label style={{ display: 'block', fontSize: '14px', fontWeight: 500, color: '#64748B', marginBottom: '8px' }}>
+                <label style={{ display: 'block', fontSize: '14px', fontWeight: 500, color: 'var(--rr-text2)', marginBottom: '8px' }}>
                   Training Cycle *
                 </label>
                 <select
@@ -1610,10 +1610,10 @@ const BulkEditPilotDetails: React.FC<BulkEditPilotDetailsProps> = ({
                   style={{
                     width: '100%',
                     padding: '8px 12px',
-                    border: '1px solid #D1D5DB',
+                    border: '1px solid var(--rr-border2)',
                     borderRadius: '6px',
                     fontSize: '14px',
-                    backgroundColor: 'white',
+                    backgroundColor: 'var(--rr-panel)',
                     boxSizing: 'border-box'
                   }}
                 >
@@ -1633,9 +1633,9 @@ const BulkEditPilotDetails: React.FC<BulkEditPilotDetailsProps> = ({
                   onClick={() => setShowAddEnrollmentDialog(false)}
                   style={{
                     padding: '8px 16px',
-                    backgroundColor: '#FFFFFF',
-                    color: '#6B7280',
-                    border: '1px solid #D1D5DB',
+                    backgroundColor: 'var(--rr-panel)',
+                    color: 'var(--rr-text2)',
+                    border: '1px solid var(--rr-border2)',
                     borderRadius: '6px',
                     fontSize: '14px',
                     cursor: 'pointer'
@@ -1648,7 +1648,7 @@ const BulkEditPilotDetails: React.FC<BulkEditPilotDetailsProps> = ({
                   disabled={!selectedCycle}
                   style={{
                     padding: '8px 16px',
-                    backgroundColor: !selectedCycle ? '#9CA3AF' : '#3B82F6',
+                    backgroundColor: !selectedCycle ? '#9CA3AF' : 'var(--rr-accent)',
                     color: '#FFFFFF',
                     border: 'none',
                     borderRadius: '6px',

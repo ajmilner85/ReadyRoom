@@ -127,11 +127,11 @@ const FlightAssignmentCard: React.FC<FlightAssignmentCardProps> = ({
         width: 'calc(100% - 20px)', // Account for shadow space
         padding: '10px 12px 2px 8px', // top: 10px (12-2), right: 12px, bottom: 2px (4-2), left: 8px
         margin: '10px', // Add margin for drop shadow
-        backgroundColor: '#FFFFFF',
+        backgroundColor: 'var(--rr-panel)',
         borderRadius: '8px',
-        fontFamily: 'Inter, sans-serif',
+        fontFamily: 'inherit',
         userSelect: 'none',
-        boxShadow: '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)',
+        boxShadow: 'var(--rr-shadow)',
         transition: 'all 0.2s ease-in-out',
         display: 'flex',
         flexDirection: 'row', // Changed to row for horizontal layout
@@ -151,7 +151,7 @@ const FlightAssignmentCard: React.FC<FlightAssignmentCardProps> = ({
           gap: '4px',
           fontSize: '12px',
           fontWeight: 500,
-          color: '#64748B',
+          color: 'var(--rr-text2)',
           padding: '2px 4px',
           zIndex: 10
         }}
@@ -185,13 +185,13 @@ const FlightAssignmentCard: React.FC<FlightAssignmentCardProps> = ({
                 height: '100%',
                 padding: '0',
                 margin: '0',
-                border: '1px solid #CBD5E1',
+                border: '1px solid var(--rr-border2)',
                 borderRadius: '2px',
                 fontSize: '12px',
                 fontWeight: 500,
                 textAlign: 'left',
                 paddingLeft: '2px',
-                backgroundColor: 'white',
+                backgroundColor: 'var(--rr-panel)',
                 outline: 'none',
                 boxSizing: 'border-box'
               }}
@@ -221,25 +221,25 @@ const FlightAssignmentCard: React.FC<FlightAssignmentCardProps> = ({
               padding: '4px',
               borderRadius: '4px',
               cursor: 'pointer',
-              background: 'white',
-              boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+              background: 'var(--rr-panel)',
+              boxShadow: 'var(--rr-shadow)',
               border: 'none',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               transition: 'all 0.1s ease',
-              color: '#64748B',
+              color: 'var(--rr-text2)',
               width: '24px',
               height: '24px'
             }}
             title="Edit flight"
             onMouseEnter={(e) => {
               e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.15)';
-              e.currentTarget.style.background = '#F8FAFC';
+              e.currentTarget.style.background = 'var(--rr-panel2)';
             }}
             onMouseLeave={(e) => {
               e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
-              e.currentTarget.style.background = 'white';
+              e.currentTarget.style.background = 'var(--rr-panel)';
             }}
           >
             <Edit2 size={14} color="#64748B" />
@@ -252,25 +252,25 @@ const FlightAssignmentCard: React.FC<FlightAssignmentCardProps> = ({
               padding: '4px',
               borderRadius: '4px',
               cursor: 'pointer',
-              background: 'white',
-              boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+              background: 'var(--rr-panel)',
+              boxShadow: 'var(--rr-shadow)',
               border: 'none',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               transition: 'all 0.1s ease',
-              color: '#64748B',
+              color: 'var(--rr-text2)',
               width: '24px',
               height: '24px'
             }}
             title="Delete flight"
             onMouseEnter={(e) => {
               e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.15)';
-              e.currentTarget.style.background = '#F8FAFC';
+              e.currentTarget.style.background = 'var(--rr-panel2)';
             }}
             onMouseLeave={(e) => {
               e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
-              e.currentTarget.style.background = 'white';
+              e.currentTarget.style.background = 'var(--rr-panel)';
             }}
           >
             <Trash2 size={14} color="#64748B" />

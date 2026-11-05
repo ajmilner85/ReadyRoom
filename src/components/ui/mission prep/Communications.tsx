@@ -431,7 +431,7 @@ const Communications: React.FC<CommunicationsProps> = ({
             <td style={{
               ...styles.tableCell,
               textAlign: 'center',
-              color: isEditing && !isValidTACAN(row.tacan) ? '#DC2626' : 
+              color: isEditing && !isValidTACAN(row.tacan) ? 'var(--rr-bad)' : 
                      row.tacan === '——' ? '#94A3B8' : 'inherit'
             }}>
               {isEditing ? (
@@ -450,7 +450,7 @@ const Communications: React.FC<CommunicationsProps> = ({
             <td style={{
               ...styles.tableCell,
               textAlign: 'center',
-              color: isEditing && !isValidILS(row.ils) ? '#DC2626' : 
+              color: isEditing && !isValidILS(row.ils) ? 'var(--rr-bad)' : 
                      row.ils === '——' ? '#94A3B8' : 'inherit'
             }}>
               {isEditing ? (
@@ -469,7 +469,7 @@ const Communications: React.FC<CommunicationsProps> = ({
             <td style={{
               ...styles.tableCell,
               textAlign: 'center',
-              color: isEditing && !isValidKYFill(row.kyFill) ? '#DC2626' : 
+              color: isEditing && !isValidKYFill(row.kyFill) ? 'var(--rr-bad)' : 
                      row.kyFill === '——' ? '#94A3B8' : 'inherit'
             }}>
               {isEditing ? (
@@ -519,11 +519,11 @@ const Communications: React.FC<CommunicationsProps> = ({
                   style={styles.editButton}
                   onMouseEnter={(e) => {
                     e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.15)';
-                    e.currentTarget.style.background = '#F8FAFC';
+                    e.currentTarget.style.background = 'var(--rr-panel2)';
                   }}
                   onMouseLeave={(e) => {
                     e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
-                    e.currentTarget.style.background = 'white';
+                    e.currentTarget.style.background = 'var(--rr-panel)';
                   }}
                 >
                   <Copy size={14} color="#64748B" />
@@ -537,11 +537,11 @@ const Communications: React.FC<CommunicationsProps> = ({
                   style={styles.editButton}
                   onMouseEnter={(e) => {
                     e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.15)';
-                    e.currentTarget.style.background = '#F8FAFC';
+                    e.currentTarget.style.background = 'var(--rr-panel2)';
                   }}
                   onMouseLeave={(e) => {
                     e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
-                    e.currentTarget.style.background = 'white';
+                    e.currentTarget.style.background = 'var(--rr-panel)';
                   }}
                 >
                   <BookmarkPlus size={14} color="#64748B" />
@@ -553,11 +553,11 @@ const Communications: React.FC<CommunicationsProps> = ({
                 style={styles.editButton}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.15)';
-                  e.currentTarget.style.background = '#F8FAFC';
+                  e.currentTarget.style.background = 'var(--rr-panel2)';
                 }}
                 onMouseLeave={(e) => {
                   e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
-                  e.currentTarget.style.background = 'white';
+                  e.currentTarget.style.background = 'var(--rr-panel)';
                 }}
               >
                 <Edit2 size={14} color="#64748B" />
@@ -592,11 +592,11 @@ const Communications: React.FC<CommunicationsProps> = ({
                 style={styles.editButton}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.15)';
-                  e.currentTarget.style.background = '#F8FAFC';
+                  e.currentTarget.style.background = 'var(--rr-panel2)';
                 }}
                 onMouseLeave={(e) => {
                   e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
-                  e.currentTarget.style.background = 'white';
+                  e.currentTarget.style.background = 'var(--rr-panel)';
                 }}
               >
                 <Check size={14} color="#64748B" />
@@ -606,11 +606,11 @@ const Communications: React.FC<CommunicationsProps> = ({
                 style={styles.editButton}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.15)';
-                  e.currentTarget.style.background = '#F8FAFC';
+                  e.currentTarget.style.background = 'var(--rr-panel2)';
                 }}
                 onMouseLeave={(e) => {
                   e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
-                  e.currentTarget.style.background = 'white';
+                  e.currentTarget.style.background = 'var(--rr-panel)';
                 }}
               >
                 <X size={14} color="#64748B" />
@@ -641,10 +641,10 @@ const Communications: React.FC<CommunicationsProps> = ({
               minWidth: '150px' // Add minimum width to ensure buttons have enough space
             }}
             onMouseEnter={e => {
-              e.currentTarget.style.backgroundColor = '#F8FAFC';
+              e.currentTarget.style.backgroundColor = 'var(--rr-panel2)';
             }}
             onMouseLeave={e => {
-              e.currentTarget.style.backgroundColor = '#FFFFFF';
+              e.currentTarget.style.backgroundColor = 'var(--rr-panel)';
             }}
           >
             <FileDown size={16} />
@@ -660,10 +660,10 @@ const Communications: React.FC<CommunicationsProps> = ({
             }}
             onClick={handleTransferToMission}
             onMouseEnter={e => {
-              e.currentTarget.style.backgroundColor = '#F8FAFC';
+              e.currentTarget.style.backgroundColor = 'var(--rr-panel2)';
             }}
             onMouseLeave={e => {
-              e.currentTarget.style.backgroundColor = '#FFFFFF';
+              e.currentTarget.style.backgroundColor = 'var(--rr-panel)';
             }}
           >
             <Send size={16} />
@@ -695,10 +695,10 @@ const Communications: React.FC<CommunicationsProps> = ({
             top: '50%',
             left: '50%',
             transform: 'translate(-50%, -50%)',
-            backgroundColor: 'white',
+            backgroundColor: 'var(--rr-panel)',
             padding: '24px',
             borderRadius: '8px',
-            boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+            boxShadow: 'var(--rr-shadow)',
             width: '400px',
             zIndex: 1001
           }}>
@@ -725,12 +725,12 @@ const Communications: React.FC<CommunicationsProps> = ({
                 onClick={() => setShowConfirmDialog(false)}
                 style={{
                   padding: '8px 16px',
-                  backgroundColor: '#F1F5F9',
+                  backgroundColor: 'var(--rr-panel2)',
                   border: 'none',
                   borderRadius: '4px',
                   cursor: 'pointer',
                   fontWeight: 500,
-                  color: '#64748B'
+                  color: 'var(--rr-text2)'
                 }}
               >
                 Cancel

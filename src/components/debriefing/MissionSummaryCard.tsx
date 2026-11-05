@@ -42,18 +42,18 @@ interface CategoryCardProps {
 const CategoryCard: React.FC<CategoryCardProps> = ({ title, children }) => {
   return (
     <div style={{
-      backgroundColor: '#F8FAFC',
+      backgroundColor: 'var(--rr-panel2)',
       borderRadius: '12px',
       padding: '24px',
-      border: '1px solid #E2E8F0'
+      border: '1px solid var(--rr-border)'
     }}>
       <div style={{
         fontSize: '12px',
         fontWeight: 600,
-        color: '#64748B',
+        color: 'var(--rr-text2)',
         textTransform: 'uppercase',
         letterSpacing: '0.5px',
-        fontFamily: 'Inter',
+        fontFamily: 'inherit',
         marginBottom: '12px'
       }}>
         {title}
@@ -92,7 +92,7 @@ const StatusRow: React.FC<StatusRowProps> = ({ icon, label, value, friendlyValue
         alignItems: 'center',
         gap: '8px',
         padding: '8px 12px',
-        backgroundColor: highlighted ? '#F1F5F9' : isHovered ? '#F8FAFC' : '#FFFFFF',
+        backgroundColor: highlighted ? 'var(--rr-panel2)' : isHovered ? 'var(--rr-panel2)' : 'var(--rr-panel)',
         borderRadius: '6px',
         cursor: onClick ? 'pointer' : 'default',
         transition: 'background-color 0.15s'
@@ -102,8 +102,8 @@ const StatusRow: React.FC<StatusRowProps> = ({ icon, label, value, friendlyValue
       <span style={{
         fontSize: '13px',
         fontWeight: highlighted ? 600 : 500,
-        color: highlighted ? '#1E293B' : '#64748B',
-        fontFamily: 'Inter',
+        color: highlighted ? 'var(--rr-text)' : 'var(--rr-text2)',
+        fontFamily: 'inherit',
         minWidth: '100px'
       }}>
         {label}
@@ -111,13 +111,13 @@ const StatusRow: React.FC<StatusRowProps> = ({ icon, label, value, friendlyValue
       <span style={{
         fontSize: '16px',
         fontWeight: highlighted ? 700 : 600,
-        color: highlighted ? '#0F172A' : '#1E293B',
-        fontFamily: 'Inter',
+        color: highlighted ? 'var(--rr-text)' : 'var(--rr-text)',
+        fontFamily: 'inherit',
         marginLeft: 'auto'
       }}>
         {value ?? 0}
         {friendlyValue != null && friendlyValue > 0 && (
-          <span style={{ fontWeight: 600, color: '#2563EB', marginLeft: '4px' }}>
+          <span style={{ fontWeight: 600, color: 'var(--rr-accent-text)', marginLeft: '4px' }}>
             ({friendlyValue})
           </span>
         )}
@@ -135,25 +135,25 @@ export const PilotStatusCard: React.FC<PilotStatusCardProps> = ({ data, onRowCli
   return (
     <CategoryCard title="Pilot Status">
       <StatusRow
-        icon={<User size={16} style={{ color: '#10B981', flexShrink: 0 }} />}
+        icon={<User size={16} style={{ color: 'var(--rr-good)', flexShrink: 0 }} />}
         label="Alive"
         value={data.alive}
         onClick={onRowClick ? (e) => onRowClick('alive', e) : undefined}
       />
       <StatusRow
-        icon={<UserSearch size={16} style={{ color: '#F59E0B', flexShrink: 0 }} />}
+        icon={<UserSearch size={16} style={{ color: 'var(--rr-warn)', flexShrink: 0 }} />}
         label="MIA"
         value={data.mia}
         onClick={onRowClick ? (e) => onRowClick('mia', e) : undefined}
       />
       <StatusRow
-        icon={<Skull size={16} style={{ color: '#EF4444', flexShrink: 0 }} />}
+        icon={<Skull size={16} style={{ color: 'var(--rr-bad)', flexShrink: 0 }} />}
         label="KIA"
         value={data.kia}
         onClick={onRowClick ? (e) => onRowClick('kia', e) : undefined}
       />
       <StatusRow
-        icon={<HelpCircle size={16} style={{ color: '#9CA3AF', flexShrink: 0 }} />}
+        icon={<HelpCircle size={16} style={{ color: 'var(--rr-text3)', flexShrink: 0 }} />}
         label="Unaccounted"
         value={data.unaccounted}
         onClick={onRowClick ? (e) => onRowClick('unaccounted', e) : undefined}
@@ -171,31 +171,31 @@ export const AircraftStatusCard: React.FC<AircraftStatusCardProps> = ({ data, on
   return (
     <CategoryCard title="Aircraft Status">
       <StatusRow
-        icon={<PlaneLanding size={16} style={{ color: '#10B981', flexShrink: 0 }} />}
+        icon={<PlaneLanding size={16} style={{ color: 'var(--rr-good)', flexShrink: 0 }} />}
         label="Recovered"
         value={data.recovered}
         onClick={onRowClick ? (e) => onRowClick('recovered', e) : undefined}
       />
       <StatusRow
-        icon={<Wrench size={16} style={{ color: '#F59E0B', flexShrink: 0 }} />}
+        icon={<Wrench size={16} style={{ color: 'var(--rr-warn)', flexShrink: 0 }} />}
         label="Damaged"
         value={data.damaged}
         onClick={onRowClick ? (e) => onRowClick('damaged', e) : undefined}
       />
       <StatusRow
-        icon={<Flame size={16} style={{ color: '#EF4444', flexShrink: 0 }} />}
+        icon={<Flame size={16} style={{ color: 'var(--rr-bad)', flexShrink: 0 }} />}
         label="Destroyed"
         value={data.destroyed}
         onClick={onRowClick ? (e) => onRowClick('destroyed', e) : undefined}
       />
       <StatusRow
-        icon={<ThumbsDown size={16} style={{ color: '#6B7280', flexShrink: 0 }} />}
+        icon={<ThumbsDown size={16} style={{ color: 'var(--rr-text2)', flexShrink: 0 }} />}
         label="Down"
         value={data.down}
         onClick={onRowClick ? (e) => onRowClick('down', e) : undefined}
       />
       <StatusRow
-        icon={<HelpCircle size={16} style={{ color: '#9CA3AF', flexShrink: 0 }} />}
+        icon={<HelpCircle size={16} style={{ color: 'var(--rr-text3)', flexShrink: 0 }} />}
         label="Unaccounted"
         value={data.unaccounted}
         onClick={onRowClick ? (e) => onRowClick('unaccounted', e) : undefined}
@@ -265,15 +265,15 @@ export const PerformanceCard: React.FC<PerformanceCardProps> = ({ data, onRowCli
         alignItems: 'center',
         gap: '8px',
         padding: '8px 12px',
-        backgroundColor: '#F1F5F9',
+        backgroundColor: 'var(--rr-panel2)',
         borderRadius: '6px',
         marginTop: '4px'
       }}>
         <span style={{
           fontSize: '13px',
           fontWeight: 600,
-          color: '#1E293B',
-          fontFamily: 'Inter',
+          color: 'var(--rr-text)',
+          fontFamily: 'inherit',
           minWidth: '100px'
         }}>
           Total Evaluated
@@ -281,8 +281,8 @@ export const PerformanceCard: React.FC<PerformanceCardProps> = ({ data, onRowCli
         <span style={{
           fontSize: '16px',
           fontWeight: 700,
-          color: '#0F172A',
-          fontFamily: 'Inter',
+          color: 'var(--rr-text)',
+          fontFamily: 'inherit',
           marginLeft: 'auto'
         }}>
           {data.total ?? 0}/{data.totalPossible ?? 0}
@@ -299,18 +299,18 @@ interface MissionSummaryCardProps {
 const MissionSummaryCard: React.FC<MissionSummaryCardProps> = ({ data }) => {
   return (
     <div style={{
-      backgroundColor: '#F8F9FA',
+      backgroundColor: 'var(--rr-panel2)',
       borderRadius: '12px',
       padding: '24px',
       marginBottom: '24px',
-      border: '1px solid #E2E8F0'
+      border: '1px solid var(--rr-border)'
     }}>
       {/* Header */}
       <h3 style={{
         fontSize: '18px',
         fontWeight: 600,
-        color: '#1E293B',
-        fontFamily: 'Inter',
+        color: 'var(--rr-text)',
+        fontFamily: 'inherit',
         marginBottom: '20px',
         textTransform: 'uppercase',
         letterSpacing: '0.5px'
@@ -329,18 +329,18 @@ const MissionSummaryCard: React.FC<MissionSummaryCardProps> = ({ data }) => {
           display: 'flex',
           flexDirection: 'column',
           gap: '8px',
-          backgroundColor: '#FFFFFF',
+          backgroundColor: 'var(--rr-panel)',
           borderRadius: '8px',
           padding: '16px',
-          border: '1px solid #E2E8F0'
+          border: '1px solid var(--rr-border)'
         }}>
           <div style={{
             fontSize: '12px',
             fontWeight: 600,
-            color: '#64748B',
+            color: 'var(--rr-text2)',
             textTransform: 'uppercase',
             letterSpacing: '0.5px',
-            fontFamily: 'Inter',
+            fontFamily: 'inherit',
             marginBottom: '4px'
           }}>Pilot Status</div>
           <div style={{
@@ -348,22 +348,22 @@ const MissionSummaryCard: React.FC<MissionSummaryCardProps> = ({ data }) => {
             alignItems: 'center',
             gap: '8px',
             padding: '8px 12px',
-            backgroundColor: '#F9FAFB',
+            backgroundColor: 'var(--rr-panel2)',
             borderRadius: '6px'
           }}>
-            <User size={16} style={{ color: '#10B981', flexShrink: 0 }} />
+            <User size={16} style={{ color: 'var(--rr-good)', flexShrink: 0 }} />
             <span style={{
               fontSize: '13px',
               fontWeight: 500,
-              color: '#64748B',
-              fontFamily: 'Inter',
+              color: 'var(--rr-text2)',
+              fontFamily: 'inherit',
               minWidth: '100px'
             }}>Alive</span>
             <span style={{
               fontSize: '16px',
               fontWeight: 600,
-              color: '#1E293B',
-              fontFamily: 'Inter',
+              color: 'var(--rr-text)',
+              fontFamily: 'inherit',
               marginLeft: 'auto'
             }}>{data.pilotStatus.alive}</span>
           </div>
@@ -372,22 +372,22 @@ const MissionSummaryCard: React.FC<MissionSummaryCardProps> = ({ data }) => {
             alignItems: 'center',
             gap: '8px',
             padding: '8px 12px',
-            backgroundColor: '#F9FAFB',
+            backgroundColor: 'var(--rr-panel2)',
             borderRadius: '6px'
           }}>
-            <UserSearch size={16} style={{ color: '#F59E0B', flexShrink: 0 }} />
+            <UserSearch size={16} style={{ color: 'var(--rr-warn)', flexShrink: 0 }} />
             <span style={{
               fontSize: '13px',
               fontWeight: 500,
-              color: '#64748B',
-              fontFamily: 'Inter',
+              color: 'var(--rr-text2)',
+              fontFamily: 'inherit',
               minWidth: '100px'
             }}>MIA</span>
             <span style={{
               fontSize: '16px',
               fontWeight: 600,
-              color: '#1E293B',
-              fontFamily: 'Inter',
+              color: 'var(--rr-text)',
+              fontFamily: 'inherit',
               marginLeft: 'auto'
             }}>{data.pilotStatus.mia}</span>
           </div>
@@ -396,22 +396,22 @@ const MissionSummaryCard: React.FC<MissionSummaryCardProps> = ({ data }) => {
             alignItems: 'center',
             gap: '8px',
             padding: '8px 12px',
-            backgroundColor: '#F9FAFB',
+            backgroundColor: 'var(--rr-panel2)',
             borderRadius: '6px'
           }}>
-            <Skull size={16} style={{ color: '#EF4444', flexShrink: 0 }} />
+            <Skull size={16} style={{ color: 'var(--rr-bad)', flexShrink: 0 }} />
             <span style={{
               fontSize: '13px',
               fontWeight: 500,
-              color: '#64748B',
-              fontFamily: 'Inter',
+              color: 'var(--rr-text2)',
+              fontFamily: 'inherit',
               minWidth: '100px'
             }}>KIA</span>
             <span style={{
               fontSize: '16px',
               fontWeight: 600,
-              color: '#1E293B',
-              fontFamily: 'Inter',
+              color: 'var(--rr-text)',
+              fontFamily: 'inherit',
               marginLeft: 'auto'
             }}>{data.pilotStatus.kia}</span>
           </div>
@@ -420,22 +420,22 @@ const MissionSummaryCard: React.FC<MissionSummaryCardProps> = ({ data }) => {
             alignItems: 'center',
             gap: '8px',
             padding: '8px 12px',
-            backgroundColor: '#F9FAFB',
+            backgroundColor: 'var(--rr-panel2)',
             borderRadius: '6px'
           }}>
-            <HelpCircle size={16} style={{ color: '#9CA3AF', flexShrink: 0 }} />
+            <HelpCircle size={16} style={{ color: 'var(--rr-text3)', flexShrink: 0 }} />
             <span style={{
               fontSize: '13px',
               fontWeight: 500,
-              color: '#64748B',
-              fontFamily: 'Inter',
+              color: 'var(--rr-text2)',
+              fontFamily: 'inherit',
               minWidth: '100px'
             }}>Unaccounted</span>
             <span style={{
               fontSize: '16px',
               fontWeight: 600,
-              color: '#1E293B',
-              fontFamily: 'Inter',
+              color: 'var(--rr-text)',
+              fontFamily: 'inherit',
               marginLeft: 'auto'
             }}>{data.pilotStatus.unaccounted}</span>
           </div>
@@ -446,18 +446,18 @@ const MissionSummaryCard: React.FC<MissionSummaryCardProps> = ({ data }) => {
           display: 'flex',
           flexDirection: 'column',
           gap: '8px',
-          backgroundColor: '#FFFFFF',
+          backgroundColor: 'var(--rr-panel)',
           borderRadius: '8px',
           padding: '16px',
-          border: '1px solid #E2E8F0'
+          border: '1px solid var(--rr-border)'
         }}>
           <div style={{
             fontSize: '12px',
             fontWeight: 600,
-            color: '#64748B',
+            color: 'var(--rr-text2)',
             textTransform: 'uppercase',
             letterSpacing: '0.5px',
-            fontFamily: 'Inter',
+            fontFamily: 'inherit',
             marginBottom: '4px'
           }}>Aircraft Status</div>
           <div style={{
@@ -465,22 +465,22 @@ const MissionSummaryCard: React.FC<MissionSummaryCardProps> = ({ data }) => {
             alignItems: 'center',
             gap: '8px',
             padding: '8px 12px',
-            backgroundColor: '#F9FAFB',
+            backgroundColor: 'var(--rr-panel2)',
             borderRadius: '6px'
           }}>
-            <PlaneLanding size={16} style={{ color: '#10B981', flexShrink: 0 }} />
+            <PlaneLanding size={16} style={{ color: 'var(--rr-good)', flexShrink: 0 }} />
             <span style={{
               fontSize: '13px',
               fontWeight: 500,
-              color: '#64748B',
-              fontFamily: 'Inter',
+              color: 'var(--rr-text2)',
+              fontFamily: 'inherit',
               minWidth: '100px'
             }}>Recovered</span>
             <span style={{
               fontSize: '16px',
               fontWeight: 600,
-              color: '#1E293B',
-              fontFamily: 'Inter',
+              color: 'var(--rr-text)',
+              fontFamily: 'inherit',
               marginLeft: 'auto'
             }}>{data.aircraftStatus.recovered}</span>
           </div>
@@ -489,22 +489,22 @@ const MissionSummaryCard: React.FC<MissionSummaryCardProps> = ({ data }) => {
             alignItems: 'center',
             gap: '8px',
             padding: '8px 12px',
-            backgroundColor: '#F9FAFB',
+            backgroundColor: 'var(--rr-panel2)',
             borderRadius: '6px'
           }}>
-            <Wrench size={16} style={{ color: '#F59E0B', flexShrink: 0 }} />
+            <Wrench size={16} style={{ color: 'var(--rr-warn)', flexShrink: 0 }} />
             <span style={{
               fontSize: '13px',
               fontWeight: 500,
-              color: '#64748B',
-              fontFamily: 'Inter',
+              color: 'var(--rr-text2)',
+              fontFamily: 'inherit',
               minWidth: '100px'
             }}>Damaged</span>
             <span style={{
               fontSize: '16px',
               fontWeight: 600,
-              color: '#1E293B',
-              fontFamily: 'Inter',
+              color: 'var(--rr-text)',
+              fontFamily: 'inherit',
               marginLeft: 'auto'
             }}>{data.aircraftStatus.damaged}</span>
           </div>
@@ -513,22 +513,22 @@ const MissionSummaryCard: React.FC<MissionSummaryCardProps> = ({ data }) => {
             alignItems: 'center',
             gap: '8px',
             padding: '8px 12px',
-            backgroundColor: '#F9FAFB',
+            backgroundColor: 'var(--rr-panel2)',
             borderRadius: '6px'
           }}>
-            <Flame size={16} style={{ color: '#EF4444', flexShrink: 0 }} />
+            <Flame size={16} style={{ color: 'var(--rr-bad)', flexShrink: 0 }} />
             <span style={{
               fontSize: '13px',
               fontWeight: 500,
-              color: '#64748B',
-              fontFamily: 'Inter',
+              color: 'var(--rr-text2)',
+              fontFamily: 'inherit',
               minWidth: '100px'
             }}>Destroyed</span>
             <span style={{
               fontSize: '16px',
               fontWeight: 600,
-              color: '#1E293B',
-              fontFamily: 'Inter',
+              color: 'var(--rr-text)',
+              fontFamily: 'inherit',
               marginLeft: 'auto'
             }}>{data.aircraftStatus.destroyed}</span>
           </div>
@@ -537,22 +537,22 @@ const MissionSummaryCard: React.FC<MissionSummaryCardProps> = ({ data }) => {
             alignItems: 'center',
             gap: '8px',
             padding: '8px 12px',
-            backgroundColor: '#F9FAFB',
+            backgroundColor: 'var(--rr-panel2)',
             borderRadius: '6px'
           }}>
-            <HelpCircle size={16} style={{ color: '#9CA3AF', flexShrink: 0 }} />
+            <HelpCircle size={16} style={{ color: 'var(--rr-text3)', flexShrink: 0 }} />
             <span style={{
               fontSize: '13px',
               fontWeight: 500,
-              color: '#64748B',
-              fontFamily: 'Inter',
+              color: 'var(--rr-text2)',
+              fontFamily: 'inherit',
               minWidth: '100px'
             }}>Unaccounted</span>
             <span style={{
               fontSize: '16px',
               fontWeight: 600,
-              color: '#1E293B',
-              fontFamily: 'Inter',
+              color: 'var(--rr-text)',
+              fontFamily: 'inherit',
               marginLeft: 'auto'
             }}>{data.aircraftStatus.unaccounted}</span>
           </div>
@@ -563,18 +563,18 @@ const MissionSummaryCard: React.FC<MissionSummaryCardProps> = ({ data }) => {
           display: 'flex',
           flexDirection: 'column',
           gap: '8px',
-          backgroundColor: '#FFFFFF',
+          backgroundColor: 'var(--rr-panel)',
           borderRadius: '8px',
           padding: '16px',
-          border: '1px solid #E2E8F0'
+          border: '1px solid var(--rr-border)'
         }}>
           <div style={{
             fontSize: '12px',
             fontWeight: 600,
-            color: '#64748B',
+            color: 'var(--rr-text2)',
             textTransform: 'uppercase',
             letterSpacing: '0.5px',
-            fontFamily: 'Inter',
+            fontFamily: 'inherit',
             marginBottom: '4px'
           }}>Total Kills</div>
           <div style={{
@@ -582,21 +582,21 @@ const MissionSummaryCard: React.FC<MissionSummaryCardProps> = ({ data }) => {
             alignItems: 'center',
             gap: '8px',
             padding: '8px 12px',
-            backgroundColor: '#F9FAFB',
+            backgroundColor: 'var(--rr-panel2)',
             borderRadius: '6px'
           }}>
             <span style={{
               fontSize: '13px',
               fontWeight: 500,
-              color: '#64748B',
-              fontFamily: 'Inter',
+              color: 'var(--rr-text2)',
+              fontFamily: 'inherit',
               minWidth: '100px'
             }}>A2A</span>
             <span style={{
               fontSize: '16px',
               fontWeight: 600,
-              color: '#1E293B',
-              fontFamily: 'Inter',
+              color: 'var(--rr-text)',
+              fontFamily: 'inherit',
               marginLeft: 'auto'
             }}>{data.totalKills.a2a}</span>
           </div>
@@ -605,21 +605,21 @@ const MissionSummaryCard: React.FC<MissionSummaryCardProps> = ({ data }) => {
             alignItems: 'center',
             gap: '8px',
             padding: '8px 12px',
-            backgroundColor: '#F9FAFB',
+            backgroundColor: 'var(--rr-panel2)',
             borderRadius: '6px'
           }}>
             <span style={{
               fontSize: '13px',
               fontWeight: 500,
-              color: '#64748B',
-              fontFamily: 'Inter',
+              color: 'var(--rr-text2)',
+              fontFamily: 'inherit',
               minWidth: '100px'
             }}>A2G</span>
             <span style={{
               fontSize: '16px',
               fontWeight: 600,
-              color: '#1E293B',
-              fontFamily: 'Inter',
+              color: 'var(--rr-text)',
+              fontFamily: 'inherit',
               marginLeft: 'auto'
             }}>{data.totalKills.a2g}</span>
           </div>
@@ -628,21 +628,21 @@ const MissionSummaryCard: React.FC<MissionSummaryCardProps> = ({ data }) => {
             alignItems: 'center',
             gap: '8px',
             padding: '8px 12px',
-            backgroundColor: '#F9FAFB',
+            backgroundColor: 'var(--rr-panel2)',
             borderRadius: '6px'
           }}>
             <span style={{
               fontSize: '13px',
               fontWeight: 500,
-              color: '#64748B',
-              fontFamily: 'Inter',
+              color: 'var(--rr-text2)',
+              fontFamily: 'inherit',
               minWidth: '100px'
             }}>A2S</span>
             <span style={{
               fontSize: '16px',
               fontWeight: 600,
-              color: '#1E293B',
-              fontFamily: 'Inter',
+              color: 'var(--rr-text)',
+              fontFamily: 'inherit',
               marginLeft: 'auto'
             }}>{data.totalKills.a2s}</span>
           </div>
@@ -651,22 +651,22 @@ const MissionSummaryCard: React.FC<MissionSummaryCardProps> = ({ data }) => {
             alignItems: 'center',
             gap: '8px',
             padding: '8px 12px',
-            backgroundColor: '#F1F5F9',
+            backgroundColor: 'var(--rr-panel2)',
             borderRadius: '6px',
             marginTop: '4px'
           }}>
             <span style={{
               fontSize: '13px',
               fontWeight: 600,
-              color: '#1E293B',
-              fontFamily: 'Inter',
+              color: 'var(--rr-text)',
+              fontFamily: 'inherit',
               minWidth: '100px'
             }}>Total</span>
             <span style={{
               fontSize: '16px',
               fontWeight: 700,
-              color: '#0F172A',
-              fontFamily: 'Inter',
+              color: 'var(--rr-text)',
+              fontFamily: 'inherit',
               marginLeft: 'auto'
             }}>
               {data.totalKills.a2a + data.totalKills.a2g + data.totalKills.a2s}
@@ -679,18 +679,18 @@ const MissionSummaryCard: React.FC<MissionSummaryCardProps> = ({ data }) => {
           display: 'flex',
           flexDirection: 'column',
           gap: '8px',
-          backgroundColor: '#FFFFFF',
+          backgroundColor: 'var(--rr-panel)',
           borderRadius: '8px',
           padding: '16px',
-          border: '1px solid #E2E8F0'
+          border: '1px solid var(--rr-border)'
         }}>
           <div style={{
             fontSize: '12px',
             fontWeight: 600,
-            color: '#64748B',
+            color: 'var(--rr-text2)',
             textTransform: 'uppercase',
             letterSpacing: '0.5px',
-            fontFamily: 'Inter',
+            fontFamily: 'inherit',
             marginBottom: '4px'
           }}>Performance</div>
           <div style={{
@@ -698,21 +698,21 @@ const MissionSummaryCard: React.FC<MissionSummaryCardProps> = ({ data }) => {
             alignItems: 'center',
             gap: '8px',
             padding: '8px 12px',
-            backgroundColor: '#F9FAFB',
+            backgroundColor: 'var(--rr-panel2)',
             borderRadius: '6px'
           }}>
             <span style={{
               fontSize: '13px',
               fontWeight: 500,
-              color: '#64748B',
-              fontFamily: 'Inter',
+              color: 'var(--rr-text2)',
+              fontFamily: 'inherit',
               minWidth: '100px'
             }}>SATs</span>
             <span style={{
               fontSize: '16px',
               fontWeight: 600,
-              color: '#1E293B',
-              fontFamily: 'Inter',
+              color: 'var(--rr-text)',
+              fontFamily: 'inherit',
               marginLeft: 'auto'
             }}>{data.performance.sats}</span>
           </div>
@@ -721,21 +721,21 @@ const MissionSummaryCard: React.FC<MissionSummaryCardProps> = ({ data }) => {
             alignItems: 'center',
             gap: '8px',
             padding: '8px 12px',
-            backgroundColor: '#F9FAFB',
+            backgroundColor: 'var(--rr-panel2)',
             borderRadius: '6px'
           }}>
             <span style={{
               fontSize: '13px',
               fontWeight: 500,
-              color: '#64748B',
-              fontFamily: 'Inter',
+              color: 'var(--rr-text2)',
+              fontFamily: 'inherit',
               minWidth: '100px'
             }}>UNSATs</span>
             <span style={{
               fontSize: '16px',
               fontWeight: 600,
-              color: '#1E293B',
-              fontFamily: 'Inter',
+              color: 'var(--rr-text)',
+              fontFamily: 'inherit',
               marginLeft: 'auto'
             }}>{data.performance.unsats}</span>
           </div>
@@ -744,22 +744,22 @@ const MissionSummaryCard: React.FC<MissionSummaryCardProps> = ({ data }) => {
             alignItems: 'center',
             gap: '8px',
             padding: '8px 12px',
-            backgroundColor: '#F1F5F9',
+            backgroundColor: 'var(--rr-panel2)',
             borderRadius: '6px',
             marginTop: '4px'
           }}>
             <span style={{
               fontSize: '13px',
               fontWeight: 600,
-              color: '#1E293B',
-              fontFamily: 'Inter',
+              color: 'var(--rr-text)',
+              fontFamily: 'inherit',
               minWidth: '100px'
             }}>Total Evaluated</span>
             <span style={{
               fontSize: '16px',
               fontWeight: 700,
-              color: '#0F172A',
-              fontFamily: 'Inter',
+              color: 'var(--rr-text)',
+              fontFamily: 'inherit',
               marginLeft: 'auto'
             }}>
               {data.performance.total}

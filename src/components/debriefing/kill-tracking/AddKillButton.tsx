@@ -31,21 +31,21 @@ const AddKillButton: React.FC<AddKillButtonProps> = ({ onClick }) => {
           style={{
             width: '30px',
             height: '30px',
-            background: '#FFFFFF',
+            background: 'var(--rr-panel)',
             borderRadius: '50%',
             border: 'none',
             cursor: 'pointer',
             transition: 'box-shadow 0.2s ease-in-out',
-            fontFamily: 'Inter',
+            fontFamily: 'inherit',
             fontStyle: 'normal',
             fontWeight: 400,
             fontSize: '20px',
             lineHeight: '24px',
-            color: '#64748B',
+            color: 'var(--rr-text2)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            boxShadow: '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)',
+            boxShadow: 'var(--rr-shadow)',
             pointerEvents: 'none'
           }}
         >

@@ -89,33 +89,33 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
       left: 0,
       right: 0,
       bottom: 0,
-      backgroundColor: '#F0F4F8',
+      backgroundColor: 'var(--rr-panel2)',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
-      fontFamily: 'Inter, sans-serif'
+      fontFamily: 'inherit'
     }}>
       <div style={{
         width: '400px',
-        backgroundColor: '#FFFFFF',
-        boxShadow: '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)',
+        backgroundColor: 'var(--rr-panel)',
+        boxShadow: 'var(--rr-shadow)',
         borderRadius: '8px',
         padding: '24px'
       }}>
         {/* Header */}
         <div style={{ marginBottom: '24px', textAlign: 'center' }}>
           <h2 style={{
-            fontFamily: 'Inter',
+            fontFamily: 'inherit',
             fontSize: '20px',
             fontWeight: 600,
-            color: '#0F172A',
+            color: 'var(--rr-text)',
             margin: '0 0 8px 0'
           }}>
             Sign in to ReadyRoom
           </h2>
           <p style={{
             fontSize: '14px',
-            color: '#64748B',
+            color: 'var(--rr-text2)',
             margin: 0
           }}>
             Access your squadron management dashboard
@@ -127,10 +127,10 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
           <div style={{
             marginBottom: '16px',
             padding: '12px',
-            backgroundColor: '#FEF2F2',
-            border: '1px solid #FECACA',
+            backgroundColor: 'rgba(224,82,78,.12)',
+            border: '1px solid var(--rr-bad)',
             borderRadius: '6px',
-            color: '#DC2626',
+            color: 'var(--rr-bad)',
             fontSize: '14px'
           }}>
             {error}
@@ -142,10 +142,10 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
           <div style={{
             marginBottom: '16px',
             padding: '12px',
-            backgroundColor: '#F0FDF4',
-            border: '1px solid #BBF7D0',
+            backgroundColor: 'rgba(64,168,91,.14)',
+            border: '1px solid var(--rr-good)',
             borderRadius: '6px',
-            color: '#166534',
+            color: 'var(--rr-good)',
             fontSize: '14px'
           }}>
             {message}
@@ -172,7 +172,7 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
                 fontSize: '14px',
                 fontWeight: 500,
                 cursor: (discordLoading || loading) ? 'not-allowed' : 'pointer',
-                fontFamily: 'Inter',
+                fontFamily: 'inherit',
                 position: 'relative'
               }}
             >
@@ -181,7 +181,7 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
                   width: '16px',
                   height: '16px',
                   border: '2px solid rgba(255,255,255,0.3)',
-                  borderTopColor: '#FFFFFF',
+                  borderTopColor: 'var(--rr-panel)',
                   borderRadius: '50%',
                   animation: 'spin 1s linear infinite'
                 }} />
@@ -195,7 +195,7 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
             <p style={{
               marginTop: '8px',
               fontSize: '12px',
-              color: '#6B7280',
+              color: 'var(--rr-text2)',
               textAlign: 'center'
             }}>
               Recommended: Sign in with your squadron Discord account
@@ -210,7 +210,7 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
               left: 0,
               right: 0,
               height: '1px',
-              backgroundColor: '#CBD5E1',
+              backgroundColor: 'var(--rr-panel3)',
               zIndex: 1
             }} />
             <div style={{
@@ -221,8 +221,8 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
             }}>
               <span style={{
                 padding: '0 8px',
-                backgroundColor: '#FFFFFF',
-                color: '#6B7280',
+                backgroundColor: 'var(--rr-panel)',
+                color: 'var(--rr-text2)',
                 fontSize: '14px'
               }}>Or</span>
             </div>
@@ -236,7 +236,7 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
                 marginBottom: '8px',
                 fontSize: '14px',
                 fontWeight: 500,
-                color: '#64748B'
+                color: 'var(--rr-text2)'
               }}>
                 Email Address
               </label>
@@ -249,12 +249,12 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
                 style={{
                   width: '100%',
                   padding: '8px 12px',
-                  border: '1px solid #CBD5E1',
+                  border: '1px solid var(--rr-border2)',
                   borderRadius: '4px',
                   fontSize: '14px',
                   boxSizing: 'border-box',
                   height: '40px',
-                  fontFamily: 'Inter'
+                  fontFamily: 'inherit'
                 }}
                 placeholder="Enter your email"
                 value={email}
@@ -267,7 +267,7 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
                 marginBottom: '8px',
                 fontSize: '14px',
                 fontWeight: 500,
-                color: '#64748B'
+                color: 'var(--rr-text2)'
               }}>
                 Password
               </label>
@@ -280,12 +280,12 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
                 style={{
                   width: '100%',
                   padding: '8px 12px',
-                  border: '1px solid #CBD5E1',
+                  border: '1px solid var(--rr-border2)',
                   borderRadius: '4px',
                   fontSize: '14px',
                   boxSizing: 'border-box',
                   height: '40px',
-                  fontFamily: 'Inter'
+                  fontFamily: 'inherit'
                 }}
                 placeholder="Enter your password"
                 value={password}
@@ -299,14 +299,14 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
                 style={{
                   width: '100%',
                   padding: '12px',
-                  backgroundColor: (loading || discordLoading) ? '#9CA3AF' : '#FFFFFF',
-                  color: (loading || discordLoading) ? '#FFFFFF' : '#374151',
-                  border: '1px solid #CBD5E1',
+                  backgroundColor: (loading || discordLoading) ? '#9CA3AF' : 'var(--rr-panel)',
+                  color: (loading || discordLoading) ? '#FFFFFF' : 'var(--rr-text)',
+                  border: '1px solid var(--rr-border2)',
                   borderRadius: '4px',
                   fontSize: '14px',
                   fontWeight: 500,
                   cursor: (loading || discordLoading) ? 'not-allowed' : 'pointer',
-                  fontFamily: 'Inter',
+                  fontFamily: 'inherit',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -318,7 +318,7 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
                     width: '16px',
                     height: '16px',
                     border: '2px solid rgba(255,255,255,0.3)',
-                    borderTopColor: '#FFFFFF',
+                    borderTopColor: 'var(--rr-panel)',
                     borderRadius: '50%',
                     animation: 'spin 1s linear infinite'
                   }} />
@@ -335,11 +335,11 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
                 style={{
                   backgroundColor: 'transparent',
                   border: 'none',
-                  color: (resetLoading || loading || discordLoading) ? '#9CA3AF' : '#2563EB',
+                  color: (resetLoading || loading || discordLoading) ? 'var(--rr-text3)' : 'var(--rr-accent-text)',
                   cursor: (resetLoading || loading || discordLoading) ? 'not-allowed' : 'pointer',
                   fontSize: '14px',
                   textDecoration: 'underline',
-                  fontFamily: 'Inter'
+                  fontFamily: 'inherit'
                 }}
               >
                 {resetLoading ? 'Sending...' : 'Forgot password?'}
@@ -349,7 +349,7 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
         </div>
 
         <div style={{ textAlign: 'center', marginTop: '24px' }}>
-          <p style={{ fontSize: '12px', color: '#6B7280' }}>
+          <p style={{ fontSize: '12px', color: 'var(--rr-text2)' }}>
             Need help? Contact your squadron administrator
           </p>
         </div>

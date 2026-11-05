@@ -231,23 +231,23 @@ export const PermissionMatrix: React.FC<PermissionMatrixProps> = ({
       const getScopeColors = (scope: string) => {
         switch (scope) {
           case 'none':
-            return { color: '#9CA3AF', backgroundColor: 'transparent', hoverColor: '#6B7280' };
+            return { color: 'var(--rr-text3)', backgroundColor: 'transparent', hoverColor: '#6B7280' };
           case 'flight':
-            return { color: '#059669', backgroundColor: '#ECFDF5', hoverColor: '#047857' };
+            return { color: 'var(--rr-good)', backgroundColor: 'rgba(64,168,91,.14)', hoverColor: '#047857' };
           case 'own_squadron':
-            return { color: '#2563EB', backgroundColor: '#EFF6FF', hoverColor: '#1D4ED8' };
+            return { color: 'var(--rr-accent-text)', backgroundColor: 'var(--rr-accent-weak)', hoverColor: '#1D4ED8' };
           case 'own_wing':
             return { color: '#7C3AED', backgroundColor: '#F5F3FF', hoverColor: '#6D28D9' };
           case 'global':
-            return { color: '#DC2626', backgroundColor: '#FEF2F2', hoverColor: '#B91C1C' };
+            return { color: 'var(--rr-bad)', backgroundColor: 'rgba(224,82,78,.12)', hoverColor: '#B91C1C' };
           case 'own_students':
-            return { color: '#059669', backgroundColor: '#ECFDF5', hoverColor: '#047857' };
+            return { color: 'var(--rr-good)', backgroundColor: 'rgba(64,168,91,.14)', hoverColor: '#047857' };
           case 'enrolled_cycles':
-            return { color: '#2563EB', backgroundColor: '#EFF6FF', hoverColor: '#1D4ED8' };
+            return { color: 'var(--rr-accent-text)', backgroundColor: 'var(--rr-accent-weak)', hoverColor: '#1D4ED8' };
           case 'all_cycles':
-            return { color: '#DC2626', backgroundColor: '#FEF2F2', hoverColor: '#B91C1C' };
+            return { color: 'var(--rr-bad)', backgroundColor: 'rgba(224,82,78,.12)', hoverColor: '#B91C1C' };
           default:
-            return { color: '#9CA3AF', backgroundColor: 'transparent', hoverColor: '#6B7280' };
+            return { color: 'var(--rr-text3)', backgroundColor: 'transparent', hoverColor: '#6B7280' };
         }
       };
       
@@ -260,7 +260,7 @@ export const PermissionMatrix: React.FC<PermissionMatrixProps> = ({
             padding: '4px 8px',
             fontSize: '12px',
             fontWeight: 500,
-            color: !isActive ? '#D1D5DB' : colors.color,
+            color: !isActive ? 'var(--rr-text3)' : colors.color,
             backgroundColor: !isActive ? 'transparent' : colors.backgroundColor,
             cursor: !isActive ? 'not-allowed' : 'pointer',
             borderRadius: '4px',
@@ -298,14 +298,14 @@ export const PermissionMatrix: React.FC<PermissionMatrixProps> = ({
             onClick={() => setSelectedBasisType(basisType)}
             style={{
               padding: '12px 24px',
-              backgroundColor: selectedBasisType === basisType ? '#FFFFFF' : 'transparent',
+              backgroundColor: selectedBasisType === basisType ? 'var(--rr-panel)' : 'transparent',
               border: 'none',
-              borderBottom: selectedBasisType === basisType ? '2px solid #3B82F6' : '2px solid transparent',
+              borderBottom: selectedBasisType === basisType ? '2px solid var(--rr-accent)' : '2px solid transparent',
               cursor: 'pointer',
               fontSize: '14px',
-              fontFamily: 'Inter',
+              fontFamily: 'inherit',
               fontWeight: selectedBasisType === basisType ? 500 : 400,
-              color: selectedBasisType === basisType ? '#0F172A' : '#64748B',
+              color: selectedBasisType === basisType ? 'var(--rr-text)' : 'var(--rr-text2)',
               transition: 'all 0.2s ease'
             }}
           >
@@ -318,7 +318,7 @@ export const PermissionMatrix: React.FC<PermissionMatrixProps> = ({
       <div style={{
         flex: 1,
         minHeight: 0,
-        border: '1px solid #E5E7EB',
+        border: '1px solid var(--rr-border)',
         borderRadius: '6px',
         display: 'flex',
         flexDirection: 'column',
@@ -327,8 +327,8 @@ export const PermissionMatrix: React.FC<PermissionMatrixProps> = ({
       }}>
         {/* Fixed Header Row */}
         <div style={{
-          backgroundColor: '#F9FAFB',
-          borderBottom: '1px solid #E5E7EB',
+          backgroundColor: 'var(--rr-panel2)',
+          borderBottom: '1px solid var(--rr-border)',
           display: 'flex',
           alignItems: 'center',
           flexShrink: 0,
@@ -341,7 +341,7 @@ export const PermissionMatrix: React.FC<PermissionMatrixProps> = ({
             padding: '12px 16px',
             fontSize: '12px',
             fontWeight: 500,
-            color: '#6B7280',
+            color: 'var(--rr-text2)',
             textTransform: 'uppercase'
           }}>
             {/* No header text as requested */}
@@ -366,7 +366,7 @@ export const PermissionMatrix: React.FC<PermissionMatrixProps> = ({
                     border: 'none',
                     background: 'none',
                     cursor: 'pointer',
-                    color: '#6B7280',
+                    color: 'var(--rr-text2)',
                     fontSize: '16px',
                     padding: '4px'
                   }}
@@ -384,7 +384,7 @@ export const PermissionMatrix: React.FC<PermissionMatrixProps> = ({
                 textAlign: 'center',
                 fontSize: '12px',
                 fontWeight: 500,
-                color: '#6B7280',
+                color: 'var(--rr-text2)',
                 textTransform: 'uppercase',
                 whiteSpace: 'normal',
                 wordWrap: 'break-word',
@@ -408,7 +408,7 @@ export const PermissionMatrix: React.FC<PermissionMatrixProps> = ({
                     border: 'none',
                     background: 'none',
                     cursor: 'pointer',
-                    color: '#6B7280',
+                    color: 'var(--rr-text2)',
                     fontSize: '16px',
                     padding: '4px'
                   }}
@@ -438,12 +438,12 @@ export const PermissionMatrix: React.FC<PermissionMatrixProps> = ({
                   padding: '8px 16px',
                   fontSize: '13px',
                   fontWeight: 600,
-                  color: '#1F2937',
+                  color: 'var(--rr-text)',
                   textTransform: 'uppercase',
                   letterSpacing: '0.05em',
                   position: 'sticky',
                   left: 0,
-                  backgroundColor: '#FFFFFF',
+                  backgroundColor: 'var(--rr-panel)',
                   zIndex: 15
                 }}>
                   {category}
@@ -478,7 +478,7 @@ export const PermissionMatrix: React.FC<PermissionMatrixProps> = ({
                       display: 'flex',
                       alignItems: 'center',
                       minHeight: '60px',
-                      backgroundColor: hoveredRow === permission.id ? '#F3F4F6' : 'transparent',
+                      backgroundColor: hoveredRow === permission.id ? 'var(--rr-panel2)' : 'transparent',
                       transition: 'background-color 0.1s ease'
                     }}
                   >
@@ -488,7 +488,7 @@ export const PermissionMatrix: React.FC<PermissionMatrixProps> = ({
                       padding: '12px 16px',
                       position: 'sticky',
                       left: 0,
-                      backgroundColor: hoveredRow === permission.id ? '#F3F4F6' : '#FFFFFF',
+                      backgroundColor: hoveredRow === permission.id ? 'var(--rr-panel2)' : 'var(--rr-panel)',
                       zIndex: 10,
                       transition: 'background-color 0.1s ease'
                     }}>
@@ -496,7 +496,7 @@ export const PermissionMatrix: React.FC<PermissionMatrixProps> = ({
                         <div style={{
                           fontSize: '14px',
                           fontWeight: 500,
-                          color: isDisabled ? '#9CA3AF' : '#1F2937',
+                          color: isDisabled ? 'var(--rr-text3)' : 'var(--rr-text)',
                           lineHeight: '1.4',
                           marginBottom: '2px'
                         }}>
@@ -505,14 +505,14 @@ export const PermissionMatrix: React.FC<PermissionMatrixProps> = ({
                             <span style={{ 
                               marginLeft: '6px', 
                               fontSize: '12px',
-                              color: '#9CA3AF'
+                              color: 'var(--rr-text3)'
                             }}>⚠</span>
                           )}
                         </div>
                         {permission.description && (
                           <div style={{
                             fontSize: '12px',
-                            color: '#6B7280',
+                            color: 'var(--rr-text2)',
                             lineHeight: '1.3'
                           }}>
                             {permission.description}
@@ -553,8 +553,8 @@ export const PermissionMatrix: React.FC<PermissionMatrixProps> = ({
         <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
           <div style={{
             fontSize: '14px',
-            color: '#6B7280',
-            fontFamily: 'Inter'
+            color: 'var(--rr-text2)',
+            fontFamily: 'inherit'
           }}>
             You have unsaved changes
           </div>
@@ -563,13 +563,13 @@ export const PermissionMatrix: React.FC<PermissionMatrixProps> = ({
             disabled={isSaving}
             style={{
               padding: '8px 16px',
-              border: '1px solid #D1D5DB',
+              border: '1px solid var(--rr-border2)',
               borderRadius: '4px',
-              backgroundColor: 'white',
-              color: '#6B7280',
+              backgroundColor: 'var(--rr-panel)',
+              color: 'var(--rr-text2)',
               cursor: isSaving ? 'not-allowed' : 'pointer',
               fontSize: '14px',
-              fontFamily: 'Inter',
+              fontFamily: 'inherit',
               fontWeight: 500,
               transition: 'all 0.2s ease'
             }}
@@ -583,11 +583,11 @@ export const PermissionMatrix: React.FC<PermissionMatrixProps> = ({
               padding: '8px 16px',
               border: 'none',
               borderRadius: '4px',
-              backgroundColor: '#2563EB',
+              backgroundColor: 'var(--rr-accent)',
               color: 'white',
               cursor: isSaving ? 'not-allowed' : 'pointer',
               fontSize: '14px',
-              fontFamily: 'Inter',
+              fontFamily: 'inherit',
               fontWeight: 500,
               transition: 'all 0.2s ease'
             }}

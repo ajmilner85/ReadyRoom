@@ -1955,7 +1955,7 @@ const EventsManagement: React.FC = () => {
   return (
     <div 
       style={{ 
-        backgroundColor: '#F0F4F8', 
+        backgroundColor: 'var(--rr-panel2)', 
         minHeight: '100vh',
         display: 'flex',
         flexDirection: 'column',
@@ -1971,11 +1971,11 @@ const EventsManagement: React.FC = () => {
           position: 'fixed',
           top: '20px',
           right: '20px',
-          backgroundColor: '#FEE2E2',
-          color: '#B91C1C',
+          backgroundColor: 'rgba(224,82,78,.12)',
+          color: 'var(--rr-bad)',
           padding: '12px 16px',
           borderRadius: '4px',
-          boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+          boxShadow: 'var(--rr-shadow)',
           zIndex: 1000
         }}>
           {error}
@@ -1994,8 +1994,8 @@ const EventsManagement: React.FC = () => {
           }}
         >
           <div style={{
-            backgroundColor: '#FFFFFF',
-            boxShadow: '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)',
+            backgroundColor: 'var(--rr-panel)',
+            boxShadow: 'var(--rr-shadow)',
             borderRadius: '8px',
             padding: '40px 80px',
             display: 'flex',
@@ -2038,16 +2038,16 @@ const EventsManagement: React.FC = () => {
                 justifyContent: 'center',
                 alignItems: 'center',
                 height: '100%',
-                backgroundColor: '#FFFFFF',
-                boxShadow: '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)',
+                backgroundColor: 'var(--rr-panel)',
+                boxShadow: 'var(--rr-shadow)',
                 borderRadius: '8px'
               }}>
                 <LoadingSpinner />
               </div>
             ) : (
               <div style={{
-                backgroundColor: '#FFFFFF',
-                boxShadow: '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)',
+                backgroundColor: 'var(--rr-panel)',
+                boxShadow: 'var(--rr-shadow)',
                 borderRadius: '8px',
                 height: '100%',
                 display: 'flex',
@@ -2059,12 +2059,12 @@ const EventsManagement: React.FC = () => {
                   padding: '16px 24px 8px'
                 }}>
                   <span style={{
-                    fontFamily: 'Inter',
+                    fontFamily: 'inherit',
                     fontStyle: 'normal',
                     fontWeight: 300,
                     fontSize: '20px',
                     lineHeight: '24px',
-                    color: '#64748B',
+                    color: 'var(--rr-text2)',
                     textTransform: 'uppercase',
                     display: 'block',
                     textAlign: 'center'
@@ -2102,16 +2102,16 @@ const EventsManagement: React.FC = () => {
                 justifyContent: 'center',
                 alignItems: 'center',
                 height: '100%',
-                backgroundColor: '#FFFFFF',
-                boxShadow: '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)',
+                backgroundColor: 'var(--rr-panel)',
+                boxShadow: 'var(--rr-shadow)',
                 borderRadius: '8px'
               }}>
                 <LoadingSpinner />
               </div>
             ) : (
               <div style={{
-                backgroundColor: '#FFFFFF',
-                boxShadow: '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)',
+                backgroundColor: 'var(--rr-panel)',
+                boxShadow: 'var(--rr-shadow)',
                 borderRadius: '8px',
                 height: '100%',
                 display: 'flex',
@@ -2123,12 +2123,12 @@ const EventsManagement: React.FC = () => {
                   padding: '16px 24px 8px'
                 }}>
                   <span style={{
-                    fontFamily: 'Inter',
+                    fontFamily: 'inherit',
                     fontStyle: 'normal',
                     fontWeight: 300,
                     fontSize: '20px',
                     lineHeight: '24px',
-                    color: '#64748B',
+                    color: 'var(--rr-text2)',
                     textTransform: 'uppercase',
                     display: 'block',
                     textAlign: 'center'
@@ -2174,8 +2174,8 @@ const EventsManagement: React.FC = () => {
             overflowY: 'visible'
           }}>
             <div style={{
-              backgroundColor: '#FFFFFF',
-              boxShadow: '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)',
+              backgroundColor: 'var(--rr-panel)',
+              boxShadow: 'var(--rr-shadow)',
               borderRadius: '8px',
               height: '100%',
               display: 'flex',
@@ -2187,12 +2187,12 @@ const EventsManagement: React.FC = () => {
                 padding: '16px 24px 8px'
               }}>
                 <span style={{
-                  fontFamily: 'Inter',
+                  fontFamily: 'inherit',
                   fontStyle: 'normal',
                   fontWeight: 300,
                   fontSize: '20px',
                   lineHeight: '24px',
-                  color: '#64748B',
+                  color: 'var(--rr-text2)',
                   textTransform: 'uppercase',
                   display: 'block',
                   textAlign: 'center'
@@ -2221,8 +2221,8 @@ const EventsManagement: React.FC = () => {
           }}>
             {/* Event Attendance */}
             <div style={{
-              backgroundColor: '#FFFFFF',
-              boxShadow: '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)',
+              backgroundColor: 'var(--rr-panel)',
+              boxShadow: 'var(--rr-shadow)',
               borderRadius: '8px',
               flex: 1,
               display: 'flex',
@@ -2238,12 +2238,12 @@ const EventsManagement: React.FC = () => {
                 position: 'relative'
               }}>
                 <span style={{
-                  fontFamily: 'Inter',
+                  fontFamily: 'inherit',
                   fontStyle: 'normal',
                   fontWeight: 300,
                   fontSize: '20px',
                   lineHeight: '24px',
-                  color: '#64748B',
+                  color: 'var(--rr-text2)',
                   textTransform: 'uppercase'
                 }}>{selectedEvent && new Date(selectedEvent.datetime) > new Date() ? 'Registration' : 'Attendance'}</span>
                 
@@ -2259,8 +2259,8 @@ const EventsManagement: React.FC = () => {
                     style={{ 
                       width: '16px', 
                       height: '16px', 
-                      border: '2px solid #E2E8F0', 
-                      borderTopColor: '#3B82F6', 
+                      border: '2px solid var(--rr-border)', 
+                      borderTopColor: 'var(--rr-accent)', 
                       borderRadius: '50%',
                       animation: 'spin 1s linear infinite',
                       opacity: 0
@@ -2276,8 +2276,8 @@ const EventsManagement: React.FC = () => {
 
             {/* Mission Card */}
             <div style={{
-              backgroundColor: '#FFFFFF',
-              boxShadow: '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)',
+              backgroundColor: 'var(--rr-panel)',
+              boxShadow: 'var(--rr-shadow)',
               borderRadius: '8px',
               height: 'auto',
               display: 'flex',
@@ -2291,12 +2291,12 @@ const EventsManagement: React.FC = () => {
                 marginBottom: '16px'
               }}>
                 <span style={{
-                  fontFamily: 'Inter',
+                  fontFamily: 'inherit',
                   fontStyle: 'normal',
                   fontWeight: 300,
                   fontSize: '20px',
                   lineHeight: '24px',
-                  color: '#64748B',
+                  color: 'var(--rr-text2)',
                   textTransform: 'uppercase'
                 }}>Mission</span>
               </div>
@@ -2315,11 +2315,11 @@ const EventsManagement: React.FC = () => {
                       alignItems: 'center',
                       gap: '8px',
                       padding: '12px 24px',
-                      border: '1px solid #D1D5DB',
+                      border: '1px solid var(--rr-border2)',
                       borderRadius: '6px',
                       backgroundColor: 'transparent',
-                      color: '#6B7280',
-                      fontFamily: 'Inter',
+                      color: 'var(--rr-text2)',
+                      fontFamily: 'inherit',
                       fontSize: '14px',
                       fontWeight: 500,
                       cursor: selectedEvent?.id && missionLoading[selectedEvent.id] ? 'not-allowed' : 'pointer',
@@ -2328,12 +2328,12 @@ const EventsManagement: React.FC = () => {
                     }}
                     onMouseOver={(e) => {
                       if (!(selectedEvent?.id && missionLoading[selectedEvent.id])) {
-                        e.currentTarget.style.borderColor = '#9CA3AF';
-                        e.currentTarget.style.backgroundColor = '#F9FAFB';
+                        e.currentTarget.style.borderColor = 'var(--rr-border2)';
+                        e.currentTarget.style.backgroundColor = 'var(--rr-panel2)';
                       }
                     }}
                     onMouseOut={(e) => {
-                      e.currentTarget.style.borderColor = '#D1D5DB';
+                      e.currentTarget.style.borderColor = 'var(--rr-border2)';
                       e.currentTarget.style.backgroundColor = 'transparent';
                     }}
                   >
@@ -2361,8 +2361,8 @@ const EventsManagement: React.FC = () => {
                   </button>
                 ) : (
                   <div style={{
-                    color: '#9CA3AF',
-                    fontFamily: 'Inter',
+                    color: 'var(--rr-text3)',
+                    fontFamily: 'inherit',
                     fontSize: '14px',
                     textAlign: 'center'
                   }}>
@@ -2462,17 +2462,17 @@ const EventsManagement: React.FC = () => {
           zIndex: 1000
         }}>
           <div style={{
-            backgroundColor: 'white',
+            backgroundColor: 'var(--rr-panel)',
             borderRadius: '8px',
             padding: '24px',
             maxWidth: '500px',
             width: '90%',
-            boxShadow: '0 10px 25px rgba(0, 0, 0, 0.3)'
+            boxShadow: 'var(--rr-shadow-lg)'
           }}>
             <h2 style={{
               fontSize: '20px',
               fontWeight: 600,
-              color: '#1E293B',
+              color: 'var(--rr-text)',
               marginBottom: '16px',
               margin: 0
             }}>
@@ -2480,11 +2480,11 @@ const EventsManagement: React.FC = () => {
             </h2>
             <p style={{
               fontSize: '14px',
-              color: '#64748B',
+              color: 'var(--rr-text2)',
               marginBottom: '20px',
               lineHeight: '1.6'
             }}>
-              The cycle <span style={{ fontWeight: 600, color: '#1E293B' }}>"{cycleToDelete.name}"</span> has associated events and cannot be deleted. Please delete the events first, then try deleting the cycle again.
+              The cycle <span style={{ fontWeight: 600, color: 'var(--rr-text)' }}>"{cycleToDelete.name}"</span> has associated events and cannot be deleted. Please delete the events first, then try deleting the cycle again.
             </p>
             <div style={{
               display: 'flex',
@@ -2497,7 +2497,7 @@ const EventsManagement: React.FC = () => {
                 }}
                 style={{
                   padding: '10px 20px',
-                  backgroundColor: '#2563EB',
+                  backgroundColor: 'var(--rr-accent)',
                   color: 'white',
                   border: 'none',
                   borderRadius: '6px',
@@ -2528,12 +2528,12 @@ const EventsManagement: React.FC = () => {
           zIndex: 1000
         }}>
           <div style={{
-            backgroundColor: 'white',
+            backgroundColor: 'var(--rr-panel)',
             borderRadius: '8px',
             padding: '24px',
             maxWidth: '500px',
             width: '90%',
-            boxShadow: '0 10px 25px rgba(0, 0, 0, 0.3)'
+            boxShadow: 'var(--rr-shadow-lg)'
           }}>
             <div style={{
               display: 'flex',
@@ -2541,11 +2541,11 @@ const EventsManagement: React.FC = () => {
               gap: '12px',
               marginBottom: '16px'
             }}>
-              <Trash2 size={24} style={{ color: '#EF4444' }} />
+              <Trash2 size={24} style={{ color: 'var(--rr-bad)' }} />
               <h2 style={{
                 fontSize: '20px',
                 fontWeight: 600,
-                color: '#1E293B',
+                color: 'var(--rr-text)',
                 margin: 0
               }}>
                 Delete All Events
@@ -2553,7 +2553,7 @@ const EventsManagement: React.FC = () => {
             </div>
             <p style={{
               fontSize: '14px',
-              color: '#64748B',
+              color: 'var(--rr-text2)',
               marginBottom: '16px',
               lineHeight: '1.6'
             }}>
@@ -2565,11 +2565,11 @@ const EventsManagement: React.FC = () => {
             </p>
             <p style={{
               fontSize: '14px',
-              color: '#1E293B',
+              color: 'var(--rr-text)',
               marginBottom: '8px',
               fontWeight: 500
             }}>
-              Type <span style={{ fontWeight: 700, color: '#EF4444' }}>yes</span> to confirm:
+              Type <span style={{ fontWeight: 700, color: 'var(--rr-bad)' }}>yes</span> to confirm:
             </p>
             <input
               type="text"
@@ -2580,7 +2580,7 @@ const EventsManagement: React.FC = () => {
               style={{
                 width: '100%',
                 padding: '10px',
-                border: '1px solid #CBD5E1',
+                border: '1px solid var(--rr-border2)',
                 borderRadius: '6px',
                 fontSize: '14px',
                 marginBottom: '20px',
@@ -2599,13 +2599,13 @@ const EventsManagement: React.FC = () => {
                 }}
                 style={{
                   padding: '10px 20px',
-                  backgroundColor: 'white',
-                  border: '1px solid #CBD5E1',
+                  backgroundColor: 'var(--rr-panel)',
+                  border: '1px solid var(--rr-border2)',
                   borderRadius: '6px',
                   cursor: 'pointer',
                   fontSize: '14px',
                   fontWeight: 500,
-                  color: '#64748B'
+                  color: 'var(--rr-text2)'
                 }}
               >
                 Cancel
@@ -2615,7 +2615,7 @@ const EventsManagement: React.FC = () => {
                 disabled={deleteAllConfirmText.toLowerCase() !== 'yes' || isDeletingAllEvents}
                 style={{
                   padding: '10px 20px',
-                  backgroundColor: deleteAllConfirmText.toLowerCase() === 'yes' ? '#EF4444' : '#CBD5E1',
+                  backgroundColor: deleteAllConfirmText.toLowerCase() === 'yes' ? 'var(--rr-bad)' : 'var(--rr-panel3)',
                   color: 'white',
                   border: 'none',
                   borderRadius: '6px',
@@ -2633,7 +2633,7 @@ const EventsManagement: React.FC = () => {
                     width: '16px',
                     height: '16px',
                     border: '2px solid rgba(255, 255, 255, 0.3)',
-                    borderTop: '2px solid white',
+                    borderTop: '2px solid var(--rr-panel)',
                     borderRadius: '50%',
                     animation: 'spin 0.6s linear infinite'
                   }} />

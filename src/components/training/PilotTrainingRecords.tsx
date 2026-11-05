@@ -241,7 +241,7 @@ const PilotTrainingRecords: React.FC<PilotTrainingRecordsProps> = ({ error, setE
         <h2 style={{ fontSize: '20px', fontWeight: 600, marginBottom: '4px', margin: 0 }}>
           Pilot Training Records
         </h2>
-        <p style={{ color: '#6B7280', fontSize: '14px', margin: 0, marginTop: '4px' }}>
+        <p style={{ color: 'var(--rr-text2)', fontSize: '14px', margin: 0, marginTop: '4px' }}>
           View and grade pilot training progress
         </p>
       </div>
@@ -255,17 +255,17 @@ const PilotTrainingRecords: React.FC<PilotTrainingRecordsProps> = ({ error, setE
           justifyContent: 'center', 
           height: '100%', 
           textAlign: 'center', 
-          color: '#6B7280', 
-          backgroundColor: 'white', 
-          border: '1px solid #E5E7EB', 
+          color: 'var(--rr-text2)', 
+          backgroundColor: 'var(--rr-panel)', 
+          border: '1px solid var(--rr-border)', 
           borderRadius: '8px', 
           padding: '60px' 
         }}>
-          <UserCheck size={48} style={{ marginBottom: '16px', color: '#9CA3AF' }} />
-          <h3 style={{ fontSize: '16px', fontWeight: 600, color: '#374151', marginBottom: '8px', margin: 0 }}>
+          <UserCheck size={48} style={{ marginBottom: '16px', color: 'var(--rr-text3)' }} />
+          <h3 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--rr-text)', marginBottom: '8px', margin: 0 }}>
             No Training Cycles Available
           </h3>
-          <p style={{ fontSize: '14px', color: '#6B7280', margin: 0, maxWidth: '400px' }}>
+          <p style={{ fontSize: '14px', color: 'var(--rr-text2)', margin: 0, maxWidth: '400px' }}>
             {ptrScope === 'none'
               ? 'You do not have permission to view pilot training records. Contact your training officer for access.'
               : 'You are not enrolled as an instructor for any training cycles. Contact your training officer to be added as an instructor.'}
@@ -276,7 +276,7 @@ const PilotTrainingRecords: React.FC<PilotTrainingRecordsProps> = ({ error, setE
           {/* Cycle Selector */}
           <div style={{ marginBottom: '24px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-              <label style={{ fontSize: '14px', fontWeight: 500, color: '#374151' }}>
+              <label style={{ fontSize: '14px', fontWeight: 500, color: 'var(--rr-text)' }}>
                 Training Cycle
               </label>
               {selectedCycleId && (
@@ -286,11 +286,11 @@ const PilotTrainingRecords: React.FC<PilotTrainingRecordsProps> = ({ error, setE
                     alignItems: 'center',
                     gap: '6px',
                     padding: '4px 10px',
-                    backgroundColor: '#EFF6FF',
-                    border: '1px solid #BFDBFE',
+                    backgroundColor: 'var(--rr-accent-weak)',
+                    border: '1px solid var(--rr-accent)',
                     borderRadius: '12px',
                     fontSize: '13px',
-                    color: '#1E40AF',
+                    color: 'var(--rr-accent-text)',
                     fontWeight: 500
                   }}>
                     <Users size={14} />
@@ -301,11 +301,11 @@ const PilotTrainingRecords: React.FC<PilotTrainingRecordsProps> = ({ error, setE
                     alignItems: 'center',
                     gap: '6px',
                     padding: '4px 10px',
-                    backgroundColor: '#F0FDF4',
-                    border: '1px solid #BBF7D0',
+                    backgroundColor: 'rgba(64,168,91,.14)',
+                    border: '1px solid var(--rr-good)',
                     borderRadius: '12px',
                     fontSize: '13px',
-                    color: '#166534',
+                    color: 'var(--rr-good)',
                     fontWeight: 500
                   }}>
                     <UserCheck size={14} />
@@ -319,12 +319,12 @@ const PilotTrainingRecords: React.FC<PilotTrainingRecordsProps> = ({ error, setE
               onChange={(e) => setSelectedCycleId(e.target.value)}
               style={{
                 padding: '8px 12px',
-                border: '1px solid #D1D5DB',
+                border: '1px solid var(--rr-border2)',
                 borderRadius: '6px',
                 fontSize: '14px',
                 width: '100%',
                 maxWidth: '400px',
-                backgroundColor: 'white'
+                backgroundColor: 'var(--rr-panel)'
               }}
             >
               <option value="">Select a training cycle</option>
@@ -349,11 +349,11 @@ const PilotTrainingRecords: React.FC<PilotTrainingRecordsProps> = ({ error, setE
                 ownStudentsPilotId={ptrScope === 'own_students' ? userProfile?.pilotId : undefined}
               />
             ) : selectedCycleId ? (
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', textAlign: 'center', color: '#6B7280', backgroundColor: 'white', border: '1px solid #E5E7EB', borderRadius: '8px', padding: '40px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', textAlign: 'center', color: 'var(--rr-text2)', backgroundColor: 'var(--rr-panel)', border: '1px solid var(--rr-border)', borderRadius: '8px', padding: '40px' }}>
                 This training cycle has no syllabus assigned.
               </div>
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', textAlign: 'center', color: '#6B7280', backgroundColor: 'white', border: '1px solid #E5E7EB', borderRadius: '8px', padding: '40px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', textAlign: 'center', color: 'var(--rr-text2)', backgroundColor: 'var(--rr-panel)', border: '1px solid var(--rr-border)', borderRadius: '8px', padding: '40px' }}>
                 Select a training cycle to view the PTR Grid
               </div>
             )}

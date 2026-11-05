@@ -143,14 +143,14 @@ const SyllabusManagement: React.FC<SyllabusManagementProps> = ({ error, setError
             <h2 style={{ fontSize: '20px', fontWeight: 600, marginBottom: '4px', margin: 0 }}>
               Training Syllabi
             </h2>
-            <p style={{ color: '#6B7280', fontSize: '14px', margin: 0, marginTop: '4px' }}>
+            <p style={{ color: 'var(--rr-text2)', fontSize: '14px', margin: 0, marginTop: '4px' }}>
               Manage training syllabi, missions, and objectives
             </p>
           </div>
           <button
             style={{
               padding: '10px 16px',
-              backgroundColor: '#2563EB',
+              backgroundColor: 'var(--rr-accent)',
               color: 'white',
               border: 'none',
               borderRadius: '6px',
@@ -177,10 +177,10 @@ const SyllabusManagement: React.FC<SyllabusManagementProps> = ({ error, setError
             return (
           <div key={section.kind} style={{ marginBottom: '32px' }}>
             <div style={{ marginBottom: '12px' }}>
-              <h3 style={{ fontSize: '14px', fontWeight: 600, color: '#6B7280', textTransform: 'uppercase', margin: 0 }}>
+              <h3 style={{ fontSize: '14px', fontWeight: 600, color: 'var(--rr-text2)', textTransform: 'uppercase', margin: 0 }}>
                 {section.title}
               </h3>
-              <p style={{ fontSize: '12px', color: '#9CA3AF', margin: '2px 0 0 0' }}>
+              <p style={{ fontSize: '12px', color: 'var(--rr-text3)', margin: '2px 0 0 0' }}>
                 {section.blurb}
               </p>
             </div>
@@ -190,15 +190,15 @@ const SyllabusManagement: React.FC<SyllabusManagementProps> = ({ error, setError
                 key={syllabus.id}
                 style={{
                   padding: '16px',
-                  backgroundColor: '#FFFFFF',
-                  border: '1px solid #E5E7EB',
+                  backgroundColor: 'var(--rr-panel)',
+                  border: '1px solid var(--rr-border)',
                   borderRadius: '8px',
                   transition: 'all 0.2s'
                 }}
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: '16px', fontWeight: 600, color: '#374151', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div style={{ fontSize: '16px', fontWeight: 600, color: 'var(--rr-text)', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                       {syllabus.name}
                       {syllabus.kind && syllabus.kind !== 'linear' && (
                         <span style={{
@@ -215,11 +215,11 @@ const SyllabusManagement: React.FC<SyllabusManagementProps> = ({ error, setError
                       )}
                     </div>
                     {syllabus.description && (
-                      <div style={{ fontSize: '13px', color: '#6B7280', marginBottom: '8px' }}>
+                      <div style={{ fontSize: '13px', color: 'var(--rr-text2)', marginBottom: '8px' }}>
                         {syllabus.description}
                       </div>
                     )}
-                    <div style={{ display: 'flex', gap: '16px', fontSize: '12px', color: '#9CA3AF' }}>
+                    <div style={{ display: 'flex', gap: '16px', fontSize: '12px', color: 'var(--rr-text3)' }}>
                       {syllabus.aircraft_type && (
                         <span>Aircraft: {syllabus.aircraft_type}</span>
                       )}
@@ -233,11 +233,11 @@ const SyllabusManagement: React.FC<SyllabusManagementProps> = ({ error, setError
                       style={{
                         padding: '6px 12px',
                         backgroundColor: 'transparent',
-                        border: '1px solid #D1D5DB',
+                        border: '1px solid var(--rr-border2)',
                         borderRadius: '6px',
                         fontSize: '12px',
                         fontWeight: 500,
-                        color: '#374151',
+                        color: 'var(--rr-text)',
                         cursor: 'pointer',
                         display: 'flex',
                         alignItems: 'center',
@@ -253,11 +253,11 @@ const SyllabusManagement: React.FC<SyllabusManagementProps> = ({ error, setError
                         style={{
                           padding: '6px',
                           backgroundColor: 'transparent',
-                          border: '1px solid #FCA5A5',
+                          border: '1px solid var(--rr-bad)',
                           borderRadius: '6px',
                           fontSize: '12px',
                           fontWeight: 500,
-                          color: '#EF4444',
+                          color: 'var(--rr-bad)',
                           cursor: 'pointer',
                           display: 'flex',
                           alignItems: 'center'
@@ -276,13 +276,13 @@ const SyllabusManagement: React.FC<SyllabusManagementProps> = ({ error, setError
             );
           })
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '80px 20px', textAlign: 'center', backgroundColor: 'white', border: '1px solid #E5E7EB', borderRadius: '8px' }}>
-            <BookOpen size={48} style={{ color: '#9CA3AF', marginBottom: '16px' }} />
-            <p style={{ color: '#6B7280', marginBottom: '16px', margin: 0 }}>No training syllabi created yet</p>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '80px 20px', textAlign: 'center', backgroundColor: 'var(--rr-panel)', border: '1px solid var(--rr-border)', borderRadius: '8px' }}>
+            <BookOpen size={48} style={{ color: 'var(--rr-text3)', marginBottom: '16px' }} />
+            <p style={{ color: 'var(--rr-text2)', marginBottom: '16px', margin: 0 }}>No training syllabi created yet</p>
             <button
               style={{
                 padding: '10px 20px',
-                backgroundColor: '#3B82F6',
+                backgroundColor: 'var(--rr-accent)',
                 border: 'none',
                 borderRadius: '6px',
                 fontSize: '14px',
@@ -318,20 +318,20 @@ const SyllabusManagement: React.FC<SyllabusManagementProps> = ({ error, setError
           zIndex: 1002
         }}>
           <div style={{
-            backgroundColor: 'white',
+            backgroundColor: 'var(--rr-panel)',
             borderRadius: '8px',
             width: '90%',
             maxWidth: '500px',
-            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
+            boxShadow: 'var(--rr-shadow-lg)'
           }}>
             <div style={{ padding: '24px' }}>
               <h2 style={{ fontSize: '18px', fontWeight: 600, marginBottom: '12px', margin: 0 }}>
                 Delete Syllabus
               </h2>
-              <p style={{ color: '#6B7280', fontSize: '14px', marginTop: '8px', marginBottom: '16px' }}>
+              <p style={{ color: 'var(--rr-text2)', fontSize: '14px', marginTop: '8px', marginBottom: '16px' }}>
                 Are you sure you want to delete this syllabus? This will permanently delete all associated missions and objectives. This action cannot be undone.
               </p>
-              <p style={{ color: '#374151', fontSize: '14px', fontWeight: 500, marginBottom: '8px' }}>
+              <p style={{ color: 'var(--rr-text)', fontSize: '14px', fontWeight: 500, marginBottom: '8px' }}>
                 Type <strong>yes</strong> to confirm deletion:
               </p>
               <input
@@ -342,7 +342,7 @@ const SyllabusManagement: React.FC<SyllabusManagementProps> = ({ error, setError
                 style={{
                   width: '100%',
                   padding: '8px 12px',
-                  border: '1px solid #D1D5DB',
+                  border: '1px solid var(--rr-border2)',
                   borderRadius: '6px',
                   fontSize: '14px',
                   boxSizing: 'border-box'
@@ -350,13 +350,13 @@ const SyllabusManagement: React.FC<SyllabusManagementProps> = ({ error, setError
               />
             </div>
 
-            <div style={{ padding: '16px 24px', borderTop: '1px solid #E5E7EB', display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+            <div style={{ padding: '16px 24px', borderTop: '1px solid var(--rr-border)', display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
               <button
                 onClick={handleCancelDelete}
                 style={{
                   padding: '8px 16px',
-                  backgroundColor: 'white',
-                  border: '1px solid #D1D5DB',
+                  backgroundColor: 'var(--rr-panel)',
+                  border: '1px solid var(--rr-border2)',
                   borderRadius: '6px',
                   cursor: 'pointer',
                   fontSize: '14px',
@@ -370,7 +370,7 @@ const SyllabusManagement: React.FC<SyllabusManagementProps> = ({ error, setError
                 disabled={deleteConfirmText.toLowerCase() !== 'yes'}
                 style={{
                   padding: '8px 16px',
-                  backgroundColor: deleteConfirmText.toLowerCase() === 'yes' ? '#EF4444' : '#FCA5A5',
+                  backgroundColor: deleteConfirmText.toLowerCase() === 'yes' ? 'var(--rr-bad)' : '#FCA5A5',
                   color: 'white',
                   border: 'none',
                   borderRadius: '6px',

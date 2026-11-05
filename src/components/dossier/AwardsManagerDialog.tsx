@@ -82,18 +82,18 @@ const labelStyle: React.CSSProperties = {
   marginBottom: '6px',
   fontSize: '14px',
   fontWeight: 500,
-  color: '#64748B'
+  color: 'var(--rr-text2)'
 };
 
 const inputStyle: React.CSSProperties = {
   width: '100%',
   padding: '8px 12px',
-  border: '1px solid #CBD5E1',
+  border: '1px solid var(--rr-border2)',
   borderRadius: '6px',
-  backgroundColor: '#F8FAFC',
+  backgroundColor: 'var(--rr-panel2)',
   fontSize: '14px',
   boxSizing: 'border-box',
-  fontFamily: 'Inter'
+  fontFamily: 'inherit'
 };
 
 const primaryButtonStyle: React.CSSProperties = {
@@ -101,12 +101,12 @@ const primaryButtonStyle: React.CSSProperties = {
   alignItems: 'center',
   gap: '8px',
   padding: '8px 16px',
-  backgroundColor: '#3B82F6',
+  backgroundColor: 'var(--rr-accent)',
   color: '#FFFFFF',
   borderRadius: '6px',
-  border: '1px solid #3B82F6',
+  border: '1px solid var(--rr-accent)',
   cursor: 'pointer',
-  fontFamily: 'Inter',
+  fontFamily: 'inherit',
   fontSize: '14px',
   fontWeight: 500,
   justifyContent: 'center'
@@ -114,9 +114,9 @@ const primaryButtonStyle: React.CSSProperties = {
 
 const secondaryButtonStyle: React.CSSProperties = {
   ...primaryButtonStyle,
-  backgroundColor: '#FFFFFF',
-  color: '#64748B',
-  border: '1px solid #CBD5E1',
+  backgroundColor: 'var(--rr-panel)',
+  color: 'var(--rr-text2)',
+  border: '1px solid var(--rr-border2)',
   fontWeight: 400
 };
 
@@ -126,9 +126,9 @@ const tabButtonStyle = (active: boolean): React.CSSProperties => ({
   borderRadius: '4px',
   border: 'none',
   fontSize: '14px',
-  fontFamily: 'Inter',
+  fontFamily: 'inherit',
   backgroundColor: active ? 'rgba(249, 115, 22, 0.1)' : 'transparent',
-  color: active ? '#F97316' : '#646F7E'
+  color: active ? '#F97316' : 'var(--rr-text2)'
 });
 
 // Full-width drag & drop zone — styling copied from the .miz drop zone on
@@ -171,13 +171,13 @@ const FileDropZone: React.FC<FileDropZoneProps> = ({ accept, file, onFile, place
         style={{
           width: '100%',
           height: '60px',
-          border: '1px dashed #CBD5E1',
+          border: '1px dashed var(--rr-border2)',
           borderRadius: '4px',
           display: 'flex',
           justifyContent: 'center',
           alignItems: 'center',
           cursor: processing ? 'wait' : 'pointer',
-          color: '#64748B',
+          color: 'var(--rr-text2)',
           fontSize: '14px',
           textAlign: 'center',
           padding: '12px',
@@ -192,7 +192,7 @@ const FileDropZone: React.FC<FileDropZoneProps> = ({ accept, file, onFile, place
           const dropped = e.dataTransfer.files?.[0];
           if (dropped && matchesAccept(dropped)) onFile(dropped);
         }}
-        onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#F8FAFC'; }}
+        onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'var(--rr-panel2)'; }}
         onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
       >
         {processing ? (
@@ -213,7 +213,7 @@ const FileDropZone: React.FC<FileDropZoneProps> = ({ accept, file, onFile, place
                 backgroundColor: 'transparent',
                 border: 'none',
                 borderRadius: '4px',
-                color: '#DC2626',
+                color: 'var(--rr-bad)',
                 cursor: 'pointer'
               }}
             >
@@ -994,7 +994,7 @@ const AwardsManagerDialog: React.FC<AwardsManagerDialogProps> = ({
         <div style={{
           maxHeight: '160px',
           overflowY: 'auto',
-          border: '1px solid #E2E8F0',
+          border: '1px solid var(--rr-border)',
           borderRadius: '6px',
           padding: '8px 12px'
         }}>
@@ -1005,7 +1005,7 @@ const AwardsManagerDialog: React.FC<AwardsManagerDialogProps> = ({
               gap: '8px',
               padding: '4px 0',
               fontSize: '14px',
-              color: '#0F172A',
+              color: 'var(--rr-text)',
               cursor: 'pointer'
             }}>
               <input
@@ -1018,13 +1018,13 @@ const AwardsManagerDialog: React.FC<AwardsManagerDialogProps> = ({
                   setSelectedPilotIds(next);
                 }}
               />
-              <span style={{ width: '44px', color: '#646F7E' }}>{pilot.boardNumber}</span>
+              <span style={{ width: '44px', color: 'var(--rr-text2)' }}>{pilot.boardNumber}</span>
               <span style={{ fontWeight: 500 }}>{pilot.callsign}</span>
-              <span style={{ color: '#94A3B8', fontSize: '12px' }}>{pilot.squadronDesignation || 'No Squadron'}</span>
+              <span style={{ color: 'var(--rr-text3)', fontSize: '12px' }}>{pilot.squadronDesignation || 'No Squadron'}</span>
             </label>
           ))}
           {filteredPilots.length === 0 && (
-            <div style={{ color: '#94A3B8', fontSize: '13px', fontStyle: 'italic' }}>No pilots match</div>
+            <div style={{ color: 'var(--rr-text3)', fontSize: '13px', fontStyle: 'italic' }}>No pilots match</div>
           )}
         </div>
       </div>
@@ -1125,7 +1125,7 @@ const AwardsManagerDialog: React.FC<AwardsManagerDialogProps> = ({
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: '24px', marginTop: '12px' }}>
-        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px', color: '#0F172A', cursor: 'pointer' }}>
+        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px', color: 'var(--rr-text)', cursor: 'pointer' }}>
           <input
             type="checkbox"
             checked={!formState.is_repeatable}
@@ -1157,7 +1157,7 @@ const AwardsManagerDialog: React.FC<AwardsManagerDialogProps> = ({
                       backgroundSize: 'contain',
                       backgroundRepeat: 'no-repeat',
                       backgroundPosition: 'center',
-                      border: usingCategoryDefault ? '1px dashed #CBD5E1' : '1px solid #E2E8F0',
+                      border: usingCategoryDefault ? '1px dashed var(--rr-border2)' : '1px solid var(--rr-border)',
                       borderRadius: '6px',
                       opacity: usingCategoryDefault ? 0.7 : 1
                     }}
@@ -1187,11 +1187,11 @@ const AwardsManagerDialog: React.FC<AwardsManagerDialogProps> = ({
       <div style={{
         marginTop: '16px',
         padding: '12px 16px',
-        border: '1px solid #E2E8F0',
+        border: '1px solid var(--rr-border)',
         borderRadius: '8px',
-        backgroundColor: formState.eligibilityRules ? '#F8FAFC' : 'transparent'
+        backgroundColor: formState.eligibilityRules ? 'var(--rr-panel2)' : 'transparent'
       }}>
-        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px', fontWeight: 500, color: '#0F172A', cursor: 'pointer' }}>
+        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px', fontWeight: 500, color: 'var(--rr-text)', cursor: 'pointer' }}>
           <input
             type="checkbox"
             checked={!!formState.eligibilityRules}
@@ -1201,7 +1201,7 @@ const AwardsManagerDialog: React.FC<AwardsManagerDialogProps> = ({
             })}
           />
           Automatic eligibility criteria
-          <span style={{ fontWeight: 400, fontSize: '12px', color: '#94A3B8' }}>
+          <span style={{ fontWeight: 400, fontSize: '12px', color: 'var(--rr-text3)' }}>
             — identify recipients from cycle attendance and roster data on the Eligibility tab
           </span>
         </label>
@@ -1211,7 +1211,7 @@ const AwardsManagerDialog: React.FC<AwardsManagerDialogProps> = ({
             <label style={labelStyle}>Qualifying cycle types</label>
             <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', marginBottom: '12px' }}>
               {ELIGIBILITY_CYCLE_TYPES.map(cycleType => (
-                <label key={cycleType} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: '#0F172A', cursor: 'pointer' }}>
+                <label key={cycleType} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: 'var(--rr-text)', cursor: 'pointer' }}>
                   <input
                     type="checkbox"
                     checked={formState.eligibilityRules!.cycleTypes.includes(cycleType)}
@@ -1245,9 +1245,9 @@ const AwardsManagerDialog: React.FC<AwardsManagerDialogProps> = ({
       <div style={{
         marginTop: '16px',
         padding: '12px 16px',
-        border: '1px solid #E2E8F0',
+        border: '1px solid var(--rr-border)',
         borderRadius: '8px',
-        backgroundColor: formState.deviceConfig ? '#F8FAFC' : 'transparent'
+        backgroundColor: formState.deviceConfig ? 'var(--rr-panel2)' : 'transparent'
       }}>
         <AwardDeviceEditor
           config={formState.deviceConfig}
@@ -1271,7 +1271,7 @@ const AwardsManagerDialog: React.FC<AwardsManagerDialogProps> = ({
         return (
           <div style={{ marginTop: '16px' }}>
             <label style={labelStyle}>Issuances ({awardIssuances.length})</label>
-            <div style={{ border: '1px solid #E2E8F0', borderRadius: '8px', padding: '4px 12px' }}>
+            <div style={{ border: '1px solid var(--rr-border)', borderRadius: '8px', padding: '4px 12px' }}>
               {awardIssuances.map(issuance => {
                 const pilot = pilots.find(p => p.id === issuance.pilot_id);
                 const certificateDisplayUrl = issuance.certificate_thumbnail_url
@@ -1285,7 +1285,7 @@ const AwardsManagerDialog: React.FC<AwardsManagerDialogProps> = ({
                     alignItems: 'center',
                     gap: '12px',
                     padding: '8px 0',
-                    borderBottom: '1px solid #F1F5F9',
+                    borderBottom: '1px solid var(--rr-border)',
                     opacity: isBusy ? 0.5 : 1
                   }}>
                     {certificateDisplayUrl ? (
@@ -1297,30 +1297,30 @@ const AwardsManagerDialog: React.FC<AwardsManagerDialogProps> = ({
                         backgroundSize: 'contain',
                         backgroundRepeat: 'no-repeat',
                         backgroundPosition: 'center',
-                        border: '1px solid #E2E8F0',
+                        border: '1px solid var(--rr-border)',
                         borderRadius: '3px',
-                        backgroundColor: '#FFFFFF'
+                        backgroundColor: 'var(--rr-panel)'
                       }} />
                     ) : (
                       <div style={{
                         width: '40px',
                         height: '30px',
                         flexShrink: 0,
-                        border: '1px dashed #CBD5E1',
+                        border: '1px dashed var(--rr-border2)',
                         borderRadius: '3px',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
                         fontSize: '9px',
-                        color: '#94A3B8'
+                        color: 'var(--rr-text3)'
                       }}>
                         None
                       </div>
                     )}
-                    <div style={{ flex: 1, minWidth: 0, fontSize: '13px', color: '#0F172A' }}>
-                      <span style={{ color: '#646F7E', marginRight: '6px' }}>{pilot?.boardNumber ?? ''}</span>
+                    <div style={{ flex: 1, minWidth: 0, fontSize: '13px', color: 'var(--rr-text)' }}>
+                      <span style={{ color: 'var(--rr-text2)', marginRight: '6px' }}>{pilot?.boardNumber ?? ''}</span>
                       <span style={{ fontWeight: 500 }}>{pilot?.callsign || 'Unknown pilot'}</span>
-                      <span style={{ color: '#94A3B8', fontSize: '12px', marginLeft: '8px' }}>
+                      <span style={{ color: 'var(--rr-text3)', fontSize: '12px', marginLeft: '8px' }}>
                         {formatDossierDate(issuance.awarded_date)}
                       </span>
                     </div>
@@ -1345,7 +1345,7 @@ const AwardsManagerDialog: React.FC<AwardsManagerDialogProps> = ({
                         onClick={() => handleRemoveIssuanceCertificate(issuance)}
                         disabled={isBusy}
                         title="Remove certificate"
-                        style={{ ...secondaryButtonStyle, padding: '6px 8px', color: '#DC2626', borderColor: '#FCA5A5' }}
+                        style={{ ...secondaryButtonStyle, padding: '6px 8px', color: 'var(--rr-bad)', borderColor: 'var(--rr-bad)' }}
                       >
                         <X size={14} />
                       </button>
@@ -1363,11 +1363,11 @@ const AwardsManagerDialog: React.FC<AwardsManagerDialogProps> = ({
         <div style={{
           marginTop: '16px',
           padding: '12px 16px',
-          border: '1px solid #E2E8F0',
+          border: '1px solid var(--rr-border)',
           borderRadius: '8px',
-          backgroundColor: formState.issueNow ? '#F8FAFC' : 'transparent'
+          backgroundColor: formState.issueNow ? 'var(--rr-panel2)' : 'transparent'
         }}>
-          <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px', fontWeight: 500, color: '#0F172A', cursor: 'pointer' }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px', fontWeight: 500, color: 'var(--rr-text)', cursor: 'pointer' }}>
             <input
               type="checkbox"
               checked={formState.issueNow}
@@ -1433,8 +1433,8 @@ const AwardsManagerDialog: React.FC<AwardsManagerDialogProps> = ({
             ← Back
           </button>
           <div style={{ minWidth: 0, flex: 1 }}>
-            <div style={{ fontSize: '15px', fontWeight: 600, color: '#0F172A' }}>{award.name} — Issuances</div>
-            <div style={{ fontSize: '12px', color: '#94A3B8' }}>
+            <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--rr-text)' }}>{award.name} — Issuances</div>
+            <div style={{ fontSize: '12px', color: 'var(--rr-text3)' }}>
               Issued {records.length} time{records.length === 1 ? '' : 's'} to {uniqueHolders} pilot{uniqueHolders === 1 ? '' : 's'}
             </div>
           </div>
@@ -1442,7 +1442,7 @@ const AwardsManagerDialog: React.FC<AwardsManagerDialogProps> = ({
             <button
               onClick={() => setPendingRevoke(selectedRecords)}
               disabled={busy}
-              style={{ ...secondaryButtonStyle, color: '#DC2626', borderColor: '#FCA5A5', whiteSpace: 'nowrap' }}
+              style={{ ...secondaryButtonStyle, color: 'var(--rr-bad)', borderColor: 'var(--rr-bad)', whiteSpace: 'nowrap' }}
             >
               <Trash2 size={14} /> Revoke Selected ({selectedRecords.length})
             </button>
@@ -1450,12 +1450,12 @@ const AwardsManagerDialog: React.FC<AwardsManagerDialogProps> = ({
         </div>
 
         {records.length === 0 ? (
-          <div style={{ color: '#94A3B8', fontSize: '14px', fontStyle: 'italic' }}>
+          <div style={{ color: 'var(--rr-text3)', fontSize: '14px', fontStyle: 'italic' }}>
             This award has not been issued yet.
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column' }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '4px 0 8px', borderBottom: '1px solid #E2E8F0', fontSize: '12px', color: '#64748B', cursor: 'pointer', userSelect: 'none' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '4px 0 8px', borderBottom: '1px solid var(--rr-border)', fontSize: '12px', color: 'var(--rr-text2)', cursor: 'pointer', userSelect: 'none' }}>
               <input
                 type="checkbox"
                 checked={allSelected}
@@ -1477,7 +1477,7 @@ const AwardsManagerDialog: React.FC<AwardsManagerDialogProps> = ({
                   alignItems: 'center',
                   gap: '10px',
                   padding: '8px 0',
-                  borderBottom: '1px solid #F1F5F9',
+                  borderBottom: '1px solid var(--rr-border)',
                   opacity: isBusy ? 0.5 : 1
                 }}>
                   <input
@@ -1492,10 +1492,10 @@ const AwardsManagerDialog: React.FC<AwardsManagerDialogProps> = ({
                     style={{ flexShrink: 0 }}
                   />
                   <div style={{ width: '140px', flexShrink: 0, fontSize: '13px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    <span style={{ color: '#646F7E', marginRight: '6px' }}>{pilot?.boardNumber ?? ''}</span>
-                    <span style={{ fontWeight: 500, color: '#0F172A' }}>{pilot?.callsign || 'Unknown pilot'}</span>
+                    <span style={{ color: 'var(--rr-text2)', marginRight: '6px' }}>{pilot?.boardNumber ?? ''}</span>
+                    <span style={{ fontWeight: 500, color: 'var(--rr-text)' }}>{pilot?.callsign || 'Unknown pilot'}</span>
                     {cycleName && (
-                      <div style={{ fontSize: '11px', color: '#94A3B8', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={cycleName}>
+                      <div style={{ fontSize: '11px', color: 'var(--rr-text3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={cycleName}>
                         {cycleName}
                       </div>
                     )}
@@ -1535,8 +1535,8 @@ const AwardsManagerDialog: React.FC<AwardsManagerDialogProps> = ({
                     style={{
                       ...secondaryButtonStyle,
                       padding: '6px 8px',
-                      color: dirty ? '#16A34A' : '#CBD5E1',
-                      borderColor: dirty ? '#86EFAC' : '#E2E8F0',
+                      color: dirty ? 'var(--rr-good)' : 'var(--rr-text3)',
+                      borderColor: dirty ? 'var(--rr-good)' : 'var(--rr-border)',
                       cursor: dirty && !isBusy ? 'pointer' : 'not-allowed'
                     }}
                   >
@@ -1546,7 +1546,7 @@ const AwardsManagerDialog: React.FC<AwardsManagerDialogProps> = ({
                     onClick={() => setPendingRevoke([record])}
                     disabled={isBusy}
                     title="Revoke this award"
-                    style={{ ...secondaryButtonStyle, padding: '6px 8px', color: '#DC2626', borderColor: '#FCA5A5' }}
+                    style={{ ...secondaryButtonStyle, padding: '6px 8px', color: 'var(--rr-bad)', borderColor: 'var(--rr-bad)' }}
                   >
                     <Trash2 size={14} />
                   </button>
@@ -1585,9 +1585,9 @@ const AwardsManagerDialog: React.FC<AwardsManagerDialogProps> = ({
           />
 
           {loading ? (
-            <div style={{ color: '#64748B', fontSize: '14px', textAlign: 'center', padding: '24px 0' }}>Loading awards...</div>
+            <div style={{ color: 'var(--rr-text2)', fontSize: '14px', textAlign: 'center', padding: '24px 0' }}>Loading awards...</div>
           ) : libraryFilteredAwards.length === 0 ? (
-            <div style={{ color: '#94A3B8', fontSize: '14px', fontStyle: 'italic' }}>
+            <div style={{ color: 'var(--rr-text3)', fontSize: '14px', fontStyle: 'italic' }}>
               {awards.length === 0 ? 'No awards defined yet' : 'No awards match the current filters'}
             </div>
           ) : (
@@ -1602,8 +1602,8 @@ const AwardsManagerDialog: React.FC<AwardsManagerDialogProps> = ({
                       fontWeight: 600,
                       textTransform: 'uppercase',
                       letterSpacing: '0.5px',
-                      fontFamily: 'Inter',
-                      color: librarySort.key === key ? '#3B82F6' : '#64748B',
+                      fontFamily: 'inherit',
+                      color: librarySort.key === key ? 'var(--rr-accent-text)' : 'var(--rr-text2)',
                       cursor: 'pointer',
                       userSelect: 'none',
                       ...style
@@ -1618,7 +1618,7 @@ const AwardsManagerDialog: React.FC<AwardsManagerDialogProps> = ({
                     alignItems: 'center',
                     gap: '12px',
                     padding: '4px 0 6px',
-                    borderBottom: '1px solid #E2E8F0'
+                    borderBottom: '1px solid var(--rr-border)'
                   }}>
                     <div style={{ width: '40px', flexShrink: 0 }} />
                     {sortHeader('Name', 'name', { flex: 1, minWidth: 0 })}
@@ -1638,7 +1638,7 @@ const AwardsManagerDialog: React.FC<AwardsManagerDialogProps> = ({
                   alignItems: 'center',
                   gap: '12px',
                   padding: '8px 0',
-                  borderBottom: '1px solid #F1F5F9'
+                  borderBottom: '1px solid var(--rr-border)'
                 }}>
                   {displayImage ? (
                     <div style={{
@@ -1656,25 +1656,25 @@ const AwardsManagerDialog: React.FC<AwardsManagerDialogProps> = ({
                       height: '40px',
                       flexShrink: 0,
                       borderRadius: '6px',
-                      backgroundColor: '#F8FAFC',
-                      border: '1px solid #E2E8F0',
+                      backgroundColor: 'var(--rr-panel2)',
+                      border: '1px solid var(--rr-border)',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center'
                     }}>
-                      <Medal size={20} style={{ color: '#CBD5E1' }} />
+                      <Medal size={20} style={{ color: 'var(--rr-text3)' }} />
                     </div>
                   )}
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: '14px', fontWeight: 500, color: '#0F172A' }}>
+                    <div style={{ fontSize: '14px', fontWeight: 500, color: 'var(--rr-text)' }}>
                       {award.name}
                       {!award.is_repeatable && (
                         <span style={{
                           marginLeft: '8px',
                           padding: '0 6px',
                           borderRadius: '6px',
-                          backgroundColor: '#FEF3C7',
-                          color: '#D97706',
+                          backgroundColor: 'rgba(222,154,31,.14)',
+                          color: 'var(--rr-warn)',
                           fontSize: '10px',
                           fontWeight: 600,
                           textTransform: 'uppercase',
@@ -1689,7 +1689,7 @@ const AwardsManagerDialog: React.FC<AwardsManagerDialogProps> = ({
                     width: '150px',
                     flexShrink: 0,
                     fontSize: '13px',
-                    color: '#64748B',
+                    color: 'var(--rr-text2)',
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
                     whiteSpace: 'nowrap'
@@ -1716,13 +1716,13 @@ const AwardsManagerDialog: React.FC<AwardsManagerDialogProps> = ({
                           margin: '-2px -4px',
                           transition: 'background-color 0.2s'
                         }}
-                        onMouseEnter={(e) => { if (issued) e.currentTarget.style.backgroundColor = '#F1F5F9'; }}
+                        onMouseEnter={(e) => { if (issued) e.currentTarget.style.backgroundColor = 'var(--rr-panel2)'; }}
                         onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
                       >
-                        <div style={{ fontSize: '13px', color: issued ? '#3B82F6' : '#CBD5E1' }}>
+                        <div style={{ fontSize: '13px', color: issued ? 'var(--rr-accent-text)' : 'var(--rr-text3)' }}>
                           {awardIssuances.length} awarded
                         </div>
-                        <div style={{ fontSize: '11px', color: issued ? '#94A3B8' : '#CBD5E1' }}>
+                        <div style={{ fontSize: '11px', color: issued ? 'var(--rr-text3)' : 'var(--rr-text3)' }}>
                           {uniqueHolders} pilot{uniqueHolders === 1 ? '' : 's'}
                         </div>
                       </div>
@@ -1736,8 +1736,8 @@ const AwardsManagerDialog: React.FC<AwardsManagerDialogProps> = ({
                       style={{
                         ...secondaryButtonStyle,
                         padding: '6px 8px',
-                        color: uniqueAndIssued ? '#CBD5E1' : '#3B82F6',
-                        borderColor: uniqueAndIssued ? '#E2E8F0' : '#93C5FD',
+                        color: uniqueAndIssued ? 'var(--rr-text3)' : 'var(--rr-accent-text)',
+                        borderColor: uniqueAndIssued ? 'var(--rr-border)' : 'var(--rr-accent)',
                         cursor: uniqueAndIssued ? 'not-allowed' : 'pointer'
                       }}
                     >
@@ -1766,7 +1766,7 @@ const AwardsManagerDialog: React.FC<AwardsManagerDialogProps> = ({
                   <button
                     onClick={() => setPendingDeleteAward(award)}
                     title="Delete award (removes all issuances)"
-                    style={{ ...secondaryButtonStyle, padding: '6px 8px', color: '#DC2626', borderColor: '#FCA5A5' }}
+                    style={{ ...secondaryButtonStyle, padding: '6px 8px', color: 'var(--rr-bad)', borderColor: 'var(--rr-bad)' }}
                   >
                     <Trash2 size={14} />
                   </button>
@@ -1801,7 +1801,7 @@ const AwardsManagerDialog: React.FC<AwardsManagerDialogProps> = ({
       </div>
 
       {loading ? (
-        <div style={{ color: '#64748B', fontSize: '14px', textAlign: 'center', padding: '24px 0' }}>Loading categories...</div>
+        <div style={{ color: 'var(--rr-text2)', fontSize: '14px', textAlign: 'center', padding: '24px 0' }}>Loading categories...</div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column' }}>
           {categories.map(category => {
@@ -1814,7 +1814,7 @@ const AwardsManagerDialog: React.FC<AwardsManagerDialogProps> = ({
                 alignItems: 'center',
                 gap: '12px',
                 padding: '8px 0',
-                borderBottom: '1px solid #F1F5F9',
+                borderBottom: '1px solid var(--rr-border)',
                 opacity: isBusy ? 0.5 : 1
               }}>
                 {category.default_image_url ? (
@@ -1833,12 +1833,12 @@ const AwardsManagerDialog: React.FC<AwardsManagerDialogProps> = ({
                     height: '32px',
                     flexShrink: 0,
                     borderRadius: '4px',
-                    border: '1px dashed #CBD5E1',
+                    border: '1px dashed var(--rr-border2)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center'
                   }}>
-                    <Medal size={16} style={{ color: '#CBD5E1' }} />
+                    <Medal size={16} style={{ color: 'var(--rr-text3)' }} />
                   </div>
                 )}
                 {isEditing ? (
@@ -1855,7 +1855,7 @@ const AwardsManagerDialog: React.FC<AwardsManagerDialogProps> = ({
                       onClick={handleRenameCategory}
                       disabled={busy || !editingCategoryName.trim()}
                       title="Save"
-                      style={{ ...secondaryButtonStyle, padding: '6px 8px', color: '#16A34A', borderColor: '#86EFAC' }}
+                      style={{ ...secondaryButtonStyle, padding: '6px 8px', color: 'var(--rr-good)', borderColor: 'var(--rr-good)' }}
                     >
                       <Check size={14} />
                     </button>
@@ -1870,8 +1870,8 @@ const AwardsManagerDialog: React.FC<AwardsManagerDialogProps> = ({
                 ) : (
                   <>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <span style={{ fontSize: '14px', fontWeight: 500, color: '#0F172A' }}>{category.name}</span>
-                      <span style={{ fontSize: '12px', color: '#94A3B8', marginLeft: '8px' }}>
+                      <span style={{ fontSize: '14px', fontWeight: 500, color: 'var(--rr-text)' }}>{category.name}</span>
+                      <span style={{ fontSize: '12px', color: 'var(--rr-text3)', marginLeft: '8px' }}>
                         {inUseCount} award{inUseCount === 1 ? '' : 's'}
                       </span>
                     </div>
@@ -1896,7 +1896,7 @@ const AwardsManagerDialog: React.FC<AwardsManagerDialogProps> = ({
                         onClick={() => handleRemoveCategoryImage(category)}
                         disabled={isBusy}
                         title="Remove default image"
-                        style={{ ...secondaryButtonStyle, padding: '6px 8px', color: '#DC2626', borderColor: '#FCA5A5' }}
+                        style={{ ...secondaryButtonStyle, padding: '6px 8px', color: 'var(--rr-bad)', borderColor: 'var(--rr-bad)' }}
                       >
                         <X size={14} />
                       </button>
@@ -1915,8 +1915,8 @@ const AwardsManagerDialog: React.FC<AwardsManagerDialogProps> = ({
                       style={{
                         ...secondaryButtonStyle,
                         padding: '6px 8px',
-                        color: inUseCount > 0 ? '#CBD5E1' : '#DC2626',
-                        borderColor: inUseCount > 0 ? '#E2E8F0' : '#FCA5A5',
+                        color: inUseCount > 0 ? 'var(--rr-text3)' : 'var(--rr-bad)',
+                        borderColor: inUseCount > 0 ? 'var(--rr-border)' : 'var(--rr-bad)',
                         cursor: inUseCount > 0 ? 'not-allowed' : 'pointer'
                       }}
                     >
@@ -1928,7 +1928,7 @@ const AwardsManagerDialog: React.FC<AwardsManagerDialogProps> = ({
             );
           })}
           {categories.length === 0 && (
-            <div style={{ color: '#94A3B8', fontSize: '14px', fontStyle: 'italic' }}>No categories defined yet</div>
+            <div style={{ color: 'var(--rr-text3)', fontSize: '14px', fontStyle: 'italic' }}>No categories defined yet</div>
           )}
         </div>
       )}
@@ -2019,7 +2019,7 @@ const AwardsManagerDialog: React.FC<AwardsManagerDialogProps> = ({
     >
       <div
         style={{
-          backgroundColor: '#FFFFFF',
+          backgroundColor: 'var(--rr-panel)',
           borderRadius: '12px',
           width: '100%',
           maxWidth: '920px',
@@ -2027,7 +2027,7 @@ const AwardsManagerDialog: React.FC<AwardsManagerDialogProps> = ({
           display: 'flex',
           flexDirection: 'column',
           overflow: 'hidden',
-          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)'
+          boxShadow: 'var(--rr-shadow-lg)'
         }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -2046,7 +2046,7 @@ const AwardsManagerDialog: React.FC<AwardsManagerDialogProps> = ({
               alignItems: 'center',
               justifyContent: 'center',
               backgroundColor: 'transparent',
-              color: '#64748B',
+              color: 'var(--rr-text2)',
               border: 'none',
               borderRadius: '6px',
               cursor: 'pointer'
@@ -2081,11 +2081,11 @@ const AwardsManagerDialog: React.FC<AwardsManagerDialogProps> = ({
             {error && (
               <div style={{
                 padding: '8px 12px',
-                backgroundColor: '#FEF2F2',
-                border: '1px solid #FECACA',
+                backgroundColor: 'rgba(224,82,78,.12)',
+                border: '1px solid var(--rr-bad)',
                 borderRadius: '6px',
                 fontSize: '13px',
-                color: '#B91C1C'
+                color: 'var(--rr-bad)'
               }}>
                 {error}
               </div>
@@ -2093,11 +2093,11 @@ const AwardsManagerDialog: React.FC<AwardsManagerDialogProps> = ({
             {notice && !error && (
               <div style={{
                 padding: '8px 12px',
-                backgroundColor: '#F0FDF4',
-                border: '1px solid #BBF7D0',
+                backgroundColor: 'rgba(64,168,91,.14)',
+                border: '1px solid var(--rr-good)',
                 borderRadius: '6px',
                 fontSize: '13px',
-                color: '#166534'
+                color: 'var(--rr-good)'
               }}>
                 {notice}
               </div>

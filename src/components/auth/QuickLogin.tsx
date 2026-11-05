@@ -37,15 +37,15 @@ const QuickLogin: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
+    <div className="min-h-screen flex items-center justify-center bg-panel2">
       <div className="max-w-md w-full space-y-6 p-6">
         <div>
           <h2 className="text-2xl font-bold text-center">Quick Login (Debug)</h2>
-          <p className="text-center text-gray-600 mt-2">Choose your login method</p>
+          <p className="text-center text-text2 mt-2">Choose your login method</p>
         </div>
 
         {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
+          <div className="bg-red-50 border border-bad text-bad px-4 py-3 rounded">
             {error}
           </div>
         )}
@@ -54,7 +54,7 @@ const QuickLogin: React.FC = () => {
           <button
             onClick={handleDiscordLogin}
             disabled={loading}
-            className="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
+            className="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-accent hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
           >
             {loading ? 'Loading...' : 'Login with Discord'}
           </button>
@@ -62,14 +62,14 @@ const QuickLogin: React.FC = () => {
           <button
             onClick={handleEmailLogin}
             disabled={loading}
-            className="w-full flex justify-center py-3 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
+            className="w-full flex justify-center py-3 px-4 border border-border2 rounded-md shadow-sm text-sm font-medium text-text bg-panel hover:bg-panel2 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
           >
             {loading ? 'Loading...' : 'Login with Email (Test)'}
           </button>
         </div>
 
         <div className="text-center">
-          <a href="?debug=true" className="text-indigo-600 hover:text-indigo-500 text-sm">
+          <a href="?debug=true" className="text-accent hover:text-indigo-500 text-sm">
             View Debug Info
           </a>
         </div>

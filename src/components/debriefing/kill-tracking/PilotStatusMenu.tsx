@@ -15,10 +15,10 @@ const PilotStatusMenu: React.FC<PilotStatusMenuProps> = ({
   position
 }) => {
   const statuses: Array<{ value: PilotStatus; label: string; color: string; icon: React.ComponentType<any> }> = [
-    { value: 'alive', label: 'Alive', color: '#10B981', icon: User }, // Green
-    { value: 'mia', label: 'MIA', color: '#F59E0B', icon: UserSearch },    // Amber
-    { value: 'kia', label: 'KIA', color: '#EF4444', icon: Skull },      // Red
-    { value: 'unaccounted', label: 'Unaccounted', color: '#9CA3AF', icon: HelpCircle } // Gray
+    { value: 'alive', label: 'Alive', color: 'var(--rr-good)', icon: User }, // Green
+    { value: 'mia', label: 'MIA', color: 'var(--rr-warn)', icon: UserSearch },    // Amber
+    { value: 'kia', label: 'KIA', color: 'var(--rr-bad)', icon: Skull },      // Red
+    { value: 'unaccounted', label: 'Unaccounted', color: 'var(--rr-text3)', icon: HelpCircle } // Gray
   ];
 
   return (
@@ -28,10 +28,10 @@ const PilotStatusMenu: React.FC<PilotStatusMenuProps> = ({
         position: 'fixed',
         top: position.top,
         left: position.left,
-        backgroundColor: '#FFFFFF',
-        border: '1px solid #E2E8F0',
+        backgroundColor: 'var(--rr-panel)',
+        border: '1px solid var(--rr-border)',
         borderRadius: '8px',
-        boxShadow: '0px 4px 12px rgba(0, 0, 0, 0.15)',
+        boxShadow: 'var(--rr-shadow)',
         padding: '4px',
         zIndex: 1000,
         display: 'flex',
@@ -63,7 +63,7 @@ const PilotStatusMenu: React.FC<PilotStatusMenuProps> = ({
             }}
             onMouseEnter={(e) => {
               if (currentStatus !== status.value) {
-                e.currentTarget.style.backgroundColor = '#F3F4F6';
+                e.currentTarget.style.backgroundColor = 'var(--rr-panel2)';
               }
             }}
             onMouseLeave={(e) => {

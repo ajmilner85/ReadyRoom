@@ -760,12 +760,12 @@ const GradingDialog: React.FC<GradingDialogProps> = ({
         zIndex: 1000
       }}>
         <div style={{
-          backgroundColor: 'white',
+          backgroundColor: 'var(--rr-panel)',
           borderRadius: '8px',
           padding: '32px',
           minWidth: '400px'
         }}>
-          <div style={{ textAlign: 'center', color: '#6B7280' }}>
+          <div style={{ textAlign: 'center', color: 'var(--rr-text2)' }}>
             Loading grading data...
           </div>
         </div>
@@ -820,9 +820,9 @@ const GradingDialog: React.FC<GradingDialogProps> = ({
           maxHeight: '90vh',
           display: 'flex',
           flexDirection: 'column',
-          backgroundColor: '#FFFFFF',
+          backgroundColor: 'var(--rr-panel)',
           borderRadius: '8px',
-          boxShadow: '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)',
+          boxShadow: 'var(--rr-shadow)',
           overflow: 'hidden'
         }}
         onClick={(e) => e.stopPropagation()}
@@ -831,9 +831,9 @@ const GradingDialog: React.FC<GradingDialogProps> = ({
         <div
           style={{
             padding: '24px',
-            borderBottom: '1px solid #E2E8F0',
+            borderBottom: '1px solid var(--rr-border)',
             flexShrink: 0,
-            backgroundColor: '#FFFFFF',
+            backgroundColor: 'var(--rr-panel)',
             position: 'relative'
           }}
         >
@@ -842,13 +842,13 @@ const GradingDialog: React.FC<GradingDialogProps> = ({
               style={{
                 fontSize: '20px',
                 fontWeight: 600,
-                color: '#1E293B',
+                color: 'var(--rr-text)',
                 margin: 0
               }}
             >
               Trainee Grading Form
             </h2>
-            <div style={{ fontSize: '14px', color: '#64748B' }}>
+            <div style={{ fontSize: '14px', color: 'var(--rr-text2)' }}>
               Week {dialogData.weekNumber}{dialogData.missionNumber !== null ? ` - H${String(dialogData.missionNumber).padStart(2, '0')}` : ''}: {dialogData.missionName}
             </div>
           </div>
@@ -872,11 +872,11 @@ const GradingDialog: React.FC<GradingDialogProps> = ({
                   justifyContent: 'center',
                   width: '32px',
                   height: '32px',
-                  backgroundColor: '#F1F5F9',
+                  backgroundColor: 'var(--rr-panel2)',
                   border: 'none',
                   borderRadius: '6px',
                   cursor: 'pointer',
-                  color: '#64748B',
+                  color: 'var(--rr-text2)',
                   padding: 0
                 }}
               >
@@ -905,32 +905,32 @@ const GradingDialog: React.FC<GradingDialogProps> = ({
                     top: '100%',
                     right: 0,
                     marginTop: '8px',
-                    backgroundColor: '#FFFFFF',
+                    backgroundColor: 'var(--rr-panel)',
                     borderRadius: '6px',
                     padding: '12px',
                     minWidth: '300px',
                     maxWidth: '400px',
                     zIndex: 10000,
-                    boxShadow: '0 10px 25px rgba(0, 0, 0, 0.2)',
+                    boxShadow: 'var(--rr-shadow-lg)',
                     pointerEvents: 'auto',
-                    border: '1px solid #E2E8F0'
+                    border: '1px solid var(--rr-border)'
                   }}
                 >
-                  <div style={{ fontSize: '13px', fontWeight: 600, color: '#1F2937', marginBottom: '8px' }}>
+                  <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--rr-text)', marginBottom: '8px' }}>
                     Reference Materials
                   </div>
                   {referenceMaterials.map((item, idx) => (
                     <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: idx < referenceMaterials.length - 1 ? '8px' : '0' }}>
                       {item.isInherited && (
                         <div style={{ flexShrink: 0 }}>
-                          <BookOpen size={16} style={{ color: '#6B7280' }} />
+                          <BookOpen size={16} style={{ color: 'var(--rr-text2)' }} />
                         </div>
                       )}
                       {!item.isInherited && (
                         <div style={{ width: '16px', flexShrink: 0 }} />
                       )}
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: '12px', color: '#1F2937', marginBottom: '2px' }}>
+                        <div style={{ fontSize: '12px', color: 'var(--rr-text)', marginBottom: '2px' }}>
                           {item.material.type}
                         </div>
                         <a
@@ -939,7 +939,7 @@ const GradingDialog: React.FC<GradingDialogProps> = ({
                           rel="noopener noreferrer"
                           style={{
                             fontSize: '14px',
-                            color: '#3B82F6',
+                            color: 'var(--rr-accent-text)',
                             textDecoration: 'none',
                             display: 'block',
                             overflow: 'hidden',
@@ -964,31 +964,31 @@ const GradingDialog: React.FC<GradingDialogProps> = ({
                     top: '100%',
                     right: 0,
                     marginTop: '8px',
-                    backgroundColor: '#FFFFFF',
+                    backgroundColor: 'var(--rr-panel)',
                     borderRadius: '6px',
                     padding: '12px',
                     minWidth: '300px',
                     maxWidth: '400px',
                     zIndex: 10000,
-                    boxShadow: '0 10px 25px rgba(0, 0, 0, 0.2)',
-                    border: '1px solid #E2E8F0'
+                    boxShadow: 'var(--rr-shadow-lg)',
+                    border: '1px solid var(--rr-border)'
                   }}
                 >
-                  <div style={{ fontSize: '13px', fontWeight: 600, color: '#1F2937', marginBottom: '8px' }}>
+                  <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--rr-text)', marginBottom: '8px' }}>
                     Reference Materials
                   </div>
                   {referenceMaterials.map((item, idx) => (
                     <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: idx < referenceMaterials.length - 1 ? '8px' : '0' }}>
                       {item.isInherited && (
                         <div style={{ flexShrink: 0 }}>
-                          <BookOpen size={16} style={{ color: '#6B7280' }} />
+                          <BookOpen size={16} style={{ color: 'var(--rr-text2)' }} />
                         </div>
                       )}
                       {!item.isInherited && (
                         <div style={{ width: '16px', flexShrink: 0 }} />
                       )}
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: '12px', color: '#1F2937', marginBottom: '2px' }}>
+                        <div style={{ fontSize: '12px', color: 'var(--rr-text)', marginBottom: '2px' }}>
                           {item.material.type}
                         </div>
                         <a
@@ -997,7 +997,7 @@ const GradingDialog: React.FC<GradingDialogProps> = ({
                           rel="noopener noreferrer"
                           style={{
                             fontSize: '14px',
-                            color: '#3B82F6',
+                            color: 'var(--rr-accent-text)',
                             textDecoration: 'none',
                             display: 'block',
                             overflow: 'hidden',
@@ -1026,11 +1026,11 @@ const GradingDialog: React.FC<GradingDialogProps> = ({
               justifyContent: 'center',
               width: '32px',
               height: '32px',
-              backgroundColor: '#F1F5F9',
+              backgroundColor: 'var(--rr-panel2)',
               border: 'none',
               borderRadius: '6px',
               cursor: 'pointer',
-              color: '#64748B',
+              color: 'var(--rr-text2)',
               flexShrink: 0
             }}
           >
@@ -1046,15 +1046,15 @@ const GradingDialog: React.FC<GradingDialogProps> = ({
               <div style={{
                 fontSize: '14px',
                 fontWeight: 600,
-                color: '#475569',
+                color: 'var(--rr-text2)',
                 marginBottom: '12px'
               }}>
                 Trainee
               </div>
               <div style={{
-                backgroundColor: '#F8FAFC',
+                backgroundColor: 'var(--rr-panel2)',
                 borderRadius: '6px',
-                border: '1px solid #E2E8F0',
+                border: '1px solid var(--rr-border)',
                 padding: '12px 16px 12px 0',
                 display: 'flex',
                 alignItems: 'center',
@@ -1087,7 +1087,7 @@ const GradingDialog: React.FC<GradingDialogProps> = ({
                       >
                         <AlertTriangle
                           size={16}
-                          style={{ color: '#F59E0B' }}
+                          style={{ color: 'var(--rr-warn)' }}
                         />
                       </div>
                     )}
@@ -1100,7 +1100,7 @@ const GradingDialog: React.FC<GradingDialogProps> = ({
               <div style={{
                 fontSize: '14px',
                 fontWeight: 600,
-                color: '#475569',
+                color: 'var(--rr-text2)',
                 marginBottom: '12px'
               }}>
                 Instructor
@@ -1108,9 +1108,9 @@ const GradingDialog: React.FC<GradingDialogProps> = ({
               <div
                 onClick={handleChangeInstructor}
                 style={{
-                  backgroundColor: '#F8FAFC',
+                  backgroundColor: 'var(--rr-panel2)',
                   borderRadius: '6px',
-                  border: '1px solid #E2E8F0',
+                  border: '1px solid var(--rr-border)',
                   padding: '12px 16px 12px 0',
                   display: 'flex',
                   alignItems: 'center',
@@ -1120,7 +1120,7 @@ const GradingDialog: React.FC<GradingDialogProps> = ({
                   position: 'relative'
                 }}
                 onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#EFF3F7'}
-                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#F8FAFC'}
+                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'var(--rr-panel2)'}
               >
                 {instructorInfo ? (
                   <>
@@ -1140,7 +1140,7 @@ const GradingDialog: React.FC<GradingDialogProps> = ({
                     </span>
                   </>
                 ) : (
-                  <div style={{ fontSize: '14px', color: '#94A3B8', marginLeft: '16px' }}>Not assigned</div>
+                  <div style={{ fontSize: '14px', color: 'var(--rr-text3)', marginLeft: '16px' }}>Not assigned</div>
                 )}
                 <button
                   onClick={(e) => {
@@ -1150,8 +1150,8 @@ const GradingDialog: React.FC<GradingDialogProps> = ({
                   style={{
                     marginLeft: 'auto',
                     padding: '6px',
-                    backgroundColor: 'white',
-                    border: '1px solid #E2E8F0',
+                    backgroundColor: 'var(--rr-panel)',
+                    border: '1px solid var(--rr-border)',
                     borderRadius: '4px',
                     cursor: 'pointer',
                     display: 'flex',
@@ -1161,15 +1161,15 @@ const GradingDialog: React.FC<GradingDialogProps> = ({
                     flexShrink: 0
                   }}
                   onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = '#F1F5F9';
-                    e.currentTarget.style.borderColor = '#CBD5E1';
+                    e.currentTarget.style.backgroundColor = 'var(--rr-panel2)';
+                    e.currentTarget.style.borderColor = 'var(--rr-border2)';
                   }}
                   onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = 'white';
-                    e.currentTarget.style.borderColor = '#E2E8F0';
+                    e.currentTarget.style.backgroundColor = 'var(--rr-panel)';
+                    e.currentTarget.style.borderColor = 'var(--rr-border)';
                   }}
                 >
-                  <Edit2 size={14} style={{ color: '#64748B' }} />
+                  <Edit2 size={14} style={{ color: 'var(--rr-text2)' }} />
                 </button>
               </div>
             </div>
@@ -1178,13 +1178,13 @@ const GradingDialog: React.FC<GradingDialogProps> = ({
 
           {/* Attempt Selector */}
           <div style={{ marginBottom: '24px' }}>
-            <div style={{ fontSize: '14px', fontWeight: 600, color: '#475569', marginBottom: '12px' }}>
+            <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--rr-text2)', marginBottom: '12px' }}>
               Attempts
             </div>
             <div style={{
-              backgroundColor: '#F8FAFC',
+              backgroundColor: 'var(--rr-panel2)',
               borderRadius: '6px',
-              border: '1px solid #E2E8F0',
+              border: '1px solid var(--rr-border)',
               padding: '16px',
               display: 'flex',
               alignItems: 'center',
@@ -1208,8 +1208,8 @@ const GradingDialog: React.FC<GradingDialogProps> = ({
                       onMouseLeave={() => setHoveredAttemptIndex(null)}
                       style={{
                         padding: '12px',
-                        backgroundColor: isSelected ? '#FFFFFF' : (isHovered ? '#F1F5F9' : '#FFFFFF'),
-                        border: isSelected ? '2px solid #3B82F6' : (isHovered ? '2px solid #94A3B8' : '2px solid #E2E8F0'),
+                        backgroundColor: isSelected ? 'var(--rr-panel)' : (isHovered ? 'var(--rr-panel2)' : 'var(--rr-panel)'),
+                        border: isSelected ? '2px solid var(--rr-accent)' : (isHovered ? '2px solid var(--rr-border2)' : '2px solid var(--rr-border)'),
                         borderRadius: '6px',
                         width: '200px',
                         position: 'relative',
@@ -1220,10 +1220,10 @@ const GradingDialog: React.FC<GradingDialogProps> = ({
                     >
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
                         <div>
-                          <div style={{ fontSize: '12px', fontWeight: 600, color: '#64748B', marginBottom: '4px' }}>
+                          <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--rr-text2)', marginBottom: '4px' }}>
                             Attempt {attempt.attemptNumber}
                           </div>
-                          <div style={{ fontSize: '11px', color: '#94A3B8' }}>
+                          <div style={{ fontSize: '11px', color: 'var(--rr-text3)' }}>
                             {attemptDate}
                           </div>
                         </div>
@@ -1239,7 +1239,7 @@ const GradingDialog: React.FC<GradingDialogProps> = ({
                               backgroundColor: 'transparent',
                               border: 'none',
                               cursor: 'pointer',
-                              color: '#DC2626',
+                              color: 'var(--rr-bad)',
                               display: 'flex',
                               alignItems: 'center',
                               justifyContent: 'center'
@@ -1250,33 +1250,33 @@ const GradingDialog: React.FC<GradingDialogProps> = ({
                           </button>
                         )}
                       </div>
-                      <div style={{ fontSize: '11px', color: '#64748B', marginBottom: '4px' }}>
+                      <div style={{ fontSize: '11px', color: 'var(--rr-text2)', marginBottom: '4px' }}>
                         IP: {attempt.instructorBoardNumber ? `${attempt.instructorBoardNumber} ` : ''}{attempt.instructorCallsign || 'N/A'}
                       </div>
                       <div style={{
                         fontSize: '14px',
                         fontWeight: 600,
-                        color: attempt.overallGrade === 'SAT' ? '#10B981' : '#F59E0B',
+                        color: attempt.overallGrade === 'SAT' ? 'var(--rr-good)' : 'var(--rr-warn)',
                         marginTop: '6px'
                       }}>
                         {attempt.overallGrade}
                       </div>
                     </div>
                     {index < dialogData.existingAttempts.length - 1 && (
-                      <ChevronRight size={16} style={{ color: '#CBD5E1', flexShrink: 0 }} />
+                      <ChevronRight size={16} style={{ color: 'var(--rr-text3)', flexShrink: 0 }} />
                     )}
                   </React.Fragment>
                 );
               })}
               {canCreateNewAttempt && dialogData.existingAttempts.length > 0 && (
-                <ChevronRight size={16} style={{ color: '#CBD5E1', flexShrink: 0 }} />
+                <ChevronRight size={16} style={{ color: 'var(--rr-text3)', flexShrink: 0 }} />
               )}
               {selectedAttemptIndex === -1 ? (
                 <div
                   style={{
                     padding: '12px',
-                    backgroundColor: '#FFFFFF',
-                    border: '2px solid #3B82F6',
+                    backgroundColor: 'var(--rr-panel)',
+                    border: '2px solid var(--rr-accent)',
                     borderRadius: '6px',
                     width: '200px',
                     minHeight: '86px',
@@ -1286,21 +1286,21 @@ const GradingDialog: React.FC<GradingDialogProps> = ({
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
                     <div>
-                      <div style={{ fontSize: '12px', fontWeight: 600, color: '#64748B', marginBottom: '4px' }}>
+                      <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--rr-text2)', marginBottom: '4px' }}>
                         Attempt {dialogData.existingAttempts.length + 1}
                       </div>
-                      <div style={{ fontSize: '11px', color: '#94A3B8' }}>
+                      <div style={{ fontSize: '11px', color: 'var(--rr-text3)' }}>
                         {dialogData.eventDate ? new Date(new Date(dialogData.eventDate).toISOString().split('T')[0] + 'T00:00:00').toLocaleDateString() : new Date().toLocaleDateString()}
                       </div>
                     </div>
                   </div>
-                  <div style={{ fontSize: '11px', color: '#64748B', marginBottom: '4px' }}>
+                  <div style={{ fontSize: '11px', color: 'var(--rr-text2)', marginBottom: '4px' }}>
                     IP: {instructorInfo ? `${instructorInfo.boardNumber} ${instructorInfo.callsign}` : 'N/A'}
                   </div>
                   <div style={{
                     fontSize: '14px',
                     fontWeight: 600,
-                    color: '#94A3B8',
+                    color: 'var(--rr-text3)',
                     marginTop: '6px'
                   }}>
                     Grading In Progress
@@ -1311,16 +1311,16 @@ const GradingDialog: React.FC<GradingDialogProps> = ({
                   onClick={() => handleAttemptChange(-1)}
                   onMouseEnter={(e) => {
                     e.currentTarget.style.backgroundColor = '#EFF3F7';
-                    e.currentTarget.style.borderColor = '#94A3B8';
+                    e.currentTarget.style.borderColor = 'var(--rr-border2)';
                   }}
                   onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = 'white';
-                    e.currentTarget.style.borderColor = '#CBD5E1';
+                    e.currentTarget.style.backgroundColor = 'var(--rr-panel)';
+                    e.currentTarget.style.borderColor = 'var(--rr-border2)';
                   }}
                   style={{
                     padding: '12px',
-                    backgroundColor: 'white',
-                    border: '1px dashed #CBD5E1',
+                    backgroundColor: 'var(--rr-panel)',
+                    border: '1px dashed var(--rr-border2)',
                     borderRadius: '6px',
                     width: '200px',
                     height: '98px',
@@ -1332,7 +1332,7 @@ const GradingDialog: React.FC<GradingDialogProps> = ({
                     boxSizing: 'border-box'
                   }}
                 >
-                  <Plus size={24} style={{ color: '#94A3B8' }} />
+                  <Plus size={24} style={{ color: 'var(--rr-text3)' }} />
                 </div>
               )}
             </div>
@@ -1345,20 +1345,20 @@ const GradingDialog: React.FC<GradingDialogProps> = ({
               <div style={{
                 fontSize: '14px',
                 fontWeight: 600,
-                color: '#475569',
+                color: 'var(--rr-text2)',
                 marginBottom: '12px'
               }}>
                 Desired Learning Outcomes
               </div>
               {dloGrades.length === 0 ? (
-                <div style={{ padding: '16px', backgroundColor: '#F9FAFB', borderRadius: '6px', textAlign: 'center', color: '#6B7280' }}>
+                <div style={{ padding: '16px', backgroundColor: 'var(--rr-panel2)', borderRadius: '6px', textAlign: 'center', color: 'var(--rr-text2)' }}>
                   No individual-scope objectives defined for this mission.
                 </div>
               ) : (
                 <div style={{
-                  backgroundColor: '#F8FAFC',
+                  backgroundColor: 'var(--rr-panel2)',
                   borderRadius: '6px',
-                  border: '1px solid #E2E8F0',
+                  border: '1px solid var(--rr-border)',
                   padding: '16px',
                   display: 'flex',
                   flexDirection: 'column',
@@ -1370,7 +1370,7 @@ const GradingDialog: React.FC<GradingDialogProps> = ({
 
                     return (
                       <div key={dlo.objectiveId}>
-                        <div style={{ fontSize: '14px', fontWeight: 500, color: '#1E293B', marginBottom: '8px' }}>
+                        <div style={{ fontSize: '14px', fontWeight: 500, color: 'var(--rr-text)', marginBottom: '8px' }}>
                           {objective.objectiveText}
                         </div>
                         <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
@@ -1384,9 +1384,9 @@ const GradingDialog: React.FC<GradingDialogProps> = ({
                                 justifyContent: 'center',
                                 padding: '6px 10px',
                                 height: '32px',
-                                backgroundColor: dlo.grade === 'SAT' ? '#10B981' : '#FFFFFF',
-                                color: dlo.grade === 'SAT' ? '#FFFFFF' : '#64748B',
-                                border: `1px solid ${dlo.grade === 'SAT' ? '#10B981' : '#CBD5E1'}`,
+                                backgroundColor: dlo.grade === 'SAT' ? 'var(--rr-good)' : 'var(--rr-panel)',
+                                color: dlo.grade === 'SAT' ? '#FFFFFF' : 'var(--rr-text2)',
+                                border: `1px solid ${dlo.grade === 'SAT' ? 'var(--rr-good)' : 'var(--rr-border2)'}`,
                                 borderRadius: '6px',
                                 fontSize: '13px',
                                 fontWeight: 500,
@@ -1406,9 +1406,9 @@ const GradingDialog: React.FC<GradingDialogProps> = ({
                                 justifyContent: 'center',
                                 padding: '6px 10px',
                                 height: '32px',
-                                backgroundColor: dlo.grade === 'UNSAT' ? '#94A3B8' : '#FFFFFF',
-                                color: dlo.grade === 'UNSAT' ? '#1E293B' : '#64748B',
-                                border: `1px solid ${dlo.grade === 'UNSAT' ? '#94A3B8' : '#CBD5E1'}`,
+                                backgroundColor: dlo.grade === 'UNSAT' ? '#94A3B8' : 'var(--rr-panel)',
+                                color: dlo.grade === 'UNSAT' ? 'var(--rr-text)' : 'var(--rr-text2)',
+                                border: `1px solid ${dlo.grade === 'UNSAT' ? 'var(--rr-border2)' : 'var(--rr-border2)'}`,
                                 borderRadius: '6px',
                                 fontSize: '13px',
                                 fontWeight: 500,
@@ -1430,9 +1430,9 @@ const GradingDialog: React.FC<GradingDialogProps> = ({
                               padding: '4px 8px 8px 8px',
                               fontSize: '13px',
                               lineHeight: '1.5',
-                              color: '#1E293B',
-                              backgroundColor: '#FFFFFF',
-                              border: '1px solid #CBD5E1',
+                              color: 'var(--rr-text)',
+                              backgroundColor: 'var(--rr-panel)',
+                              border: '1px solid var(--rr-border2)',
                               borderRadius: '4px',
                               resize: 'none',
                               outline: 'none',
@@ -1454,15 +1454,15 @@ const GradingDialog: React.FC<GradingDialogProps> = ({
                 <div style={{
                   fontSize: '14px',
                   fontWeight: 600,
-                  color: '#475569',
+                  color: 'var(--rr-text2)',
                   marginBottom: '12px'
                 }}>
                   Overall Grade
                 </div>
                 <div style={{
-                  backgroundColor: '#F8FAFC',
+                  backgroundColor: 'var(--rr-panel2)',
                   borderRadius: '6px',
-                  border: '1px solid #E2E8F0',
+                  border: '1px solid var(--rr-border)',
                   padding: '16px',
                   display: 'flex',
                   flexDirection: 'column'
@@ -1478,9 +1478,9 @@ const GradingDialog: React.FC<GradingDialogProps> = ({
                           justifyContent: 'center',
                           padding: '6px 10px',
                           height: '32px',
-                          backgroundColor: overallGrade === 'SAT' ? '#10B981' : '#FFFFFF',
-                          color: overallGrade === 'SAT' ? '#FFFFFF' : '#64748B',
-                          border: `1px solid ${overallGrade === 'SAT' ? '#10B981' : '#CBD5E1'}`,
+                          backgroundColor: overallGrade === 'SAT' ? 'var(--rr-good)' : 'var(--rr-panel)',
+                          color: overallGrade === 'SAT' ? '#FFFFFF' : 'var(--rr-text2)',
+                          border: `1px solid ${overallGrade === 'SAT' ? 'var(--rr-good)' : 'var(--rr-border2)'}`,
                           borderRadius: '6px',
                           fontSize: '13px',
                           fontWeight: 500,
@@ -1500,9 +1500,9 @@ const GradingDialog: React.FC<GradingDialogProps> = ({
                           justifyContent: 'center',
                           padding: '6px 10px',
                           height: '32px',
-                          backgroundColor: overallGrade === 'UNSAT' ? '#94A3B8' : '#FFFFFF',
-                          color: overallGrade === 'UNSAT' ? '#1E293B' : '#64748B',
-                          border: `1px solid ${overallGrade === 'UNSAT' ? '#94A3B8' : '#CBD5E1'}`,
+                          backgroundColor: overallGrade === 'UNSAT' ? '#94A3B8' : 'var(--rr-panel)',
+                          color: overallGrade === 'UNSAT' ? 'var(--rr-text)' : 'var(--rr-text2)',
+                          border: `1px solid ${overallGrade === 'UNSAT' ? 'var(--rr-border2)' : 'var(--rr-border2)'}`,
                           borderRadius: '6px',
                           fontSize: '13px',
                           fontWeight: 500,
@@ -1524,9 +1524,9 @@ const GradingDialog: React.FC<GradingDialogProps> = ({
                           padding: '4px 8px 8px 8px',
                           fontSize: '13px',
                           lineHeight: '1.5',
-                          color: '#1E293B',
-                          backgroundColor: '#FFFFFF',
-                          border: '1px solid #CBD5E1',
+                          color: 'var(--rr-text)',
+                          backgroundColor: 'var(--rr-panel)',
+                          border: '1px solid var(--rr-border2)',
                           borderRadius: '4px',
                           resize: 'none',
                           outline: 'none',
@@ -1539,16 +1539,16 @@ const GradingDialog: React.FC<GradingDialogProps> = ({
                       {overallGrade === 'SAT' && hasUngradedDlos && !isReadOnly && (
                         <div style={{
                           padding: '12px',
-                          backgroundColor: '#FEF3C7',
-                          border: '1px solid #F59E0B',
+                          backgroundColor: 'rgba(222,154,31,.14)',
+                          border: '1px solid var(--rr-warn)',
                           borderRadius: '6px',
                           display: 'flex',
                           alignItems: 'flex-start',
                           gap: '8px',
                           marginTop: '12px'
                         }}>
-                          <AlertTriangle size={16} style={{ color: '#F59E0B', marginTop: '2px', flexShrink: 0 }} />
-                          <div style={{ fontSize: '14px', color: '#92400E' }}>
+                          <AlertTriangle size={16} style={{ color: 'var(--rr-warn)', marginTop: '2px', flexShrink: 0 }} />
+                          <div style={{ fontSize: '14px', color: 'var(--rr-warn)' }}>
                             Overall grade is SAT but some DLOs have not been graded.
                           </div>
                         </div>
@@ -1557,16 +1557,16 @@ const GradingDialog: React.FC<GradingDialogProps> = ({
                       {overallGrade === 'SAT' && hasUnsatDlos && !isReadOnly && (
                         <div style={{
                           padding: '12px',
-                          backgroundColor: '#FEF3C7',
-                          border: '1px solid #F59E0B',
+                          backgroundColor: 'rgba(222,154,31,.14)',
+                          border: '1px solid var(--rr-warn)',
                           borderRadius: '6px',
                           display: 'flex',
                           alignItems: 'flex-start',
                           gap: '8px',
                           marginTop: '12px'
                         }}>
-                          <AlertTriangle size={16} style={{ color: '#F59E0B', marginTop: '2px', flexShrink: 0 }} />
-                          <div style={{ fontSize: '14px', color: '#92400E' }}>
+                          <AlertTriangle size={16} style={{ color: 'var(--rr-warn)', marginTop: '2px', flexShrink: 0 }} />
+                          <div style={{ fontSize: '14px', color: 'var(--rr-warn)' }}>
                             Overall grade is SAT but some DLOs are UNSAT.
                           </div>
                         </div>
@@ -1588,7 +1588,7 @@ const GradingDialog: React.FC<GradingDialogProps> = ({
                       style={{
                         width: '44px',
                         height: '24px',
-                        backgroundColor: isMakeupFlight ? '#3B82F6' : '#CBD5E1',
+                        backgroundColor: isMakeupFlight ? 'var(--rr-accent)' : 'var(--rr-panel3)',
                         borderRadius: '12px',
                         position: 'relative',
                         transition: 'background-color 0.2s ease',
@@ -1600,21 +1600,21 @@ const GradingDialog: React.FC<GradingDialogProps> = ({
                         style={{
                           width: '20px',
                           height: '20px',
-                          backgroundColor: '#FFFFFF',
+                          backgroundColor: 'var(--rr-panel)',
                           borderRadius: '50%',
                           position: 'absolute',
                           top: '2px',
                           left: isMakeupFlight ? '22px' : '2px',
                           transition: 'left 0.2s ease',
-                          boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)'
+                          boxShadow: 'var(--rr-shadow)'
                         }}
                       />
                     </div>
-                    <span style={{ fontWeight: 500, color: '#374151' }}>This was a makeup flight</span>
+                    <span style={{ fontWeight: 500, color: 'var(--rr-text)' }}>This was a makeup flight</span>
                   </label>
 
                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px', visibility: isMakeupFlight ? 'visible' : 'hidden' }}>
-                    <label style={{ fontSize: '14px', fontWeight: 500, color: '#475569' }}>
+                    <label style={{ fontSize: '14px', fontWeight: 500, color: 'var(--rr-text2)' }}>
                       Makeup Flight Date
                     </label>
                     <input
@@ -1625,9 +1625,9 @@ const GradingDialog: React.FC<GradingDialogProps> = ({
                       style={{
                         padding: '6px 12px',
                         fontSize: '14px',
-                        color: '#1E293B',
-                        backgroundColor: '#FFFFFF',
-                        border: '1px solid #CBD5E1',
+                        color: 'var(--rr-text)',
+                        backgroundColor: 'var(--rr-panel)',
+                        border: '1px solid var(--rr-border2)',
                         borderRadius: '6px',
                         outline: 'none',
                         fontFamily: 'inherit'
@@ -1645,12 +1645,12 @@ const GradingDialog: React.FC<GradingDialogProps> = ({
           <div
             style={{
               padding: '16px 24px',
-              borderTop: '1px solid #E5E7EB',
+              borderTop: '1px solid var(--rr-border)',
               display: 'flex',
               justifyContent: 'space-between',
               alignItems: 'center',
               gap: '12px',
-              backgroundColor: '#F9FAFB',
+              backgroundColor: 'var(--rr-panel2)',
               flexShrink: 0
             }}
           >
@@ -1662,14 +1662,14 @@ const GradingDialog: React.FC<GradingDialogProps> = ({
                 gap: '8px',
                 flex: 1,
                 padding: '10px 12px',
-                backgroundColor: '#FEF3C7',
-                border: '1px solid #F59E0B',
+                backgroundColor: 'rgba(222,154,31,.14)',
+                border: '1px solid var(--rr-warn)',
                 borderRadius: '6px',
                 height: '40px',
                 boxSizing: 'border-box'
               }}>
-                <AlertTriangle size={16} style={{ color: '#F59E0B', flexShrink: 0 }} />
-                <div style={{ fontSize: '13px', color: '#92400E', lineHeight: '1.4' }}>
+                <AlertTriangle size={16} style={{ color: 'var(--rr-warn)', flexShrink: 0 }} />
+                <div style={{ fontSize: '13px', color: 'var(--rr-warn)', lineHeight: '1.4' }}>
                   You were not the assigned IP for this trainee. Please verify you have selected the correct trainee before submitting this form.
                 </div>
               </div>
@@ -1682,9 +1682,9 @@ const GradingDialog: React.FC<GradingDialogProps> = ({
                 disabled={saving}
                 style={{
                   padding: '10px 20px',
-                  backgroundColor: 'white',
-                  color: '#374151',
-                  border: '1px solid #D1D5DB',
+                  backgroundColor: 'var(--rr-panel)',
+                  color: 'var(--rr-text)',
+                  border: '1px solid var(--rr-border2)',
                   borderRadius: '6px',
                   cursor: saving ? 'not-allowed' : 'pointer',
                   fontSize: '14px',
@@ -1698,7 +1698,7 @@ const GradingDialog: React.FC<GradingDialogProps> = ({
                 disabled={saving || !canSave}
                 style={{
                   padding: '10px 20px',
-                  backgroundColor: canSave ? '#3B82F6' : '#9CA3AF',
+                  backgroundColor: canSave ? 'var(--rr-accent)' : '#9CA3AF',
                   color: 'white',
                   border: 'none',
                   borderRadius: '6px',
@@ -1756,23 +1756,23 @@ const GradingDialog: React.FC<GradingDialogProps> = ({
           <div
             onClick={(e) => e.stopPropagation()}
             style={{
-              backgroundColor: 'white',
+              backgroundColor: 'var(--rr-panel)',
               borderRadius: '8px',
               width: '500px',
               maxHeight: '750px',
               display: 'flex',
               flexDirection: 'column',
-              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
+              boxShadow: 'var(--rr-shadow-lg)'
             }}>
             {/* Header */}
             <div style={{
               padding: '20px 24px',
-              borderBottom: '1px solid #E5E7EB',
+              borderBottom: '1px solid var(--rr-border)',
               display: 'flex',
               justifyContent: 'space-between',
               alignItems: 'center'
             }}>
-              <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 600, color: '#111827' }}>
+              <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 600, color: 'var(--rr-text)' }}>
                 Select Instructor
               </h2>
               <button
@@ -1788,26 +1788,26 @@ const GradingDialog: React.FC<GradingDialogProps> = ({
                   justifyContent: 'center'
                 }}
               >
-                <X size={20} style={{ color: '#6B7280' }} />
+                <X size={20} style={{ color: 'var(--rr-text2)' }} />
               </button>
             </div>
 
             {/* Sort Controls */}
             <div style={{
               padding: '12px 24px',
-              borderBottom: '1px solid #E5E7EB',
+              borderBottom: '1px solid var(--rr-border)',
               display: 'flex',
               alignItems: 'center',
               gap: '8px'
             }}>
-              <span style={{ fontSize: '12px', color: '#6B7280' }}>Sort by:</span>
+              <span style={{ fontSize: '12px', color: 'var(--rr-text2)' }}>Sort by:</span>
               <button
                 onClick={() => setSortBySquadron(!sortBySquadron)}
                 style={{
                   padding: '4px 12px',
-                  backgroundColor: sortBySquadron ? '#2563EB' : 'white',
-                  color: sortBySquadron ? 'white' : '#6B7280',
-                  border: `1px solid ${sortBySquadron ? '#2563EB' : '#D1D5DB'}`,
+                  backgroundColor: sortBySquadron ? 'var(--rr-accent)' : 'var(--rr-panel)',
+                  color: sortBySquadron ? 'white' : 'var(--rr-text2)',
+                  border: `1px solid ${sortBySquadron ? 'var(--rr-accent)' : 'var(--rr-border2)'}`,
                   borderRadius: '4px',
                   cursor: 'pointer',
                   fontSize: '12px',
@@ -1825,9 +1825,9 @@ const GradingDialog: React.FC<GradingDialogProps> = ({
                 onClick={() => setInstructorSortBy('boardNumber')}
                 style={{
                   padding: '4px 12px',
-                  backgroundColor: instructorSortBy === 'boardNumber' ? '#2563EB' : 'white',
-                  color: instructorSortBy === 'boardNumber' ? 'white' : '#6B7280',
-                  border: `1px solid ${instructorSortBy === 'boardNumber' ? '#2563EB' : '#D1D5DB'}`,
+                  backgroundColor: instructorSortBy === 'boardNumber' ? 'var(--rr-accent)' : 'var(--rr-panel)',
+                  color: instructorSortBy === 'boardNumber' ? 'white' : 'var(--rr-text2)',
+                  border: `1px solid ${instructorSortBy === 'boardNumber' ? 'var(--rr-accent)' : 'var(--rr-border2)'}`,
                   borderRadius: '4px',
                   cursor: 'pointer',
                   fontSize: '12px',
@@ -1841,9 +1841,9 @@ const GradingDialog: React.FC<GradingDialogProps> = ({
                 onClick={() => setInstructorSortBy('callsign')}
                 style={{
                   padding: '4px 12px',
-                  backgroundColor: instructorSortBy === 'callsign' ? '#2563EB' : 'white',
-                  color: instructorSortBy === 'callsign' ? 'white' : '#6B7280',
-                  border: `1px solid ${instructorSortBy === 'callsign' ? '#2563EB' : '#D1D5DB'}`,
+                  backgroundColor: instructorSortBy === 'callsign' ? 'var(--rr-accent)' : 'var(--rr-panel)',
+                  color: instructorSortBy === 'callsign' ? 'white' : 'var(--rr-text2)',
+                  border: `1px solid ${instructorSortBy === 'callsign' ? 'var(--rr-accent)' : 'var(--rr-border2)'}`,
                   borderRadius: '4px',
                   cursor: 'pointer',
                   fontSize: '12px',
@@ -1862,7 +1862,7 @@ const GradingDialog: React.FC<GradingDialogProps> = ({
               padding: '16px 24px'
             }}>
               {sortedInstructors.length === 0 ? (
-                <div style={{ padding: '32px', textAlign: 'center', color: '#6B7280' }}>
+                <div style={{ padding: '32px', textAlign: 'center', color: 'var(--rr-text2)' }}>
                   No instructors available
                 </div>
               ) : (
@@ -1914,7 +1914,7 @@ const GradingDialog: React.FC<GradingDialogProps> = ({
             {/* Footer */}
             <div style={{
               padding: '16px 24px',
-              borderTop: '1px solid #E5E7EB',
+              borderTop: '1px solid var(--rr-border)',
               display: 'flex',
               justifyContent: 'flex-end'
             }}>
@@ -1922,9 +1922,9 @@ const GradingDialog: React.FC<GradingDialogProps> = ({
                 onClick={() => setShowInstructorDialog(false)}
                 style={{
                   padding: '10px 20px',
-                  backgroundColor: 'white',
-                  color: '#374151',
-                  border: '1px solid #D1D5DB',
+                  backgroundColor: 'var(--rr-panel)',
+                  color: 'var(--rr-text)',
+                  border: '1px solid var(--rr-border2)',
                   borderRadius: '6px',
                   cursor: 'pointer',
                   fontSize: '14px',

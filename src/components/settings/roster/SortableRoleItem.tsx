@@ -27,7 +27,7 @@ export const SortableRoleItem: React.FC<SortableRoleItemProps> = ({
     transition,
     zIndex: isDragging ? 10 : 1,
     position: 'relative' as const,
-    backgroundColor: isDragging ? '#F8FAFC' : 'white',
+    backgroundColor: isDragging ? 'var(--rr-panel2)' : 'var(--rr-panel)',
     boxShadow: isDragging ? '0 4px 8px rgba(0,0,0,0.1)' : 'none'
   };
 
@@ -37,8 +37,8 @@ export const SortableRoleItem: React.FC<SortableRoleItemProps> = ({
       style={{
         ...style,
         display: 'flex',
-        borderBottom: '1px solid #F3F4F6',
-        backgroundColor: isDragging ? '#F8FAFC' : '#FFFFFF',
+        borderBottom: '1px solid var(--rr-border)',
+        backgroundColor: isDragging ? 'var(--rr-panel2)' : 'var(--rr-panel)',
         boxShadow: isDragging ? '0 4px 8px rgba(0,0,0,0.1)' : 'none',
         height: 'auto',
         minHeight: '48px'
@@ -58,7 +58,7 @@ export const SortableRoleItem: React.FC<SortableRoleItemProps> = ({
         {...attributes}
         {...listeners}
       >
-        <GripVertical size={16} style={{ color: '#64748B' }} />
+        <GripVertical size={16} style={{ color: 'var(--rr-text2)' }} />
       </div>
 
       {/* Role Name Column */}
@@ -68,9 +68,9 @@ export const SortableRoleItem: React.FC<SortableRoleItemProps> = ({
         display: 'flex',
         alignItems: 'center',
         fontSize: '14px',
-        color: '#1F2937',
+        color: 'var(--rr-text)',
         fontWeight: 500,
-        fontFamily: 'Inter'
+        fontFamily: 'inherit'
       }}>
         {role.name}
       </div>
@@ -87,11 +87,11 @@ export const SortableRoleItem: React.FC<SortableRoleItemProps> = ({
           const getScopeColors = (scope: ExclusivityScope) => {
             switch (scope) {
               case 'wing':
-                return { color: '#2563EB', backgroundColor: '#EFF6FF', hoverColor: '#1D4ED8' };
+                return { color: 'var(--rr-accent-text)', backgroundColor: 'var(--rr-accent-weak)', hoverColor: '#1D4ED8' };
               case 'squadron':
-                return { color: '#059669', backgroundColor: '#ECFDF5', hoverColor: '#047857' };
+                return { color: 'var(--rr-good)', backgroundColor: 'rgba(64,168,91,.14)', hoverColor: '#047857' };
               default:
-                return { color: '#9CA3AF', backgroundColor: 'transparent', hoverColor: '#6B7280' };
+                return { color: 'var(--rr-text3)', backgroundColor: 'transparent', hoverColor: '#6B7280' };
             }
           };
 
@@ -138,7 +138,7 @@ export const SortableRoleItem: React.FC<SortableRoleItemProps> = ({
                 minWidth: '80px',
                 textAlign: 'center',
                 display: 'inline-block',
-                fontFamily: 'Inter'
+                fontFamily: 'inherit'
               }}
               onMouseEnter={(e) => {
                 (e.target as HTMLElement).style.color = colors.hoverColor;
@@ -170,25 +170,25 @@ export const SortableRoleItem: React.FC<SortableRoleItemProps> = ({
                 padding: '4px',
                 borderRadius: '4px',
                 cursor: 'pointer',
-                background: 'white',
-                boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                background: 'var(--rr-panel)',
+                boxShadow: 'var(--rr-shadow)',
                 border: 'none',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 transition: 'all 0.1s ease',
-                color: '#64748B',
+                color: 'var(--rr-text2)',
                 width: '24px',
                 height: '24px'
               }}
               title="Edit role"
               onMouseEnter={(e) => {
                 e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.15)';
-                e.currentTarget.style.background = '#F8FAFC';
+                e.currentTarget.style.background = 'var(--rr-panel2)';
               }}
               onMouseLeave={(e) => {
                 e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
-                e.currentTarget.style.background = 'white';
+                e.currentTarget.style.background = 'var(--rr-panel)';
               }}
             >
               <Edit size={14} color="#64748B" />
@@ -200,14 +200,14 @@ export const SortableRoleItem: React.FC<SortableRoleItemProps> = ({
                 padding: '4px',
                 borderRadius: '4px',
                 cursor: roleUsage[role.id] > 0 ? 'not-allowed' : 'pointer',
-                background: 'white',
-                boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                background: 'var(--rr-panel)',
+                boxShadow: 'var(--rr-shadow)',
                 border: 'none',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 transition: 'all 0.1s ease',
-                color: '#64748B',
+                color: 'var(--rr-text2)',
                 width: '24px',
                 height: '24px',
                 opacity: roleUsage[role.id] > 0 ? 0.5 : 1
@@ -216,13 +216,13 @@ export const SortableRoleItem: React.FC<SortableRoleItemProps> = ({
               onMouseEnter={(e) => {
                 if (roleUsage[role.id] === 0) {
                   e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.15)';
-                  e.currentTarget.style.background = '#F8FAFC';
+                  e.currentTarget.style.background = 'var(--rr-panel2)';
                 }
               }}
               onMouseLeave={(e) => {
                 if (roleUsage[role.id] === 0) {
                   e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
-                  e.currentTarget.style.background = 'white';
+                  e.currentTarget.style.background = 'var(--rr-panel)';
                 }
               }}
             >

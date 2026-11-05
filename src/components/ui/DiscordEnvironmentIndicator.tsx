@@ -42,15 +42,15 @@ const DiscordEnvironmentIndicator: React.FC<DiscordEnvironmentIndicatorProps> = 
         <div style={{
           width: size === 'small' ? '12px' : '16px',
           height: size === 'small' ? '12px' : '16px',
-          backgroundColor: '#E2E8F0',
+          backgroundColor: 'var(--rr-panel3)',
           borderRadius: '50%',
           animation: 'pulse 1.5s infinite'
         }} />
         {showLabel && (
           <span style={{
             fontSize: size === 'small' ? '11px' : '12px',
-            color: '#9CA3AF',
-            fontFamily: 'Inter'
+            color: 'var(--rr-text3)',
+            fontFamily: 'inherit'
           }}>
             Loading...
           </span>
@@ -77,28 +77,28 @@ const DiscordEnvironmentIndicator: React.FC<DiscordEnvironmentIndicatorProps> = 
       alignItems: 'center',
       gap: '4px',
       padding: size === 'small' ? '2px 6px' : '4px 8px',
-      backgroundColor: isProduction ? '#FEF3C7' : '#EFF6FF',
-      border: `1px solid ${isProduction ? '#FDE68A' : '#DBEAFE'}`,
+      backgroundColor: isProduction ? 'rgba(222,154,31,.14)' : 'var(--rr-accent-weak)',
+      border: `1px solid ${isProduction ? 'var(--rr-warn)' : 'var(--rr-accent)'}`,
       borderRadius: '12px',
       fontSize: fontSize,
-      fontFamily: 'Inter',
+      fontFamily: 'inherit',
       fontWeight: 500
     }}>
       {isProduction ? (
         <AlertTriangle 
           size={iconSize} 
-          style={{ color: '#D97706' }} 
+          style={{ color: 'var(--rr-warn)' }} 
         />
       ) : (
         <Server 
           size={iconSize} 
-          style={{ color: '#2563EB' }} 
+          style={{ color: 'var(--rr-accent-text)' }} 
         />
       )}
       
       {showLabel && (
         <span style={{
-          color: isProduction ? '#92400E' : '#1D4ED8',
+          color: isProduction ? 'var(--rr-warn)' : 'var(--rr-accent-text)',
           fontSize: fontSize,
           textTransform: 'uppercase' as const,
           letterSpacing: '0.025em'

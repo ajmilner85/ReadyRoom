@@ -153,7 +153,7 @@ const FilterDrawer: React.FC<FilterDrawerProps> = ({
 
   return (
     <div style={{
-      backgroundColor: '#FFFFFF',
+      backgroundColor: 'var(--rr-panel)',
       overflow: 'visible'
     }}>
       {/* Drawer header with active filters */}
@@ -162,7 +162,7 @@ const FilterDrawer: React.FC<FilterDrawerProps> = ({
         style={{
           padding: '12px 16px',
           cursor: 'pointer',
-          borderBottom: isExpanded ? '1px solid #E2E8F0' : 'none',
+          borderBottom: isExpanded ? '1px solid var(--rr-border)' : 'none',
           transition: 'all 0.2s ease'
         }}
       >
@@ -192,13 +192,13 @@ const FilterDrawer: React.FC<FilterDrawerProps> = ({
                     }}
                     style={{
                       padding: '2px 6px',
-                      backgroundColor: filtersEnabled ? '#EFF6FF' : '#F3F4F6',
-                      border: '1px solid ' + (filtersEnabled ? '#DBEAFE' : '#D1D5DB'),
+                      backgroundColor: filtersEnabled ? 'var(--rr-accent-weak)' : 'var(--rr-panel2)',
+                      border: '1px solid ' + (filtersEnabled ? 'var(--rr-accent)' : 'var(--rr-border2)'),
                       borderRadius: '3px',
                       fontSize: '10px',
                       cursor: 'pointer',
-                      fontFamily: 'Inter',
-                      color: filtersEnabled ? '#1E40AF' : '#6B7280'
+                      fontFamily: 'inherit',
+                      color: filtersEnabled ? 'var(--rr-accent-text)' : 'var(--rr-text2)'
                     }}
                   >
                     {filtersEnabled ? 'ON' : 'OFF'}
@@ -210,13 +210,13 @@ const FilterDrawer: React.FC<FilterDrawerProps> = ({
                     }}
                     style={{
                       padding: '2px 6px',
-                      backgroundColor: '#FEF2F2',
-                      border: '1px solid #FECACA',
+                      backgroundColor: 'rgba(224,82,78,.12)',
+                      border: '1px solid var(--rr-bad)',
                       borderRadius: '3px',
                       fontSize: '10px',
                       cursor: 'pointer',
-                      fontFamily: 'Inter',
-                      color: '#DC2626'
+                      fontFamily: 'inherit',
+                      color: 'var(--rr-bad)'
                     }}
                   >
                     Clear All
@@ -282,25 +282,25 @@ const FilterDrawer: React.FC<FilterDrawerProps> = ({
                       <div style={{
                         width: '20px',
                         height: '20px',
-                        backgroundColor: '#E5E7EB',
+                        backgroundColor: 'var(--rr-panel3)',
                         borderRadius: '3px',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
                         flexShrink: 0
                       }}>
-                        <span style={{ fontSize: '10px', color: '#6B7280' }}>?</span>
+                        <span style={{ fontSize: '10px', color: 'var(--rr-text2)' }}>?</span>
                       </div>
                     )}
                     <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, flex: 1 }}>
-                      <span style={{ fontSize: '12px', fontWeight: 500, fontFamily: 'Inter' }}>
+                      <span style={{ fontSize: '12px', fontWeight: 500, fontFamily: 'inherit' }}>
                         {squadron.designation}
                       </span>
-                      <span style={{ fontSize: '10px', color: '#64748B', fontFamily: 'Inter' }}>
+                      <span style={{ fontSize: '10px', color: 'var(--rr-text2)', fontFamily: 'inherit' }}>
                         {squadron.name}
                       </span>
                     </div>
-                    <span style={{ fontSize: '10px', color: '#94A3B8', fontFamily: 'Inter', marginLeft: 'auto' }}>
+                    <span style={{ fontSize: '10px', color: 'var(--rr-text3)', fontFamily: 'inherit', marginLeft: 'auto' }}>
                       ({getSquadronPilotCount(squadron.id)})
                     </span>
                   </>
@@ -320,11 +320,11 @@ const FilterDrawer: React.FC<FilterDrawerProps> = ({
                       width: '12px',
                       height: '12px',
                       borderRadius: '50%',
-                      backgroundColor: status.isActive ? '#10B981' : '#EF4444',
+                      backgroundColor: status.isActive ? 'var(--rr-good)' : 'var(--rr-bad)',
                       flexShrink: 0
                     }} />
                     <span style={{ flex: 1 }}>{status.name}</span>
-                    <span style={{ fontSize: '10px', color: '#94A3B8', fontFamily: 'Inter' }}>
+                    <span style={{ fontSize: '10px', color: 'var(--rr-text3)', fontFamily: 'inherit' }}>
                       ({getStatusPilotCount(status.id)})
                     </span>
                   </div>
@@ -341,7 +341,7 @@ const FilterDrawer: React.FC<FilterDrawerProps> = ({
                 renderItem={(standing) => (
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
                     <span>{standing.name}</span>
-                    <span style={{ fontSize: '10px', color: '#94A3B8', fontFamily: 'Inter' }}>
+                    <span style={{ fontSize: '10px', color: 'var(--rr-text3)', fontFamily: 'inherit' }}>
                       ({getStandingPilotCount(standing.id)})
                     </span>
                   </div>
@@ -361,11 +361,11 @@ const FilterDrawer: React.FC<FilterDrawerProps> = ({
                       width: '12px',
                       height: '12px',
                       borderRadius: '2px',
-                      backgroundColor: role.exclusivity_scope && role.exclusivity_scope !== 'none' ? '#F59E0B' : '#6B7280',
+                      backgroundColor: role.exclusivity_scope && role.exclusivity_scope !== 'none' ? 'var(--rr-warn)' : '#6B7280',
                       flexShrink: 0
                     }} />
                     <span style={{ flex: 1 }}>{role.name}</span>
-                    <span style={{ fontSize: '10px', color: '#94A3B8', fontFamily: 'Inter' }}>
+                    <span style={{ fontSize: '10px', color: 'var(--rr-text3)', fontFamily: 'inherit' }}>
                       ({getRolePilotCount(role.id)})
                     </span>
                   </div>
@@ -453,8 +453,8 @@ const MultiSelectDropdown: React.FC<{
         <h4 style={{
           fontSize: '12px',
           fontWeight: 500,
-          fontFamily: 'Inter',
-          color: '#374151',
+          fontFamily: 'inherit',
+          color: 'var(--rr-text)',
           margin: 0
         }}>
           {title}
@@ -465,15 +465,15 @@ const MultiSelectDropdown: React.FC<{
         onClick={() => setIsOpen(!isOpen)}
         style={{
           padding: '8px 12px',
-          border: '1px solid #CBD5E1',
+          border: '1px solid var(--rr-border2)',
           borderRadius: '6px',
-          backgroundColor: '#F8FAFC',
+          backgroundColor: 'var(--rr-panel2)',
           cursor: 'pointer',
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
           fontSize: '12px',
-          fontFamily: 'Inter'
+          fontFamily: 'inherit'
         }}
       >
         <span>{getDisplayText()}</span>
@@ -488,25 +488,25 @@ const MultiSelectDropdown: React.FC<{
           top: '100%',
           left: 0,
           right: 0,
-          backgroundColor: '#FFFFFF',
-          border: '1px solid #CBD5E1',
+          backgroundColor: 'var(--rr-panel)',
+          border: '1px solid var(--rr-border2)',
           borderRadius: '6px',
           maxHeight: '200px',
           overflowY: 'auto',
           zIndex: 1000,
-          boxShadow: '0px 4px 6px -1px rgba(0, 0, 0, 0.1)',
+          boxShadow: 'var(--rr-shadow)',
           marginTop: '4px'
         }}>
-          <div style={{ padding: '8px', borderBottom: '1px solid #E2E8F0', display: 'flex', gap: '8px' }}>
+          <div style={{ padding: '8px', borderBottom: '1px solid var(--rr-border)', display: 'flex', gap: '8px' }}>
             <button onClick={selectAll} style={{
-              padding: '4px 8px', backgroundColor: '#EFF6FF', border: '1px solid #DBEAFE',
-              borderRadius: '4px', fontSize: '11px', cursor: 'pointer', fontFamily: 'Inter', color: '#1E40AF'
+              padding: '4px 8px', backgroundColor: 'var(--rr-accent-weak)', border: '1px solid var(--rr-accent)',
+              borderRadius: '4px', fontSize: '11px', cursor: 'pointer', fontFamily: 'inherit', color: 'var(--rr-accent-text)'
             }}>
               All
             </button>
             <button onClick={clearAll} style={{
-              padding: '4px 8px', backgroundColor: '#FEF2F2', border: '1px solid #FECACA',
-              borderRadius: '4px', fontSize: '11px', cursor: 'pointer', fontFamily: 'Inter', color: '#DC2626'
+              padding: '4px 8px', backgroundColor: 'rgba(224,82,78,.12)', border: '1px solid var(--rr-bad)',
+              borderRadius: '4px', fontSize: '11px', cursor: 'pointer', fontFamily: 'inherit', color: 'var(--rr-bad)'
             }}>
               None
             </button>
@@ -522,14 +522,14 @@ const MultiSelectDropdown: React.FC<{
                 display: 'flex',
                 alignItems: 'center',
                 gap: '8px',
-                backgroundColor: selectedIds.includes(item.id) ? '#EFF6FF' : 'transparent',
+                backgroundColor: selectedIds.includes(item.id) ? 'var(--rr-accent-weak)' : 'transparent',
                 transition: 'background-color 0.2s',
                 fontSize: '12px',
-                fontFamily: 'Inter'
+                fontFamily: 'inherit'
               }}
               onMouseEnter={e => {
                 if (!selectedIds.includes(item.id)) {
-                  e.currentTarget.style.backgroundColor = '#F8FAFC';
+                  e.currentTarget.style.backgroundColor = 'var(--rr-panel2)';
                 }
               }}
               onMouseLeave={e => {
@@ -553,9 +553,9 @@ const Checkbox: React.FC<{ isSelected: boolean }> = ({ isSelected }) => (
   <div style={{
     width: '14px',
     height: '14px',
-    border: '1px solid #CBD5E1',
+    border: '1px solid var(--rr-border2)',
     borderRadius: '3px',
-    backgroundColor: isSelected ? '#3B82F6' : '#FFFFFF',
+    backgroundColor: isSelected ? 'var(--rr-accent)' : 'var(--rr-panel)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
@@ -575,9 +575,9 @@ const ThreeWayToggle: React.FC<{ mode: QualificationFilterMode | undefined }> = 
       <div style={{
         width: '14px',
         height: '14px',
-        border: '1px solid #CBD5E1',
+        border: '1px solid var(--rr-border2)',
         borderRadius: '3px',
-        backgroundColor: '#FFFFFF',
+        backgroundColor: 'var(--rr-panel)',
         flexShrink: 0
       }} />
     );
@@ -595,7 +595,7 @@ const ThreeWayToggle: React.FC<{ mode: QualificationFilterMode | undefined }> = 
         justifyContent: 'center',
         flexShrink: 0
       }}>
-        <span style={{ color: '#3B82F6', fontSize: '14px', fontWeight: 'bold', lineHeight: 1 }}>✓</span>
+        <span style={{ color: 'var(--rr-accent-text)', fontSize: '14px', fontWeight: 'bold', lineHeight: 1 }}>✓</span>
       </div>
     );
   }
@@ -611,7 +611,7 @@ const ThreeWayToggle: React.FC<{ mode: QualificationFilterMode | undefined }> = 
       justifyContent: 'center',
       flexShrink: 0
     }}>
-      <span style={{ color: '#EF4444', fontSize: '12px', fontWeight: 'bold', lineHeight: 1 }}>✕</span>
+      <span style={{ color: 'var(--rr-bad)', fontSize: '12px', fontWeight: 'bold', lineHeight: 1 }}>✕</span>
     </div>
   );
 };
@@ -636,22 +636,22 @@ const FilterSection: React.FC<{
       <h4 style={{
         fontSize: '12px',
         fontWeight: 500,
-        fontFamily: 'Inter',
-        color: '#374151',
+        fontFamily: 'inherit',
+        color: 'var(--rr-text)',
         margin: 0
       }}>
         {title}
       </h4>
       <div style={{ display: 'flex', gap: '6px' }}>
         <button onClick={onSelectAll} style={{
-          padding: '2px 6px', backgroundColor: '#EFF6FF', border: '1px solid #DBEAFE',
-          borderRadius: '3px', fontSize: '10px', cursor: 'pointer', fontFamily: 'Inter', color: '#1E40AF'
+          padding: '2px 6px', backgroundColor: 'var(--rr-accent-weak)', border: '1px solid var(--rr-accent)',
+          borderRadius: '3px', fontSize: '10px', cursor: 'pointer', fontFamily: 'inherit', color: 'var(--rr-accent-text)'
         }}>
           All
         </button>
         <button onClick={onClearAll} style={{
-          padding: '2px 6px', backgroundColor: '#FEF2F2', border: '1px solid #FECACA',
-          borderRadius: '3px', fontSize: '10px', cursor: 'pointer', fontFamily: 'Inter', color: '#DC2626'
+          padding: '2px 6px', backgroundColor: 'rgba(224,82,78,.12)', border: '1px solid var(--rr-bad)',
+          borderRadius: '3px', fontSize: '10px', cursor: 'pointer', fontFamily: 'inherit', color: 'var(--rr-bad)'
         }}>
           None
         </button>
@@ -660,7 +660,7 @@ const FilterSection: React.FC<{
     <div style={{
       maxHeight: '300px',
       overflowY: 'auto',
-      border: '1px solid #E5E7EB',
+      border: '1px solid var(--rr-border)',
       borderRadius: '4px',
       padding: '4px'
     }}>
@@ -674,14 +674,14 @@ const FilterSection: React.FC<{
             display: 'flex',
             alignItems: 'center',
             gap: '8px',
-            backgroundColor: selectedIds.includes(item.id) ? '#EFF6FF' : 'transparent',
+            backgroundColor: selectedIds.includes(item.id) ? 'var(--rr-accent-weak)' : 'transparent',
             borderRadius: '3px',
             transition: 'background-color 0.2s',
             marginBottom: '2px'
           }}
           onMouseEnter={e => {
             if (!selectedIds.includes(item.id)) {
-              e.currentTarget.style.backgroundColor = '#F8FAFC';
+              e.currentTarget.style.backgroundColor = 'var(--rr-panel2)';
             }
           }}
           onMouseLeave={e => {
@@ -720,22 +720,22 @@ const QualificationFilterSection: React.FC<{
       <h4 style={{
         fontSize: '12px',
         fontWeight: 500,
-        fontFamily: 'Inter',
-        color: '#374151',
+        fontFamily: 'inherit',
+        color: 'var(--rr-text)',
         margin: 0
       }}>
         {title}
       </h4>
       <div style={{ display: 'flex', gap: '6px' }}>
         <button onClick={onSelectAll} style={{
-          padding: '2px 6px', backgroundColor: '#EFF6FF', border: '1px solid #DBEAFE',
-          borderRadius: '3px', fontSize: '10px', cursor: 'pointer', fontFamily: 'Inter', color: '#1E40AF'
+          padding: '2px 6px', backgroundColor: 'var(--rr-accent-weak)', border: '1px solid var(--rr-accent)',
+          borderRadius: '3px', fontSize: '10px', cursor: 'pointer', fontFamily: 'inherit', color: 'var(--rr-accent-text)'
         }}>
           All
         </button>
         <button onClick={onClearAll} style={{
-          padding: '2px 6px', backgroundColor: '#FEF2F2', border: '1px solid #FECACA',
-          borderRadius: '3px', fontSize: '10px', cursor: 'pointer', fontFamily: 'Inter', color: '#DC2626'
+          padding: '2px 6px', backgroundColor: 'rgba(224,82,78,.12)', border: '1px solid var(--rr-bad)',
+          borderRadius: '3px', fontSize: '10px', cursor: 'pointer', fontFamily: 'inherit', color: 'var(--rr-bad)'
         }}>
           None
         </button>
@@ -744,7 +744,7 @@ const QualificationFilterSection: React.FC<{
     <div style={{
       maxHeight: '300px',
       overflowY: 'auto',
-      border: '1px solid #E5E7EB',
+      border: '1px solid var(--rr-border)',
       borderRadius: '4px',
       padding: '4px'
     }}>
@@ -771,7 +771,7 @@ const QualificationFilterSection: React.FC<{
             }}
             onMouseEnter={e => {
               if (!isActive) {
-                e.currentTarget.style.backgroundColor = '#F8FAFC';
+                e.currentTarget.style.backgroundColor = 'var(--rr-panel2)';
               }
             }}
             onMouseLeave={e => {
@@ -792,14 +792,14 @@ const QualificationFilterSection: React.FC<{
               flexShrink: 0,
               padding: '0 2px'
             }}>
-              <span style={{ fontSize: '8px', color: '#FFFFFF', fontFamily: 'Inter', fontWeight: 500 }}>
+              <span style={{ fontSize: '8px', color: '#FFFFFF', fontFamily: 'inherit', fontWeight: 500 }}>
                 {qual.code}
               </span>
             </div>
-            <span style={{ fontSize: '12px', fontFamily: 'Inter', flex: 1 }}>
+            <span style={{ fontSize: '12px', fontFamily: 'inherit', flex: 1 }}>
               {qual.name}
             </span>
-            <span style={{ fontSize: '10px', color: '#94A3B8', fontFamily: 'Inter', marginLeft: 'auto' }}>
+            <span style={{ fontSize: '10px', color: 'var(--rr-text3)', fontFamily: 'inherit', marginLeft: 'auto' }}>
               ({getQualificationPilotCount(qual.id)})
             </span>
           </div>

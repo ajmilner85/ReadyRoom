@@ -227,7 +227,7 @@ interface PilotEntryProps {
                 gap: '4px',
                 maxWidth: '200px',
                 zIndex: 1000,
-                boxShadow: '0px 4px 6px -1px rgba(0, 0, 0, 0.1), 0px 2px 4px -1px rgba(0, 0, 0, 0.06)'
+                boxShadow: 'var(--rr-shadow)'
               }}
             >
               {overflowQuals.map((pq, index) => (
@@ -259,8 +259,8 @@ interface PilotEntryProps {
       width: '28px',
       height: '24px',
       borderRadius: '4px',
-      border: '1px solid #CBD5E1',
-      backgroundColor: '#FFFFFF',
+      border: '1px solid var(--rr-border2)',
+      backgroundColor: 'var(--rr-panel)',
       cursor: 'pointer',
       transition: 'all 0.2s ease',
       marginLeft: '4px'
@@ -270,27 +270,27 @@ interface PilotEntryProps {
     const isPresentActive = currentRollCallStatus === 'Present';
     const presentButtonStyle: React.CSSProperties = {
       ...baseButtonStyle,
-      backgroundColor: isPresentActive ? '#22C55E' : '#FFFFFF',
-      borderColor: isPresentActive ? '#22C55E' : '#CBD5E1',
-      color: isPresentActive ? 'white' : '#64748B',
+      backgroundColor: isPresentActive ? 'var(--rr-good)' : 'var(--rr-panel)',
+      borderColor: isPresentActive ? '#22C55E' : 'var(--rr-border2)',
+      color: isPresentActive ? 'white' : 'var(--rr-text2)',
     };
 
     // Absent button (X)
     const isAbsentActive = currentRollCallStatus === 'Absent';
     const absentButtonStyle: React.CSSProperties = {
       ...baseButtonStyle,
-      backgroundColor: isAbsentActive ? '#EF4444' : '#FFFFFF',
-      borderColor: isAbsentActive ? '#EF4444' : '#CBD5E1',
-      color: isAbsentActive ? 'white' : '#64748B',
+      backgroundColor: isAbsentActive ? 'var(--rr-bad)' : 'var(--rr-panel)',
+      borderColor: isAbsentActive ? 'var(--rr-bad)' : 'var(--rr-border2)',
+      color: isAbsentActive ? 'white' : 'var(--rr-text2)',
     };
 
     // Tentative button (?)
     const isTentativeActive = currentRollCallStatus === 'Tentative';
     const tentativeButtonStyle: React.CSSProperties = {
       ...baseButtonStyle,
-      backgroundColor: isTentativeActive ? '#5865F2' : '#FFFFFF', // Blurple color
-      borderColor: isTentativeActive ? '#5865F2' : '#CBD5E1',
-      color: isTentativeActive ? 'white' : '#64748B',
+      backgroundColor: isTentativeActive ? '#5865F2' : 'var(--rr-panel)', // Blurple color
+      borderColor: isTentativeActive ? '#5865F2' : 'var(--rr-border2)',
+      color: isTentativeActive ? 'white' : 'var(--rr-text2)',
     };
 
     return (
@@ -345,7 +345,7 @@ interface PilotEntryProps {
         textAlign: 'left',
         fontSize: '16px',
         fontWeight: 400,
-        color: '#646F7E'
+        color: 'var(--rr-text2)'
       }}>
         {pilot.boardNumber}
       </span>
@@ -387,7 +387,7 @@ interface PilotEntryProps {
                   size={14}
                   strokeWidth={3}
                   style={{
-                    color: '#DC2626',
+                    color: 'var(--rr-bad)',
                     flexShrink: 0,
                     marginTop: '2px',
                   }}
@@ -411,7 +411,7 @@ interface PilotEntryProps {
                   size={14}
                   strokeWidth={2}
                   style={{
-                    color: '#9CA3AF',
+                    color: 'var(--rr-text3)',
                     flexShrink: 0,
                     marginTop: '2px',
                   }}
@@ -1031,13 +1031,13 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
     justifyContent: 'center',
     gap: '8px',
     padding: '8px 16px',
-    backgroundColor: isRollCallMode ? '#EFF6FF' : '#FFFFFF',
-    color: isRollCallMode ? '#2563EB' : '#64748B',
+    backgroundColor: isRollCallMode ? 'var(--rr-accent-weak)' : 'var(--rr-panel)',
+    color: isRollCallMode ? 'var(--rr-accent-text)' : 'var(--rr-text2)',
     borderRadius: '8px',
-    border: isRollCallMode ? '1px solid #2563EB' : '1px solid #CBD5E1',
+    border: isRollCallMode ? '1px solid var(--rr-accent)' : '1px solid var(--rr-border2)',
     cursor: 'pointer',
     transition: 'background-color 0.2s ease',
-    fontFamily: 'Inter',
+    fontFamily: 'inherit',
     fontSize: '14px',
     fontWeight: 400,
     flex: '0 0 25%'
@@ -1059,7 +1059,7 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
       marginBottom: '12px',
       justifyContent: 'flex-end'
     }}>
-      <span style={{ fontSize: '12px', color: '#6B7280', marginRight: '4px', alignSelf: 'center' }}>
+      <span style={{ fontSize: '12px', color: 'var(--rr-text2)', marginRight: '4px', alignSelf: 'center' }}>
         Sort by:
       </span>
       <button
@@ -1067,9 +1067,9 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
         onClick={() => setSortBySquadron(!sortBySquadron)}
         style={{
           padding: '4px 12px',
-          backgroundColor: sortBySquadron ? '#2563EB' : 'white',
-          color: sortBySquadron ? 'white' : '#6B7280',
-          border: `1px solid ${sortBySquadron ? '#2563EB' : '#D1D5DB'}`,
+          backgroundColor: sortBySquadron ? 'var(--rr-accent)' : 'var(--rr-panel)',
+          color: sortBySquadron ? 'white' : 'var(--rr-text2)',
+          border: `1px solid ${sortBySquadron ? 'var(--rr-accent)' : 'var(--rr-border2)'}`,
           borderRadius: '4px',
           cursor: 'pointer',
           fontSize: '12px',
@@ -1088,9 +1088,9 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
         onClick={() => setSortBy('boardNumber')}
         style={{
           padding: '4px 12px',
-          backgroundColor: sortBy === 'boardNumber' ? '#2563EB' : 'white',
-          color: sortBy === 'boardNumber' ? 'white' : '#6B7280',
-          border: `1px solid ${sortBy === 'boardNumber' ? '#2563EB' : '#D1D5DB'}`,
+          backgroundColor: sortBy === 'boardNumber' ? 'var(--rr-accent)' : 'var(--rr-panel)',
+          color: sortBy === 'boardNumber' ? 'white' : 'var(--rr-text2)',
+          border: `1px solid ${sortBy === 'boardNumber' ? 'var(--rr-accent)' : 'var(--rr-border2)'}`,
           borderRadius: '4px',
           cursor: 'pointer',
           fontSize: '12px',
@@ -1105,9 +1105,9 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
         onClick={() => setSortBy('callsign')}
         style={{
           padding: '4px 12px',
-          backgroundColor: sortBy === 'callsign' ? '#2563EB' : 'white',
-          color: sortBy === 'callsign' ? 'white' : '#6B7280',
-          border: `1px solid ${sortBy === 'callsign' ? '#2563EB' : '#D1D5DB'}`,
+          backgroundColor: sortBy === 'callsign' ? 'var(--rr-accent)' : 'var(--rr-panel)',
+          color: sortBy === 'callsign' ? 'white' : 'var(--rr-text2)',
+          border: `1px solid ${sortBy === 'callsign' ? 'var(--rr-accent)' : 'var(--rr-border2)'}`,
           borderRadius: '4px',
           cursor: 'pointer',
           fontSize: '12px',
@@ -1125,8 +1125,8 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
       width,
       minWidth: width,
       flexShrink: 0,
-      backgroundColor: '#FFFFFF',
-      boxShadow: '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)',
+      backgroundColor: 'var(--rr-panel)',
+      boxShadow: 'var(--rr-shadow)',
       borderRadius: '8px',
       padding: '24px',
       display: 'flex',
@@ -1142,12 +1142,12 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
           marginBottom: '16px'
         }}>
           <span style={{
-            fontFamily: 'Inter',
+            fontFamily: 'inherit',
             fontStyle: 'normal',
             fontWeight: 300,
             fontSize: '20px',
             lineHeight: '24px',
-            color: '#64748B',
+            color: 'var(--rr-text2)',
             textTransform: 'uppercase'
           }}>
             Available Pilots
@@ -1220,16 +1220,16 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
                       right: 0,
                       top: '50%',
                       height: '1px',
-                      backgroundColor: '#E2E8F0'
+                      backgroundColor: 'var(--rr-panel3)'
                     }}
                   />                  <span
                     style={{
                       position: 'relative',
-                      backgroundColor: '#FFFFFF',
+                      backgroundColor: 'var(--rr-panel)',
                       padding: '0 16px',
-                      color: '#646F7E',
+                      color: 'var(--rr-text2)',
                       fontSize: '12px',
-                      fontFamily: 'Inter',
+                      fontFamily: 'inherit',
                       fontWeight: 300,
                       textTransform: 'uppercase'
                     }}
@@ -1281,7 +1281,7 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
           justifyContent: 'space-between',
           alignItems: 'center',
           padding: '18px 0 0 0',
-          borderTop: '1px solid #E2E8F0',
+          borderTop: '1px solid var(--rr-border)',
           marginTop: 'auto'
         }}>
             {/* Roll Call Button */}            <button
@@ -1314,7 +1314,7 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
               display: 'flex',
               flex: '0 0 calc(30% + 20px)',
               borderRadius: '8px',
-              border: '1px solid #CBD5E1',
+              border: '1px solid var(--rr-border2)',
               overflow: 'hidden'
             }}>
               {/* Main Auto Assign Button */}
@@ -1391,22 +1391,22 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
                   justifyContent: 'center',
                   gap: '8px',
                   padding: '8px 12px',
-                  backgroundColor: '#FFFFFF',
-                  color: '#64748B',
+                  backgroundColor: 'var(--rr-panel)',
+                  color: 'var(--rr-text2)',
                   border: 'none',
                   cursor: 'pointer',
                   transition: 'background-color 0.2s ease',
-                  fontFamily: 'Inter',
+                  fontFamily: 'inherit',
                   fontSize: '14px',
                   fontWeight: 400,
                   flex: 1,
-                  borderRight: '1px solid #CBD5E1'
+                  borderRight: '1px solid var(--rr-border2)'
                 }}
                 onMouseEnter={e => {
-                  e.currentTarget.style.backgroundColor = '#F8FAFC';
+                  e.currentTarget.style.backgroundColor = 'var(--rr-panel2)';
                 }}
                 onMouseLeave={e => {
-                  e.currentTarget.style.backgroundColor = '#FFFFFF';
+                  e.currentTarget.style.backgroundColor = 'var(--rr-panel)';
                 }}
               >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -1426,18 +1426,18 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
                   alignItems: 'center',
                   justifyContent: 'center',
                   padding: '8px',
-                  backgroundColor: '#FFFFFF',
-                  color: '#64748B',
+                  backgroundColor: 'var(--rr-panel)',
+                  color: 'var(--rr-text2)',
                   border: 'none',
                   cursor: 'pointer',
                   transition: 'background-color 0.2s ease',
                   minWidth: '32px'
                 }}
                 onMouseEnter={e => {
-                  e.currentTarget.style.backgroundColor = '#F8FAFC';
+                  e.currentTarget.style.backgroundColor = 'var(--rr-panel2)';
                 }}
                 onMouseLeave={e => {
-                  e.currentTarget.style.backgroundColor = '#FFFFFF';
+                  e.currentTarget.style.backgroundColor = 'var(--rr-panel)';
                 }}
                 title="Auto-assignment settings"
               >
@@ -1454,22 +1454,22 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
                 justifyContent: 'center',
                 gap: '8px',
                 padding: '8px 16px',
-                backgroundColor: '#FFFFFF',
-                color: '#64748B',
+                backgroundColor: 'var(--rr-panel)',
+                color: 'var(--rr-text2)',
                 borderRadius: '8px',
-                border: '1px solid #CBD5E1',
+                border: '1px solid var(--rr-border2)',
                 cursor: 'pointer',
                 transition: 'background-color 0.2s ease',
-                fontFamily: 'Inter',
+                fontFamily: 'inherit',
                 fontSize: '14px',
                 fontWeight: 400,
                 flex: '0 0 30%'
               }}
               onMouseEnter={e => {
-                e.currentTarget.style.backgroundColor = '#F8FAFC';
+                e.currentTarget.style.backgroundColor = 'var(--rr-panel2)';
               }}
               onMouseLeave={e => {
-                e.currentTarget.style.backgroundColor = '#FFFFFF';
+                e.currentTarget.style.backgroundColor = 'var(--rr-panel)';
               }}
             >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

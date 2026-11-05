@@ -72,16 +72,16 @@ const FlightCard: React.FC<FlightCardProps> = ({
     width: '442px',
     height: '100px',
     padding: '5px 4px 5px 5px',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'var(--rr-panel)',
     borderRadius: '8px',
-    fontFamily: 'Inter, sans-serif',
+    fontFamily: 'inherit',
     cursor: isEditingFuel ? 'default' : 'grab',
     userSelect: 'none',
     ...(isDragging ? {
-      boxShadow: '0px 20px 25px -5px rgba(0, 0, 0, 0.3), 0px 10px 10px -5px rgba(0, 0, 0, 0.2)',
+      boxShadow: 'var(--rr-shadow-lg)',
       opacity: 0.9,
     } : {
-      boxShadow: '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)',
+      boxShadow: 'var(--rr-shadow)',
       opacity: 1,
     }),
     ...(transform ? {
@@ -110,7 +110,7 @@ const FlightCard: React.FC<FlightCardProps> = ({
         {/* Flight Callsign */}
         <div style={{
           flex: '0 0 88px',
-          backgroundColor: '#F8FAFC',
+          backgroundColor: 'var(--rr-panel2)',
           borderRadius: '8px',
           display: 'flex',
           flexDirection: 'column',
@@ -119,16 +119,16 @@ const FlightCard: React.FC<FlightCardProps> = ({
           padding: '4px',
           paddingTop: '6px',
         }}>
-          <div style={{ fontSize: '16px', fontWeight: 700, lineHeight: '16px', color: '#575A58', textAlign: 'center', marginBottom: '3px' }}>
+          <div style={{ fontSize: '16px', fontWeight: 700, lineHeight: '16px', color: 'var(--rr-text2)', textAlign: 'center', marginBottom: '3px' }}>
             {callsign} {flightNumber}
           </div>
-          <div style={{ fontSize: '12px', fontWeight: 400, lineHeight: '16px', color: '#575A58', textAlign: 'center' }}>
+          <div style={{ fontSize: '12px', fontWeight: 400, lineHeight: '16px', color: 'var(--rr-text2)', textAlign: 'center' }}>
             {members.length}x {formatAircraftType(aircraftType)}
           </div>
-          <div style={{ fontSize: '12px', fontWeight: 400, lineHeight: '16px', color: '#575A58', textAlign: 'center' }}>
+          <div style={{ fontSize: '12px', fontWeight: 400, lineHeight: '16px', color: 'var(--rr-text2)', textAlign: 'center' }}>
             ---
           </div>
-          <div style={{ fontSize: '12px', fontWeight: 400, lineHeight: '16px', color: '#575A58', textAlign: 'center' }}>
+          <div style={{ fontSize: '12px', fontWeight: 400, lineHeight: '16px', color: 'var(--rr-text2)', textAlign: 'center' }}>
             ---
           </div>
         </div>
@@ -136,7 +136,7 @@ const FlightCard: React.FC<FlightCardProps> = ({
         {/* All Flight Members (including dash-1) */}
         <div style={{
           flex: '0 0 78px',
-          backgroundColor: '#F8FAFC',
+          backgroundColor: 'var(--rr-panel2)',
           borderRadius: '8px',
           padding: '4px',
           display: 'flex',
@@ -154,7 +154,7 @@ const FlightCard: React.FC<FlightCardProps> = ({
               <span style={{
                 fontSize: '10px',
                 fontWeight: 400,
-                color: '#94A3B8',
+                color: 'var(--rr-text3)',
                 lineHeight: '16px',
                 width: '10px',
                 textAlign: 'left',
@@ -166,7 +166,7 @@ const FlightCard: React.FC<FlightCardProps> = ({
                 fontFamily: 'USN Stencil',
                 fontSize: '16px',
                 fontWeight: 400,
-                color: '#575A58',
+                color: 'var(--rr-text2)',
                 width: '26px',
                 lineHeight: '16px',
                 textAlign: 'left',
@@ -197,7 +197,7 @@ const FlightCard: React.FC<FlightCardProps> = ({
         {/* Position */}
         <div style={{
           flex: '0 0 141px',
-          backgroundColor: '#F8FAFC',
+          backgroundColor: 'var(--rr-panel2)',
           borderRadius: '8px',
           display: 'flex',
           flexDirection: 'column',
@@ -206,7 +206,7 @@ const FlightCard: React.FC<FlightCardProps> = ({
         }}>
           {displayPosition ? (
             <>
-              <div style={{ fontSize: '20px', fontWeight: 500, color: '#000000' }}>
+              <div style={{ fontSize: '20px', fontWeight: 500, color: 'var(--rr-text)' }}>
                 {formatPosition(displayPosition)}
               </div>
               <div style={{ fontSize: '20px', fontWeight: 500, color: '#1E1E1E' }}>
@@ -214,14 +214,14 @@ const FlightCard: React.FC<FlightCardProps> = ({
               </div>
             </>
           ) : (
-            <div style={{ fontSize: '14px', color: '#64748B' }}>NO POS</div>
+            <div style={{ fontSize: '14px', color: 'var(--rr-text2)' }}>NO POS</div>
           )}
         </div>
 
         {/* Low State */}
         <div style={{
           flex: '0 0 92px',
-          backgroundColor: '#F8FAFC',
+          backgroundColor: 'var(--rr-panel2)',
           borderRadius: '8px',
           display: 'flex',
           alignItems: 'center',

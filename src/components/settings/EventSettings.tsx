@@ -119,7 +119,7 @@ const EventSettings: React.FC<EventSettingsProps> = ({ error, setError }) => {
       style={{
         width: '44px',
         height: '24px',
-        backgroundColor: enabled ? '#3B82F6' : '#E5E7EB',
+        backgroundColor: enabled ? 'var(--rr-accent)' : 'var(--rr-panel3)',
         borderRadius: '12px',
         position: 'relative',
         cursor: 'pointer',
@@ -130,13 +130,13 @@ const EventSettings: React.FC<EventSettingsProps> = ({ error, setError }) => {
         style={{
           width: '20px',
           height: '20px',
-          backgroundColor: 'white',
+          backgroundColor: 'var(--rr-panel)',
           borderRadius: '50%',
           position: 'absolute',
           top: '2px',
           left: enabled ? '22px' : '2px',
           transition: 'left 0.2s ease',
-          boxShadow: '0 2px 4px rgba(0, 0, 0, 0.2)'
+          boxShadow: 'var(--rr-shadow)'
         }}
       />
     </div>
@@ -156,10 +156,10 @@ const EventSettings: React.FC<EventSettingsProps> = ({ error, setError }) => {
         style={{
           width: '80px',
           padding: '8px',
-          border: '1px solid #CBD5E1',
+          border: '1px solid var(--rr-border2)',
           borderRadius: '4px',
           fontSize: '14px',
-          fontFamily: 'Inter',
+          fontFamily: 'inherit',
           textAlign: 'center'
         }}
       />
@@ -168,11 +168,11 @@ const EventSettings: React.FC<EventSettingsProps> = ({ error, setError }) => {
         onChange={(e) => onTimeChange('unit', e.target.value as TimeUnit)}
         style={{
           padding: '8px',
-          border: '1px solid #CBD5E1',
+          border: '1px solid var(--rr-border2)',
           borderRadius: '4px',
           fontSize: '14px',
-          fontFamily: 'Inter',
-          backgroundColor: 'white'
+          fontFamily: 'inherit',
+          backgroundColor: 'var(--rr-panel)'
         }}
       >
         {timeUnits.map(unit => (
@@ -181,14 +181,14 @@ const EventSettings: React.FC<EventSettingsProps> = ({ error, setError }) => {
           </option>
         ))}
       </select>
-      <span style={{ fontSize: '14px', color: '#64748B' }}>before event start</span>
+      <span style={{ fontSize: '14px', color: 'var(--rr-text2)' }}>before event start</span>
     </div>
   );
 
   const sectionStyle = {
     paddingTop: '32px',
     paddingBottom: '32px',
-    borderTop: '1px solid #E5E7EB',
+    borderTop: '1px solid var(--rr-border)',
     marginTop: '32px'
   };
 
@@ -202,33 +202,33 @@ const EventSettings: React.FC<EventSettingsProps> = ({ error, setError }) => {
   const fieldLabelStyle = {
     fontSize: '14px',
     fontWeight: 500,
-    color: '#374151',
+    color: 'var(--rr-text)',
     marginBottom: '8px',
-    fontFamily: 'Inter'
+    fontFamily: 'inherit'
   };
 
   const inputStyle = {
     width: '100%',
     padding: '10px 12px',
-    border: '1px solid #D1D5DB',
+    border: '1px solid var(--rr-border2)',
     borderRadius: '6px',
     fontSize: '14px',
-    fontFamily: 'Inter',
-    backgroundColor: '#FFFFFF',
-    color: '#374151',
+    fontFamily: 'inherit',
+    backgroundColor: 'var(--rr-panel)',
+    color: 'var(--rr-text)',
     outline: 'none',
     transition: 'border-color 0.2s ease'
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', backgroundColor: '#FFFFFF' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', backgroundColor: 'var(--rr-panel)' }}>
       {/* Fixed Header */}
       <div style={{ padding: '40px 40px 0 40px', flexShrink: 0 }}>
-        <div style={{ maxWidth: '800px', margin: '0 auto', borderBottom: '1px solid #E2E8F0', paddingBottom: '24px' }}>
-          <h2 style={{ fontSize: '24px', fontWeight: 600, margin: 0, color: '#0F172A' }}>
+        <div style={{ maxWidth: '800px', margin: '0 auto', borderBottom: '1px solid var(--rr-border)', paddingBottom: '24px' }}>
+          <h2 style={{ fontSize: '24px', fontWeight: 600, margin: 0, color: 'var(--rr-text)' }}>
             Events
           </h2>
-          <p style={{ fontSize: '14px', color: '#64748B', margin: '8px 0 0 0', fontFamily: 'Inter' }}>
+          <p style={{ fontSize: '14px', color: 'var(--rr-text2)', margin: '8px 0 0 0', fontFamily: 'inherit' }}>
             Configure default event timing, reminders, and response grouping settings.
           </p>
         </div>
@@ -240,7 +240,7 @@ const EventSettings: React.FC<EventSettingsProps> = ({ error, setError }) => {
 
         {/* Timing and Duration Section */}
         <div style={firstSectionStyle}>
-          <h3 style={{ fontSize: '18px', fontWeight: 600, color: '#0F172A', margin: '0 0 16px 0' }}>
+          <h3 style={{ fontSize: '18px', fontWeight: 600, color: 'var(--rr-text)', margin: '0 0 16px 0' }}>
             Timing and Duration
           </h3>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px' }}>
@@ -277,7 +277,7 @@ const EventSettings: React.FC<EventSettingsProps> = ({ error, setError }) => {
                 style={{
                   width: '70px',
                   padding: '8px',
-                  border: '1px solid #CBD5E1',
+                  border: '1px solid var(--rr-border2)',
                   borderRadius: '4px 0 0 4px',
                   fontSize: '14px',
                   boxSizing: 'border-box',
@@ -285,7 +285,7 @@ const EventSettings: React.FC<EventSettingsProps> = ({ error, setError }) => {
                   textAlign: 'center'
                 }}
               />
-              <span style={{ padding: '0 6px', border: '1px solid #CBD5E1', borderLeft: 'none', borderRight: 'none', height: '35px', lineHeight: '35px', backgroundColor: '#F8FAFC' }}>h</span>
+              <span style={{ padding: '0 6px', border: '1px solid var(--rr-border2)', borderLeft: 'none', borderRight: 'none', height: '35px', lineHeight: '35px', backgroundColor: 'var(--rr-panel2)' }}>h</span>
               <input
                 type="number"
                 min="0"
@@ -295,7 +295,7 @@ const EventSettings: React.FC<EventSettingsProps> = ({ error, setError }) => {
                 style={{
                   width: '70px',
                   padding: '8px',
-                  border: '1px solid #CBD5E1',
+                  border: '1px solid var(--rr-border2)',
                   borderRadius: '0 4px 4px 0',
                   fontSize: '14px',
                   boxSizing: 'border-box',
@@ -326,7 +326,7 @@ const EventSettings: React.FC<EventSettingsProps> = ({ error, setError }) => {
               <option value="Asia/Tokyo">Japan Time (JST)</option>
               <option value="Australia/Sydney">Australian Eastern Time (AEDT/AEST)</option>
             </select>
-            <p style={{ fontSize: '12px', color: '#64748B', margin: '4px 0 0 0', fontFamily: 'Inter' }}>
+            <p style={{ fontSize: '12px', color: 'var(--rr-text2)', margin: '4px 0 0 0', fontFamily: 'inherit' }}>
               This timezone will be used to determine when events start/finish for countdown updates and status display.
             </p>
           </div>
@@ -334,19 +334,19 @@ const EventSettings: React.FC<EventSettingsProps> = ({ error, setError }) => {
 
         {/* Reminders Section */}
         <div style={sectionStyle}>
-          <h3 style={{ fontSize: '18px', fontWeight: 600, color: '#0F172A', margin: '0 0 16px 0' }}>
+          <h3 style={{ fontSize: '18px', fontWeight: 600, color: 'var(--rr-text)', margin: '0 0 16px 0' }}>
             Reminders
           </h3>
 
           {/* First Reminder */}
           <div style={{
             padding: '20px',
-            backgroundColor: '#F8FAFC',
+            backgroundColor: 'var(--rr-panel2)',
             borderRadius: '6px',
-            border: '1px solid #E5E7EB',
+            border: '1px solid var(--rr-border)',
             marginBottom: '20px'
           }}>
-            <h4 style={{ fontSize: '16px', fontWeight: 600, color: '#1E293B', margin: '0 0 16px 0' }}>
+            <h4 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--rr-text)', margin: '0 0 16px 0' }}>
               First Reminder
             </h4>
 
@@ -359,7 +359,7 @@ const EventSettings: React.FC<EventSettingsProps> = ({ error, setError }) => {
                   )}
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span style={{ fontSize: '14px', color: '#64748B', fontFamily: 'Inter' }}>Enabled by default</span>
+                  <span style={{ fontSize: '14px', color: 'var(--rr-text2)', fontFamily: 'inherit' }}>Enabled by default</span>
                   {renderToggle(appSettings.eventDefaults.firstReminderEnabled, (enabled) =>
                     handleSettingChange('firstReminderEnabled', enabled)
                   )}
@@ -371,7 +371,7 @@ const EventSettings: React.FC<EventSettingsProps> = ({ error, setError }) => {
               <label style={{ ...fieldLabelStyle, marginBottom: '8px', display: 'block' }}>
                 Send to users with status:
               </label>
-              <p style={{ fontSize: '12px', color: '#64748B', margin: '0 0 8px 0', fontFamily: 'Inter', fontStyle: 'italic' }}>
+              <p style={{ fontSize: '12px', color: 'var(--rr-text2)', margin: '0 0 8px 0', fontFamily: 'inherit', fontStyle: 'italic' }}>
                 Only active users will be notified
               </p>
               <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
@@ -385,7 +385,7 @@ const EventSettings: React.FC<EventSettingsProps> = ({ error, setError }) => {
                     })}
                     style={{ marginRight: '8px' }}
                   />
-                  <span style={{ color: '#4B5563' }}>Accepted</span>
+                  <span style={{ color: 'var(--rr-text2)' }}>Accepted</span>
                 </label>
                 <label style={{ display: 'flex', alignItems: 'center', fontSize: '14px' }}>
                   <input
@@ -397,7 +397,7 @@ const EventSettings: React.FC<EventSettingsProps> = ({ error, setError }) => {
                     })}
                     style={{ marginRight: '8px' }}
                   />
-                  <span style={{ color: '#4B5563' }}>Tentative</span>
+                  <span style={{ color: 'var(--rr-text2)' }}>Tentative</span>
                 </label>
                 <label style={{ display: 'flex', alignItems: 'center', fontSize: '14px' }}>
                   <input
@@ -409,7 +409,7 @@ const EventSettings: React.FC<EventSettingsProps> = ({ error, setError }) => {
                     })}
                     style={{ marginRight: '8px' }}
                   />
-                  <span style={{ color: '#4B5563' }}>Declined</span>
+                  <span style={{ color: 'var(--rr-text2)' }}>Declined</span>
                 </label>
                 <label style={{ display: 'flex', alignItems: 'center', fontSize: '14px' }}>
                   <input
@@ -421,7 +421,7 @@ const EventSettings: React.FC<EventSettingsProps> = ({ error, setError }) => {
                     })}
                     style={{ marginRight: '8px' }}
                   />
-                  <span style={{ color: '#4B5563' }}>No Response</span>
+                  <span style={{ color: 'var(--rr-text2)' }}>No Response</span>
                 </label>
               </div>
             </div>
@@ -430,11 +430,11 @@ const EventSettings: React.FC<EventSettingsProps> = ({ error, setError }) => {
           {/* Second Reminder */}
           <div style={{
             padding: '20px',
-            backgroundColor: '#F8FAFC',
+            backgroundColor: 'var(--rr-panel2)',
             borderRadius: '6px',
-            border: '1px solid #E5E7EB'
+            border: '1px solid var(--rr-border)'
           }}>
-            <h4 style={{ fontSize: '16px', fontWeight: 600, color: '#1E293B', margin: '0 0 16px 0' }}>
+            <h4 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--rr-text)', margin: '0 0 16px 0' }}>
               Second Reminder
             </h4>
 
@@ -447,7 +447,7 @@ const EventSettings: React.FC<EventSettingsProps> = ({ error, setError }) => {
                   )}
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span style={{ fontSize: '14px', color: '#64748B', fontFamily: 'Inter' }}>Enabled by default</span>
+                  <span style={{ fontSize: '14px', color: 'var(--rr-text2)', fontFamily: 'inherit' }}>Enabled by default</span>
                   {renderToggle(appSettings.eventDefaults.secondReminderEnabled, (enabled) =>
                     handleSettingChange('secondReminderEnabled', enabled)
                   )}
@@ -459,7 +459,7 @@ const EventSettings: React.FC<EventSettingsProps> = ({ error, setError }) => {
               <label style={{ ...fieldLabelStyle, marginBottom: '8px', display: 'block' }}>
                 Send to users with status:
               </label>
-              <p style={{ fontSize: '12px', color: '#64748B', margin: '0 0 8px 0', fontFamily: 'Inter', fontStyle: 'italic' }}>
+              <p style={{ fontSize: '12px', color: 'var(--rr-text2)', margin: '0 0 8px 0', fontFamily: 'inherit', fontStyle: 'italic' }}>
                 Only active users will be notified
               </p>
               <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
@@ -473,7 +473,7 @@ const EventSettings: React.FC<EventSettingsProps> = ({ error, setError }) => {
                     })}
                     style={{ marginRight: '8px' }}
                   />
-                  <span style={{ color: '#4B5563' }}>Accepted</span>
+                  <span style={{ color: 'var(--rr-text2)' }}>Accepted</span>
                 </label>
                 <label style={{ display: 'flex', alignItems: 'center', fontSize: '14px' }}>
                   <input
@@ -485,7 +485,7 @@ const EventSettings: React.FC<EventSettingsProps> = ({ error, setError }) => {
                     })}
                     style={{ marginRight: '8px' }}
                   />
-                  <span style={{ color: '#4B5563' }}>Tentative</span>
+                  <span style={{ color: 'var(--rr-text2)' }}>Tentative</span>
                 </label>
                 <label style={{ display: 'flex', alignItems: 'center', fontSize: '14px' }}>
                   <input
@@ -497,7 +497,7 @@ const EventSettings: React.FC<EventSettingsProps> = ({ error, setError }) => {
                     })}
                     style={{ marginRight: '8px' }}
                   />
-                  <span style={{ color: '#4B5563' }}>Declined</span>
+                  <span style={{ color: 'var(--rr-text2)' }}>Declined</span>
                 </label>
                 <label style={{ display: 'flex', alignItems: 'center', fontSize: '14px' }}>
                   <input
@@ -509,7 +509,7 @@ const EventSettings: React.FC<EventSettingsProps> = ({ error, setError }) => {
                     })}
                     style={{ marginRight: '8px' }}
                   />
-                  <span style={{ color: '#4B5563' }}>No Response</span>
+                  <span style={{ color: 'var(--rr-text2)' }}>No Response</span>
                 </label>
               </div>
             </div>
@@ -518,12 +518,12 @@ const EventSettings: React.FC<EventSettingsProps> = ({ error, setError }) => {
           {/* Error message for reminder validation */}
           {error && (
             <div style={{
-              color: '#EF4444',
+              color: 'var(--rr-bad)',
               fontSize: '14px',
               marginTop: '16px',
               padding: '12px',
-              backgroundColor: '#FEF2F2',
-              border: '1px solid #FECACA',
+              backgroundColor: 'rgba(224,82,78,.12)',
+              border: '1px solid var(--rr-bad)',
               borderRadius: '6px'
             }}>
               {error}
@@ -533,20 +533,20 @@ const EventSettings: React.FC<EventSettingsProps> = ({ error, setError }) => {
 
         {/* Scheduled Publication Section */}
         <div style={sectionStyle}>
-          <h3 style={{ fontSize: '18px', fontWeight: 600, color: '#0F172A', margin: '0 0 16px 0' }}>
+          <h3 style={{ fontSize: '18px', fontWeight: 600, color: 'var(--rr-text)', margin: '0 0 16px 0' }}>
             Scheduled Publication
           </h3>
           <div style={{
             padding: '20px',
-            backgroundColor: '#F8FAFC',
+            backgroundColor: 'var(--rr-panel2)',
             borderRadius: '6px',
-            border: '1px solid #E5E7EB',
+            border: '1px solid var(--rr-border)',
             marginBottom: '16px'
           }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
               <div>
                 <label style={fieldLabelStyle}>Schedule publication by default</label>
-                <p style={{ fontSize: '12px', color: '#64748B', margin: '4px 0 0 0', fontFamily: 'Inter' }}>
+                <p style={{ fontSize: '12px', color: 'var(--rr-text2)', margin: '4px 0 0 0', fontFamily: 'inherit' }}>
                   When enabled, the "Schedule Publication" option will be turned on by default when creating new events.
                 </p>
               </div>
@@ -558,12 +558,12 @@ const EventSettings: React.FC<EventSettingsProps> = ({ error, setError }) => {
 
           <div style={{
             padding: '20px',
-            backgroundColor: '#F8FAFC',
+            backgroundColor: 'var(--rr-panel2)',
             borderRadius: '6px',
-            border: '1px solid #E5E7EB'
+            border: '1px solid var(--rr-border)'
           }}>
             <label style={fieldLabelStyle}>Default scheduled publication offset</label>
-            <p style={{ fontSize: '12px', color: '#64748B', margin: '4px 0 12px 0', fontFamily: 'Inter' }}>
+            <p style={{ fontSize: '12px', color: 'var(--rr-text2)', margin: '4px 0 12px 0', fontFamily: 'inherit' }}>
               When scheduling publication for new events, this offset will be applied before the event start time.
             </p>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -583,14 +583,14 @@ const EventSettings: React.FC<EventSettingsProps> = ({ error, setError }) => {
 
         {/* Response Options Section */}
         <div style={sectionStyle}>
-          <h3 style={{ fontSize: '18px', fontWeight: 600, color: '#0F172A', margin: '0 0 16px 0' }}>
+          <h3 style={{ fontSize: '18px', fontWeight: 600, color: 'var(--rr-text)', margin: '0 0 16px 0' }}>
             Response Options
           </h3>
 
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <div>
               <label style={fieldLabelStyle}>Allow users to respond tentatively to events</label>
-              <p style={{ fontSize: '12px', color: '#64748B', margin: '4px 0 0 0', fontFamily: 'Inter' }}>
+              <p style={{ fontSize: '12px', color: 'var(--rr-text2)', margin: '4px 0 0 0', fontFamily: 'inherit' }}>
                 When enabled, users can select "Tentative" in addition to "Accept" or "Decline".
               </p>
             </div>
@@ -602,14 +602,14 @@ const EventSettings: React.FC<EventSettingsProps> = ({ error, setError }) => {
 
         {/* Response Grouping Section */}
         <div style={sectionStyle}>
-          <h3 style={{ fontSize: '18px', fontWeight: 600, color: '#0F172A', margin: '0 0 16px 0' }}>
+          <h3 style={{ fontSize: '18px', fontWeight: 600, color: 'var(--rr-text)', margin: '0 0 16px 0' }}>
             Response Grouping
           </h3>
           
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
             <div>
               <label style={fieldLabelStyle}>Event responses grouped by qualification by default</label>
-              <p style={{ fontSize: '12px', color: '#64748B', margin: '4px 0 0 0', fontFamily: 'Inter' }}>
+              <p style={{ fontSize: '12px', color: 'var(--rr-text2)', margin: '4px 0 0 0', fontFamily: 'inherit' }}>
                 When enabled, Discord event responses will be organized by pilot qualification levels.
               </p>
             </div>
@@ -621,7 +621,7 @@ const EventSettings: React.FC<EventSettingsProps> = ({ error, setError }) => {
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
             <div>
               <label style={fieldLabelStyle}>Event responses grouped by squadron by default</label>
-              <p style={{ fontSize: '12px', color: '#64748B', margin: '4px 0 0 0', fontFamily: 'Inter' }}>
+              <p style={{ fontSize: '12px', color: 'var(--rr-text2)', margin: '4px 0 0 0', fontFamily: 'inherit' }}>
                 When enabled, Discord event responses will be organized by squadron.
               </p>
             </div>
@@ -633,7 +633,7 @@ const EventSettings: React.FC<EventSettingsProps> = ({ error, setError }) => {
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <div>
               <label style={fieldLabelStyle}>Show "No Response" users by default</label>
-              <p style={{ fontSize: '12px', color: '#64748B', margin: '4px 0 0 0', fontFamily: 'Inter' }}>
+              <p style={{ fontSize: '12px', color: 'var(--rr-text2)', margin: '4px 0 0 0', fontFamily: 'inherit' }}>
                 When enabled, active users who haven't responded will be displayed in Discord event posts.
               </p>
             </div>
@@ -645,12 +645,12 @@ const EventSettings: React.FC<EventSettingsProps> = ({ error, setError }) => {
 
         {/* Mission Support Roles Section */}
         <div style={sectionStyle}>
-          <h3 style={{ fontSize: '18px', fontWeight: 600, color: '#0F172A', margin: '0 0 16px 0' }}>
+          <h3 style={{ fontSize: '18px', fontWeight: 600, color: 'var(--rr-text)', margin: '0 0 16px 0' }}>
             Mission Support Roles
           </h3>
           <div>
             <label style={fieldLabelStyle}>Default supporting role requirements</label>
-            <p style={{ fontSize: '12px', color: '#64748B', margin: '4px 0 12px 0', fontFamily: 'Inter' }}>
+            <p style={{ fontSize: '12px', color: 'var(--rr-text2)', margin: '4px 0 12px 0', fontFamily: 'inherit' }}>
               New events start with these Mission Support roles and required counts. Each role's grouping in the
               Discord post shows accepted qualified pilots as Available/Required (e.g. JTAC (1/3)). Set required
               to 0 to list a role without requiring it. Rows are shown in this order; use the arrows to reorder.
@@ -664,12 +664,12 @@ const EventSettings: React.FC<EventSettingsProps> = ({ error, setError }) => {
 
         {/* Reference Materials Section */}
         <div style={sectionStyle}>
-          <h3 style={{ fontSize: '18px', fontWeight: 600, color: '#0F172A', margin: '0 0 16px 0' }}>
+          <h3 style={{ fontSize: '18px', fontWeight: 600, color: 'var(--rr-text)', margin: '0 0 16px 0' }}>
             Training Reference Materials
           </h3>
           <div>
             <label style={fieldLabelStyle}>Reference Material Types</label>
-            <p style={{ fontSize: '12px', color: '#64748B', margin: '4px 0 12px 0', fontFamily: 'Inter' }}>
+            <p style={{ fontSize: '12px', color: 'var(--rr-text2)', margin: '4px 0 12px 0', fontFamily: 'inherit' }}>
               Define reference material types that will appear in the dropdown when adding custom references to training syllabi or events (in addition to an "Other" option)
             </p>
             {(appSettings.eventDefaults.defaultReferenceMaterialTypes || []).map((type, index) => (
@@ -685,10 +685,10 @@ const EventSettings: React.FC<EventSettingsProps> = ({ error, setError }) => {
                   style={{
                     flex: 1,
                     padding: '8px 12px',
-                    border: '1px solid #D1D5DB',
+                    border: '1px solid var(--rr-border2)',
                     borderRadius: '6px',
                     fontSize: '14px',
-                    fontFamily: 'Inter'
+                    fontFamily: 'inherit'
                   }}
                   placeholder={`Reference Type ${index + 1}`}
                 />
@@ -701,12 +701,12 @@ const EventSettings: React.FC<EventSettingsProps> = ({ error, setError }) => {
                     style={{
                       padding: '8px 12px',
                       border: 'none',
-                      backgroundColor: '#FEE2E2',
-                      color: '#DC2626',
+                      backgroundColor: 'rgba(224,82,78,.12)',
+                      color: 'var(--rr-bad)',
                       borderRadius: '6px',
                       cursor: 'pointer',
                       fontSize: '14px',
-                      fontFamily: 'Inter',
+                      fontFamily: 'inherit',
                       fontWeight: 500
                     }}
                   >
@@ -722,13 +722,13 @@ const EventSettings: React.FC<EventSettingsProps> = ({ error, setError }) => {
               }}
               style={{
                 padding: '8px 16px',
-                border: '1px solid #3B82F6',
-                backgroundColor: '#EFF6FF',
-                color: '#3B82F6',
+                border: '1px solid var(--rr-accent)',
+                backgroundColor: 'var(--rr-accent-weak)',
+                color: 'var(--rr-accent-text)',
                 borderRadius: '6px',
                 cursor: 'pointer',
                 fontSize: '14px',
-                fontFamily: 'Inter',
+                fontFamily: 'inherit',
                 fontWeight: 500,
                 marginTop: '8px'
               }}
@@ -740,14 +740,14 @@ const EventSettings: React.FC<EventSettingsProps> = ({ error, setError }) => {
 
         {/* Mission Debriefing Section */}
         <div style={sectionStyle}>
-          <h3 style={{ fontSize: '18px', fontWeight: 600, color: '#0F172A', margin: '0 0 16px 0' }}>
+          <h3 style={{ fontSize: '18px', fontWeight: 600, color: 'var(--rr-text)', margin: '0 0 16px 0' }}>
             Mission Debriefing
           </h3>
           
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <div style={{ flex: 1, marginRight: '16px' }}>
               <label style={fieldLabelStyle}>After Action Reports required for Operational squadrons only by default</label>
-              <p style={{ fontSize: '12px', color: '#64748B', margin: '4px 0 0 0', fontFamily: 'Inter' }}>
+              <p style={{ fontSize: '12px', color: 'var(--rr-text2)', margin: '4px 0 0 0', fontFamily: 'inherit' }}>
                 When enabled, the Mission Debriefing page will only show AAR sections for operational (non-training) squadrons by default for new events. This setting can be overridden per-event on the Participants tab.
               </p>
             </div>

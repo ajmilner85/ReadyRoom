@@ -3,7 +3,7 @@
 
 export const dossierStyles = {
   container: {
-    backgroundColor: '#F0F4F8',
+    backgroundColor: 'var(--rr-panel2)',
     height: '100vh',
     display: 'flex',
     flexDirection: 'column' as const,
@@ -30,8 +30,8 @@ export const dossierStyles = {
     overflow: 'visible'
   },
   card: {
-    backgroundColor: '#FFFFFF',
-    boxShadow: '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)',
+    backgroundColor: 'var(--rr-panel)',
+    boxShadow: 'var(--rr-shadow)',
     borderRadius: '8px',
     display: 'flex',
     flexDirection: 'column' as const,
@@ -43,12 +43,12 @@ export const dossierStyles = {
     padding: '16px 24px 8px'
   },
   cardHeaderText: {
-    fontFamily: 'Inter',
+    fontFamily: 'inherit',
     fontStyle: 'normal' as const,
     fontWeight: 300,
     fontSize: '20px',
     lineHeight: '24px',
-    color: '#64748B',
+    color: 'var(--rr-text2)',
     textTransform: 'uppercase' as const,
     display: 'block',
     textAlign: 'center' as const
@@ -63,19 +63,19 @@ export const dossierStyles = {
     marginBottom: '8px',
     fontSize: '14px',
     fontWeight: 500,
-    color: '#64748B'
+    color: 'var(--rr-text2)'
   },
   fieldValue: {
     fontSize: '14px',
-    color: '#0F172A'
+    color: 'var(--rr-text)'
   },
   sectionLabel: {
     fontSize: '12px',
-    fontFamily: 'Inter',
+    fontFamily: 'inherit',
     fontWeight: 300,
     textTransform: 'uppercase' as const,
-    color: '#64748B',
-    borderBottom: '1px solid #E2E8F0',
+    color: 'var(--rr-text2)',
+    borderBottom: '1px solid var(--rr-border)',
     paddingBottom: '8px',
     marginBottom: '12px',
     marginTop: '24px'
@@ -84,9 +84,9 @@ export const dossierStyles = {
     width: '100%',
     padding: '8px 12px',
     paddingRight: '32px',
-    border: '1px solid #CBD5E1',
+    border: '1px solid var(--rr-border2)',
     borderRadius: '6px',
-    backgroundColor: '#F8FAFC',
+    backgroundColor: 'var(--rr-panel2)',
     fontSize: '14px',
     appearance: 'none' as const,
     cursor: 'pointer'
@@ -96,7 +96,7 @@ export const dossierStyles = {
     height: '100%',
     alignItems: 'center',
     justifyContent: 'center',
-    color: '#64748B',
+    color: 'var(--rr-text2)',
     fontSize: '14px',
     textAlign: 'center' as const
   }

@@ -26,7 +26,7 @@ export const SortableQualificationRow: React.FC<SortableQualificationRowProps> =
     transition,
     zIndex: isDragging ? 10 : 1,
     position: 'relative' as const,
-    backgroundColor: isDragging ? '#F8FAFC' : 'white',
+    backgroundColor: isDragging ? 'var(--rr-panel2)' : 'var(--rr-panel)',
     boxShadow: isDragging ? '0 4px 8px rgba(0,0,0,0.1)' : 'none'
   };
 
@@ -36,8 +36,8 @@ export const SortableQualificationRow: React.FC<SortableQualificationRowProps> =
       style={{
         ...style,
         display: 'flex',
-        borderBottom: '1px solid #F3F4F6',
-        backgroundColor: isDragging ? '#F8FAFC' : '#FFFFFF',
+        borderBottom: '1px solid var(--rr-border)',
+        backgroundColor: isDragging ? 'var(--rr-panel2)' : 'var(--rr-panel)',
         boxShadow: isDragging ? '0 4px 8px rgba(0,0,0,0.1)' : 'none',
         height: 'auto',
         minHeight: '48px'
@@ -57,7 +57,7 @@ export const SortableQualificationRow: React.FC<SortableQualificationRowProps> =
         {...attributes}
         {...listeners}
       >
-        <GripVertical size={16} style={{ color: '#64748B' }} />
+        <GripVertical size={16} style={{ color: 'var(--rr-text2)' }} />
       </div>
 
       {/* Qualification Column with Badge and Name */}
@@ -68,21 +68,21 @@ export const SortableQualificationRow: React.FC<SortableQualificationRowProps> =
         display: 'flex',
         alignItems: 'center',
         gap: '8px',
-        borderRight: '1px solid #F3F4F6'
+        borderRight: '1px solid var(--rr-border)'
       }}>
         <QualificationBadge type={qualification.code as any} color={qualification.color || undefined} />
         <span style={{
           fontSize: '14px',
-          color: '#1F2937',
+          color: 'var(--rr-text)',
           fontWeight: 400,
-          fontFamily: 'Inter'
+          fontFamily: 'inherit'
         }}>
           {qualification.name}
         </span>
         <span style={{
           fontSize: '11px',
-          color: '#9CA3AF',
-          fontFamily: 'Inter',
+          color: 'var(--rr-text3)',
+          fontFamily: 'inherit',
           marginLeft: 'auto'
         }}>
           {qualification.category ? `(${qualificationUsage[qualification.id] || 0})` : `(${qualificationUsage[qualification.id] || 0})`}
@@ -96,12 +96,12 @@ export const SortableQualificationRow: React.FC<SortableQualificationRowProps> =
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        borderRight: '1px solid #F3F4F6'
+        borderRight: '1px solid var(--rr-border)'
       }}>
         <span style={{
           fontSize: '13px',
-          color: '#6B7280',
-          fontFamily: 'Inter'
+          color: 'var(--rr-text2)',
+          fontFamily: 'inherit'
         }}>
           {qualification.is_expirable && qualification.validity_period ?
             `${qualification.validity_period} days` :
@@ -127,25 +127,25 @@ export const SortableQualificationRow: React.FC<SortableQualificationRowProps> =
                 padding: '4px',
                 borderRadius: '4px',
                 cursor: 'pointer',
-                background: 'white',
-                boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                background: 'var(--rr-panel)',
+                boxShadow: 'var(--rr-shadow)',
                 border: 'none',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 transition: 'all 0.1s ease',
-                color: '#64748B',
+                color: 'var(--rr-text2)',
                 width: '24px',
                 height: '24px'
               }}
               title="Edit qualification"
               onMouseEnter={(e) => {
                 e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.15)';
-                e.currentTarget.style.background = '#F8FAFC';
+                e.currentTarget.style.background = 'var(--rr-panel2)';
               }}
               onMouseLeave={(e) => {
                 e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
-                e.currentTarget.style.background = 'white';
+                e.currentTarget.style.background = 'var(--rr-panel)';
               }}
             >
               <Edit size={14} color="#64748B" />
@@ -157,14 +157,14 @@ export const SortableQualificationRow: React.FC<SortableQualificationRowProps> =
                 padding: '4px',
                 borderRadius: '4px',
                 cursor: qualificationUsage[qualification.id] > 0 ? 'not-allowed' : 'pointer',
-                background: 'white',
-                boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                background: 'var(--rr-panel)',
+                boxShadow: 'var(--rr-shadow)',
                 border: 'none',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 transition: 'all 0.1s ease',
-                color: '#64748B',
+                color: 'var(--rr-text2)',
                 width: '24px',
                 height: '24px',
                 opacity: qualificationUsage[qualification.id] > 0 ? 0.5 : 1
@@ -173,13 +173,13 @@ export const SortableQualificationRow: React.FC<SortableQualificationRowProps> =
               onMouseEnter={(e) => {
                 if (qualificationUsage[qualification.id] === 0) {
                   e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.15)';
-                  e.currentTarget.style.background = '#F8FAFC';
+                  e.currentTarget.style.background = 'var(--rr-panel2)';
                 }
               }}
               onMouseLeave={(e) => {
                 if (qualificationUsage[qualification.id] === 0) {
                   e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
-                  e.currentTarget.style.background = 'white';
+                  e.currentTarget.style.background = 'var(--rr-panel)';
                 }
               }}
             >

@@ -803,8 +803,8 @@ const SyllabusEditor: React.FC<SyllabusEditorProps> = ({ syllabusId: propSyllabu
             onClick={handleBackClick}
             style={{
               padding: '8px',
-              backgroundColor: 'white',
-              border: '1px solid #D1D5DB',
+              backgroundColor: 'var(--rr-panel)',
+              border: '1px solid var(--rr-border2)',
               borderRadius: '6px',
               cursor: 'pointer',
               display: 'flex',
@@ -818,7 +818,7 @@ const SyllabusEditor: React.FC<SyllabusEditorProps> = ({ syllabusId: propSyllabu
             <h1 style={{ fontSize: '24px', fontWeight: 600, marginBottom: '4px' }}>
               {isCreating ? 'NEW SYLLABUS' : 'EDIT SYLLABUS'}
             </h1>
-            <p style={{ color: '#6B7280', fontSize: '14px', margin: 0 }}>
+            <p style={{ color: 'var(--rr-text2)', fontSize: '14px', margin: 0 }}>
               Configure training syllabus, missions, and objectives
             </p>
           </div>
@@ -827,7 +827,7 @@ const SyllabusEditor: React.FC<SyllabusEditorProps> = ({ syllabusId: propSyllabu
             disabled={saving}
             style={{
               padding: '10px 16px',
-              backgroundColor: saving ? '#9CA3AF' : '#2563EB',
+              backgroundColor: saving ? '#9CA3AF' : 'var(--rr-accent)',
               color: 'white',
               border: 'none',
               borderRadius: '6px',
@@ -846,14 +846,14 @@ const SyllabusEditor: React.FC<SyllabusEditorProps> = ({ syllabusId: propSyllabu
         </div>
 
       {error && (
-        <div style={{ padding: '12px', backgroundColor: '#FEE2E2', border: '1px solid #EF4444', borderRadius: '6px', marginBottom: '24px' }}>
+        <div style={{ padding: '12px', backgroundColor: 'rgba(224,82,78,.12)', border: '1px solid var(--rr-bad)', borderRadius: '6px', marginBottom: '24px' }}>
           {error}
         </div>
       )}
 
       {/* Syllabus Details */}
-      <div style={{ padding: '24px', backgroundColor: 'white', border: '1px solid #E5E7EB', borderRadius: '8px', marginBottom: '24px' }}>
-        <h3 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '20px', color: '#6B7280', textTransform: 'uppercase' }}>
+      <div style={{ padding: '24px', backgroundColor: 'var(--rr-panel)', border: '1px solid var(--rr-border)', borderRadius: '8px', marginBottom: '24px' }}>
+        <h3 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '20px', color: 'var(--rr-text2)', textTransform: 'uppercase' }}>
           Syllabus Details
         </h3>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '20px' }}>
@@ -870,11 +870,11 @@ const SyllabusEditor: React.FC<SyllabusEditorProps> = ({ syllabusId: propSyllabu
               style={{
                 width: '100%',
                 padding: '8px 12px',
-                border: '1px solid #D1D5DB',
+                border: '1px solid var(--rr-border2)',
                 borderRadius: '6px',
                 fontSize: '14px',
                 boxSizing: 'border-box',
-                backgroundColor: 'white'
+                backgroundColor: 'var(--rr-panel)'
               }}
             >
               <option value="linear">Linear Syllabus — ordered weekly progression (Initial Training / PTR)</option>
@@ -883,7 +883,7 @@ const SyllabusEditor: React.FC<SyllabusEditorProps> = ({ syllabusId: propSyllabu
               <option value="advanced_qualification">Advanced Qualification — lessons for a specific advanced qualification (e.g. JTAC)</option>
             </select>
             {syllabus.kind !== 'linear' && (
-              <p style={{ fontSize: '12px', color: '#6B7280', margin: '6px 0 0 0' }}>
+              <p style={{ fontSize: '12px', color: 'var(--rr-text2)', margin: '6px 0 0 0' }}>
                 Lessons in this syllabus type have no week numbers and do not appear in the PTR grid.
                 They are selectable as event activities.
               </p>
@@ -904,7 +904,7 @@ const SyllabusEditor: React.FC<SyllabusEditorProps> = ({ syllabusId: propSyllabu
               style={{
                 width: '100%',
                 padding: '8px 12px',
-                border: '1px solid #D1D5DB',
+                border: '1px solid var(--rr-border2)',
                 borderRadius: '6px',
                 fontSize: '14px',
                 boxSizing: 'border-box'
@@ -926,7 +926,7 @@ const SyllabusEditor: React.FC<SyllabusEditorProps> = ({ syllabusId: propSyllabu
               style={{
                 width: '100%',
                 padding: '8px 12px',
-                border: '1px solid #D1D5DB',
+                border: '1px solid var(--rr-border2)',
                 borderRadius: '6px',
                 fontSize: '14px',
                 resize: 'none',
@@ -939,7 +939,7 @@ const SyllabusEditor: React.FC<SyllabusEditorProps> = ({ syllabusId: propSyllabu
 
       {/* Tabs */}
       <div style={{ marginBottom: '24px' }}>
-        <div style={{ display: 'flex', borderBottom: '1px solid #E5E7EB' }}>
+        <div style={{ display: 'flex', borderBottom: '1px solid var(--rr-border)' }}>
           {(['missions', 'student-enrollment', 'instructor-qualifications', 'outcomes', 'issues'] as const).map((tab) => (
             <button
               key={tab}
@@ -951,8 +951,8 @@ const SyllabusEditor: React.FC<SyllabusEditorProps> = ({ syllabusId: propSyllabu
                 cursor: 'pointer',
                 fontSize: '14px',
                 fontWeight: 500,
-                color: activeTab === tab ? '#2563EB' : '#6B7280',
-                borderBottom: activeTab === tab ? '2px solid #2563EB' : '2px solid transparent',
+                color: activeTab === tab ? 'var(--rr-accent-text)' : 'var(--rr-text2)',
+                borderBottom: activeTab === tab ? '2px solid var(--rr-accent)' : '2px solid transparent',
                 marginBottom: '-1px',
                 transition: 'color 0.2s, border-color 0.2s'
               }}
@@ -969,7 +969,7 @@ const SyllabusEditor: React.FC<SyllabusEditorProps> = ({ syllabusId: propSyllabu
 
       {/* Tab Content */}
       {activeTab === 'student-enrollment' && (
-        <div style={{ padding: '24px', backgroundColor: 'white', border: '1px solid #E5E7EB', borderRadius: '8px', marginBottom: '24px' }}>
+        <div style={{ padding: '24px', backgroundColor: 'var(--rr-panel)', border: '1px solid var(--rr-border)', borderRadius: '8px', marginBottom: '24px' }}>
           <CriteriaBlockEditor
             blocks={syllabus.auto_enrollment_rules}
             onChange={handleStudentEnrollmentRulesChange}
@@ -985,7 +985,7 @@ const SyllabusEditor: React.FC<SyllabusEditorProps> = ({ syllabusId: propSyllabu
       )}
 
       {activeTab === 'instructor-qualifications' && (
-        <div style={{ padding: '24px', backgroundColor: 'white', border: '1px solid #E5E7EB', borderRadius: '8px', marginBottom: '24px' }}>
+        <div style={{ padding: '24px', backgroundColor: 'var(--rr-panel)', border: '1px solid var(--rr-border)', borderRadius: '8px', marginBottom: '24px' }}>
           <CriteriaBlockEditor
             blocks={syllabus.instructor_qualification_rules}
             onChange={handleInstructorQualificationRulesChange}
@@ -1015,7 +1015,7 @@ const SyllabusEditor: React.FC<SyllabusEditorProps> = ({ syllabusId: propSyllabu
       )}
 
       {activeTab === 'issues' && !isCreating && syllabusId && (
-        <div style={{ backgroundColor: 'white', border: '1px solid #E5E7EB', borderRadius: '8px', marginBottom: '24px' }}>
+        <div style={{ backgroundColor: 'var(--rr-panel)', border: '1px solid var(--rr-border)', borderRadius: '8px', marginBottom: '24px' }}>
           <IssuesTab
             entityType="syllabus"
             entityId={syllabusId}
@@ -1025,7 +1025,7 @@ const SyllabusEditor: React.FC<SyllabusEditorProps> = ({ syllabusId: propSyllabu
       )}
 
       {activeTab === 'issues' && isCreating && (
-        <div style={{ padding: '40px 24px', backgroundColor: 'white', border: '1px solid #E5E7EB', borderRadius: '8px', marginBottom: '24px', textAlign: 'center', color: '#6B7280' }}>
+        <div style={{ padding: '40px 24px', backgroundColor: 'var(--rr-panel)', border: '1px solid var(--rr-border)', borderRadius: '8px', marginBottom: '24px', textAlign: 'center', color: 'var(--rr-text2)' }}>
           <p style={{ margin: 0, fontSize: '14px' }}>Save the syllabus first to add issues.</p>
         </div>
       )}
@@ -1035,12 +1035,12 @@ const SyllabusEditor: React.FC<SyllabusEditorProps> = ({ syllabusId: propSyllabu
       <div style={{ marginBottom: '24px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-            <h3 style={{ fontSize: '14px', fontWeight: 600, color: '#6B7280', textTransform: 'uppercase', margin: 0 }}>
+            <h3 style={{ fontSize: '14px', fontWeight: 600, color: 'var(--rr-text2)', textTransform: 'uppercase', margin: 0 }}>
               Events ({missions.length})
             </h3>
             {syllabus.kind === 'linear' && (
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ fontSize: '13px', color: '#6B7280' }}>Starts at:</span>
+              <span style={{ fontSize: '13px', color: 'var(--rr-text2)' }}>Starts at:</span>
               <button
                 onClick={() => {
                   setSyllabus({ ...syllabus, starts_at_week_zero: !syllabus.starts_at_week_zero });
@@ -1050,7 +1050,7 @@ const SyllabusEditor: React.FC<SyllabusEditorProps> = ({ syllabusId: propSyllabu
                   position: 'relative',
                   width: '44px',
                   height: '24px',
-                  backgroundColor: syllabus.starts_at_week_zero ? '#2563EB' : '#D1D5DB',
+                  backgroundColor: syllabus.starts_at_week_zero ? 'var(--rr-accent)' : 'var(--rr-panel3)',
                   borderRadius: '12px',
                   border: 'none',
                   cursor: 'pointer',
@@ -1064,12 +1064,12 @@ const SyllabusEditor: React.FC<SyllabusEditorProps> = ({ syllabusId: propSyllabu
                   left: syllabus.starts_at_week_zero ? '22px' : '2px',
                   width: '20px',
                   height: '20px',
-                  backgroundColor: 'white',
+                  backgroundColor: 'var(--rr-panel)',
                   borderRadius: '50%',
                   transition: 'left 0.2s'
                 }} />
               </button>
-              <span style={{ fontSize: '13px', fontWeight: 500, color: '#374151', minWidth: '50px' }}>
+              <span style={{ fontSize: '13px', fontWeight: 500, color: 'var(--rr-text)', minWidth: '50px' }}>
                 Week {syllabus.starts_at_week_zero ? '0' : '1'}
               </span>
             </div>
@@ -1079,7 +1079,7 @@ const SyllabusEditor: React.FC<SyllabusEditorProps> = ({ syllabusId: propSyllabu
             onClick={handleAddMission}
             style={{
               padding: '8px 12px',
-              backgroundColor: '#2563EB',
+              backgroundColor: 'var(--rr-accent)',
               color: 'white',
               border: 'none',
               borderRadius: '6px',
@@ -1122,8 +1122,8 @@ const SyllabusEditor: React.FC<SyllabusEditorProps> = ({ syllabusId: propSyllabu
                   }
                 }}
                 style={{
-                  backgroundColor: 'white',
-                  border: '1px solid #E5E7EB',
+                  backgroundColor: 'var(--rr-panel)',
+                  border: '1px solid var(--rr-border)',
                   borderRadius: '8px',
                   padding: '16px',
                   display: 'flex',
@@ -1132,7 +1132,7 @@ const SyllabusEditor: React.FC<SyllabusEditorProps> = ({ syllabusId: propSyllabu
                   cursor: 'grab'
                 }}
               >
-                <GripVertical size={16} style={{ color: '#9CA3AF', cursor: 'grab' }} />
+                <GripVertical size={16} style={{ color: 'var(--rr-text3)', cursor: 'grab' }} />
                 
                 {/* Thumbnail */}
                 <div style={{
@@ -1140,7 +1140,7 @@ const SyllabusEditor: React.FC<SyllabusEditorProps> = ({ syllabusId: propSyllabu
                   height: '27px',
                   borderRadius: '4px',
                   overflow: 'hidden',
-                  backgroundColor: '#F3F4F6',
+                  backgroundColor: 'var(--rr-panel2)',
                   flexShrink: 0,
                   display: 'flex',
                   alignItems: 'center',
@@ -1158,20 +1158,20 @@ const SyllabusEditor: React.FC<SyllabusEditorProps> = ({ syllabusId: propSyllabu
                       }}
                     />
                   ) : (
-                    <ImageIcon size={12} style={{ color: '#D1D5DB' }} />
+                    <ImageIcon size={12} style={{ color: 'var(--rr-text3)' }} />
                   )}
                 </div>
 
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: '14px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
                     {mission.mission_number !== null && (
-                      <span style={{ color: '#4B5563' }}>
+                      <span style={{ color: 'var(--rr-text2)' }}>
                         H{String(mission.mission_number).padStart(2, '0')}
                       </span>
                     )}
                     <span>{mission.mission_name || '(Unnamed Event)'}</span>
                   </div>
-                  <div style={{ fontSize: '12px', color: '#6B7280' }}>
+                  <div style={{ fontSize: '12px', color: 'var(--rr-text2)' }}>
                     {syllabus.kind === 'linear' ? `Week ${calculatedWeek} • ` : ''}{mission.objectives.length} objectives
                   </div>
                 </div>
@@ -1182,11 +1182,11 @@ const SyllabusEditor: React.FC<SyllabusEditorProps> = ({ syllabusId: propSyllabu
                   }}
                   style={{
                     padding: '6px',
-                    backgroundColor: 'white',
-                    border: '1px solid #D1D5DB',
+                    backgroundColor: 'var(--rr-panel)',
+                    border: '1px solid var(--rr-border2)',
                     borderRadius: '4px',
                     cursor: 'pointer',
-                    color: '#2563EB'
+                    color: 'var(--rr-accent-text)'
                   }}
                 >
                   <Edit2 size={14} />
@@ -1198,11 +1198,11 @@ const SyllabusEditor: React.FC<SyllabusEditorProps> = ({ syllabusId: propSyllabu
                   }}
                   style={{
                     padding: '6px',
-                    backgroundColor: 'white',
-                    border: '1px solid #D1D5DB',
+                    backgroundColor: 'var(--rr-panel)',
+                    border: '1px solid var(--rr-border2)',
                     borderRadius: '4px',
                     cursor: 'pointer',
-                    color: '#EF4444'
+                    color: 'var(--rr-bad)'
                   }}
                 >
                   <Trash2 size={14} />
@@ -1212,13 +1212,13 @@ const SyllabusEditor: React.FC<SyllabusEditorProps> = ({ syllabusId: propSyllabu
           })}
 
           {missions.length === 0 && (
-            <div style={{ padding: '48px', backgroundColor: 'white', border: '1px solid #E5E7EB', borderRadius: '8px', textAlign: 'center' }}>
-              <p style={{ color: '#6B7280', marginBottom: '16px' }}>No events yet</p>
+            <div style={{ padding: '48px', backgroundColor: 'var(--rr-panel)', border: '1px solid var(--rr-border)', borderRadius: '8px', textAlign: 'center' }}>
+              <p style={{ color: 'var(--rr-text2)', marginBottom: '16px' }}>No events yet</p>
               <button
                 onClick={handleAddMission}
                 style={{
                   padding: '8px 12px',
-                  backgroundColor: '#2563EB',
+                  backgroundColor: 'var(--rr-accent)',
                   color: 'white',
                   border: 'none',
                   borderRadius: '6px',
@@ -1253,22 +1253,22 @@ const SyllabusEditor: React.FC<SyllabusEditorProps> = ({ syllabusId: propSyllabu
           zIndex: 1000
         }}>
           <div style={{
-            backgroundColor: 'white',
+            backgroundColor: 'var(--rr-panel)',
             borderRadius: '8px',
             width: '90%',
             maxWidth: '800px',
             maxHeight: '90vh',
             overflow: 'auto',
-            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
+            boxShadow: 'var(--rr-shadow-lg)'
           }}>
-            <div style={{ padding: '24px', borderBottom: '1px solid #E5E7EB' }}>
+            <div style={{ padding: '24px', borderBottom: '1px solid var(--rr-border)' }}>
               <h2 style={{ fontSize: '18px', fontWeight: 600, margin: 0 }}>
                 {editingMission.index === -1 ? 'Add Event' : 'Edit Event'}
               </h2>
             </div>
 
             {/* Tab Navigation */}
-            <div style={{ borderBottom: '1px solid #E5E7EB', display: 'flex', paddingLeft: '24px' }}>
+            <div style={{ borderBottom: '1px solid var(--rr-border)', display: 'flex', paddingLeft: '24px' }}>
               {[
                 { id: 'details', label: 'Details' },
                 { id: 'objectives', label: 'Objectives' },
@@ -1284,8 +1284,8 @@ const SyllabusEditor: React.FC<SyllabusEditorProps> = ({ syllabusId: propSyllabu
                     fontWeight: 500,
                     border: 'none',
                     backgroundColor: 'transparent',
-                    color: missionDialogTab === tab.id ? '#2563EB' : '#6B7280',
-                    borderBottom: missionDialogTab === tab.id ? '2px solid #2563EB' : '2px solid transparent',
+                    color: missionDialogTab === tab.id ? 'var(--rr-accent-text)' : 'var(--rr-text2)',
+                    borderBottom: missionDialogTab === tab.id ? '2px solid var(--rr-accent)' : '2px solid transparent',
                     cursor: 'pointer',
                     transition: 'all 0.2s'
                   }}
@@ -1322,7 +1322,7 @@ const SyllabusEditor: React.FC<SyllabusEditorProps> = ({ syllabusId: propSyllabu
                         style={{
                           width: '100%',
                           padding: '8px 12px',
-                          border: '1px solid #D1D5DB',
+                          border: '1px solid var(--rr-border2)',
                           borderRadius: '6px',
                           fontSize: '14px',
                           boxSizing: 'border-box'
@@ -1349,7 +1349,7 @@ const SyllabusEditor: React.FC<SyllabusEditorProps> = ({ syllabusId: propSyllabu
                         style={{
                           width: '100%',
                           padding: '8px 12px',
-                          border: '1px solid #D1D5DB',
+                          border: '1px solid var(--rr-border2)',
                           borderRadius: '6px',
                           fontSize: '14px',
                           boxSizing: 'border-box'
@@ -1378,7 +1378,7 @@ const SyllabusEditor: React.FC<SyllabusEditorProps> = ({ syllabusId: propSyllabu
                       style={{
                         width: '100%',
                         padding: '8px 12px',
-                        border: '1px solid #D1D5DB',
+                        border: '1px solid var(--rr-border2)',
                         borderRadius: '6px',
                         fontSize: '14px',
                         resize: 'vertical',
@@ -1401,13 +1401,13 @@ const SyllabusEditor: React.FC<SyllabusEditorProps> = ({ syllabusId: propSyllabu
                           onDrop={(e) => handleMissionImageDrop(e, imageIndex)}
                           style={{
                             position: 'relative',
-                            border: missionImageDragStates[imageIndex] ? '2px dashed #2563EB' : '2px dashed #D1D5DB',
+                            border: missionImageDragStates[imageIndex] ? '2px dashed var(--rr-accent)' : '2px dashed var(--rr-border2)',
                             borderRadius: '8px',
                             aspectRatio: '16/9',
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
-                            backgroundColor: missionImagePreviews[imageIndex] ? 'transparent' : '#F9FAFB',
+                            backgroundColor: missionImagePreviews[imageIndex] ? 'transparent' : 'var(--rr-panel2)',
                             cursor: 'pointer',
                             overflow: 'hidden',
                             transition: 'all 0.2s'
@@ -1458,11 +1458,11 @@ const SyllabusEditor: React.FC<SyllabusEditorProps> = ({ syllabusId: propSyllabu
                                 }}
                               />
                               <div style={{ textAlign: 'center', pointerEvents: 'none' }}>
-                                <ImageIcon size={24} style={{ color: '#9CA3AF', marginBottom: '8px' }} />
-                                <div style={{ fontSize: '12px', color: '#6B7280' }}>
+                                <ImageIcon size={24} style={{ color: 'var(--rr-text3)', marginBottom: '8px' }} />
+                                <div style={{ fontSize: '12px', color: 'var(--rr-text2)' }}>
                                   {imageIndex === 0 ? 'Header' : `Image ${imageIndex + 1}`}
                                 </div>
-                                <div style={{ fontSize: '11px', color: '#9CA3AF', marginTop: '4px' }}>
+                                <div style={{ fontSize: '11px', color: 'var(--rr-text3)', marginTop: '4px' }}>
                                   Click or drag
                                 </div>
                               </div>
@@ -1479,7 +1479,7 @@ const SyllabusEditor: React.FC<SyllabusEditorProps> = ({ syllabusId: propSyllabu
               {missionDialogTab === 'objectives' && (
                 <div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                    <h3 style={{ fontSize: '14px', fontWeight: 600, color: '#6B7280', textTransform: 'uppercase', margin: 0 }}>
+                    <h3 style={{ fontSize: '14px', fontWeight: 600, color: 'var(--rr-text2)', textTransform: 'uppercase', margin: 0 }}>
                       Objectives ({editingMission.mission.objectives.length})
                     </h3>
                     <button
@@ -1501,8 +1501,8 @@ const SyllabusEditor: React.FC<SyllabusEditorProps> = ({ syllabusId: propSyllabu
                       }}
                       style={{
                         padding: '6px 10px',
-                        backgroundColor: '#F3F4F6',
-                        border: '1px solid #D1D5DB',
+                        backgroundColor: 'var(--rr-panel2)',
+                        border: '1px solid var(--rr-border2)',
                         borderRadius: '4px',
                         cursor: 'pointer',
                         fontSize: '13px',
@@ -1517,7 +1517,7 @@ const SyllabusEditor: React.FC<SyllabusEditorProps> = ({ syllabusId: propSyllabu
                   </div>
 
                   {editingMission.mission.objectives.map((objective, objIndex) => (
-                    <div key={objIndex} style={{ padding: '12px', backgroundColor: '#F9FAFB', borderRadius: '6px', marginBottom: '8px' }}>
+                    <div key={objIndex} style={{ padding: '12px', backgroundColor: 'var(--rr-panel2)', borderRadius: '6px', marginBottom: '8px' }}>
                       <div style={{ display: 'grid', gridTemplateColumns: '150px 1fr auto', gap: '8px', alignItems: 'start' }}>
                         <select
                           value={objective.scope_level}
@@ -1534,10 +1534,10 @@ const SyllabusEditor: React.FC<SyllabusEditorProps> = ({ syllabusId: propSyllabu
                           }}
                           style={{
                             padding: '6px 8px',
-                            border: '1px solid #D1D5DB',
+                            border: '1px solid var(--rr-border2)',
                             borderRadius: '4px',
                             fontSize: '13px',
-                            backgroundColor: 'white'
+                            backgroundColor: 'var(--rr-panel)'
                           }}
                         >
                           <option value="Individual">Individual</option>
@@ -1562,10 +1562,10 @@ const SyllabusEditor: React.FC<SyllabusEditorProps> = ({ syllabusId: propSyllabu
                           placeholder="Objective description"
                           style={{
                             padding: '6px 8px',
-                            border: '1px solid #D1D5DB',
+                            border: '1px solid var(--rr-border2)',
                             borderRadius: '4px',
                             fontSize: '13px',
-                            backgroundColor: 'white'
+                            backgroundColor: 'var(--rr-panel)'
                           }}
                         />
                         <button
@@ -1581,11 +1581,11 @@ const SyllabusEditor: React.FC<SyllabusEditorProps> = ({ syllabusId: propSyllabu
                           }}
                           style={{
                             padding: '6px',
-                            backgroundColor: 'white',
-                            border: '1px solid #D1D5DB',
+                            backgroundColor: 'var(--rr-panel)',
+                            border: '1px solid var(--rr-border2)',
                             borderRadius: '4px',
                             cursor: 'pointer',
-                            color: '#EF4444'
+                            color: 'var(--rr-bad)'
                           }}
                         >
                           <Trash2 size={14} />
@@ -1595,7 +1595,7 @@ const SyllabusEditor: React.FC<SyllabusEditorProps> = ({ syllabusId: propSyllabu
                   ))}
 
                   {editingMission.mission.objectives.length === 0 && (
-                    <div style={{ padding: '48px 24px', textAlign: 'center', color: '#9CA3AF', fontSize: '14px' }}>
+                    <div style={{ padding: '48px 24px', textAlign: 'center', color: 'var(--rr-text3)', fontSize: '14px' }}>
                       No objectives yet. Click "Add Objective" to create one.
                     </div>
                   )}
@@ -1605,7 +1605,7 @@ const SyllabusEditor: React.FC<SyllabusEditorProps> = ({ syllabusId: propSyllabu
               {/* Reference Materials Tab */}
               {missionDialogTab === 'references' && (
                 <div>
-                  <h3 style={{ fontSize: '14px', fontWeight: 600, color: '#6B7280', textTransform: 'uppercase', marginBottom: '12px' }}>
+                  <h3 style={{ fontSize: '14px', fontWeight: 600, color: 'var(--rr-text2)', textTransform: 'uppercase', marginBottom: '12px' }}>
                     Reference Materials
                   </h3>
                   <ReferenceMaterialsInput
@@ -1635,13 +1635,13 @@ const SyllabusEditor: React.FC<SyllabusEditorProps> = ({ syllabusId: propSyllabu
               )}
             </div>
 
-            <div style={{ padding: '16px 24px', borderTop: '1px solid #E5E7EB', display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+            <div style={{ padding: '16px 24px', borderTop: '1px solid var(--rr-border)', display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
               <button
                 onClick={handleCancelEvent}
                 style={{
                   padding: '8px 16px',
-                  backgroundColor: 'white',
-                  border: '1px solid #D1D5DB',
+                  backgroundColor: 'var(--rr-panel)',
+                  border: '1px solid var(--rr-border2)',
                   borderRadius: '6px',
                   cursor: 'pointer',
                   fontSize: '14px',
@@ -1654,7 +1654,7 @@ const SyllabusEditor: React.FC<SyllabusEditorProps> = ({ syllabusId: propSyllabu
                 onClick={handleSaveEvent}
                 style={{
                   padding: '8px 16px',
-                  backgroundColor: '#2563EB',
+                  backgroundColor: 'var(--rr-accent)',
                   color: 'white',
                   border: 'none',
                   borderRadius: '6px',
@@ -1685,28 +1685,28 @@ const SyllabusEditor: React.FC<SyllabusEditorProps> = ({ syllabusId: propSyllabu
           zIndex: 1001
         }}>
           <div style={{
-            backgroundColor: 'white',
+            backgroundColor: 'var(--rr-panel)',
             borderRadius: '8px',
             width: '90%',
             maxWidth: '500px',
-            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
+            boxShadow: 'var(--rr-shadow-lg)'
           }}>
             <div style={{ padding: '24px' }}>
               <h2 style={{ fontSize: '18px', fontWeight: 600, marginBottom: '12px', margin: 0 }}>
                 Unsaved Changes
               </h2>
-              <p style={{ color: '#6B7280', fontSize: '14px', marginTop: '8px', marginBottom: 0 }}>
+              <p style={{ color: 'var(--rr-text2)', fontSize: '14px', marginTop: '8px', marginBottom: 0 }}>
                 You have unsaved changes that will be lost if you leave this page. Are you sure you want to continue?
               </p>
             </div>
 
-            <div style={{ padding: '16px 24px', borderTop: '1px solid #E5E7EB', display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+            <div style={{ padding: '16px 24px', borderTop: '1px solid var(--rr-border)', display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
               <button
                 onClick={handleCancelLeave}
                 style={{
                   padding: '8px 16px',
-                  backgroundColor: 'white',
-                  border: '1px solid #D1D5DB',
+                  backgroundColor: 'var(--rr-panel)',
+                  border: '1px solid var(--rr-border2)',
                   borderRadius: '6px',
                   cursor: 'pointer',
                   fontSize: '14px',
@@ -1719,7 +1719,7 @@ const SyllabusEditor: React.FC<SyllabusEditorProps> = ({ syllabusId: propSyllabu
                 onClick={handleConfirmLeave}
                 style={{
                   padding: '8px 16px',
-                  backgroundColor: '#EF4444',
+                  backgroundColor: 'var(--rr-bad)',
                   color: 'white',
                   border: 'none',
                   borderRadius: '6px',
@@ -1750,28 +1750,28 @@ const SyllabusEditor: React.FC<SyllabusEditorProps> = ({ syllabusId: propSyllabu
           zIndex: 1002
         }}>
           <div style={{
-            backgroundColor: 'white',
+            backgroundColor: 'var(--rr-panel)',
             borderRadius: '8px',
             width: '90%',
             maxWidth: '500px',
-            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
+            boxShadow: 'var(--rr-shadow-lg)'
           }}>
             <div style={{ padding: '24px' }}>
               <h2 style={{ fontSize: '18px', fontWeight: 600, marginBottom: '12px', margin: 0 }}>
                 Delete Event
               </h2>
-              <p style={{ color: '#6B7280', fontSize: '14px', marginTop: '8px', marginBottom: 0 }}>
+              <p style={{ color: 'var(--rr-text2)', fontSize: '14px', marginTop: '8px', marginBottom: 0 }}>
                 Are you sure you want to delete this event and all its objectives? This action cannot be undone.
               </p>
             </div>
 
-            <div style={{ padding: '16px 24px', borderTop: '1px solid #E5E7EB', display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+            <div style={{ padding: '16px 24px', borderTop: '1px solid var(--rr-border)', display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
               <button
                 onClick={handleCancelDelete}
                 style={{
                   padding: '8px 16px',
-                  backgroundColor: 'white',
-                  border: '1px solid #D1D5DB',
+                  backgroundColor: 'var(--rr-panel)',
+                  border: '1px solid var(--rr-border2)',
                   borderRadius: '6px',
                   cursor: 'pointer',
                   fontSize: '14px',
@@ -1784,7 +1784,7 @@ const SyllabusEditor: React.FC<SyllabusEditorProps> = ({ syllabusId: propSyllabu
                 onClick={handleConfirmDelete}
                 style={{
                   padding: '8px 16px',
-                  backgroundColor: '#EF4444',
+                  backgroundColor: 'var(--rr-bad)',
                   color: 'white',
                   border: 'none',
                   borderRadius: '6px',

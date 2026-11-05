@@ -229,9 +229,9 @@ const UnitBrowserModal: React.FC<UnitBrowserModalProps> = ({
           width: '100%',
           maxWidth: '900px',
           maxHeight: '85vh',
-          backgroundColor: '#FFFFFF',
+          backgroundColor: 'var(--rr-panel)',
           borderRadius: '8px',
-          boxShadow: '0px 10px 15px -3px rgba(0, 0, 0, 0.25)',
+          boxShadow: 'var(--rr-shadow)',
           display: 'flex',
           flexDirection: 'column',
           overflow: 'hidden'
@@ -242,7 +242,7 @@ const UnitBrowserModal: React.FC<UnitBrowserModalProps> = ({
         <div
           style={{
             padding: '20px 24px',
-            borderBottom: '1px solid #E2E8F0',
+            borderBottom: '1px solid var(--rr-border)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between'
@@ -253,7 +253,7 @@ const UnitBrowserModal: React.FC<UnitBrowserModalProps> = ({
               margin: 0,
               fontSize: '20px',
               fontWeight: 600,
-              color: '#1F2937'
+              color: 'var(--rr-text)'
             }}
           >
             Select {killCategory} Unit
@@ -270,12 +270,12 @@ const UnitBrowserModal: React.FC<UnitBrowserModalProps> = ({
               backgroundColor: 'transparent',
               border: 'none',
               borderRadius: '4px',
-              color: '#64748B',
+              color: 'var(--rr-text2)',
               cursor: 'pointer',
               transition: 'background-color 0.15s ease'
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = '#F8FAFC';
+              e.currentTarget.style.backgroundColor = 'var(--rr-panel2)';
             }}
             onMouseLeave={(e) => {
               e.currentTarget.style.backgroundColor = 'transparent';
@@ -289,7 +289,7 @@ const UnitBrowserModal: React.FC<UnitBrowserModalProps> = ({
         <div
           style={{
             padding: '16px 24px',
-            borderBottom: '1px solid #E2E8F0'
+            borderBottom: '1px solid var(--rr-border)'
           }}
         >
           <div style={{ position: 'relative' }}>
@@ -300,7 +300,7 @@ const UnitBrowserModal: React.FC<UnitBrowserModalProps> = ({
                 left: '12px',
                 top: '50%',
                 transform: 'translateY(-50%)',
-                color: '#64748B'
+                color: 'var(--rr-text2)'
               }}
             />
             <input
@@ -311,17 +311,17 @@ const UnitBrowserModal: React.FC<UnitBrowserModalProps> = ({
               style={{
                 width: '100%',
                 padding: '8px 12px 8px 36px',
-                border: '1px solid #CBD5E1',
+                border: '1px solid var(--rr-border2)',
                 borderRadius: '6px',
                 fontSize: '14px',
                 outline: 'none',
                 transition: 'border-color 0.15s ease'
               }}
               onFocus={(e) => {
-                e.currentTarget.style.borderColor = '#3B82F6';
+                e.currentTarget.style.borderColor = 'var(--rr-accent)';
               }}
               onBlur={(e) => {
-                e.currentTarget.style.borderColor = '#CBD5E1';
+                e.currentTarget.style.borderColor = 'var(--rr-border2)';
               }}
             />
           </div>
@@ -337,19 +337,19 @@ const UnitBrowserModal: React.FC<UnitBrowserModalProps> = ({
           }}
         >
           {loading ? (
-            <div style={{ padding: '40px', textAlign: 'center', color: '#64748B' }}>
+            <div style={{ padding: '40px', textAlign: 'center', color: 'var(--rr-text2)' }}>
               Loading units...
             </div>
           ) : filteredUnits.length === 0 ? (
-            <div style={{ padding: '40px', textAlign: 'center', color: '#64748B' }}>
+            <div style={{ padding: '40px', textAlign: 'center', color: 'var(--rr-text2)' }}>
               No units found matching your filters
             </div>
           ) : (
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead style={{ position: 'sticky', top: 0, backgroundColor: 'white', zIndex: 10 }}>
-                <tr style={{ borderBottom: '2px solid #E2E8F0' }}>
+              <thead style={{ position: 'sticky', top: 0, backgroundColor: 'var(--rr-panel)', zIndex: 10 }}>
+                <tr style={{ borderBottom: '2px solid var(--rr-border)' }}>
                   {/* Display Name - Sortable */}
-                  <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: 500, color: '#6B7280', textTransform: 'uppercase', position: 'relative', whiteSpace: 'nowrap', backgroundColor: 'white' }}>
+                  <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: 500, color: 'var(--rr-text2)', textTransform: 'uppercase', position: 'relative', whiteSpace: 'nowrap', backgroundColor: 'var(--rr-panel)' }}>
                     <div
                       style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', userSelect: 'none' }}
                       onClick={() => handleSort('display_name')}
@@ -362,7 +362,7 @@ const UnitBrowserModal: React.FC<UnitBrowserModalProps> = ({
                   </th>
 
                   {/* Type Name - Sortable */}
-                  <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: 500, color: '#6B7280', textTransform: 'uppercase', position: 'relative', whiteSpace: 'nowrap', backgroundColor: 'white' }}>
+                  <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: 500, color: 'var(--rr-text2)', textTransform: 'uppercase', position: 'relative', whiteSpace: 'nowrap', backgroundColor: 'var(--rr-panel)' }}>
                     <div
                       style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', userSelect: 'none' }}
                       onClick={() => handleSort('type_name')}
@@ -375,7 +375,7 @@ const UnitBrowserModal: React.FC<UnitBrowserModalProps> = ({
                   </th>
 
                   {/* Category - Filterable */}
-                  <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: 500, color: '#6B7280', textTransform: 'uppercase', position: 'relative', whiteSpace: 'nowrap', backgroundColor: 'white' }}>
+                  <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: 500, color: 'var(--rr-text2)', textTransform: 'uppercase', position: 'relative', whiteSpace: 'nowrap', backgroundColor: 'var(--rr-panel)' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                       Category
                       <button
@@ -385,7 +385,7 @@ const UnitBrowserModal: React.FC<UnitBrowserModalProps> = ({
                           border: 'none',
                           padding: '2px',
                           cursor: 'pointer',
-                          color: categoryFilter.length > 0 ? '#2563EB' : '#6B7280'
+                          color: categoryFilter.length > 0 ? 'var(--rr-accent-text)' : 'var(--rr-text2)'
                         }}
                       >
                         <Filter size={12} />
@@ -397,10 +397,10 @@ const UnitBrowserModal: React.FC<UnitBrowserModalProps> = ({
                         top: '100%',
                         left: '0',
                         minWidth: '200px',
-                        backgroundColor: 'white',
-                        border: '1px solid #E5E7EB',
+                        backgroundColor: 'var(--rr-panel)',
+                        border: '1px solid var(--rr-border)',
                         borderRadius: '4px',
-                        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+                        boxShadow: 'var(--rr-shadow)',
                         zIndex: 1000,
                         maxHeight: '300px',
                         display: 'flex',
@@ -410,10 +410,10 @@ const UnitBrowserModal: React.FC<UnitBrowserModalProps> = ({
                           {uniqueCategories.map(category => (
                             <div key={category} style={{
                               padding: '8px 12px',
-                              borderBottom: '1px solid #F3F4F6',
+                              borderBottom: '1px solid var(--rr-border)',
                               fontSize: '12px',
                               cursor: 'pointer',
-                              backgroundColor: categoryFilter.includes(category) ? '#EFF6FF' : 'transparent',
+                              backgroundColor: categoryFilter.includes(category) ? 'var(--rr-accent-weak)' : 'transparent',
                               display: 'flex',
                               alignItems: 'center',
                               gap: '6px'
@@ -434,7 +434,7 @@ const UnitBrowserModal: React.FC<UnitBrowserModalProps> = ({
                   </th>
 
                   {/* Sub-Category - Filterable */}
-                  <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: 500, color: '#6B7280', textTransform: 'uppercase', position: 'relative', whiteSpace: 'nowrap', backgroundColor: 'white' }}>
+                  <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: 500, color: 'var(--rr-text2)', textTransform: 'uppercase', position: 'relative', whiteSpace: 'nowrap', backgroundColor: 'var(--rr-panel)' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                       Sub-Category
                       <button
@@ -444,7 +444,7 @@ const UnitBrowserModal: React.FC<UnitBrowserModalProps> = ({
                           border: 'none',
                           padding: '2px',
                           cursor: 'pointer',
-                          color: subCategoryFilter.length > 0 ? '#2563EB' : '#6B7280'
+                          color: subCategoryFilter.length > 0 ? 'var(--rr-accent-text)' : 'var(--rr-text2)'
                         }}
                       >
                         <Filter size={12} />
@@ -456,10 +456,10 @@ const UnitBrowserModal: React.FC<UnitBrowserModalProps> = ({
                         top: '100%',
                         left: '0',
                         minWidth: '200px',
-                        backgroundColor: 'white',
-                        border: '1px solid #E5E7EB',
+                        backgroundColor: 'var(--rr-panel)',
+                        border: '1px solid var(--rr-border)',
                         borderRadius: '4px',
-                        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+                        boxShadow: 'var(--rr-shadow)',
                         zIndex: 1000,
                         maxHeight: '300px',
                         display: 'flex',
@@ -468,10 +468,10 @@ const UnitBrowserModal: React.FC<UnitBrowserModalProps> = ({
                         <div style={{ flex: 1, overflowY: 'auto' }}>
                           <div style={{
                             padding: '8px 12px',
-                            borderBottom: '1px solid #F3F4F6',
+                            borderBottom: '1px solid var(--rr-border)',
                             fontSize: '12px',
                             cursor: 'pointer',
-                            backgroundColor: subCategoryFilter.includes('none') ? '#EFF6FF' : 'transparent',
+                            backgroundColor: subCategoryFilter.includes('none') ? 'var(--rr-accent-weak)' : 'transparent',
                             display: 'flex',
                             alignItems: 'center',
                             gap: '6px'
@@ -488,10 +488,10 @@ const UnitBrowserModal: React.FC<UnitBrowserModalProps> = ({
                           {uniqueSubCategories.map(subCat => (
                             <div key={subCat} style={{
                               padding: '8px 12px',
-                              borderBottom: '1px solid #F3F4F6',
+                              borderBottom: '1px solid var(--rr-border)',
                               fontSize: '12px',
                               cursor: 'pointer',
-                              backgroundColor: subCategoryFilter.includes(subCat) ? '#EFF6FF' : 'transparent',
+                              backgroundColor: subCategoryFilter.includes(subCat) ? 'var(--rr-accent-weak)' : 'transparent',
                               display: 'flex',
                               alignItems: 'center',
                               gap: '6px'
@@ -512,7 +512,7 @@ const UnitBrowserModal: React.FC<UnitBrowserModalProps> = ({
                   </th>
 
                   {/* Source - Filterable */}
-                  <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: 500, color: '#6B7280', textTransform: 'uppercase', position: 'relative', whiteSpace: 'nowrap', backgroundColor: 'white' }}>
+                  <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: 500, color: 'var(--rr-text2)', textTransform: 'uppercase', position: 'relative', whiteSpace: 'nowrap', backgroundColor: 'var(--rr-panel)' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                       Source
                       <button
@@ -522,7 +522,7 @@ const UnitBrowserModal: React.FC<UnitBrowserModalProps> = ({
                           border: 'none',
                           padding: '2px',
                           cursor: 'pointer',
-                          color: sourceFilter.length > 0 ? '#2563EB' : '#6B7280'
+                          color: sourceFilter.length > 0 ? 'var(--rr-accent-text)' : 'var(--rr-text2)'
                         }}
                       >
                         <Filter size={12} />
@@ -534,10 +534,10 @@ const UnitBrowserModal: React.FC<UnitBrowserModalProps> = ({
                         top: '100%',
                         left: '0',
                         minWidth: '150px',
-                        backgroundColor: 'white',
-                        border: '1px solid #E5E7EB',
+                        backgroundColor: 'var(--rr-panel)',
+                        border: '1px solid var(--rr-border)',
                         borderRadius: '4px',
-                        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+                        boxShadow: 'var(--rr-shadow)',
                         zIndex: 1000,
                         display: 'flex',
                         flexDirection: 'column'
@@ -546,10 +546,10 @@ const UnitBrowserModal: React.FC<UnitBrowserModalProps> = ({
                           {uniqueSources.map(source => (
                             <div key={source} style={{
                               padding: '8px 12px',
-                              borderBottom: '1px solid #F3F4F6',
+                              borderBottom: '1px solid var(--rr-border)',
                               fontSize: '12px',
                               cursor: 'pointer',
-                              backgroundColor: sourceFilter.includes(source) ? '#EFF6FF' : 'transparent',
+                              backgroundColor: sourceFilter.includes(source) ? 'var(--rr-accent-weak)' : 'transparent',
                               display: 'flex',
                               alignItems: 'center',
                               gap: '6px'
@@ -576,30 +576,30 @@ const UnitBrowserModal: React.FC<UnitBrowserModalProps> = ({
                     key={unit.id}
                     onClick={() => onSelectUnit(unit.id)}
                     style={{
-                      borderBottom: '1px solid #F1F5F9',
+                      borderBottom: '1px solid var(--rr-border)',
                       cursor: 'pointer',
                       transition: 'background-color 0.15s ease'
                     }}
                     onMouseEnter={(e) => {
-                      e.currentTarget.style.backgroundColor = '#F8FAFC';
+                      e.currentTarget.style.backgroundColor = 'var(--rr-panel2)';
                     }}
                     onMouseLeave={(e) => {
                       e.currentTarget.style.backgroundColor = 'transparent';
                     }}
                   >
-                    <td style={{ padding: '12px 16px', fontSize: '14px', color: '#1F2937' }}>
+                    <td style={{ padding: '12px 16px', fontSize: '14px', color: 'var(--rr-text)' }}>
                       {unit.display_name}
                     </td>
-                    <td style={{ padding: '12px 16px', fontSize: '13px', color: '#64748B', fontFamily: 'monospace' }}>
+                    <td style={{ padding: '12px 16px', fontSize: '13px', color: 'var(--rr-text2)', fontFamily: 'monospace' }}>
                       {unit.type_name}
                     </td>
-                    <td style={{ padding: '12px 16px', fontSize: '13px', color: '#64748B' }}>
+                    <td style={{ padding: '12px 16px', fontSize: '13px', color: 'var(--rr-text2)' }}>
                       {unit.category}
                     </td>
-                    <td style={{ padding: '12px 16px', fontSize: '13px', color: '#64748B' }}>
+                    <td style={{ padding: '12px 16px', fontSize: '13px', color: 'var(--rr-text2)' }}>
                       {unit.sub_category || '—'}
                     </td>
-                    <td style={{ padding: '12px 16px', fontSize: '13px', color: '#64748B' }}>
+                    <td style={{ padding: '12px 16px', fontSize: '13px', color: 'var(--rr-text2)' }}>
                       {unit.source}
                     </td>
                   </tr>
@@ -614,13 +614,13 @@ const UnitBrowserModal: React.FC<UnitBrowserModalProps> = ({
           <div
             style={{
               padding: '12px 24px',
-              borderTop: '1px solid #E2E8F0',
+              borderTop: '1px solid var(--rr-border)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between'
             }}
           >
-            <div style={{ fontSize: '14px', color: '#64748B' }}>
+            <div style={{ fontSize: '14px', color: 'var(--rr-text2)' }}>
               Showing {startIndex + 1}-{Math.min(startIndex + itemsPerPage, filteredUnits.length)} of {filteredUnits.length}
             </div>
             <div style={{ display: 'flex', gap: '8px' }}>
@@ -630,17 +630,17 @@ const UnitBrowserModal: React.FC<UnitBrowserModalProps> = ({
                 disabled={currentPage === 1}
                 style={{
                   padding: '6px 12px',
-                  backgroundColor: currentPage === 1 ? '#F8FAFC' : '#FFFFFF',
-                  border: '1px solid #CBD5E1',
+                  backgroundColor: currentPage === 1 ? 'var(--rr-panel2)' : 'var(--rr-panel)',
+                  border: '1px solid var(--rr-border2)',
                   borderRadius: '4px',
                   fontSize: '14px',
-                  color: currentPage === 1 ? '#CBD5E1' : '#475569',
+                  color: currentPage === 1 ? 'var(--rr-text3)' : 'var(--rr-text2)',
                   cursor: currentPage === 1 ? 'not-allowed' : 'pointer'
                 }}
               >
                 Previous
               </button>
-              <div style={{ padding: '6px 12px', fontSize: '14px', color: '#64748B' }}>
+              <div style={{ padding: '6px 12px', fontSize: '14px', color: 'var(--rr-text2)' }}>
                 Page {currentPage} of {totalPages}
               </div>
               <button
@@ -649,11 +649,11 @@ const UnitBrowserModal: React.FC<UnitBrowserModalProps> = ({
                 disabled={currentPage === totalPages}
                 style={{
                   padding: '6px 12px',
-                  backgroundColor: currentPage === totalPages ? '#F8FAFC' : '#FFFFFF',
-                  border: '1px solid #CBD5E1',
+                  backgroundColor: currentPage === totalPages ? 'var(--rr-panel2)' : 'var(--rr-panel)',
+                  border: '1px solid var(--rr-border2)',
                   borderRadius: '4px',
                   fontSize: '14px',
-                  color: currentPage === totalPages ? '#CBD5E1' : '#475569',
+                  color: currentPage === totalPages ? 'var(--rr-text3)' : 'var(--rr-text2)',
                   cursor: currentPage === totalPages ? 'not-allowed' : 'pointer'
                 }}
               >

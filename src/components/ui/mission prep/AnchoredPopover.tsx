@@ -53,13 +53,13 @@ const AnchoredPopover: React.FC<AnchoredPopoverProps> = ({ anchorRef, onClose, w
         top: position.top,
         left: position.left,
         width,
-        backgroundColor: '#FFFFFF',
-        border: '1px solid #E2E8F0',
+        backgroundColor: 'var(--rr-panel)',
+        border: '1px solid var(--rr-border)',
         borderRadius: '8px',
-        boxShadow: '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)',
+        boxShadow: 'var(--rr-shadow)',
         padding: '16px',
         zIndex: 1050,
-        fontFamily: 'Inter',
+        fontFamily: 'inherit',
         boxSizing: 'border-box'
       }}
     >
@@ -73,18 +73,18 @@ export const popoverLabelStyle: React.CSSProperties = {
   display: 'block',
   fontSize: '12px',
   fontWeight: 500,
-  color: '#374151',
+  color: 'var(--rr-text)',
   marginBottom: '6px'
 };
 
 export const popoverInputStyle: React.CSSProperties = {
   width: '100%',
   padding: '8px 12px',
-  border: '1px solid #CBD5E1',
+  border: '1px solid var(--rr-border2)',
   borderRadius: '6px',
-  backgroundColor: '#F8FAFC',
+  backgroundColor: 'var(--rr-panel2)',
   fontSize: '12px',
-  fontFamily: 'Inter',
+  fontFamily: 'inherit',
   boxSizing: 'border-box'
 };
 
@@ -102,9 +102,9 @@ export const PopoverActions: React.FC<{
         onClick={onCancel}
         style={{
           padding: '6px 14px',
-          backgroundColor: 'white',
-          color: '#374151',
-          border: '1px solid #D1D5DB',
+          backgroundColor: 'var(--rr-panel)',
+          color: 'var(--rr-text)',
+          border: '1px solid var(--rr-border2)',
           borderRadius: '6px',
           fontSize: '12px',
           fontWeight: 500,
@@ -118,7 +118,7 @@ export const PopoverActions: React.FC<{
         disabled={disabled}
         style={{
           padding: '6px 14px',
-          backgroundColor: disabled ? '#94A3B8' : '#3B82F6',
+          backgroundColor: disabled ? '#94A3B8' : 'var(--rr-accent)',
           color: 'white',
           border: 'none',
           borderRadius: '6px',

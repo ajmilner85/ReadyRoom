@@ -153,7 +153,7 @@ export const IssueDetailDialog: React.FC<IssueDetailDialogProps> = ({
     >
       <div
         style={{
-          backgroundColor: 'white',
+          backgroundColor: 'var(--rr-panel)',
           borderRadius: '12px',
           width: '90%',
           maxWidth: '600px',
@@ -161,7 +161,7 @@ export const IssueDetailDialog: React.FC<IssueDetailDialogProps> = ({
           overflow: 'hidden',
           display: 'flex',
           flexDirection: 'column',
-          boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+          boxShadow: 'var(--rr-shadow-lg)',
         }}
       >
         {/* Header */}
@@ -171,7 +171,7 @@ export const IssueDetailDialog: React.FC<IssueDetailDialogProps> = ({
             justifyContent: 'space-between',
             alignItems: 'flex-start',
             padding: '16px 24px',
-            borderBottom: '1px solid #E5E7EB',
+            borderBottom: '1px solid var(--rr-border)',
           }}
         >
           <div style={{ flex: 1, marginRight: '16px' }}>
@@ -186,7 +186,7 @@ export const IssueDetailDialog: React.FC<IssueDetailDialogProps> = ({
                   padding: '8px 12px',
                   fontSize: '18px',
                   fontWeight: 600,
-                  border: '1px solid #D1D5DB',
+                  border: '1px solid var(--rr-border2)',
                   borderRadius: '6px',
                   boxSizing: 'border-box',
                 }}
@@ -198,7 +198,7 @@ export const IssueDetailDialog: React.FC<IssueDetailDialogProps> = ({
                     margin: '0 0 8px 0',
                     fontSize: '18px',
                     fontWeight: 600,
-                    color: issue.status === 'closed' ? '#6B7280' : '#1F2937',
+                    color: issue.status === 'closed' ? 'var(--rr-text2)' : 'var(--rr-text)',
                     textDecoration: issue.status === 'closed' ? 'line-through' : 'none',
                   }}
                 >
@@ -217,7 +217,7 @@ export const IssueDetailDialog: React.FC<IssueDetailDialogProps> = ({
               padding: '8px',
               border: 'none',
               backgroundColor: 'transparent',
-              color: '#6B7280',
+              color: 'var(--rr-text2)',
               cursor: 'pointer',
               borderRadius: '6px',
             }}
@@ -236,8 +236,8 @@ export const IssueDetailDialog: React.FC<IssueDetailDialogProps> = ({
             <div
               style={{
                 padding: '12px 24px',
-                backgroundColor: '#FEE2E2',
-                color: '#DC2626',
+                backgroundColor: 'rgba(224,82,78,.12)',
+                color: 'var(--rr-bad)',
                 fontSize: '13px',
               }}
             >
@@ -246,7 +246,7 @@ export const IssueDetailDialog: React.FC<IssueDetailDialogProps> = ({
           )}
 
           {/* Description */}
-          <div style={{ padding: '16px 24px', borderBottom: '1px solid #E5E7EB' }}>
+          <div style={{ padding: '16px 24px', borderBottom: '1px solid var(--rr-border)' }}>
             {isEditing ? (
               <>
                 <label
@@ -255,7 +255,7 @@ export const IssueDetailDialog: React.FC<IssueDetailDialogProps> = ({
                     marginBottom: '6px',
                     fontSize: '14px',
                     fontWeight: 500,
-                    color: '#374151',
+                    color: 'var(--rr-text)',
                   }}
                 >
                   Description
@@ -267,7 +267,7 @@ export const IssueDetailDialog: React.FC<IssueDetailDialogProps> = ({
                   style={{
                     width: '100%',
                     padding: '10px 12px',
-                    border: '1px solid #D1D5DB',
+                    border: '1px solid var(--rr-border2)',
                     borderRadius: '6px',
                     fontSize: '14px',
                     resize: 'vertical',
@@ -281,7 +281,7 @@ export const IssueDetailDialog: React.FC<IssueDetailDialogProps> = ({
                       marginBottom: '6px',
                       fontSize: '14px',
                       fontWeight: 500,
-                      color: '#374151',
+                      color: 'var(--rr-text)',
                     }}
                   >
                     Priority
@@ -291,10 +291,10 @@ export const IssueDetailDialog: React.FC<IssueDetailDialogProps> = ({
                     onChange={(e) => setEditPriority(e.target.value as IssuePriority)}
                     style={{
                       padding: '10px 12px',
-                      border: '1px solid #D1D5DB',
+                      border: '1px solid var(--rr-border2)',
                       borderRadius: '6px',
                       fontSize: '14px',
-                      backgroundColor: 'white',
+                      backgroundColor: 'var(--rr-panel)',
                       cursor: 'pointer',
                     }}
                   >
@@ -311,11 +311,11 @@ export const IssueDetailDialog: React.FC<IssueDetailDialogProps> = ({
                   style={{
                     margin: 0,
                     fontSize: '14px',
-                    color: '#4B5563',
+                    color: 'var(--rr-text2)',
                     whiteSpace: 'pre-wrap',
                   }}
                 >
-                  {issue.description || <em style={{ color: '#9CA3AF' }}>No description provided</em>}
+                  {issue.description || <em style={{ color: 'var(--rr-text3)' }}>No description provided</em>}
                 </p>
               </>
             )}
@@ -325,9 +325,9 @@ export const IssueDetailDialog: React.FC<IssueDetailDialogProps> = ({
           <div
             style={{
               padding: '12px 24px',
-              backgroundColor: '#F9FAFB',
+              backgroundColor: 'var(--rr-panel2)',
               fontSize: '13px',
-              color: '#6B7280',
+              color: 'var(--rr-text2)',
               display: 'grid',
               gridTemplateColumns: 'repeat(2, 1fr)',
               gap: '8px',
@@ -355,12 +355,12 @@ export const IssueDetailDialog: React.FC<IssueDetailDialogProps> = ({
           <div
             style={{
               padding: '12px 24px',
-              borderTop: '1px solid #E5E7EB',
-              borderBottom: '1px solid #E5E7EB',
-              backgroundColor: '#F9FAFB',
+              borderTop: '1px solid var(--rr-border)',
+              borderBottom: '1px solid var(--rr-border)',
+              backgroundColor: 'var(--rr-panel2)',
               fontSize: '14px',
               fontWeight: 500,
-              color: '#374151',
+              color: 'var(--rr-text)',
             }}
           >
             Comments ({commentCount})
@@ -382,8 +382,8 @@ export const IssueDetailDialog: React.FC<IssueDetailDialogProps> = ({
             justifyContent: 'space-between',
             alignItems: 'center',
             padding: '16px 24px',
-            borderTop: '1px solid #E5E7EB',
-            backgroundColor: '#F9FAFB',
+            borderTop: '1px solid var(--rr-border)',
+            backgroundColor: 'var(--rr-panel2)',
           }}
         >
           <div>
@@ -395,10 +395,10 @@ export const IssueDetailDialog: React.FC<IssueDetailDialogProps> = ({
                   padding: '8px 14px',
                   fontSize: '13px',
                   fontWeight: 500,
-                  border: '1px solid #FCA5A5',
+                  border: '1px solid var(--rr-bad)',
                   borderRadius: '6px',
-                  backgroundColor: 'white',
-                  color: '#DC2626',
+                  backgroundColor: 'var(--rr-panel)',
+                  color: 'var(--rr-bad)',
                   cursor: saving || deleting ? 'not-allowed' : 'pointer',
                 }}
               >
@@ -417,10 +417,10 @@ export const IssueDetailDialog: React.FC<IssueDetailDialogProps> = ({
                     padding: '8px 16px',
                     fontSize: '13px',
                     fontWeight: 500,
-                    border: '1px solid #D1D5DB',
+                    border: '1px solid var(--rr-border2)',
                     borderRadius: '6px',
-                    backgroundColor: 'white',
-                    color: '#374151',
+                    backgroundColor: 'var(--rr-panel)',
+                    color: 'var(--rr-text)',
                     cursor: saving ? 'not-allowed' : 'pointer',
                   }}
                 >
@@ -435,8 +435,8 @@ export const IssueDetailDialog: React.FC<IssueDetailDialogProps> = ({
                     fontWeight: 500,
                     border: 'none',
                     borderRadius: '6px',
-                    backgroundColor: !editTitle.trim() || saving ? '#E5E7EB' : '#2563EB',
-                    color: !editTitle.trim() || saving ? '#9CA3AF' : 'white',
+                    backgroundColor: !editTitle.trim() || saving ? 'var(--rr-panel3)' : 'var(--rr-accent)',
+                    color: !editTitle.trim() || saving ? 'var(--rr-text3)' : 'white',
                     cursor: !editTitle.trim() || saving ? 'not-allowed' : 'pointer',
                   }}
                 >
@@ -453,10 +453,10 @@ export const IssueDetailDialog: React.FC<IssueDetailDialogProps> = ({
                       padding: '8px 16px',
                       fontSize: '13px',
                       fontWeight: 500,
-                      border: '1px solid #D1D5DB',
+                      border: '1px solid var(--rr-border2)',
                       borderRadius: '6px',
-                      backgroundColor: 'white',
-                      color: '#374151',
+                      backgroundColor: 'var(--rr-panel)',
+                      color: 'var(--rr-text)',
                       cursor: saving ? 'not-allowed' : 'pointer',
                     }}
                   >
@@ -473,7 +473,7 @@ export const IssueDetailDialog: React.FC<IssueDetailDialogProps> = ({
                       fontWeight: 500,
                       border: 'none',
                       borderRadius: '6px',
-                      backgroundColor: issue.status === 'open' ? '#047857' : '#2563EB',
+                      backgroundColor: issue.status === 'open' ? '#047857' : 'var(--rr-accent)',
                       color: 'white',
                       cursor: saving ? 'not-allowed' : 'pointer',
                     }}
@@ -504,17 +504,17 @@ export const IssueDetailDialog: React.FC<IssueDetailDialogProps> = ({
           >
             <div
               style={{
-                backgroundColor: 'white',
+                backgroundColor: 'var(--rr-panel)',
                 borderRadius: '8px',
                 padding: '24px',
                 maxWidth: '400px',
                 textAlign: 'center',
               }}
             >
-              <h3 style={{ margin: '0 0 12px 0', fontSize: '16px', fontWeight: 600, color: '#1F2937' }}>
+              <h3 style={{ margin: '0 0 12px 0', fontSize: '16px', fontWeight: 600, color: 'var(--rr-text)' }}>
                 Delete Issue?
               </h3>
-              <p style={{ margin: '0 0 20px 0', fontSize: '14px', color: '#6B7280' }}>
+              <p style={{ margin: '0 0 20px 0', fontSize: '14px', color: 'var(--rr-text2)' }}>
                 This will permanently delete this issue and all its comments. This action cannot be undone.
               </p>
               <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
@@ -525,10 +525,10 @@ export const IssueDetailDialog: React.FC<IssueDetailDialogProps> = ({
                     padding: '8px 16px',
                     fontSize: '14px',
                     fontWeight: 500,
-                    border: '1px solid #D1D5DB',
+                    border: '1px solid var(--rr-border2)',
                     borderRadius: '6px',
-                    backgroundColor: 'white',
-                    color: '#374151',
+                    backgroundColor: 'var(--rr-panel)',
+                    color: 'var(--rr-text)',
                     cursor: deleting ? 'not-allowed' : 'pointer',
                   }}
                 >
@@ -543,7 +543,7 @@ export const IssueDetailDialog: React.FC<IssueDetailDialogProps> = ({
                     fontWeight: 500,
                     border: 'none',
                     borderRadius: '6px',
-                    backgroundColor: '#DC2626',
+                    backgroundColor: 'var(--rr-bad)',
                     color: 'white',
                     cursor: deleting ? 'not-allowed' : 'pointer',
                   }}

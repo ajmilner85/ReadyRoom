@@ -36,11 +36,11 @@ interface AwardRuleBuilderProps {
 
 const selectStyle: React.CSSProperties = {
   padding: '6px 8px',
-  border: '1px solid #CBD5E1',
+  border: '1px solid var(--rr-border2)',
   borderRadius: '6px',
-  backgroundColor: '#FFFFFF',
+  backgroundColor: 'var(--rr-panel)',
   fontSize: '13px',
-  fontFamily: 'Inter'
+  fontFamily: 'inherit'
 };
 
 const smallButtonStyle: React.CSSProperties = {
@@ -48,12 +48,12 @@ const smallButtonStyle: React.CSSProperties = {
   alignItems: 'center',
   gap: '4px',
   padding: '5px 10px',
-  backgroundColor: '#FFFFFF',
-  color: '#64748B',
+  backgroundColor: 'var(--rr-panel)',
+  color: 'var(--rr-text2)',
   borderRadius: '6px',
-  border: '1px solid #CBD5E1',
+  border: '1px solid var(--rr-border2)',
   cursor: 'pointer',
-  fontFamily: 'Inter',
+  fontFamily: 'inherit',
   fontSize: '12px'
 };
 
@@ -107,7 +107,7 @@ const AwardRuleBuilder: React.FC<AwardRuleBuilderProps> = ({ group, onChange, cy
           />
         </div>
 
-        <span style={{ fontSize: '12px', color: '#94A3B8' }}>in</span>
+        <span style={{ fontSize: '12px', color: 'var(--rr-text3)' }}>in</span>
         <div style={{ width: '190px' }}>
           <StyledSelect
             value={condition.cycleId || ''}
@@ -147,14 +147,14 @@ const AwardRuleBuilder: React.FC<AwardRuleBuilderProps> = ({ group, onChange, cy
               onChange={(e) => updateChild(index, { ...condition, value: Number(e.target.value) || 0 })}
               style={{ ...selectStyle, width: '72px' }}
             />
-            {metric.unit && <span style={{ fontSize: '13px', color: '#64748B' }}>{metric.unit}</span>}
+            {metric.unit && <span style={{ fontSize: '13px', color: 'var(--rr-text2)' }}>{metric.unit}</span>}
           </>
         )}
 
         <button
           onClick={() => removeChild(index)}
           title="Remove condition"
-          style={{ ...smallButtonStyle, padding: '5px 6px', color: '#DC2626', borderColor: '#FCA5A5' }}
+          style={{ ...smallButtonStyle, padding: '5px 6px', color: 'var(--rr-bad)', borderColor: 'var(--rr-bad)' }}
         >
           <X size={12} />
         </button>
@@ -168,7 +168,7 @@ const AwardRuleBuilder: React.FC<AwardRuleBuilderProps> = ({ group, onChange, cy
       flexDirection: 'column',
       gap: '8px',
       padding: depth > 0 ? '10px 12px' : 0,
-      border: depth > 0 ? '1px dashed #CBD5E1' : 'none',
+      border: depth > 0 ? '1px dashed var(--rr-border2)' : 'none',
       borderRadius: depth > 0 ? '8px' : 0
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -183,7 +183,7 @@ const AwardRuleBuilder: React.FC<AwardRuleBuilderProps> = ({ group, onChange, cy
           />
         </div>
         {depth > 0 && (
-          <span style={{ fontSize: '12px', color: '#94A3B8' }}>(sub-group)</span>
+          <span style={{ fontSize: '12px', color: 'var(--rr-text3)' }}>(sub-group)</span>
         )}
       </div>
 
@@ -198,7 +198,7 @@ const AwardRuleBuilder: React.FC<AwardRuleBuilderProps> = ({ group, onChange, cy
             <button
               onClick={() => removeChild(index)}
               title="Remove sub-group"
-              style={{ ...smallButtonStyle, padding: '5px 6px', color: '#DC2626', borderColor: '#FCA5A5' }}
+              style={{ ...smallButtonStyle, padding: '5px 6px', color: 'var(--rr-bad)', borderColor: 'var(--rr-bad)' }}
             >
               <X size={12} />
             </button>

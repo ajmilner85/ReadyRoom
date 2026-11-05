@@ -410,17 +410,17 @@ const DCSReferenceSettings: React.FC<DCSReferenceSettingsProps> = ({ setError })
           disabled={currentPage === 1}
           style={{
             padding: '8px 12px',
-            backgroundColor: currentPage === 1 ? '#F1F5F9' : '#FFFFFF',
-            border: '1px solid #CBD5E1',
+            backgroundColor: currentPage === 1 ? 'var(--rr-panel2)' : 'var(--rr-panel)',
+            border: '1px solid var(--rr-border2)',
             borderRadius: '6px',
             fontSize: '14px',
             cursor: currentPage === 1 ? 'not-allowed' : 'pointer',
-            color: currentPage === 1 ? '#94A3B8' : '#0F172A'
+            color: currentPage === 1 ? 'var(--rr-text3)' : 'var(--rr-text)'
           }}
         >
           Previous
         </button>
-        <span style={{ padding: '8px 12px', fontSize: '14px', color: '#64748B' }}>
+        <span style={{ padding: '8px 12px', fontSize: '14px', color: 'var(--rr-text2)' }}>
           Page {currentPage} of {totalPages}
         </span>
         <button
@@ -428,12 +428,12 @@ const DCSReferenceSettings: React.FC<DCSReferenceSettingsProps> = ({ setError })
           disabled={currentPage === totalPages}
           style={{
             padding: '8px 12px',
-            backgroundColor: currentPage === totalPages ? '#F1F5F9' : '#FFFFFF',
-            border: '1px solid #CBD5E1',
+            backgroundColor: currentPage === totalPages ? 'var(--rr-panel2)' : 'var(--rr-panel)',
+            border: '1px solid var(--rr-border2)',
             borderRadius: '6px',
             fontSize: '14px',
             cursor: currentPage === totalPages ? 'not-allowed' : 'pointer',
-            color: currentPage === totalPages ? '#94A3B8' : '#0F172A'
+            color: currentPage === totalPages ? 'var(--rr-text3)' : 'var(--rr-text)'
           }}
         >
           Next
@@ -445,48 +445,48 @@ const DCSReferenceSettings: React.FC<DCSReferenceSettingsProps> = ({ setError })
   const getCategoryBadgeColor = (category: string) => {
     switch (category) {
       case 'AIRPLANE':
-        return { bg: '#DBEAFE', text: '#1D4ED8', border: '#3B82F6' };
+        return { bg: '#DBEAFE', text: '#1D4ED8', border: 'var(--rr-accent)' };
       case 'HELICOPTER':
         return { bg: '#E0E7FF', text: '#3730A3', border: '#6366F1' };
       case 'GROUND_UNIT':
-        return { bg: '#D1FAE5', text: '#065F46', border: '#10B981' };
+        return { bg: '#D1FAE5', text: '#065F46', border: 'var(--rr-good)' };
       case 'SHIP':
         return { bg: '#CCFBF1', text: '#115E59', border: '#14B8A6' };
       case 'STRUCTURE':
-        return { bg: '#FEE2E2', text: '#991B1B', border: '#EF4444' };
+        return { bg: '#FEE2E2', text: '#991B1B', border: 'var(--rr-bad)' };
       case 'HELIPORT':
-        return { bg: '#FEF3C7', text: '#92400E', border: '#F59E0B' };
+        return { bg: '#FEF3C7', text: '#92400E', border: 'var(--rr-warn)' };
       case 'CARGO':
         return { bg: '#FBCFE8', text: '#831843', border: '#EC4899' };
       case 'UNKNOWN':
         return { bg: '#F3E8FF', text: '#6B21A8', border: '#A855F7' };
       default:
-        return { bg: '#F3F4F6', text: '#374151', border: '#9CA3AF' };
+        return { bg: '#F3F4F6', text: '#374151', border: 'var(--rr-border2)' };
     }
   };
 
   const getKillCategoryBadgeColor = (killCategory: string) => {
     switch (killCategory) {
       case 'A2A':
-        return { bg: '#DBEAFE', text: '#1D4ED8', border: '#3B82F6' };
+        return { bg: '#DBEAFE', text: '#1D4ED8', border: 'var(--rr-accent)' };
       case 'A2G':
-        return { bg: '#D1FAE5', text: '#065F46', border: '#10B981' };
+        return { bg: '#D1FAE5', text: '#065F46', border: 'var(--rr-good)' };
       case 'A2S':
         return { bg: '#CCFBF1', text: '#115E59', border: '#14B8A6' };
       default:
-        return { bg: '#F3F4F6', text: '#374151', border: '#9CA3AF' };
+        return { bg: '#F3F4F6', text: '#374151', border: 'var(--rr-border2)' };
     }
   };
 
   return (
-    <div ref={componentRef} style={{ display: 'flex', flexDirection: 'column', height: '100%', backgroundColor: '#FFFFFF' }}>
+    <div ref={componentRef} style={{ display: 'flex', flexDirection: 'column', height: '100%', backgroundColor: 'var(--rr-panel)' }}>
       {/* Fixed Header */}
       <div style={{ padding: '40px 40px 0 40px', flexShrink: 0 }}>
-        <div style={{ maxWidth: '1200px', margin: '0 auto', borderBottom: '1px solid #E2E8F0', paddingBottom: '24px' }}>
-          <h2 style={{ fontSize: '24px', fontWeight: 600, margin: 0, color: '#0F172A' }}>
+        <div style={{ maxWidth: '1200px', margin: '0 auto', borderBottom: '1px solid var(--rr-border)', paddingBottom: '24px' }}>
+          <h2 style={{ fontSize: '24px', fontWeight: 600, margin: 0, color: 'var(--rr-text)' }}>
             DCS Reference Data
           </h2>
-          <p style={{ fontSize: '14px', color: '#64748B', margin: '8px 0 0 0', fontFamily: 'Inter' }}>
+          <p style={{ fontSize: '14px', color: 'var(--rr-text2)', margin: '8px 0 0 0', fontFamily: 'inherit' }}>
             Manage DCS World unit database for detailed kill tracking
           </p>
         </div>
@@ -499,28 +499,28 @@ const DCSReferenceSettings: React.FC<DCSReferenceSettingsProps> = ({ setError })
           {/* Sync Section */}
           <div style={{
             padding: '24px',
-            backgroundColor: '#F8FAFC',
-            border: '1px solid #E2E8F0',
+            backgroundColor: 'var(--rr-panel2)',
+            border: '1px solid var(--rr-border)',
             borderRadius: '8px',
             marginBottom: '24px',
             width: 'fit-content'
           }}>
             <div style={{ display: 'flex', gap: '24px', alignItems: 'flex-start' }}>
               <div>
-                <h3 style={{ fontSize: '16px', fontWeight: 600, color: '#0F172A', margin: '0 0 16px 0' }}>
+                <h3 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--rr-text)', margin: '0 0 16px 0' }}>
                   Unit Database Sync
                 </h3>
 
                 {/* Stats */}
                 <div style={{ display: 'flex', gap: '24px' }}>
                   <div>
-                    <div style={{ fontSize: '12px', color: '#64748B', marginBottom: '4px' }}>Total Units</div>
-                    <div style={{ fontSize: '14px', fontWeight: 600, color: '#0F172A' }}>{syncStats.total}</div>
+                    <div style={{ fontSize: '12px', color: 'var(--rr-text2)', marginBottom: '4px' }}>Total Units</div>
+                    <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--rr-text)' }}>{syncStats.total}</div>
                   </div>
                   {syncStats.errors > 0 && (
                     <div>
-                      <div style={{ fontSize: '12px', color: '#64748B', marginBottom: '4px' }}>Errors</div>
-                      <div style={{ fontSize: '14px', fontWeight: 600, color: '#DC2626' }}>{syncStats.errors}</div>
+                      <div style={{ fontSize: '12px', color: 'var(--rr-text2)', marginBottom: '4px' }}>Errors</div>
+                      <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--rr-bad)' }}>{syncStats.errors}</div>
                     </div>
                   )}
                 </div>
@@ -538,7 +538,7 @@ const DCSReferenceSettings: React.FC<DCSReferenceSettingsProps> = ({ setError })
               <div
                 style={{
                   width: '280px',
-                  border: '1px dashed #CBD5E1',
+                  border: '1px dashed var(--rr-border2)',
                   borderRadius: '4px',
                   padding: '16px',
                   display: 'flex',
@@ -546,7 +546,7 @@ const DCSReferenceSettings: React.FC<DCSReferenceSettingsProps> = ({ setError })
                   justifyContent: 'center',
                   alignItems: 'center',
                   cursor: syncing ? 'not-allowed' : 'pointer',
-                  backgroundColor: '#FFFFFF',
+                  backgroundColor: 'var(--rr-panel)',
                   transition: 'background-color 0.2s ease'
                 }}
                 onClick={syncing ? undefined : handleDropZoneClick}
@@ -554,24 +554,24 @@ const DCSReferenceSettings: React.FC<DCSReferenceSettingsProps> = ({ setError })
                 onDrop={handleDrop}
                 onMouseEnter={(e) => {
                   if (!syncing) {
-                    e.currentTarget.style.backgroundColor = '#F8FAFC';
+                    e.currentTarget.style.backgroundColor = 'var(--rr-panel2)';
                   }
                 }}
                 onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = '#FFFFFF';
+                  e.currentTarget.style.backgroundColor = 'var(--rr-panel)';
                 }}
               >
                 {syncing ? (
-                  <span style={{ fontSize: '14px', color: '#64748B' }}>Syncing...</span>
+                  <span style={{ fontSize: '14px', color: 'var(--rr-text2)' }}>Syncing...</span>
                 ) : (
                   <>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                      <Upload size={16} style={{ color: '#64748B' }} />
-                      <span style={{ fontSize: '14px', color: '#0F172A', fontWeight: 500 }}>
+                      <Upload size={16} style={{ color: 'var(--rr-text2)' }} />
+                      <span style={{ fontSize: '14px', color: 'var(--rr-text)', fontWeight: 500 }}>
                         Upload unit_dump.lua
                       </span>
                     </div>
-                    <span style={{ fontSize: '13px', color: '#64748B', textAlign: 'center' }}>
+                    <span style={{ fontSize: '13px', color: 'var(--rr-text2)', textAlign: 'center' }}>
                       Drag file here or click to browse
                     </span>
                   </>
@@ -583,7 +583,7 @@ const DCSReferenceSettings: React.FC<DCSReferenceSettingsProps> = ({ setError })
           {/* Unit Browser */}
           <div style={{
             padding: '24px 16px 16px 16px',
-            border: '1px solid #E2E8F0',
+            border: '1px solid var(--rr-border)',
             borderRadius: '8px',
             marginBottom: '20px'
           }}>
@@ -591,7 +591,7 @@ const DCSReferenceSettings: React.FC<DCSReferenceSettingsProps> = ({ setError })
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', gap: '16px' }}>
               {/* Left side: Title and Search */}
               <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flex: 1 }}>
-                <h3 style={{ fontSize: '16px', fontWeight: 600, color: '#0F172A', margin: 0, whiteSpace: 'nowrap' }}>
+                <h3 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--rr-text)', margin: 0, whiteSpace: 'nowrap' }}>
                   Unit Type Browser
                 </h3>
                 <div style={{ position: 'relative', width: '250px' }}>
@@ -602,7 +602,7 @@ const DCSReferenceSettings: React.FC<DCSReferenceSettingsProps> = ({ setError })
                       left: '12px',
                       top: '50%',
                       transform: 'translateY(-50%)',
-                      color: '#94A3B8'
+                      color: 'var(--rr-text3)'
                     }}
                   />
                   <input
@@ -613,7 +613,7 @@ const DCSReferenceSettings: React.FC<DCSReferenceSettingsProps> = ({ setError })
                     style={{
                       width: '100%',
                       padding: '8px 12px 8px 36px',
-                      border: '1px solid #CBD5E1',
+                      border: '1px solid var(--rr-border2)',
                       borderRadius: '6px',
                       fontSize: '14px',
                       outline: 'none',
@@ -624,7 +624,7 @@ const DCSReferenceSettings: React.FC<DCSReferenceSettingsProps> = ({ setError })
               </div>
 
               {/* Center: Results Count */}
-              <div style={{ fontSize: '14px', color: '#64748B', whiteSpace: 'nowrap' }}>
+              <div style={{ fontSize: '14px', color: 'var(--rr-text2)', whiteSpace: 'nowrap' }}>
                 Showing {filteredUnits.length} of {units.length} units
               </div>
 
@@ -636,7 +636,7 @@ const DCSReferenceSettings: React.FC<DCSReferenceSettingsProps> = ({ setError })
                   alignItems: 'center',
                   gap: '6px',
                   padding: '8px 16px',
-                  backgroundColor: '#3B82F6',
+                  backgroundColor: 'var(--rr-accent)',
                   color: '#FFFFFF',
                   border: 'none',
                   borderRadius: '6px',
@@ -653,17 +653,17 @@ const DCSReferenceSettings: React.FC<DCSReferenceSettingsProps> = ({ setError })
 
             {/* Unit Table */}
             {loading ? (
-              <div style={{ textAlign: 'center', padding: '40px', color: '#64748B' }}>
+              <div style={{ textAlign: 'center', padding: '40px', color: 'var(--rr-text2)' }}>
                 Loading units...
               </div>
             ) : (
               <>
                 <div ref={tableContainerRef}>
                   <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
-                    <thead style={{ position: 'sticky', top: 0, backgroundColor: 'white', zIndex: 10 }}>
-                      <tr style={{ borderBottom: '2px solid #E2E8F0' }}>
+                    <thead style={{ position: 'sticky', top: 0, backgroundColor: 'var(--rr-panel)', zIndex: 10 }}>
+                      <tr style={{ borderBottom: '2px solid var(--rr-border)' }}>
                         {/* Status - Filterable (First Column) */}
-                        <th style={{ padding: '12px 5px', textAlign: 'center', fontSize: '12px', fontWeight: 500, color: '#6B7280', textTransform: 'uppercase', position: 'relative', whiteSpace: 'nowrap', width: '40px', backgroundColor: 'white' }}>
+                        <th style={{ padding: '12px 5px', textAlign: 'center', fontSize: '12px', fontWeight: 500, color: 'var(--rr-text2)', textTransform: 'uppercase', position: 'relative', whiteSpace: 'nowrap', width: '40px', backgroundColor: 'var(--rr-panel)' }}>
                           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                             <button
                               onClick={() => setShowStatusFilter(!showStatusFilter)}
@@ -672,7 +672,7 @@ const DCSReferenceSettings: React.FC<DCSReferenceSettingsProps> = ({ setError })
                                 border: 'none',
                                 padding: '2px',
                                 cursor: 'pointer',
-                                color: statusFilter.length > 0 ? '#2563EB' : '#6B7280'
+                                color: statusFilter.length > 0 ? 'var(--rr-accent-text)' : 'var(--rr-text2)'
                               }}
                             >
                               <Filter size={12} />
@@ -685,10 +685,10 @@ const DCSReferenceSettings: React.FC<DCSReferenceSettingsProps> = ({ setError })
                               left: '50%',
                               transform: 'translateX(-50%)',
                               minWidth: '150px',
-                              backgroundColor: 'white',
-                              border: '1px solid #E5E7EB',
+                              backgroundColor: 'var(--rr-panel)',
+                              border: '1px solid var(--rr-border)',
                               borderRadius: '4px',
-                              boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+                              boxShadow: 'var(--rr-shadow)',
                               zIndex: 1000,
                               display: 'flex',
                               flexDirection: 'column'
@@ -697,10 +697,10 @@ const DCSReferenceSettings: React.FC<DCSReferenceSettingsProps> = ({ setError })
                                 {(['active', 'inactive'] as const).map(status => (
                                   <div key={status} style={{
                                     padding: '8px 12px',
-                                    borderBottom: '1px solid #F3F4F6',
+                                    borderBottom: '1px solid var(--rr-border)',
                                     fontSize: '12px',
                                     cursor: 'pointer',
-                                    backgroundColor: statusFilter.includes(status) ? '#EFF6FF' : 'transparent',
+                                    backgroundColor: statusFilter.includes(status) ? 'var(--rr-accent-weak)' : 'transparent',
                                     display: 'flex',
                                     alignItems: 'center',
                                     gap: '6px'
@@ -719,8 +719,8 @@ const DCSReferenceSettings: React.FC<DCSReferenceSettingsProps> = ({ setError })
                               </div>
                               <div style={{
                                 padding: '8px 12px',
-                                borderTop: '1px solid #E5E7EB',
-                                backgroundColor: '#F9FAFB',
+                                borderTop: '1px solid var(--rr-border)',
+                                backgroundColor: 'var(--rr-panel2)',
                                 display: 'flex',
                                 gap: '8px',
                                 justifyContent: 'space-between',
@@ -732,7 +732,7 @@ const DCSReferenceSettings: React.FC<DCSReferenceSettingsProps> = ({ setError })
                                     background: 'none',
                                     border: 'none',
                                     fontSize: '11px',
-                                    color: '#6B7280',
+                                    color: 'var(--rr-text2)',
                                     cursor: 'pointer'
                                   }}
                                 >
@@ -744,7 +744,7 @@ const DCSReferenceSettings: React.FC<DCSReferenceSettingsProps> = ({ setError })
                                     background: 'none',
                                     border: 'none',
                                     fontSize: '11px',
-                                    color: '#6B7280',
+                                    color: 'var(--rr-text2)',
                                     cursor: 'pointer'
                                   }}
                                 >
@@ -756,7 +756,7 @@ const DCSReferenceSettings: React.FC<DCSReferenceSettingsProps> = ({ setError })
                         </th>
 
                         {/* Display Name - Sortable */}
-                        <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: 500, color: '#6B7280', textTransform: 'uppercase', position: 'relative', whiteSpace: 'nowrap', width: '170px', backgroundColor: 'white' }}>
+                        <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: 500, color: 'var(--rr-text2)', textTransform: 'uppercase', position: 'relative', whiteSpace: 'nowrap', width: '170px', backgroundColor: 'var(--rr-panel)' }}>
                           <div
                             style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', userSelect: 'none' }}
                             onClick={() => handleSort('display_name')}
@@ -769,7 +769,7 @@ const DCSReferenceSettings: React.FC<DCSReferenceSettingsProps> = ({ setError })
                         </th>
 
                         {/* Type Name - Sortable */}
-                        <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: 500, color: '#6B7280', textTransform: 'uppercase', position: 'relative', whiteSpace: 'nowrap', width: '150px', backgroundColor: 'white' }}>
+                        <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: 500, color: 'var(--rr-text2)', textTransform: 'uppercase', position: 'relative', whiteSpace: 'nowrap', width: '150px', backgroundColor: 'var(--rr-panel)' }}>
                           <div
                             style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', userSelect: 'none' }}
                             onClick={() => handleSort('type_name')}
@@ -782,7 +782,7 @@ const DCSReferenceSettings: React.FC<DCSReferenceSettingsProps> = ({ setError })
                         </th>
 
                         {/* Category - Filterable */}
-                        <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: 500, color: '#6B7280', textTransform: 'uppercase', position: 'relative', whiteSpace: 'nowrap', width: '115px', backgroundColor: 'white' }}>
+                        <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: 500, color: 'var(--rr-text2)', textTransform: 'uppercase', position: 'relative', whiteSpace: 'nowrap', width: '115px', backgroundColor: 'var(--rr-panel)' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                             Category
                             <button
@@ -792,7 +792,7 @@ const DCSReferenceSettings: React.FC<DCSReferenceSettingsProps> = ({ setError })
                                 border: 'none',
                                 padding: '2px',
                                 cursor: 'pointer',
-                                color: categoryFilter.length > 0 ? '#2563EB' : '#6B7280'
+                                color: categoryFilter.length > 0 ? 'var(--rr-accent-text)' : 'var(--rr-text2)'
                               }}
                             >
                               <Filter size={12} />
@@ -804,10 +804,10 @@ const DCSReferenceSettings: React.FC<DCSReferenceSettingsProps> = ({ setError })
                               top: '100%',
                               left: '0',
                               minWidth: '200px',
-                              backgroundColor: 'white',
-                              border: '1px solid #E5E7EB',
+                              backgroundColor: 'var(--rr-panel)',
+                              border: '1px solid var(--rr-border)',
                               borderRadius: '4px',
-                              boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+                              boxShadow: 'var(--rr-shadow)',
                               zIndex: 1000,
                               maxHeight: '300px',
                               display: 'flex',
@@ -817,10 +817,10 @@ const DCSReferenceSettings: React.FC<DCSReferenceSettingsProps> = ({ setError })
                                 {uniqueCategories.map(category => (
                                   <div key={category} style={{
                                     padding: '8px 12px',
-                                    borderBottom: '1px solid #F3F4F6',
+                                    borderBottom: '1px solid var(--rr-border)',
                                     fontSize: '12px',
                                     cursor: 'pointer',
-                                    backgroundColor: categoryFilter.includes(category) ? '#EFF6FF' : 'transparent',
+                                    backgroundColor: categoryFilter.includes(category) ? 'var(--rr-accent-weak)' : 'transparent',
                                     display: 'flex',
                                     alignItems: 'center',
                                     gap: '6px'
@@ -839,8 +839,8 @@ const DCSReferenceSettings: React.FC<DCSReferenceSettingsProps> = ({ setError })
                               </div>
                               <div style={{
                                 padding: '8px 12px',
-                                borderTop: '1px solid #E5E7EB',
-                                backgroundColor: '#F9FAFB',
+                                borderTop: '1px solid var(--rr-border)',
+                                backgroundColor: 'var(--rr-panel2)',
                                 display: 'flex',
                                 gap: '8px',
                                 justifyContent: 'space-between',
@@ -852,7 +852,7 @@ const DCSReferenceSettings: React.FC<DCSReferenceSettingsProps> = ({ setError })
                                     background: 'none',
                                     border: 'none',
                                     fontSize: '11px',
-                                    color: '#6B7280',
+                                    color: 'var(--rr-text2)',
                                     cursor: 'pointer'
                                   }}
                                 >
@@ -864,7 +864,7 @@ const DCSReferenceSettings: React.FC<DCSReferenceSettingsProps> = ({ setError })
                                     background: 'none',
                                     border: 'none',
                                     fontSize: '11px',
-                                    color: '#6B7280',
+                                    color: 'var(--rr-text2)',
                                     cursor: 'pointer'
                                   }}
                                 >
@@ -876,7 +876,7 @@ const DCSReferenceSettings: React.FC<DCSReferenceSettingsProps> = ({ setError })
                         </th>
 
                         {/* Sub-Category - Filterable */}
-                        <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: 500, color: '#6B7280', textTransform: 'uppercase', position: 'relative', whiteSpace: 'nowrap', width: '125px', backgroundColor: 'white' }}>
+                        <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: 500, color: 'var(--rr-text2)', textTransform: 'uppercase', position: 'relative', whiteSpace: 'nowrap', width: '125px', backgroundColor: 'var(--rr-panel)' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                             Sub-Category
                             <button
@@ -886,7 +886,7 @@ const DCSReferenceSettings: React.FC<DCSReferenceSettingsProps> = ({ setError })
                                 border: 'none',
                                 padding: '2px',
                                 cursor: 'pointer',
-                                color: subCategoryFilter.length > 0 ? '#2563EB' : '#6B7280'
+                                color: subCategoryFilter.length > 0 ? 'var(--rr-accent-text)' : 'var(--rr-text2)'
                               }}
                             >
                               <Filter size={12} />
@@ -898,10 +898,10 @@ const DCSReferenceSettings: React.FC<DCSReferenceSettingsProps> = ({ setError })
                               top: '100%',
                               left: '0',
                               minWidth: '200px',
-                              backgroundColor: 'white',
-                              border: '1px solid #E5E7EB',
+                              backgroundColor: 'var(--rr-panel)',
+                              border: '1px solid var(--rr-border)',
                               borderRadius: '4px',
-                              boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+                              boxShadow: 'var(--rr-shadow)',
                               zIndex: 1000,
                               maxHeight: '300px',
                               display: 'flex',
@@ -910,10 +910,10 @@ const DCSReferenceSettings: React.FC<DCSReferenceSettingsProps> = ({ setError })
                               <div style={{ flex: 1, overflowY: 'auto' }}>
                                 <div style={{
                                   padding: '8px 12px',
-                                  borderBottom: '1px solid #F3F4F6',
+                                  borderBottom: '1px solid var(--rr-border)',
                                   fontSize: '12px',
                                   cursor: 'pointer',
-                                  backgroundColor: subCategoryFilter.includes('none') ? '#EFF6FF' : 'transparent',
+                                  backgroundColor: subCategoryFilter.includes('none') ? 'var(--rr-accent-weak)' : 'transparent',
                                   display: 'flex',
                                   alignItems: 'center',
                                   gap: '6px'
@@ -931,10 +931,10 @@ const DCSReferenceSettings: React.FC<DCSReferenceSettingsProps> = ({ setError })
                                 {uniqueSubCategories.map(subCat => (
                                   <div key={subCat} style={{
                                     padding: '8px 12px',
-                                    borderBottom: '1px solid #F3F4F6',
+                                    borderBottom: '1px solid var(--rr-border)',
                                     fontSize: '12px',
                                     cursor: 'pointer',
-                                    backgroundColor: subCategoryFilter.includes(subCat) ? '#EFF6FF' : 'transparent',
+                                    backgroundColor: subCategoryFilter.includes(subCat) ? 'var(--rr-accent-weak)' : 'transparent',
                                     display: 'flex',
                                     alignItems: 'center',
                                     gap: '6px'
@@ -953,8 +953,8 @@ const DCSReferenceSettings: React.FC<DCSReferenceSettingsProps> = ({ setError })
                               </div>
                               <div style={{
                                 padding: '8px 12px',
-                                borderTop: '1px solid #E5E7EB',
-                                backgroundColor: '#F9FAFB',
+                                borderTop: '1px solid var(--rr-border)',
+                                backgroundColor: 'var(--rr-panel2)',
                                 display: 'flex',
                                 gap: '8px',
                                 justifyContent: 'space-between',
@@ -966,7 +966,7 @@ const DCSReferenceSettings: React.FC<DCSReferenceSettingsProps> = ({ setError })
                                     background: 'none',
                                     border: 'none',
                                     fontSize: '11px',
-                                    color: '#6B7280',
+                                    color: 'var(--rr-text2)',
                                     cursor: 'pointer'
                                   }}
                                 >
@@ -978,7 +978,7 @@ const DCSReferenceSettings: React.FC<DCSReferenceSettingsProps> = ({ setError })
                                     background: 'none',
                                     border: 'none',
                                     fontSize: '11px',
-                                    color: '#6B7280',
+                                    color: 'var(--rr-text2)',
                                     cursor: 'pointer'
                                   }}
                                 >
@@ -990,7 +990,7 @@ const DCSReferenceSettings: React.FC<DCSReferenceSettingsProps> = ({ setError })
                         </th>
 
                         {/* Kill Type - Filterable */}
-                        <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: 500, color: '#6B7280', textTransform: 'uppercase', position: 'relative', whiteSpace: 'nowrap', width: '75px', backgroundColor: 'white' }}>
+                        <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: 500, color: 'var(--rr-text2)', textTransform: 'uppercase', position: 'relative', whiteSpace: 'nowrap', width: '75px', backgroundColor: 'var(--rr-panel)' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                             Kill Type
                             <button
@@ -1000,7 +1000,7 @@ const DCSReferenceSettings: React.FC<DCSReferenceSettingsProps> = ({ setError })
                                 border: 'none',
                                 padding: '2px',
                                 cursor: 'pointer',
-                                color: killCategoryFilter.length > 0 ? '#2563EB' : '#6B7280'
+                                color: killCategoryFilter.length > 0 ? 'var(--rr-accent-text)' : 'var(--rr-text2)'
                               }}
                             >
                               <Filter size={12} />
@@ -1012,10 +1012,10 @@ const DCSReferenceSettings: React.FC<DCSReferenceSettingsProps> = ({ setError })
                               top: '100%',
                               left: '0',
                               minWidth: '150px',
-                              backgroundColor: 'white',
-                              border: '1px solid #E5E7EB',
+                              backgroundColor: 'var(--rr-panel)',
+                              border: '1px solid var(--rr-border)',
                               borderRadius: '4px',
-                              boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+                              boxShadow: 'var(--rr-shadow)',
                               zIndex: 1000,
                               display: 'flex',
                               flexDirection: 'column'
@@ -1024,10 +1024,10 @@ const DCSReferenceSettings: React.FC<DCSReferenceSettingsProps> = ({ setError })
                                 {(['A2A', 'A2G', 'A2S'] as const).map(killType => (
                                   <div key={killType} style={{
                                     padding: '8px 12px',
-                                    borderBottom: '1px solid #F3F4F6',
+                                    borderBottom: '1px solid var(--rr-border)',
                                     fontSize: '12px',
                                     cursor: 'pointer',
-                                    backgroundColor: killCategoryFilter.includes(killType) ? '#EFF6FF' : 'transparent',
+                                    backgroundColor: killCategoryFilter.includes(killType) ? 'var(--rr-accent-weak)' : 'transparent',
                                     display: 'flex',
                                     alignItems: 'center',
                                     gap: '6px'
@@ -1046,8 +1046,8 @@ const DCSReferenceSettings: React.FC<DCSReferenceSettingsProps> = ({ setError })
                               </div>
                               <div style={{
                                 padding: '8px 12px',
-                                borderTop: '1px solid #E5E7EB',
-                                backgroundColor: '#F9FAFB',
+                                borderTop: '1px solid var(--rr-border)',
+                                backgroundColor: 'var(--rr-panel2)',
                                 display: 'flex',
                                 gap: '8px',
                                 justifyContent: 'space-between',
@@ -1059,7 +1059,7 @@ const DCSReferenceSettings: React.FC<DCSReferenceSettingsProps> = ({ setError })
                                     background: 'none',
                                     border: 'none',
                                     fontSize: '11px',
-                                    color: '#6B7280',
+                                    color: 'var(--rr-text2)',
                                     cursor: 'pointer'
                                   }}
                                 >
@@ -1071,7 +1071,7 @@ const DCSReferenceSettings: React.FC<DCSReferenceSettingsProps> = ({ setError })
                                     background: 'none',
                                     border: 'none',
                                     fontSize: '11px',
-                                    color: '#6B7280',
+                                    color: 'var(--rr-text2)',
                                     cursor: 'pointer'
                                   }}
                                 >
@@ -1083,7 +1083,7 @@ const DCSReferenceSettings: React.FC<DCSReferenceSettingsProps> = ({ setError })
                         </th>
 
                         {/* Source - Filterable */}
-                        <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: 500, color: '#6B7280', textTransform: 'uppercase', position: 'relative', whiteSpace: 'nowrap', width: '65px', backgroundColor: 'white' }}>
+                        <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: 500, color: 'var(--rr-text2)', textTransform: 'uppercase', position: 'relative', whiteSpace: 'nowrap', width: '65px', backgroundColor: 'var(--rr-panel)' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                             Source
                             <button
@@ -1093,7 +1093,7 @@ const DCSReferenceSettings: React.FC<DCSReferenceSettingsProps> = ({ setError })
                                 border: 'none',
                                 padding: '2px',
                                 cursor: 'pointer',
-                                color: sourceFilter.length > 0 ? '#2563EB' : '#6B7280'
+                                color: sourceFilter.length > 0 ? 'var(--rr-accent-text)' : 'var(--rr-text2)'
                               }}
                             >
                               <Filter size={12} />
@@ -1105,10 +1105,10 @@ const DCSReferenceSettings: React.FC<DCSReferenceSettingsProps> = ({ setError })
                               top: '100%',
                               left: '0',
                               minWidth: '150px',
-                              backgroundColor: 'white',
-                              border: '1px solid #E5E7EB',
+                              backgroundColor: 'var(--rr-panel)',
+                              border: '1px solid var(--rr-border)',
                               borderRadius: '4px',
-                              boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+                              boxShadow: 'var(--rr-shadow)',
                               zIndex: 1000,
                               display: 'flex',
                               flexDirection: 'column'
@@ -1117,10 +1117,10 @@ const DCSReferenceSettings: React.FC<DCSReferenceSettingsProps> = ({ setError })
                                 {(['DCS', 'Manual'] as const).map(source => (
                                   <div key={source} style={{
                                     padding: '8px 12px',
-                                    borderBottom: '1px solid #F3F4F6',
+                                    borderBottom: '1px solid var(--rr-border)',
                                     fontSize: '12px',
                                     cursor: 'pointer',
-                                    backgroundColor: sourceFilter.includes(source) ? '#EFF6FF' : 'transparent',
+                                    backgroundColor: sourceFilter.includes(source) ? 'var(--rr-accent-weak)' : 'transparent',
                                     display: 'flex',
                                     alignItems: 'center',
                                     gap: '6px'
@@ -1139,8 +1139,8 @@ const DCSReferenceSettings: React.FC<DCSReferenceSettingsProps> = ({ setError })
                               </div>
                               <div style={{
                                 padding: '8px 12px',
-                                borderTop: '1px solid #E5E7EB',
-                                backgroundColor: '#F9FAFB',
+                                borderTop: '1px solid var(--rr-border)',
+                                backgroundColor: 'var(--rr-panel2)',
                                 display: 'flex',
                                 gap: '8px',
                                 justifyContent: 'space-between',
@@ -1152,7 +1152,7 @@ const DCSReferenceSettings: React.FC<DCSReferenceSettingsProps> = ({ setError })
                                     background: 'none',
                                     border: 'none',
                                     fontSize: '11px',
-                                    color: '#6B7280',
+                                    color: 'var(--rr-text2)',
                                     cursor: 'pointer'
                                   }}
                                 >
@@ -1164,7 +1164,7 @@ const DCSReferenceSettings: React.FC<DCSReferenceSettingsProps> = ({ setError })
                                     background: 'none',
                                     border: 'none',
                                     fontSize: '11px',
-                                    color: '#6B7280',
+                                    color: 'var(--rr-text2)',
                                     cursor: 'pointer'
                                   }}
                                 >
@@ -1176,7 +1176,7 @@ const DCSReferenceSettings: React.FC<DCSReferenceSettingsProps> = ({ setError })
                         </th>
 
                         {/* Actions - No filter */}
-                        <th style={{ padding: '12px', textAlign: 'center', fontSize: '12px', fontWeight: 500, color: '#6B7280', textTransform: 'uppercase', width: '65px', backgroundColor: 'white' }}>
+                        <th style={{ padding: '12px', textAlign: 'center', fontSize: '12px', fontWeight: 500, color: 'var(--rr-text2)', textTransform: 'uppercase', width: '65px', backgroundColor: 'var(--rr-panel)' }}>
                           Actions
                         </th>
                       </tr>
@@ -1184,7 +1184,7 @@ const DCSReferenceSettings: React.FC<DCSReferenceSettingsProps> = ({ setError })
                     <tbody>
                       {filteredUnits.length === 0 ? (
                         <tr>
-                          <td colSpan={8} style={{ textAlign: 'center', padding: '40px', color: '#64748B' }}>
+                          <td colSpan={8} style={{ textAlign: 'center', padding: '40px', color: 'var(--rr-text2)' }}>
                             No units found. Upload unit_dump.lua to populate the database.
                           </td>
                         </tr>
@@ -1197,7 +1197,7 @@ const DCSReferenceSettings: React.FC<DCSReferenceSettingsProps> = ({ setError })
                             <tr
                               key={unit.id || index}
                               style={{
-                                borderBottom: '1px solid #F1F5F9',
+                                borderBottom: '1px solid var(--rr-border)',
                                 opacity: unit.is_active ? 1 : 0.5,
                                 height: '48px'
                               }}
@@ -1212,16 +1212,16 @@ const DCSReferenceSettings: React.FC<DCSReferenceSettingsProps> = ({ setError })
                                     cursor: 'pointer',
                                     display: 'inline-flex',
                                     alignItems: 'center',
-                                    color: unit.is_active ? '#3B82F6' : '#94A3B8'
+                                    color: unit.is_active ? 'var(--rr-accent-text)' : 'var(--rr-text3)'
                                   }}
                                 >
                                   {unit.is_active ? <Eye size={16} /> : <EyeOff size={16} />}
                                 </button>
                               </td>
-                              <td style={{ padding: '10px 12px', fontSize: '13px', color: '#0F172A', fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={unit.display_name}>
+                              <td style={{ padding: '10px 12px', fontSize: '13px', color: 'var(--rr-text)', fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={unit.display_name}>
                                 {unit.display_name}
                               </td>
-                              <td style={{ padding: '10px 12px', fontSize: '13px', color: '#64748B', fontFamily: 'monospace', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={unit.type_name}>
+                              <td style={{ padding: '10px 12px', fontSize: '13px', color: 'var(--rr-text2)', fontFamily: 'monospace', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={unit.type_name}>
                                 {unit.type_name}
                               </td>
                               <td style={{ padding: '10px 12px' }}>
@@ -1238,7 +1238,7 @@ const DCSReferenceSettings: React.FC<DCSReferenceSettingsProps> = ({ setError })
                                   {unit.category}
                                 </span>
                               </td>
-                              <td style={{ padding: '10px 12px', fontSize: '13px', color: '#64748B' }}>
+                              <td style={{ padding: '10px 12px', fontSize: '13px', color: 'var(--rr-text2)' }}>
                                 {unit.sub_category || '—'}
                               </td>
                               <td style={{ padding: '10px 12px' }}>
@@ -1255,7 +1255,7 @@ const DCSReferenceSettings: React.FC<DCSReferenceSettingsProps> = ({ setError })
                                   {unit.kill_category}
                                 </span>
                               </td>
-                              <td style={{ padding: '10px 12px', fontSize: '13px', color: '#64748B' }}>
+                              <td style={{ padding: '10px 12px', fontSize: '13px', color: 'var(--rr-text2)' }}>
                                 {unit.source}
                               </td>
                               <td style={{ padding: '10px 12px', textAlign: 'center' }}>
@@ -1270,7 +1270,7 @@ const DCSReferenceSettings: React.FC<DCSReferenceSettingsProps> = ({ setError })
                                       display: 'inline-flex',
                                       alignItems: 'center',
                                       gap: '4px',
-                                      color: '#3B82F6',
+                                      color: 'var(--rr-accent-text)',
                                       fontSize: '12px',
                                       fontWeight: 500
                                     }}

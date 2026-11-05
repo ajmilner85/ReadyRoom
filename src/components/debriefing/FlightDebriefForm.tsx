@@ -382,9 +382,9 @@ const FlightDebriefForm: React.FC<FlightDebriefFormProps> = ({
           maxHeight: '90vh',
           display: 'flex',
           flexDirection: 'column',
-          backgroundColor: '#FFFFFF',
+          backgroundColor: 'var(--rr-panel)',
           borderRadius: '8px',
-          boxShadow: '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)',
+          boxShadow: 'var(--rr-shadow)',
           overflow: 'hidden'
         }}
         onClick={(e) => e.stopPropagation()}
@@ -393,9 +393,9 @@ const FlightDebriefForm: React.FC<FlightDebriefFormProps> = ({
         <div
           style={{
             padding: '24px',
-            borderBottom: '1px solid #E2E8F0',
+            borderBottom: '1px solid var(--rr-border)',
             flexShrink: 0,
-            backgroundColor: '#FFFFFF',
+            backgroundColor: 'var(--rr-panel)',
             position: 'relative'
           }}
         >
@@ -414,10 +414,10 @@ const FlightDebriefForm: React.FC<FlightDebriefFormProps> = ({
               />
             )}
             <div>
-              <div style={{ fontSize: '14px', fontWeight: 600, color: '#1E293B', marginBottom: '2px' }}>
+              <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--rr-text)', marginBottom: '2px' }}>
                 {squadron?.designation || ''}
               </div>
-              <div style={{ fontSize: '12px', fontWeight: 400, color: '#64748B' }}>
+              <div style={{ fontSize: '12px', fontWeight: 400, color: 'var(--rr-text2)' }}>
                 {squadron?.name || ''}
               </div>
             </div>
@@ -429,14 +429,14 @@ const FlightDebriefForm: React.FC<FlightDebriefFormProps> = ({
               style={{
                 fontSize: '20px',
                 fontWeight: 600,
-                color: '#1E293B',
+                color: 'var(--rr-text)',
                 margin: 0
               }}
             >
               {flightName}
             </h2>
             {flightLeadInfo && (
-              <div style={{ fontSize: '16px', color: '#64748B' }}>
+              <div style={{ fontSize: '16px', color: 'var(--rr-text2)' }}>
                 {flightLeadInfo.boardNumber} {flightLeadInfo.callsign}
               </div>
             )}
@@ -454,11 +454,11 @@ const FlightDebriefForm: React.FC<FlightDebriefFormProps> = ({
               justifyContent: 'center',
               width: '32px',
               height: '32px',
-              backgroundColor: '#F1F5F9',
+              backgroundColor: 'var(--rr-panel2)',
               border: 'none',
               borderRadius: '6px',
               cursor: 'pointer',
-              color: '#64748B',
+              color: 'var(--rr-text2)',
               flexShrink: 0
             }}
           >
@@ -476,7 +476,7 @@ const FlightDebriefForm: React.FC<FlightDebriefFormProps> = ({
                   style={{
                     fontSize: '14px',
                     fontWeight: 600,
-                    color: '#475569',
+                    color: 'var(--rr-text2)',
                     marginBottom: '12px'
                   }}
                 >
@@ -499,7 +499,7 @@ const FlightDebriefForm: React.FC<FlightDebriefFormProps> = ({
                     style={{
                       fontSize: '14px',
                       fontWeight: 600,
-                      color: '#475569',
+                      color: 'var(--rr-text2)',
                       marginBottom: '12px'
                     }}
                   >
@@ -527,7 +527,7 @@ const FlightDebriefForm: React.FC<FlightDebriefFormProps> = ({
                       display: 'block',
                       fontSize: '14px',
                       fontWeight: 600,
-                      color: '#475569',
+                      color: 'var(--rr-text2)',
                       marginBottom: '8px',
                       flexShrink: 0
                     }}
@@ -544,9 +544,9 @@ const FlightDebriefForm: React.FC<FlightDebriefFormProps> = ({
                       flex: 1,
                       padding: '12px',
                       fontSize: '14px',
-                      color: '#1E293B',
-                      backgroundColor: '#FFFFFF',
-                      border: '1px solid #CBD5E1',
+                      color: 'var(--rr-text)',
+                      backgroundColor: 'var(--rr-panel)',
+                      border: '1px solid var(--rr-border2)',
                       borderRadius: '6px',
                       resize: 'none',
                       outline: 'none',
@@ -563,9 +563,9 @@ const FlightDebriefForm: React.FC<FlightDebriefFormProps> = ({
           <div
             style={{
               padding: '16px 24px',
-              borderTop: '1px solid #E2E8F0',
+              borderTop: '1px solid var(--rr-border)',
               flexShrink: 0,
-              backgroundColor: '#FFFFFF'
+              backgroundColor: 'var(--rr-panel)'
             }}
           >
             {/* Error Alert */}
@@ -574,13 +574,13 @@ const FlightDebriefForm: React.FC<FlightDebriefFormProps> = ({
                 style={{
                   marginBottom: '12px',
                   padding: '12px 16px',
-                  backgroundColor: '#FEE2E2',
-                  border: '1px solid #FCA5A5',
+                  backgroundColor: 'rgba(224,82,78,.12)',
+                  border: '1px solid var(--rr-bad)',
                   borderRadius: '6px',
                   display: 'flex',
                   alignItems: 'center',
                   gap: '8px',
-                  color: '#991B1B',
+                  color: 'var(--rr-bad)',
                   fontSize: '14px'
                 }}
               >
@@ -598,9 +598,9 @@ const FlightDebriefForm: React.FC<FlightDebriefFormProps> = ({
                   padding: '10px 20px',
                   fontSize: '14px',
                   fontWeight: 500,
-                  color: '#64748B',
-                  backgroundColor: '#FFFFFF',
-                  border: '1px solid #CBD5E1',
+                  color: 'var(--rr-text2)',
+                  backgroundColor: 'var(--rr-panel)',
+                  border: '1px solid var(--rr-border2)',
                   borderRadius: '6px',
                   cursor: saving ? 'not-allowed' : 'pointer',
                   opacity: saving ? 0.5 : 1
@@ -620,7 +620,7 @@ const FlightDebriefForm: React.FC<FlightDebriefFormProps> = ({
                     fontSize: '14px',
                     fontWeight: 500,
                     color: '#FFFFFF',
-                    backgroundColor: '#3B82F6',
+                    backgroundColor: 'var(--rr-accent)',
                     border: 'none',
                     borderRadius: '6px',
                     cursor: saving ? 'not-allowed' : 'pointer',
@@ -654,11 +654,11 @@ const FlightDebriefForm: React.FC<FlightDebriefFormProps> = ({
         >
           <div
             style={{
-              backgroundColor: '#FFFFFF',
+              backgroundColor: 'var(--rr-panel)',
               borderRadius: '8px',
               padding: '24px',
               maxWidth: '400px',
-              boxShadow: '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)'
+              boxShadow: 'var(--rr-shadow)'
             }}
             onClick={(e) => e.stopPropagation()}
           >
@@ -666,7 +666,7 @@ const FlightDebriefForm: React.FC<FlightDebriefFormProps> = ({
               style={{
                 fontSize: '18px',
                 fontWeight: 600,
-                color: '#1E293B',
+                color: 'var(--rr-text)',
                 margin: '0 0 12px 0'
               }}
             >
@@ -675,7 +675,7 @@ const FlightDebriefForm: React.FC<FlightDebriefFormProps> = ({
             <p
               style={{
                 fontSize: '14px',
-                color: '#64748B',
+                color: 'var(--rr-text2)',
                 margin: '0 0 24px 0',
                 lineHeight: '1.5'
               }}
@@ -689,9 +689,9 @@ const FlightDebriefForm: React.FC<FlightDebriefFormProps> = ({
                   padding: '10px 20px',
                   fontSize: '14px',
                   fontWeight: 500,
-                  color: '#64748B',
-                  backgroundColor: '#FFFFFF',
-                  border: '1px solid #CBD5E1',
+                  color: 'var(--rr-text2)',
+                  backgroundColor: 'var(--rr-panel)',
+                  border: '1px solid var(--rr-border2)',
                   borderRadius: '6px',
                   cursor: 'pointer'
                 }}
@@ -705,7 +705,7 @@ const FlightDebriefForm: React.FC<FlightDebriefFormProps> = ({
                   fontSize: '14px',
                   fontWeight: 500,
                   color: '#FFFFFF',
-                  backgroundColor: '#DC2626',
+                  backgroundColor: 'var(--rr-bad)',
                   border: 'none',
                   borderRadius: '6px',
                   cursor: 'pointer'

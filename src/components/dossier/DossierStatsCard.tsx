@@ -17,18 +17,18 @@ interface StatTileProps {
 const StatTile: React.FC<StatTileProps> = ({ label, value, note, valueColor }) => (
   <div style={{
     padding: '16px',
-    backgroundColor: '#F8FAFC',
-    border: '1px solid #E2E8F0',
+    backgroundColor: 'var(--rr-panel2)',
+    border: '1px solid var(--rr-border)',
     borderRadius: '8px',
     textAlign: 'center'
   }}>
-    <div style={{ fontSize: '28px', fontWeight: 700, color: value === null ? '#CBD5E1' : (valueColor || '#0F172A'), lineHeight: '32px' }}>
+    <div style={{ fontSize: '28px', fontWeight: 700, color: value === null ? 'var(--rr-text3)' : (valueColor || 'var(--rr-text)'), lineHeight: '32px' }}>
       {value === null ? '—' : value}
     </div>
     <div style={{
       fontSize: '11px',
       fontWeight: 500,
-      color: '#64748B',
+      color: 'var(--rr-text2)',
       textTransform: 'uppercase',
       letterSpacing: '0.5px',
       marginTop: '6px'
@@ -36,7 +36,7 @@ const StatTile: React.FC<StatTileProps> = ({ label, value, note, valueColor }) =
       {label}
     </div>
     {note && (
-      <div style={{ fontSize: '10px', color: '#94A3B8', marginTop: '2px', fontStyle: 'italic' }}>
+      <div style={{ fontSize: '10px', color: 'var(--rr-text3)', marginTop: '2px', fontStyle: 'italic' }}>
         {note}
       </div>
     )}
@@ -51,7 +51,7 @@ const DossierStatsCard: React.FC<DossierStatsCardProps> = ({ stats, loading }) =
       </div>
       <div style={{ ...dossierStyles.cardContent, overflowY: 'visible' }}>
         {loading ? (
-          <div style={{ color: '#64748B', fontSize: '14px', textAlign: 'center', padding: '24px 0' }}>
+          <div style={{ color: 'var(--rr-text2)', fontSize: '14px', textAlign: 'center', padding: '24px 0' }}>
             Loading statistics...
           </div>
         ) : (

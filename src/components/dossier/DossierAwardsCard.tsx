@@ -46,14 +46,14 @@ const DossierAwardsCard: React.FC<DossierAwardsCardProps> = ({
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              backgroundColor: '#FFFFFF',
-              color: '#64748B',
-              border: '1px solid #CBD5E1',
+              backgroundColor: 'var(--rr-panel)',
+              color: 'var(--rr-text2)',
+              border: '1px solid var(--rr-border2)',
               borderRadius: '6px',
               cursor: 'pointer'
             }}
-            onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#F8FAFC'; }}
-            onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = '#FFFFFF'; }}
+            onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'var(--rr-panel2)'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'var(--rr-panel)'; }}
           >
             <Settings size={14} />
           </button>
@@ -61,7 +61,7 @@ const DossierAwardsCard: React.FC<DossierAwardsCardProps> = ({
       </div>
       <div style={{ ...dossierStyles.cardContent, overflowY: 'visible' }}>
         {loading ? (
-          <div style={{ color: '#64748B', fontSize: '14px', textAlign: 'center', padding: '24px 0' }}>
+          <div style={{ color: 'var(--rr-text2)', fontSize: '14px', textAlign: 'center', padding: '24px 0' }}>
             Loading awards...
           </div>
         ) : awards.length === 0 ? (
@@ -71,10 +71,10 @@ const DossierAwardsCard: React.FC<DossierAwardsCardProps> = ({
             alignItems: 'center',
             gap: '8px',
             padding: '16px 0',
-            color: '#94A3B8'
+            color: 'var(--rr-text3)'
           }}>
-            <Medal size={40} style={{ color: '#D1D5DB' }} />
-            <div style={{ fontSize: '14px', color: '#64748B' }}>No awards in the selected scope</div>
+            <Medal size={40} style={{ color: 'var(--rr-text3)' }} />
+            <div style={{ fontSize: '14px', color: 'var(--rr-text2)' }}>No awards in the selected scope</div>
           </div>
         ) : (
           <div style={{
@@ -134,10 +134,10 @@ const DossierAwardsCard: React.FC<DossierAwardsCardProps> = ({
                             maxWidth: '36px',
                             maxHeight: '28px',
                             objectFit: 'contain',
-                            backgroundColor: '#FFFFFF',
-                            border: '1.5px solid #FFFFFF',
+                            backgroundColor: 'var(--rr-panel)',
+                            border: '1.5px solid var(--rr-panel)',
                             borderRadius: '3px',
-                            boxShadow: '0 2px 6px rgba(0, 0, 0, 0.35)'
+                            boxShadow: 'var(--rr-shadow)'
                           }}
                         />
                       )}
@@ -147,28 +147,28 @@ const DossierAwardsCard: React.FC<DossierAwardsCardProps> = ({
                       width: '80px',
                       height: '80px',
                       borderRadius: '8px',
-                      backgroundColor: '#F8FAFC',
-                      border: '1px solid #E2E8F0',
+                      backgroundColor: 'var(--rr-panel2)',
+                      border: '1px solid var(--rr-border)',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center'
                     }}>
-                      <Medal size={36} style={{ color: '#CBD5E1' }} />
+                      <Medal size={36} style={{ color: 'var(--rr-text3)' }} />
                     </div>
                   )}
                   <div style={{
                     fontSize: '13px',
                     fontWeight: 500,
-                    color: '#0F172A',
+                    color: 'var(--rr-text)',
                     marginTop: '8px',
                     lineHeight: '16px'
                   }}>
                     {award?.name || 'Unknown award'}
                     {group.count > 1 && (
-                      <span style={{ color: '#64748B', fontWeight: 400 }}> ×{group.count}</span>
+                      <span style={{ color: 'var(--rr-text2)', fontWeight: 400 }}> ×{group.count}</span>
                     )}
                   </div>
-                  <div style={{ fontSize: '11px', color: '#94A3B8', marginTop: '2px' }}>
+                  <div style={{ fontSize: '11px', color: 'var(--rr-text3)', marginTop: '2px' }}>
                     {formatDossierDate(pilotAward.awarded_date)}
                   </div>
                 </div>

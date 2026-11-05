@@ -27,10 +27,10 @@ const SupportRoleCard: React.FC<SupportRoleCardProps> = ({
   return (
     <div 
       style={{
-        backgroundColor: 'white',
+        backgroundColor: 'var(--rr-panel)',
         borderRadius: '8px',
         padding: '16px',
-        boxShadow: '0px 2px 4px rgba(0, 0, 0, 0.05)',
+        boxShadow: 'var(--rr-shadow)',
         marginBottom: '12px',
         position: 'relative',
         display: 'flex',
@@ -42,7 +42,7 @@ const SupportRoleCard: React.FC<SupportRoleCardProps> = ({
         <div style={{ fontWeight: 600, fontSize: '16px', marginBottom: '4px' }}>
           {callsign}
         </div>
-        <div style={{ fontSize: '14px', color: assignedPilot ? '#1E293B' : '#94A3B8' }}>
+        <div style={{ fontSize: '14px', color: assignedPilot ? 'var(--rr-text)' : 'var(--rr-text3)' }}>
           {assignedPilot ? assignedPilot.callsign : 'Unassigned'}
         </div>
       </div>
@@ -54,7 +54,7 @@ const SupportRoleCard: React.FC<SupportRoleCardProps> = ({
             background: 'none',
             border: 'none',
             cursor: 'pointer',
-            color: '#64748B',
+            color: 'var(--rr-text2)',
             fontSize: '12px',
             padding: '4px 8px'
           }}
@@ -67,7 +67,7 @@ const SupportRoleCard: React.FC<SupportRoleCardProps> = ({
             background: 'none',
             border: 'none',
             cursor: 'pointer',
-            color: '#DC2626',
+            color: 'var(--rr-bad)',
             fontSize: '12px',
             padding: '4px 8px'
           }}

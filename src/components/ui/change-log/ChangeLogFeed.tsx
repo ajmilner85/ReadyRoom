@@ -62,10 +62,10 @@ const ChangeLogFeed: React.FC<ChangeLogFeedProps> = ({
     alignItems: 'center',
     gap: '8px',
     padding: '8px 16px',
-    border: '1px solid #D1D5DB',
+    border: '1px solid var(--rr-border2)',
     borderRadius: '6px',
-    backgroundColor: '#FFFFFF',
-    color: '#6B7280',
+    backgroundColor: 'var(--rr-panel)',
+    color: 'var(--rr-text2)',
     cursor: 'pointer',
     fontSize: '14px',
     transition: 'all 0.2s ease',
@@ -84,7 +84,7 @@ const ChangeLogFeed: React.FC<ChangeLogFeedProps> = ({
     backgroundColor: primaryColor,
     color: '#FFFFFF',
     cursor: 'pointer',
-    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.15)',
+    boxShadow: 'var(--rr-shadow)',
     transition: 'all 0.2s ease',
     opacity: showScrollButton ? 1 : 0,
     pointerEvents: showScrollButton ? 'auto' : 'none',
@@ -161,12 +161,12 @@ const ChangeLogFeed: React.FC<ChangeLogFeedProps> = ({
                 onClick={handleLoadMore}
                 style={loadMoreButtonStyle}
                 onMouseEnter={e => {
-                  e.currentTarget.style.backgroundColor = '#F9FAFB';
-                  e.currentTarget.style.borderColor = '#9CA3AF';
+                  e.currentTarget.style.backgroundColor = 'var(--rr-panel2)';
+                  e.currentTarget.style.borderColor = 'var(--rr-border2)';
                 }}
                 onMouseLeave={e => {
-                  e.currentTarget.style.backgroundColor = '#FFFFFF';
-                  e.currentTarget.style.borderColor = '#D1D5DB';
+                  e.currentTarget.style.backgroundColor = 'var(--rr-panel)';
+                  e.currentTarget.style.borderColor = 'var(--rr-border2)';
                 }}
               >
                 Load More Posts

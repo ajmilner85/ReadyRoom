@@ -90,13 +90,13 @@ const CreatePostDialog: React.FC<CreatePostDialogProps> = ({
   };
 
   const dialogStyle: React.CSSProperties = {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'var(--rr-panel)',
     borderRadius: '12px',
     width: '100%',
     maxWidth: '700px',
     maxHeight: '80vh',
     overflow: 'hidden',
-    boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+    boxShadow: 'var(--rr-shadow-lg)',
   };
 
   const headerStyle: React.CSSProperties = {
@@ -109,7 +109,7 @@ const CreatePostDialog: React.FC<CreatePostDialogProps> = ({
   const titleStyle: React.CSSProperties = {
     fontSize: '20px',
     fontWeight: 600,
-    color: '#1F2937',
+    color: 'var(--rr-text)',
     margin: 0,
   };
 
@@ -122,7 +122,7 @@ const CreatePostDialog: React.FC<CreatePostDialogProps> = ({
     borderRadius: '6px',
     border: 'none',
     backgroundColor: 'transparent',
-    color: '#6B7280',
+    color: 'var(--rr-text2)',
     cursor: 'pointer',
     transition: 'all 0.2s ease',
   };
@@ -141,17 +141,17 @@ const CreatePostDialog: React.FC<CreatePostDialogProps> = ({
     display: 'block',
     fontSize: '14px',
     fontWeight: 500,
-    color: '#374151',
+    color: 'var(--rr-text)',
     marginBottom: '6px',
   };
 
   const inputStyle: React.CSSProperties = {
     width: '100%',
     padding: '12px',
-    border: '1px solid #D1D5DB',
+    border: '1px solid var(--rr-border2)',
     borderRadius: '6px',
     fontSize: '14px',
-    color: '#1F2937',
+    color: 'var(--rr-text)',
     transition: 'border-color 0.2s ease',
     boxSizing: 'border-box',
   };
@@ -168,7 +168,7 @@ const CreatePostDialog: React.FC<CreatePostDialogProps> = ({
     alignItems: 'center',
     justifyContent: 'space-between',
     padding: '20px 24px 24px 24px',
-    borderTop: '1px solid #F3F4F6',
+    borderTop: '1px solid var(--rr-border)',
   };
 
   const buttonStyle: React.CSSProperties = {
@@ -186,9 +186,9 @@ const CreatePostDialog: React.FC<CreatePostDialogProps> = ({
 
   const cancelButtonStyle: React.CSSProperties = {
     ...buttonStyle,
-    backgroundColor: '#FFFFFF',
-    borderColor: '#D1D5DB',
-    color: '#374151',
+    backgroundColor: 'var(--rr-panel)',
+    borderColor: 'var(--rr-border2)',
+    color: 'var(--rr-text)',
   };
 
   const createButtonStyle: React.CSSProperties = {
@@ -200,7 +200,7 @@ const CreatePostDialog: React.FC<CreatePostDialogProps> = ({
 
   const helperTextStyle: React.CSSProperties = {
     fontSize: '12px',
-    color: '#6B7280',
+    color: 'var(--rr-text2)',
     marginTop: '4px',
   };
 
@@ -214,7 +214,7 @@ const CreatePostDialog: React.FC<CreatePostDialogProps> = ({
             onClick={handleClose}
             style={closeButtonStyle}
             onMouseEnter={e => {
-              e.currentTarget.style.backgroundColor = '#F3F4F6';
+              e.currentTarget.style.backgroundColor = 'var(--rr-panel2)';
             }}
             onMouseLeave={e => {
               e.currentTarget.style.backgroundColor = 'transparent';
@@ -230,12 +230,12 @@ const CreatePostDialog: React.FC<CreatePostDialogProps> = ({
             {error && (
               <div style={{
                 padding: '12px',
-                backgroundColor: '#FEF2F2',
+                backgroundColor: 'rgba(224,82,78,.12)',
                 borderRadius: '6px',
-                border: '1px solid #FECACA',
+                border: '1px solid var(--rr-bad)',
                 marginBottom: '20px',
               }}>
-                <div style={{ color: '#DC2626', fontSize: '14px' }}>
+                <div style={{ color: 'var(--rr-bad)', fontSize: '14px' }}>
                   {error}
                 </div>
               </div>
@@ -340,10 +340,10 @@ Let us know what you think about these updates!"
               onClick={handleClose}
               style={cancelButtonStyle}
               onMouseEnter={e => {
-                e.currentTarget.style.backgroundColor = '#F9FAFB';
+                e.currentTarget.style.backgroundColor = 'var(--rr-panel2)';
               }}
               onMouseLeave={e => {
-                e.currentTarget.style.backgroundColor = '#FFFFFF';
+                e.currentTarget.style.backgroundColor = 'var(--rr-panel)';
               }}
             >
               Cancel

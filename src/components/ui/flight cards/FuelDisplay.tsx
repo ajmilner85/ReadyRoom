@@ -109,7 +109,7 @@ const FuelDisplay: React.FC<FuelDisplayProps> = ({
                         fontSize: mainSize,
                         color: fuelColor,
                         fontWeight: 700,
-                        border: '1px solid #CBD5E1',
+                        border: '1px solid var(--rr-border2)',
                         borderRadius: '4px',
                     }}
                 />

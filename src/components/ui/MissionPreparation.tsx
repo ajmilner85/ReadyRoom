@@ -576,7 +576,7 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
       modifiers={[restrictToWindowEdges]} 
     >
       <div style={{
-          backgroundColor: '#F0F4F8',
+          backgroundColor: 'var(--rr-panel2)',
           height: '100vh',
           display: 'flex',
           flexDirection: 'column',
@@ -595,9 +595,9 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
             borderRadius: '6px',
             fontSize: '14px',
             zIndex: 1000,
-            backgroundColor: '#FEE2E2',
-            color: '#B91C1C',
-            border: '1px solid #FCA5A5'
+            backgroundColor: 'rgba(224,82,78,.12)',
+            color: 'var(--rr-bad)',
+            border: '1px solid var(--rr-bad)'
           }}>
             Mission Error: {missionError}
           </div>
@@ -619,7 +619,7 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
             <StandardPageLoader message="Loading pilots data..." />
           ) : loadError ? (
             <div className="flex items-center justify-center w-full">
-              <p className="text-red-500">{loadError}</p>
+              <p className="text-bad">{loadError}</p>
             </div>
           ) : (
             <>

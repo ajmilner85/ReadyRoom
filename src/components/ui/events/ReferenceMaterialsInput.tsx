@@ -94,7 +94,7 @@ const ReferenceMaterialsInput: React.FC<ReferenceMaterialsInputProps> = ({
     marginBottom: '8px',
     fontSize: '14px',
     fontWeight: 500,
-    color: '#64748B'
+    color: 'var(--rr-text2)'
   };
 
   // Combine inherited and local materials with metadata
@@ -131,7 +131,7 @@ const ReferenceMaterialsInput: React.FC<ReferenceMaterialsInputProps> = ({
                 onMouseEnter={() => setShowBookTooltip(true)}
                 onMouseLeave={() => setShowBookTooltip(false)}
               >
-                <BookOpen size={16} style={{ color: '#6B7280' }} />
+                <BookOpen size={16} style={{ color: 'var(--rr-text2)' }} />
                 {showBookTooltip && (
                   <div style={{
                     position: 'absolute',
@@ -158,7 +158,7 @@ const ReferenceMaterialsInput: React.FC<ReferenceMaterialsInputProps> = ({
 
             {/* Content */}
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: '12px', color: '#1F2937', marginBottom: '2px' }}>
+              <div style={{ fontSize: '12px', color: 'var(--rr-text)', marginBottom: '2px' }}>
                 {item.material.type}
               </div>
               <a
@@ -167,7 +167,7 @@ const ReferenceMaterialsInput: React.FC<ReferenceMaterialsInputProps> = ({
                 rel="noopener noreferrer"
                 style={{
                   fontSize: '14px',
-                  color: '#3B82F6',
+                  color: 'var(--rr-accent-text)',
                   textDecoration: 'none',
                   display: 'block',
                   overflow: 'hidden',
@@ -189,7 +189,7 @@ const ReferenceMaterialsInput: React.FC<ReferenceMaterialsInputProps> = ({
                     background: 'none',
                     border: 'none',
                     cursor: 'pointer',
-                    color: '#6B7280',
+                    color: 'var(--rr-text2)',
                     display: 'flex',
                     alignItems: 'center'
                   }}
@@ -204,7 +204,7 @@ const ReferenceMaterialsInput: React.FC<ReferenceMaterialsInputProps> = ({
                     background: 'none',
                     border: 'none',
                     cursor: 'pointer',
-                    color: '#EF4444',
+                    color: 'var(--rr-bad)',
                     display: 'flex',
                     alignItems: 'center'
                   }}
@@ -224,9 +224,9 @@ const ReferenceMaterialsInput: React.FC<ReferenceMaterialsInputProps> = ({
           onClick={() => handleOpenDialog()}
           style={{
             fontSize: '14px',
-            color: '#3B82F6',
-            backgroundColor: '#EFF6FF',
-            border: '1px solid #3B82F6',
+            color: 'var(--rr-accent-text)',
+            backgroundColor: 'var(--rr-accent-weak)',
+            border: '1px solid var(--rr-accent)',
             borderRadius: '6px',
             padding: '8px 16px',
             cursor: 'pointer',
@@ -239,7 +239,7 @@ const ReferenceMaterialsInput: React.FC<ReferenceMaterialsInputProps> = ({
       )}
 
       {localMaterials.length >= maxItems && (
-        <p style={{ fontSize: '12px', color: '#6B7280', marginTop: '8px' }}>
+        <p style={{ fontSize: '12px', color: 'var(--rr-text2)', marginTop: '8px' }}>
           Maximum of {maxItems} event-specific references
         </p>
       )}
@@ -259,12 +259,12 @@ const ReferenceMaterialsInput: React.FC<ReferenceMaterialsInputProps> = ({
           zIndex: 9999
         }}>
           <div style={{
-            backgroundColor: '#FFFFFF',
+            backgroundColor: 'var(--rr-panel)',
             borderRadius: '8px',
             padding: '24px',
             width: '90%',
             maxWidth: '500px',
-            boxShadow: '0 10px 25px rgba(0, 0, 0, 0.2)'
+            boxShadow: 'var(--rr-shadow-lg)'
           }}>
             <h3 style={{ margin: '0 0 20px 0', fontSize: '18px', fontWeight: 600 }}>
               {editingIndex !== null ? 'Edit Reference Material' : 'Add Reference Material'}
@@ -272,7 +272,7 @@ const ReferenceMaterialsInput: React.FC<ReferenceMaterialsInputProps> = ({
 
             {/* Type Dropdown */}
             <div style={{ marginBottom: '16px' }}>
-              <label style={{ display: 'block', marginBottom: '6px', fontSize: '14px', fontWeight: 500, color: '#374151' }}>
+              <label style={{ display: 'block', marginBottom: '6px', fontSize: '14px', fontWeight: 500, color: 'var(--rr-text)' }}>
                 Type
               </label>
               <select
@@ -281,7 +281,7 @@ const ReferenceMaterialsInput: React.FC<ReferenceMaterialsInputProps> = ({
                 style={{
                   width: '100%',
                   padding: '8px',
-                  border: '1px solid #CBD5E1',
+                  border: '1px solid var(--rr-border2)',
                   borderRadius: '4px',
                   fontSize: '14px',
                   cursor: 'pointer'
@@ -296,7 +296,7 @@ const ReferenceMaterialsInput: React.FC<ReferenceMaterialsInputProps> = ({
 
             {/* Name Input */}
             <div style={{ marginBottom: '16px' }}>
-              <label style={{ display: 'block', marginBottom: '6px', fontSize: '14px', fontWeight: 500, color: '#374151' }}>
+              <label style={{ display: 'block', marginBottom: '6px', fontSize: '14px', fontWeight: 500, color: 'var(--rr-text)' }}>
                 Name
               </label>
               <input
@@ -307,7 +307,7 @@ const ReferenceMaterialsInput: React.FC<ReferenceMaterialsInputProps> = ({
                 style={{
                   width: '100%',
                   padding: '8px',
-                  border: '1px solid #CBD5E1',
+                  border: '1px solid var(--rr-border2)',
                   borderRadius: '4px',
                   fontSize: '14px',
                   boxSizing: 'border-box'
@@ -317,7 +317,7 @@ const ReferenceMaterialsInput: React.FC<ReferenceMaterialsInputProps> = ({
 
             {/* URL Input */}
             <div style={{ marginBottom: '16px' }}>
-              <label style={{ display: 'block', marginBottom: '6px', fontSize: '14px', fontWeight: 500, color: '#374151' }}>
+              <label style={{ display: 'block', marginBottom: '6px', fontSize: '14px', fontWeight: 500, color: 'var(--rr-text)' }}>
                 URL
               </label>
               <input
@@ -331,14 +331,14 @@ const ReferenceMaterialsInput: React.FC<ReferenceMaterialsInputProps> = ({
                 style={{
                   width: '100%',
                   padding: '8px',
-                  border: `1px solid ${urlError ? '#EF4444' : '#CBD5E1'}`,
+                  border: `1px solid ${urlError ? 'var(--rr-bad)' : 'var(--rr-border2)'}`,
                   borderRadius: '4px',
                   fontSize: '14px',
                   boxSizing: 'border-box'
                 }}
               />
               {urlError && (
-                <p style={{ fontSize: '12px', color: '#EF4444', marginTop: '4px' }}>
+                <p style={{ fontSize: '12px', color: 'var(--rr-bad)', marginTop: '4px' }}>
                   {urlError}
                 </p>
               )}
@@ -351,12 +351,12 @@ const ReferenceMaterialsInput: React.FC<ReferenceMaterialsInputProps> = ({
                 style={{
                   padding: '8px 16px',
                   fontSize: '14px',
-                  border: '1px solid #CBD5E1',
+                  border: '1px solid var(--rr-border2)',
                   borderRadius: '6px',
-                  backgroundColor: '#FFFFFF',
+                  backgroundColor: 'var(--rr-panel)',
                   cursor: 'pointer',
                   fontWeight: 500,
-                  color: '#374151'
+                  color: 'var(--rr-text)'
                 }}
               >
                 Cancel
@@ -368,7 +368,7 @@ const ReferenceMaterialsInput: React.FC<ReferenceMaterialsInputProps> = ({
                   fontSize: '14px',
                   border: 'none',
                   borderRadius: '6px',
-                  backgroundColor: '#3B82F6',
+                  backgroundColor: 'var(--rr-accent)',
                   color: '#FFFFFF',
                   cursor: 'pointer',
                   fontWeight: 500

@@ -713,8 +713,8 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
           left: '50%',
           transform: 'translate(-50%, -50%)',
           width: '600px',
-          backgroundColor: '#FFFFFF',
-          boxShadow: '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)',
+          backgroundColor: 'var(--rr-panel)',
+          boxShadow: 'var(--rr-shadow)',
           borderRadius: '8px',
           zIndex: 1001,
           maxHeight: '90vh',
@@ -726,12 +726,12 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
           justifyContent: 'space-between',
           alignItems: 'center',
           padding: '16px 24px',
-          borderBottom: '1px solid #E2E8F0'
+          borderBottom: '1px solid var(--rr-border)'
         }}>
           <h2 style={{
             fontSize: '18px',
             fontWeight: 600,
-            color: '#0F172A'
+            color: 'var(--rr-text)'
           }}>
             {title}
           </h2>
@@ -755,22 +755,22 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
         {/* Tab Navigation for Wings and Squadrons */}
         {(entityType === 'wing' || entityType === 'squadron') && mode === 'edit' && (
           <div style={{
-            borderBottom: '1px solid #E2E8F0',
-            backgroundColor: '#F8FAFC'
+            borderBottom: '1px solid var(--rr-border)',
+            backgroundColor: 'var(--rr-panel2)'
           }}>
             <div style={{ display: 'flex' }}>
               <button
                 onClick={() => setActiveTab('general')}
                 style={{
                   padding: '12px 24px',
-                  backgroundColor: activeTab === 'general' ? '#FFFFFF' : 'transparent',
+                  backgroundColor: activeTab === 'general' ? 'var(--rr-panel)' : 'transparent',
                   border: 'none',
-                  borderBottom: activeTab === 'general' ? '2px solid #3B82F6' : '2px solid transparent',
+                  borderBottom: activeTab === 'general' ? '2px solid var(--rr-accent)' : '2px solid transparent',
                   cursor: 'pointer',
                   fontSize: '14px',
-                  fontFamily: 'Inter',
+                  fontFamily: 'inherit',
                   fontWeight: activeTab === 'general' ? 500 : 400,
-                  color: activeTab === 'general' ? '#0F172A' : '#64748B',
+                  color: activeTab === 'general' ? 'var(--rr-text)' : 'var(--rr-text2)',
                   transition: 'all 0.2s ease'
                 }}
               >
@@ -781,14 +781,14 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
                   onClick={() => setActiveTab('discord')}
                   style={{
                     padding: '12px 24px',
-                    backgroundColor: activeTab === 'discord' ? '#FFFFFF' : 'transparent',
+                    backgroundColor: activeTab === 'discord' ? 'var(--rr-panel)' : 'transparent',
                     border: 'none',
-                    borderBottom: activeTab === 'discord' ? '2px solid #3B82F6' : '2px solid transparent',
+                    borderBottom: activeTab === 'discord' ? '2px solid var(--rr-accent)' : '2px solid transparent',
                     cursor: 'pointer',
                     fontSize: '14px',
-                    fontFamily: 'Inter',
+                    fontFamily: 'inherit',
                     fontWeight: activeTab === 'discord' ? 500 : 400,
-                    color: activeTab === 'discord' ? '#0F172A' : '#64748B',
+                    color: activeTab === 'discord' ? 'var(--rr-text)' : 'var(--rr-text2)',
                     transition: 'all 0.2s ease'
                   }}
                 >
@@ -799,14 +799,14 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
                 onClick={() => setActiveTab('teams')}
                 style={{
                   padding: '12px 24px',
-                  backgroundColor: activeTab === 'teams' ? '#FFFFFF' : 'transparent',
+                  backgroundColor: activeTab === 'teams' ? 'var(--rr-panel)' : 'transparent',
                   border: 'none',
-                  borderBottom: activeTab === 'teams' ? '2px solid #3B82F6' : '2px solid transparent',
+                  borderBottom: activeTab === 'teams' ? '2px solid var(--rr-accent)' : '2px solid transparent',
                   cursor: 'pointer',
                   fontSize: '14px',
-                  fontFamily: 'Inter',
+                  fontFamily: 'inherit',
                   fontWeight: activeTab === 'teams' ? 500 : 400,
-                  color: activeTab === 'teams' ? '#0F172A' : '#64748B',
+                  color: activeTab === 'teams' ? 'var(--rr-text)' : 'var(--rr-text2)',
                   transition: 'all 0.2s ease'
                 }}
               >
@@ -831,7 +831,7 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
               marginBottom: '8px',
               fontSize: '14px',
               fontWeight: 500,
-              color: '#64748B'
+              color: 'var(--rr-text2)'
             }}>
               Name *
             </label>
@@ -842,7 +842,7 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
               style={{
                 width: '100%',
                 padding: '8px',
-                border: `1px solid ${errors.name ? '#EF4444' : '#CBD5E1'}`,
+                border: `1px solid ${errors.name ? 'var(--rr-bad)' : 'var(--rr-border2)'}`,
                 borderRadius: '4px',
                 fontSize: '14px',
                 boxSizing: 'border-box',
@@ -853,7 +853,7 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
             />
             {errors.name && (
               <div style={{
-                color: '#EF4444',
+                color: 'var(--rr-bad)',
                 fontSize: '12px',
                 marginTop: '4px'
               }}>
@@ -870,7 +870,7 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
                 marginBottom: '8px',
                 fontSize: '14px',
                 fontWeight: 500,
-                color: '#64748B'
+                color: 'var(--rr-text2)'
               }}>
                 Description
               </label>
@@ -880,12 +880,12 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
                 style={{
                   width: '100%',
                   padding: '8px',
-                  border: '1px solid #CBD5E1',
+                  border: '1px solid var(--rr-border2)',
                   borderRadius: '4px',
                   fontSize: '14px',
                   boxSizing: 'border-box',
                   minHeight: '80px',
-                  fontFamily: 'Inter, sans-serif',
+                  fontFamily: 'inherit',
                   resize: 'vertical'
                 }}
                 placeholder="Enter team description (optional)"
@@ -901,7 +901,7 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
                 marginBottom: '8px',
                 fontSize: '14px',
                 fontWeight: 500,
-                color: '#64748B'
+                color: 'var(--rr-text2)'
               }}>
                 Team Scope *
               </label>
@@ -917,12 +917,12 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
                 style={{
                   width: '100%',
                   padding: '8px',
-                  border: '1px solid #CBD5E1',
+                  border: '1px solid var(--rr-border2)',
                   borderRadius: '4px',
                   fontSize: '14px',
                   boxSizing: 'border-box',
                   height: '35px',
-                  backgroundColor: 'white'
+                  backgroundColor: 'var(--rr-panel)'
                 }}
               >
                 <option value="global">Global (All Squadrons)</option>
@@ -940,7 +940,7 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
                 marginBottom: '8px',
                 fontSize: '14px',
                 fontWeight: 500,
-                color: '#64748B'
+                color: 'var(--rr-text2)'
               }}>
                 Wing *
               </label>
@@ -950,12 +950,12 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
                 style={{
                   width: '100%',
                   padding: '8px',
-                  border: `1px solid ${errors.scope_id ? '#EF4444' : '#CBD5E1'}`,
+                  border: `1px solid ${errors.scope_id ? 'var(--rr-bad)' : 'var(--rr-border2)'}`,
                   borderRadius: '4px',
                   fontSize: '14px',
                   boxSizing: 'border-box',
                   height: '35px',
-                  backgroundColor: 'white'
+                  backgroundColor: 'var(--rr-panel)'
                 }}
               >
                 <option value="">Select a wing</option>
@@ -967,7 +967,7 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
               </select>
               {errors.scope_id && (
                 <div style={{
-                  color: '#EF4444',
+                  color: 'var(--rr-bad)',
                   fontSize: '12px',
                   marginTop: '4px'
                 }}>
@@ -984,7 +984,7 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
                 marginBottom: '8px',
                 fontSize: '14px',
                 fontWeight: 500,
-                color: '#64748B'
+                color: 'var(--rr-text2)'
               }}>
                 Squadron *
               </label>
@@ -994,12 +994,12 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
                 style={{
                   width: '100%',
                   padding: '8px',
-                  border: `1px solid ${errors.scope_id ? '#EF4444' : '#CBD5E1'}`,
+                  border: `1px solid ${errors.scope_id ? 'var(--rr-bad)' : 'var(--rr-border2)'}`,
                   borderRadius: '4px',
                   fontSize: '14px',
                   boxSizing: 'border-box',
                   height: '35px',
-                  backgroundColor: 'white'
+                  backgroundColor: 'var(--rr-panel)'
                 }}
               >
                 <option value="">Select a squadron</option>
@@ -1011,7 +1011,7 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
               </select>
               {errors.scope_id && (
                 <div style={{
-                  color: '#EF4444',
+                  color: 'var(--rr-bad)',
                   fontSize: '12px',
                   marginTop: '4px'
                 }}>
@@ -1043,14 +1043,14 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
                 <span style={{
                   fontSize: '14px',
                   fontWeight: 500,
-                  color: '#64748B'
+                  color: 'var(--rr-text2)'
                 }}>
                   Active Team
                 </span>
               </label>
               <p style={{
                 fontSize: '12px',
-                color: '#94A3B8',
+                color: 'var(--rr-text3)',
                 marginTop: '4px',
                 marginLeft: '24px'
               }}>
@@ -1069,7 +1069,7 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
                   marginBottom: '8px',
                   fontSize: '14px',
                   fontWeight: 500,
-                  color: '#64748B'
+                  color: 'var(--rr-text2)'
                 }}>
                   Designation {entityType === 'squadron' ? '*' : ''}
                 </label>
@@ -1080,7 +1080,7 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
                   style={{
                     width: '100%',
                     padding: '8px',
-                    border: `1px solid ${errors.designation ? '#EF4444' : '#CBD5E1'}`,
+                    border: `1px solid ${errors.designation ? 'var(--rr-bad)' : 'var(--rr-border2)'}`,
                     borderRadius: '4px',
                     fontSize: '14px',
                     boxSizing: 'border-box',
@@ -1091,7 +1091,7 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
                 />
                 {errors.designation && (
                   <div style={{
-                    color: '#EF4444',
+                    color: 'var(--rr-bad)',
                     fontSize: '12px',
                     marginTop: '4px'
                   }}>
@@ -1108,7 +1108,7 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
                     marginBottom: '8px',
                     fontSize: '14px',
                     fontWeight: 500,
-                    color: '#64748B'
+                    color: 'var(--rr-text2)'
                   }}>
                     Type
                   </label>
@@ -1118,12 +1118,12 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
                     style={{
                       width: '100%',
                       padding: '8px',
-                      border: '1px solid #CBD5E1',
+                      border: '1px solid var(--rr-border2)',
                       borderRadius: '4px',
                       fontSize: '14px',
                       boxSizing: 'border-box',
                       height: '35px',
-                      backgroundColor: 'white'
+                      backgroundColor: 'var(--rr-panel)'
                     }}
                   >
                     <option value="operational">Operational</option>
@@ -1142,7 +1142,7 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
                 marginBottom: '8px',
                 fontSize: '14px',
                 fontWeight: 500,
-                color: '#64748B'
+                color: 'var(--rr-text2)'
               }}>
                 Command *
               </label>
@@ -1152,12 +1152,12 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
                 style={{
                   width: '100%',
                   padding: '8px',
-                  border: `1px solid ${errors.command_id ? '#EF4444' : '#CBD5E1'}`,
+                  border: `1px solid ${errors.command_id ? 'var(--rr-bad)' : 'var(--rr-border2)'}`,
                   borderRadius: '4px',
                   fontSize: '14px',
                   boxSizing: 'border-box',
                   height: '35px',
-                  backgroundColor: 'white'
+                  backgroundColor: 'var(--rr-panel)'
                 }}
               >
                 <option value="">Select a command</option>
@@ -1169,7 +1169,7 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
               </select>
               {errors.command_id && (
                 <div style={{
-                  color: '#EF4444',
+                  color: 'var(--rr-bad)',
                   fontSize: '12px',
                   marginTop: '4px'
                 }}>
@@ -1186,7 +1186,7 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
                 marginBottom: '8px',
                 fontSize: '14px',
                 fontWeight: 500,
-                color: '#64748B'
+                color: 'var(--rr-text2)'
               }}>
                 Group (Optional)
               </label>
@@ -1196,12 +1196,12 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
                 style={{
                   width: '100%',
                   padding: '8px',
-                  border: '1px solid #CBD5E1',
+                  border: '1px solid var(--rr-border2)',
                   borderRadius: '4px',
                   fontSize: '14px',
                   boxSizing: 'border-box',
                   height: '35px',
-                  backgroundColor: 'white'
+                  backgroundColor: 'var(--rr-panel)'
                 }}
               >
                 <option value="">No group (detached unit)</option>
@@ -1221,7 +1221,7 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
                 marginBottom: '8px',
                 fontSize: '14px',
                 fontWeight: 500,
-                color: '#64748B'
+                color: 'var(--rr-text2)'
               }}>
                 Wing *
               </label>
@@ -1231,12 +1231,12 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
                 style={{
                   width: '100%',
                   padding: '8px',
-                  border: `1px solid ${errors.wing_id ? '#EF4444' : '#CBD5E1'}`,
+                  border: `1px solid ${errors.wing_id ? 'var(--rr-bad)' : 'var(--rr-border2)'}`,
                   borderRadius: '4px',
                   fontSize: '14px',
                   boxSizing: 'border-box',
                   height: '35px',
-                  backgroundColor: 'white'
+                  backgroundColor: 'var(--rr-panel)'
                 }}
               >
                 <option value="">Select a wing</option>
@@ -1248,7 +1248,7 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
               </select>
               {errors.wing_id && (
                 <div style={{
-                  color: '#EF4444',
+                  color: 'var(--rr-bad)',
                   fontSize: '12px',
                   marginTop: '4px'
                 }}>
@@ -1266,7 +1266,7 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
                 marginBottom: '8px',
                 fontSize: '14px',
                 fontWeight: 500,
-                color: '#64748B'
+                color: 'var(--rr-text2)'
               }}>
                 Reference Timezone
               </label>
@@ -1276,12 +1276,12 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
                 style={{
                   width: '100%',
                   padding: '8px',
-                  border: '1px solid #CBD5E1',
+                  border: '1px solid var(--rr-border2)',
                   borderRadius: '4px',
                   fontSize: '14px',
                   boxSizing: 'border-box',
                   height: '35px',
-                  backgroundColor: 'white'
+                  backgroundColor: 'var(--rr-panel)'
                 }}
               >
                 {TIMEZONE_OPTIONS.map(option => (
@@ -1308,7 +1308,7 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
                   marginBottom: '8px',
                   fontSize: '14px',
                   fontWeight: 500,
-                  color: '#64748B'
+                  color: 'var(--rr-text2)'
                 }}>
                   Tail Code
                 </label>
@@ -1319,7 +1319,7 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
                   style={{
                     width: '150px',
                     padding: '16px',
-                    border: `1px solid ${errors.tail_code ? '#EF4444' : '#CBD5E1'}`,
+                    border: `1px solid ${errors.tail_code ? 'var(--rr-bad)' : 'var(--rr-border2)'}`,
                     borderRadius: '8px',
                     fontSize: '96px',
                     boxSizing: 'border-box',
@@ -1331,14 +1331,14 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
                     letterSpacing: '1px',
                     textTransform: 'uppercase',
                     backgroundColor: '#9DA6AA',
-                    color: '#575A58'
+                    color: 'var(--rr-text2)'
                   }}
                   placeholder="NK"
                   maxLength={2}
                 />
                 {errors.tail_code && (
                   <div style={{
-                    color: '#EF4444',
+                    color: 'var(--rr-bad)',
                     fontSize: '12px',
                     marginTop: '4px'
                   }}>
@@ -1354,7 +1354,7 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
                   marginBottom: '8px',
                   fontSize: '14px',
                   fontWeight: 500,
-                  color: '#64748B'
+                  color: 'var(--rr-text2)'
                 }}>
                   Insignia
                 </label>
@@ -1364,11 +1364,11 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
                   onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
                   onDragLeave={() => setDragOver(false)}
                   style={{
-                    border: `2px dashed ${dragOver ? '#2563EB' : '#CBD5E1'}`,
+                    border: `2px dashed ${dragOver ? 'var(--rr-accent)' : 'var(--rr-border2)'}`,
                     borderRadius: '8px',
                     padding: '16px',
                     textAlign: 'center',
-                    backgroundColor: dragOver ? '#EFF6FF' : (formData.insignia_url ? '#9DA6AA' : '#F8FAFC'),
+                    backgroundColor: dragOver ? 'var(--rr-accent-weak)' : (formData.insignia_url ? '#9DA6AA' : 'var(--rr-panel2)'),
                     cursor: uploadingImage ? 'wait' : 'pointer',
                     transition: 'all 0.2s ease',
                     height: '150px',
@@ -1408,19 +1408,19 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
                   width: '150px'
                 }}>
                   {uploadingImage ? (
-                    <p style={{ color: '#64748B', fontSize: '14px', margin: 0 }}>
+                    <p style={{ color: 'var(--rr-text2)', fontSize: '14px', margin: 0 }}>
                       Uploading image...
                     </p>
                   ) : formData.insignia_url ? (
-                    <p style={{ color: '#64748B', fontSize: '12px', margin: 0 }}>
+                    <p style={{ color: 'var(--rr-text2)', fontSize: '12px', margin: 0 }}>
                       Click or drag to replace
                     </p>
                   ) : (
                     <>
-                      <p style={{ color: '#64748B', fontSize: '12px', margin: '0 0 2px 0' }}>
+                      <p style={{ color: 'var(--rr-text2)', fontSize: '12px', margin: '0 0 2px 0' }}>
                         Drag & drop image here or click to browse
                       </p>
-                      <p style={{ color: '#94A3B8', fontSize: '12px', margin: 0 }}>
+                      <p style={{ color: 'var(--rr-text3)', fontSize: '12px', margin: 0 }}>
                         PNG, JPG, or SVG up to 500KB
                       </p>
                     </>
@@ -1438,7 +1438,7 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
                 
                 {errors.insignia_url && (
                   <div style={{
-                    color: '#EF4444',
+                    color: 'var(--rr-bad)',
                     fontSize: '12px',
                     marginTop: '4px'
                   }}>
@@ -1454,16 +1454,16 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
                   marginBottom: '8px',
                   fontSize: '14px',
                   fontWeight: 500,
-                  color: '#64748B'
+                  color: 'var(--rr-text2)'
                 }}>
                   Colors
                 </label>
                 
                 <div style={{
-                  border: '1px solid #CBD5E1',
+                  border: '1px solid var(--rr-border2)',
                   borderRadius: '8px',
                   padding: '12px',
-                  backgroundColor: '#F8FAFC',
+                  backgroundColor: 'var(--rr-panel2)',
                   height: '150px',
                   width: '100%',
                   boxSizing: 'border-box',
@@ -1491,7 +1491,7 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
                           height: '16px',
                           borderRadius: '3px',
                           backgroundColor: formData.color_palette?.[colorField.key] || colorField.defaultColor,
-                          border: '1px solid #CBD5E1',
+                          border: '1px solid var(--rr-border2)',
                           flexShrink: 0
                         }}
                       />
@@ -1511,7 +1511,7 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
                         style={{
                           width: '55px',
                           padding: '2px 4px',
-                          border: '1px solid #CBD5E1',
+                          border: '1px solid var(--rr-border2)',
                           borderRadius: '3px',
                           fontSize: '10px',
                           fontFamily: 'monospace',
@@ -1520,7 +1520,7 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
                       />
                       <span style={{
                         fontSize: '10px',
-                        color: '#64748B',
+                        color: 'var(--rr-text2)',
                         fontWeight: 400,
                         flex: 1
                       }}>
@@ -1540,7 +1540,7 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
               marginBottom: '8px',
               fontSize: '14px',
               fontWeight: 500,
-              color: '#64748B'
+              color: 'var(--rr-text2)'
             }}>
               Established Date
             </label>
@@ -1551,12 +1551,12 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
               style={{
                 width: '100%',
                 padding: '8px',
-                border: '1px solid #CBD5E1',
+                border: '1px solid var(--rr-border2)',
                 borderRadius: '4px',
                 fontSize: '14px',
                 boxSizing: 'border-box',
                 height: '35px',
-                backgroundColor: 'white'
+                backgroundColor: 'var(--rr-panel)'
               }}
             />
           </div>
@@ -1568,7 +1568,7 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
               marginBottom: '8px',
               fontSize: '14px',
               fontWeight: 500,
-              color: '#64748B'
+              color: 'var(--rr-text2)'
             }}>
               Deactivated Date
             </label>
@@ -1579,17 +1579,17 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
               style={{
                 width: '100%',
                 padding: '8px',
-                border: `1px solid ${errors.deactivated_date ? '#EF4444' : '#CBD5E1'}`,
+                border: `1px solid ${errors.deactivated_date ? 'var(--rr-bad)' : 'var(--rr-border2)'}`,
                 borderRadius: '4px',
                 fontSize: '14px',
                 boxSizing: 'border-box',
                 height: '35px',
-                backgroundColor: 'white'
+                backgroundColor: 'var(--rr-panel)'
               }}
             />
             {errors.deactivated_date && (
               <div style={{
-                color: '#EF4444',
+                color: 'var(--rr-bad)',
                 fontSize: '12px',
                 marginTop: '4px'
               }}>
@@ -1607,7 +1607,7 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
                 marginBottom: '8px',
                 fontSize: '14px',
                 fontWeight: 500,
-                color: '#64748B'
+                color: 'var(--rr-text2)'
               }}>
                 Airframe
               </label>
@@ -1617,12 +1617,12 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
                 style={{
                   width: '100%',
                   padding: '8px',
-                  border: '1px solid #CBD5E1',
+                  border: '1px solid var(--rr-border2)',
                   borderRadius: '4px',
                   fontSize: '14px',
                   boxSizing: 'border-box',
                   height: '35px',
-                  backgroundColor: 'white'
+                  backgroundColor: 'var(--rr-panel)'
                 }}
               >
                 <option value="">Select an airframe...</option>
@@ -1643,7 +1643,7 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
                 marginBottom: '8px',
                 fontSize: '14px',
                 fontWeight: 500,
-                color: '#64748B'
+                color: 'var(--rr-text2)'
               }}>
                 Callsigns
               </label>
@@ -1662,7 +1662,7 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
                   style={{
                     flex: 1,
                     padding: '8px',
-                    border: '1px solid #CBD5E1',
+                    border: '1px solid var(--rr-border2)',
                     borderRadius: '4px',
                     fontSize: '14px',
                     boxSizing: 'border-box',
@@ -1678,7 +1678,7 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
                     padding: '8px 16px',
                     border: 'none',
                     borderRadius: '4px',
-                    backgroundColor: newCallsign.trim() ? '#2563EB' : '#CBD5E1',
+                    backgroundColor: newCallsign.trim() ? 'var(--rr-accent)' : 'var(--rr-panel3)',
                     color: 'white',
                     cursor: newCallsign.trim() ? 'pointer' : 'not-allowed',
                     fontSize: '14px',
@@ -1696,9 +1696,9 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
                   flexWrap: 'wrap',
                   gap: '8px',
                   padding: '8px',
-                  border: '1px solid #E2E8F0',
+                  border: '1px solid var(--rr-border)',
                   borderRadius: '4px',
-                  backgroundColor: '#F8FAFC',
+                  backgroundColor: 'var(--rr-panel2)',
                   minHeight: '32px',
                   alignItems: 'center'
                 }}>
@@ -1710,7 +1710,7 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
                         alignItems: 'center',
                         gap: '4px',
                         padding: '0 8px',
-                        backgroundColor: formData.color_palette?.accent || '#2563EB',
+                        backgroundColor: formData.color_palette?.accent || 'var(--rr-accent)',
                         color: 'white',
                         borderRadius: '8px',
                         fontSize: '12px',
@@ -1742,7 +1742,7 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
               )}
               
               <p style={{ 
-                color: '#94A3B8', 
+                color: 'var(--rr-text3)', 
                 fontSize: '12px', 
                 marginTop: '4px' 
               }}>
@@ -1751,7 +1751,7 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
               
               {errors.callsigns && (
                 <div style={{
-                  color: '#EF4444',
+                  color: 'var(--rr-bad)',
                   fontSize: '12px',
                   marginTop: '4px'
                 }}>
@@ -1789,14 +1789,14 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
           {(entityType === 'wing' || entityType === 'squadron') && activeTab === 'teams' && (
             <div>
               <div style={{ marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <p style={{ fontSize: '14px', color: '#64748B', margin: 0 }}>
+                <p style={{ fontSize: '14px', color: 'var(--rr-text2)', margin: 0 }}>
                   Manage teams scoped to this {entityType}
                 </p>
                 <button
                   onClick={handleCreateTeam}
                   style={{
                     padding: '8px 16px',
-                    backgroundColor: '#3B82F6',
+                    backgroundColor: 'var(--rr-accent)',
                     color: 'white',
                     border: 'none',
                     borderRadius: '6px',
@@ -1804,19 +1804,19 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
                     cursor: 'pointer',
                     fontWeight: 500
                   }}
-                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#2563EB'}
-                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#3B82F6'}
+                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--rr-accent)'}
+                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'var(--rr-accent)'}
                 >
                   + New Team
                 </button>
               </div>
 
               {loadingTeams ? (
-                <div style={{ textAlign: 'center', padding: '32px', color: '#64748B' }}>
+                <div style={{ textAlign: 'center', padding: '32px', color: 'var(--rr-text2)' }}>
                   Loading teams...
                 </div>
               ) : teams.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '32px', color: '#64748B' }}>
+                <div style={{ textAlign: 'center', padding: '32px', color: 'var(--rr-text2)' }}>
                   No teams created for this {entityType} yet
                 </div>
               ) : (
@@ -1826,9 +1826,9 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
                       key={team.id}
                       style={{
                         padding: '12px',
-                        border: '1px solid #E2E8F0',
+                        border: '1px solid var(--rr-border)',
                         borderRadius: '6px',
-                        backgroundColor: team.active ? '#FFFFFF' : '#F9FAFB',
+                        backgroundColor: team.active ? 'var(--rr-panel)' : 'var(--rr-panel2)',
                         display: 'flex',
                         justifyContent: 'space-between',
                         alignItems: 'center'
@@ -1836,14 +1836,14 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
                     >
                       <div style={{ flex: 1 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <span style={{ fontSize: '14px', fontWeight: 500, color: '#0F172A' }}>
+                          <span style={{ fontSize: '14px', fontWeight: 500, color: 'var(--rr-text)' }}>
                             {team.name}
                           </span>
                           {!team.active && (
                             <span style={{
                               fontSize: '11px',
-                              color: '#DC2626',
-                              backgroundColor: '#FEE2E2',
+                              color: 'var(--rr-bad)',
+                              backgroundColor: 'rgba(224,82,78,.12)',
                               padding: '2px 6px',
                               borderRadius: '4px'
                             }}>
@@ -1852,7 +1852,7 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
                           )}
                         </div>
                         {team.description && (
-                          <p style={{ fontSize: '12px', color: '#64748B', margin: '4px 0 0 0' }}>
+                          <p style={{ fontSize: '12px', color: 'var(--rr-text2)', margin: '4px 0 0 0' }}>
                             {team.description}
                           </p>
                         )}
@@ -1870,7 +1870,7 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
                             alignItems: 'center',
                             justifyContent: 'center'
                           }}
-                          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#F1F5F9'}
+                          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--rr-panel2)'}
                           onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                         >
                           <Edit size={14} color="#64748B" />
@@ -1887,7 +1887,7 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
                             alignItems: 'center',
                             justifyContent: 'center'
                           }}
-                          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#FEE2E2'}
+                          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(224,82,78,.12)'}
                           onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                         >
                           <Trash size={14} color="#EF4444" />
@@ -1917,20 +1917,20 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
                 >
                   <div
                     style={{
-                      backgroundColor: '#FFFFFF',
+                      backgroundColor: 'var(--rr-panel)',
                       borderRadius: '8px',
                       padding: '24px',
                       width: '500px',
-                      boxShadow: '0 10px 25px rgba(0, 0, 0, 0.1)'
+                      boxShadow: 'var(--rr-shadow-lg)'
                     }}
                     onClick={(e) => e.stopPropagation()}
                   >
-                    <h3 style={{ fontSize: '18px', fontWeight: 600, marginBottom: '20px', color: '#0F172A' }}>
+                    <h3 style={{ fontSize: '18px', fontWeight: 600, marginBottom: '20px', color: 'var(--rr-text)' }}>
                       {editingTeam ? 'Edit Team' : 'Create New Team'}
                     </h3>
 
                     <div style={{ marginBottom: '16px' }}>
-                      <label style={{ display: 'block', fontSize: '14px', fontWeight: 500, color: '#64748B', marginBottom: '8px' }}>
+                      <label style={{ display: 'block', fontSize: '14px', fontWeight: 500, color: 'var(--rr-text2)', marginBottom: '8px' }}>
                         Team Name *
                       </label>
                       <input
@@ -1940,7 +1940,7 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
                         style={{
                           width: '100%',
                           padding: '8px 12px',
-                          border: '1px solid #D1D5DB',
+                          border: '1px solid var(--rr-border2)',
                           borderRadius: '6px',
                           fontSize: '14px',
                           boxSizing: 'border-box'
@@ -1950,7 +1950,7 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
                     </div>
 
                     <div style={{ marginBottom: '16px' }}>
-                      <label style={{ display: 'block', fontSize: '14px', fontWeight: 500, color: '#64748B', marginBottom: '8px' }}>
+                      <label style={{ display: 'block', fontSize: '14px', fontWeight: 500, color: 'var(--rr-text2)', marginBottom: '8px' }}>
                         Description
                       </label>
                       <textarea
@@ -1959,13 +1959,13 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
                         style={{
                           width: '100%',
                           padding: '8px 12px',
-                          border: '1px solid #D1D5DB',
+                          border: '1px solid var(--rr-border2)',
                           borderRadius: '6px',
                           fontSize: '14px',
                           boxSizing: 'border-box',
                           minHeight: '80px',
                           resize: 'vertical',
-                          fontFamily: 'Inter, sans-serif'
+                          fontFamily: 'inherit'
                         }}
                         placeholder="Enter team description (optional)"
                       />
@@ -1979,7 +1979,7 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
                           onChange={(e) => setTeamFormData({ ...teamFormData, active: e.target.checked })}
                           style={{ width: '16px', height: '16px', cursor: 'pointer' }}
                         />
-                        <span style={{ fontSize: '14px', fontWeight: 500, color: '#64748B' }}>
+                        <span style={{ fontSize: '14px', fontWeight: 500, color: 'var(--rr-text2)' }}>
                           Active Team
                         </span>
                       </label>
@@ -1990,9 +1990,9 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
                         onClick={() => setShowTeamForm(false)}
                         style={{
                           padding: '8px 16px',
-                          backgroundColor: '#FFFFFF',
-                          color: '#6B7280',
-                          border: '1px solid #D1D5DB',
+                          backgroundColor: 'var(--rr-panel)',
+                          color: 'var(--rr-text2)',
+                          border: '1px solid var(--rr-border2)',
                           borderRadius: '6px',
                           fontSize: '14px',
                           cursor: 'pointer'
@@ -2005,7 +2005,7 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
                         disabled={!teamFormData.name.trim()}
                         style={{
                           padding: '8px 16px',
-                          backgroundColor: !teamFormData.name.trim() ? '#9CA3AF' : '#3B82F6',
+                          backgroundColor: !teamFormData.name.trim() ? '#9CA3AF' : 'var(--rr-accent)',
                           color: '#FFFFFF',
                           border: 'none',
                           borderRadius: '6px',
@@ -2028,7 +2028,7 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
           justifyContent: 'space-between',
           gap: '8px',
           padding: '16px 24px',
-          borderTop: '1px solid #E2E8F0'
+          borderTop: '1px solid var(--rr-border)'
         }}>
           {/* Left side - Deactivate button (only in edit mode for active entities) */}
           <div>
@@ -2037,10 +2037,10 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
                 onClick={() => setShowDeactivateConfirm(true)}
                 style={{
                   padding: '8px 16px',
-                  border: '1px solid #DC2626',
+                  border: '1px solid var(--rr-bad)',
                   borderRadius: '4px',
-                  backgroundColor: 'white',
-                  color: '#DC2626',
+                  backgroundColor: 'var(--rr-panel)',
+                  color: 'var(--rr-bad)',
                   cursor: 'pointer',
                   fontSize: '14px'
                 }}
@@ -2056,10 +2056,10 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
               onClick={onClose}
               style={{
                 padding: '8px 16px',
-                border: '1px solid #CBD5E1',
+                border: '1px solid var(--rr-border2)',
                 borderRadius: '4px',
-                backgroundColor: 'white',
-                color: '#64748B',
+                backgroundColor: 'var(--rr-panel)',
+                color: 'var(--rr-text2)',
                 cursor: 'pointer',
                 fontSize: '14px'
               }}
@@ -2072,7 +2072,7 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
                 padding: '8px 16px',
                 border: 'none',
                 borderRadius: '4px',
-                backgroundColor: '#2563EB',
+                backgroundColor: 'var(--rr-accent)',
                 color: 'white',
                 cursor: 'pointer',
                 fontSize: '14px',
@@ -2102,24 +2102,24 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
             zIndex: 1
           }}>
             <div style={{
-              backgroundColor: 'white',
+              backgroundColor: 'var(--rr-panel)',
               padding: '24px',
               borderRadius: '8px',
-              boxShadow: '0px 10px 15px -3px rgba(0, 0, 0, 0.25)',
+              boxShadow: 'var(--rr-shadow)',
               maxWidth: '400px',
               width: '90%'
             }}>
               <h3 style={{
                 fontSize: '18px',
                 fontWeight: 600,
-                color: '#0F172A',
+                color: 'var(--rr-text)',
                 marginBottom: '16px'
               }}>
                 Confirm Deactivation
               </h3>
               <p style={{
                 fontSize: '14px',
-                color: '#64748B',
+                color: 'var(--rr-text2)',
                 marginBottom: '24px',
                 lineHeight: '1.5'
               }}>
@@ -2134,10 +2134,10 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
                   onClick={() => setShowDeactivateConfirm(false)}
                   style={{
                     padding: '8px 16px',
-                    border: '1px solid #CBD5E1',
+                    border: '1px solid var(--rr-border2)',
                     borderRadius: '4px',
-                    backgroundColor: 'white',
-                    color: '#64748B',
+                    backgroundColor: 'var(--rr-panel)',
+                    color: 'var(--rr-text2)',
                     cursor: 'pointer',
                     fontSize: '14px'
                   }}
@@ -2150,7 +2150,7 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
                     padding: '8px 16px',
                     border: 'none',
                     borderRadius: '4px',
-                    backgroundColor: '#DC2626',
+                    backgroundColor: 'var(--rr-bad)',
                     color: 'white',
                     cursor: 'pointer',
                     fontSize: '14px'

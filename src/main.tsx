@@ -41,7 +41,7 @@ createRoot(document.getElementById('root')!).render(
                     alignItems: 'center',
                     justifyContent: 'center',
                     color: '#e5e5e5',
-                    fontFamily: 'Inter, system-ui, sans-serif'
+                    fontFamily: 'inherit'
                   }}>
                     Loading kneeboard...
                   </div>

@@ -757,8 +757,8 @@ export const DiscordPilotsDialog: React.FC<DiscordPilotsDialogProps> = ({
         width: '1700px', // Further increased width to accommodate Discord Roles column
         maxWidth: '95%',
         maxHeight: '90vh',
-        backgroundColor: '#FFFFFF',
-        boxShadow: '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)',
+        backgroundColor: 'var(--rr-panel)',
+        boxShadow: 'var(--rr-shadow)',
         borderRadius: '8px',
         zIndex: 1001,
         display: 'flex',
@@ -770,13 +770,13 @@ export const DiscordPilotsDialog: React.FC<DiscordPilotsDialogProps> = ({
           justifyContent: 'space-between',
           alignItems: 'center',
           padding: '16px 24px',
-          borderBottom: '1px solid #E2E8F0'
+          borderBottom: '1px solid var(--rr-border)'
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <h2 style={{
               fontSize: '18px',
               fontWeight: 600,
-              color: '#0F172A',
+              color: 'var(--rr-text)',
               margin: 0
             }}>
               Discord Pilots Integration
@@ -810,12 +810,12 @@ export const DiscordPilotsDialog: React.FC<DiscordPilotsDialogProps> = ({
           <style dangerouslySetInnerHTML={{ __html: optgroupStyles }} />
           {error && (
             <div style={{
-              backgroundColor: '#FEF2F2',
-              color: '#DC2626',
+              backgroundColor: 'rgba(224,82,78,.12)',
+              color: 'var(--rr-bad)',
               padding: '12px 16px',
               borderRadius: '4px',
               marginBottom: '16px',
-              border: '1px solid #FCA5A5'
+              border: '1px solid var(--rr-bad)'
             }}>
               <strong>Error:</strong> {error}
             </div>
@@ -832,8 +832,8 @@ export const DiscordPilotsDialog: React.FC<DiscordPilotsDialogProps> = ({
               <div style={{
                 width: '40px',
                 height: '40px',
-                border: '3px solid #E2E8F0',
-                borderTopColor: '#3B82F6',
+                border: '3px solid var(--rr-border)',
+                borderTopColor: 'var(--rr-accent)',
                 borderRadius: '50%',
                 animation: 'spin 1s linear infinite',
                 marginBottom: '16px'
@@ -846,34 +846,34 @@ export const DiscordPilotsDialog: React.FC<DiscordPilotsDialogProps> = ({
                   }
                 `}
               </style>
-              <p style={{ color: '#64748B' }}>Loading Discord users...</p>
+              <p style={{ color: 'var(--rr-text2)' }}>Loading Discord users...</p>
             </div>
           ) : (
             <>
               <div style={{ marginBottom: '20px' }}>
-                <p style={{ color: '#374151', margin: '0 0 12px 0' }}>
+                <p style={{ color: 'var(--rr-text)', margin: '0 0 12px 0' }}>
                   Found {matches.length} users from Discord. {filteredMatches.length < matches.length ? `Showing ${filteredMatches.length} of ${matches.length} after filtering.` : 'Review and confirm the matches below.'}
                 </p>
-                <p style={{ color: '#4B5563', margin: '0', fontSize: '14px' }}>
+                <p style={{ color: 'var(--rr-text2)', margin: '0', fontSize: '14px' }}>
                   Role assignment rules: Roles can only be assigned to pilots with Command or Staff status, and exclusive roles can only be assigned to one pilot at a time.
                 </p>
               </div>
               
                     
-              <div ref={tableContainerRef} style={{ height: '800px', border: '1px solid #E5E7EB', borderRadius: '6px', position: 'relative' }}>
+              <div ref={tableContainerRef} style={{ height: '800px', border: '1px solid var(--rr-border)', borderRadius: '6px', position: 'relative' }}>
                 <div style={{ overflowX: 'auto', overflowY: 'auto', height: '100%', position: 'relative' }}>
                 <table style={{
                   width: '100%',
                   borderCollapse: 'collapse'
                 }}>
                   <thead style={{ position: 'sticky', top: 0, zIndex: 10 }}>
-                    <tr style={{ backgroundColor: '#F9FAFB', borderBottom: '1px solid #E5E7EB' }}>
-                      <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: 500, color: '#6B7280', textTransform: 'uppercase', width: '168px', backgroundColor: '#F9FAFB', whiteSpace: 'nowrap' }}>Pilot Record</th>
-                      <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: 500, color: '#6B7280', textTransform: 'uppercase', width: '80px', backgroundColor: '#F9FAFB', whiteSpace: 'nowrap' }}>Board #</th>
-                      <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: 500, color: '#6B7280', textTransform: 'uppercase', width: '120px', backgroundColor: '#F9FAFB', whiteSpace: 'nowrap' }}>Callsign</th>
-                      <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: 500, color: '#6B7280', textTransform: 'uppercase', width: '140px', backgroundColor: '#F9FAFB', whiteSpace: 'nowrap' }}>Discord Username</th>
-                      <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: 500, color: '#6B7280', textTransform: 'uppercase', width: '180px', backgroundColor: '#F9FAFB', whiteSpace: 'nowrap' }}>Discord Display Name</th>
-                      <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: 500, color: '#6B7280', textTransform: 'uppercase', width: '140px', position: 'relative', backgroundColor: '#F9FAFB', whiteSpace: 'nowrap' }}>
+                    <tr style={{ backgroundColor: 'var(--rr-panel2)', borderBottom: '1px solid var(--rr-border)' }}>
+                      <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: 500, color: 'var(--rr-text2)', textTransform: 'uppercase', width: '168px', backgroundColor: 'var(--rr-panel2)', whiteSpace: 'nowrap' }}>Pilot Record</th>
+                      <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: 500, color: 'var(--rr-text2)', textTransform: 'uppercase', width: '80px', backgroundColor: 'var(--rr-panel2)', whiteSpace: 'nowrap' }}>Board #</th>
+                      <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: 500, color: 'var(--rr-text2)', textTransform: 'uppercase', width: '120px', backgroundColor: 'var(--rr-panel2)', whiteSpace: 'nowrap' }}>Callsign</th>
+                      <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: 500, color: 'var(--rr-text2)', textTransform: 'uppercase', width: '140px', backgroundColor: 'var(--rr-panel2)', whiteSpace: 'nowrap' }}>Discord Username</th>
+                      <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: 500, color: 'var(--rr-text2)', textTransform: 'uppercase', width: '180px', backgroundColor: 'var(--rr-panel2)', whiteSpace: 'nowrap' }}>Discord Display Name</th>
+                      <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: 500, color: 'var(--rr-text2)', textTransform: 'uppercase', width: '140px', position: 'relative', backgroundColor: 'var(--rr-panel2)', whiteSpace: 'nowrap' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                           Discord Roles
                           <button
@@ -883,7 +883,7 @@ export const DiscordPilotsDialog: React.FC<DiscordPilotsDialogProps> = ({
                               border: 'none',
                               padding: '2px',
                               cursor: 'pointer',
-                              color: filterDiscordRoles.length > 0 ? '#2563EB' : '#6B7280'
+                              color: filterDiscordRoles.length > 0 ? 'var(--rr-accent-text)' : 'var(--rr-text2)'
                             }}
                           >
                             <Filter size={12} />
@@ -895,10 +895,10 @@ export const DiscordPilotsDialog: React.FC<DiscordPilotsDialogProps> = ({
                             top: '100%',
                             left: '0',
                             minWidth: '200px',
-                            backgroundColor: 'white',
-                            border: '1px solid #E5E7EB',
+                            backgroundColor: 'var(--rr-panel)',
+                            border: '1px solid var(--rr-border)',
                             borderRadius: '4px',
-                            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+                            boxShadow: 'var(--rr-shadow)',
                             zIndex: 1000,
                             maxHeight: '400px', // Half of dialog height (~800px)
                             display: 'flex',
@@ -916,16 +916,16 @@ export const DiscordPilotsDialog: React.FC<DiscordPilotsDialogProps> = ({
                                 
                                 if (mode === 'include') {
                                   backgroundColor = '#EFF6FF';
-                                  icon = <Eye size={12} style={{ color: '#3B82F6' }} />;
+                                  icon = <Eye size={12} style={{ color: 'var(--rr-accent-text)' }} />;
                                 } else if (mode === 'exclude') {
                                   backgroundColor = '#FEF2F2';
-                                  icon = <EyeOff size={12} style={{ color: '#EF4444' }} />;
+                                  icon = <EyeOff size={12} style={{ color: 'var(--rr-bad)' }} />;
                                 }
                                 
                                 return (
                                   <div key={role} style={{
                                     padding: '8px 12px',
-                                    borderBottom: '1px solid #F3F4F6',
+                                    borderBottom: '1px solid var(--rr-border)',
                                     fontSize: '12px',
                                     cursor: 'pointer',
                                     backgroundColor: backgroundColor,
@@ -959,8 +959,8 @@ export const DiscordPilotsDialog: React.FC<DiscordPilotsDialogProps> = ({
                             </div>
                             <div style={{
                               padding: '8px 12px',
-                              borderTop: '1px solid #E5E7EB',
-                              backgroundColor: '#F9FAFB',
+                              borderTop: '1px solid var(--rr-border)',
+                              backgroundColor: 'var(--rr-panel2)',
                               display: 'flex',
                               gap: '8px',
                               justifyContent: 'space-between',
@@ -979,7 +979,7 @@ export const DiscordPilotsDialog: React.FC<DiscordPilotsDialogProps> = ({
                                   background: 'none',
                                   border: 'none',
                                   fontSize: '11px',
-                                  color: '#6B7280',
+                                  color: 'var(--rr-text2)',
                                   cursor: 'pointer'
                                 }}
                               >
@@ -991,7 +991,7 @@ export const DiscordPilotsDialog: React.FC<DiscordPilotsDialogProps> = ({
                                   background: 'none',
                                   border: 'none',
                                   fontSize: '11px',
-                                  color: '#6B7280',
+                                  color: 'var(--rr-text2)',
                                   cursor: 'pointer'
                                 }}
                               >
@@ -1001,7 +1001,7 @@ export const DiscordPilotsDialog: React.FC<DiscordPilotsDialogProps> = ({
                           </div>
                         )}
                       </th>
-                      <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: 500, color: '#6B7280', textTransform: 'uppercase', width: '120px', position: 'relative', backgroundColor: '#F9FAFB', whiteSpace: 'nowrap' }}>
+                      <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: 500, color: 'var(--rr-text2)', textTransform: 'uppercase', width: '120px', position: 'relative', backgroundColor: 'var(--rr-panel2)', whiteSpace: 'nowrap' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                           Standing
                           <button
@@ -1011,7 +1011,7 @@ export const DiscordPilotsDialog: React.FC<DiscordPilotsDialogProps> = ({
                               border: 'none',
                               padding: '2px',
                               cursor: 'pointer',
-                              color: filterStandingIds.length > 0 ? '#2563EB' : '#6B7280'
+                              color: filterStandingIds.length > 0 ? 'var(--rr-accent-text)' : 'var(--rr-text2)'
                             }}
                           >
                             <Filter size={12} />
@@ -1023,10 +1023,10 @@ export const DiscordPilotsDialog: React.FC<DiscordPilotsDialogProps> = ({
                             top: '100%',
                             left: '0',
                             minWidth: '200px',
-                            backgroundColor: 'white',
-                            border: '1px solid #E5E7EB',
+                            backgroundColor: 'var(--rr-panel)',
+                            border: '1px solid var(--rr-border)',
                             borderRadius: '4px',
-                            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+                            boxShadow: 'var(--rr-shadow)',
                             zIndex: 1000,
                             maxHeight: `${Math.min(statuses.length * 32 + 80, 300)}px`,
                             display: 'flex',
@@ -1040,10 +1040,10 @@ export const DiscordPilotsDialog: React.FC<DiscordPilotsDialogProps> = ({
                               {statuses.map(status => (
                                 <div key={status.id} style={{
                                   padding: '8px 12px',
-                                  borderBottom: '1px solid #F3F4F6',
+                                  borderBottom: '1px solid var(--rr-border)',
                                   fontSize: '12px',
                                   cursor: 'pointer',
-                                  backgroundColor: filterStandingIds.includes(status.id) ? '#EFF6FF' : 'transparent',
+                                  backgroundColor: filterStandingIds.includes(status.id) ? 'var(--rr-accent-weak)' : 'transparent',
                                   display: 'flex',
                                   alignItems: 'center',
                                   gap: '6px'
@@ -1062,8 +1062,8 @@ export const DiscordPilotsDialog: React.FC<DiscordPilotsDialogProps> = ({
                             </div>
                             <div style={{
                               padding: '8px 12px',
-                              borderTop: '1px solid #E5E7EB',
-                              backgroundColor: '#F9FAFB',
+                              borderTop: '1px solid var(--rr-border)',
+                              backgroundColor: 'var(--rr-panel2)',
                               display: 'flex',
                               gap: '8px',
                               justifyContent: 'space-between',
@@ -1075,7 +1075,7 @@ export const DiscordPilotsDialog: React.FC<DiscordPilotsDialogProps> = ({
                                   background: 'none',
                                   border: 'none',
                                   fontSize: '11px',
-                                  color: '#6B7280',
+                                  color: 'var(--rr-text2)',
                                   cursor: 'pointer'
                                 }}
                               >
@@ -1087,7 +1087,7 @@ export const DiscordPilotsDialog: React.FC<DiscordPilotsDialogProps> = ({
                                   background: 'none',
                                   border: 'none',
                                   fontSize: '11px',
-                                  color: '#6B7280',
+                                  color: 'var(--rr-text2)',
                                   cursor: 'pointer'
                                 }}
                               >
@@ -1097,7 +1097,7 @@ export const DiscordPilotsDialog: React.FC<DiscordPilotsDialogProps> = ({
                           </div>
                         )}
                       </th>
-                      <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: 500, color: '#6B7280', textTransform: 'uppercase', width: '150px', position: 'relative', backgroundColor: '#F9FAFB', whiteSpace: 'nowrap' }}>
+                      <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: 500, color: 'var(--rr-text2)', textTransform: 'uppercase', width: '150px', position: 'relative', backgroundColor: 'var(--rr-panel2)', whiteSpace: 'nowrap' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                           Squadron
                           <button
@@ -1107,7 +1107,7 @@ export const DiscordPilotsDialog: React.FC<DiscordPilotsDialogProps> = ({
                               border: 'none',
                               padding: '2px',
                               cursor: 'pointer',
-                              color: filterSquadronIds.length > 0 ? '#2563EB' : '#6B7280'
+                              color: filterSquadronIds.length > 0 ? 'var(--rr-accent-text)' : 'var(--rr-text2)'
                             }}
                           >
                             <Filter size={12} />
@@ -1119,10 +1119,10 @@ export const DiscordPilotsDialog: React.FC<DiscordPilotsDialogProps> = ({
                             top: '100%',
                             left: '0',
                             minWidth: '270px',
-                            backgroundColor: 'white',
-                            border: '1px solid #E5E7EB',
+                            backgroundColor: 'var(--rr-panel)',
+                            border: '1px solid var(--rr-border)',
                             borderRadius: '4px',
-                            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+                            boxShadow: 'var(--rr-shadow)',
                             zIndex: 1000,
                             maxHeight: `${Math.min((squadrons.length + 1) * 48 + 80, 350)}px`,
                             display: 'flex',
@@ -1135,10 +1135,10 @@ export const DiscordPilotsDialog: React.FC<DiscordPilotsDialogProps> = ({
                             }}>
                               <div style={{
                                 padding: '8px 12px',
-                                borderBottom: '1px solid #F3F4F6',
+                                borderBottom: '1px solid var(--rr-border)',
                                 fontSize: '12px',
                                 cursor: 'pointer',
-                                backgroundColor: filterSquadronIds.includes('unassigned') ? '#EFF6FF' : 'transparent',
+                                backgroundColor: filterSquadronIds.includes('unassigned') ? 'var(--rr-accent-weak)' : 'transparent',
                                 display: 'flex',
                                 alignItems: 'center',
                                 gap: '6px'
@@ -1156,10 +1156,10 @@ export const DiscordPilotsDialog: React.FC<DiscordPilotsDialogProps> = ({
                               {squadrons.map(squadron => (
                                 <div key={squadron.id} style={{
                                   padding: '8px 12px',
-                                  borderBottom: '1px solid #F3F4F6',
+                                  borderBottom: '1px solid var(--rr-border)',
                                   fontSize: '12px',
                                   cursor: 'pointer',
-                                  backgroundColor: filterSquadronIds.includes(squadron.id) ? '#EFF6FF' : 'transparent',
+                                  backgroundColor: filterSquadronIds.includes(squadron.id) ? 'var(--rr-accent-weak)' : 'transparent',
                                   display: 'flex',
                                   alignItems: 'center',
                                   gap: '8px'
@@ -1186,22 +1186,22 @@ export const DiscordPilotsDialog: React.FC<DiscordPilotsDialogProps> = ({
                                     <div style={{
                                       width: '16px',
                                       height: '16px',
-                                      backgroundColor: '#F3F4F6',
+                                      backgroundColor: 'var(--rr-panel2)',
                                       borderRadius: '2px',
                                       flexShrink: 0
                                     }} />
                                   )}
                                   <div style={{ display: 'flex', flexDirection: 'column' }}>
                                     <div style={{ fontWeight: 500 }}>{squadron.designation}</div>
-                                    <div style={{ color: '#6B7280', fontSize: '10px' }}>{squadron.name}</div>
+                                    <div style={{ color: 'var(--rr-text2)', fontSize: '10px' }}>{squadron.name}</div>
                                   </div>
                                 </div>
                               ))}
                             </div>
                             <div style={{
                               padding: '8px 12px',
-                              borderTop: '1px solid #E5E7EB',
-                              backgroundColor: '#F9FAFB',
+                              borderTop: '1px solid var(--rr-border)',
+                              backgroundColor: 'var(--rr-panel2)',
                               display: 'flex',
                               gap: '8px',
                               justifyContent: 'space-between',
@@ -1216,7 +1216,7 @@ export const DiscordPilotsDialog: React.FC<DiscordPilotsDialogProps> = ({
                                   background: 'none',
                                   border: 'none',
                                   fontSize: '11px',
-                                  color: '#6B7280',
+                                  color: 'var(--rr-text2)',
                                   cursor: 'pointer'
                                 }}
                               >
@@ -1228,7 +1228,7 @@ export const DiscordPilotsDialog: React.FC<DiscordPilotsDialogProps> = ({
                                   background: 'none',
                                   border: 'none',
                                   fontSize: '11px',
-                                  color: '#6B7280',
+                                  color: 'var(--rr-text2)',
                                   cursor: 'pointer'
                                 }}
                               >
@@ -1238,7 +1238,7 @@ export const DiscordPilotsDialog: React.FC<DiscordPilotsDialogProps> = ({
                           </div>
                         )}
                       </th>
-                      <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: 500, color: '#6B7280', textTransform: 'uppercase', width: '120px', backgroundColor: '#F9FAFB', whiteSpace: 'nowrap' }}>Billet</th>
+                      <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: 500, color: 'var(--rr-text2)', textTransform: 'uppercase', width: '120px', backgroundColor: 'var(--rr-panel2)', whiteSpace: 'nowrap' }}>Billet</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1252,8 +1252,8 @@ export const DiscordPilotsDialog: React.FC<DiscordPilotsDialogProps> = ({
                         <tr 
                           key={match.discordMember.id} 
                           style={{ 
-                            borderBottom: '1px solid #E5E7EB',
-                            backgroundColor: filteredIndex % 2 === 0 ? '#FFFFFF' : '#F9FAFB',
+                            borderBottom: '1px solid var(--rr-border)',
+                            backgroundColor: filteredIndex % 2 === 0 ? 'var(--rr-panel)' : 'var(--rr-panel2)',
                             height: '60px'
                           }}
                         >
@@ -1312,18 +1312,18 @@ export const DiscordPilotsDialog: React.FC<DiscordPilotsDialogProps> = ({
                                   overflow: 'hidden',
                                   textOverflow: 'ellipsis',
                                   padding: '4px 8px',
-                                  border: '1px solid #CBD5E1',
+                                  border: '1px solid var(--rr-border2)',
                                   borderRadius: '4px',
                                   fontSize: '14px'
                                 }}
                               >
                                 <option value="">Select pilot action</option>
-                                <option value="" disabled style={{ fontWeight: 'normal', color: '#64748B', backgroundColor: '#f8fafc' }}>
+                                <option value="" disabled style={{ fontWeight: 'normal', color: 'var(--rr-text2)', backgroundColor: 'var(--rr-panel2)' }}>
                                   Actions
                                 </option>
                                 <option value="do-nothing" style={{ paddingLeft: '20px' }}>&nbsp;&nbsp;Do Nothing</option>
                                 <option value="create-new" style={{ paddingLeft: '20px' }}>&nbsp;&nbsp;Create New Pilot</option>
-                                <option value="" disabled style={{ fontWeight: 'normal', color: '#64748B', backgroundColor: '#f8fafc' }}>
+                                <option value="" disabled style={{ fontWeight: 'normal', color: 'var(--rr-text2)', backgroundColor: 'var(--rr-panel2)' }}>
                                   Update Existing Pilot
                                 </option>
                                 {allPilots
@@ -1340,7 +1340,7 @@ export const DiscordPilotsDialog: React.FC<DiscordPilotsDialogProps> = ({
                                   <span style={{ 
                                     display: 'block', 
                                     fontSize: '12px', 
-                                    color: '#059669', 
+                                    color: 'var(--rr-good)', 
                                     marginTop: '4px' 
                                   }}>
                                     Create New Record
@@ -1366,7 +1366,7 @@ export const DiscordPilotsDialog: React.FC<DiscordPilotsDialogProps> = ({
                                   <span style={{ 
                                     display: 'block', 
                                     fontSize: '12px', 
-                                    color: '#9CA3AF', 
+                                    color: 'var(--rr-text3)', 
                                     marginTop: '4px' 
                                   }}>
                                     Do Nothing
@@ -1404,7 +1404,7 @@ export const DiscordPilotsDialog: React.FC<DiscordPilotsDialogProps> = ({
                                   style={{
                                     width: '60px',
                                     padding: '6px',
-                                    border: '1px solid #D1D5DB',
+                                    border: '1px solid var(--rr-border2)',
                                     borderRadius: '4px',
                                     fontSize: '14px'
                                   }}
@@ -1437,7 +1437,7 @@ export const DiscordPilotsDialog: React.FC<DiscordPilotsDialogProps> = ({
                                   style={{
                                     width: '100%',
                                     padding: '6px',
-                                    border: '1px solid #D1D5DB',
+                                    border: '1px solid var(--rr-border2)',
                                     borderRadius: '4px',
                                     fontSize: '14px',
                                     boxSizing: 'border-box'
@@ -1458,7 +1458,7 @@ export const DiscordPilotsDialog: React.FC<DiscordPilotsDialogProps> = ({
                                 style={{
                                   width: '100%',
                                   padding: '6px',
-                                  border: '1px solid #D1D5DB',
+                                  border: '1px solid var(--rr-border2)',
                                   borderRadius: '4px',
                                   fontSize: '14px'
                                 }}
@@ -1494,7 +1494,7 @@ export const DiscordPilotsDialog: React.FC<DiscordPilotsDialogProps> = ({
                                 style={{
                                   width: '100%',
                                   padding: '6px',
-                                  border: '1px solid #D1D5DB',
+                                  border: '1px solid var(--rr-border2)',
                                   borderRadius: '4px',
                                   fontSize: '14px',
                                   maxWidth: '150px',
@@ -1528,7 +1528,7 @@ export const DiscordPilotsDialog: React.FC<DiscordPilotsDialogProps> = ({
                           <td style={{ padding: '12px 16px', fontSize: '14px', verticalAlign: 'top' }}>
                             <div style={{ padding: '6px 0' }}>
                               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
-                              <span style={{ fontSize: '14px', color: '#374151' }}>
+                              <span style={{ fontSize: '14px', color: 'var(--rr-text)' }}>
                                 {match.discordMember.roles?.length || 0}
                               </span>
                               {(match.discordMember.roles?.length || 0) > 0 && (
@@ -1550,7 +1550,7 @@ export const DiscordPilotsDialog: React.FC<DiscordPilotsDialogProps> = ({
                                       border: 'none',
                                       padding: '2px',
                                       cursor: 'pointer',
-                                      color: '#6B7280',
+                                      color: 'var(--rr-text2)',
                                       display: 'flex',
                                       alignItems: 'center'
                                     }}
@@ -1565,10 +1565,10 @@ export const DiscordPilotsDialog: React.FC<DiscordPilotsDialogProps> = ({
                                         position: 'absolute',
                                         top: `${popupPosition.top}px`,
                                         left: 'calc(100% + 8px)',
-                                        backgroundColor: 'white',
-                                        border: '1px solid #E5E7EB',
+                                        backgroundColor: 'var(--rr-panel)',
+                                        border: '1px solid var(--rr-border)',
                                         borderRadius: '8px',
-                                        boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
+                                        boxShadow: 'var(--rr-shadow)',
                                         zIndex: 99999,
                                         padding: '12px',
                                         minWidth: '200px',
@@ -1577,7 +1577,7 @@ export const DiscordPilotsDialog: React.FC<DiscordPilotsDialogProps> = ({
                                       <div style={{
                                         fontSize: '12px',
                                         fontWeight: 500,
-                                        color: '#374151',
+                                        color: 'var(--rr-text)',
                                         marginBottom: '8px',
                                         textAlign: 'center'
                                       }}>
@@ -1594,9 +1594,9 @@ export const DiscordPilotsDialog: React.FC<DiscordPilotsDialogProps> = ({
                                               key={role}
                                               style={{
                                                 padding: '8px 12px',
-                                                backgroundColor: '#F3F4F6',
-                                                color: '#4B5563',
-                                                border: '1px solid #D1D5DB',
+                                                backgroundColor: 'var(--rr-panel2)',
+                                                color: 'var(--rr-text2)',
+                                                border: '1px solid var(--rr-border2)',
                                                 borderRadius: '6px',
                                                 fontSize: '12px',
                                                 fontWeight: 500,
@@ -1634,7 +1634,7 @@ export const DiscordPilotsDialog: React.FC<DiscordPilotsDialogProps> = ({
                                 style={{
                                   width: '100%',
                                   padding: '6px',
-                                  border: '1px solid #D1D5DB',
+                                  border: '1px solid var(--rr-border2)',
                                   borderRadius: '4px',
                                   fontSize: '14px'
                                 }}
@@ -1660,7 +1660,7 @@ export const DiscordPilotsDialog: React.FC<DiscordPilotsDialogProps> = ({
                                 style={{
                                   width: '100%',
                                   padding: '6px',
-                                  border: '1px solid #D1D5DB',
+                                  border: '1px solid var(--rr-border2)',
                                   borderRadius: '4px',
                                   fontSize: '14px'
                                 }}
@@ -1686,7 +1686,7 @@ export const DiscordPilotsDialog: React.FC<DiscordPilotsDialogProps> = ({
                                 style={{
                                   width: '100%',
                                   padding: '6px',
-                                  border: '1px solid #D1D5DB',
+                                  border: '1px solid var(--rr-border2)',
                                   borderRadius: '4px',
                                   fontSize: '14px'
                                 }}
@@ -1714,7 +1714,7 @@ export const DiscordPilotsDialog: React.FC<DiscordPilotsDialogProps> = ({
 
         {/* Footer */}
         <div style={{
-          borderTop: '1px solid #E2E8F0',
+          borderTop: '1px solid var(--rr-border)',
           padding: '16px 24px'
         }}>
           {/* Role Sync Options */}
@@ -1724,18 +1724,18 @@ export const DiscordPilotsDialog: React.FC<DiscordPilotsDialogProps> = ({
             gap: '16px',
             marginBottom: '16px',
             padding: '12px',
-            backgroundColor: '#F8FAFC',
+            backgroundColor: 'var(--rr-panel2)',
             borderRadius: '6px',
-            border: '1px solid #E2E8F0'
+            border: '1px solid var(--rr-border)'
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Shield size={16} className="text-blue-600" />
+              <Shield size={16} className="text-accent" />
               <label style={{
                 display: 'flex',
                 alignItems: 'center',
                 gap: '8px',
                 fontSize: '14px',
-                color: '#374151',
+                color: 'var(--rr-text)',
                 cursor: 'pointer'
               }}>
                 <input
@@ -1751,20 +1751,20 @@ export const DiscordPilotsDialog: React.FC<DiscordPilotsDialogProps> = ({
             {roleSyncResults.synced > 0 || roleSyncResults.failed > 0 ? (
               <div style={{
                 fontSize: '12px',
-                color: '#6B7280',
+                color: 'var(--rr-text2)',
                 display: 'flex',
                 alignItems: 'center',
                 gap: '8px'
               }}>
-                <span className="text-green-600">✓ {roleSyncResults.synced} synced</span>
+                <span className="text-good">✓ {roleSyncResults.synced} synced</span>
                 {roleSyncResults.failed > 0 && (
-                  <span className="text-red-600">✗ {roleSyncResults.failed} failed</span>
+                  <span className="text-bad">✗ {roleSyncResults.failed} failed</span>
                 )}
               </div>
             ) : enableRoleSync && (
               <span style={{
                 fontSize: '12px',
-                color: '#6B7280',
+                color: 'var(--rr-text2)',
                 fontStyle: 'italic'
               }}>
                 Will update user permissions based on Discord roles
@@ -1783,10 +1783,10 @@ export const DiscordPilotsDialog: React.FC<DiscordPilotsDialogProps> = ({
             disabled={processing}
             style={{
               padding: '8px 16px',
-              border: '1px solid #CBD5E1',
+              border: '1px solid var(--rr-border2)',
               borderRadius: '4px',
-              backgroundColor: 'white',
-              color: '#64748B',
+              backgroundColor: 'var(--rr-panel)',
+              color: 'var(--rr-text2)',
               cursor: 'pointer',
               fontSize: '14px'
             }}
@@ -1800,7 +1800,7 @@ export const DiscordPilotsDialog: React.FC<DiscordPilotsDialogProps> = ({
               padding: '8px 16px',
               border: 'none',
               borderRadius: '4px',
-              backgroundColor: '#2563EB',
+              backgroundColor: 'var(--rr-accent)',
               color: 'white',
               cursor: 'pointer',
               fontSize: '14px',
@@ -1814,7 +1814,7 @@ export const DiscordPilotsDialog: React.FC<DiscordPilotsDialogProps> = ({
                 width: '16px',
                 height: '16px',
                 border: '2px solid rgba(255,255,255,0.3)',
-                borderTopColor: '#FFFFFF',
+                borderTopColor: 'var(--rr-panel)',
                 borderRadius: '50%',
                 animation: 'spin 1s linear infinite'
               }} />

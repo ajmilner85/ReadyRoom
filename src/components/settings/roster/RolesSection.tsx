@@ -76,10 +76,10 @@ export const RolesSection: React.FC<RolesSectionProps> = ({
   return (
     <>
       <div style={sectionStyle}>
-        <h3 style={{ fontSize: '18px', fontWeight: 600, color: '#0F172A', margin: '0 0 16px 0' }}>
+        <h3 style={{ fontSize: '18px', fontWeight: 600, color: 'var(--rr-text)', margin: '0 0 16px 0' }}>
           Billets
         </h3>
-        <p style={{ fontSize: '14px', color: '#64748B', margin: '0 0 24px 0', fontFamily: 'Inter' }}>
+        <p style={{ fontSize: '14px', color: 'var(--rr-text2)', margin: '0 0 24px 0', fontFamily: 'inherit' }}>
           Define the billet options available for pilots in the squadron roster. Drag billets to reorder them.
         </p>
 
@@ -89,22 +89,22 @@ export const RolesSection: React.FC<RolesSectionProps> = ({
         }}>
           {/* Roles Table */}
           <div style={{
-            border: '1px solid #E5E7EB',
+            border: '1px solid var(--rr-border)',
             borderRadius: '6px',
-            backgroundColor: '#FFFFFF'
+            backgroundColor: 'var(--rr-panel)'
           }}>
           {/* Table Header */}
           <div style={{
             display: 'flex',
-            backgroundColor: '#F9FAFB',
-            borderBottom: '1px solid #E5E7EB',
+            backgroundColor: 'var(--rr-panel2)',
+            borderBottom: '1px solid var(--rr-border)',
             borderRadius: '6px 6px 0 0'
           }}>
             <div style={{
               padding: '4px',
               fontSize: '12px',
               fontWeight: 500,
-              color: '#6B7280',
+              color: 'var(--rr-text2)',
               textTransform: 'uppercase',
               width: '24px',
               textAlign: 'center'
@@ -115,10 +115,10 @@ export const RolesSection: React.FC<RolesSectionProps> = ({
               padding: '8px 12px',
               fontSize: '12px',
               fontWeight: 500,
-              color: '#6B7280',
+              color: 'var(--rr-text2)',
               textTransform: 'uppercase',
               width: '300px',
-              borderRight: '1px solid #E5E7EB'
+              borderRight: '1px solid var(--rr-border)'
             }}>
               Role Name
             </div>
@@ -126,10 +126,10 @@ export const RolesSection: React.FC<RolesSectionProps> = ({
               padding: '8px 12px',
               fontSize: '12px',
               fontWeight: 500,
-              color: '#6B7280',
+              color: 'var(--rr-text2)',
               textTransform: 'uppercase',
               width: '200px',
-              borderRight: '1px solid #E5E7EB',
+              borderRight: '1px solid var(--rr-border)',
               textAlign: 'center'
             }}>
               Exclusivity Scope
@@ -139,7 +139,7 @@ export const RolesSection: React.FC<RolesSectionProps> = ({
               padding: '8px 12px',
               fontSize: '12px',
               fontWeight: 500,
-              color: '#6B7280',
+              color: 'var(--rr-text2)',
               textTransform: 'uppercase',
               textAlign: 'center'
             }}>
@@ -176,7 +176,7 @@ export const RolesSection: React.FC<RolesSectionProps> = ({
               <div style={{
                 padding: '40px',
                 textAlign: 'center',
-                color: '#6B7280',
+                color: 'var(--rr-text2)',
                 fontSize: '14px'
               }}>
                 Loading roles...
@@ -185,7 +185,7 @@ export const RolesSection: React.FC<RolesSectionProps> = ({
               <div style={{
                 padding: '40px',
                 textAlign: 'center',
-                color: '#6B7280',
+                color: 'var(--rr-text2)',
                 fontSize: '14px'
               }}>
                 No roles found
@@ -207,17 +207,17 @@ export const RolesSection: React.FC<RolesSectionProps> = ({
             style={{
               width: '119px',
               height: '30px',
-              background: '#FFFFFF',
+              background: 'var(--rr-panel)',
               borderRadius: '8px',
               border: 'none',
               cursor: loading ? 'not-allowed' : 'pointer',
               transition: 'box-shadow 0.2s ease-in-out',
-              fontFamily: 'Inter',
+              fontFamily: 'inherit',
               fontStyle: 'normal',
               fontWeight: 400,
               fontSize: '20px',
               lineHeight: '24px',
-              color: '#64748B',
+              color: 'var(--rr-text2)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -263,10 +263,10 @@ export const RolesSection: React.FC<RolesSectionProps> = ({
         >
           <div
             style={{
-              backgroundColor: '#FFFFFF',
+              backgroundColor: 'var(--rr-panel)',
               borderRadius: '8px',
               padding: '24px',
-              boxShadow: '0 10px 25px rgba(0, 0, 0, 0.1)',
+              boxShadow: 'var(--rr-shadow-lg)',
               width: '500px',
               maxWidth: '90vw',
               maxHeight: '80vh',
@@ -278,10 +278,10 @@ export const RolesSection: React.FC<RolesSectionProps> = ({
             <h2 style={{
               fontSize: '18px',
               fontWeight: 600,
-              color: '#1F2937',
+              color: 'var(--rr-text)',
               marginBottom: '24px',
               textAlign: 'center',
-              fontFamily: 'Inter'
+              fontFamily: 'inherit'
             }}>
               Add New Role
             </h2>
@@ -292,9 +292,9 @@ export const RolesSection: React.FC<RolesSectionProps> = ({
                   display: 'block',
                   fontSize: '14px',
                   fontWeight: 500,
-                  color: '#374151',
+                  color: 'var(--rr-text)',
                   marginBottom: '6px',
-                  fontFamily: 'Inter'
+                  fontFamily: 'inherit'
                 }}>
                   Role Name *
                 </label>
@@ -305,12 +305,12 @@ export const RolesSection: React.FC<RolesSectionProps> = ({
                   style={{
                     width: '100%',
                     padding: '8px 12px',
-                    border: '1px solid #D1D5DB',
+                    border: '1px solid var(--rr-border2)',
                     borderRadius: '6px',
                     fontSize: '14px',
-                    backgroundColor: '#FFFFFF',
+                    backgroundColor: 'var(--rr-panel)',
                     outline: 'none',
-                    fontFamily: 'Inter',
+                    fontFamily: 'inherit',
                     boxSizing: 'border-box'
                   }}
                   placeholder="Enter role name"
@@ -323,9 +323,9 @@ export const RolesSection: React.FC<RolesSectionProps> = ({
                   display: 'block',
                   fontSize: '14px',
                   fontWeight: 500,
-                  color: '#374151',
+                  color: 'var(--rr-text)',
                   marginBottom: '8px',
-                  fontFamily: 'Inter'
+                  fontFamily: 'inherit'
                 }}>
                   Exclusivity Scope
                 </label>
@@ -334,11 +334,11 @@ export const RolesSection: React.FC<RolesSectionProps> = ({
                     const getScopeColors = (s: ExclusivityScope) => {
                       switch (s) {
                         case 'wing':
-                          return { color: '#2563EB', backgroundColor: '#EFF6FF', border: '#BFDBFE' };
+                          return { color: 'var(--rr-accent-text)', backgroundColor: 'var(--rr-accent-weak)', border: 'var(--rr-accent)' };
                         case 'squadron':
-                          return { color: '#059669', backgroundColor: '#ECFDF5', border: '#A7F3D0' };
+                          return { color: 'var(--rr-good)', backgroundColor: 'rgba(64,168,91,.14)', border: 'var(--rr-good)' };
                         default:
-                          return { color: '#6B7280', backgroundColor: '#F9FAFB', border: '#E5E7EB' };
+                          return { color: 'var(--rr-text2)', backgroundColor: 'var(--rr-panel2)', border: 'var(--rr-border)' };
                       }
                     };
 
@@ -363,13 +363,13 @@ export const RolesSection: React.FC<RolesSectionProps> = ({
                           padding: '8px 12px',
                           fontSize: '13px',
                           fontWeight: 500,
-                          color: isSelected ? colors.color : '#6B7280',
-                          backgroundColor: isSelected ? colors.backgroundColor : '#F9FAFB',
-                          border: `1px solid ${isSelected ? colors.border : '#E5E7EB'}`,
+                          color: isSelected ? colors.color : 'var(--rr-text2)',
+                          backgroundColor: isSelected ? colors.backgroundColor : 'var(--rr-panel2)',
+                          border: `1px solid ${isSelected ? colors.border : 'var(--rr-border)'}`,
                           borderRadius: '6px',
                           cursor: 'pointer',
                           transition: 'all 0.2s ease',
-                          fontFamily: 'Inter'
+                          fontFamily: 'inherit'
                         }}
                       >
                         {getScopeLabel(scope)}
@@ -377,7 +377,7 @@ export const RolesSection: React.FC<RolesSectionProps> = ({
                     );
                   })}
                 </div>
-                <p style={{ fontSize: '12px', color: '#6B7280', margin: '8px 0 0 0', fontFamily: 'Inter' }}>
+                <p style={{ fontSize: '12px', color: 'var(--rr-text2)', margin: '8px 0 0 0', fontFamily: 'inherit' }}>
                   {newRoleExclusivityScope === 'none' && 'Any number of pilots can have this role'}
                   {newRoleExclusivityScope === 'squadron' && 'Only one active pilot per squadron can have this role'}
                   {newRoleExclusivityScope === 'wing' && 'Only one active pilot per wing can have this role'}
@@ -391,7 +391,7 @@ export const RolesSection: React.FC<RolesSectionProps> = ({
               gap: '12px',
               marginTop: '24px',
               paddingTop: '16px',
-              borderTop: '1px solid #E5E7EB'
+              borderTop: '1px solid var(--rr-border)'
             }}>
               <button
                 onClick={() => {
@@ -401,21 +401,21 @@ export const RolesSection: React.FC<RolesSectionProps> = ({
                 }}
                 style={{
                   padding: '8px 16px',
-                  backgroundColor: '#FFFFFF',
-                  color: '#6B7280',
-                  border: '1px solid #D1D5DB',
+                  backgroundColor: 'var(--rr-panel)',
+                  color: 'var(--rr-text2)',
+                  border: '1px solid var(--rr-border2)',
                   borderRadius: '6px',
                   fontSize: '14px',
                   fontWeight: 500,
                   cursor: 'pointer',
-                  fontFamily: 'Inter',
+                  fontFamily: 'inherit',
                   transition: 'all 0.2s ease'
                 }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = '#F9FAFB';
+                  e.currentTarget.style.backgroundColor = 'var(--rr-panel2)';
                 }}
                 onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = '#FFFFFF';
+                  e.currentTarget.style.backgroundColor = 'var(--rr-panel)';
                 }}
               >
                 Cancel
@@ -424,21 +424,21 @@ export const RolesSection: React.FC<RolesSectionProps> = ({
                 onClick={handleAddRole}
                 style={{
                   padding: '8px 16px',
-                  backgroundColor: '#16A34A',
+                  backgroundColor: 'var(--rr-good)',
                   color: '#FFFFFF',
                   border: 'none',
                   borderRadius: '6px',
                   fontSize: '14px',
                   fontWeight: 500,
                   cursor: 'pointer',
-                  fontFamily: 'Inter',
+                  fontFamily: 'inherit',
                   transition: 'all 0.2s ease'
                 }}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.backgroundColor = '#15803D';
                 }}
                 onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = '#16A34A';
+                  e.currentTarget.style.backgroundColor = 'var(--rr-good)';
                 }}
               >
                 Add Role
@@ -471,12 +471,12 @@ export const RolesSection: React.FC<RolesSectionProps> = ({
         >
           <div
             style={{
-              backgroundColor: '#FFFFFF',
+              backgroundColor: 'var(--rr-panel)',
               borderRadius: '8px',
               padding: '24px',
               minWidth: '500px',
               maxWidth: '600px',
-              boxShadow: '0 10px 25px rgba(0, 0, 0, 0.1)'
+              boxShadow: 'var(--rr-shadow-lg)'
             }}
             onClick={(e) => e.stopPropagation()}
           >
@@ -489,7 +489,7 @@ export const RolesSection: React.FC<RolesSectionProps> = ({
                 margin: '0',
                 fontSize: '18px',
                 fontWeight: '600',
-                color: '#1F2937'
+                color: 'var(--rr-text)'
               }}>
                 Edit Billet
               </h3>
@@ -500,9 +500,9 @@ export const RolesSection: React.FC<RolesSectionProps> = ({
                 display: 'block',
                 fontSize: '14px',
                 fontWeight: 500,
-                color: '#374151',
+                color: 'var(--rr-text)',
                 marginBottom: '6px',
-                fontFamily: 'Inter'
+                fontFamily: 'inherit'
               }}>
                 Billet Name
               </label>
@@ -513,11 +513,11 @@ export const RolesSection: React.FC<RolesSectionProps> = ({
                 style={{
                   width: '100%',
                   padding: '8px 12px',
-                  border: '1px solid #D1D5DB',
+                  border: '1px solid var(--rr-border2)',
                   borderRadius: '6px',
                   fontSize: '14px',
-                  backgroundColor: '#FFFFFF',
-                  fontFamily: 'Inter',
+                  backgroundColor: 'var(--rr-panel)',
+                  fontFamily: 'inherit',
                   boxSizing: 'border-box'
                 }}
                 placeholder="Enter billet name"
@@ -529,9 +529,9 @@ export const RolesSection: React.FC<RolesSectionProps> = ({
                 display: 'block',
                 fontSize: '14px',
                 fontWeight: 500,
-                color: '#374151',
+                color: 'var(--rr-text)',
                 marginBottom: '8px',
-                fontFamily: 'Inter'
+                fontFamily: 'inherit'
               }}>
                 Exclusivity Scope
               </label>
@@ -540,11 +540,11 @@ export const RolesSection: React.FC<RolesSectionProps> = ({
                   const getScopeColors = (s: ExclusivityScope) => {
                     switch (s) {
                       case 'wing':
-                        return { color: '#2563EB', backgroundColor: '#EFF6FF', border: '#BFDBFE' };
+                        return { color: 'var(--rr-accent-text)', backgroundColor: 'var(--rr-accent-weak)', border: 'var(--rr-accent)' };
                       case 'squadron':
-                        return { color: '#059669', backgroundColor: '#ECFDF5', border: '#A7F3D0' };
+                        return { color: 'var(--rr-good)', backgroundColor: 'rgba(64,168,91,.14)', border: 'var(--rr-good)' };
                       default:
-                        return { color: '#6B7280', backgroundColor: '#F9FAFB', border: '#E5E7EB' };
+                        return { color: 'var(--rr-text2)', backgroundColor: 'var(--rr-panel2)', border: 'var(--rr-border)' };
                     }
                   };
 
@@ -569,13 +569,13 @@ export const RolesSection: React.FC<RolesSectionProps> = ({
                         padding: '8px 12px',
                         fontSize: '13px',
                         fontWeight: 500,
-                        color: isSelected ? colors.color : '#6B7280',
-                        backgroundColor: isSelected ? colors.backgroundColor : '#F9FAFB',
-                        border: `1px solid ${isSelected ? colors.border : '#E5E7EB'}`,
+                        color: isSelected ? colors.color : 'var(--rr-text2)',
+                        backgroundColor: isSelected ? colors.backgroundColor : 'var(--rr-panel2)',
+                        border: `1px solid ${isSelected ? colors.border : 'var(--rr-border)'}`,
                         borderRadius: '6px',
                         cursor: 'pointer',
                         transition: 'all 0.2s ease',
-                        fontFamily: 'Inter'
+                        fontFamily: 'inherit'
                       }}
                     >
                       {getScopeLabel(scope)}
@@ -583,7 +583,7 @@ export const RolesSection: React.FC<RolesSectionProps> = ({
                   );
                 })}
               </div>
-              <p style={{ fontSize: '12px', color: '#6B7280', margin: '8px 0 0 0', fontFamily: 'Inter' }}>
+              <p style={{ fontSize: '12px', color: 'var(--rr-text2)', margin: '8px 0 0 0', fontFamily: 'inherit' }}>
                 {editingRoleExclusivityScope === 'none' && 'Any number of pilots can have this role'}
                 {editingRoleExclusivityScope === 'squadron' && 'Only one active pilot per squadron can have this role'}
                 {editingRoleExclusivityScope === 'wing' && 'Only one active pilot per wing can have this role'}
@@ -599,13 +599,13 @@ export const RolesSection: React.FC<RolesSectionProps> = ({
                 }}
                 style={{
                   padding: '8px 16px',
-                  backgroundColor: '#FFFFFF',
-                  color: '#6B7280',
-                  border: '1px solid #D1D5DB',
+                  backgroundColor: 'var(--rr-panel)',
+                  color: 'var(--rr-text2)',
+                  border: '1px solid var(--rr-border2)',
                   borderRadius: '6px',
                   fontSize: '14px',
                   cursor: 'pointer',
-                  fontFamily: 'Inter'
+                  fontFamily: 'inherit'
                 }}
               >
                 Cancel
@@ -637,13 +637,13 @@ export const RolesSection: React.FC<RolesSectionProps> = ({
                 disabled={!editingRoleName.trim()}
                 style={{
                   padding: '8px 16px',
-                  backgroundColor: !editingRoleName.trim() ? '#9CA3AF' : '#3B82F6',
+                  backgroundColor: !editingRoleName.trim() ? '#9CA3AF' : 'var(--rr-accent)',
                   color: '#FFFFFF',
                   border: 'none',
                   borderRadius: '6px',
                   fontSize: '14px',
                   cursor: !editingRoleName.trim() ? 'not-allowed' : 'pointer',
-                  fontFamily: 'Inter'
+                  fontFamily: 'inherit'
                 }}
               >
                 Update Billet

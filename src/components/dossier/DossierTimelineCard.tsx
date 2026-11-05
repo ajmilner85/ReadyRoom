@@ -144,9 +144,9 @@ const DossierTimelineCard: React.FC<DossierTimelineCardProps> = ({
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              backgroundColor: editMode ? '#FEE2E2' : '#FFFFFF',
-              color: editMode ? '#B91C1C' : '#64748B',
-              border: editMode ? '1px solid #FCA5A5' : '1px solid #CBD5E1',
+              backgroundColor: editMode ? 'rgba(224,82,78,.12)' : 'var(--rr-panel)',
+              color: editMode ? 'var(--rr-bad)' : 'var(--rr-text2)',
+              border: editMode ? '1px solid var(--rr-bad)' : '1px solid var(--rr-border2)',
               borderRadius: '6px',
               cursor: 'pointer'
             }}
@@ -160,11 +160,11 @@ const DossierTimelineCard: React.FC<DossierTimelineCardProps> = ({
           <div style={{
             padding: '8px 12px',
             marginBottom: '16px',
-            backgroundColor: '#FEF2F2',
-            border: '1px solid #FECACA',
+            backgroundColor: 'rgba(224,82,78,.12)',
+            border: '1px solid var(--rr-bad)',
             borderRadius: '6px',
             fontSize: '12px',
-            color: '#B91C1C'
+            color: 'var(--rr-bad)'
           }}>
             Edit mode: change an entry's date with the date picker, or delete it to permanently remove the underlying history record.
           </div>
@@ -173,11 +173,11 @@ const DossierTimelineCard: React.FC<DossierTimelineCardProps> = ({
           <div style={{
             padding: '8px 12px',
             marginBottom: '16px',
-            backgroundColor: '#FEF2F2',
-            border: '1px solid #FECACA',
+            backgroundColor: 'rgba(224,82,78,.12)',
+            border: '1px solid var(--rr-bad)',
             borderRadius: '6px',
             fontSize: '12px',
-            color: '#B91C1C',
+            color: 'var(--rr-bad)',
             fontWeight: 500
           }}>
             {errorMessage}
@@ -196,7 +196,7 @@ const DossierTimelineCard: React.FC<DossierTimelineCardProps> = ({
               top: '18px',
               bottom: '24px',
               width: '2px',
-              backgroundColor: '#E2E8F0'
+              backgroundColor: 'var(--rr-panel3)'
             }} />
             {timeline.map(event => {
               const appearance = {
@@ -219,7 +219,7 @@ const DossierTimelineCard: React.FC<DossierTimelineCardProps> = ({
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    border: '2px solid #FFFFFF',
+                    border: '2px solid var(--rr-panel)',
                     boxShadow: '0 0 0 1px #E2E8F0'
                   }}>
                     {appearance.icon}
@@ -240,25 +240,25 @@ const DossierTimelineCard: React.FC<DossierTimelineCardProps> = ({
                           }}
                           style={{
                             fontSize: '12px',
-                            color: '#0F172A',
-                            border: '1px solid #CBD5E1',
+                            color: 'var(--rr-text)',
+                            border: '1px solid var(--rr-border2)',
                             borderRadius: '4px',
-                            backgroundColor: '#F8FAFC',
+                            backgroundColor: 'var(--rr-panel2)',
                             padding: '0 4px',
                             height: '18px',
-                            fontFamily: 'Inter'
+                            fontFamily: 'inherit'
                           }}
                         />
                       ) : (
-                        <div style={{ fontSize: '12px', color: '#94A3B8', lineHeight: '16px' }}>
+                        <div style={{ fontSize: '12px', color: 'var(--rr-text3)', lineHeight: '16px' }}>
                           {formatDossierDate(event.date)}
                         </div>
                       )}
-                      <div style={{ fontSize: '14px', color: '#0F172A', fontWeight: 500, lineHeight: '20px' }}>
+                      <div style={{ fontSize: '14px', color: 'var(--rr-text)', fontWeight: 500, lineHeight: '20px' }}>
                         {event.title}
                       </div>
                       {event.subtitle && (
-                        <div style={{ fontSize: '12px', color: '#64748B', lineHeight: '16px' }}>
+                        <div style={{ fontSize: '12px', color: 'var(--rr-text2)', lineHeight: '16px' }}>
                           {event.subtitle}
                         </div>
                       )}
@@ -277,12 +277,12 @@ const DossierTimelineCard: React.FC<DossierTimelineCardProps> = ({
                           alignItems: 'center',
                           justifyContent: 'center',
                           backgroundColor: 'transparent',
-                          color: '#DC2626',
+                          color: 'var(--rr-bad)',
                           border: 'none',
                           borderRadius: '4px',
                           cursor: isBusy ? 'wait' : 'pointer'
                         }}
-                        onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#FEE2E2'; }}
+                        onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'rgba(224,82,78,.12)'; }}
                         onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
                       >
                         <Trash2 size={14} />

@@ -187,8 +187,8 @@ const MyTraining: React.FC = () => {
 
   if (loading) {
     return (
-      <div style={{ backgroundColor: '#F0F4F8', minHeight: '100vh', padding: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ backgroundColor: 'white', boxShadow: '0px 10px 15px -3px rgba(0, 0, 0, 0.25)', borderRadius: '8px', padding: '40px 80px' }}>
+      <div style={{ backgroundColor: 'var(--rr-panel2)', minHeight: '100vh', padding: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ backgroundColor: 'var(--rr-panel)', boxShadow: 'var(--rr-shadow)', borderRadius: '8px', padding: '40px 80px' }}>
           Loading training data...
         </div>
       </div>
@@ -197,9 +197,9 @@ const MyTraining: React.FC = () => {
 
   if (!userProfile?.pilot) {
     return (
-      <div style={{ backgroundColor: '#F0F4F8', minHeight: '100vh', padding: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ backgroundColor: 'white', boxShadow: '0px 10px 15px -3px rgba(0, 0, 0, 0.25)', borderRadius: '8px', padding: '40px', maxWidth: '600px' }}>
-          <div style={{ backgroundColor: '#FEF3C7', padding: '16px', borderRadius: '8px', border: '1px solid #F59E0B' }}>
+      <div style={{ backgroundColor: 'var(--rr-panel2)', minHeight: '100vh', padding: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ backgroundColor: 'var(--rr-panel)', boxShadow: 'var(--rr-shadow)', borderRadius: '8px', padding: '40px', maxWidth: '600px' }}>
+          <div style={{ backgroundColor: 'rgba(222,154,31,.14)', padding: '16px', borderRadius: '8px', border: '1px solid var(--rr-warn)' }}>
             You must be linked to a pilot record to access training.
           </div>
         </div>
@@ -208,14 +208,14 @@ const MyTraining: React.FC = () => {
   }
 
   return (
-    <div style={{ backgroundColor: '#F0F4F8', minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', boxSizing: 'border-box', padding: '20px', overflow: 'visible' }}>
+    <div style={{ backgroundColor: 'var(--rr-panel2)', minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', boxSizing: 'border-box', padding: '20px', overflow: 'visible' }}>
       <div style={{ display: 'flex', gap: '20px', justifyContent: 'center', minHeight: 'calc(100vh - 40px)', position: 'relative', zIndex: 1, maxWidth: '2240px', width: 'min(100%, 2240px)', boxSizing: 'border-box', overflow: 'visible', padding: '15px', margin: '-15px' }}>
 
         {/* Progress Summary Card */}
         <div style={{ width: CARD_WIDTH, minWidth: '350px', height: 'calc(100vh - 40px)', boxSizing: 'border-box', overflowY: 'visible' }}>
-          <div style={{ backgroundColor: 'white', boxShadow: '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)', borderRadius: '8px', height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+          <div style={{ backgroundColor: 'var(--rr-panel)', boxShadow: 'var(--rr-shadow)', borderRadius: '8px', height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
             <div style={{ padding: '16px 24px 8px' }}>
-              <span style={{ fontFamily: 'Inter', fontStyle: 'normal', fontWeight: 300, fontSize: '20px', lineHeight: '24px', color: '#64748B', textTransform: 'uppercase', display: 'block', textAlign: 'center' }}>
+              <span style={{ fontFamily: 'inherit', fontStyle: 'normal', fontWeight: 300, fontSize: '20px', lineHeight: '24px', color: 'var(--rr-text2)', textTransform: 'uppercase', display: 'block', textAlign: 'center' }}>
                 PROGRESS SUMMARY
               </span>
             </div>
@@ -230,7 +230,7 @@ const MyTraining: React.FC = () => {
                     onChange={(e) => setSelectedSyllabusId(e.target.value)}
                     style={{
                       padding: '8px 12px',
-                      border: '1px solid #D1D5DB',
+                      border: '1px solid var(--rr-border2)',
                       borderRadius: '6px',
                       fontSize: '14px',
                       width: '100%'
@@ -247,23 +247,23 @@ const MyTraining: React.FC = () => {
 
               {progressSummary && (
                 <div>
-                  <div style={{ marginBottom: '24px', padding: '20px', backgroundColor: '#F9FAFB', borderRadius: '8px' }}>
-                    <div style={{ fontSize: '48px', fontWeight: 700, color: '#2563EB', marginBottom: '8px', textAlign: 'center' }}>
+                  <div style={{ marginBottom: '24px', padding: '20px', backgroundColor: 'var(--rr-panel2)', borderRadius: '8px' }}>
+                    <div style={{ fontSize: '48px', fontWeight: 700, color: 'var(--rr-accent-text)', marginBottom: '8px', textAlign: 'center' }}>
                       {Math.round(progressSummary.percentComplete)}%
                     </div>
-                    <div style={{ fontSize: '14px', color: '#6B7280', textAlign: 'center' }}>
+                    <div style={{ fontSize: '14px', color: 'var(--rr-text2)', textAlign: 'center' }}>
                       {progressSummary.completedObjectives} of {progressSummary.totalObjectives} objectives completed
                     </div>
                   </div>
 
-                  <div style={{ padding: '20px', backgroundColor: '#F9FAFB', borderRadius: '8px' }}>
-                    <div style={{ fontSize: '36px', fontWeight: 700, color: '#10B981', marginBottom: '8px', textAlign: 'center' }}>
+                  <div style={{ padding: '20px', backgroundColor: 'var(--rr-panel2)', borderRadius: '8px' }}>
+                    <div style={{ fontSize: '36px', fontWeight: 700, color: 'var(--rr-good)', marginBottom: '8px', textAlign: 'center' }}>
                       {Math.round(progressSummary.percentSatisfactory)}%
                     </div>
-                    <div style={{ fontSize: '14px', color: '#6B7280', textAlign: 'center' }}>
+                    <div style={{ fontSize: '14px', color: 'var(--rr-text2)', textAlign: 'center' }}>
                       Satisfactory Rate
                     </div>
-                    <div style={{ fontSize: '13px', color: '#9CA3AF', textAlign: 'center', marginTop: '4px' }}>
+                    <div style={{ fontSize: '13px', color: 'var(--rr-text3)', textAlign: 'center', marginTop: '4px' }}>
                       {progressSummary.satisfactoryObjectives} SAT, {progressSummary.unsatisfactoryObjectives} UNSAT
                     </div>
                   </div>
@@ -271,8 +271,8 @@ const MyTraining: React.FC = () => {
               )}
 
               {syllabi.length === 0 && (
-                <div style={{ textAlign: 'center', color: '#6B7280', padding: '40px 20px' }}>
-                  <BookOpen size={48} style={{ margin: '0 auto 16px', color: '#9CA3AF' }} />
+                <div style={{ textAlign: 'center', color: 'var(--rr-text2)', padding: '40px 20px' }}>
+                  <BookOpen size={48} style={{ margin: '0 auto 16px', color: 'var(--rr-text3)' }} />
                   <p>No training syllabi available</p>
                 </div>
               )}
@@ -282,9 +282,9 @@ const MyTraining: React.FC = () => {
 
         {/* Training Roadmap Card */}
         <div style={{ width: CARD_WIDTH, minWidth: '350px', height: 'calc(100vh - 40px)', boxSizing: 'border-box', overflowY: 'visible' }}>
-          <div style={{ backgroundColor: 'white', boxShadow: '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)', borderRadius: '8px', height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+          <div style={{ backgroundColor: 'var(--rr-panel)', boxShadow: 'var(--rr-shadow)', borderRadius: '8px', height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
             <div style={{ padding: '16px 24px 8px' }}>
-              <span style={{ fontFamily: 'Inter', fontStyle: 'normal', fontWeight: 300, fontSize: '20px', lineHeight: '24px', color: '#64748B', textTransform: 'uppercase', display: 'block', textAlign: 'center' }}>
+              <span style={{ fontFamily: 'inherit', fontStyle: 'normal', fontWeight: 300, fontSize: '20px', lineHeight: '24px', color: 'var(--rr-text2)', textTransform: 'uppercase', display: 'block', textAlign: 'center' }}>
                 TRAINING ROADMAP
               </span>
             </div>
@@ -294,8 +294,8 @@ const MyTraining: React.FC = () => {
                   key={mission.missionId}
                   style={{
                     padding: '16px',
-                    backgroundColor: '#F9FAFB',
-                    border: '1px solid #E5E7EB',
+                    backgroundColor: 'var(--rr-panel2)',
+                    border: '1px solid var(--rr-border)',
                     borderRadius: '8px',
                     marginBottom: '12px',
                     borderLeft: `4px solid ${
@@ -307,15 +307,15 @@ const MyTraining: React.FC = () => {
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '8px' }}>
                     <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: '13px', fontWeight: 600, color: '#374151', marginBottom: '4px' }}>
+                      <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--rr-text)', marginBottom: '4px' }}>
                         {mission.missionNumber}: {mission.missionName}
                       </div>
                       {mission.description && (
-                        <div style={{ fontSize: '12px', color: '#6B7280', marginBottom: '8px' }}>
+                        <div style={{ fontSize: '12px', color: 'var(--rr-text2)', marginBottom: '8px' }}>
                           {mission.description}
                         </div>
                       )}
-                      <div style={{ fontSize: '12px', color: '#6B7280' }}>
+                      <div style={{ fontSize: '12px', color: 'var(--rr-text2)' }}>
                         {mission.completedObjectives} of {mission.totalObjectives} objectives
                       </div>
                     </div>
@@ -325,11 +325,11 @@ const MyTraining: React.FC = () => {
                       fontSize: '11px',
                       fontWeight: 600,
                       backgroundColor:
-                        mission.status === 'completed' ? '#D1FAE5' :
+                        mission.status === 'completed' ? 'rgba(64,168,91,.14)' :
                         mission.status === 'in_progress' ? '#FEF3C7' :
                         '#F3F4F6',
                       color:
-                        mission.status === 'completed' ? '#065F46' :
+                        mission.status === 'completed' ? 'var(--rr-good)' :
                         mission.status === 'in_progress' ? '#92400E' :
                         '#374151'
                     }}>
@@ -342,7 +342,7 @@ const MyTraining: React.FC = () => {
               ))}
 
               {roadmapMissions.length === 0 && (
-                <div style={{ textAlign: 'center', color: '#6B7280', padding: '40px 20px' }}>
+                <div style={{ textAlign: 'center', color: 'var(--rr-text2)', padding: '40px 20px' }}>
                   No missions in this syllabus
                 </div>
               )}

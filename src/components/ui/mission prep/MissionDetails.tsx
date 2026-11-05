@@ -495,7 +495,7 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
           marginBottom: '8px',
           fontSize: '14px',
           fontWeight: 500,
-          color: '#64748B'
+          color: 'var(--rr-text2)'
         }}>
           {label}
         </label>
@@ -507,7 +507,7 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
               style={{
                 width: '100%',
                 padding: '8px 12px',
-                border: '1px solid #CBD5E1',
+                border: '1px solid var(--rr-border2)',
                 borderRadius: '4px',
                 fontSize: '14px',
                 minHeight: '120px',
@@ -523,7 +523,7 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
               style={{
                 width: '100%',
                 padding: '8px 12px',
-                border: '1px solid #CBD5E1',
+                border: '1px solid var(--rr-border2)',
                 borderRadius: '4px',
                 fontSize: '14px',
                 boxSizing: 'border-box'
@@ -544,7 +544,7 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
               style={{
                 width: '100%',
                 padding: '8px 12px',
-                border: '1px solid #CBD5E1',
+                border: '1px solid var(--rr-border2)',
                 borderRadius: '4px',
                 fontSize: '14px',
                 boxSizing: 'border-box'
@@ -559,8 +559,8 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
               padding: '8px 12px',
               borderRadius: '4px',
               fontSize: '14px',
-              backgroundColor: '#F8FAFC',
-              color: displayValue ? '#0F172A' : '#94A3B8',
+              backgroundColor: 'var(--rr-panel2)',
+              color: displayValue ? 'var(--rr-text)' : 'var(--rr-text3)',
               minHeight: type === 'textarea' ? '120px' : 'auto',
               display: 'flex',
               alignItems: 'center',
@@ -585,7 +585,7 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
           marginBottom: '8px',
           fontSize: '14px',
           fontWeight: 500,
-          color: '#64748B'
+          color: 'var(--rr-text2)'
         }}>
           Mission Commander
         </label>
@@ -611,7 +611,7 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
           style={{
             width: '100%',
             padding: '8px 12px',
-            border: '1px solid #CBD5E1',
+            border: '1px solid var(--rr-border2)',
             borderRadius: '4px',
             fontSize: '14px',
             boxSizing: 'border-box'
@@ -1008,8 +1008,8 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
       <Card 
         style={{
           width: '100%',
-          backgroundColor: '#FFFFFF',
-          boxShadow: '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)',
+          backgroundColor: 'var(--rr-panel)',
+          boxShadow: 'var(--rr-shadow)',
           borderRadius: '8px',
           padding: '24px',
           display: 'flex',
@@ -1104,7 +1104,7 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
               marginBottom: '8px',
               fontSize: '14px',
               fontWeight: 500,
-              color: '#64748B'
+              color: 'var(--rr-text2)'
             }}>
               Cycle
             </label>
@@ -1123,11 +1123,11 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
               style={{
                 width: '100%',
                 padding: '8px 12px',
-                border: '1px solid #CBD5E1',
+                border: '1px solid var(--rr-border2)',
                 borderRadius: '4px',
                 fontSize: '14px',
                 boxSizing: 'border-box',
-                backgroundColor: cyclesLoading ? '#F8FAFC' : '#FFFFFF',
+                backgroundColor: cyclesLoading ? 'var(--rr-panel2)' : 'var(--rr-panel)',
                 cursor: cyclesLoading ? 'not-allowed' : 'pointer'
               }}
             >
@@ -1147,7 +1147,7 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
               marginBottom: '8px',
               fontSize: '14px',
               fontWeight: 500,
-              color: '#64748B'
+              color: 'var(--rr-text2)'
             }}>
               Event
             </label>
@@ -1162,11 +1162,11 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
               style={{
                 width: '100%',
                 padding: '8px 12px',
-                border: '1px solid #CBD5E1',
+                border: '1px solid var(--rr-border2)',
                 borderRadius: '4px',
                 fontSize: '14px',
                 boxSizing: 'border-box',
-                backgroundColor: filteredAndSortedEvents.length === 0 ? '#F8FAFC' : '#FFFFFF',
+                backgroundColor: filteredAndSortedEvents.length === 0 ? 'var(--rr-panel2)' : 'var(--rr-panel)',
                 cursor: filteredAndSortedEvents.length === 0 ? 'not-allowed' : 'pointer'
               }}
             >
@@ -1202,7 +1202,7 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
               marginBottom: '8px',
               fontSize: '14px',
               fontWeight: 500,
-              color: '#64748B'
+              color: 'var(--rr-text2)'
             }}>
               Mission Objective
             </label>
@@ -1214,13 +1214,13 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
               style={{
                 width: '100%',
                 padding: '8px 12px',
-                border: '1px solid #CBD5E1',
+                border: '1px solid var(--rr-border2)',
                 borderRadius: '4px',
                 fontSize: '14px',
                 minHeight: '120px',
                 resize: 'vertical',
                 boxSizing: 'border-box',
-                backgroundColor: '#F8FAFC'
+                backgroundColor: 'var(--rr-panel2)'
               }}
             />
           </div>
@@ -1239,8 +1239,8 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
       <Card 
         style={{
           width: '100%',
-          backgroundColor: '#FFFFFF',
-          boxShadow: '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)',
+          backgroundColor: 'var(--rr-panel)',
+          boxShadow: 'var(--rr-shadow)',
           borderRadius: '8px',
           padding: '24px',
           display: 'flex',
@@ -1278,13 +1278,13 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
             style={{
               width: '100%',
               height: '60px',
-              border: '1px dashed #CBD5E1',
+              border: '1px dashed var(--rr-border2)',
               borderRadius: '4px',
               display: 'flex',
               justifyContent: 'center',
               alignItems: 'center',
               cursor: 'pointer',
-              color: '#64748B',
+              color: 'var(--rr-text2)',
               fontSize: '14px',
               textAlign: 'center',
               padding: '12px',
@@ -1294,7 +1294,7 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
             onDragOver={handleDragOver}
             onDrop={handleDrop}
             onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = '#F8FAFC';
+              e.currentTarget.style.backgroundColor = 'var(--rr-panel2)';
             }}
             onMouseLeave={(e) => {
               e.currentTarget.style.backgroundColor = 'transparent';

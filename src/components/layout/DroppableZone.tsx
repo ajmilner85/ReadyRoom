@@ -154,7 +154,7 @@ const DroppableZone: React.FC<DroppableZoneProps> = ({
               height: '14px',
               background: 'rgba(148, 163, 184, 0.1)',
               border: 'none',
-              color: '#64748B',
+              color: 'var(--rr-text2)',
               fontSize: '12px',
               fontFamily: 'inherit',
               textAlign: 'center',
@@ -178,7 +178,7 @@ const DroppableZone: React.FC<DroppableZoneProps> = ({
       width: '100%',
       minHeight: getMinHeight(),
       height: `${contentHeight}px`,
-      borderBottom: '1px dotted #CBD5E1',
+      borderBottom: '1px dotted var(--rr-border2)',
       transition: 'height 0.2s ease-in-out',
     }}>
       <div
@@ -201,9 +201,9 @@ const DroppableZone: React.FC<DroppableZoneProps> = ({
             top: '8px',
             left: '8px',
             fontSize: '12px',
-            fontFamily: 'Inter, sans-serif',
+            fontFamily: 'inherit',
             fontWeight: 300,
-            color: '#64748B',
+            color: 'var(--rr-text2)',
             whiteSpace: 'pre-line',
             lineHeight: '1.2',
             cursor: isCaseIIorIII && altitude && altitude >= 6 ? 'pointer' : 'default'

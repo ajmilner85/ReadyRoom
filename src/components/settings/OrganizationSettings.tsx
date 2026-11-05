@@ -348,17 +348,17 @@ const OrganizationSettings: React.FC<OrganizationSettingsProps> = ({ error, setE
   const addButtonStyle = {
     width: '119px',
     height: '30px',
-    background: '#FFFFFF',
+    background: 'var(--rr-panel)',
     borderRadius: '8px',
     border: 'none',
     cursor: 'pointer',
     transition: 'box-shadow 0.2s ease-in-out',
-    fontFamily: 'Inter',
+    fontFamily: 'inherit',
     fontStyle: 'normal',
     fontWeight: 400,
     fontSize: '20px',
     lineHeight: '24px',
-    color: '#64748B',
+    color: 'var(--rr-text2)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
@@ -370,7 +370,7 @@ const OrganizationSettings: React.FC<OrganizationSettingsProps> = ({ error, setE
   const sectionStyle = {
     paddingTop: '32px',
     paddingBottom: '32px',
-    borderTop: '1px solid #E5E7EB',
+    borderTop: '1px solid var(--rr-border)',
     marginTop: '32px'
   };
 
@@ -382,20 +382,20 @@ const OrganizationSettings: React.FC<OrganizationSettingsProps> = ({ error, setE
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', backgroundColor: '#FFFFFF' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', backgroundColor: 'var(--rr-panel)' }}>
       {/* Fixed Header */}
       <div style={{ padding: '40px 40px 0 40px', flexShrink: 0 }}>
-        <div style={{ maxWidth: '800px', margin: '0 auto', borderBottom: '1px solid #E2E8F0', paddingBottom: '24px' }}>
+        <div style={{ maxWidth: '800px', margin: '0 auto', borderBottom: '1px solid var(--rr-border)', paddingBottom: '24px' }}>
           <div style={{
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'flex-start'
           }}>
             <div>
-              <h2 style={{ fontSize: '24px', fontWeight: 600, margin: 0, color: '#0F172A' }}>
+              <h2 style={{ fontSize: '24px', fontWeight: 600, margin: 0, color: 'var(--rr-text)' }}>
                 Organization
               </h2>
-              <p style={{ fontSize: '14px', color: '#64748B', margin: '8px 0 0 0', fontFamily: 'Inter' }}>
+              <p style={{ fontSize: '14px', color: 'var(--rr-text2)', margin: '8px 0 0 0', fontFamily: 'inherit' }}>
                 Configure your organizational hierarchy and entities.
               </p>
             </div>
@@ -407,18 +407,18 @@ const OrganizationSettings: React.FC<OrganizationSettingsProps> = ({ error, setE
                 alignItems: 'center',
                 gap: '8px',
                 padding: '8px 12px',
-                backgroundColor: '#FFFFFF',
-                border: '1px solid #D1D5DB',
+                backgroundColor: 'var(--rr-panel)',
+                border: '1px solid var(--rr-border2)',
                 borderRadius: '6px',
                 cursor: 'pointer',
                 fontSize: '14px',
-                fontFamily: 'Inter',
-                color: '#374151',
+                fontFamily: 'inherit',
+                color: 'var(--rr-text)',
                 transition: 'background-color 0.2s ease'
               }}
               title={showInactive ? "Hide inactive entities" : "Show inactive entities"}
-              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#F8FAFC'}
-              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#FFFFFF'}
+              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--rr-panel2)'}
+              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'var(--rr-panel)'}
             >
               {showInactive ? <EyeOff size={16} /> : <Eye size={16} />}
               <span>
@@ -436,13 +436,13 @@ const OrganizationSettings: React.FC<OrganizationSettingsProps> = ({ error, setE
             <div style={{
               padding: '16px',
               marginBottom: '24px',
-              backgroundColor: '#FEF2F2',
-              border: '1px solid #FECACA',
-              color: '#DC2626',
+              backgroundColor: 'rgba(224,82,78,.12)',
+              border: '1px solid var(--rr-bad)',
+              color: 'var(--rr-bad)',
               borderRadius: '6px',
               display: 'flex',
               alignItems: 'center',
-              fontFamily: 'Inter',
+              fontFamily: 'inherit',
               fontSize: '14px'
             }} role="alert">
               <AlertCircle size={18} style={{ marginRight: '8px' }} />
@@ -463,8 +463,8 @@ const OrganizationSettings: React.FC<OrganizationSettingsProps> = ({ error, setE
             <div style={{
               textAlign: 'center',
               padding: '32px 0',
-              color: '#64748B',
-              fontFamily: 'Inter',
+              color: 'var(--rr-text2)',
+              fontFamily: 'inherit',
               fontSize: '14px'
             }}>
               Loading organization data...
@@ -477,16 +477,16 @@ const OrganizationSettings: React.FC<OrganizationSettingsProps> = ({ error, setE
             {(showInactive || filterEntities(commands).length > 0) && (
             <div style={firstSectionStyle}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                <h3 style={{ fontSize: '18px', fontWeight: 600, color: '#0F172A', margin: 0 }}>
+                <h3 style={{ fontSize: '18px', fontWeight: 600, color: 'var(--rr-text)', margin: 0 }}>
                   Commands
                 </h3>
-                <span style={{ fontSize: '14px', color: '#64748B', fontFamily: 'Inter' }}>
+                <span style={{ fontSize: '14px', color: 'var(--rr-text2)', fontFamily: 'inherit' }}>
                   {filterEntities(commands).length} active
                 </span>
               </div>
 
             {filterEntities(commands).length === 0 ? (
-              <div className="text-center py-8 text-slate-500">
+              <div className="text-center py-8 text-text2">
                 <p className="mb-4">No commands configured</p>
                 <button
                   onClick={() => handleCreateEntity('command')}
@@ -509,16 +509,16 @@ const OrganizationSettings: React.FC<OrganizationSettingsProps> = ({ error, setE
                       key={command.id}
                       style={{
                         padding: '16px',
-                        border: '1px solid #E5E7EB',
+                        border: '1px solid var(--rr-border)',
                         borderRadius: '8px',
-                        backgroundColor: !isEntityActive(command) ? '#F8FAFC' : '#FFFFFF',
+                        backgroundColor: !isEntityActive(command) ? 'var(--rr-panel2)' : 'var(--rr-panel)',
                         opacity: !isEntityActive(command) ? 0.6 : 1,
                         position: 'relative'
                       }}
                     >
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
                         <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontWeight: 500, fontSize: '14px', color: '#0F172A', fontFamily: 'Inter' }}>
+                          <div style={{ fontWeight: 500, fontSize: '14px', color: 'var(--rr-text)', fontFamily: 'inherit' }}>
                             {command.name}
                           </div>
                         </div>
@@ -529,25 +529,25 @@ const OrganizationSettings: React.FC<OrganizationSettingsProps> = ({ error, setE
                               padding: '4px',
                               borderRadius: '4px',
                               cursor: 'pointer',
-                              background: 'white',
-                              boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                              background: 'var(--rr-panel)',
+                              boxShadow: 'var(--rr-shadow)',
                               border: 'none',
                               display: 'flex',
                               alignItems: 'center',
                               justifyContent: 'center',
                               transition: 'all 0.1s ease',
-                              color: '#64748B',
+                              color: 'var(--rr-text2)',
                               width: '24px',
                               height: '24px'
                             }}
                             title="Edit"
                             onMouseEnter={(e) => {
                               e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.15)';
-                              e.currentTarget.style.background = '#F8FAFC';
+                              e.currentTarget.style.background = 'var(--rr-panel2)';
                             }}
                             onMouseLeave={(e) => {
                               e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
-                              e.currentTarget.style.background = 'white';
+                              e.currentTarget.style.background = 'var(--rr-panel)';
                             }}
                           >
                             <Edit size={14} />
@@ -558,27 +558,27 @@ const OrganizationSettings: React.FC<OrganizationSettingsProps> = ({ error, setE
                               padding: '4px',
                               borderRadius: '4px',
                               cursor: 'pointer',
-                              background: 'white',
-                              boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                              background: 'var(--rr-panel)',
+                              boxShadow: 'var(--rr-shadow)',
                               border: 'none',
                               display: 'flex',
                               alignItems: 'center',
                               justifyContent: 'center',
                               transition: 'all 0.1s ease',
-                              color: '#64748B',
+                              color: 'var(--rr-text2)',
                               width: '24px',
                               height: '24px'
                             }}
                             title="Delete"
                             onMouseEnter={(e) => {
                               e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.15)';
-                              e.currentTarget.style.background = '#FEF2F2';
-                              e.currentTarget.style.color = '#DC2626';
+                              e.currentTarget.style.background = 'rgba(224,82,78,.12)';
+                              e.currentTarget.style.color = 'var(--rr-bad)';
                             }}
                             onMouseLeave={(e) => {
                               e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
-                              e.currentTarget.style.background = 'white';
-                              e.currentTarget.style.color = '#64748B';
+                              e.currentTarget.style.background = 'var(--rr-panel)';
+                              e.currentTarget.style.color = 'var(--rr-text2)';
                             }}
                           >
                             <Trash size={14} />
@@ -586,12 +586,12 @@ const OrganizationSettings: React.FC<OrganizationSettingsProps> = ({ error, setE
                         </div>
                       </div>
                       {command.established_date && (
-                        <div style={{ fontSize: '11px', color: '#94A3B8', fontFamily: 'Inter', fontStyle: 'italic' }}>
+                        <div style={{ fontSize: '11px', color: 'var(--rr-text3)', fontFamily: 'inherit', fontStyle: 'italic' }}>
                           Est. {new Date(command.established_date).getFullYear()}
                         </div>
                       )}
                       {!isEntityActive(command) && (
-                        <div style={{ fontSize: '11px', color: '#DC2626', fontFamily: 'Inter', marginTop: '4px' }}>
+                        <div style={{ fontSize: '11px', color: 'var(--rr-bad)', fontFamily: 'inherit', marginTop: '4px' }}>
                           Deactivated
                         </div>
                       )}
@@ -619,16 +619,16 @@ const OrganizationSettings: React.FC<OrganizationSettingsProps> = ({ error, setE
             {(showInactive || filterEntities(groups).length > 0) && (
             <div style={sectionStyle}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                <h3 style={{ fontSize: '18px', fontWeight: 600, color: '#0F172A', margin: 0 }}>
+                <h3 style={{ fontSize: '18px', fontWeight: 600, color: 'var(--rr-text)', margin: 0 }}>
                   Groups
                 </h3>
-                <span style={{ fontSize: '14px', color: '#64748B', fontFamily: 'Inter' }}>
+                <span style={{ fontSize: '14px', color: 'var(--rr-text2)', fontFamily: 'inherit' }}>
                   {filterEntities(groups).length} active
                 </span>
               </div>
 
             {filterEntities(groups).length === 0 ? (
-              <div className="text-center py-8 text-slate-500">
+              <div className="text-center py-8 text-text2">
                 <p className="mb-4">No groups configured</p>
                 <button
                   onClick={() => handleCreateEntity('group')}
@@ -651,16 +651,16 @@ const OrganizationSettings: React.FC<OrganizationSettingsProps> = ({ error, setE
                       key={group.id}
                       style={{
                         padding: '16px',
-                        border: '1px solid #E5E7EB',
+                        border: '1px solid var(--rr-border)',
                         borderRadius: '8px',
-                        backgroundColor: !isEntityActive(group) ? '#F8FAFC' : '#FFFFFF',
+                        backgroundColor: !isEntityActive(group) ? 'var(--rr-panel2)' : 'var(--rr-panel)',
                         opacity: !isEntityActive(group) ? 0.6 : 1,
                         position: 'relative'
                       }}
                     >
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
                         <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontWeight: 500, fontSize: '14px', color: '#0F172A', fontFamily: 'Inter' }}>
+                          <div style={{ fontWeight: 500, fontSize: '14px', color: 'var(--rr-text)', fontFamily: 'inherit' }}>
                             {group.name}
                           </div>
                         </div>
@@ -671,25 +671,25 @@ const OrganizationSettings: React.FC<OrganizationSettingsProps> = ({ error, setE
                               padding: '4px',
                               borderRadius: '4px',
                               cursor: 'pointer',
-                              background: 'white',
-                              boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                              background: 'var(--rr-panel)',
+                              boxShadow: 'var(--rr-shadow)',
                               border: 'none',
                               display: 'flex',
                               alignItems: 'center',
                               justifyContent: 'center',
                               transition: 'all 0.1s ease',
-                              color: '#64748B',
+                              color: 'var(--rr-text2)',
                               width: '24px',
                               height: '24px'
                             }}
                             title="Edit"
                             onMouseEnter={(e) => {
                               e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.15)';
-                              e.currentTarget.style.background = '#F8FAFC';
+                              e.currentTarget.style.background = 'var(--rr-panel2)';
                             }}
                             onMouseLeave={(e) => {
                               e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
-                              e.currentTarget.style.background = 'white';
+                              e.currentTarget.style.background = 'var(--rr-panel)';
                             }}
                           >
                             <Edit size={14} />
@@ -700,27 +700,27 @@ const OrganizationSettings: React.FC<OrganizationSettingsProps> = ({ error, setE
                               padding: '4px',
                               borderRadius: '4px',
                               cursor: 'pointer',
-                              background: 'white',
-                              boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                              background: 'var(--rr-panel)',
+                              boxShadow: 'var(--rr-shadow)',
                               border: 'none',
                               display: 'flex',
                               alignItems: 'center',
                               justifyContent: 'center',
                               transition: 'all 0.1s ease',
-                              color: '#64748B',
+                              color: 'var(--rr-text2)',
                               width: '24px',
                               height: '24px'
                             }}
                             title="Delete"
                             onMouseEnter={(e) => {
                               e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.15)';
-                              e.currentTarget.style.background = '#FEF2F2';
-                              e.currentTarget.style.color = '#DC2626';
+                              e.currentTarget.style.background = 'rgba(224,82,78,.12)';
+                              e.currentTarget.style.color = 'var(--rr-bad)';
                             }}
                             onMouseLeave={(e) => {
                               e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
-                              e.currentTarget.style.background = 'white';
-                              e.currentTarget.style.color = '#64748B';
+                              e.currentTarget.style.background = 'var(--rr-panel)';
+                              e.currentTarget.style.color = 'var(--rr-text2)';
                             }}
                           >
                             <Trash size={14} />
@@ -728,17 +728,17 @@ const OrganizationSettings: React.FC<OrganizationSettingsProps> = ({ error, setE
                         </div>
                       </div>
                       {group.command && (
-                        <div style={{ fontSize: '11px', color: '#94A3B8', fontFamily: 'Inter', marginBottom: '4px' }}>
+                        <div style={{ fontSize: '11px', color: 'var(--rr-text3)', fontFamily: 'inherit', marginBottom: '4px' }}>
                           {group.command.name}
                         </div>
                       )}
                       {group.established_date && (
-                        <div style={{ fontSize: '11px', color: '#94A3B8', fontFamily: 'Inter', fontStyle: 'italic' }}>
+                        <div style={{ fontSize: '11px', color: 'var(--rr-text3)', fontFamily: 'inherit', fontStyle: 'italic' }}>
                           Est. {new Date(group.established_date).getFullYear()}
                         </div>
                       )}
                       {!isEntityActive(group) && (
-                        <div style={{ fontSize: '11px', color: '#DC2626', fontFamily: 'Inter', marginTop: '4px' }}>
+                        <div style={{ fontSize: '11px', color: 'var(--rr-bad)', fontFamily: 'inherit', marginTop: '4px' }}>
                           Deactivated
                         </div>
                       )}
@@ -765,16 +765,16 @@ const OrganizationSettings: React.FC<OrganizationSettingsProps> = ({ error, setE
             {/* Wings Level */}
             <div style={sectionStyle}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                <h3 style={{ fontSize: '18px', fontWeight: 600, color: '#0F172A', margin: 0 }}>
+                <h3 style={{ fontSize: '18px', fontWeight: 600, color: 'var(--rr-text)', margin: 0 }}>
                   Wings
                 </h3>
-                <span style={{ fontSize: '14px', color: '#64748B', fontFamily: 'Inter' }}>
+                <span style={{ fontSize: '14px', color: 'var(--rr-text2)', fontFamily: 'inherit' }}>
                   {filterEntities(wings).length} active
                 </span>
               </div>
 
             {filterEntities(wings).length === 0 ? (
-              <div className="text-center py-8 text-slate-500">
+              <div className="text-center py-8 text-text2">
                 <p className="mb-4">No wings configured</p>
                 <button
                   onClick={() => handleCreateEntity('wing')}
@@ -797,9 +797,9 @@ const OrganizationSettings: React.FC<OrganizationSettingsProps> = ({ error, setE
                       key={wing.id}
                       style={{
                         padding: '16px',
-                        border: '1px solid #E5E7EB',
+                        border: '1px solid var(--rr-border)',
                         borderRadius: '8px',
-                        backgroundColor: !isEntityActive(wing) ? '#F8FAFC' : '#FFFFFF',
+                        backgroundColor: !isEntityActive(wing) ? 'var(--rr-panel2)' : 'var(--rr-panel)',
                         opacity: !isEntityActive(wing) ? 0.6 : 1,
                         position: 'relative',
                         display: 'flex',
@@ -822,42 +822,42 @@ const OrganizationSettings: React.FC<OrganizationSettingsProps> = ({ error, setE
                         <div style={{
                           width: '48px',
                           height: '48px',
-                          backgroundColor: '#E5E7EB',
+                          backgroundColor: 'var(--rr-panel3)',
                           borderRadius: '6px',
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
                           flexShrink: 0
                         }}>
-                          <span style={{ fontSize: '20px', color: '#9CA3AF' }}>?</span>
+                          <span style={{ fontSize: '20px', color: 'var(--rr-text3)' }}>?</span>
                         </div>
                       )}
 
                       {/* Wing Info */}
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontWeight: 600, fontSize: '14px', color: '#0F172A', fontFamily: 'Inter', marginBottom: '2px' }}>
+                        <div style={{ fontWeight: 600, fontSize: '14px', color: 'var(--rr-text)', fontFamily: 'inherit', marginBottom: '2px' }}>
                           {wing.designation}
                         </div>
-                        <div style={{ fontSize: '13px', color: '#64748B', fontFamily: 'Inter', marginBottom: '8px' }}>
+                        <div style={{ fontSize: '13px', color: 'var(--rr-text2)', fontFamily: 'inherit', marginBottom: '8px' }}>
                           {wing.name}
                         </div>
                         {wing.group && (
-                          <div style={{ fontSize: '11px', color: '#94A3B8', fontFamily: 'Inter', marginBottom: '4px' }}>
+                          <div style={{ fontSize: '11px', color: 'var(--rr-text3)', fontFamily: 'inherit', marginBottom: '4px' }}>
                             {wing.group.command?.name ? `${wing.group.command.name} > ` : ''}{wing.group.name}
                           </div>
                         )}
                         {wing.tail_code && (
-                          <div style={{ fontSize: '11px', color: '#94A3B8', fontFamily: 'Inter', marginBottom: '4px' }}>
+                          <div style={{ fontSize: '11px', color: 'var(--rr-text3)', fontFamily: 'inherit', marginBottom: '4px' }}>
                             Tail Code: {wing.tail_code}
                           </div>
                         )}
                         {wing.established_date && (
-                          <div style={{ fontSize: '11px', color: '#94A3B8', fontFamily: 'Inter', fontStyle: 'italic' }}>
+                          <div style={{ fontSize: '11px', color: 'var(--rr-text3)', fontFamily: 'inherit', fontStyle: 'italic' }}>
                             Est. {new Date(wing.established_date).getFullYear()}
                           </div>
                         )}
                         {!isEntityActive(wing) && (
-                          <div style={{ fontSize: '11px', color: '#DC2626', fontFamily: 'Inter', marginTop: '4px' }}>
+                          <div style={{ fontSize: '11px', color: 'var(--rr-bad)', fontFamily: 'inherit', marginTop: '4px' }}>
                             Deactivated
                           </div>
                         )}
@@ -871,25 +871,25 @@ const OrganizationSettings: React.FC<OrganizationSettingsProps> = ({ error, setE
                             padding: '4px',
                             borderRadius: '4px',
                             cursor: 'pointer',
-                            background: 'white',
-                            boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                            background: 'var(--rr-panel)',
+                            boxShadow: 'var(--rr-shadow)',
                             border: 'none',
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
                             transition: 'all 0.1s ease',
-                            color: '#64748B',
+                            color: 'var(--rr-text2)',
                             width: '24px',
                             height: '24px'
                           }}
                           title="Edit"
                           onMouseEnter={(e) => {
                             e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.15)';
-                            e.currentTarget.style.background = '#F8FAFC';
+                            e.currentTarget.style.background = 'var(--rr-panel2)';
                           }}
                           onMouseLeave={(e) => {
                             e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
-                            e.currentTarget.style.background = 'white';
+                            e.currentTarget.style.background = 'var(--rr-panel)';
                           }}
                         >
                           <Edit size={14} />
@@ -900,27 +900,27 @@ const OrganizationSettings: React.FC<OrganizationSettingsProps> = ({ error, setE
                             padding: '4px',
                             borderRadius: '4px',
                             cursor: 'pointer',
-                            background: 'white',
-                            boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                            background: 'var(--rr-panel)',
+                            boxShadow: 'var(--rr-shadow)',
                             border: 'none',
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
                             transition: 'all 0.1s ease',
-                            color: '#64748B',
+                            color: 'var(--rr-text2)',
                             width: '24px',
                             height: '24px'
                           }}
                           title="Delete"
                           onMouseEnter={(e) => {
                             e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.15)';
-                            e.currentTarget.style.background = '#FEF2F2';
-                            e.currentTarget.style.color = '#DC2626';
+                            e.currentTarget.style.background = 'rgba(224,82,78,.12)';
+                            e.currentTarget.style.color = 'var(--rr-bad)';
                           }}
                           onMouseLeave={(e) => {
                             e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
-                            e.currentTarget.style.background = 'white';
-                            e.currentTarget.style.color = '#64748B';
+                            e.currentTarget.style.background = 'var(--rr-panel)';
+                            e.currentTarget.style.color = 'var(--rr-text2)';
                           }}
                         >
                           <Trash size={14} />
@@ -948,16 +948,16 @@ const OrganizationSettings: React.FC<OrganizationSettingsProps> = ({ error, setE
             {/* Squadrons Level */}
             <div style={sectionStyle}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                <h3 style={{ fontSize: '18px', fontWeight: 600, color: '#0F172A', margin: 0 }}>
+                <h3 style={{ fontSize: '18px', fontWeight: 600, color: 'var(--rr-text)', margin: 0 }}>
                   Squadrons
                 </h3>
-                <span style={{ fontSize: '14px', color: '#64748B', fontFamily: 'Inter' }}>
+                <span style={{ fontSize: '14px', color: 'var(--rr-text2)', fontFamily: 'inherit' }}>
                   {filterEntities(squadrons).length} active
                 </span>
               </div>
 
             {filterEntities(squadrons).length === 0 ? (
-              <div className="text-center py-8 text-slate-500">
+              <div className="text-center py-8 text-text2">
                 <p className="mb-4">No squadrons configured</p>
                 <button
                   onClick={() => handleCreateEntity('squadron')}
@@ -980,9 +980,9 @@ const OrganizationSettings: React.FC<OrganizationSettingsProps> = ({ error, setE
                       key={squadron.id}
                       style={{
                         padding: '16px',
-                        border: '1px solid #E5E7EB',
+                        border: '1px solid var(--rr-border)',
                         borderRadius: '8px',
-                        backgroundColor: !isEntityActive(squadron) ? '#F8FAFC' : '#FFFFFF',
+                        backgroundColor: !isEntityActive(squadron) ? 'var(--rr-panel2)' : 'var(--rr-panel)',
                         opacity: !isEntityActive(squadron) ? 0.6 : 1,
                         position: 'relative',
                         display: 'flex',
@@ -1005,44 +1005,44 @@ const OrganizationSettings: React.FC<OrganizationSettingsProps> = ({ error, setE
                         <div style={{
                           width: '48px',
                           height: '48px',
-                          backgroundColor: '#E5E7EB',
+                          backgroundColor: 'var(--rr-panel3)',
                           borderRadius: '6px',
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
                           flexShrink: 0
                         }}>
-                          <span style={{ fontSize: '20px', color: '#9CA3AF' }}>?</span>
+                          <span style={{ fontSize: '20px', color: 'var(--rr-text3)' }}>?</span>
                         </div>
                       )}
 
                       {/* Squadron Info */}
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontWeight: 600, fontSize: '14px', color: '#0F172A', fontFamily: 'Inter', marginBottom: '2px' }}>
+                        <div style={{ fontWeight: 600, fontSize: '14px', color: 'var(--rr-text)', fontFamily: 'inherit', marginBottom: '2px' }}>
                           {squadron.designation}
                         </div>
-                        <div style={{ fontSize: '13px', color: '#64748B', fontFamily: 'Inter', marginBottom: '8px' }}>
+                        <div style={{ fontSize: '13px', color: 'var(--rr-text2)', fontFamily: 'inherit', marginBottom: '8px' }}>
                           {squadron.name}
                         </div>
                         {squadron.wing && (
-                          <div style={{ fontSize: '11px', color: '#94A3B8', fontFamily: 'Inter', marginBottom: '4px' }}>
+                          <div style={{ fontSize: '11px', color: 'var(--rr-text3)', fontFamily: 'inherit', marginBottom: '4px' }}>
                             {squadron.wing.group?.command?.name ? `${squadron.wing.group.command.name} > ` : ''}
                             {squadron.wing.group ? `${squadron.wing.group.name} > ` : ''}
                             {squadron.wing.name}
                           </div>
                         )}
                         {squadron.tail_code && (
-                          <div style={{ fontSize: '11px', color: '#94A3B8', fontFamily: 'Inter', marginBottom: '4px' }}>
+                          <div style={{ fontSize: '11px', color: 'var(--rr-text3)', fontFamily: 'inherit', marginBottom: '4px' }}>
                             Tail Code: {squadron.tail_code}
                           </div>
                         )}
                         {squadron.established_date && (
-                          <div style={{ fontSize: '11px', color: '#94A3B8', fontFamily: 'Inter', fontStyle: 'italic' }}>
+                          <div style={{ fontSize: '11px', color: 'var(--rr-text3)', fontFamily: 'inherit', fontStyle: 'italic' }}>
                             Est. {new Date(squadron.established_date).getFullYear()}
                           </div>
                         )}
                         {!isEntityActive(squadron) && (
-                          <div style={{ fontSize: '11px', color: '#DC2626', fontFamily: 'Inter', marginTop: '4px' }}>
+                          <div style={{ fontSize: '11px', color: 'var(--rr-bad)', fontFamily: 'inherit', marginTop: '4px' }}>
                             Deactivated
                           </div>
                         )}
@@ -1056,25 +1056,25 @@ const OrganizationSettings: React.FC<OrganizationSettingsProps> = ({ error, setE
                             padding: '4px',
                             borderRadius: '4px',
                             cursor: 'pointer',
-                            background: 'white',
-                            boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                            background: 'var(--rr-panel)',
+                            boxShadow: 'var(--rr-shadow)',
                             border: 'none',
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
                             transition: 'all 0.1s ease',
-                            color: '#64748B',
+                            color: 'var(--rr-text2)',
                             width: '24px',
                             height: '24px'
                           }}
                           title="Edit"
                           onMouseEnter={(e) => {
                             e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.15)';
-                            e.currentTarget.style.background = '#F8FAFC';
+                            e.currentTarget.style.background = 'var(--rr-panel2)';
                           }}
                           onMouseLeave={(e) => {
                             e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
-                            e.currentTarget.style.background = 'white';
+                            e.currentTarget.style.background = 'var(--rr-panel)';
                           }}
                         >
                           <Edit size={14} />
@@ -1085,27 +1085,27 @@ const OrganizationSettings: React.FC<OrganizationSettingsProps> = ({ error, setE
                             padding: '4px',
                             borderRadius: '4px',
                             cursor: 'pointer',
-                            background: 'white',
-                            boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                            background: 'var(--rr-panel)',
+                            boxShadow: 'var(--rr-shadow)',
                             border: 'none',
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
                             transition: 'all 0.1s ease',
-                            color: '#64748B',
+                            color: 'var(--rr-text2)',
                             width: '24px',
                             height: '24px'
                           }}
                           title="Delete"
                           onMouseEnter={(e) => {
                             e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.15)';
-                            e.currentTarget.style.background = '#FEF2F2';
-                            e.currentTarget.style.color = '#DC2626';
+                            e.currentTarget.style.background = 'rgba(224,82,78,.12)';
+                            e.currentTarget.style.color = 'var(--rr-bad)';
                           }}
                           onMouseLeave={(e) => {
                             e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
-                            e.currentTarget.style.background = 'white';
-                            e.currentTarget.style.color = '#64748B';
+                            e.currentTarget.style.background = 'var(--rr-panel)';
+                            e.currentTarget.style.color = 'var(--rr-text2)';
                           }}
                         >
                           <Trash size={14} />
@@ -1133,16 +1133,16 @@ const OrganizationSettings: React.FC<OrganizationSettingsProps> = ({ error, setE
             {/* Teams Section */}
             <div style={sectionStyle}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                <h3 style={{ fontSize: '18px', fontWeight: 600, color: '#0F172A', margin: 0 }}>
+                <h3 style={{ fontSize: '18px', fontWeight: 600, color: 'var(--rr-text)', margin: 0 }}>
                   Teams
                 </h3>
-                <span style={{ fontSize: '14px', color: '#64748B', fontFamily: 'Inter' }}>
+                <span style={{ fontSize: '14px', color: 'var(--rr-text2)', fontFamily: 'inherit' }}>
                   {filterEntities(teams).length} active
                 </span>
               </div>
 
             {filterEntities(teams).length === 0 ? (
-              <div className="text-center py-8 text-slate-500">
+              <div className="text-center py-8 text-text2">
                 <p className="mb-4">No teams configured</p>
                 <button
                   onClick={() => handleCreateEntity('team')}
@@ -1165,19 +1165,19 @@ const OrganizationSettings: React.FC<OrganizationSettingsProps> = ({ error, setE
                       key={team.id}
                       style={{
                         padding: '16px',
-                        border: '1px solid #E5E7EB',
+                        border: '1px solid var(--rr-border)',
                         borderRadius: '8px',
-                        backgroundColor: !team.active ? '#F8FAFC' : '#FFFFFF',
+                        backgroundColor: !team.active ? 'var(--rr-panel2)' : 'var(--rr-panel)',
                         opacity: !team.active ? 0.6 : 1,
                         position: 'relative'
                       }}
                     >
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
                         <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontWeight: 600, fontSize: '14px', color: '#0F172A', fontFamily: 'Inter', marginBottom: '2px' }}>
+                          <div style={{ fontWeight: 600, fontSize: '14px', color: 'var(--rr-text)', fontFamily: 'inherit', marginBottom: '2px' }}>
                             {team.name}
                           </div>
-                          <div style={{ fontSize: '13px', color: '#64748B', fontFamily: 'Inter', textTransform: 'capitalize' }}>
+                          <div style={{ fontSize: '13px', color: 'var(--rr-text2)', fontFamily: 'inherit', textTransform: 'capitalize' }}>
                             {team.scope} Team
                           </div>
                         </div>
@@ -1188,25 +1188,25 @@ const OrganizationSettings: React.FC<OrganizationSettingsProps> = ({ error, setE
                               padding: '4px',
                               borderRadius: '4px',
                               cursor: 'pointer',
-                              background: 'white',
-                              boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                              background: 'var(--rr-panel)',
+                              boxShadow: 'var(--rr-shadow)',
                               border: 'none',
                               display: 'flex',
                               alignItems: 'center',
                               justifyContent: 'center',
                               transition: 'all 0.1s ease',
-                              color: '#64748B',
+                              color: 'var(--rr-text2)',
                               width: '24px',
                               height: '24px'
                             }}
                             title="Edit"
                             onMouseEnter={(e) => {
                               e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.15)';
-                              e.currentTarget.style.background = '#F8FAFC';
+                              e.currentTarget.style.background = 'var(--rr-panel2)';
                             }}
                             onMouseLeave={(e) => {
                               e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
-                              e.currentTarget.style.background = 'white';
+                              e.currentTarget.style.background = 'var(--rr-panel)';
                             }}
                           >
                             <Edit size={14} />
@@ -1217,27 +1217,27 @@ const OrganizationSettings: React.FC<OrganizationSettingsProps> = ({ error, setE
                               padding: '4px',
                               borderRadius: '4px',
                               cursor: 'pointer',
-                              background: 'white',
-                              boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                              background: 'var(--rr-panel)',
+                              boxShadow: 'var(--rr-shadow)',
                               border: 'none',
                               display: 'flex',
                               alignItems: 'center',
                               justifyContent: 'center',
                               transition: 'all 0.1s ease',
-                              color: '#64748B',
+                              color: 'var(--rr-text2)',
                               width: '24px',
                               height: '24px'
                             }}
                             title="Delete"
                             onMouseEnter={(e) => {
                               e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.15)';
-                              e.currentTarget.style.background = '#FEF2F2';
-                              e.currentTarget.style.color = '#DC2626';
+                              e.currentTarget.style.background = 'rgba(224,82,78,.12)';
+                              e.currentTarget.style.color = 'var(--rr-bad)';
                             }}
                             onMouseLeave={(e) => {
                               e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
-                              e.currentTarget.style.background = 'white';
-                              e.currentTarget.style.color = '#64748B';
+                              e.currentTarget.style.background = 'var(--rr-panel)';
+                              e.currentTarget.style.color = 'var(--rr-text2)';
                             }}
                           >
                             <Trash size={14} />
@@ -1245,12 +1245,12 @@ const OrganizationSettings: React.FC<OrganizationSettingsProps> = ({ error, setE
                         </div>
                       </div>
                       {team.description && (
-                        <div style={{ fontSize: '11px', color: '#94A3B8', fontFamily: 'Inter', marginTop: '8px' }}>
+                        <div style={{ fontSize: '11px', color: 'var(--rr-text3)', fontFamily: 'inherit', marginTop: '8px' }}>
                           {team.description}
                         </div>
                       )}
                       {!team.active && (
-                        <div style={{ fontSize: '11px', color: '#DC2626', fontFamily: 'Inter', marginTop: '4px' }}>
+                        <div style={{ fontSize: '11px', color: 'var(--rr-bad)', fontFamily: 'inherit', marginTop: '4px' }}>
                           Inactive
                         </div>
                       )}
@@ -1297,12 +1297,12 @@ const OrganizationSettings: React.FC<OrganizationSettingsProps> = ({ error, setE
       {/* Delete confirmation modal */}
       {deleteConfirmation.isOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded-lg w-96">
+          <div className="bg-panel p-6 rounded-lg w-96">
             <h3 className="text-lg font-semibold mb-4">Confirm Deletion</h3>
-            <p className="text-slate-600 mb-4">
+            <p className="text-text2 mb-4">
               Are you sure you want to delete this {deleteConfirmation.entityType}? This action cannot be undone.
             </p>
-            <p className="text-sm text-slate-500 mb-4">
+            <p className="text-sm text-text2 mb-4">
               Type "yes" to confirm:
             </p>
             <input
@@ -1312,20 +1312,20 @@ const OrganizationSettings: React.FC<OrganizationSettingsProps> = ({ error, setE
                 ...deleteConfirmation,
                 confirmText: e.target.value
               })}
-              className="w-full px-3 py-2 border border-slate-300 rounded mb-4"
+              className="w-full px-3 py-2 border border-border2 rounded mb-4"
               placeholder="Type 'yes' to confirm"
             />
             <div className="flex justify-end gap-3">
               <button
                 onClick={() => setDeleteConfirmation({ isOpen: false, confirmText: '' })}
-                className="px-4 py-2 bg-slate-200 text-slate-700 rounded hover:bg-slate-300"
+                className="px-4 py-2 bg-panel3 text-text rounded hover:bg-slate-300"
               >
                 Cancel
               </button>
               <button
                 onClick={confirmDelete}
                 disabled={deleteConfirmation.confirmText.toLowerCase() !== 'yes'}
-                className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-4 py-2 bg-bad text-white rounded hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Delete
               </button>

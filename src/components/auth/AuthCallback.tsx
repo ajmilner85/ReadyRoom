@@ -68,16 +68,16 @@ const AuthCallback: React.FC = () => {
         left: 0,
         right: 0,
         bottom: 0,
-        backgroundColor: '#F0F4F8',
+        backgroundColor: 'var(--rr-panel2)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        fontFamily: 'Inter, sans-serif'
+        fontFamily: 'inherit'
       }}>
         <div style={{
           width: '300px',
-          backgroundColor: '#FFFFFF',
-          boxShadow: '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)',
+          backgroundColor: 'var(--rr-panel)',
+          boxShadow: 'var(--rr-shadow)',
           borderRadius: '8px',
           padding: '32px 24px',
           textAlign: 'center'
@@ -85,8 +85,8 @@ const AuthCallback: React.FC = () => {
           <div style={{
             width: '32px',
             height: '32px',
-            border: '3px solid #E5E7EB',
-            borderTopColor: '#3B82F6',
+            border: '3px solid var(--rr-border)',
+            borderTopColor: 'var(--rr-accent)',
             borderRadius: '50%',
             animation: 'spin 1s linear infinite',
             margin: '0 auto 16px auto'
@@ -94,14 +94,14 @@ const AuthCallback: React.FC = () => {
           <h3 style={{
             fontSize: '16px',
             fontWeight: 500,
-            color: '#0F172A',
+            color: 'var(--rr-text)',
             margin: '0 0 8px 0'
           }}>
             Completing Sign In
           </h3>
           <p style={{
             fontSize: '14px',
-            color: '#64748B',
+            color: 'var(--rr-text2)',
             margin: 0
           }}>
             Just a moment...
@@ -119,16 +119,16 @@ const AuthCallback: React.FC = () => {
         left: 0,
         right: 0,
         bottom: 0,
-        backgroundColor: '#F0F4F8',
+        backgroundColor: 'var(--rr-panel2)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        fontFamily: 'Inter, sans-serif'
+        fontFamily: 'inherit'
       }}>
         <div style={{
           width: '400px',
-          backgroundColor: '#FFFFFF',
-          boxShadow: '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)',
+          backgroundColor: 'var(--rr-panel)',
+          boxShadow: 'var(--rr-shadow)',
           borderRadius: '8px',
           padding: '24px',
           textAlign: 'center'
@@ -136,21 +136,21 @@ const AuthCallback: React.FC = () => {
           <h3 style={{
             fontSize: '18px',
             fontWeight: 600,
-            color: '#DC2626',
+            color: 'var(--rr-bad)',
             margin: '0 0 16px 0'
           }}>
             Authentication Error
           </h3>
           <p style={{
             fontSize: '14px',
-            color: '#64748B',
+            color: 'var(--rr-text2)',
             margin: '0 0 16px 0'
           }}>
             {error}
           </p>
           <p style={{
             fontSize: '12px',
-            color: '#9CA3AF',
+            color: 'var(--rr-text3)',
             margin: 0
           }}>
             Redirecting to login page...

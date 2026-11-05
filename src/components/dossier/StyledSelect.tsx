@@ -71,16 +71,16 @@ const StyledSelect: React.FC<StyledSelectProps> = ({ value, options, onChange, d
         onClick={() => (isOpen ? setIsOpen(false) : openList())}
         style={{
           padding: '8px 12px',
-          border: '1px solid #CBD5E1',
+          border: '1px solid var(--rr-border2)',
           borderRadius: '6px',
-          backgroundColor: '#F8FAFC',
+          backgroundColor: 'var(--rr-panel2)',
           cursor: disabled ? 'not-allowed' : 'pointer',
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
           gap: '8px',
           fontSize: '12px',
-          fontFamily: 'Inter'
+          fontFamily: 'inherit'
         }}
       >
         <span style={{
@@ -106,13 +106,13 @@ const StyledSelect: React.FC<StyledSelectProps> = ({ value, options, onChange, d
               : { top: triggerRect.bottom + 4 }),
             left: triggerRect.left,
             width: triggerRect.width,
-            backgroundColor: '#FFFFFF',
-            border: '1px solid #CBD5E1',
+            backgroundColor: 'var(--rr-panel)',
+            border: '1px solid var(--rr-border2)',
             borderRadius: '6px',
             maxHeight: `${LIST_MAX_HEIGHT}px`,
             overflowY: 'auto',
             zIndex: 1100,
-            boxShadow: '0px 4px 6px -1px rgba(0, 0, 0, 0.1)'
+            boxShadow: 'var(--rr-shadow)'
           }}
         >
           {options.map(option => (
@@ -126,14 +126,14 @@ const StyledSelect: React.FC<StyledSelectProps> = ({ value, options, onChange, d
               style={{
                 padding: '8px 12px',
                 cursor: option.disabled ? 'not-allowed' : 'pointer',
-                backgroundColor: option.value === value ? '#EFF6FF' : 'transparent',
+                backgroundColor: option.value === value ? 'var(--rr-accent-weak)' : 'transparent',
                 transition: 'background-color 0.2s',
                 fontSize: '12px',
-                fontFamily: 'Inter',
-                color: option.disabled ? '#94A3B8' : '#0F172A'
+                fontFamily: 'inherit',
+                color: option.disabled ? 'var(--rr-text3)' : 'var(--rr-text)'
               }}
               onMouseEnter={e => {
-                if (option.value !== value && !option.disabled) e.currentTarget.style.backgroundColor = '#F8FAFC';
+                if (option.value !== value && !option.disabled) e.currentTarget.style.backgroundColor = 'var(--rr-panel2)';
               }}
               onMouseLeave={e => {
                 if (option.value !== value && !option.disabled) e.currentTarget.style.backgroundColor = 'transparent';

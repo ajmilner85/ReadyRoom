@@ -78,25 +78,25 @@ const LoginForm: React.FC<LoginFormProps> = ({ onLoginStateChange }) => {
         left: 0,
         right: 0,
         bottom: 0,
-        backgroundColor: '#F0F4F8',
+        backgroundColor: 'var(--rr-panel2)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        fontFamily: 'Inter, sans-serif'
+        fontFamily: 'inherit'
       }}>
         <div style={{
           width: '400px',
-          backgroundColor: '#FFFFFF',
-          boxShadow: '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)',
+          backgroundColor: 'var(--rr-panel)',
+          boxShadow: 'var(--rr-shadow)',
           borderRadius: '8px',
           padding: '24px',
           textAlign: 'center'
         }}>
           <h2 style={{
-            fontFamily: 'Inter',
+            fontFamily: 'inherit',
             fontSize: '20px',
             fontWeight: 600,
-            color: '#0F172A',
+            color: 'var(--rr-text)',
             margin: '0 0 16px 0'
           }}>
             Admin Session Active
@@ -105,13 +105,13 @@ const LoginForm: React.FC<LoginFormProps> = ({ onLoginStateChange }) => {
           <div style={{
             marginBottom: '24px',
             padding: '16px',
-            backgroundColor: '#F0F9FF',
+            backgroundColor: 'var(--rr-accent-weak)',
             border: '1px solid #BAE6FD',
             borderRadius: '6px'
           }}>
             <div style={{
               fontSize: '14px',
-              color: '#64748B',
+              color: 'var(--rr-text2)',
               marginBottom: '4px'
             }}>
               Logged in as:
@@ -119,7 +119,7 @@ const LoginForm: React.FC<LoginFormProps> = ({ onLoginStateChange }) => {
             <div style={{
               fontSize: '16px',
               fontWeight: 500,
-              color: '#0F172A'
+              color: 'var(--rr-text)'
             }}>
               {user.email}
             </div>
@@ -131,14 +131,14 @@ const LoginForm: React.FC<LoginFormProps> = ({ onLoginStateChange }) => {
             style={{
               width: '100%',
               padding: '12px',
-              backgroundColor: loading ? '#9CA3AF' : '#DC2626',
+              backgroundColor: loading ? '#9CA3AF' : 'var(--rr-bad)',
               color: '#FFFFFF',
               border: 'none',
               borderRadius: '4px',
               fontSize: '14px',
               fontWeight: 500,
               cursor: loading ? 'not-allowed' : 'pointer',
-              fontFamily: 'Inter',
+              fontFamily: 'inherit',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -150,7 +150,7 @@ const LoginForm: React.FC<LoginFormProps> = ({ onLoginStateChange }) => {
                 width: '16px',
                 height: '16px',
                 border: '2px solid rgba(255,255,255,0.3)',
-                borderTopColor: '#FFFFFF',
+                borderTopColor: 'var(--rr-panel)',
                 borderRadius: '50%',
                 animation: 'spin 1s linear infinite'
               }} />
@@ -169,33 +169,33 @@ const LoginForm: React.FC<LoginFormProps> = ({ onLoginStateChange }) => {
       left: 0,
       right: 0,
       bottom: 0,
-      backgroundColor: '#F0F4F8',
+      backgroundColor: 'var(--rr-panel2)',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
-      fontFamily: 'Inter, sans-serif'
+      fontFamily: 'inherit'
     }}>
       <div style={{
         width: '400px',
-        backgroundColor: '#FFFFFF',
-        boxShadow: '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)',
+        backgroundColor: 'var(--rr-panel)',
+        boxShadow: 'var(--rr-shadow)',
         borderRadius: '8px',
         padding: '24px'
       }}>
         {/* Header */}
         <div style={{ marginBottom: '24px', textAlign: 'center' }}>
           <h2 style={{
-            fontFamily: 'Inter',
+            fontFamily: 'inherit',
             fontSize: '20px',
             fontWeight: 600,
-            color: '#0F172A',
+            color: 'var(--rr-text)',
             margin: '0 0 8px 0'
           }}>
             Admin Login
           </h2>
           <p style={{
             fontSize: '14px',
-            color: '#64748B',
+            color: 'var(--rr-text2)',
             margin: 0
           }}>
             Enter your credentials to access admin features
@@ -207,10 +207,10 @@ const LoginForm: React.FC<LoginFormProps> = ({ onLoginStateChange }) => {
           <div style={{
             marginBottom: '16px',
             padding: '12px',
-            backgroundColor: '#FEF2F2',
-            border: '1px solid #FECACA',
+            backgroundColor: 'rgba(224,82,78,.12)',
+            border: '1px solid var(--rr-bad)',
             borderRadius: '6px',
-            color: '#DC2626',
+            color: 'var(--rr-bad)',
             fontSize: '14px'
           }}>
             {error}
@@ -226,7 +226,7 @@ const LoginForm: React.FC<LoginFormProps> = ({ onLoginStateChange }) => {
               marginBottom: '8px',
               fontSize: '14px',
               fontWeight: 500,
-              color: '#64748B'
+              color: 'var(--rr-text2)'
             }}>
               Email Address
             </label>
@@ -239,12 +239,12 @@ const LoginForm: React.FC<LoginFormProps> = ({ onLoginStateChange }) => {
               style={{
                 width: '100%',
                 padding: '8px 12px',
-                border: '1px solid #CBD5E1',
+                border: '1px solid var(--rr-border2)',
                 borderRadius: '4px',
                 fontSize: '14px',
                 boxSizing: 'border-box',
                 height: '40px',
-                fontFamily: 'Inter'
+                fontFamily: 'inherit'
               }}
               placeholder="Enter your email"
             />
@@ -257,7 +257,7 @@ const LoginForm: React.FC<LoginFormProps> = ({ onLoginStateChange }) => {
               marginBottom: '8px',
               fontSize: '14px',
               fontWeight: 500,
-              color: '#64748B'
+              color: 'var(--rr-text2)'
             }}>
               Password
             </label>
@@ -270,12 +270,12 @@ const LoginForm: React.FC<LoginFormProps> = ({ onLoginStateChange }) => {
               style={{
                 width: '100%',
                 padding: '8px 12px',
-                border: '1px solid #CBD5E1',
+                border: '1px solid var(--rr-border2)',
                 borderRadius: '4px',
                 fontSize: '14px',
                 boxSizing: 'border-box',
                 height: '40px',
-                fontFamily: 'Inter'
+                fontFamily: 'inherit'
               }}
               placeholder="Enter your password"
             />
@@ -288,14 +288,14 @@ const LoginForm: React.FC<LoginFormProps> = ({ onLoginStateChange }) => {
             style={{
               width: '100%',
               padding: '12px',
-              backgroundColor: loading ? '#9CA3AF' : '#2563EB',
+              backgroundColor: loading ? '#9CA3AF' : 'var(--rr-accent)',
               color: '#FFFFFF',
               border: 'none',
               borderRadius: '4px',
               fontSize: '14px',
               fontWeight: 500,
               cursor: loading ? 'not-allowed' : 'pointer',
-              fontFamily: 'Inter',
+              fontFamily: 'inherit',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -307,7 +307,7 @@ const LoginForm: React.FC<LoginFormProps> = ({ onLoginStateChange }) => {
                 width: '16px',
                 height: '16px',
                 border: '2px solid rgba(255,255,255,0.3)',
-                borderTopColor: '#FFFFFF',
+                borderTopColor: 'var(--rr-panel)',
                 borderRadius: '50%',
                 animation: 'spin 1s linear infinite'
               }} />

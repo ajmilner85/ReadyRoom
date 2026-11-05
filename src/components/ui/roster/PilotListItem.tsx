@@ -128,7 +128,7 @@ const PilotListItem: React.FC<PilotListItemProps> = ({
                 gap: '4px',
                 maxWidth: '200px',
                 zIndex: 1000,
-                boxShadow: '0px 4px 6px -1px rgba(0, 0, 0, 0.1), 0px 2px 4px -1px rgba(0, 0, 0, 0.06)'
+                boxShadow: 'var(--rr-shadow)'
               }}
             >
               {overflowQuals.map((pq: any) => (

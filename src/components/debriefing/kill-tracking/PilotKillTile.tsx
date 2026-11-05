@@ -93,7 +93,7 @@ const PilotKillTile: React.FC<PilotKillTileProps> = ({
       {/* Flight number and dash number label above the tile */}
       <div
         style={{
-          fontFamily: 'Inter',
+          fontFamily: 'inherit',
           fontWeight: 400,
           fontSize: '12px',
           lineHeight: '15px',
@@ -114,7 +114,7 @@ const PilotKillTile: React.FC<PilotKillTileProps> = ({
         style={{
           position: 'relative',
           width: '92px',
-          boxShadow: '0px 4px 6px rgba(0, 0, 0, 0.1)',
+          boxShadow: 'var(--rr-shadow)',
           borderRadius: '8px'
         }}
       >
@@ -148,7 +148,7 @@ const PilotKillTile: React.FC<PilotKillTileProps> = ({
                   left: '5px',
                   width: '20px',
                   height: '20px',
-                  backgroundColor: pilotStatusHovered ? '#F3F4F6' : '#FFFFFF',
+                  backgroundColor: pilotStatusHovered ? 'var(--rr-panel2)' : 'var(--rr-panel)',
                   borderRadius: '4px',
                   display: 'flex',
                   alignItems: 'center',
@@ -177,7 +177,7 @@ const PilotKillTile: React.FC<PilotKillTileProps> = ({
                   right: '5px',
                   width: '20px',
                   height: '20px',
-                  backgroundColor: aircraftStatusHovered ? '#F3F4F6' : '#FFFFFF',
+                  backgroundColor: aircraftStatusHovered ? 'var(--rr-panel2)' : 'var(--rr-panel)',
                   borderRadius: '4px',
                   display: 'flex',
                   alignItems: 'center',
@@ -217,7 +217,7 @@ const PilotKillTile: React.FC<PilotKillTileProps> = ({
               {isFlightLead && (
                 <div
                   style={{
-                    fontFamily: 'Inter',
+                    fontFamily: 'inherit',
                     fontWeight: 700,
                     fontSize: '10px',
                     lineHeight: '10px',
@@ -239,7 +239,7 @@ const PilotKillTile: React.FC<PilotKillTileProps> = ({
               {isSectionLead && !isFlightLead && (
                 <div
                   style={{
-                    fontFamily: 'Inter',
+                    fontFamily: 'inherit',
                     fontWeight: 700,
                     fontSize: '10px',
                     lineHeight: '10px',
@@ -295,12 +295,12 @@ const PilotKillTile: React.FC<PilotKillTileProps> = ({
             {/* Board number */}
             <div
               style={{
-                fontFamily: 'Inter',
+                fontFamily: 'inherit',
                 fontWeight: 400,
                 fontSize: '16px',
                 lineHeight: '19px',
                 textAlign: 'center',
-                color: isEmpty ? TEXT_GRAY : '#646F7E',
+                color: isEmpty ? TEXT_GRAY : 'var(--rr-text2)',
                 marginTop: '-2px'
               }}
             >
@@ -310,7 +310,7 @@ const PilotKillTile: React.FC<PilotKillTileProps> = ({
             {/* Pilot callsign */}
             <div
               style={{
-                fontFamily: 'Inter',
+                fontFamily: 'inherit',
                 fontWeight: 700,
                 fontSize: '14px',
                 lineHeight: '17px',

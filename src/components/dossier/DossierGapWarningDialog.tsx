@@ -74,26 +74,26 @@ const DossierGapWarningDialog: React.FC<DossierGapWarningDialogProps> = ({
     >
       <div
         style={{
-          backgroundColor: '#FFFFFF',
+          backgroundColor: 'var(--rr-panel)',
           borderRadius: '12px',
           width: '100%',
           maxWidth: '460px',
           overflow: 'hidden',
-          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)'
+          boxShadow: 'var(--rr-shadow-lg)'
         }}
         onClick={(e) => e.stopPropagation()}
       >
         <div style={{ padding: '24px 24px 16px 24px', textAlign: 'center' }}>
-          <div style={{ color: '#F59E0B', marginBottom: '16px' }}>
+          <div style={{ color: 'var(--rr-warn)', marginBottom: '16px' }}>
             <AlertTriangle size={20} style={{ margin: '0 auto' }} />
           </div>
-          <h2 style={{ fontSize: '18px', fontWeight: 600, color: '#1F2937', margin: '0 0 12px 0' }}>
+          <h2 style={{ fontSize: '18px', fontWeight: 600, color: 'var(--rr-text)', margin: '0 0 12px 0' }}>
             {canExtendOpenEnded
               ? `This will remove the pilot's current ${fieldLabel}`
               : `This will leave a gap in the pilot's ${fieldLabel} history`}
           </h2>
           {hasRepairOptions ? (
-            <p style={{ fontSize: '14px', color: '#6B7280', lineHeight: 1.5, margin: 0, textAlign: 'left' }}>
+            <p style={{ fontSize: '14px', color: 'var(--rr-text2)', lineHeight: 1.5, margin: 0, textAlign: 'left' }}>
               The entry right before "{entryTitle}" was marked as finished — most likely from when this entry
               was first added. Deleting this entry on its own leaves that period of the pilot's {fieldLabel} history
               uncovered.
@@ -102,7 +102,7 @@ const DossierGapWarningDialog: React.FC<DossierGapWarningDialogProps> = ({
               probably still correct and just needs its end date adjusted to close the gap.
             </p>
           ) : (
-            <p style={{ fontSize: '14px', color: '#6B7280', lineHeight: 1.5, margin: 0, textAlign: 'left' }}>
+            <p style={{ fontSize: '14px', color: 'var(--rr-text2)', lineHeight: 1.5, margin: 0, textAlign: 'left' }}>
               Deleting "{entryTitle}" will leave this pilot with no {fieldLabel} at all going forward — there's
               no earlier entry to fall back on.
             </p>
@@ -116,8 +116,8 @@ const DossierGapWarningDialog: React.FC<DossierGapWarningDialogProps> = ({
               disabled={busy}
               style={{
                 ...buttonBase,
-                backgroundColor: '#3B82F6',
-                borderColor: '#3B82F6',
+                backgroundColor: 'var(--rr-accent)',
+                borderColor: 'var(--rr-accent)',
                 color: '#FFFFFF',
                 opacity: busy ? 0.7 : 1,
                 cursor: busy ? 'wait' : 'pointer'
@@ -134,9 +134,9 @@ const DossierGapWarningDialog: React.FC<DossierGapWarningDialogProps> = ({
               disabled={busy}
               style={{
                 ...buttonBase,
-                backgroundColor: canExtendOpenEnded ? '#FFFFFF' : '#3B82F6',
-                borderColor: '#3B82F6',
-                color: canExtendOpenEnded ? '#3B82F6' : '#FFFFFF',
+                backgroundColor: canExtendOpenEnded ? 'var(--rr-panel)' : 'var(--rr-accent)',
+                borderColor: 'var(--rr-accent)',
+                color: canExtendOpenEnded ? 'var(--rr-accent-text)' : '#FFFFFF',
                 opacity: busy ? 0.7 : 1,
                 cursor: busy ? 'wait' : 'pointer'
               }}
@@ -152,14 +152,14 @@ const DossierGapWarningDialog: React.FC<DossierGapWarningDialogProps> = ({
               disabled={busy}
               style={{
                 ...buttonBase,
-                backgroundColor: '#FFFFFF',
-                borderColor: '#D1D5DB',
-                color: '#374151',
+                backgroundColor: 'var(--rr-panel)',
+                borderColor: 'var(--rr-border2)',
+                color: 'var(--rr-text)',
                 opacity: busy ? 0.7 : 1,
                 cursor: busy ? 'wait' : 'pointer'
               }}
-              onMouseEnter={e => { if (!busy) e.currentTarget.style.backgroundColor = '#F9FAFB'; }}
-              onMouseLeave={e => { e.currentTarget.style.backgroundColor = '#FFFFFF'; }}
+              onMouseEnter={e => { if (!busy) e.currentTarget.style.backgroundColor = 'var(--rr-panel2)'; }}
+              onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'var(--rr-panel)'; }}
             >
               Cancel
             </button>
@@ -168,14 +168,14 @@ const DossierGapWarningDialog: React.FC<DossierGapWarningDialogProps> = ({
               disabled={busy}
               style={{
                 ...buttonBase,
-                backgroundColor: '#FFFFFF',
-                borderColor: '#FCA5A5',
-                color: '#DC2626',
+                backgroundColor: 'var(--rr-panel)',
+                borderColor: 'var(--rr-bad)',
+                color: 'var(--rr-bad)',
                 opacity: busy ? 0.7 : 1,
                 cursor: busy ? 'wait' : 'pointer'
               }}
-              onMouseEnter={e => { if (!busy) e.currentTarget.style.backgroundColor = '#FEF2F2'; }}
-              onMouseLeave={e => { e.currentTarget.style.backgroundColor = '#FFFFFF'; }}
+              onMouseEnter={e => { if (!busy) e.currentTarget.style.backgroundColor = 'rgba(224,82,78,.12)'; }}
+              onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'var(--rr-panel)'; }}
             >
               Delete Anyway
             </button>

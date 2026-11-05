@@ -204,7 +204,7 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
             display: 'block',
             fontSize: '12px',
             fontWeight: 500,
-            color: '#64748B',
+            color: 'var(--rr-text2)',
             marginBottom: '6px'
           }}>
             Mission Outcome
@@ -215,12 +215,12 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
               width: '100%',
               padding: '8px 12px',
               fontSize: '14px',
-              color: '#1E293B',
-              backgroundColor: '#FFFFFF',
-              border: '1px solid #CBD5E1',
+              color: 'var(--rr-text)',
+              backgroundColor: 'var(--rr-panel)',
+              border: '1px solid var(--rr-border2)',
               borderRadius: '6px',
               cursor: 'pointer',
-              fontFamily: 'Inter',
+              fontFamily: 'inherit',
               display: 'flex',
               justifyContent: 'space-between',
               alignItems: 'center',
@@ -228,7 +228,7 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
             }}
           >
             <span>{outcomeOptions.find(o => o.value === missionOutcome)?.label || 'Pending'}</span>
-            <ChevronDown size={16} style={{ color: '#64748B' }} />
+            <ChevronDown size={16} style={{ color: 'var(--rr-text2)' }} />
           </div>
 
           {outcomeDropdownOpen && (
@@ -238,10 +238,10 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
               left: 0,
               width: '100%',
               marginTop: '4px',
-              backgroundColor: '#FFFFFF',
-              border: '1px solid #CBD5E1',
+              backgroundColor: 'var(--rr-panel)',
+              border: '1px solid var(--rr-border2)',
               borderRadius: '6px',
-              boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+              boxShadow: 'var(--rr-shadow)',
               zIndex: 1000,
               maxHeight: '200px',
               overflowY: 'auto',
@@ -273,15 +273,15 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
                   style={{
                     padding: '8px 12px',
                     cursor: updatingOutcome ? 'not-allowed' : 'pointer',
-                    backgroundColor: missionOutcome === option.value ? '#EFF6FF' : 'transparent',
+                    backgroundColor: missionOutcome === option.value ? 'var(--rr-accent-weak)' : 'transparent',
                     fontSize: '14px',
-                    fontFamily: 'Inter',
+                    fontFamily: 'inherit',
                     transition: 'background-color 0.2s',
                     opacity: updatingOutcome ? 0.5 : 1
                   }}
                   onMouseEnter={(e) => {
                     if (missionOutcome !== option.value) {
-                      e.currentTarget.style.backgroundColor = '#F8FAFC';
+                      e.currentTarget.style.backgroundColor = 'var(--rr-panel2)';
                     }
                   }}
                   onMouseLeave={(e) => {
@@ -310,8 +310,8 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
       <h3 style={{
         fontSize: '20px',
         fontWeight: 300,
-        color: '#646F7E',
-        fontFamily: 'Inter',
+        color: 'var(--rr-text2)',
+        fontFamily: 'inherit',
         textTransform: 'uppercase',
         letterSpacing: '0.5px',
         marginBottom: '16px',
@@ -384,11 +384,11 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
           style={{
             padding: '40px',
             textAlign: 'center',
-            color: '#94A3B8',
+            color: 'var(--rr-text3)',
             fontSize: '14px',
-            backgroundColor: '#F8FAFC',
+            backgroundColor: 'var(--rr-panel2)',
             borderRadius: '8px',
-            border: '1px solid #E2E8F0'
+            border: '1px solid var(--rr-border)'
           }}
         >
           {aarRequired === false

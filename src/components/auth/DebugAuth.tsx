@@ -5,13 +5,13 @@ const DebugAuth: React.FC = () => {
   const { user, session, userProfile, loading, error } = useAuth();
 
   return (
-    <div className="min-h-screen bg-gray-50 p-8">
+    <div className="min-h-screen bg-panel2 p-8">
       <div className="max-w-4xl mx-auto">
         <h1 className="text-2xl font-bold mb-6">Auth Debug Information</h1>
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Auth State */}
-          <div className="bg-white p-6 rounded-lg shadow">
+          <div className="bg-panel p-6 rounded-lg shadow">
             <h2 className="text-lg font-semibold mb-4">Auth State</h2>
             <div className="space-y-2 text-sm">
               <div><strong>Loading:</strong> {loading ? 'Yes' : 'No'}</div>
@@ -23,7 +23,7 @@ const DebugAuth: React.FC = () => {
           </div>
 
           {/* User Details */}
-          <div className="bg-white p-6 rounded-lg shadow">
+          <div className="bg-panel p-6 rounded-lg shadow">
             <h2 className="text-lg font-semibold mb-4">User Details</h2>
             {user ? (
               <div className="space-y-2 text-sm">
@@ -36,12 +36,12 @@ const DebugAuth: React.FC = () => {
                 <div><strong>Avatar URL:</strong> {user.user_metadata?.avatar_url || 'None'}</div>
               </div>
             ) : (
-              <div className="text-gray-500">No user data</div>
+              <div className="text-text2">No user data</div>
             )}
           </div>
 
           {/* User Profile */}
-          <div className="bg-white p-6 rounded-lg shadow">
+          <div className="bg-panel p-6 rounded-lg shadow">
             <h2 className="text-lg font-semibold mb-4">User Profile</h2>
             {userProfile ? (
               <div className="space-y-2 text-sm">
@@ -52,23 +52,23 @@ const DebugAuth: React.FC = () => {
                 <div><strong>Pilot Info:</strong> {userProfile.pilot ? `${userProfile.pilot.callsign} (#${userProfile.pilot.boardNumber})` : 'None'}</div>
               </div>
             ) : (
-              <div className="text-gray-500">No profile data</div>
+              <div className="text-text2">No profile data</div>
             )}
           </div>
 
           {/* Raw Data */}
-          <div className="bg-white p-6 rounded-lg shadow">
+          <div className="bg-panel p-6 rounded-lg shadow">
             <h2 className="text-lg font-semibold mb-4">Raw Data</h2>
             <div className="space-y-4">
               <div>
                 <h3 className="font-medium">User Object:</h3>
-                <pre className="text-xs bg-gray-100 p-2 rounded overflow-auto max-h-32">
+                <pre className="text-xs bg-panel2 p-2 rounded overflow-auto max-h-32">
                   {JSON.stringify(user, null, 2)}
                 </pre>
               </div>
               <div>
                 <h3 className="font-medium">User Profile Object:</h3>
-                <pre className="text-xs bg-gray-100 p-2 rounded overflow-auto max-h-32">
+                <pre className="text-xs bg-panel2 p-2 rounded overflow-auto max-h-32">
                   {JSON.stringify(userProfile, null, 2)}
                 </pre>
               </div>
@@ -79,7 +79,7 @@ const DebugAuth: React.FC = () => {
         <div className="mt-6">
           <button
             onClick={() => window.location.reload()}
-            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+            className="px-4 py-2 bg-accent text-white rounded hover:brightness-110"
           >
             Reload Page
           </button>

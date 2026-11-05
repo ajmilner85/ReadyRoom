@@ -56,7 +56,7 @@ interface ActivityDisplay {
 const sectionLabelStyle: React.CSSProperties = {
   fontSize: '12px',
   fontWeight: 500,
-  color: '#64748B',
+  color: 'var(--rr-text2)',
   textTransform: 'uppercase',
   letterSpacing: '0.5px',
   display: 'flex',
@@ -719,7 +719,7 @@ const EventDetails: React.FC<EventDetailsProps> = ({
           boxSizing: 'border-box'
         }}
       >
-        <div style={{ display: 'flex', height: '100%', alignItems: 'center', justifyContent: 'center', color: '#64748B' }}>
+        <div style={{ display: 'flex', height: '100%', alignItems: 'center', justifyContent: 'center', color: 'var(--rr-text2)' }}>
           Select an event to view details
         </div>
       </div>
@@ -766,14 +766,14 @@ const EventDetails: React.FC<EventDetailsProps> = ({
       <div style={{
         fontSize: '11px',
         fontWeight: 500,
-        color: '#94A3B8',
+        color: 'var(--rr-text3)',
         textTransform: 'uppercase',
         letterSpacing: '0.5px',
         marginBottom: '2px'
       }}>{label}</div>
-      <div style={{ fontSize: '14px', fontWeight: 600, color: '#334155', lineHeight: 1.3 }}>{primary}</div>
+      <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--rr-text)', lineHeight: 1.3 }}>{primary}</div>
       {secondary && (
-        <div style={{ fontSize: '12px', color: '#64748B', lineHeight: 1.3 }}>{secondary}</div>
+        <div style={{ fontSize: '12px', color: 'var(--rr-text2)', lineHeight: 1.3 }}>{secondary}</div>
       )}
     </div>
   );
@@ -782,8 +782,8 @@ const EventDetails: React.FC<EventDetailsProps> = ({
     <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
       {objectives.map(objective => (
         <div key={objective.id} style={{ display: 'flex', alignItems: 'flex-start', gap: '6px' }}>
-          <CheckCircle2 size={13} style={{ color: '#94A3B8', flexShrink: 0, marginTop: '3px' }} />
-          <span style={{ fontSize: '13px', color: '#374151', lineHeight: 1.5 }}>{objective.text}</span>
+          <CheckCircle2 size={13} style={{ color: 'var(--rr-text3)', flexShrink: 0, marginTop: '3px' }} />
+          <span style={{ fontSize: '13px', color: 'var(--rr-text)', lineHeight: 1.5 }}>{objective.text}</span>
         </div>
       ))}
     </div>
@@ -813,14 +813,14 @@ const EventDetails: React.FC<EventDetailsProps> = ({
         <h1 style={{
           fontSize: '18px',
           fontWeight: 700,
-          color: '#0F172A',
+          color: 'var(--rr-text)',
           marginBottom: '4px'
         }}>
           {event.title}
         </h1>
-        <div style={{ fontSize: '13px', color: '#64748B' }}>
+        <div style={{ fontSize: '13px', color: 'var(--rr-text2)' }}>
           Created by{' '}
-          <span style={{ fontWeight: 500, color: '#475569' }}>
+          <span style={{ fontWeight: 500, color: 'var(--rr-text2)' }}>
             {event.creator && (event.creator.callsign || event.creator.boardNumber)
               ? `${event.creator.boardNumber ? `${event.creator.boardNumber} ` : ''}${event.creator.callsign || 'Unknown'}`
               : event.creator ? 'Unknown User' : 'System'}
@@ -843,9 +843,9 @@ const EventDetails: React.FC<EventDetailsProps> = ({
             gap: '6px',
             marginTop: '10px',
             paddingTop: '10px',
-            borderTop: '1px solid #F1F5F9',
+            borderTop: '1px solid var(--rr-border)',
             fontSize: '12px',
-            color: '#6B7280',
+            color: 'var(--rr-text2)',
             fontFamily: 'monospace'
           }}>
             <Clock size={12} />
@@ -857,8 +857,8 @@ const EventDetails: React.FC<EventDetailsProps> = ({
             <span style={{
               fontSize: '12px',
               fontWeight: 500,
-              color: '#B45309',
-              backgroundColor: '#FEF3C7',
+              color: 'var(--rr-warn)',
+              backgroundColor: 'rgba(222,154,31,.14)',
               padding: '3px 8px',
               borderRadius: '4px'
             }}>
@@ -877,7 +877,7 @@ const EventDetails: React.FC<EventDetailsProps> = ({
           </div>
           <div style={{
             fontSize: '13px',
-            color: '#374151',
+            color: 'var(--rr-text)',
             whiteSpace: 'pre-wrap',
             lineHeight: '1.5'
           }}>
@@ -893,7 +893,7 @@ const EventDetails: React.FC<EventDetailsProps> = ({
           <div style={sectionLabelStyle}>
             <Layers size={14} />
             Activities
-            <span style={{ fontWeight: 400, color: '#94A3B8', textTransform: 'none', letterSpacing: 0 }}>
+            <span style={{ fontWeight: 400, color: 'var(--rr-text3)', textTransform: 'none', letterSpacing: 0 }}>
               ({activityDisplays.length})
             </span>
           </div>
@@ -902,7 +902,7 @@ const EventDetails: React.FC<EventDetailsProps> = ({
               <div
                 key={display.key}
                 style={{
-                  border: '1px solid #E5E7EB',
+                  border: '1px solid var(--rr-border)',
                   borderRadius: '8px',
                   overflow: 'hidden'
                 }}
@@ -913,8 +913,8 @@ const EventDetails: React.FC<EventDetailsProps> = ({
                   alignItems: 'center',
                   gap: '8px',
                   padding: '8px 10px',
-                  backgroundColor: '#F8FAFC',
-                  borderBottom: '1px solid #F1F5F9'
+                  backgroundColor: 'var(--rr-panel2)',
+                  borderBottom: '1px solid var(--rr-border)'
                 }}>
                   <div style={{
                     width: '20px',
@@ -935,7 +935,7 @@ const EventDetails: React.FC<EventDetailsProps> = ({
                     <div style={{
                       fontSize: '13px',
                       fontWeight: 600,
-                      color: '#1E293B',
+                      color: 'var(--rr-text)',
                       lineHeight: 1.3,
                       overflow: 'hidden',
                       textOverflow: 'ellipsis',
@@ -946,7 +946,7 @@ const EventDetails: React.FC<EventDetailsProps> = ({
                     {display.context && (
                       <div style={{
                         fontSize: '11px',
-                        color: '#64748B',
+                        color: 'var(--rr-text2)',
                         lineHeight: 1.3,
                         overflow: 'hidden',
                         textOverflow: 'ellipsis',
@@ -959,8 +959,8 @@ const EventDetails: React.FC<EventDetailsProps> = ({
                   <span style={{
                     fontSize: '10px',
                     fontWeight: 600,
-                    color: '#475569',
-                    backgroundColor: '#E2E8F0',
+                    color: 'var(--rr-text2)',
+                    backgroundColor: 'var(--rr-panel3)',
                     padding: '2px 8px',
                     borderRadius: '9999px',
                     whiteSpace: 'nowrap',
@@ -978,8 +978,8 @@ const EventDetails: React.FC<EventDetailsProps> = ({
 
                   {display.supportRoles.length > 0 && (
                     <div style={{ display: 'flex', alignItems: 'flex-start', gap: '6px' }}>
-                      <Users size={13} style={{ color: '#94A3B8', flexShrink: 0, marginTop: '2px' }} />
-                      <span style={{ fontSize: '12px', color: '#64748B', lineHeight: 1.5 }}>
+                      <Users size={13} style={{ color: 'var(--rr-text3)', flexShrink: 0, marginTop: '2px' }} />
+                      <span style={{ fontSize: '12px', color: 'var(--rr-text2)', lineHeight: 1.5 }}>
                         Support:{' '}
                         {display.supportRoles
                           .map(role => `${role.name}${role.required > 0 ? ` ×${role.required}` : ' (optional)'}`)
@@ -1002,9 +1002,9 @@ const EventDetails: React.FC<EventDetailsProps> = ({
                             gap: '4px',
                             fontSize: '11px',
                             fontWeight: 500,
-                            color: '#2563EB',
-                            backgroundColor: '#EFF6FF',
-                            border: '1px solid #BFDBFE',
+                            color: 'var(--rr-accent-text)',
+                            backgroundColor: 'var(--rr-accent-weak)',
+                            border: '1px solid var(--rr-accent)',
                             borderRadius: '9999px',
                             padding: '2px 8px',
                             textDecoration: 'none',
@@ -1025,8 +1025,8 @@ const EventDetails: React.FC<EventDetailsProps> = ({
                       <span style={{
                         fontSize: '10px',
                         fontWeight: 600,
-                        color: '#B45309',
-                        backgroundColor: '#FEF3C7',
+                        color: 'var(--rr-warn)',
+                        backgroundColor: 'rgba(222,154,31,.14)',
                         padding: '2px 8px',
                         borderRadius: '9999px'
                       }}>
@@ -1069,11 +1069,11 @@ const EventDetails: React.FC<EventDetailsProps> = ({
                 width: '8px',
                 height: '8px',
                 borderRadius: '50%',
-                backgroundColor: isPublished ? '#10B981' : '#CBD5E1',
+                backgroundColor: isPublished ? 'var(--rr-good)' : 'var(--rr-panel3)',
                 flexShrink: 0
               }} />
             )}
-            <span style={{ fontSize: '13px', fontWeight: 500, color: '#374151' }}>
+            <span style={{ fontSize: '13px', fontWeight: 500, color: 'var(--rr-text)' }}>
               {isScheduled
                 ? `Scheduled for publication on ${formatScheduledTime(scheduledPublication!.scheduled_time)}`
                 : isPublished
@@ -1085,7 +1085,7 @@ const EventDetails: React.FC<EventDetailsProps> = ({
           {/* Publish targets (participating squadrons) */}
           {participatingSquadrons.length > 0 && (
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-              <span style={{ fontSize: '12px', color: '#64748B' }}>Publishes to:</span>
+              <span style={{ fontSize: '12px', color: 'var(--rr-text2)' }}>Publishes to:</span>
               {participatingSquadrons.map(squadron => (
                 <span
                   key={squadron.id}
@@ -1094,8 +1094,8 @@ const EventDetails: React.FC<EventDetailsProps> = ({
                     display: 'inline-flex',
                     alignItems: 'center',
                     gap: '4px',
-                    backgroundColor: '#F1F5F9',
-                    border: '1px solid #E2E8F0',
+                    backgroundColor: 'var(--rr-panel2)',
+                    border: '1px solid var(--rr-border)',
                     borderRadius: '9999px',
                     padding: '2px 8px 2px 4px'
                   }}
@@ -1111,7 +1111,7 @@ const EventDetails: React.FC<EventDetailsProps> = ({
                       flexShrink: 0
                     }} />
                   )}
-                  <span style={{ fontSize: '11px', fontWeight: 600, color: '#475569' }}>
+                  <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--rr-text2)' }}>
                     {squadron.designation || squadron.name}
                   </span>
                 </span>
@@ -1123,14 +1123,14 @@ const EventDetails: React.FC<EventDetailsProps> = ({
           {event.eventSettings && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <Bell size={12} style={{ color: '#94A3B8', flexShrink: 0 }} />
-                <span style={{ fontSize: '12px', color: '#64748B' }}>
+                <Bell size={12} style={{ color: 'var(--rr-text3)', flexShrink: 0 }} />
+                <span style={{ fontSize: '12px', color: 'var(--rr-text2)' }}>
                   First reminder · {reminderSummary(event.eventSettings.firstReminderEnabled, event.eventSettings.firstReminderTime)}
                 </span>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <Bell size={12} style={{ color: '#94A3B8', flexShrink: 0 }} />
-                <span style={{ fontSize: '12px', color: '#64748B' }}>
+                <Bell size={12} style={{ color: 'var(--rr-text3)', flexShrink: 0 }} />
+                <span style={{ fontSize: '12px', color: 'var(--rr-text2)' }}>
                   Second reminder · {reminderSummary(event.eventSettings.secondReminderEnabled, event.eventSettings.secondReminderTime)}
                 </span>
               </div>
@@ -1144,14 +1144,14 @@ const EventDetails: React.FC<EventDetailsProps> = ({
               alignItems: 'center',
               justifyContent: 'space-between',
               gap: '8px',
-              backgroundColor: '#F8FAFC',
-              border: '1px solid #E2E8F0',
+              backgroundColor: 'var(--rr-panel2)',
+              border: '1px solid var(--rr-border)',
               borderRadius: '6px',
               padding: '6px 10px'
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0 }}>
-                <Clock size={12} style={{ color: '#94A3B8', flexShrink: 0 }} />
-                <span style={{ fontSize: '12px', color: '#475569', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                <Clock size={12} style={{ color: 'var(--rr-text3)', flexShrink: 0 }} />
+                <span style={{ fontSize: '12px', color: 'var(--rr-text2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   Next reminder: {new Date(scheduledReminders[0].scheduled_time).toLocaleString('en-US', {
                     weekday: 'short',
                     month: 'short',
@@ -1170,7 +1170,7 @@ const EventDetails: React.FC<EventDetailsProps> = ({
                   alignItems: 'center',
                   gap: '6px',
                   padding: '4px 10px',
-                  backgroundColor: '#3B82F6',
+                  backgroundColor: 'var(--rr-accent)',
                   color: 'white',
                   border: 'none',
                   borderRadius: '6px',
@@ -1183,19 +1183,19 @@ const EventDetails: React.FC<EventDetailsProps> = ({
                 }}
                 onMouseEnter={(e) => {
                   if (!sendingReminder) {
-                    e.currentTarget.style.backgroundColor = '#2563EB';
+                    e.currentTarget.style.backgroundColor = 'var(--rr-accent)';
                   }
                 }}
                 onMouseLeave={(e) => {
                   if (!sendingReminder) {
-                    e.currentTarget.style.backgroundColor = '#3B82F6';
+                    e.currentTarget.style.backgroundColor = 'var(--rr-accent)';
                   }
                 }}
               >
                 {sendingReminder ? (
                   <>
                     <div className="w-3 h-3 border-2 border-t-transparent rounded-full animate-spin"
-                         style={{ borderColor: 'white', borderTopColor: 'transparent' }} />
+                         style={{ borderColor: 'var(--rr-panel)', borderTopColor: 'transparent' }} />
                     <span>Sending...</span>
                   </>
                 ) : (
@@ -1214,17 +1214,17 @@ const EventDetails: React.FC<EventDetailsProps> = ({
       {(imagePreview || imageLoading) && (
         <Card className="p-4" style={{ marginBottom: '10px' }}>
           {imageLoading && (
-            <div className="text-sm text-slate-500 flex items-center justify-center mb-3">
+            <div className="text-sm text-text2 flex items-center justify-center mb-3">
               <div className="w-4 h-4 mr-2 border-2 border-t-transparent border-slate-500 rounded-full animate-spin" />
               Processing image...
             </div>
           )}
 
           {imageError && (
-            <div className="p-2 mb-3 bg-red-50 text-red-700 text-sm rounded-md">
+            <div className="p-2 mb-3 bg-red-50 text-bad text-sm rounded-md">
               {imageError}
               <button
-                className="ml-2 text-red-500 hover:text-red-700"
+                className="ml-2 text-bad hover:text-red-700"
                 onClick={() => setImageError(null)}
               >
                 Dismiss
@@ -1234,7 +1234,7 @@ const EventDetails: React.FC<EventDetailsProps> = ({
 
           {imagePreview && (
             <div className="relative">
-              <div className="relative rounded-lg overflow-hidden bg-slate-100" style={{
+              <div className="relative rounded-lg overflow-hidden bg-panel2" style={{
                 maxWidth: '100%',
                 maxHeight: '300px',
                 display: 'flex',
@@ -1278,9 +1278,9 @@ const EventDetails: React.FC<EventDetailsProps> = ({
           flexDirection: 'column',
           justifyContent: 'center',
           alignItems: 'center',
-          borderTop: '1px solid #E2E8F0',
+          borderTop: '1px solid var(--rr-border)',
           padding: '12px',
-          backgroundColor: '#FFFFFF',
+          backgroundColor: 'var(--rr-panel)',
           borderRadius: '0 0 8px 8px',
           position: 'relative',
           zIndex: 5,
@@ -1290,7 +1290,7 @@ const EventDetails: React.FC<EventDetailsProps> = ({
         {/* Created and Updated timestamps */}
         <div style={{
           fontSize: '11px',
-          color: '#94A3B8',
+          color: 'var(--rr-text3)',
           display: 'flex',
           gap: '16px',
           flexWrap: 'wrap'
@@ -1343,7 +1343,7 @@ const EventDetails: React.FC<EventDetailsProps> = ({
               padding: '12px 24px',
               backgroundColor: '#5865F2',
               color: 'white',
-              fontFamily: 'Inter',
+              fontFamily: 'inherit',
               fontSize: '14px',
               fontWeight: 500,
               justifyContent: 'center',
@@ -1393,7 +1393,7 @@ const EventDetails: React.FC<EventDetailsProps> = ({
                 border: 'none',
                 borderLeft: '1px solid rgba(255, 255, 255, 0.2)',
                 cursor: publishing ? 'not-allowed' : 'pointer',
-                fontFamily: 'Inter',
+                fontFamily: 'inherit',
                 fontSize: '13px',
                 fontWeight: 500,
                 whiteSpace: 'nowrap',
@@ -1412,7 +1412,7 @@ const EventDetails: React.FC<EventDetailsProps> = ({
             >
               {publishing ? (
                 <div className="w-4 h-4 border-2 border-t-transparent rounded-full animate-spin"
-                     style={{ borderColor: 'white', borderTopColor: 'transparent' }} />
+                     style={{ borderColor: 'var(--rr-panel)', borderTopColor: 'transparent' }} />
               ) : (
                 <>
                   <Send size={16} />
@@ -1430,13 +1430,13 @@ const EventDetails: React.FC<EventDetailsProps> = ({
               alignItems: 'center',
               gap: '8px',
               padding: '12px 24px',
-              backgroundColor: isPublished ? '#10B981' : '#3B82F6',
+              backgroundColor: isPublished ? 'var(--rr-good)' : 'var(--rr-accent)',
               color: 'white',
               borderRadius: '8px',
               border: 'none',
               cursor: isPublished ? 'not-allowed' : 'pointer',
               transition: 'all 0.2s ease',
-              fontFamily: 'Inter',
+              fontFamily: 'inherit',
               fontSize: '14px',
               fontWeight: 500,
               width: '100%',
@@ -1445,19 +1445,19 @@ const EventDetails: React.FC<EventDetailsProps> = ({
             }}
             onMouseEnter={(e) => {
               if (!isPublished && !publishing) {
-                e.currentTarget.style.backgroundColor = '#2563EB';
+                e.currentTarget.style.backgroundColor = 'var(--rr-accent)';
               }
             }}
             onMouseLeave={(e) => {
               if (!isPublished && !publishing) {
-                e.currentTarget.style.backgroundColor = '#3B82F6';
+                e.currentTarget.style.backgroundColor = 'var(--rr-accent)';
               }
             }}
           >
             {publishing ? (
               <>
                 <div className="w-4 h-4 border-2 border-t-transparent rounded-full animate-spin"
-                     style={{ borderColor: 'white', borderTopColor: 'transparent' }} />
+                     style={{ borderColor: 'var(--rr-panel)', borderTopColor: 'transparent' }} />
                 <span>Publishing...</span>
               </>
             ) : isPublished ? (

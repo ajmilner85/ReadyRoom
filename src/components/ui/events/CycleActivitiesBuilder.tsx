@@ -408,7 +408,7 @@ const CycleActivitiesBuilder: React.FC<CycleActivitiesBuilderProps> = ({
     <div>
       {/* Toolbar: week count only - activities are added inside participant rows */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', justifyContent: 'flex-end' }}>
-        <span style={{ fontSize: '13px', color: '#64748B', fontFamily: 'Inter' }}>
+        <span style={{ fontSize: '13px', color: 'var(--rr-text2)', fontFamily: 'inherit' }}>
           Weeks: {weekCount}
         </span>
         <button
@@ -422,9 +422,9 @@ const CycleActivitiesBuilder: React.FC<CycleActivitiesBuilderProps> = ({
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            border: '1px solid #CBD5E1',
-            backgroundColor: '#FFFFFF',
-            color: (weekCount <= 1 || activities.some(a => a.endWeek >= weekCount)) ? '#D1D5DB' : '#64748B',
+            border: '1px solid var(--rr-border2)',
+            backgroundColor: 'var(--rr-panel)',
+            color: (weekCount <= 1 || activities.some(a => a.endWeek >= weekCount)) ? 'var(--rr-text3)' : 'var(--rr-text2)',
             borderRadius: '6px',
             cursor: (weekCount <= 1 || activities.some(a => a.endWeek >= weekCount)) ? 'default' : 'pointer'
           }}
@@ -441,9 +441,9 @@ const CycleActivitiesBuilder: React.FC<CycleActivitiesBuilderProps> = ({
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            border: '1px solid #CBD5E1',
-            backgroundColor: '#FFFFFF',
-            color: '#64748B',
+            border: '1px solid var(--rr-border2)',
+            backgroundColor: 'var(--rr-panel)',
+            color: 'var(--rr-text2)',
             borderRadius: '6px',
             cursor: 'pointer'
           }}
@@ -455,12 +455,12 @@ const CycleActivitiesBuilder: React.FC<CycleActivitiesBuilderProps> = ({
       {/* Gantt grid */}
       <div
         ref={containerRef}
-        style={{ overflowX: 'auto', border: '1px solid #E2E8F0', borderRadius: '8px', backgroundColor: '#FFFFFF' }}
+        style={{ overflowX: 'auto', border: '1px solid var(--rr-border)', borderRadius: '8px', backgroundColor: 'var(--rr-panel)' }}
       >
         <div style={{ width: `${gridWidth}px`, minWidth: '100%', userSelect: dragging ? 'none' : undefined }}>
           {/* Header row */}
-          <div style={{ display: 'flex', borderBottom: '2px solid #CBD5E1' }}>
-            <div style={{ width: `${HEADER_COL_WIDTH}px`, flexShrink: 0, padding: '8px', boxSizing: 'border-box', fontSize: '11px', fontWeight: 600, color: '#64748B', fontFamily: 'Inter', textTransform: 'uppercase' }}>
+          <div style={{ display: 'flex', borderBottom: '2px solid var(--rr-border2)' }}>
+            <div style={{ width: `${HEADER_COL_WIDTH}px`, flexShrink: 0, padding: '8px', boxSizing: 'border-box', fontSize: '11px', fontWeight: 600, color: 'var(--rr-text2)', fontFamily: 'inherit', textTransform: 'uppercase' }}>
               Participants
             </div>
             {Array.from({ length: weekCount }, (_, i) => (
@@ -471,14 +471,14 @@ const CycleActivitiesBuilder: React.FC<CycleActivitiesBuilderProps> = ({
                   flexShrink: 0,
                   padding: '6px 2px',
                   textAlign: 'center',
-                  borderLeft: '1px solid #E2E8F0',
+                  borderLeft: '1px solid var(--rr-border)',
                   boxSizing: 'border-box'
                 }}
               >
-                <div style={{ fontSize: '12px', fontWeight: 600, color: '#374151', fontFamily: 'Inter' }}>
+                <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--rr-text)', fontFamily: 'inherit' }}>
                   Week {i + 1}
                 </div>
-                <div style={{ fontSize: '10px', color: '#94A3B8', fontFamily: 'Inter' }}>
+                <div style={{ fontSize: '10px', color: 'var(--rr-text3)', fontFamily: 'inherit' }}>
                   {weekDates[i]}
                 </div>
               </div>
@@ -490,7 +490,7 @@ const CycleActivitiesBuilder: React.FC<CycleActivitiesBuilderProps> = ({
             const isRowSelected = selection?.type === 'row' && selection.rowKey === row.rowKey;
             const isDropTarget = dragging && hoverRowIndex === rowIndex;
             return (
-              <div key={row.rowKey} style={{ display: 'flex', borderBottom: '1px solid #F1F5F9', backgroundColor: isDropTarget ? '#F0F9FF' : undefined }}>
+              <div key={row.rowKey} style={{ display: 'flex', borderBottom: '1px solid var(--rr-border)', backgroundColor: isDropTarget ? 'var(--rr-accent-weak)' : undefined }}>
                 {/* Participant header - click to edit the group's criteria */}
                 <div
                   onClick={() => onSelect(isRowSelected ? null : { type: 'row', rowKey: row.rowKey })}
@@ -507,8 +507,8 @@ const CycleActivitiesBuilder: React.FC<CycleActivitiesBuilderProps> = ({
                     minHeight: `${ROW_HEIGHT}px`,
                     boxSizing: 'border-box',
                     cursor: 'pointer',
-                    backgroundColor: isRowSelected ? '#EFF6FF' : undefined,
-                    borderRight: '1px solid #E2E8F0'
+                    backgroundColor: isRowSelected ? 'var(--rr-accent-weak)' : undefined,
+                    borderRight: '1px solid var(--rr-border)'
                   }}
                 >
                   {renderParticipantHeader(row)}
@@ -605,8 +605,8 @@ const CycleActivitiesBuilder: React.FC<CycleActivitiesBuilderProps> = ({
                           width: `${width - 6}px`,
                           top: '6px',
                           height: `${ROW_HEIGHT - 12}px`,
-                          border: `2px solid ${isSelected ? '#1D4ED8' : '#38BDF8'}`,
-                          backgroundColor: isSelected ? '#DBEAFE' : '#F0F9FF',
+                          border: `2px solid ${isSelected ? 'var(--rr-accent)' : '#38BDF8'}`,
+                          backgroundColor: isSelected ? 'var(--rr-accent-weak)' : 'var(--rr-accent-weak)',
                           borderRadius: '4px',
                           cursor: dragging ? 'grabbing' : 'grab',
                           boxSizing: 'border-box'
@@ -626,7 +626,7 @@ const CycleActivitiesBuilder: React.FC<CycleActivitiesBuilderProps> = ({
                             fontSize: '11px',
                             fontWeight: 600,
                             color: '#0C4A6E',
-                            fontFamily: 'Inter',
+                            fontFamily: 'inherit',
                             whiteSpace: 'nowrap',
                             overflow: 'hidden',
                             textOverflow: 'ellipsis',
@@ -666,7 +666,7 @@ const CycleActivitiesBuilder: React.FC<CycleActivitiesBuilderProps> = ({
                                   top: 0,
                                   bottom: 0,
                                   borderRadius: '3px',
-                                  border: isDropTargetWeek ? '1px dashed #1D4ED8' : undefined,
+                                  border: isDropTargetWeek ? '1px dashed var(--rr-accent)' : undefined,
                                   boxSizing: 'border-box',
                                   display: 'flex',
                                   flexDirection: 'column',
@@ -711,8 +711,8 @@ const CycleActivitiesBuilder: React.FC<CycleActivitiesBuilderProps> = ({
                                     <div style={{
                                       fontSize: '10px',
                                       fontWeight: 500,
-                                      color: '#334155',
-                                      fontFamily: 'Inter',
+                                      color: 'var(--rr-text)',
+                                      fontFamily: 'inherit',
                                       lineHeight: 1.25,
                                       whiteSpace: 'normal',
                                       wordBreak: 'break-word',
@@ -777,8 +777,8 @@ const CycleActivitiesBuilder: React.FC<CycleActivitiesBuilderProps> = ({
                                       <div style={{
                                         fontSize: '10px',
                                         fontWeight: 500,
-                                        color: '#334155',
-                                        fontFamily: 'Inter',
+                                        color: 'var(--rr-text)',
+                                        fontFamily: 'inherit',
                                         lineHeight: 1.25,
                                         whiteSpace: 'normal',
                                         wordBreak: 'break-word',
@@ -867,7 +867,7 @@ const CycleActivitiesBuilder: React.FC<CycleActivitiesBuilderProps> = ({
               flexShrink: 0,
               padding: '8px',
               boxSizing: 'border-box',
-              borderRight: '1px solid #E2E8F0'
+              borderRight: '1px solid var(--rr-border)'
             }}>
               <button
                 type="button"
@@ -875,13 +875,13 @@ const CycleActivitiesBuilder: React.FC<CycleActivitiesBuilderProps> = ({
                 style={{
                   width: '100%',
                   padding: '6px 8px',
-                  border: '1px dashed #93C5FD',
-                  backgroundColor: '#F8FAFC',
-                  color: '#3B82F6',
+                  border: '1px dashed var(--rr-accent)',
+                  backgroundColor: 'var(--rr-panel2)',
+                  color: 'var(--rr-accent-text)',
                   borderRadius: '6px',
                   cursor: 'pointer',
                   fontSize: '12px',
-                  fontFamily: 'Inter',
+                  fontFamily: 'inherit',
                   fontWeight: 500,
                   display: 'flex',
                   alignItems: 'center',
@@ -911,26 +911,26 @@ const CycleActivitiesBuilder: React.FC<CycleActivitiesBuilderProps> = ({
           left: `${hoveredEventPopup.x}px`,
           top: `${hoveredEventPopup.y}px`,
           transform: hoveredEventPopup.openUpward ? 'translate(-50%, -100%)' : 'translateX(-50%)',
-          backgroundColor: '#FFFFFF',
-          border: '1px solid #E5E7EB',
+          backgroundColor: 'var(--rr-panel)',
+          border: '1px solid var(--rr-border)',
           borderRadius: '8px',
-          boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+          boxShadow: 'var(--rr-shadow)',
           padding: '10px 12px',
           minWidth: 'max-content',
           zIndex: 3000,
           pointerEvents: 'none',
           textAlign: 'left'
         }}>
-          <div style={{ fontSize: '13px', fontWeight: 600, color: '#0F172A', fontFamily: 'Inter', marginBottom: '2px' }}>
+          <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--rr-text)', fontFamily: 'inherit', marginBottom: '2px' }}>
             {hoveredEventPopup.event.name}
           </div>
-          <div style={{ fontSize: '11px', color: '#6B7280', fontFamily: 'Inter' }}>
+          <div style={{ fontSize: '11px', color: 'var(--rr-text2)', fontFamily: 'inherit' }}>
             {new Date(hoveredEventPopup.event.startDatetime).toLocaleDateString('en-US', {
               weekday: 'short', month: 'short', day: 'numeric', year: 'numeric',
               hour: 'numeric', minute: '2-digit'
             })}
           </div>
-          <div style={{ fontSize: '10px', color: '#94A3B8', fontFamily: 'Inter', marginTop: '4px' }}>
+          <div style={{ fontSize: '10px', color: 'var(--rr-text3)', fontFamily: 'inherit', marginTop: '4px' }}>
             Drag to another week to reschedule
           </div>
         </div>,

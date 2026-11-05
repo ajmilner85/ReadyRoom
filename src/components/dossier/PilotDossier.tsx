@@ -412,12 +412,12 @@ const PilotDossier: React.FC = () => {
         <div style={{ ...dossierStyles.contentWrapper, alignItems: 'center', justifyContent: 'center' }}>
           <div style={{ textAlign: 'center', maxWidth: '400px' }}>
             <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '24px' }}>
-              <BookUser size={96} style={{ color: '#D1D5DB' }} />
+              <BookUser size={96} style={{ color: 'var(--rr-text3)' }} />
             </div>
-            <h2 style={{ fontSize: '20px', fontWeight: 600, color: '#1E293B', marginBottom: '12px' }}>
+            <h2 style={{ fontSize: '20px', fontWeight: 600, color: 'var(--rr-text)', marginBottom: '12px' }}>
               No Pilot Record Linked
             </h2>
-            <p style={{ fontSize: '14px', color: '#9CA3AF' }}>
+            <p style={{ fontSize: '14px', color: 'var(--rr-text3)' }}>
               Your account is not linked to a pilot record, so there is no dossier to display.
               Contact your squadron administrator to have your Discord account linked to your pilot record.
             </p>

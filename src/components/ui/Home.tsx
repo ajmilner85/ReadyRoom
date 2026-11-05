@@ -35,7 +35,7 @@ const Home: React.FC = () => {
   }, [setPageLoading]);
 
   const containerStyle: React.CSSProperties = {
-    backgroundColor: '#F0F4F8',
+    backgroundColor: 'var(--rr-panel2)',
     minHeight: '100vh',
     padding: '24px',
     boxSizing: 'border-box',

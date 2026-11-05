@@ -238,15 +238,15 @@ export const PositionReportDialog: React.FC<PositionReportDialogProps> = ({
   const getInputStyle = (inputName: string) => ({
     width: '75px',
     height: '44px',
-    fontFamily: 'Inter',
+    fontFamily: 'inherit',
     fontStyle: 'normal',
     fontWeight: 700,
     fontSize: '20px',
     textAlign: 'center' as const,
-    color: inputName === 'lowState' ? getFuelColor(parseFloat(lowState) || 0) : '#000000',
-    border: focusedInput === inputName ? '2px solid #2563EB' : '2px solid transparent',
+    color: inputName === 'lowState' ? getFuelColor(parseFloat(lowState) || 0) : 'var(--rr-text)',
+    border: focusedInput === inputName ? '2px solid var(--rr-accent)' : '2px solid transparent',
     outline: 'none',
-    backgroundColor: '#F8FAFC',
+    backgroundColor: 'var(--rr-panel2)',
     borderRadius: '4px',
     boxSizing: 'border-box' as const,
     caretColor: 'transparent'
@@ -272,8 +272,8 @@ export const PositionReportDialog: React.FC<PositionReportDialogProps> = ({
         left: '50%',
         transform: 'translate(-50%, -50%)',
         width: '463px',
-        backgroundColor: '#FFFFFF',
-        boxShadow: '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)',
+        backgroundColor: 'var(--rr-panel)',
+        boxShadow: 'var(--rr-shadow)',
         borderRadius: '8px',
         zIndex: 1001,
         display: 'flex',
@@ -283,13 +283,13 @@ export const PositionReportDialog: React.FC<PositionReportDialogProps> = ({
       }}>
         <div style={{
           width: '100%',
-          fontFamily: 'Inter',
+          fontFamily: 'inherit',
           fontStyle: 'normal',
           fontWeight: 400,
           fontSize: '20px',
           lineHeight: '24px',
           textAlign: 'center',
-          color: '#64748B',
+          color: 'var(--rr-text2)',
           marginBottom: '8px'
         }}>
           Position Report
@@ -359,7 +359,7 @@ export const PositionReportDialog: React.FC<PositionReportDialogProps> = ({
         </div>
         {error && (
           <div style={{
-            color: '#EF4444',
+            color: 'var(--rr-bad)',
             fontSize: '12px',
             marginTop: '8px'
           }}>

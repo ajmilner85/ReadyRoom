@@ -1,8 +1,8 @@
 export const styles = {
     cardBase: {
       width: '100%',
-      backgroundColor: '#FFFFFF',
-      boxShadow: '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)',
+      backgroundColor: 'var(--rr-panel)',
+      boxShadow: 'var(--rr-shadow)',
       borderRadius: '8px',
       padding: '24px',
       display: 'flex',
@@ -16,20 +16,20 @@ export const styles = {
       marginBottom: '16px',
     },
     headerLabel: {
-      fontFamily: 'Inter',
+      fontFamily: 'inherit',
       fontStyle: 'normal',
       fontWeight: 300,
       fontSize: '20px',
       lineHeight: '24px',
-      color: '#64748B',
+      color: 'var(--rr-text2)',
       textTransform: 'uppercase' as const,
     },
     editButton: {
       padding: '4px',
       borderRadius: '4px',
       cursor: 'pointer',
-      background: 'white',
-      boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+      background: 'var(--rr-panel)',
+      boxShadow: 'var(--rr-shadow)',
       border: 'none',
       display: 'flex',
       alignItems: 'center',
@@ -37,12 +37,12 @@ export const styles = {
       transition: 'all 0.1s ease',
       marginLeft: '8px',
       zIndex: 1,
-      color: '#64748B',
+      color: 'var(--rr-text2)',
       width: '24px',
       height: '24px',
     },
     tableCell: {
-      fontFamily: 'Inter',
+      fontFamily: 'inherit',
       fontWeight: 400,
       fontSize: '14px',  // Updated from 16px to 14px
       height: '24px', // Matches pilot list
@@ -50,13 +50,13 @@ export const styles = {
       marginBottom: '10px',
     },
     tableCellPlaceholder: {
-      color: '#94A3B8', // Lighter color for placeholder text
+      color: 'var(--rr-text3)', // Lighter color for placeholder text
     },
     tableHeader: {
-      fontFamily: 'Inter',
+      fontFamily: 'inherit',
       fontWeight: 700,
       fontSize: '14px',  // Updated from 16px to 14px
-      color: '#646F7E',
+      color: 'var(--rr-text2)',
       padding: '4px 10px',
     },
     tableInput: {
@@ -65,7 +65,7 @@ export const styles = {
       background: 'transparent',
       border: 'none',
       outline: 'none',
-      fontFamily: 'Inter',
+      fontFamily: 'inherit',
       fontWeight: 400,
       fontSize: '14px',  // Updated from 16px to 14px
       padding: '0',
@@ -74,13 +74,13 @@ export const styles = {
     encryptionButton: {
       width: '36px', // 75% of original 48px
       height: '36px',
-      backgroundColor: '#FFFFFF',
-      color: '#64748B',
-      border: '1px solid #CBD5E1',
+      backgroundColor: 'var(--rr-panel)',
+      color: 'var(--rr-text2)',
+      border: '1px solid var(--rr-border2)',
       borderRadius: '8px',
       cursor: 'pointer',
       transition: 'all 0.2s ease-in-out',
-      fontFamily: 'Inter',
+      fontFamily: 'inherit',
       fontSize: '12px', // Reduced from 14px
       fontWeight: 500,
       display: 'flex',
@@ -98,13 +98,13 @@ export const styles = {
       alignItems: 'center',
       gap: '8px',
       padding: '8px 16px',
-      backgroundColor: '#FFFFFF',
-      color: '#64748B',
+      backgroundColor: 'var(--rr-panel)',
+      color: 'var(--rr-text2)',
       borderRadius: '8px',
-      border: '1px solid #CBD5E1',
+      border: '1px solid var(--rr-border2)',
       cursor: 'pointer',
       transition: 'background-color 0.2s ease',
-      fontFamily: 'Inter',
+      fontFamily: 'inherit',
       fontSize: '14px',
       fontWeight: 400,
     },

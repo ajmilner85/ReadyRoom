@@ -25,7 +25,7 @@ export const SortableStandingRow: React.FC<SortableStandingRowProps> = ({
     transition,
     zIndex: isDragging ? 10 : 1,
     position: 'relative' as const,
-    backgroundColor: isDragging ? '#F8FAFC' : 'white',
+    backgroundColor: isDragging ? 'var(--rr-panel2)' : 'var(--rr-panel)',
     boxShadow: isDragging ? '0 4px 8px rgba(0,0,0,0.1)' : 'none'
   };
 
@@ -35,8 +35,8 @@ export const SortableStandingRow: React.FC<SortableStandingRowProps> = ({
       style={{
         ...style,
         display: 'flex',
-        borderBottom: '1px solid #F3F4F6',
-        backgroundColor: isDragging ? '#F8FAFC' : '#FFFFFF',
+        borderBottom: '1px solid var(--rr-border)',
+        backgroundColor: isDragging ? 'var(--rr-panel2)' : 'var(--rr-panel)',
         boxShadow: isDragging ? '0 4px 8px rgba(0,0,0,0.1)' : 'none',
         height: 'auto',
         minHeight: '48px'
@@ -56,7 +56,7 @@ export const SortableStandingRow: React.FC<SortableStandingRowProps> = ({
         {...attributes}
         {...listeners}
       >
-        <GripVertical size={16} style={{ color: '#64748B' }} />
+        <GripVertical size={16} style={{ color: 'var(--rr-text2)' }} />
       </div>
 
       {/* Standing Name Column */}
@@ -66,9 +66,9 @@ export const SortableStandingRow: React.FC<SortableStandingRowProps> = ({
         display: 'flex',
         alignItems: 'center',
         fontSize: '14px',
-        color: '#1F2937',
+        color: 'var(--rr-text)',
         fontWeight: 500,
-        fontFamily: 'Inter'
+        fontFamily: 'inherit'
       }}>
         {standing.name}
       </div>
@@ -90,25 +90,25 @@ export const SortableStandingRow: React.FC<SortableStandingRowProps> = ({
                 padding: '4px',
                 borderRadius: '4px',
                 cursor: 'pointer',
-                background: 'white',
-                boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                background: 'var(--rr-panel)',
+                boxShadow: 'var(--rr-shadow)',
                 border: 'none',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 transition: 'all 0.1s ease',
-                color: '#64748B',
+                color: 'var(--rr-text2)',
                 width: '24px',
                 height: '24px'
               }}
               title="Edit standing"
               onMouseEnter={(e) => {
                 e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.15)';
-                e.currentTarget.style.background = '#F8FAFC';
+                e.currentTarget.style.background = 'var(--rr-panel2)';
               }}
               onMouseLeave={(e) => {
                 e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
-                e.currentTarget.style.background = 'white';
+                e.currentTarget.style.background = 'var(--rr-panel)';
               }}
             >
               <Edit size={14} color="#64748B" />
@@ -120,14 +120,14 @@ export const SortableStandingRow: React.FC<SortableStandingRowProps> = ({
                 padding: '4px',
                 borderRadius: '4px',
                 cursor: standingUsage[standing.id] > 0 ? 'not-allowed' : 'pointer',
-                background: 'white',
-                boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                background: 'var(--rr-panel)',
+                boxShadow: 'var(--rr-shadow)',
                 border: 'none',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 transition: 'all 0.1s ease',
-                color: '#64748B',
+                color: 'var(--rr-text2)',
                 width: '24px',
                 height: '24px',
                 opacity: standingUsage[standing.id] > 0 ? 0.5 : 1
@@ -136,13 +136,13 @@ export const SortableStandingRow: React.FC<SortableStandingRowProps> = ({
               onMouseEnter={(e) => {
                 if (standingUsage[standing.id] === 0) {
                   e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.15)';
-                  e.currentTarget.style.background = '#F8FAFC';
+                  e.currentTarget.style.background = 'var(--rr-panel2)';
                 }
               }}
               onMouseLeave={(e) => {
                 if (standingUsage[standing.id] === 0) {
                   e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
-                  e.currentTarget.style.background = 'white';
+                  e.currentTarget.style.background = 'var(--rr-panel)';
                 }
               }}
             >

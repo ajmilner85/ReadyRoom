@@ -64,21 +64,21 @@ interface SyllabusObjective {
 const selectStyle: React.CSSProperties = {
   width: '100%',
   padding: '8px',
-  border: '1px solid #CBD5E1',
+  border: '1px solid var(--rr-border2)',
   borderRadius: '4px',
   fontSize: '14px',
   boxSizing: 'border-box',
   height: '35px',
   appearance: 'menulist',
-  backgroundColor: '#FFFFFF',
-  color: '#374151',
+  backgroundColor: 'var(--rr-panel)',
+  color: 'var(--rr-text)',
   fontFamily: "'Inter', sans-serif"
 };
 
 const inputStyle: React.CSSProperties = {
   width: '100%',
   padding: '8px',
-  border: '1px solid #CBD5E1',
+  border: '1px solid var(--rr-border2)',
   borderRadius: '4px',
   fontSize: '14px',
   boxSizing: 'border-box',
@@ -144,7 +144,7 @@ export const CollapsibleSection: React.FC<{
   onToggle: () => void;
   children: React.ReactNode;
 }> = ({ title, summary, expanded, onToggle, children }) => (
-  <div style={{ border: '1px solid #E5E7EB', borderRadius: '6px', marginTop: '8px', backgroundColor: '#FFFFFF' }}>
+  <div style={{ border: '1px solid var(--rr-border)', borderRadius: '6px', marginTop: '8px', backgroundColor: 'var(--rr-panel)' }}>
     <button type="button"
       onClick={onToggle}
       style={{
@@ -158,22 +158,22 @@ export const CollapsibleSection: React.FC<{
         cursor: 'pointer',
         fontSize: '13px',
         fontWeight: 500,
-        color: '#374151',
+        color: 'var(--rr-text)',
         fontFamily: "'Inter', sans-serif",
         textAlign: 'left'
       }}
     >
       <ChevronRight
         size={14}
-        style={{ color: '#94A3B8', flexShrink: 0, transform: expanded ? 'rotate(90deg)' : 'none', transition: 'transform 0.15s ease' }}
+        style={{ color: 'var(--rr-text3)', flexShrink: 0, transform: expanded ? 'rotate(90deg)' : 'none', transition: 'transform 0.15s ease' }}
       />
       <span>{title}</span>
       {summary && (
-        <span style={{ marginLeft: 'auto', fontSize: '12px', fontWeight: 400, color: '#94A3B8' }}>{summary}</span>
+        <span style={{ marginLeft: 'auto', fontSize: '12px', fontWeight: 400, color: 'var(--rr-text3)' }}>{summary}</span>
       )}
     </button>
     {expanded && (
-      <div style={{ padding: '0 12px 12px 12px', borderTop: '1px solid #F1F5F9', paddingTop: '12px' }}>
+      <div style={{ padding: '0 12px 12px 12px', borderTop: '1px solid var(--rr-border)', paddingTop: '12px' }}>
         {children}
       </div>
     )}
@@ -351,9 +351,9 @@ const EventActivitiesEditor: React.FC<EventActivitiesEditorProps> = ({
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    border: '1px solid #D1D5DB',
-    backgroundColor: '#FFFFFF',
-    color: disabled ? '#D1D5DB' : '#64748B',
+    border: '1px solid var(--rr-border2)',
+    backgroundColor: 'var(--rr-panel)',
+    color: disabled ? 'var(--rr-text3)' : 'var(--rr-text2)',
     cursor: disabled ? 'default' : 'pointer',
     padding: 0
   });
@@ -364,13 +364,13 @@ const EventActivitiesEditor: React.FC<EventActivitiesEditorProps> = ({
         onClick={addActivity}
         style={{
           padding: '8px 16px',
-          border: '1px solid #3B82F6',
-          backgroundColor: '#EFF6FF',
-          color: '#3B82F6',
+          border: '1px solid var(--rr-accent)',
+          backgroundColor: 'var(--rr-accent-weak)',
+          color: 'var(--rr-accent-text)',
           borderRadius: '6px',
           cursor: 'pointer',
           fontSize: '14px',
-          fontFamily: 'Inter',
+          fontFamily: 'inherit',
           fontWeight: 500,
           marginBottom: '12px'
         }}
@@ -379,7 +379,7 @@ const EventActivitiesEditor: React.FC<EventActivitiesEditorProps> = ({
       </button>
 
       {activities.length === 0 && (
-        <p style={{ fontSize: '12px', color: '#94A3B8', margin: '4px 0 8px 0', fontFamily: 'Inter', fontStyle: 'italic' }}>
+        <p style={{ fontSize: '12px', color: 'var(--rr-text3)', margin: '4px 0 8px 0', fontFamily: 'inherit', fontStyle: 'italic' }}>
           No activities. Add one to organize this event's roster by what attendees are doing (a syllabus mission, standalone training, an advanced qualification, ...).
         </p>
       )}
@@ -520,10 +520,10 @@ const ActivityCard: React.FC<{
     <div
       style={{
         marginBottom: '16px',
-        border: '1px solid #CBD5E1',
+        border: '1px solid var(--rr-border2)',
         borderRadius: '8px',
-        backgroundColor: '#FFFFFF',
-        boxShadow: '0 1px 2px rgba(0, 0, 0, 0.05)',
+        backgroundColor: 'var(--rr-panel)',
+        boxShadow: 'var(--rr-shadow)',
         overflow: 'visible'
       }}
     >
@@ -533,8 +533,8 @@ const ActivityCard: React.FC<{
         gap: '8px',
         alignItems: 'center',
         padding: '10px 12px',
-        backgroundColor: '#F1F5F9',
-        borderBottom: '1px solid #E2E8F0',
+        backgroundColor: 'var(--rr-panel2)',
+        borderBottom: '1px solid var(--rr-border)',
         borderRadius: '8px 8px 0 0'
       }}>
         <div style={{ display: 'flex', flexDirection: 'column' }}>
@@ -567,7 +567,7 @@ const ActivityCard: React.FC<{
           fontSize: '13px',
           fontWeight: 600,
           flexShrink: 0,
-          fontFamily: 'Inter'
+          fontFamily: 'inherit'
         }}>
           {index + 1}
         </div>
@@ -609,7 +609,7 @@ const ActivityCard: React.FC<{
               sources={sources}
             />
             {sources.length === 0 && (
-              <p style={{ fontSize: '12px', color: '#94A3B8', margin: '4px 0 0 0', fontFamily: 'Inter', fontStyle: 'italic' }}>
+              <p style={{ fontSize: '12px', color: 'var(--rr-text3)', margin: '4px 0 0 0', fontFamily: 'inherit', fontStyle: 'italic' }}>
                 {uiKind === 'standalone'
                   ? 'No lesson pools exist yet. Create one on the Training page (Syllabus Management > Type: Lesson Pool).'
                   : uiKind === 'advanced'
@@ -662,9 +662,9 @@ const ActivityCard: React.FC<{
                     onClick={() => onRemoveObjective(objectiveIndex)}
                     style={{
                       padding: '8px',
-                      backgroundColor: 'white',
-                      color: '#9CA3AF',
-                      border: '1px solid #E5E7EB',
+                      backgroundColor: 'var(--rr-panel)',
+                      color: 'var(--rr-text3)',
+                      border: '1px solid var(--rr-border)',
                       borderRadius: '6px',
                       cursor: 'pointer',
                       display: 'flex',
@@ -672,14 +672,14 @@ const ActivityCard: React.FC<{
                       justifyContent: 'center'
                     }}
                     onMouseEnter={(e) => {
-                      e.currentTarget.style.backgroundColor = '#FEE2E2';
-                      e.currentTarget.style.color = '#DC2626';
-                      e.currentTarget.style.borderColor = '#FECACA';
+                      e.currentTarget.style.backgroundColor = 'rgba(224,82,78,.12)';
+                      e.currentTarget.style.color = 'var(--rr-bad)';
+                      e.currentTarget.style.borderColor = 'var(--rr-bad)';
                     }}
                     onMouseLeave={(e) => {
-                      e.currentTarget.style.backgroundColor = 'white';
-                      e.currentTarget.style.color = '#9CA3AF';
-                      e.currentTarget.style.borderColor = '#E5E7EB';
+                      e.currentTarget.style.backgroundColor = 'var(--rr-panel)';
+                      e.currentTarget.style.color = 'var(--rr-text3)';
+                      e.currentTarget.style.borderColor = 'var(--rr-border)';
                     }}
                     title="Remove objective"
                   >
@@ -691,13 +691,13 @@ const ActivityCard: React.FC<{
                 onClick={onAddObjective}
                 style={{
                   padding: '6px 12px',
-                  border: '1px solid #CBD5E1',
-                  backgroundColor: '#F8FAFC',
-                  color: '#64748B',
+                  border: '1px solid var(--rr-border2)',
+                  backgroundColor: 'var(--rr-panel2)',
+                  color: 'var(--rr-text2)',
                   borderRadius: '6px',
                   cursor: 'pointer',
                   fontSize: '13px',
-                  fontFamily: 'Inter',
+                  fontFamily: 'inherit',
                   fontWeight: 500,
                   display: 'flex',
                   alignItems: 'center',
@@ -717,16 +717,16 @@ const ActivityCard: React.FC<{
                 >
                   <CheckCircle2
                     size={13}
-                    style={{ color: '#94A3B8', flexShrink: 0, marginTop: '3px' }}
+                    style={{ color: 'var(--rr-text3)', flexShrink: 0, marginTop: '3px' }}
                   />
-                  <p style={{ fontSize: '13px', color: '#374151', lineHeight: 1.5, margin: 0 }}>
+                  <p style={{ fontSize: '13px', color: 'var(--rr-text)', lineHeight: 1.5, margin: 0 }}>
                     {objective.objective_text}
                   </p>
                 </div>
               ))}
             </div>
           ) : (
-            <p style={{ fontSize: '12px', color: '#94A3B8', margin: 0, fontFamily: 'Inter', fontStyle: 'italic' }}>
+            <p style={{ fontSize: '12px', color: 'var(--rr-text3)', margin: 0, fontFamily: 'inherit', fontStyle: 'italic' }}>
               {activity.syllabusMissionId ? 'The selected lesson has no training objectives.' : 'Select a lesson to see its training objectives.'}
             </p>
           )}
@@ -783,7 +783,7 @@ const ActivityCard: React.FC<{
               section of the Mission Debriefing page */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <label style={{ fontSize: '13px', fontWeight: 500, color: '#374151', fontFamily: 'Inter' }}>
+              <label style={{ fontSize: '13px', fontWeight: 500, color: 'var(--rr-text)', fontFamily: 'inherit' }}>
                 Require After Action Reports
               </label>
               <div
@@ -791,7 +791,7 @@ const ActivityCard: React.FC<{
                 onMouseEnter={() => setShowAarTooltip(true)}
                 onMouseLeave={() => setShowAarTooltip(false)}
               >
-                <Info size={14} style={{ color: '#94A3B8', cursor: 'help' }} />
+                <Info size={14} style={{ color: 'var(--rr-text3)', cursor: 'help' }} />
                 {showAarTooltip && (
                   <div style={{
                     position: 'absolute',
@@ -822,7 +822,7 @@ const ActivityCard: React.FC<{
               style={{
                 width: '44px',
                 height: '24px',
-                backgroundColor: settings.requiresAar ? '#3B82F6' : '#E5E7EB',
+                backgroundColor: settings.requiresAar ? 'var(--rr-accent)' : 'var(--rr-panel3)',
                 borderRadius: '12px',
                 position: 'relative',
                 cursor: 'pointer',
@@ -834,13 +834,13 @@ const ActivityCard: React.FC<{
                 style={{
                   width: '20px',
                   height: '20px',
-                  backgroundColor: 'white',
+                  backgroundColor: 'var(--rr-panel)',
                   borderRadius: '50%',
                   position: 'absolute',
                   top: '2px',
                   left: settings.requiresAar ? '22px' : '2px',
                   transition: 'left 0.2s ease',
-                  boxShadow: '0 2px 4px rgba(0, 0, 0, 0.2)'
+                  boxShadow: 'var(--rr-shadow)'
                 }}
               />
             </div>

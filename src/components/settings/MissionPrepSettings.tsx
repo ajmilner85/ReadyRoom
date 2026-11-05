@@ -32,8 +32,8 @@ interface TemplateDraft {
 
 const sectionStyle: React.CSSProperties = {
   padding: '24px',
-  backgroundColor: '#F8FAFC',
-  border: '1px solid #E2E8F0',
+  backgroundColor: 'var(--rr-panel2)',
+  border: '1px solid var(--rr-border)',
   borderRadius: '8px',
   marginBottom: '24px'
 };
@@ -41,25 +41,25 @@ const sectionStyle: React.CSSProperties = {
 const inputStyle: React.CSSProperties = {
   width: '100%',
   padding: '8px 12px',
-  border: '1px solid #D1D5DB',
+  border: '1px solid var(--rr-border2)',
   borderRadius: '6px',
   fontSize: '14px',
-  fontFamily: 'Inter',
+  fontFamily: 'inherit',
   boxSizing: 'border-box',
-  backgroundColor: 'white'
+  backgroundColor: 'var(--rr-panel)'
 };
 
 const labelStyle: React.CSSProperties = {
   display: 'block',
   fontSize: '14px',
   fontWeight: 500,
-  color: '#374151',
+  color: 'var(--rr-text)',
   marginBottom: '8px'
 };
 
 const primaryButton = (enabled: boolean): React.CSSProperties => ({
   padding: '8px 16px',
-  backgroundColor: enabled ? '#3B82F6' : '#94A3B8',
+  backgroundColor: enabled ? 'var(--rr-accent)' : '#94A3B8',
   color: 'white',
   border: 'none',
   borderRadius: '6px',
@@ -73,9 +73,9 @@ const primaryButton = (enabled: boolean): React.CSSProperties => ({
 
 const secondaryButton: React.CSSProperties = {
   padding: '8px 16px',
-  backgroundColor: 'white',
-  color: '#374151',
-  border: '1px solid #D1D5DB',
+  backgroundColor: 'var(--rr-panel)',
+  color: 'var(--rr-text)',
+  border: '1px solid var(--rr-border2)',
   borderRadius: '6px',
   fontSize: '14px',
   fontWeight: 500,
@@ -222,7 +222,7 @@ const MissionPrepSettings: React.FC<MissionPrepSettingsProps> = ({ setError }) =
       style={{
         width: '44px',
         height: '24px',
-        backgroundColor: enabled ? '#3B82F6' : '#E5E7EB',
+        backgroundColor: enabled ? 'var(--rr-accent)' : 'var(--rr-panel3)',
         borderRadius: '12px',
         position: 'relative',
         cursor: disabled ? 'not-allowed' : 'pointer',
@@ -235,13 +235,13 @@ const MissionPrepSettings: React.FC<MissionPrepSettingsProps> = ({ setError }) =
         style={{
           width: '20px',
           height: '20px',
-          backgroundColor: 'white',
+          backgroundColor: 'var(--rr-panel)',
           borderRadius: '50%',
           position: 'absolute',
           top: '2px',
           left: enabled ? '22px' : '2px',
           transition: 'left 0.2s ease',
-          boxShadow: '0 2px 4px rgba(0, 0, 0, 0.2)'
+          boxShadow: 'var(--rr-shadow)'
         }}
       />
     </div>
@@ -256,8 +256,8 @@ const MissionPrepSettings: React.FC<MissionPrepSettingsProps> = ({ setError }) =
           gap: '10px',
           alignItems: 'flex-start',
           padding: '12px',
-          border: `1px solid ${selected ? '#3B82F6' : '#E2E8F0'}`,
-          backgroundColor: selected ? '#EFF6FF' : 'white',
+          border: `1px solid ${selected ? 'var(--rr-accent)' : 'var(--rr-border)'}`,
+          backgroundColor: selected ? 'var(--rr-accent-weak)' : 'var(--rr-panel)',
           borderRadius: '6px',
           cursor: canManage ? 'pointer' : 'not-allowed',
           opacity: canManage ? 1 : 0.7,
@@ -273,8 +273,8 @@ const MissionPrepSettings: React.FC<MissionPrepSettingsProps> = ({ setError }) =
           style={{ marginTop: '3px' }}
         />
         <div>
-          <div style={{ fontSize: '14px', fontWeight: 500, color: '#0F172A' }}>{title}</div>
-          <div style={{ fontSize: '13px', color: '#64748B', marginTop: '2px' }}>{description}</div>
+          <div style={{ fontSize: '14px', fontWeight: 500, color: 'var(--rr-text)' }}>{title}</div>
+          <div style={{ fontSize: '13px', color: 'var(--rr-text2)', marginTop: '2px' }}>{description}</div>
         </div>
       </label>
     );
@@ -283,8 +283,8 @@ const MissionPrepSettings: React.FC<MissionPrepSettingsProps> = ({ setError }) =
   const renderDraftEditor = () => {
     if (!draft) return null;
     return (
-      <div style={{ ...sectionStyle, backgroundColor: 'white' }}>
-        <h3 style={{ fontSize: '16px', fontWeight: 600, color: '#0F172A', margin: '0 0 16px 0' }}>
+      <div style={{ ...sectionStyle, backgroundColor: 'var(--rr-panel)' }}>
+        <h3 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--rr-text)', margin: '0 0 16px 0' }}>
           {draft.id ? 'Edit Template' : 'New Template'}
         </h3>
         <div style={{ marginBottom: '16px' }}>
@@ -307,13 +307,13 @@ const MissionPrepSettings: React.FC<MissionPrepSettingsProps> = ({ setError }) =
         </div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
           <div>
-            <div style={{ fontSize: '14px', fontWeight: 500, color: '#374151' }}>Share this template</div>
-            <div style={{ fontSize: '13px', color: '#64748B' }}>Shared templates are visible to all users.</div>
+            <div style={{ fontSize: '14px', fontWeight: 500, color: 'var(--rr-text)' }}>Share this template</div>
+            <div style={{ fontSize: '13px', color: 'var(--rr-text2)' }}>Shared templates are visible to all users.</div>
           </div>
           {renderToggle(draft.is_shared, is_shared => setDraft({ ...draft, is_shared }))}
         </div>
         <label style={labelStyle}>Channels (PRI)</label>
-        <div style={{ border: '1px solid #E2E8F0', borderRadius: '6px', padding: '8px 0', marginBottom: '16px' }}>
+        <div style={{ border: '1px solid var(--rr-border)', borderRadius: '6px', padding: '8px 0', marginBottom: '16px' }}>
           <CommsEntriesEditor entries={draft.entries} onChange={entries => setDraft({ ...draft, entries })} />
         </div>
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
@@ -341,42 +341,42 @@ const MissionPrepSettings: React.FC<MissionPrepSettingsProps> = ({ setError }) =
           alignItems: 'center',
           gap: '12px',
           padding: '12px 16px',
-          backgroundColor: 'white',
-          border: '1px solid #E2E8F0',
+          backgroundColor: 'var(--rr-panel)',
+          border: '1px solid var(--rr-border)',
           borderRadius: '6px',
           marginBottom: '8px'
         }}
       >
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-            <span style={{ fontSize: '14px', fontWeight: 500, color: '#0F172A' }}>{t.title}</span>
+            <span style={{ fontSize: '14px', fontWeight: 500, color: 'var(--rr-text)' }}>{t.title}</span>
             {isDefault && (
-              <span style={{ fontSize: '11px', fontWeight: 500, padding: '2px 8px', borderRadius: '8px', backgroundColor: '#DBEAFE', color: '#1D4ED8', border: '1px solid #3B82F6' }}>
+              <span style={{ fontSize: '11px', fontWeight: 500, padding: '2px 8px', borderRadius: '8px', backgroundColor: 'var(--rr-accent-weak)', color: 'var(--rr-accent-text)', border: '1px solid var(--rr-accent)' }}>
                 Default
               </span>
             )}
             {t.is_shared && (
-              <span style={{ fontSize: '11px', fontWeight: 500, padding: '2px 8px', borderRadius: '8px', backgroundColor: '#F0FDF4', color: '#15803D', border: '1px solid #22C55E' }}>
+              <span style={{ fontSize: '11px', fontWeight: 500, padding: '2px 8px', borderRadius: '8px', backgroundColor: 'rgba(64,168,91,.14)', color: 'var(--rr-good)', border: '1px solid #22C55E' }}>
                 Shared
               </span>
             )}
           </div>
           {t.description && (
-            <div style={{ fontSize: '13px', color: '#64748B', marginTop: '2px' }}>{t.description}</div>
+            <div style={{ fontSize: '13px', color: 'var(--rr-text2)', marginTop: '2px' }}>{t.description}</div>
           )}
-          <div style={{ fontSize: '12px', color: '#94A3B8', marginTop: '2px' }}>
+          <div style={{ fontSize: '12px', color: 'var(--rr-text3)', marginTop: '2px' }}>
             {own ? 'Created by you' : `Created by ${t.creator_name || 'another user'}`}
           </div>
         </div>
 
         {confirmDeleteId === t.id ? (
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ fontSize: '13px', color: '#DC2626' }}>
+            <span style={{ fontSize: '13px', color: 'var(--rr-bad)' }}>
               {isDefault ? 'Delete the default template?' : 'Delete template?'}
             </span>
             <button style={{ ...secondaryButton, padding: '4px 10px', fontSize: '12px' }} onClick={() => setConfirmDeleteId(null)}>Cancel</button>
             <button
-              style={{ ...primaryButton(true), backgroundColor: '#DC2626', padding: '4px 10px', fontSize: '12px' }}
+              style={{ ...primaryButton(true), backgroundColor: 'var(--rr-bad)', padding: '4px 10px', fontSize: '12px' }}
               onClick={() => handleDelete(t.id)}
             >
               Delete
@@ -416,11 +416,11 @@ const MissionPrepSettings: React.FC<MissionPrepSettingsProps> = ({ setError }) =
 
   const header = (
     <div style={{ padding: '40px 40px 0 40px', flexShrink: 0 }}>
-      <div style={{ maxWidth: '800px', margin: '0 auto', borderBottom: '1px solid #E2E8F0', paddingBottom: '24px' }}>
-        <h2 style={{ fontSize: '24px', fontWeight: 600, margin: 0, color: '#0F172A' }}>
+      <div style={{ maxWidth: '800px', margin: '0 auto', borderBottom: '1px solid var(--rr-border)', paddingBottom: '24px' }}>
+        <h2 style={{ fontSize: '24px', fontWeight: 600, margin: 0, color: 'var(--rr-text)' }}>
           Mission Preparation
         </h2>
-        <p style={{ fontSize: '14px', color: '#64748B', margin: '8px 0 0 0', fontFamily: 'Inter' }}>
+        <p style={{ fontSize: '14px', color: 'var(--rr-text2)', margin: '8px 0 0 0', fontFamily: 'inherit' }}>
           Manage comms card templates and how new missions get their comms card
         </p>
       </div>
@@ -429,10 +429,10 @@ const MissionPrepSettings: React.FC<MissionPrepSettingsProps> = ({ setError }) =
 
   if (loading || permissionsLoading) {
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', height: '100%', backgroundColor: '#FFFFFF' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', height: '100%', backgroundColor: 'var(--rr-panel)' }}>
         {header}
         <div style={{ flex: 1, overflow: 'auto', padding: '24px 40px 40px 40px' }}>
-          <div style={{ maxWidth: '800px', margin: '0 auto', textAlign: 'center', color: '#64748B' }}>
+          <div style={{ maxWidth: '800px', margin: '0 auto', textAlign: 'center', color: 'var(--rr-text2)' }}>
             Loading settings...
           </div>
         </div>
@@ -441,24 +441,24 @@ const MissionPrepSettings: React.FC<MissionPrepSettingsProps> = ({ setError }) =
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', backgroundColor: '#FFFFFF' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', backgroundColor: 'var(--rr-panel)' }}>
       {header}
 
       <div style={{ flex: 1, overflow: 'auto', padding: '24px 40px 40px 40px' }}>
         <div style={{ maxWidth: '800px', margin: '0 auto' }}>
 
           {!canManage && (
-            <div style={{ padding: '12px 16px', backgroundColor: '#FFFBEB', border: '1px solid #FCD34D', borderRadius: '6px', fontSize: '13px', color: '#92400E', marginBottom: '24px' }}>
+            <div style={{ padding: '12px 16px', backgroundColor: 'rgba(222,154,31,.14)', border: '1px solid var(--rr-warn)', borderRadius: '6px', fontSize: '13px', color: 'var(--rr-warn)', marginBottom: '24px' }}>
               You need the "Manage Comms Card Templates" permission to change these settings or manage templates.
             </div>
           )}
 
           {/* New mission comms card */}
           <div style={sectionStyle}>
-            <h3 style={{ fontSize: '16px', fontWeight: 600, color: '#0F172A', margin: '0 0 4px 0' }}>
+            <h3 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--rr-text)', margin: '0 0 4px 0' }}>
               New Mission Comms Card
             </h3>
-            <p style={{ fontSize: '13px', color: '#64748B', margin: '0 0 16px 0' }}>
+            <p style={{ fontSize: '13px', color: 'var(--rr-text2)', margin: '0 0 16px 0' }}>
               Applies to the whole organization when a mission is created, or opened for the first time without a comms card.
             </p>
 
@@ -483,7 +483,7 @@ const MissionPrepSettings: React.FC<MissionPrepSettingsProps> = ({ setError }) =
                   disabled={!canManage}
                 />
               </div>
-              <p style={{ fontSize: '13px', color: '#64748B', margin: '8px 0 0 0' }}>
+              <p style={{ fontSize: '13px', color: 'var(--rr-text2)', margin: '8px 0 0 0' }}>
                 The default template is readable by everyone, even if it isn't shared.
               </p>
             </div>
@@ -492,12 +492,12 @@ const MissionPrepSettings: React.FC<MissionPrepSettingsProps> = ({ setError }) =
           {/* Templates */}
           <div style={{ marginBottom: '24px' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
-              <h3 style={{ fontSize: '18px', fontWeight: 600, color: '#0F172A', margin: 0 }}>
+              <h3 style={{ fontSize: '18px', fontWeight: 600, color: 'var(--rr-text)', margin: 0 }}>
                 Comms Card Templates
               </h3>
               <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span style={{ fontSize: '14px', color: '#64748B' }}>Show shared templates</span>
+                  <span style={{ fontSize: '14px', color: 'var(--rr-text2)' }}>Show shared templates</span>
                   {renderToggle(showShared, setShowShared)}
                 </div>
                 {canManage && !draft && (
@@ -515,11 +515,11 @@ const MissionPrepSettings: React.FC<MissionPrepSettingsProps> = ({ setError }) =
             ) : (
               <div style={{
                 padding: '16px',
-                backgroundColor: 'white',
-                border: '1px dashed #CBD5E1',
+                backgroundColor: 'var(--rr-panel)',
+                border: '1px dashed var(--rr-border2)',
                 borderRadius: '6px',
                 textAlign: 'center',
-                color: '#64748B',
+                color: 'var(--rr-text2)',
                 fontSize: '14px'
               }}>
                 {templates.length > 0 ? 'No templates of your own. Turn on "Show shared templates" to see others.' : 'No comms card templates yet'}

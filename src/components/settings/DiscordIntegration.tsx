@@ -169,7 +169,7 @@ const DiscordIntegration: React.FC<DiscordIntegrationProps> = ({ error: parentEr
   };
 
   const containerStyle = {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'var(--rr-panel)',
     minHeight: '100vh',
     padding: '40px',
     boxSizing: 'border-box' as const
@@ -187,7 +187,7 @@ const DiscordIntegration: React.FC<DiscordIntegrationProps> = ({ error: parentEr
   const sectionStyle = {
     paddingTop: '32px',
     paddingBottom: '32px',
-    borderTop: '1px solid #E5E7EB',
+    borderTop: '1px solid var(--rr-border)',
     marginTop: '32px'
   };
 
@@ -204,10 +204,10 @@ const DiscordIntegration: React.FC<DiscordIntegrationProps> = ({ error: parentEr
       <div style={contentWrapperStyle}>
         {/* Header */}
         <div style={headerStyle}>
-          <h2 style={{ fontSize: '24px', fontWeight: 600, margin: 0, color: '#0F172A' }}>
+          <h2 style={{ fontSize: '24px', fontWeight: 600, margin: 0, color: 'var(--rr-text)' }}>
             Discord Integration
           </h2>
-          <p style={{ fontSize: '14px', color: '#64748B', margin: '8px 0 0 0', fontFamily: 'Inter' }}>
+          <p style={{ fontSize: '14px', color: 'var(--rr-text2)', margin: '8px 0 0 0', fontFamily: 'inherit' }}>
             Configure Discord integration settings to connect with your squadron's Discord server.
           </p>
         </div>
@@ -216,13 +216,13 @@ const DiscordIntegration: React.FC<DiscordIntegrationProps> = ({ error: parentEr
           <div style={{
             padding: '16px',
             marginBottom: '24px',
-            backgroundColor: '#FEF2F2',
-            border: '1px solid #FECACA',
-            color: '#DC2626',
+            backgroundColor: 'rgba(224,82,78,.12)',
+            border: '1px solid var(--rr-bad)',
+            color: 'var(--rr-bad)',
             borderRadius: '6px',
             display: 'flex',
             alignItems: 'center',
-            fontFamily: 'Inter',
+            fontFamily: 'inherit',
             fontSize: '14px'
           }} role="alert">
             <AlertCircle size={18} style={{ marginRight: '8px' }} />
@@ -243,13 +243,13 @@ const DiscordIntegration: React.FC<DiscordIntegrationProps> = ({ error: parentEr
           <div style={{
             padding: '16px',
             marginBottom: '24px',
-            backgroundColor: '#F0FDF4',
-            border: '1px solid #BBF7D0',
-            color: '#166534',
+            backgroundColor: 'rgba(64,168,91,.14)',
+            border: '1px solid var(--rr-good)',
+            color: 'var(--rr-good)',
             borderRadius: '6px',
             display: 'flex',
             alignItems: 'center',
-            fontFamily: 'Inter',
+            fontFamily: 'inherit',
             fontSize: '14px'
           }} role="alert">
             <Check size={18} style={{ marginRight: '8px' }} />
@@ -258,19 +258,19 @@ const DiscordIntegration: React.FC<DiscordIntegrationProps> = ({ error: parentEr
         )}
         {/* Discord Bot Status Section */}
         <div style={firstSectionStyle}>
-          <h3 style={{ fontSize: '18px', fontWeight: 600, color: '#0F172A', margin: '0 0 16px 0' }}>
+          <h3 style={{ fontSize: '18px', fontWeight: 600, color: 'var(--rr-text)', margin: '0 0 16px 0' }}>
             Discord Bot Status
           </h3>
           
-          <div className="flex items-center p-3 bg-slate-50 rounded-lg border border-slate-200">
+          <div className="flex items-center p-3 bg-panel2 rounded-lg border border-border">
             {/* Discord logo with status indicator */}
             <div className="relative mr-4">
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white border border-slate-200">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-panel border border-border">
                 <DiscordIcon className="h-7 w-7" />
                 <span className={`absolute -bottom-0.5 -right-0.5 rounded-full h-3 w-3 border border-white ${
-                  botStatus === 'connected' ? 'bg-green-500' : 
+                  botStatus === 'connected' ? 'bg-good' : 
                   botStatus === 'disconnected' ? 'bg-gray-400' :
-                  botStatus === 'error' ? 'bg-red-500' :
+                  botStatus === 'error' ? 'bg-bad' :
                   'bg-yellow-500'
                 }`}></span>
               </div>
@@ -283,7 +283,7 @@ const DiscordIntegration: React.FC<DiscordIntegrationProps> = ({ error: parentEr
                 botStatus === 'error' ? 'Connection Error' :
                 'Configuration Needed'
               }</p>
-              <p className="text-sm text-slate-500">{
+              <p className="text-sm text-text2">{
                 botStatus === 'connected' ? 'The Discord bot is online and ready to manage events.' :
                 botStatus === 'disconnected' ? 'The Discord bot appears to be offline.' : 
                 botStatus === 'error' ? 'Error connecting to Discord services.' :
@@ -294,7 +294,7 @@ const DiscordIntegration: React.FC<DiscordIntegrationProps> = ({ error: parentEr
           </div>
           
           {botStatus === 'disconnected' && (
-            <div className="mt-3 p-3 bg-red-50 rounded-lg border border-red-200 text-sm text-red-700">
+            <div className="mt-3 p-3 bg-red-50 rounded-lg border border-bad text-sm text-bad">
               <p><strong>Troubleshooting steps:</strong></p>
               <ol className="list-decimal ml-5 mt-1 space-y-1">
                 <li>Verify the Discord bot is running on the server</li>
@@ -308,7 +308,7 @@ const DiscordIntegration: React.FC<DiscordIntegrationProps> = ({ error: parentEr
 
         {/* Discord Server Configuration Section */}
         <div style={sectionStyle}>
-          <h3 style={{ fontSize: '18px', fontWeight: 600, color: '#0F172A', margin: '0 0 16px 0' }}>
+          <h3 style={{ fontSize: '18px', fontWeight: 600, color: 'var(--rr-text)', margin: '0 0 16px 0' }}>
             Discord Server Configuration
           </h3>
           
@@ -316,19 +316,19 @@ const DiscordIntegration: React.FC<DiscordIntegrationProps> = ({ error: parentEr
             <div className="text-center py-4">Loading available Discord servers...</div>
           ) : availableServers.length > 0 ? (
             <>
-              <p className="text-sm text-slate-600 mb-4">
+              <p className="text-sm text-text2 mb-4">
                 Select the Discord server you want to use for event announcements and roster integration.
                 The bot must have already been added to the server and have proper permissions.
               </p>
               
               <div className="mb-4">
-                <label className="block text-sm font-medium text-slate-700 mb-1">
+                <label className="block text-sm font-medium text-text mb-1">
                   Discord Server
                 </label>
                 <select
                   value={selectedServerId || ''}
                   onChange={handleServerChange}
-                  className="w-full p-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                  className="w-full p-2 border border-border2 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
                 >
                   <option value="" disabled>Select a Discord server</option>
                   {availableServers.map(server => (
@@ -341,11 +341,11 @@ const DiscordIntegration: React.FC<DiscordIntegrationProps> = ({ error: parentEr
               
               {selectedServerId && (
                 <div className="mb-4">
-                  <div className="text-sm text-slate-600 mb-2">
+                  <div className="text-sm text-text2 mb-2">
                     Server Information:
                   </div>
                   {availableServers.filter(server => server.id === selectedServerId).map(server => (
-                    <div key={server.id} className="flex items-center p-3 bg-slate-50 border border-slate-200 rounded-md">
+                    <div key={server.id} className="flex items-center p-3 bg-panel2 border border-border rounded-md">
                       {server.icon && (
                         <img 
                           src={server.icon}
@@ -355,7 +355,7 @@ const DiscordIntegration: React.FC<DiscordIntegrationProps> = ({ error: parentEr
                       )}
                       <div>
                         <div className="font-medium">{server.name}</div>
-                        <div className="text-sm text-slate-500">{server.memberCount} members</div>
+                        <div className="text-sm text-text2">{server.memberCount} members</div>
                       </div>
                     </div>
                   ))}
@@ -364,17 +364,17 @@ const DiscordIntegration: React.FC<DiscordIntegrationProps> = ({ error: parentEr
               
               {selectedServerId && (
                 <div className="mb-4">
-                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                  <label className="block text-sm font-medium text-text mb-1">
                     Events Channel
                   </label>
                   {loadingChannels ? (
-                    <div className="text-sm text-slate-500">Loading channels...</div>
+                    <div className="text-sm text-text2">Loading channels...</div>
                   ) : (
                     <>
                       <select
                         value={selectedChannelId || ''}
                         onChange={handleChannelChange}
-                        className="w-full p-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                        className="w-full p-2 border border-border2 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
                       >
                         <option value="" disabled>Select an events channel</option>
                         {availableChannels.map(channel => (
@@ -383,7 +383,7 @@ const DiscordIntegration: React.FC<DiscordIntegrationProps> = ({ error: parentEr
                           </option>
                         ))}
                       </select>
-                      <p className="text-xs text-slate-500 mt-1">
+                      <p className="text-xs text-text2 mt-1">
                         This channel will be used for posting squadron events and tracking attendance.
                       </p>
                     </>
@@ -393,7 +393,7 @@ const DiscordIntegration: React.FC<DiscordIntegrationProps> = ({ error: parentEr
               
               <button
                 onClick={handleSaveSettings}
-                className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                className="px-4 py-2 bg-accent text-white rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
                 disabled={loading || !selectedServerId || !selectedChannelId}
               >
                 Save Discord Settings
@@ -401,15 +401,15 @@ const DiscordIntegration: React.FC<DiscordIntegrationProps> = ({ error: parentEr
             </>
           ) : (
             <div className="text-center py-4">
-              <p className="text-red-600 mb-4">No Discord servers found.</p>
-              <p className="text-sm text-slate-600">
+              <p className="text-bad mb-4">No Discord servers found.</p>
+              <p className="text-sm text-text2">
                 Make sure the Discord bot has been added to your server and has proper permissions.
               </p>
               <a 
                 href="https://discord.com/api/oauth2/authorize?client_id=YOURCLIENTID&permissions=8&scope=bot"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="mt-4 inline-block px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
+                className="mt-4 inline-block px-4 py-2 bg-accent text-white rounded-md hover:bg-indigo-700"
               >
                 Add Bot to Server
               </a>
@@ -419,40 +419,40 @@ const DiscordIntegration: React.FC<DiscordIntegrationProps> = ({ error: parentEr
 
         {/* Required Discord Channels Section */}
         <div style={sectionStyle}>
-          <h3 style={{ fontSize: '18px', fontWeight: 600, color: '#0F172A', margin: '0 0 16px 0' }}>
+          <h3 style={{ fontSize: '18px', fontWeight: 600, color: 'var(--rr-text)', margin: '0 0 16px 0' }}>
             Required Discord Channels
           </h3>
           
-          <p style={{ fontSize: '14px', color: '#64748B', margin: '0 0 24px 0', fontFamily: 'Inter' }}>
+          <p style={{ fontSize: '14px', color: 'var(--rr-text2)', margin: '0 0 24px 0', fontFamily: 'inherit' }}>
             The bot requires specific channels to work properly. Make sure these channels exist on your Discord server.
           </p>
           
           <div className="space-y-2">
-            <div className="flex items-center p-3 border border-slate-200 rounded-md bg-slate-50">
-              <div className="w-6 h-6 rounded-full bg-green-100 text-green-600 flex items-center justify-center mr-3">
+            <div className="flex items-center p-3 border border-border rounded-md bg-panel2">
+              <div className="w-6 h-6 rounded-full bg-green-100 text-good flex items-center justify-center mr-3">
                 <Check size={14} />
               </div>
               <div>
                 <div className="font-medium">#events</div>
-                <div className="text-sm text-slate-500">Required for event announcements and attendance tracking</div>
+                <div className="text-sm text-text2">Required for event announcements and attendance tracking</div>
               </div>
             </div>
-            <div className="flex items-center p-3 border border-slate-200 rounded-md">
-              <div className="w-6 h-6 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center mr-3">
+            <div className="flex items-center p-3 border border-border rounded-md">
+              <div className="w-6 h-6 rounded-full bg-panel2 text-text2 flex items-center justify-center mr-3">
                 <Check size={14} />
               </div>
               <div>
                 <div className="font-medium">#roster</div>
-                <div className="text-sm text-slate-500">Optional for roster updates</div>
+                <div className="text-sm text-text2">Optional for roster updates</div>
               </div>
             </div>
-            <div className="flex items-center p-3 border border-slate-200 rounded-md">
-              <div className="w-6 h-6 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center mr-3">
+            <div className="flex items-center p-3 border border-border rounded-md">
+              <div className="w-6 h-6 rounded-full bg-panel2 text-text2 flex items-center justify-center mr-3">
                 <Check size={14} />
               </div>
               <div>
                 <div className="font-medium">#mission-prep</div>
-                <div className="text-sm text-slate-500">Optional for mission briefings</div>
+                <div className="text-sm text-text2">Optional for mission briefings</div>
               </div>
             </div>
           </div>

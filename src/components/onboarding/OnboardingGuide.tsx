@@ -57,35 +57,35 @@ const OnboardingGuide: React.FC<OnboardingGuideProps> = ({ isOpen, onClose }) =>
       content: (
         <div className="text-center">
           <div className="mb-6">
-            <div className="w-16 h-16 mx-auto mb-4 bg-gray-200 rounded-lg flex items-center justify-content">
-              <span className="text-2xl font-bold text-gray-500 mx-auto">RR</span>
+            <div className="w-16 h-16 mx-auto mb-4 bg-panel3 rounded-lg flex items-center justify-content">
+              <span className="text-2xl font-bold text-text2 mx-auto">RR</span>
             </div>
-            <h3 className="text-xl font-semibold text-gray-800 mb-2">
+            <h3 className="text-xl font-semibold text-text mb-2">
               Welcome, {userProfile?.pilot?.callsign || userProfile?.discordUsername || 'Pilot'}!
             </h3>
-            <p className="text-gray-600">
+            <p className="text-text2">
               You've successfully logged into ReadyRoom. Let's get you oriented with what you can do.
             </p>
           </div>
           
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+          <div className="bg-accent-weak border border-accent rounded-lg p-4 mb-4">
             <h4 className="font-medium text-blue-800 mb-2">Your Account Status</h4>
             <div className="space-y-2 text-sm">
               <div className="flex items-center justify-between">
                 <span>Discord Connected:</span>
-                <span className={userProfile?.discordId ? 'text-green-600' : 'text-red-600'}>
+                <span className={userProfile?.discordId ? 'text-good' : 'text-bad'}>
                   {userProfile?.discordId ? '✓ Yes' : '✗ No'}
                 </span>
               </div>
               <div className="flex items-center justify-between">
                 <span>Pilot Record Linked:</span>
-                <span className={userProfile?.pilot ? 'text-green-600' : 'text-yellow-600'}>
+                <span className={userProfile?.pilot ? 'text-good' : 'text-warn'}>
                   {userProfile?.pilot ? '✓ Yes' : '⚠ No'}
                 </span>
               </div>
               <div className="flex items-center justify-between">
                 <span>Permission Level:</span>
-                <span className="font-medium text-blue-600">
+                <span className="font-medium text-accent">
                   Squadron Member
                 </span>
               </div>
@@ -98,7 +98,7 @@ const OnboardingGuide: React.FC<OnboardingGuideProps> = ({ isOpen, onClose }) =>
       title: 'Your Available Features',
       content: (
         <div>
-          <p className="text-gray-600 mb-6">
+          <p className="text-text2 mb-6">
             Based on your permissions, here are the features available to you:
           </p>
           
@@ -109,29 +109,29 @@ const OnboardingGuide: React.FC<OnboardingGuideProps> = ({ isOpen, onClose }) =>
                 className={`flex items-start p-4 rounded-lg border ${
                   feature.hasAccess 
                     ? 'border-green-200 bg-green-50' 
-                    : 'border-gray-200 bg-gray-50'
+                    : 'border-border bg-panel2'
                 }`}
               >
                 <div className={`mr-3 ${
-                  feature.hasAccess ? 'text-green-600' : 'text-gray-400'
+                  feature.hasAccess ? 'text-good' : 'text-text3'
                 }`}>
                   {feature.hasAccess ? feature.icon : <Lock size={24} />}
                 </div>
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-1">
                     <h4 className={`font-medium ${
-                      feature.hasAccess ? 'text-gray-800' : 'text-gray-500'
+                      feature.hasAccess ? 'text-text' : 'text-text2'
                     }`}>
                       {feature.name}
                     </h4>
                     {feature.hasAccess ? (
-                      <CheckCircle size={16} className="text-green-500" />
+                      <CheckCircle size={16} className="text-good" />
                     ) : (
-                      <Lock size={16} className="text-gray-400" />
+                      <Lock size={16} className="text-text3" />
                     )}
                   </div>
                   <p className={`text-sm ${
-                    feature.hasAccess ? 'text-gray-600' : 'text-gray-500'
+                    feature.hasAccess ? 'text-text2' : 'text-text2'
                   }`}>
                     {feature.description}
                     {!feature.hasAccess && (
@@ -151,7 +151,7 @@ const OnboardingGuide: React.FC<OnboardingGuideProps> = ({ isOpen, onClose }) =>
       title: 'Next Steps',
       content: (
         <div>
-          <h4 className="font-medium text-gray-800 mb-4">Getting Started</h4>
+          <h4 className="font-medium text-text mb-4">Getting Started</h4>
           
           <div className="space-y-4">
             {!userProfile?.pilot && (
@@ -170,14 +170,14 @@ const OnboardingGuide: React.FC<OnboardingGuideProps> = ({ isOpen, onClose }) =>
               </div>
             )}
             
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <div className="bg-accent-weak border border-accent rounded-lg p-4">
               <h5 className="font-medium text-blue-800 mb-2">
                 Start Exploring
               </h5>
-              <p className="text-sm text-blue-700 mb-2">
+              <p className="text-sm text-accent mb-2">
                 You can now access these areas:
               </p>
-              <ul className="text-sm text-blue-700 space-y-1 ml-4">
+              <ul className="text-sm text-accent space-y-1 ml-4">
                 {features.filter(f => f.hasAccess).map(feature => (
                   <li key={feature.id}>• {feature.name}</li>
                 ))}
@@ -185,11 +185,11 @@ const OnboardingGuide: React.FC<OnboardingGuideProps> = ({ isOpen, onClose }) =>
             </div>
             
             {!permissions.hasPermission('manage_roster') && !permissions.hasPermission('manage_events') && (
-              <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+              <div className="bg-red-50 border border-bad rounded-lg p-4">
                 <h5 className="font-medium text-red-800 mb-2">
                   Limited Access
                 </h5>
-                <p className="text-sm text-red-700">
+                <p className="text-sm text-bad">
                   You currently have limited access. Contact your squadron administrator 
                   to get proper role assignments and unlock additional features.
                 </p>
@@ -205,14 +205,14 @@ const OnboardingGuide: React.FC<OnboardingGuideProps> = ({ isOpen, onClose }) =>
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-hidden">
+      <div className="bg-panel rounded-lg shadow-rr-lg max-w-2xl w-full mx-4 max-h-[90vh] overflow-hidden">
         <div className="flex items-center justify-between p-6 border-b">
-          <h2 className="text-xl font-semibold text-gray-800">
+          <h2 className="text-xl font-semibold text-text">
             {steps[currentStep].title}
           </h2>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
+            className="text-text3 hover:text-text transition-colors"
           >
             <X size={24} />
           </button>
@@ -222,13 +222,13 @@ const OnboardingGuide: React.FC<OnboardingGuideProps> = ({ isOpen, onClose }) =>
           {steps[currentStep].content}
         </div>
 
-        <div className="flex items-center justify-between p-6 border-t bg-gray-50">
+        <div className="flex items-center justify-between p-6 border-t bg-panel2">
           <div className="flex space-x-2">
             {steps.map((_, index) => (
               <div
                 key={index}
                 className={`w-3 h-3 rounded-full ${
-                  index === currentStep ? 'bg-blue-600' : 'bg-gray-300'
+                  index === currentStep ? 'bg-accent' : 'bg-gray-300'
                 }`}
               />
             ))}
@@ -238,7 +238,7 @@ const OnboardingGuide: React.FC<OnboardingGuideProps> = ({ isOpen, onClose }) =>
             {currentStep > 0 && (
               <button
                 onClick={() => setCurrentStep(currentStep - 1)}
-                className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
+                className="px-4 py-2 text-text2 hover:text-gray-800 transition-colors"
               >
                 Back
               </button>
@@ -247,7 +247,7 @@ const OnboardingGuide: React.FC<OnboardingGuideProps> = ({ isOpen, onClose }) =>
             {currentStep < steps.length - 1 ? (
               <button
                 onClick={() => setCurrentStep(currentStep + 1)}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+                className="px-4 py-2 bg-accent text-white rounded-lg hover:brightness-110 transition-colors flex items-center gap-2"
               >
                 Next
                 <ArrowRight size={16} />
@@ -255,7 +255,7 @@ const OnboardingGuide: React.FC<OnboardingGuideProps> = ({ isOpen, onClose }) =>
             ) : (
               <button
                 onClick={onClose}
-                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2"
+                className="px-4 py-2 bg-good text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2"
               >
                 Get Started
                 <CheckCircle size={16} />

@@ -128,22 +128,22 @@ const CopyCommsPopover: React.FC<CopyCommsPopoverProps> = ({
     padding: '6px 0',
     fontSize: '12px',
     fontWeight: 500,
-    fontFamily: 'Inter',
+    fontFamily: 'inherit',
     border: 'none',
     borderRadius: '4px',
     cursor: 'pointer',
-    backgroundColor: active ? '#FFFFFF' : 'transparent',
-    color: active ? '#0F172A' : '#64748B',
+    backgroundColor: active ? 'var(--rr-panel)' : 'transparent',
+    color: active ? 'var(--rr-text)' : 'var(--rr-text2)',
     boxShadow: active ? '0 1px 2px rgba(0,0,0,0.1)' : 'none'
   });
 
   return (
     <AnchoredPopover anchorRef={anchorRef} onClose={onClose} width={340}>
-      <div style={{ fontSize: '14px', fontWeight: 600, color: '#0F172A', marginBottom: '12px' }}>
+      <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--rr-text)', marginBottom: '12px' }}>
         Copy Comms Card
       </div>
 
-      <div style={{ display: 'flex', gap: '4px', padding: '3px', backgroundColor: '#F1F5F9', borderRadius: '6px', marginBottom: '14px' }}>
+      <div style={{ display: 'flex', gap: '4px', padding: '3px', backgroundColor: 'var(--rr-panel2)', borderRadius: '6px', marginBottom: '14px' }}>
         <button style={tabStyle(source === 'mission')} onClick={() => setSource('mission')}>Previous Mission</button>
         <button style={tabStyle(source === 'template')} onClick={() => setSource('template')}>Template</button>
       </div>
@@ -163,23 +163,23 @@ const CopyCommsPopover: React.FC<CopyCommsPopoverProps> = ({
         <>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
             <label style={{ ...popoverLabelStyle, marginBottom: 0 }}>Template</label>
-            <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: '#64748B', cursor: 'pointer' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: 'var(--rr-text2)', cursor: 'pointer' }}>
               <input type="checkbox" checked={showShared} onChange={e => setShowShared(e.target.checked)} />
               Show shared
             </label>
           </div>
           <StyledSelect value={templateId} options={templateOptions} onChange={setTemplateId} disabled={visibleTemplates.length === 0} />
           {selectedDescription && (
-            <div style={{ fontSize: '12px', color: '#64748B', marginTop: '8px' }}>{selectedDescription}</div>
+            <div style={{ fontSize: '12px', color: 'var(--rr-text2)', marginTop: '8px' }}>{selectedDescription}</div>
           )}
         </>
       )}
 
-      <div style={{ fontSize: '12px', color: '#94A3B8', marginTop: '12px' }}>
+      <div style={{ fontSize: '12px', color: 'var(--rr-text3)', marginTop: '12px' }}>
         This replaces the current comms card for everyone on this mission.
       </div>
 
-      {error && <div style={{ fontSize: '12px', color: '#DC2626', marginTop: '8px' }}>{error}</div>}
+      {error && <div style={{ fontSize: '12px', color: 'var(--rr-bad)', marginTop: '8px' }}>{error}</div>}
 
       <PopoverActions
         confirmLabel="Copy"

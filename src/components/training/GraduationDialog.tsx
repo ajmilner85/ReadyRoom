@@ -242,24 +242,24 @@ const GraduationDialog: React.FC<GraduationDialogProps> = ({
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
       <div style={{
-        backgroundColor: 'white',
+        backgroundColor: 'var(--rr-panel)',
         borderRadius: '12px',
         width: '560px',
         maxHeight: '85vh',
         display: 'flex',
         flexDirection: 'column',
-        boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)',
+        boxShadow: 'var(--rr-shadow-lg)',
       }}>
         {/* Header */}
         <div style={{
           padding: '20px 24px',
-          borderBottom: '1px solid #E5E7EB',
+          borderBottom: '1px solid var(--rr-border)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 600, color: '#111827' }}>
+            <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 600, color: 'var(--rr-text)' }}>
               {isBatch ? `Graduate ${studentIds.length} Students` : 'Graduate Student'}
             </h2>
           </div>
@@ -271,9 +271,9 @@ const GraduationDialog: React.FC<GraduationDialogProps> = ({
               borderRadius: '6px',
               backgroundColor: 'transparent',
               cursor: 'pointer',
-              color: '#6B7280',
+              color: 'var(--rr-text2)',
             }}
-            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#F3F4F6'}
+            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--rr-panel2)'}
             onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
           >
             <X size={20} />
@@ -285,11 +285,11 @@ const GraduationDialog: React.FC<GraduationDialogProps> = ({
           {/* Trainee */}
           {!isBatch && selectedStudents[0] && (
             <div style={{ marginBottom: '20px' }}>
-              <div style={{ fontSize: '14px', fontWeight: 600, color: '#475569', marginBottom: '8px' }}>Trainee</div>
+              <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--rr-text2)', marginBottom: '8px' }}>Trainee</div>
               <div style={{
-                backgroundColor: '#F8FAFC',
+                backgroundColor: 'var(--rr-panel2)',
                 borderRadius: '6px',
-                border: '1px solid #E2E8F0',
+                border: '1px solid var(--rr-border)',
                 padding: '10px 16px 10px 0',
                 display: 'flex',
                 alignItems: 'center',
@@ -300,7 +300,7 @@ const GraduationDialog: React.FC<GraduationDialogProps> = ({
                   squadronTailCode={selectedStudents[0].squadron?.tail_code}
                   squadronInsigniaUrl={selectedStudents[0].squadron?.insignia_url}
                 />
-                <span style={{ fontSize: '16px', fontWeight: 700, color: selectedStudents[0].squadron?.primary_color || '#374151' }}>
+                <span style={{ fontSize: '16px', fontWeight: 700, color: selectedStudents[0].squadron?.primary_color || 'var(--rr-text)' }}>
                   {selectedStudents[0].callsign}
                 </span>
               </div>
@@ -308,22 +308,22 @@ const GraduationDialog: React.FC<GraduationDialogProps> = ({
           )}
           {/* Graduation date — drives the graduation record / dossier timeline */}
           <div style={{ marginBottom: '20px' }}>
-            <div style={{ fontSize: '14px', fontWeight: 600, color: '#475569', marginBottom: '8px' }}>Graduation Date</div>
+            <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--rr-text2)', marginBottom: '8px' }}>Graduation Date</div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
               <input
                 type="date"
                 value={graduationDate}
                 onChange={(e) => setGraduationDate(e.target.value)}
-                style={{ padding: '8px 12px', border: '1px solid #D1D5DB', borderRadius: '6px', fontSize: '14px', color: '#374151' }}
+                style={{ padding: '8px 12px', border: '1px solid var(--rr-border2)', borderRadius: '6px', fontSize: '14px', color: 'var(--rr-text)' }}
               />
-              <span style={{ fontSize: '12px', color: '#6B7280' }}>
+              <span style={{ fontSize: '12px', color: 'var(--rr-text2)' }}>
                 Backdate this when recording a graduation retroactively (e.g. the end of the cycle).
               </span>
             </div>
           </div>
 
           {enabledOutcomes.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '32px 16px', color: '#6B7280' }}>
+            <div style={{ textAlign: 'center', padding: '32px 16px', color: 'var(--rr-text2)' }}>
               <p style={{ margin: 0, fontSize: '14px' }}>
                 No graduation outcomes configured for this syllabus.
               </p>
@@ -337,15 +337,15 @@ const GraduationDialog: React.FC<GraduationDialogProps> = ({
                 const isSkipped = skippedOutcomes.has(outcome.type);
                 return (
                 <div key={outcome.type} style={{
-                  border: '1px solid #E5E7EB',
+                  border: '1px solid var(--rr-border)',
                   borderRadius: '8px',
                   padding: '16px',
-                  backgroundColor: isSkipped ? '#F9FAFB' : 'white',
+                  backgroundColor: isSkipped ? 'var(--rr-panel2)' : 'var(--rr-panel)',
                 }}>
                   {/* Outcome Header */}
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: isSkipped ? 0 : '12px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <span style={{ fontSize: '14px', fontWeight: 600, color: isSkipped ? '#9CA3AF' : '#111827' }}>
+                      <span style={{ fontSize: '14px', fontWeight: 600, color: isSkipped ? 'var(--rr-text3)' : 'var(--rr-text)' }}>
                         {outcome.type === 'callsign' && 'Callsign'}
                         {outcome.type === 'standing' && 'Standing'}
                         {outcome.type === 'squadron_assignment' && 'Squadron Assignment'}
@@ -356,15 +356,15 @@ const GraduationDialog: React.FC<GraduationDialogProps> = ({
                         fontWeight: 500,
                         padding: '2px 8px',
                         borderRadius: '10px',
-                        backgroundColor: isSkipped ? '#F3F4F6' : outcome.required ? '#FEE2E2' : '#F3F4F6',
-                        color: isSkipped ? '#6B7280' : outcome.required ? '#991B1B' : '#6B7280',
+                        backgroundColor: isSkipped ? 'var(--rr-panel2)' : outcome.required ? 'rgba(224,82,78,.12)' : 'var(--rr-panel2)',
+                        color: isSkipped ? 'var(--rr-text2)' : outcome.required ? 'var(--rr-bad)' : 'var(--rr-text2)',
                       }}>
                         {isSkipped ? 'Skipped' : outcome.required ? 'Required' : 'Optional'}
                       </span>
                     </div>
                     <label
                       title="Skip this outcome — nothing is changed for it (use when it was already applied in the past)"
-                      style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: '#6B7280', cursor: 'pointer', userSelect: 'none' }}
+                      style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: 'var(--rr-text2)', cursor: 'pointer', userSelect: 'none' }}
                     >
                       <input
                         type="checkbox"
@@ -389,7 +389,7 @@ const GraduationDialog: React.FC<GraduationDialogProps> = ({
                                 boardNumber={student.board_number}
                                 squadronInsigniaUrl={student.squadron?.insignia_url}
                               />
-                              <span style={{ fontSize: '13px', fontWeight: 500, color: '#374151' }}>
+                              <span style={{ fontSize: '13px', fontWeight: 500, color: 'var(--rr-text)' }}>
                                 {student.callsign}
                               </span>
                             </div>
@@ -402,19 +402,19 @@ const GraduationDialog: React.FC<GraduationDialogProps> = ({
                             style={{
                               flex: 1,
                               padding: '8px 12px',
-                              border: '1px solid #D1D5DB',
+                              border: '1px solid var(--rr-border2)',
                               borderRadius: '6px',
                               fontSize: '14px',
                             }}
                           />
                           {!isBatch && (
                             <>
-                              <span style={{ fontSize: '12px', color: '#6B7280', whiteSpace: 'nowrap' }}>Effective:</span>
+                              <span style={{ fontSize: '12px', color: 'var(--rr-text2)', whiteSpace: 'nowrap' }}>Effective:</span>
                               <input
                                 type="date"
                                 value={dateOverrides['callsign'] || ''}
                                 onChange={(e) => setDateOverrides(prev => ({ ...prev, callsign: e.target.value }))}
-                                style={{ padding: '6px 8px', border: '1px solid #D1D5DB', borderRadius: '4px', fontSize: '12px', color: '#374151' }}
+                                style={{ padding: '6px 8px', border: '1px solid var(--rr-border2)', borderRadius: '4px', fontSize: '12px', color: 'var(--rr-text)' }}
                               />
                             </>
                           )}
@@ -422,12 +422,12 @@ const GraduationDialog: React.FC<GraduationDialogProps> = ({
                       ))}
                       {isBatch && (
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <span style={{ fontSize: '12px', color: '#6B7280', whiteSpace: 'nowrap' }}>Effective:</span>
+                          <span style={{ fontSize: '12px', color: 'var(--rr-text2)', whiteSpace: 'nowrap' }}>Effective:</span>
                           <input
                             type="date"
                             value={dateOverrides['callsign'] || ''}
                             onChange={(e) => setDateOverrides(prev => ({ ...prev, callsign: e.target.value }))}
-                            style={{ padding: '6px 8px', border: '1px solid #D1D5DB', borderRadius: '4px', fontSize: '12px', color: '#374151' }}
+                            style={{ padding: '6px 8px', border: '1px solid var(--rr-border2)', borderRadius: '4px', fontSize: '12px', color: 'var(--rr-text)' }}
                           />
                         </div>
                       )}
@@ -443,10 +443,10 @@ const GraduationDialog: React.FC<GraduationDialogProps> = ({
                         style={{
                           flex: 1,
                           padding: '8px 12px',
-                          border: '1px solid #D1D5DB',
+                          border: '1px solid var(--rr-border2)',
                           borderRadius: '6px',
                           fontSize: '14px',
-                          backgroundColor: 'white',
+                          backgroundColor: 'var(--rr-panel)',
                         }}
                       >
                         <option value="">Select standing...</option>
@@ -454,12 +454,12 @@ const GraduationDialog: React.FC<GraduationDialogProps> = ({
                           <option key={s.id} value={s.id}>{s.name}</option>
                         ))}
                       </select>
-                      <span style={{ fontSize: '12px', color: '#6B7280', whiteSpace: 'nowrap' }}>Effective:</span>
+                      <span style={{ fontSize: '12px', color: 'var(--rr-text2)', whiteSpace: 'nowrap' }}>Effective:</span>
                       <input
                         type="date"
                         value={dateOverrides['standing'] || ''}
                         onChange={(e) => setDateOverrides(prev => ({ ...prev, standing: e.target.value }))}
-                        style={{ padding: '6px 8px', border: '1px solid #D1D5DB', borderRadius: '4px', fontSize: '12px', color: '#374151' }}
+                        style={{ padding: '6px 8px', border: '1px solid var(--rr-border2)', borderRadius: '4px', fontSize: '12px', color: 'var(--rr-text)' }}
                       />
                     </div>
                   )}
@@ -473,10 +473,10 @@ const GraduationDialog: React.FC<GraduationDialogProps> = ({
                         style={{
                           flex: 1,
                           padding: '8px 12px',
-                          border: '1px solid #D1D5DB',
+                          border: '1px solid var(--rr-border2)',
                           borderRadius: '6px',
                           fontSize: '14px',
-                          backgroundColor: 'white',
+                          backgroundColor: 'var(--rr-panel)',
                         }}
                       >
                         <option value="">Select squadron...</option>
@@ -484,12 +484,12 @@ const GraduationDialog: React.FC<GraduationDialogProps> = ({
                           <option key={s.id} value={s.id}>{s.designation}</option>
                         ))}
                       </select>
-                      <span style={{ fontSize: '12px', color: '#6B7280', whiteSpace: 'nowrap' }}>Effective:</span>
+                      <span style={{ fontSize: '12px', color: 'var(--rr-text2)', whiteSpace: 'nowrap' }}>Effective:</span>
                       <input
                         type="date"
                         value={dateOverrides['squadron_assignment'] || ''}
                         onChange={(e) => setDateOverrides(prev => ({ ...prev, squadron_assignment: e.target.value }))}
-                        style={{ padding: '6px 8px', border: '1px solid #D1D5DB', borderRadius: '4px', fontSize: '12px', color: '#374151' }}
+                        style={{ padding: '6px 8px', border: '1px solid var(--rr-border2)', borderRadius: '4px', fontSize: '12px', color: 'var(--rr-text)' }}
                       />
                     </div>
                   )}
@@ -507,11 +507,11 @@ const GraduationDialog: React.FC<GraduationDialogProps> = ({
                               justifyContent: 'space-between',
                               width: '100%',
                               padding: '7px 10px',
-                              border: '1px solid #D1D5DB',
+                              border: '1px solid var(--rr-border2)',
                               borderRadius: '6px',
-                              backgroundColor: 'white',
+                              backgroundColor: 'var(--rr-panel)',
                               fontSize: '13px',
-                              color: '#6B7280',
+                              color: 'var(--rr-text2)',
                               cursor: 'pointer',
                               textAlign: 'left',
                             }}
@@ -526,10 +526,10 @@ const GraduationDialog: React.FC<GraduationDialogProps> = ({
                               left: 0,
                               right: 0,
                               zIndex: 20,
-                              backgroundColor: 'white',
-                              border: '1px solid #D1D5DB',
+                              backgroundColor: 'var(--rr-panel)',
+                              border: '1px solid var(--rr-border2)',
                               borderRadius: '6px',
-                              boxShadow: '0 4px 12px rgba(0,0,0,0.12)',
+                              boxShadow: 'var(--rr-shadow)',
                               maxHeight: '200px',
                               overflowY: 'auto',
                             }}>
@@ -543,9 +543,9 @@ const GraduationDialog: React.FC<GraduationDialogProps> = ({
                                     gap: '10px',
                                     padding: '8px 12px',
                                     cursor: 'pointer',
-                                    borderBottom: '1px solid #F3F4F6',
+                                    borderBottom: '1px solid var(--rr-border)',
                                   }}
-                                  onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.backgroundColor = '#F3F4F6'; }}
+                                  onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.backgroundColor = 'var(--rr-panel2)'; }}
                                   onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.backgroundColor = 'transparent'; }}
                                 >
                                   <QualificationBadge
@@ -554,7 +554,7 @@ const GraduationDialog: React.FC<GraduationDialogProps> = ({
                                     color={q.color || undefined}
                                     size="small"
                                   />
-                                  <span style={{ fontSize: '13px', color: '#111827' }}>{q.name}</span>
+                                  <span style={{ fontSize: '13px', color: 'var(--rr-text)' }}>{q.name}</span>
                                 </div>
                               ))}
                             </div>
@@ -572,9 +572,9 @@ const GraduationDialog: React.FC<GraduationDialogProps> = ({
                               alignItems: 'center',
                               gap: '8px',
                               padding: '7px 10px',
-                              border: '1px solid #E5E7EB',
+                              border: '1px solid var(--rr-border)',
                               borderRadius: '6px',
-                              backgroundColor: 'white',
+                              backgroundColor: 'var(--rr-panel)',
                             }}
                           >
                             <QualificationBadge
@@ -583,20 +583,20 @@ const GraduationDialog: React.FC<GraduationDialogProps> = ({
                               color={qual.color || undefined}
                               size="small"
                             />
-                            <span style={{ flex: 1, fontSize: '13px', color: '#374151' }}>{qual.name}</span>
-                            <span style={{ fontSize: '12px', color: '#6B7280', whiteSpace: 'nowrap' }}>Effective:</span>
+                            <span style={{ flex: 1, fontSize: '13px', color: 'var(--rr-text)' }}>{qual.name}</span>
+                            <span style={{ fontSize: '12px', color: 'var(--rr-text2)', whiteSpace: 'nowrap' }}>Effective:</span>
                             <input
                               type="date"
                               value={entry.effectiveDate}
                               onChange={(e) => updateQualEntryDate(entry.id, e.target.value)}
-                              style={{ padding: '4px 8px', border: '1px solid #D1D5DB', borderRadius: '4px', fontSize: '12px', color: '#374151' }}
+                              style={{ padding: '4px 8px', border: '1px solid var(--rr-border2)', borderRadius: '4px', fontSize: '12px', color: 'var(--rr-text)' }}
                             />
                             <button
                               onClick={() => removeQualEntry(entry.id)}
                               style={{
                                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                                 width: '22px', height: '22px', border: 'none', borderRadius: '4px',
-                                backgroundColor: 'transparent', color: '#9CA3AF', cursor: 'pointer', padding: 0, flexShrink: 0,
+                                backgroundColor: 'transparent', color: 'var(--rr-text3)', cursor: 'pointer', padding: 0, flexShrink: 0,
                               }}
                             >
                               <X size={13} />
@@ -605,7 +605,7 @@ const GraduationDialog: React.FC<GraduationDialogProps> = ({
                         );
                       })}
                       {qualEntries.length === 0 && (
-                        <div style={{ fontSize: '12px', color: '#9CA3AF', fontStyle: 'italic' }}>No qualifications added</div>
+                        <div style={{ fontSize: '12px', color: 'var(--rr-text3)', fontStyle: 'italic' }}>No qualifications added</div>
                       )}
                     </div>
                   )}
@@ -622,17 +622,17 @@ const GraduationDialog: React.FC<GraduationDialogProps> = ({
             <div style={{
               marginTop: '16px',
               padding: '12px',
-              backgroundColor: '#FEF2F2',
-              border: '1px solid #FECACA',
+              backgroundColor: 'rgba(224,82,78,.12)',
+              border: '1px solid var(--rr-bad)',
               borderRadius: '6px',
               display: 'flex',
               alignItems: 'flex-start',
               gap: '8px',
             }}>
-              <AlertCircle size={16} style={{ color: '#DC2626', marginTop: '1px', flexShrink: 0 }} />
+              <AlertCircle size={16} style={{ color: 'var(--rr-bad)', marginTop: '1px', flexShrink: 0 }} />
               <div>
                 {validationErrors.map((err, i) => (
-                  <div key={i} style={{ fontSize: '13px', color: '#991B1B' }}>{err}</div>
+                  <div key={i} style={{ fontSize: '13px', color: 'var(--rr-bad)' }}>{err}</div>
                 ))}
               </div>
             </div>
@@ -642,7 +642,7 @@ const GraduationDialog: React.FC<GraduationDialogProps> = ({
         {/* Footer */}
         <div style={{
           padding: '16px 24px',
-          borderTop: '1px solid #E5E7EB',
+          borderTop: '1px solid var(--rr-border)',
           display: 'flex',
           justifyContent: 'flex-end',
           gap: '8px',
@@ -651,12 +651,12 @@ const GraduationDialog: React.FC<GraduationDialogProps> = ({
             onClick={onClose}
             style={{
               padding: '8px 16px',
-              border: '1px solid #D1D5DB',
+              border: '1px solid var(--rr-border2)',
               borderRadius: '6px',
-              backgroundColor: 'white',
+              backgroundColor: 'var(--rr-panel)',
               cursor: 'pointer',
               fontSize: '14px',
-              color: '#374151',
+              color: 'var(--rr-text)',
             }}
           >
             Cancel
@@ -668,7 +668,7 @@ const GraduationDialog: React.FC<GraduationDialogProps> = ({
               padding: '8px 20px',
               border: 'none',
               borderRadius: '6px',
-              backgroundColor: canSubmit ? '#2563EB' : '#93C5FD',
+              backgroundColor: canSubmit ? 'var(--rr-accent)' : '#93C5FD',
               color: 'white',
               cursor: canSubmit ? 'pointer' : 'not-allowed',
               fontSize: '14px',

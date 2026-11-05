@@ -42,18 +42,18 @@ const labelStyle: React.CSSProperties = {
   marginBottom: '6px',
   fontSize: '14px',
   fontWeight: 500,
-  color: '#64748B'
+  color: 'var(--rr-text2)'
 };
 
 const inputStyle: React.CSSProperties = {
   width: '100%',
   padding: '8px 12px',
-  border: '1px solid #CBD5E1',
+  border: '1px solid var(--rr-border2)',
   borderRadius: '6px',
-  backgroundColor: '#F8FAFC',
+  backgroundColor: 'var(--rr-panel2)',
   fontSize: '14px',
   boxSizing: 'border-box',
-  fontFamily: 'Inter'
+  fontFamily: 'inherit'
 };
 
 const smallButtonStyle: React.CSSProperties = {
@@ -61,12 +61,12 @@ const smallButtonStyle: React.CSSProperties = {
   alignItems: 'center',
   gap: '4px',
   padding: '5px 10px',
-  backgroundColor: '#FFFFFF',
-  color: '#64748B',
+  backgroundColor: 'var(--rr-panel)',
+  color: 'var(--rr-text2)',
   borderRadius: '6px',
-  border: '1px solid #CBD5E1',
+  border: '1px solid var(--rr-border2)',
   cursor: 'pointer',
-  fontFamily: 'Inter',
+  fontFamily: 'inherit',
   fontSize: '12px'
 };
 
@@ -134,14 +134,14 @@ export const DecorationPicker: React.FC<DecorationPickerProps> = ({
             style={{
               width: '44px',
               height: '44px',
-              border: value === null ? '2px solid #3B82F6' : '1px dashed #CBD5E1',
+              border: value === null ? '2px solid var(--rr-accent)' : '1px dashed var(--rr-border2)',
               borderRadius: '6px',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               cursor: 'pointer',
               fontSize: '10px',
-              color: '#94A3B8'
+              color: 'var(--rr-text3)'
             }}
           >
             None
@@ -161,7 +161,7 @@ export const DecorationPicker: React.FC<DecorationPickerProps> = ({
               backgroundSize: 'contain, 12px 12px, 12px 12px',
               backgroundPosition: 'center, 0 0, 6px 6px',
               backgroundRepeat: 'no-repeat, repeat, repeat',
-              border: value === decoration.image_url ? '2px solid #3B82F6' : '1px solid #E2E8F0',
+              border: value === decoration.image_url ? '2px solid var(--rr-accent)' : '1px solid var(--rr-border)',
               borderRadius: '6px',
               cursor: 'pointer'
             }}
@@ -179,10 +179,10 @@ export const DecorationPicker: React.FC<DecorationPickerProps> = ({
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  backgroundColor: '#FFFFFF',
-                  border: '1px solid #FCA5A5',
+                  backgroundColor: 'var(--rr-panel)',
+                  border: '1px solid var(--rr-bad)',
                   borderRadius: '50%',
-                  color: '#DC2626',
+                  color: 'var(--rr-bad)',
                   cursor: 'pointer',
                   padding: 0
                 }}
@@ -211,13 +211,13 @@ export const DecorationPicker: React.FC<DecorationPickerProps> = ({
               style={{
                 width: '44px',
                 height: '44px',
-                border: '1px dashed #CBD5E1',
+                border: '1px dashed var(--rr-border2)',
                 borderRadius: '6px',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 backgroundColor: 'transparent',
-                color: '#64748B',
+                color: 'var(--rr-text2)',
                 cursor: uploading ? 'wait' : 'pointer'
               }}
             >
@@ -330,7 +330,7 @@ const AwardDeviceEditor: React.FC<AwardDeviceEditorProps> = ({
               style={{ ...inputStyle, width: '90px' }}
             />
           </div>
-          <div style={{ fontSize: '12px', color: '#94A3B8' }}>
+          <div style={{ fontSize: '12px', color: 'var(--rr-text3)' }}>
             The first award shows the plain image; each further award adds a bronze device, with a silver device replacing
             every {config.repeat.silverWorth} bronze. Upload transparent images of a single device — they are composited onto the award image automatically.
           </div>
@@ -339,12 +339,12 @@ const AwardDeviceEditor: React.FC<AwardDeviceEditorProps> = ({
 
       {mode === 'tier' && config?.tiers && (
         <div style={{ marginTop: '12px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          <div style={{ fontSize: '12px', color: '#94A3B8' }}>
+          <div style={{ fontSize: '12px', color: 'var(--rr-text3)' }}>
             Tiers are checked from bottom to top against the same cycle metrics as the eligibility criteria; the highest tier
             whose conditions pass is stamped on the issuance. Pilots matching no tier receive the base award.
           </div>
           {config.tiers.map((tier, index) => (
-            <div key={tier.id} style={{ border: '1px solid #E2E8F0', borderRadius: '8px', padding: '12px' }}>
+            <div key={tier.id} style={{ border: '1px solid var(--rr-border)', borderRadius: '8px', padding: '12px' }}>
               <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-end', marginBottom: '10px' }}>
                 <div style={{ flex: 1 }}>
                   <label style={labelStyle}>Tier name *</label>
@@ -362,7 +362,7 @@ const AwardDeviceEditor: React.FC<AwardDeviceEditorProps> = ({
                     onChange(tiers.length > 0 ? { ...config, tiers } : null);
                   }}
                   title="Remove tier"
-                  style={{ ...smallButtonStyle, padding: '8px', color: '#DC2626', borderColor: '#FCA5A5' }}
+                  style={{ ...smallButtonStyle, padding: '8px', color: 'var(--rr-bad)', borderColor: 'var(--rr-bad)' }}
                 >
                   <Trash2 size={14} />
                 </button>

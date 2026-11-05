@@ -65,7 +65,7 @@ export const StatusesSection: React.FC<StatusesSectionProps> = ({
       style={{
         width: '44px',
         height: '24px',
-        backgroundColor: enabled ? '#3B82F6' : '#E5E7EB',
+        backgroundColor: enabled ? 'var(--rr-accent)' : 'var(--rr-panel3)',
         borderRadius: '12px',
         position: 'relative',
         cursor: disabled ? 'not-allowed' : 'pointer',
@@ -77,13 +77,13 @@ export const StatusesSection: React.FC<StatusesSectionProps> = ({
         style={{
           width: '20px',
           height: '20px',
-          backgroundColor: 'white',
+          backgroundColor: 'var(--rr-panel)',
           borderRadius: '50%',
           position: 'absolute',
           top: '2px',
           left: enabled ? '22px' : '2px',
           transition: 'left 0.2s ease',
-          boxShadow: '0 2px 4px rgba(0, 0, 0, 0.2)'
+          boxShadow: 'var(--rr-shadow)'
         }}
       />
     </div>
@@ -91,32 +91,32 @@ export const StatusesSection: React.FC<StatusesSectionProps> = ({
 
   return (
     <div style={firstSectionStyle}>
-      <h3 style={{ fontSize: '18px', fontWeight: 600, color: '#0F172A', margin: '0 0 16px 0' }}>
+      <h3 style={{ fontSize: '18px', fontWeight: 600, color: 'var(--rr-text)', margin: '0 0 16px 0' }}>
         Statuses
       </h3>
-      <p style={{ fontSize: '14px', color: '#64748B', margin: '0 0 24px 0', fontFamily: 'Inter' }}>
+      <p style={{ fontSize: '14px', color: 'var(--rr-text2)', margin: '0 0 24px 0', fontFamily: 'inherit' }}>
         Define the status options available for pilots in the squadron roster.
       </p>
 
       <div style={{ width: 'fit-content' }}>
         <div style={{
-          border: '1px solid #E5E7EB',
+          border: '1px solid var(--rr-border)',
           borderRadius: '8px',
           overflow: 'hidden',
-          backgroundColor: 'white',
+          backgroundColor: 'var(--rr-panel)',
           width: '594px'
         }}>
           {/* Header Row */}
           <div style={{
             display: 'flex',
-            backgroundColor: '#F9FAFB',
-            borderBottom: '2px solid #E5E7EB',
+            backgroundColor: 'var(--rr-panel2)',
+            borderBottom: '2px solid var(--rr-border)',
             fontWeight: 600,
             fontSize: '12px',
-            color: '#6B7280',
+            color: 'var(--rr-text2)',
             textTransform: 'uppercase',
             letterSpacing: '0.05em',
-            fontFamily: 'Inter'
+            fontFamily: 'inherit'
           }}>
             <div style={{ width: '24px' }}></div>
             <div style={{ width: '300px', padding: '12px' }}>Status Name</div>
@@ -167,17 +167,17 @@ export const StatusesSection: React.FC<StatusesSectionProps> = ({
             style={{
               width: '119px',
               height: '30px',
-              background: '#FFFFFF',
+              background: 'var(--rr-panel)',
               borderRadius: '8px',
               border: 'none',
               cursor: loading ? 'not-allowed' : 'pointer',
               transition: 'box-shadow 0.2s ease-in-out',
-              fontFamily: 'Inter',
+              fontFamily: 'inherit',
               fontStyle: 'normal',
               fontWeight: 400,
               fontSize: '20px',
               lineHeight: '24px',
-              color: '#64748B',
+              color: 'var(--rr-text2)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -202,18 +202,18 @@ export const StatusesSection: React.FC<StatusesSectionProps> = ({
         <div style={{
           marginTop: '16px',
           padding: '16px',
-          border: '1px solid #E5E7EB',
+          border: '1px solid var(--rr-border)',
           borderRadius: '8px',
-          backgroundColor: '#F9FAFB',
+          backgroundColor: 'var(--rr-panel2)',
           width: '594px',
           boxSizing: 'border-box'
         }}>
-          <h4 style={{ fontSize: '14px', fontWeight: 600, color: '#0F172A', margin: '0 0 12px 0' }}>
+          <h4 style={{ fontSize: '14px', fontWeight: 600, color: 'var(--rr-text)', margin: '0 0 12px 0' }}>
             Add New Status
           </h4>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
             <div>
-              <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: '#374151', marginBottom: '6px' }}>
+              <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: 'var(--rr-text)', marginBottom: '6px' }}>
                 Status Name
               </label>
               <input
@@ -224,15 +224,15 @@ export const StatusesSection: React.FC<StatusesSectionProps> = ({
                 style={{
                   width: 'calc(100% - 24px)',
                   padding: '8px 12px',
-                  border: '1px solid #D1D5DB',
+                  border: '1px solid var(--rr-border2)',
                   borderRadius: '6px',
                   fontSize: '14px',
-                  fontFamily: 'Inter'
+                  fontFamily: 'inherit'
                 }}
               />
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <label style={{ fontSize: '13px', fontWeight: 500, color: '#374151' }}>
+              <label style={{ fontSize: '13px', fontWeight: 500, color: 'var(--rr-text)' }}>
                 Pilots with this status are considered active
               </label>
               {renderToggle(newStatusIsActive, () => setNewStatusIsActive(!newStatusIsActive))}
@@ -246,13 +246,13 @@ export const StatusesSection: React.FC<StatusesSectionProps> = ({
                 disabled={!newStatusName.trim()}
                 style={{
                   padding: '8px 16px',
-                  backgroundColor: !newStatusName.trim() ? '#9CA3AF' : '#3B82F6',
+                  backgroundColor: !newStatusName.trim() ? '#9CA3AF' : 'var(--rr-accent)',
                   color: '#FFFFFF',
                   border: 'none',
                   borderRadius: '6px',
                   fontSize: '14px',
                   cursor: !newStatusName.trim() ? 'not-allowed' : 'pointer',
-                  fontFamily: 'Inter'
+                  fontFamily: 'inherit'
                 }}
               >
                 Add Status
@@ -265,13 +265,13 @@ export const StatusesSection: React.FC<StatusesSectionProps> = ({
                 }}
                 style={{
                   padding: '8px 16px',
-                  backgroundColor: '#FFFFFF',
-                  color: '#6B7280',
-                  border: '1px solid #D1D5DB',
+                  backgroundColor: 'var(--rr-panel)',
+                  color: 'var(--rr-text2)',
+                  border: '1px solid var(--rr-border2)',
                   borderRadius: '6px',
                   fontSize: '14px',
                   cursor: 'pointer',
-                  fontFamily: 'Inter'
+                  fontFamily: 'inherit'
                 }}
               >
                 Cancel
@@ -286,18 +286,18 @@ export const StatusesSection: React.FC<StatusesSectionProps> = ({
         <div style={{
           marginTop: '16px',
           padding: '16px',
-          border: '1px solid #E5E7EB',
+          border: '1px solid var(--rr-border)',
           borderRadius: '8px',
-          backgroundColor: '#F9FAFB',
+          backgroundColor: 'var(--rr-panel2)',
           width: '594px',
           boxSizing: 'border-box'
         }}>
-          <h4 style={{ fontSize: '14px', fontWeight: 600, color: '#0F172A', margin: '0 0 12px 0' }}>
+          <h4 style={{ fontSize: '14px', fontWeight: 600, color: 'var(--rr-text)', margin: '0 0 12px 0' }}>
             Edit Status
           </h4>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
             <div>
-              <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: '#374151', marginBottom: '6px' }}>
+              <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: 'var(--rr-text)', marginBottom: '6px' }}>
                 Status Name
               </label>
               <input
@@ -307,15 +307,15 @@ export const StatusesSection: React.FC<StatusesSectionProps> = ({
                 style={{
                   width: 'calc(100% - 24px)',
                   padding: '8px 12px',
-                  border: '1px solid #D1D5DB',
+                  border: '1px solid var(--rr-border2)',
                   borderRadius: '6px',
                   fontSize: '14px',
-                  fontFamily: 'Inter'
+                  fontFamily: 'inherit'
                 }}
               />
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <label style={{ fontSize: '13px', fontWeight: 500, color: '#374151' }}>
+              <label style={{ fontSize: '13px', fontWeight: 500, color: 'var(--rr-text)' }}>
                 Pilots with this status are considered active
               </label>
               {renderToggle(editingStatusIsActive, () => setEditingStatusIsActive(!editingStatusIsActive))}
@@ -329,13 +329,13 @@ export const StatusesSection: React.FC<StatusesSectionProps> = ({
                 disabled={!editingStatusName.trim()}
                 style={{
                   padding: '8px 16px',
-                  backgroundColor: !editingStatusName.trim() ? '#9CA3AF' : '#3B82F6',
+                  backgroundColor: !editingStatusName.trim() ? '#9CA3AF' : 'var(--rr-accent)',
                   color: '#FFFFFF',
                   border: 'none',
                   borderRadius: '6px',
                   fontSize: '14px',
                   cursor: !editingStatusName.trim() ? 'not-allowed' : 'pointer',
-                  fontFamily: 'Inter'
+                  fontFamily: 'inherit'
                 }}
               >
                 Update Status
@@ -348,13 +348,13 @@ export const StatusesSection: React.FC<StatusesSectionProps> = ({
                 }}
                 style={{
                   padding: '8px 16px',
-                  backgroundColor: '#FFFFFF',
-                  color: '#6B7280',
-                  border: '1px solid #D1D5DB',
+                  backgroundColor: 'var(--rr-panel)',
+                  color: 'var(--rr-text2)',
+                  border: '1px solid var(--rr-border2)',
                   borderRadius: '6px',
                   fontSize: '14px',
                   cursor: 'pointer',
-                  fontFamily: 'Inter'
+                  fontFamily: 'inherit'
                 }}
               >
                 Cancel

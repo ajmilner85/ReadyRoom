@@ -1660,12 +1660,12 @@ export const EventDialog: React.FC<EventDialogProps> = ({
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        backgroundColor: isCompleted ? '#10B981' : isCurrent ? '#3B82F6' : '#E5E7EB',
-                        color: isCompleted || isCurrent ? 'white' : '#6B7280',
+                        backgroundColor: isCompleted ? 'var(--rr-good)' : isCurrent ? 'var(--rr-accent)' : 'var(--rr-panel3)',
+                        color: isCompleted || isCurrent ? 'white' : 'var(--rr-text2)',
                         fontSize: '14px',
                         fontWeight: 500,
                         marginBottom: '8px',
-                        border: '5px solid #FFFFFF',
+                        border: '5px solid var(--rr-panel)',
                         boxSizing: 'content-box'
                       }}
                     >
@@ -1676,7 +1676,7 @@ export const EventDialog: React.FC<EventDialogProps> = ({
                     <div style={{
                       fontSize: '14px',
                       fontWeight: isCurrent ? 600 : 500,
-                      color: isCurrent ? '#1F2937' : isCompleted ? '#374151' : '#6B7280',
+                      color: isCurrent ? 'var(--rr-text)' : isCompleted ? 'var(--rr-text)' : 'var(--rr-text2)',
                       textAlign: 'center',
                       whiteSpace: 'nowrap',
                       width: '90px',
@@ -1695,7 +1695,7 @@ export const EventDialog: React.FC<EventDialogProps> = ({
                     right: '-45px',
                     top: '21px',
                     height: '2px',
-                    backgroundColor: lineActive ? '#10B981' : '#E5E7EB',
+                    backgroundColor: lineActive ? 'var(--rr-good)' : 'var(--rr-panel3)',
                     zIndex: 0
                   }} />
                 )}
@@ -1728,8 +1728,8 @@ export const EventDialog: React.FC<EventDialogProps> = ({
         transform: 'translate(-50%, -50%)',
         width: '700px',
         height: '1000px',
-        backgroundColor: '#FFFFFF',
-        boxShadow: '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)',
+        backgroundColor: 'var(--rr-panel)',
+        boxShadow: 'var(--rr-shadow)',
         borderRadius: '8px',
         zIndex: 1001,
         display: 'flex',
@@ -1741,13 +1741,13 @@ export const EventDialog: React.FC<EventDialogProps> = ({
           justifyContent: 'space-between',
           alignItems: 'center',
           padding: '12px 24px',
-          borderBottom: '1px solid #E2E8F0',
+          borderBottom: '1px solid var(--rr-border)',
           flexShrink: 0
         }}>
           <h2 style={{
             fontSize: '18px',
             fontWeight: 600,
-            color: '#0F172A'
+            color: 'var(--rr-text)'
           }}>
             {isTrainingEvent
               ? (initialData ? 'Edit Training Event' : 'Create New Training Event')
@@ -1789,7 +1789,7 @@ export const EventDialog: React.FC<EventDialogProps> = ({
                     marginBottom: '8px',
                     fontSize: '14px',
                     fontWeight: 500,
-                    color: '#64748B'
+                    color: 'var(--rr-text2)'
                   }}>
                     Event Title
                   </label>
@@ -1800,7 +1800,7 @@ export const EventDialog: React.FC<EventDialogProps> = ({
                     style={{
                       width: '100%',
                       padding: '8px',
-                      border: '1px solid #CBD5E1',
+                      border: '1px solid var(--rr-border2)',
                       borderRadius: '4px',
                       fontSize: '14px',
                       boxSizing: 'border-box',
@@ -1816,7 +1816,7 @@ export const EventDialog: React.FC<EventDialogProps> = ({
                     marginBottom: '8px',
                     fontSize: '14px',
                     fontWeight: 500,
-                    color: '#64748B'
+                    color: 'var(--rr-text2)'
                   }}>
                     Cycle
                   </label>
@@ -1826,12 +1826,12 @@ export const EventDialog: React.FC<EventDialogProps> = ({
                     style={{
                       width: '100%',
                       padding: '8px',
-                      border: '1px solid #CBD5E1',
+                      border: '1px solid var(--rr-border2)',
                       borderRadius: '4px',
                       fontSize: '14px',
                       boxSizing: 'border-box',
                       height: '35px',
-                      backgroundColor: 'white',
+                      backgroundColor: 'var(--rr-panel)',
                       cursor: 'pointer'
                     }}
                   >
@@ -1851,7 +1851,7 @@ export const EventDialog: React.FC<EventDialogProps> = ({
                   marginBottom: '8px',
                   fontSize: '14px',
                   fontWeight: 500,
-                  color: '#64748B'
+                  color: 'var(--rr-text2)'
                 }}>
                   Start Date & Time
                 </label>
@@ -1863,7 +1863,7 @@ export const EventDialog: React.FC<EventDialogProps> = ({
                     style={{
                       flex: 1,
                       padding: '8px',
-                      border: '1px solid #CBD5E1',
+                      border: '1px solid var(--rr-border2)',
                       borderRadius: '4px',
                       fontSize: '14px',
                       boxSizing: 'border-box',
@@ -1877,12 +1877,12 @@ export const EventDialog: React.FC<EventDialogProps> = ({
                     style={{
                       width: '180px',
                       padding: '8px',
-                      border: '1px solid #CBD5E1',
+                      border: '1px solid var(--rr-border2)',
                       borderRadius: '4px',
                       fontSize: '14px',
                       boxSizing: 'border-box',
                       height: '35px',
-                      backgroundColor: 'white'
+                      backgroundColor: 'var(--rr-panel)'
                     }}
                   >
                     <option value="America/New_York">Eastern Time</option>
@@ -1907,7 +1907,7 @@ export const EventDialog: React.FC<EventDialogProps> = ({
                   marginBottom: '8px',
                   fontSize: '14px',
                   fontWeight: 500,
-                  color: '#64748B'
+                  color: 'var(--rr-text2)'
                 }}>
                   Duration
                 </label>
@@ -1921,7 +1921,7 @@ export const EventDialog: React.FC<EventDialogProps> = ({
                     style={{
                       width: '70px',
                       padding: '8px',
-                      border: '1px solid #CBD5E1',
+                      border: '1px solid var(--rr-border2)',
                       borderRadius: '4px 0 0 4px',
                       fontSize: '14px',
                       boxSizing: 'border-box',
@@ -1929,7 +1929,7 @@ export const EventDialog: React.FC<EventDialogProps> = ({
                       textAlign: 'center'
                     }}
                   />
-                  <span style={{ padding: '0 6px', border: '1px solid #CBD5E1', borderLeft: 'none', borderRight: 'none', height: '35px', lineHeight: '35px', backgroundColor: '#F8FAFC' }}>h</span>
+                  <span style={{ padding: '0 6px', border: '1px solid var(--rr-border2)', borderLeft: 'none', borderRight: 'none', height: '35px', lineHeight: '35px', backgroundColor: 'var(--rr-panel2)' }}>h</span>
                   <input
                     type="number"
                     min="0"
@@ -1939,7 +1939,7 @@ export const EventDialog: React.FC<EventDialogProps> = ({
                     style={{
                       width: '70px',
                       padding: '8px',
-                      border: '1px solid #CBD5E1',
+                      border: '1px solid var(--rr-border2)',
                       borderRadius: '0 4px 4px 0',
                       fontSize: '14px',
                       boxSizing: 'border-box',
@@ -1957,7 +1957,7 @@ export const EventDialog: React.FC<EventDialogProps> = ({
                   marginBottom: '8px',
                   fontSize: '14px',
                   fontWeight: 500,
-                  color: '#64748B'
+                  color: 'var(--rr-text2)'
                 }}>
                   Description
                 </label>
@@ -1967,7 +1967,7 @@ export const EventDialog: React.FC<EventDialogProps> = ({
                   style={{
                     width: '100%',
                     padding: '8px',
-                    border: '1px solid #CBD5E1',
+                    border: '1px solid var(--rr-border2)',
                     borderRadius: '4px',
                     fontSize: '14px',
                     minHeight: '120px',
@@ -1983,7 +1983,7 @@ export const EventDialog: React.FC<EventDialogProps> = ({
                 <label style={{
                   display: 'block',
                   marginBottom: '12px',
-                  color: '#64748B',
+                  color: 'var(--rr-text2)',
                   fontSize: '14px',
                   fontWeight: '500'
                 }}>
@@ -2004,7 +2004,7 @@ export const EventDialog: React.FC<EventDialogProps> = ({
                         onDrop={(e) => handleDrop(e, index)}
                         onClick={() => document.getElementById(`image-upload-${index}`)?.click()}
                         style={{
-                          border: `2px dashed ${dragOverStates[index] ? '#3B82F6' : '#CBD5E1'}`,
+                          border: `2px dashed ${dragOverStates[index] ? 'var(--rr-accent)' : 'var(--rr-border2)'}`,
                           borderRadius: '6px',
                           padding: '12px',
                           textAlign: 'center',
@@ -2056,7 +2056,7 @@ export const EventDialog: React.FC<EventDialogProps> = ({
                         ) : (
                           <div>
                             <ImageIcon size={20} color="#94A3B8" style={{ margin: '0 auto 4px' }} />
-                            <p style={{ color: '#94A3B8', fontSize: '10px', margin: '0' }}>
+                            <p style={{ color: 'var(--rr-text3)', fontSize: '10px', margin: '0' }}>
                               Drop image or click
                             </p>
                           </div>
@@ -2085,7 +2085,7 @@ export const EventDialog: React.FC<EventDialogProps> = ({
                 <label style={{
                   fontSize: '14px',
                   fontWeight: 500,
-                  color: '#64748B',
+                  color: 'var(--rr-text2)',
                   marginBottom: '8px',
                   display: 'block'
                 }}>
@@ -2111,7 +2111,7 @@ export const EventDialog: React.FC<EventDialogProps> = ({
                     marginBottom: '8px',
                     fontSize: '14px',
                     fontWeight: 500,
-                    color: '#64748B'
+                    color: 'var(--rr-text2)'
                   }}>
                     Syllabus Mission (Optional)
                   </label>
@@ -2121,7 +2121,7 @@ export const EventDialog: React.FC<EventDialogProps> = ({
                     style={{
                       width: '100%',
                       padding: '8px',
-                      border: '1px solid #CBD5E1',
+                      border: '1px solid var(--rr-border2)',
                       borderRadius: '4px',
                       fontSize: '14px',
                       boxSizing: 'border-box',
@@ -2147,7 +2147,7 @@ export const EventDialog: React.FC<EventDialogProps> = ({
                     marginBottom: '8px',
                     fontSize: '14px',
                     fontWeight: 500,
-                    color: '#64748B'
+                    color: 'var(--rr-text2)'
                   }}>
                     Training Objectives (DLOs)
                   </label>
@@ -2159,9 +2159,9 @@ export const EventDialog: React.FC<EventDialogProps> = ({
                       >
                         <CheckCircle2
                           size={13}
-                          style={{ color: '#94A3B8', flexShrink: 0, marginTop: '3px' }}
+                          style={{ color: 'var(--rr-text3)', flexShrink: 0, marginTop: '3px' }}
                         />
-                        <p style={{ fontSize: '13px', color: '#374151', lineHeight: 1.5, margin: 0 }}>
+                        <p style={{ fontSize: '13px', color: 'var(--rr-text)', lineHeight: 1.5, margin: 0 }}>
                           {objective.objective_text}
                         </p>
                       </div>
@@ -2187,13 +2187,13 @@ export const EventDialog: React.FC<EventDialogProps> = ({
                 <label style={{
                   fontSize: '14px',
                   fontWeight: 500,
-                  color: '#64748B',
+                  color: 'var(--rr-text2)',
                   marginBottom: '4px',
                   display: 'block'
                 }}>
                   Mission Support roles
                 </label>
-                <p style={{ fontSize: '12px', color: '#64748B', margin: '0 0 8px 0', fontFamily: 'Inter' }}>
+                <p style={{ fontSize: '12px', color: 'var(--rr-text2)', margin: '0 0 8px 0', fontFamily: 'inherit' }}>
                   Supporting roles needed for this event. Each selected role is shown in the Discord post as
                   Available/Required (e.g. JTAC (1/3)); set required to 0 to list a role without requiring it.
                   Roles appear in this order.
@@ -2210,13 +2210,13 @@ export const EventDialog: React.FC<EventDialogProps> = ({
                     <label style={{
                       fontSize: '14px',
                       fontWeight: 500,
-                      color: '#64748B',
+                      color: 'var(--rr-text2)',
                       marginBottom: '4px',
                       display: 'block'
                     }}>
                       After Action Reports required for Operational (non-Training) squadrons only
                     </label>
-                    <p style={{ fontSize: '12px', color: '#64748B', margin: '0', fontFamily: 'Inter' }}>
+                    <p style={{ fontSize: '12px', color: 'var(--rr-text2)', margin: '0', fontFamily: 'inherit' }}>
                       When enabled, only flights from operational squadrons will appear in the AAR section on the Mission Debriefing page.
                     </p>
                   </div>
@@ -2226,7 +2226,7 @@ export const EventDialog: React.FC<EventDialogProps> = ({
                       style={{
                         width: '44px',
                         height: '24px',
-                        backgroundColor: aarOperationalOnly ? '#3B82F6' : '#E5E7EB',
+                        backgroundColor: aarOperationalOnly ? 'var(--rr-accent)' : 'var(--rr-panel3)',
                         borderRadius: '12px',
                         position: 'relative',
                         cursor: 'pointer',
@@ -2237,13 +2237,13 @@ export const EventDialog: React.FC<EventDialogProps> = ({
                         style={{
                           width: '20px',
                           height: '20px',
-                          backgroundColor: 'white',
+                          backgroundColor: 'var(--rr-panel)',
                           borderRadius: '50%',
                           position: 'absolute',
                           top: '2px',
                           left: aarOperationalOnly ? '22px' : '2px',
                           transition: 'left 0.2s ease',
-                          boxShadow: '0 2px 4px rgba(0, 0, 0, 0.2)'
+                          boxShadow: 'var(--rr-shadow)'
                         }}
                       />
                     </div>
@@ -2268,7 +2268,7 @@ export const EventDialog: React.FC<EventDialogProps> = ({
                   <label style={{
                     fontSize: '14px',
                     fontWeight: 500,
-                    color: '#64748B'
+                    color: 'var(--rr-text2)'
                   }}>
                     Participating Squadrons
                   </label>
@@ -2278,13 +2278,13 @@ export const EventDialog: React.FC<EventDialogProps> = ({
                       onClick={() => setParticipatingSquadrons(squadrons.map(s => s.id))}
                       style={{
                         padding: '2px 6px',
-                        backgroundColor: '#EFF6FF',
-                        border: '1px solid #DBEAFE',
+                        backgroundColor: 'var(--rr-accent-weak)',
+                        border: '1px solid var(--rr-accent)',
                         borderRadius: '3px',
                         fontSize: '10px',
                         cursor: 'pointer',
-                        fontFamily: 'Inter',
-                        color: '#1E40AF'
+                        fontFamily: 'inherit',
+                        color: 'var(--rr-accent-text)'
                       }}
                     >
                       All
@@ -2294,13 +2294,13 @@ export const EventDialog: React.FC<EventDialogProps> = ({
                       onClick={() => setParticipatingSquadrons([])}
                       style={{
                         padding: '2px 6px',
-                        backgroundColor: '#FEF2F2',
-                        border: '1px solid #FECACA',
+                        backgroundColor: 'rgba(224,82,78,.12)',
+                        border: '1px solid var(--rr-bad)',
                         borderRadius: '3px',
                         fontSize: '10px',
                         cursor: 'pointer',
-                        fontFamily: 'Inter',
-                        color: '#DC2626'
+                        fontFamily: 'inherit',
+                        color: 'var(--rr-bad)'
                       }}
                     >
                       None
@@ -2311,13 +2311,13 @@ export const EventDialog: React.FC<EventDialogProps> = ({
                         onClick={() => setParticipatingSquadrons(selectedCycle.participants || [])}
                         style={{
                           padding: '2px 6px',
-                          backgroundColor: '#F0FDF4',
-                          border: '1px solid #BBF7D0',
+                          backgroundColor: 'rgba(64,168,91,.14)',
+                          border: '1px solid var(--rr-good)',
                           borderRadius: '3px',
                           fontSize: '10px',
                           cursor: 'pointer',
-                          fontFamily: 'Inter',
-                          color: '#15803D'
+                          fontFamily: 'inherit',
+                          color: 'var(--rr-good)'
                         }}
                       >
                         Reset to Cycle
@@ -2328,10 +2328,10 @@ export const EventDialog: React.FC<EventDialogProps> = ({
                 <div style={{
                   maxHeight: '200px',
                   overflowY: 'auto',
-                  border: '1px solid #E5E7EB',
+                  border: '1px solid var(--rr-border)',
                   borderRadius: '4px',
                   padding: '4px',
-                  backgroundColor: '#FAFAFA'
+                  backgroundColor: 'var(--rr-panel2)'
                 }}>
                   {squadrons.map(squadron => {
                     const isSelected = participants.includes(squadron.id);
@@ -2351,14 +2351,14 @@ export const EventDialog: React.FC<EventDialogProps> = ({
                           display: 'flex',
                           alignItems: 'center',
                           gap: '8px',
-                          backgroundColor: isSelected ? '#EFF6FF' : 'transparent',
+                          backgroundColor: isSelected ? 'var(--rr-accent-weak)' : 'transparent',
                           borderRadius: '3px',
                           transition: 'background-color 0.2s',
                           marginBottom: '2px'
                         }}
                         onMouseEnter={e => {
                           if (!isSelected) {
-                            e.currentTarget.style.backgroundColor = '#F8FAFC';
+                            e.currentTarget.style.backgroundColor = 'var(--rr-panel2)';
                           }
                         }}
                         onMouseLeave={e => {
@@ -2370,9 +2370,9 @@ export const EventDialog: React.FC<EventDialogProps> = ({
                         <div style={{
                           width: '14px',
                           height: '14px',
-                          border: '1px solid #CBD5E1',
+                          border: '1px solid var(--rr-border2)',
                           borderRadius: '3px',
-                          backgroundColor: isSelected ? '#3B82F6' : '#FFFFFF',
+                          backgroundColor: isSelected ? 'var(--rr-accent)' : 'var(--rr-panel)',
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
@@ -2399,22 +2399,22 @@ export const EventDialog: React.FC<EventDialogProps> = ({
                           <div style={{
                             width: '20px',
                             height: '20px',
-                            backgroundColor: '#E5E7EB',
+                            backgroundColor: 'var(--rr-panel3)',
                             borderRadius: '3px',
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
                             flexShrink: 0
                           }}>
-                            <span style={{ fontSize: '10px', color: '#6B7280' }}>?</span>
+                            <span style={{ fontSize: '10px', color: 'var(--rr-text2)' }}>?</span>
                           </div>
                         )}
                         
                         <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, flex: 1 }}>
-                          <span style={{ fontSize: '12px', fontWeight: 500, fontFamily: 'Inter' }}>
+                          <span style={{ fontSize: '12px', fontWeight: 500, fontFamily: 'inherit' }}>
                             {squadron.designation}
                           </span>
-                          <span style={{ fontSize: '10px', color: '#64748B', fontFamily: 'Inter' }}>
+                          <span style={{ fontSize: '10px', color: 'var(--rr-text2)', fontFamily: 'inherit' }}>
                             {squadron.name}
                           </span>
                         </div>
@@ -2424,7 +2424,7 @@ export const EventDialog: React.FC<EventDialogProps> = ({
                 </div>
                 <div style={{
                   fontSize: '12px',
-                  color: '#64748B',
+                  color: 'var(--rr-text2)',
                   marginTop: '4px'
                 }}>
                   {participants.length === 0 ?
@@ -2441,13 +2441,13 @@ export const EventDialog: React.FC<EventDialogProps> = ({
                     <label style={{
                       fontSize: '14px',
                       fontWeight: 500,
-                      color: '#64748B',
+                      color: 'var(--rr-text2)',
                       marginBottom: '4px',
                       display: 'block'
                     }}>
                       Group responses by qualification in Discord
                     </label>
-                    <p style={{ fontSize: '12px', color: '#64748B', margin: '0', fontFamily: 'Inter' }}>
+                    <p style={{ fontSize: '12px', color: 'var(--rr-text2)', margin: '0', fontFamily: 'inherit' }}>
                       When enabled, Discord event responses will be organized by pilot qualifications.
                     </p>
                   </div>
@@ -2456,7 +2456,7 @@ export const EventDialog: React.FC<EventDialogProps> = ({
                     style={{
                       width: '44px',
                       height: '24px',
-                      backgroundColor: trackQualifications ? '#3B82F6' : '#E5E7EB',
+                      backgroundColor: trackQualifications ? 'var(--rr-accent)' : 'var(--rr-panel3)',
                       borderRadius: '12px',
                       position: 'relative',
                       cursor: 'pointer',
@@ -2468,13 +2468,13 @@ export const EventDialog: React.FC<EventDialogProps> = ({
                       style={{
                         width: '20px',
                         height: '20px',
-                        backgroundColor: 'white',
+                        backgroundColor: 'var(--rr-panel)',
                         borderRadius: '50%',
                         position: 'absolute',
                         top: '2px',
                         left: trackQualifications ? '22px' : '2px',
                         transition: 'left 0.2s ease',
-                        boxShadow: '0 2px 4px rgba(0, 0, 0, 0.2)'
+                        boxShadow: 'var(--rr-shadow)'
                       }}
                     />
                   </div>
@@ -2487,13 +2487,13 @@ export const EventDialog: React.FC<EventDialogProps> = ({
                     <label style={{
                       fontSize: '14px',
                       fontWeight: 500,
-                      color: '#64748B',
+                      color: 'var(--rr-text2)',
                       marginBottom: '4px',
                       display: 'block'
                     }}>
                       Group by squadron in Discord
                     </label>
-                    <p style={{ fontSize: '12px', color: '#64748B', margin: '0', fontFamily: 'Inter' }}>
+                    <p style={{ fontSize: '12px', color: 'var(--rr-text2)', margin: '0', fontFamily: 'inherit' }}>
                       When enabled, Discord event attendance will be divided by squadron.
                     </p>
                   </div>
@@ -2502,7 +2502,7 @@ export const EventDialog: React.FC<EventDialogProps> = ({
                     style={{
                       width: '44px',
                       height: '24px',
-                      backgroundColor: groupBySquadron ? '#3B82F6' : '#E5E7EB',
+                      backgroundColor: groupBySquadron ? 'var(--rr-accent)' : 'var(--rr-panel3)',
                       borderRadius: '12px',
                       position: 'relative',
                       cursor: 'pointer',
@@ -2514,13 +2514,13 @@ export const EventDialog: React.FC<EventDialogProps> = ({
                       style={{
                         width: '20px',
                         height: '20px',
-                        backgroundColor: 'white',
+                        backgroundColor: 'var(--rr-panel)',
                         borderRadius: '50%',
                         position: 'absolute',
                         top: '2px',
                         left: groupBySquadron ? '22px' : '2px',
                         transition: 'left 0.2s ease',
-                        boxShadow: '0 2px 4px rgba(0, 0, 0, 0.2)'
+                        boxShadow: 'var(--rr-shadow)'
                       }}
                     />
                   </div>
@@ -2533,13 +2533,13 @@ export const EventDialog: React.FC<EventDialogProps> = ({
                     <label style={{
                       fontSize: '14px',
                       fontWeight: 500,
-                      color: '#64748B',
+                      color: 'var(--rr-text2)',
                       marginBottom: '4px',
                       display: 'block'
                     }}>
                       Show "No Response" users in Discord
                     </label>
-                    <p style={{ fontSize: '12px', color: '#64748B', margin: '0', fontFamily: 'Inter' }}>
+                    <p style={{ fontSize: '12px', color: 'var(--rr-text2)', margin: '0', fontFamily: 'inherit' }}>
                       When enabled, active users who haven't responded will be displayed in the event post.
                     </p>
                   </div>
@@ -2548,7 +2548,7 @@ export const EventDialog: React.FC<EventDialogProps> = ({
                     style={{
                       width: '44px',
                       height: '24px',
-                      backgroundColor: showNoResponse ? '#3B82F6' : '#E5E7EB',
+                      backgroundColor: showNoResponse ? 'var(--rr-accent)' : 'var(--rr-panel3)',
                       borderRadius: '12px',
                       position: 'relative',
                       cursor: 'pointer',
@@ -2560,13 +2560,13 @@ export const EventDialog: React.FC<EventDialogProps> = ({
                       style={{
                         width: '20px',
                         height: '20px',
-                        backgroundColor: 'white',
+                        backgroundColor: 'var(--rr-panel)',
                         borderRadius: '50%',
                         position: 'absolute',
                         top: '2px',
                         left: showNoResponse ? '22px' : '2px',
                         transition: 'left 0.2s ease',
-                        boxShadow: '0 2px 4px rgba(0, 0, 0, 0.2)'
+                        boxShadow: 'var(--rr-shadow)'
                       }}
                     />
                   </div>
@@ -2579,13 +2579,13 @@ export const EventDialog: React.FC<EventDialogProps> = ({
                     <label style={{
                       fontSize: '14px',
                       fontWeight: 500,
-                      color: '#64748B',
+                      color: 'var(--rr-text2)',
                       marginBottom: '4px',
                       display: 'block'
                     }}>
                       Allow users to respond tentatively to event
                     </label>
-                    <p style={{ fontSize: '12px', color: '#64748B', margin: '0', fontFamily: 'Inter' }}>
+                    <p style={{ fontSize: '12px', color: 'var(--rr-text2)', margin: '0', fontFamily: 'inherit' }}>
                       When enabled, users can select "Tentative" in addition to "Accept" or "Decline".
                     </p>
                   </div>
@@ -2594,7 +2594,7 @@ export const EventDialog: React.FC<EventDialogProps> = ({
                     style={{
                       width: '44px',
                       height: '24px',
-                      backgroundColor: allowTentativeResponse ? '#3B82F6' : '#E5E7EB',
+                      backgroundColor: allowTentativeResponse ? 'var(--rr-accent)' : 'var(--rr-panel3)',
                       borderRadius: '12px',
                       position: 'relative',
                       cursor: 'pointer',
@@ -2606,13 +2606,13 @@ export const EventDialog: React.FC<EventDialogProps> = ({
                       style={{
                         width: '20px',
                         height: '20px',
-                        backgroundColor: 'white',
+                        backgroundColor: 'var(--rr-panel)',
                         borderRadius: '50%',
                         position: 'absolute',
                         top: '2px',
                         left: allowTentativeResponse ? '22px' : '2px',
                         transition: 'left 0.2s ease',
-                        boxShadow: '0 2px 4px rgba(0, 0, 0, 0.2)'
+                        boxShadow: 'var(--rr-shadow)'
                       }}
                     />
                   </div>
@@ -2627,13 +2627,13 @@ export const EventDialog: React.FC<EventDialogProps> = ({
                       <label style={{
                         fontSize: '14px',
                         fontWeight: 500,
-                        color: '#64748B',
+                        color: 'var(--rr-text2)',
                         marginBottom: '4px',
                         display: 'block'
                       }}>
                         Include in Cycle Attendance Report
                       </label>
-                      <p style={{ fontSize: '12px', color: '#64748B', margin: '0', fontFamily: 'Inter' }}>
+                      <p style={{ fontSize: '12px', color: 'var(--rr-text2)', margin: '0', fontFamily: 'inherit' }}>
                         When disabled, this event will be excluded from attendance statistics on the Reports page.
                       </p>
                     </div>
@@ -2643,7 +2643,7 @@ export const EventDialog: React.FC<EventDialogProps> = ({
                         style={{
                           width: '44px',
                           height: '24px',
-                          backgroundColor: includeInAttendanceReport ? '#3B82F6' : '#E5E7EB',
+                          backgroundColor: includeInAttendanceReport ? 'var(--rr-accent)' : 'var(--rr-panel3)',
                           borderRadius: '12px',
                           position: 'relative',
                           cursor: 'pointer',
@@ -2654,13 +2654,13 @@ export const EventDialog: React.FC<EventDialogProps> = ({
                           style={{
                             width: '20px',
                             height: '20px',
-                            backgroundColor: 'white',
+                            backgroundColor: 'var(--rr-panel)',
                             borderRadius: '50%',
                             position: 'absolute',
                             top: '2px',
                             left: includeInAttendanceReport ? '22px' : '2px',
                             transition: 'left 0.2s ease',
-                            boxShadow: '0 2px 4px rgba(0, 0, 0, 0.2)'
+                            boxShadow: 'var(--rr-shadow)'
                           }}
                         />
                       </div>
@@ -2673,9 +2673,9 @@ export const EventDialog: React.FC<EventDialogProps> = ({
 
           {currentStep === 'reminders' && (
             <div>
-              <div style={{ marginBottom: '24px', padding: '16px', border: '1px solid #E5E7EB', borderRadius: '6px', backgroundColor: '#F8FAFC' }}>
+              <div style={{ marginBottom: '24px', padding: '16px', border: '1px solid var(--rr-border)', borderRadius: '6px', backgroundColor: 'var(--rr-panel2)' }}>
                 <div style={{ marginBottom: '12px' }}>
-                  <span style={{ fontSize: '14px', fontWeight: 500, color: '#374151' }}>First Reminder</span>
+                  <span style={{ fontSize: '14px', fontWeight: 500, color: 'var(--rr-text)' }}>First Reminder</span>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
                   <input
@@ -2687,7 +2687,7 @@ export const EventDialog: React.FC<EventDialogProps> = ({
                     style={{
                       width: '80px',
                       padding: '8px',
-                      border: '1px solid #CBD5E1',
+                      border: '1px solid var(--rr-border2)',
                       borderRadius: '4px',
                       fontSize: '14px',
                       textAlign: 'center'
@@ -2698,7 +2698,7 @@ export const EventDialog: React.FC<EventDialogProps> = ({
                     onChange={(e) => setFirstReminderUnit(e.target.value as 'minutes' | 'hours' | 'days')}
                     style={{
                       padding: '8px',
-                      border: '1px solid #CBD5E1',
+                      border: '1px solid var(--rr-border2)',
                       borderRadius: '4px',
                       fontSize: '14px'
                     }}
@@ -2707,13 +2707,13 @@ export const EventDialog: React.FC<EventDialogProps> = ({
                     <option value="hours">hours</option>
                     <option value="days">days</option>
                   </select>
-                  <span style={{ fontSize: '14px', color: '#64748B', flex: 1 }}>before event start</span>
+                  <span style={{ fontSize: '14px', color: 'var(--rr-text2)', flex: 1 }}>before event start</span>
                   <div
                     onClick={() => setFirstReminderEnabled(!firstReminderEnabled)}
                     style={{
                       width: '44px',
                       height: '24px',
-                      backgroundColor: firstReminderEnabled ? '#3B82F6' : '#E5E7EB',
+                      backgroundColor: firstReminderEnabled ? 'var(--rr-accent)' : 'var(--rr-panel3)',
                       borderRadius: '12px',
                       position: 'relative',
                       cursor: 'pointer',
@@ -2725,20 +2725,20 @@ export const EventDialog: React.FC<EventDialogProps> = ({
                       style={{
                         width: '20px',
                         height: '20px',
-                        backgroundColor: 'white',
+                        backgroundColor: 'var(--rr-panel)',
                         borderRadius: '50%',
                         position: 'absolute',
                         top: '2px',
                         left: firstReminderEnabled ? '22px' : '2px',
                         transition: 'left 0.2s ease',
-                        boxShadow: '0 2px 4px rgba(0, 0, 0, 0.2)'
+                        boxShadow: 'var(--rr-shadow)'
                       }}
                     />
                   </div>
                 </div>
                 {firstReminderEnabled && (
-                  <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid #E5E7EB' }}>
-                    <p style={{ fontSize: '12px', color: '#64748B', marginBottom: '8px', fontWeight: 500 }}>
+                  <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid var(--rr-border)' }}>
+                    <p style={{ fontSize: '12px', color: 'var(--rr-text2)', marginBottom: '8px', fontWeight: 500 }}>
                       Send to users with status:
                     </p>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
@@ -2749,7 +2749,7 @@ export const EventDialog: React.FC<EventDialogProps> = ({
                           onChange={(e) => setFirstReminderAccepted(e.target.checked)}
                           style={{ marginRight: '6px' }}
                         />
-                        <span style={{ color: '#4B5563' }}>Accepted</span>
+                        <span style={{ color: 'var(--rr-text2)' }}>Accepted</span>
                       </label>
                       <label style={{ display: 'flex', alignItems: 'center', fontSize: '14px' }}>
                         <input
@@ -2758,7 +2758,7 @@ export const EventDialog: React.FC<EventDialogProps> = ({
                           onChange={(e) => setFirstReminderTentative(e.target.checked)}
                           style={{ marginRight: '6px' }}
                         />
-                        <span style={{ color: '#4B5563' }}>Tentative</span>
+                        <span style={{ color: 'var(--rr-text2)' }}>Tentative</span>
                       </label>
                       <label style={{ display: 'flex', alignItems: 'center', fontSize: '14px' }}>
                         <input
@@ -2767,7 +2767,7 @@ export const EventDialog: React.FC<EventDialogProps> = ({
                           onChange={(e) => setFirstReminderDeclined(e.target.checked)}
                           style={{ marginRight: '6px' }}
                         />
-                        <span style={{ color: '#4B5563' }}>Declined</span>
+                        <span style={{ color: 'var(--rr-text2)' }}>Declined</span>
                       </label>
                       <label style={{ display: 'flex', alignItems: 'center', fontSize: '14px' }}>
                         <input
@@ -2776,19 +2776,19 @@ export const EventDialog: React.FC<EventDialogProps> = ({
                           onChange={(e) => setFirstReminderNoResponse(e.target.checked)}
                           style={{ marginRight: '6px' }}
                         />
-                        <span style={{ color: '#4B5563' }}>No Response</span>
+                        <span style={{ color: 'var(--rr-text2)' }}>No Response</span>
                       </label>
                     </div>
-                    <p style={{ fontSize: '11px', color: '#9CA3AF', marginTop: '8px', fontStyle: 'italic' }}>
+                    <p style={{ fontSize: '11px', color: 'var(--rr-text3)', marginTop: '8px', fontStyle: 'italic' }}>
                       Only active users will be notified
                     </p>
                   </div>
                 )}
               </div>
               
-              <div style={{ marginBottom: '24px', padding: '16px', border: '1px solid #E5E7EB', borderRadius: '6px', backgroundColor: '#F8FAFC' }}>
+              <div style={{ marginBottom: '24px', padding: '16px', border: '1px solid var(--rr-border)', borderRadius: '6px', backgroundColor: 'var(--rr-panel2)' }}>
                 <div style={{ marginBottom: '12px' }}>
-                  <span style={{ fontSize: '14px', fontWeight: 500, color: '#374151' }}>Second Reminder</span>
+                  <span style={{ fontSize: '14px', fontWeight: 500, color: 'var(--rr-text)' }}>Second Reminder</span>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
                   <input
@@ -2800,7 +2800,7 @@ export const EventDialog: React.FC<EventDialogProps> = ({
                     style={{
                       width: '80px',
                       padding: '8px',
-                      border: '1px solid #CBD5E1',
+                      border: '1px solid var(--rr-border2)',
                       borderRadius: '4px',
                       fontSize: '14px',
                       textAlign: 'center'
@@ -2811,7 +2811,7 @@ export const EventDialog: React.FC<EventDialogProps> = ({
                     onChange={(e) => setSecondReminderUnit(e.target.value as 'minutes' | 'hours' | 'days')}
                     style={{
                       padding: '8px',
-                      border: '1px solid #CBD5E1',
+                      border: '1px solid var(--rr-border2)',
                       borderRadius: '4px',
                       fontSize: '14px'
                     }}
@@ -2820,13 +2820,13 @@ export const EventDialog: React.FC<EventDialogProps> = ({
                     <option value="hours">hours</option>
                     <option value="days">days</option>
                   </select>
-                  <span style={{ fontSize: '14px', color: '#64748B', flex: 1 }}>before event start</span>
+                  <span style={{ fontSize: '14px', color: 'var(--rr-text2)', flex: 1 }}>before event start</span>
                   <div
                     onClick={() => setSecondReminderEnabled(!secondReminderEnabled)}
                     style={{
                       width: '44px',
                       height: '24px',
-                      backgroundColor: secondReminderEnabled ? '#3B82F6' : '#E5E7EB',
+                      backgroundColor: secondReminderEnabled ? 'var(--rr-accent)' : 'var(--rr-panel3)',
                       borderRadius: '12px',
                       position: 'relative',
                       cursor: 'pointer',
@@ -2838,20 +2838,20 @@ export const EventDialog: React.FC<EventDialogProps> = ({
                       style={{
                         width: '20px',
                         height: '20px',
-                        backgroundColor: 'white',
+                        backgroundColor: 'var(--rr-panel)',
                         borderRadius: '50%',
                         position: 'absolute',
                         top: '2px',
                         left: secondReminderEnabled ? '22px' : '2px',
                         transition: 'left 0.2s ease',
-                        boxShadow: '0 2px 4px rgba(0, 0, 0, 0.2)'
+                        boxShadow: 'var(--rr-shadow)'
                       }}
                     />
                   </div>
                 </div>
                 {secondReminderEnabled && (
-                  <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid #E5E7EB' }}>
-                    <p style={{ fontSize: '12px', color: '#64748B', marginBottom: '8px', fontWeight: 500 }}>
+                  <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid var(--rr-border)' }}>
+                    <p style={{ fontSize: '12px', color: 'var(--rr-text2)', marginBottom: '8px', fontWeight: 500 }}>
                       Send to users with status:
                     </p>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
@@ -2862,7 +2862,7 @@ export const EventDialog: React.FC<EventDialogProps> = ({
                           onChange={(e) => setSecondReminderAccepted(e.target.checked)}
                           style={{ marginRight: '6px' }}
                         />
-                        <span style={{ color: '#4B5563' }}>Accepted</span>
+                        <span style={{ color: 'var(--rr-text2)' }}>Accepted</span>
                       </label>
                       <label style={{ display: 'flex', alignItems: 'center', fontSize: '14px' }}>
                         <input
@@ -2871,7 +2871,7 @@ export const EventDialog: React.FC<EventDialogProps> = ({
                           onChange={(e) => setSecondReminderTentative(e.target.checked)}
                           style={{ marginRight: '6px' }}
                         />
-                        <span style={{ color: '#4B5563' }}>Tentative</span>
+                        <span style={{ color: 'var(--rr-text2)' }}>Tentative</span>
                       </label>
                       <label style={{ display: 'flex', alignItems: 'center', fontSize: '14px' }}>
                         <input
@@ -2880,7 +2880,7 @@ export const EventDialog: React.FC<EventDialogProps> = ({
                           onChange={(e) => setSecondReminderDeclined(e.target.checked)}
                           style={{ marginRight: '6px' }}
                         />
-                        <span style={{ color: '#4B5563' }}>Declined</span>
+                        <span style={{ color: 'var(--rr-text2)' }}>Declined</span>
                       </label>
                       <label style={{ display: 'flex', alignItems: 'center', fontSize: '14px' }}>
                         <input
@@ -2889,10 +2889,10 @@ export const EventDialog: React.FC<EventDialogProps> = ({
                           onChange={(e) => setSecondReminderNoResponse(e.target.checked)}
                           style={{ marginRight: '6px' }}
                         />
-                        <span style={{ color: '#4B5563' }}>No Response</span>
+                        <span style={{ color: 'var(--rr-text2)' }}>No Response</span>
                       </label>
                     </div>
-                    <p style={{ fontSize: '11px', color: '#9CA3AF', marginTop: '8px', fontStyle: 'italic' }}>
+                    <p style={{ fontSize: '11px', color: 'var(--rr-text3)', marginTop: '8px', fontStyle: 'italic' }}>
                       Only active users will be notified
                     </p>
                   </div>
@@ -2904,10 +2904,10 @@ export const EventDialog: React.FC<EventDialogProps> = ({
           {currentStep === 'publish' && (
             <div>
               {/* Initial Notification Roles - Moved from Reminders step */}
-              <div style={{ marginBottom: '24px', padding: '16px', border: '1px solid #E5E7EB', borderRadius: '6px', backgroundColor: '#F8FAFC' }}>
+              <div style={{ marginBottom: '24px', padding: '16px', border: '1px solid var(--rr-border)', borderRadius: '6px', backgroundColor: 'var(--rr-panel2)' }}>
                 <div style={{ marginBottom: '12px' }}>
-                  <span style={{ fontSize: '14px', fontWeight: 500, color: '#374151' }}>Initial Notification</span>
-                  <p style={{ fontSize: '12px', color: '#64748B', marginTop: '4px', fontStyle: 'italic' }}>
+                  <span style={{ fontSize: '14px', fontWeight: 500, color: 'var(--rr-text)' }}>Initial Notification</span>
+                  <p style={{ fontSize: '12px', color: 'var(--rr-text2)', marginTop: '4px', fontStyle: 'italic' }}>
                     Mention Discord roles when the event is first published
                   </p>
                 </div>
@@ -2920,10 +2920,10 @@ export const EventDialog: React.FC<EventDialogProps> = ({
                     style={{
                       flex: 1,
                       padding: '8px',
-                      border: '1px solid #CBD5E1',
+                      border: '1px solid var(--rr-border2)',
                       borderRadius: '4px',
                       fontSize: '14px',
-                      backgroundColor: loadingRoles ? '#F9FAFB' : 'white',
+                      backgroundColor: loadingRoles ? 'var(--rr-panel2)' : 'var(--rr-panel)',
                       cursor: loadingRoles ? 'not-allowed' : 'pointer'
                     }}
                   >
@@ -2942,7 +2942,7 @@ export const EventDialog: React.FC<EventDialogProps> = ({
                     disabled={!selectedRoleId || loadingRoles}
                     style={{
                       padding: '8px 16px',
-                      backgroundColor: !selectedRoleId || loadingRoles ? '#9CA3AF' : '#3B82F6',
+                      backgroundColor: !selectedRoleId || loadingRoles ? '#9CA3AF' : 'var(--rr-accent)',
                       color: '#FFFFFF',
                       border: 'none',
                       borderRadius: '4px',
@@ -2974,9 +2974,9 @@ export const EventDialog: React.FC<EventDialogProps> = ({
                           height: '26px',
                           boxSizing: 'border-box',
                           whiteSpace: 'nowrap',
-                          backgroundColor: '#DBEAFE',
-                          color: '#1D4ED8',
-                          border: '1px solid #3B82F6'
+                          backgroundColor: 'var(--rr-accent-weak)',
+                          color: 'var(--rr-accent-text)',
+                          border: '1px solid var(--rr-accent)'
                         }}
                       >
                         <span>@{role.name}</span>
@@ -2990,7 +2990,7 @@ export const EventDialog: React.FC<EventDialogProps> = ({
                             backgroundColor: 'transparent',
                             border: 'none',
                             cursor: 'pointer',
-                            color: '#1D4ED8',
+                            color: 'var(--rr-accent-text)',
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
@@ -3014,11 +3014,11 @@ export const EventDialog: React.FC<EventDialogProps> = ({
               </div>
 
               {/* Scheduled Publication - NEW */}
-              <div style={{ marginBottom: '24px', padding: '16px', border: '1px solid #E5E7EB', borderRadius: '6px', backgroundColor: '#F8FAFC' }}>
+              <div style={{ marginBottom: '24px', padding: '16px', border: '1px solid var(--rr-border)', borderRadius: '6px', backgroundColor: 'var(--rr-panel2)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
                   <div>
-                    <span style={{ fontSize: '14px', fontWeight: 500, color: '#374151' }}>Schedule Publication</span>
-                    <p style={{ fontSize: '12px', color: '#64748B', marginTop: '4px', fontStyle: 'italic' }}>
+                    <span style={{ fontSize: '14px', fontWeight: 500, color: 'var(--rr-text)' }}>Schedule Publication</span>
+                    <p style={{ fontSize: '12px', color: 'var(--rr-text2)', marginTop: '4px', fontStyle: 'italic' }}>
                       {initialData?.isPublished
                         ? 'Event is already published. Scheduled publication is not available.'
                         : 'Automatically publish this event at a specific time'}
@@ -3029,7 +3029,7 @@ export const EventDialog: React.FC<EventDialogProps> = ({
                     style={{
                       width: '44px',
                       height: '24px',
-                      backgroundColor: scheduledPublicationEnabled ? '#3B82F6' : '#E5E7EB',
+                      backgroundColor: scheduledPublicationEnabled ? 'var(--rr-accent)' : 'var(--rr-panel3)',
                       borderRadius: '12px',
                       position: 'relative',
                       cursor: initialData?.isPublished ? 'not-allowed' : 'pointer',
@@ -3041,13 +3041,13 @@ export const EventDialog: React.FC<EventDialogProps> = ({
                       style={{
                         width: '20px',
                         height: '20px',
-                        backgroundColor: 'white',
+                        backgroundColor: 'var(--rr-panel)',
                         borderRadius: '50%',
                         position: 'absolute',
                         top: '2px',
                         left: scheduledPublicationEnabled ? '22px' : '2px',
                         transition: 'left 0.2s ease',
-                        boxShadow: '0 2px 4px rgba(0, 0, 0, 0.2)'
+                        boxShadow: 'var(--rr-shadow)'
                       }}
                     />
                   </div>
@@ -3056,7 +3056,7 @@ export const EventDialog: React.FC<EventDialogProps> = ({
                 {scheduledPublicationEnabled && (
                   <div>
                     <div style={{ marginBottom: '16px' }}>
-                      <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: '#64748B', marginBottom: '6px' }}>
+                      <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: 'var(--rr-text2)', marginBottom: '6px' }}>
                         Publication Date & Time
                       </label>
                       <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
@@ -3067,10 +3067,10 @@ export const EventDialog: React.FC<EventDialogProps> = ({
                           style={{
                             flex: 1,
                             padding: '8px',
-                            border: '1px solid #CBD5E1',
+                            border: '1px solid var(--rr-border2)',
                             borderRadius: '4px',
                             fontSize: '14px',
-                            backgroundColor: 'white'
+                            backgroundColor: 'var(--rr-panel)'
                           }}
                         />
                         <select
@@ -3078,24 +3078,24 @@ export const EventDialog: React.FC<EventDialogProps> = ({
                           disabled
                           style={{
                             padding: '8px',
-                            border: '1px solid #CBD5E1',
+                            border: '1px solid var(--rr-border2)',
                             borderRadius: '4px',
                             fontSize: '14px',
-                            backgroundColor: '#F9FAFB',
-                            color: '#9CA3AF',
+                            backgroundColor: 'var(--rr-panel2)',
+                            color: 'var(--rr-text3)',
                             cursor: 'not-allowed'
                           }}
                         >
                           <option value={timezone}>{timezone.replace('_', ' ')}</option>
                         </select>
                       </div>
-                      <p style={{ fontSize: '11px', color: '#9CA3AF', marginTop: '4px', fontStyle: 'italic' }}>
+                      <p style={{ fontSize: '11px', color: 'var(--rr-text3)', marginTop: '4px', fontStyle: 'italic' }}>
                         Uses event timezone: {timezone}
                       </p>
                     </div>
 
                     <div style={{ marginBottom: '8px' }}>
-                      <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: '#64748B', marginBottom: '6px' }}>
+                      <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: 'var(--rr-text2)', marginBottom: '6px' }}>
                         Or, specify as offset from event start
                       </label>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -3108,11 +3108,11 @@ export const EventDialog: React.FC<EventDialogProps> = ({
                           style={{
                             width: '80px',
                             padding: '8px',
-                            border: '1px solid #CBD5E1',
+                            border: '1px solid var(--rr-border2)',
                             borderRadius: '4px',
                             fontSize: '14px',
                             textAlign: 'center',
-                            backgroundColor: 'white'
+                            backgroundColor: 'var(--rr-panel)'
                           }}
                         />
                         <select
@@ -3120,19 +3120,19 @@ export const EventDialog: React.FC<EventDialogProps> = ({
                           onChange={(e) => handleScheduledPublicationOffsetChange('unit', e.target.value)}
                           style={{
                             padding: '8px',
-                            border: '1px solid #CBD5E1',
+                            border: '1px solid var(--rr-border2)',
                             borderRadius: '4px',
                             fontSize: '14px',
-                            backgroundColor: 'white'
+                            backgroundColor: 'var(--rr-panel)'
                           }}
                         >
                           <option value="minutes">minutes</option>
                           <option value="hours">hours</option>
                           <option value="days">days</option>
                         </select>
-                        <span style={{ fontSize: '14px', color: '#64748B' }}>before event start</span>
+                        <span style={{ fontSize: '14px', color: 'var(--rr-text2)' }}>before event start</span>
                       </div>
-                      <p style={{ fontSize: '11px', color: '#9CA3AF', marginTop: '4px', fontStyle: 'italic' }}>
+                      <p style={{ fontSize: '11px', color: 'var(--rr-text3)', marginTop: '4px', fontStyle: 'italic' }}>
                         Both inputs stay synchronized automatically
                       </p>
                     </div>
@@ -3144,12 +3144,12 @@ export const EventDialog: React.FC<EventDialogProps> = ({
 
           {error && (
             <div style={{
-              color: '#EF4444',
+              color: 'var(--rr-bad)',
               fontSize: '14px',
               marginTop: '16px',
               padding: '12px',
-              backgroundColor: '#FEF2F2',
-              border: '1px solid #FECACA',
+              backgroundColor: 'rgba(224,82,78,.12)',
+              border: '1px solid var(--rr-bad)',
               borderRadius: '6px'
             }}>
               {error}
@@ -3162,7 +3162,7 @@ export const EventDialog: React.FC<EventDialogProps> = ({
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
-          borderTop: '1px solid #E2E8F0',
+          borderTop: '1px solid var(--rr-border)',
           padding: '12px 24px',
           flexShrink: 0
         }}>
@@ -3171,10 +3171,10 @@ export const EventDialog: React.FC<EventDialogProps> = ({
             onClick={onCancel}
             style={{
               padding: '8px 16px',
-              border: '1px solid #CBD5E1',
+              border: '1px solid var(--rr-border2)',
               borderRadius: '4px',
-              backgroundColor: 'white',
-              color: '#64748B',
+              backgroundColor: 'var(--rr-panel)',
+              color: 'var(--rr-text2)',
               cursor: 'pointer',
               fontSize: '14px'
             }}
@@ -3189,10 +3189,10 @@ export const EventDialog: React.FC<EventDialogProps> = ({
                 onClick={handlePreviousStep}
                 style={{
                   padding: '8px 16px',
-                  border: '1px solid #CBD5E1',
+                  border: '1px solid var(--rr-border2)',
                   borderRadius: '4px',
-                  backgroundColor: 'white',
-                  color: '#64748B',
+                  backgroundColor: 'var(--rr-panel)',
+                  color: 'var(--rr-text2)',
                   cursor: 'pointer',
                   fontSize: '14px',
                   display: 'flex',
@@ -3213,7 +3213,7 @@ export const EventDialog: React.FC<EventDialogProps> = ({
                   padding: '8px 16px',
                   border: 'none',
                   borderRadius: '4px',
-                  backgroundColor: '#2563EB',
+                  backgroundColor: 'var(--rr-accent)',
                   color: 'white',
                   cursor: 'pointer',
                   fontSize: '14px',
@@ -3233,10 +3233,10 @@ export const EventDialog: React.FC<EventDialogProps> = ({
                   disabled={isSubmitting}
                   style={{
                     padding: '8px 16px',
-                    border: '1px solid #CBD5E1',
+                    border: '1px solid var(--rr-border2)',
                     borderRadius: '4px',
-                    backgroundColor: 'white',
-                    color: '#64748B',
+                    backgroundColor: 'var(--rr-panel)',
+                    color: 'var(--rr-text2)',
                     cursor: isSubmitting ? 'not-allowed' : 'pointer',
                     fontSize: '14px',
                     opacity: isSubmitting ? 0.6 : 1
@@ -3253,7 +3253,7 @@ export const EventDialog: React.FC<EventDialogProps> = ({
                     padding: '8px 16px',
                     border: 'none',
                     borderRadius: '4px',
-                    backgroundColor: '#10B981',
+                    backgroundColor: 'var(--rr-good)',
                     color: 'white',
                     cursor: isSubmitting ? 'not-allowed' : 'pointer',
                     fontSize: '14px',
@@ -3268,7 +3268,7 @@ export const EventDialog: React.FC<EventDialogProps> = ({
                       width: '16px',
                       height: '16px',
                       border: '2px solid #ffffff40',
-                      borderTopColor: '#ffffff',
+                      borderTopColor: 'var(--rr-panel)',
                       borderRadius: '50%',
                       animation: 'spin 1s linear infinite'
                     }} />

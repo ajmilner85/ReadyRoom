@@ -87,7 +87,7 @@ const TrainingManagement: React.FC = () => {
           paddingLeft: '16px',
           paddingRight: '16px',
           cursor: 'pointer',
-          fontFamily: 'Inter',
+          fontFamily: 'inherit',
           fontSize: '14px',
           fontWeight: active ? 500 : 400,
           transition: 'all 0.2s ease',
@@ -95,8 +95,8 @@ const TrainingManagement: React.FC = () => {
           marginBottom: '5px',
           height: '32px',
           gap: '5px',
-          backgroundColor: active ? '#82728C' : isHovered ? '#F1F5F9' : 'transparent',
-          color: active ? 'white' : '#64748B'
+          backgroundColor: active ? '#82728C' : isHovered ? 'var(--rr-panel2)' : 'transparent',
+          color: active ? 'white' : 'var(--rr-text2)'
         }}
       >
         <div>{item.icon}</div>
@@ -108,18 +108,18 @@ const TrainingManagement: React.FC = () => {
   return (
     <div
       style={{
-        backgroundColor: '#F0F4F8',
+        backgroundColor: 'var(--rr-panel2)',
         height: '100vh',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
         padding: '20px 20px 20px 20px',
         boxSizing: 'border-box',
-        fontFamily: 'Inter, sans-serif',
+        fontFamily: 'inherit',
       }}
     >
       {error && (
-        <div style={{ position: 'fixed', top: '20px', right: '20px', backgroundColor: '#FEE2E2', color: '#B91C1C', padding: '12px 16px', borderRadius: '4px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)', zIndex: 1000 }}>
+        <div style={{ position: 'fixed', top: '20px', right: '20px', backgroundColor: 'rgba(224,82,78,.12)', color: 'var(--rr-bad)', padding: '12px 16px', borderRadius: '4px', boxShadow: 'var(--rr-shadow)', zIndex: 1000 }}>
           {error}
         </div>
       )}
@@ -134,11 +134,11 @@ const TrainingManagement: React.FC = () => {
       }}>
         {/* Main training card with navigation and content */}
         <Card
-          className="bg-white rounded-lg shadow-md overflow-hidden"
+          className="bg-panel rounded-lg shadow-rr overflow-hidden"
           style={{
-            boxShadow: '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)',
+            boxShadow: 'var(--rr-shadow)',
             borderRadius: '8px',
-            backgroundColor: '#FFFFFF',
+            backgroundColor: 'var(--rr-panel)',
             height: 'calc(100vh - 40px)',
             display: 'flex',
             flexDirection: 'column',
@@ -150,11 +150,11 @@ const TrainingManagement: React.FC = () => {
             <div
               className="w-64"
               style={{
-                backgroundColor: '#FFFFFF',
+                backgroundColor: 'var(--rr-panel)',
                 padding: '40px 24px 24px 24px',
                 display: 'flex',
                 flexDirection: 'column',
-                borderRight: '1px solid #E5E7EB'
+                borderRight: '1px solid var(--rr-border)'
               }}
             >
               <div style={{ overflowY: 'auto', flex: 1 }}>
@@ -164,11 +164,11 @@ const TrainingManagement: React.FC = () => {
                     <h3 style={{
                       fontSize: '12px',
                       fontWeight: 600,
-                      color: '#9CA3AF',
+                      color: 'var(--rr-text3)',
                       textTransform: 'uppercase',
                       letterSpacing: '0.05em',
                       marginBottom: '12px',
-                      fontFamily: 'Inter'
+                      fontFamily: 'inherit'
                     }}>
                       {section.title}
                     </h3>
@@ -191,7 +191,7 @@ const TrainingManagement: React.FC = () => {
             <div
               className="flex-1"
               style={{
-                fontFamily: 'Inter',
+                fontFamily: 'inherit',
                 minWidth: 0,
                 overflow: 'hidden'
               }}

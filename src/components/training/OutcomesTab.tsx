@@ -47,7 +47,7 @@ const EffectiveDateControl: React.FC<{
   onChange: (ed: GraduationEffectiveDate) => void;
 }> = ({ effectiveDate, weekOptions, onChange }) => (
   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-    <div style={{ display: 'flex', borderRadius: '6px', overflow: 'hidden', border: '1px solid #D1D5DB' }}>
+    <div style={{ display: 'flex', borderRadius: '6px', overflow: 'hidden', border: '1px solid var(--rr-border2)' }}>
       <button
         onClick={(e) => { e.stopPropagation(); onChange({ mode: 'graduation' }); }}
         style={{
@@ -56,8 +56,8 @@ const EffectiveDateControl: React.FC<{
           fontSize: '12px',
           fontWeight: 500,
           cursor: 'pointer',
-          backgroundColor: effectiveDate.mode === 'graduation' ? '#2563EB' : 'white',
-          color: effectiveDate.mode === 'graduation' ? 'white' : '#6B7280',
+          backgroundColor: effectiveDate.mode === 'graduation' ? 'var(--rr-accent)' : 'var(--rr-panel)',
+          color: effectiveDate.mode === 'graduation' ? 'white' : 'var(--rr-text2)',
           transition: 'all 0.15s',
         }}
       >
@@ -71,12 +71,12 @@ const EffectiveDateControl: React.FC<{
         style={{
           padding: '4px 10px',
           border: 'none',
-          borderLeft: '1px solid #D1D5DB',
+          borderLeft: '1px solid var(--rr-border2)',
           fontSize: '12px',
           fontWeight: 500,
           cursor: 'pointer',
-          backgroundColor: effectiveDate.mode === 'week' ? '#2563EB' : 'white',
-          color: effectiveDate.mode === 'week' ? 'white' : '#6B7280',
+          backgroundColor: effectiveDate.mode === 'week' ? 'var(--rr-accent)' : 'var(--rr-panel)',
+          color: effectiveDate.mode === 'week' ? 'white' : 'var(--rr-text2)',
           transition: 'all 0.15s',
         }}
       >
@@ -93,10 +93,10 @@ const EffectiveDateControl: React.FC<{
         }}
         style={{
           padding: '4px 8px',
-          border: '1px solid #D1D5DB',
+          border: '1px solid var(--rr-border2)',
           borderRadius: '6px',
           fontSize: '12px',
-          backgroundColor: 'white',
+          backgroundColor: 'var(--rr-panel)',
         }}
       >
         {weekOptions.map(w => (
@@ -185,23 +185,23 @@ const OutcomesTab: React.FC<OutcomesTabProps> = ({ outcomes, onChange, maxWeekNu
 
   if (loading) {
     return (
-      <div style={{ padding: '24px', color: '#6B7280', fontSize: '14px' }}>
+      <div style={{ padding: '24px', color: 'var(--rr-text2)', fontSize: '14px' }}>
         Loading options...
       </div>
     );
   }
 
   return (
-    <div style={{ padding: '24px', backgroundColor: 'white', border: '1px solid #E5E7EB', borderRadius: '8px', marginBottom: '24px' }}>
+    <div style={{ padding: '24px', backgroundColor: 'var(--rr-panel)', border: '1px solid var(--rr-border)', borderRadius: '8px', marginBottom: '24px' }}>
       {/* Header */}
       <div style={{ marginBottom: '20px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-          <GraduationCap size={20} style={{ color: '#2563EB' }} />
-          <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 600, color: '#111827' }}>
+          <GraduationCap size={20} style={{ color: 'var(--rr-accent-text)' }} />
+          <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 600, color: 'var(--rr-text)' }}>
             Graduation Outcomes
           </h3>
         </div>
-        <p style={{ margin: 0, fontSize: '13px', color: '#6B7280', lineHeight: '1.5' }}>
+        <p style={{ margin: 0, fontSize: '13px', color: 'var(--rr-text2)', lineHeight: '1.5' }}>
           Configure what changes apply to a student upon graduation. Enabled outcomes will appear in the graduation dialog
           with their default values pre-filled. Required outcomes must be completed before graduation can be confirmed.
         </p>
@@ -218,9 +218,9 @@ const OutcomesTab: React.FC<OutcomesTabProps> = ({ outcomes, onChange, maxWeekNu
             <div
               key={type}
               style={{
-                border: `1px solid ${outcome.enabled ? '#BFDBFE' : '#E5E7EB'}`,
+                border: `1px solid ${outcome.enabled ? 'var(--rr-accent)' : 'var(--rr-border)'}`,
                 borderRadius: '8px',
-                backgroundColor: outcome.enabled ? '#F0F7FF' : '#FAFAFA',
+                backgroundColor: outcome.enabled ? '#F0F7FF' : 'var(--rr-panel2)',
                 transition: 'all 0.15s',
               }}
             >
@@ -241,8 +241,8 @@ const OutcomesTab: React.FC<OutcomesTabProps> = ({ outcomes, onChange, maxWeekNu
                       width: '20px',
                       height: '20px',
                       borderRadius: '4px',
-                      border: outcome.enabled ? '2px solid #2563EB' : '2px solid #D1D5DB',
-                      backgroundColor: outcome.enabled ? '#2563EB' : 'white',
+                      border: outcome.enabled ? '2px solid var(--rr-accent)' : '2px solid var(--rr-border2)',
+                      backgroundColor: outcome.enabled ? 'var(--rr-accent)' : 'var(--rr-panel)',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
@@ -252,21 +252,21 @@ const OutcomesTab: React.FC<OutcomesTabProps> = ({ outcomes, onChange, maxWeekNu
                   >
                     {outcome.enabled && <Check size={14} color="white" strokeWidth={3} />}
                   </div>
-                  <span style={{ fontSize: '14px', fontWeight: 600, color: '#111827' }}>{label}</span>
+                  <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--rr-text)' }}>{label}</span>
                 </div>
                 {outcome.enabled && (
                   <div
                     style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
                     onClick={(e) => e.stopPropagation()}
                   >
-                    <span style={{ fontSize: '12px', color: '#6B7280' }}>Required</span>
+                    <span style={{ fontSize: '12px', color: 'var(--rr-text2)' }}>Required</span>
                     <button
                       onClick={() => updateOutcome(type, { required: !outcome.required })}
                       style={{
                         position: 'relative',
                         width: '44px',
                         height: '24px',
-                        backgroundColor: outcome.required ? '#2563EB' : '#D1D5DB',
+                        backgroundColor: outcome.required ? 'var(--rr-accent)' : 'var(--rr-panel3)',
                         borderRadius: '12px',
                         border: 'none',
                         cursor: 'pointer',
@@ -281,7 +281,7 @@ const OutcomesTab: React.FC<OutcomesTabProps> = ({ outcomes, onChange, maxWeekNu
                         left: outcome.required ? '22px' : '2px',
                         width: '20px',
                         height: '20px',
-                        backgroundColor: 'white',
+                        backgroundColor: 'var(--rr-panel)',
                         borderRadius: '50%',
                         transition: 'left 0.2s',
                       }} />
@@ -297,12 +297,12 @@ const OutcomesTab: React.FC<OutcomesTabProps> = ({ outcomes, onChange, maxWeekNu
                   display: 'flex',
                   flexDirection: 'column',
                   gap: '14px',
-                  borderTop: '1px solid #DBEAFE',
+                  borderTop: '1px solid var(--rr-accent)',
                 }}>
                   {/* Effective Date — not shown for qualifications (per-qual dates instead) */}
                   {type !== 'qualifications' && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                      <span style={{ fontSize: '13px', fontWeight: 500, color: '#374151', minWidth: '90px' }}>
+                      <span style={{ fontSize: '13px', fontWeight: 500, color: 'var(--rr-text)', minWidth: '90px' }}>
                         Effective date:
                       </span>
                       <EffectiveDateControl
@@ -316,7 +316,7 @@ const OutcomesTab: React.FC<OutcomesTabProps> = ({ outcomes, onChange, maxWeekNu
                   {/* Standing default */}
                   {type === 'standing' && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                      <span style={{ fontSize: '13px', fontWeight: 500, color: '#374151', minWidth: '90px' }}>
+                      <span style={{ fontSize: '13px', fontWeight: 500, color: 'var(--rr-text)', minWidth: '90px' }}>
                         Default value:
                       </span>
                       <select
@@ -325,10 +325,10 @@ const OutcomesTab: React.FC<OutcomesTabProps> = ({ outcomes, onChange, maxWeekNu
                         onChange={(e) => { e.stopPropagation(); setDefaultValue(type, e.target.value || null); }}
                         style={{
                           padding: '6px 10px',
-                          border: '1px solid #D1D5DB',
+                          border: '1px solid var(--rr-border2)',
                           borderRadius: '6px',
                           fontSize: '13px',
-                          backgroundColor: 'white',
+                          backgroundColor: 'var(--rr-panel)',
                           minWidth: '200px',
                         }}
                       >
@@ -354,11 +354,11 @@ const OutcomesTab: React.FC<OutcomesTabProps> = ({ outcomes, onChange, maxWeekNu
                               justifyContent: 'space-between',
                               width: '100%',
                               padding: '7px 10px',
-                              border: '1px solid #D1D5DB',
+                              border: '1px solid var(--rr-border2)',
                               borderRadius: '6px',
-                              backgroundColor: 'white',
+                              backgroundColor: 'var(--rr-panel)',
                               fontSize: '13px',
-                              color: '#6B7280',
+                              color: 'var(--rr-text2)',
                               cursor: 'pointer',
                               textAlign: 'left',
                             }}
@@ -373,10 +373,10 @@ const OutcomesTab: React.FC<OutcomesTabProps> = ({ outcomes, onChange, maxWeekNu
                               left: 0,
                               right: 0,
                               zIndex: 20,
-                              backgroundColor: 'white',
-                              border: '1px solid #D1D5DB',
+                              backgroundColor: 'var(--rr-panel)',
+                              border: '1px solid var(--rr-border2)',
                               borderRadius: '6px',
-                              boxShadow: '0 4px 12px rgba(0,0,0,0.12)',
+                              boxShadow: 'var(--rr-shadow)',
                               maxHeight: '240px',
                               overflowY: 'auto',
                             }}>
@@ -390,9 +390,9 @@ const OutcomesTab: React.FC<OutcomesTabProps> = ({ outcomes, onChange, maxWeekNu
                                     gap: '10px',
                                     padding: '8px 12px',
                                     cursor: 'pointer',
-                                    borderBottom: '1px solid #F3F4F6',
+                                    borderBottom: '1px solid var(--rr-border)',
                                   }}
-                                  onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.backgroundColor = '#F3F4F6'; }}
+                                  onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.backgroundColor = 'var(--rr-panel2)'; }}
                                   onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.backgroundColor = 'transparent'; }}
                                 >
                                   <QualificationBadge
@@ -401,7 +401,7 @@ const OutcomesTab: React.FC<OutcomesTabProps> = ({ outcomes, onChange, maxWeekNu
                                     color={q.color || undefined}
                                     size="small"
                                   />
-                                  <span style={{ fontSize: '13px', color: '#111827' }}>{q.name}</span>
+                                  <span style={{ fontSize: '13px', color: 'var(--rr-text)' }}>{q.name}</span>
                                 </div>
                               ))}
                             </div>
@@ -423,8 +423,8 @@ const OutcomesTab: React.FC<OutcomesTabProps> = ({ outcomes, onChange, maxWeekNu
                                   alignItems: 'center',
                                   gap: '10px',
                                   padding: '8px 10px',
-                                  backgroundColor: 'white',
-                                  border: '1px solid #E5E7EB',
+                                  backgroundColor: 'var(--rr-panel)',
+                                  border: '1px solid var(--rr-border)',
                                   borderRadius: '6px',
                                   flexWrap: 'wrap',
                                 }}
@@ -435,7 +435,7 @@ const OutcomesTab: React.FC<OutcomesTabProps> = ({ outcomes, onChange, maxWeekNu
                                   color={qual.color || undefined}
                                   size="small"
                                 />
-                                <span style={{ fontSize: '13px', color: '#374151', flex: 1, minWidth: '100px' }}>
+                                <span style={{ fontSize: '13px', color: 'var(--rr-text)', flex: 1, minWidth: '100px' }}>
                                   {qual.name}
                                 </span>
                                 <EffectiveDateControl
@@ -454,7 +454,7 @@ const OutcomesTab: React.FC<OutcomesTabProps> = ({ outcomes, onChange, maxWeekNu
                                     border: 'none',
                                     borderRadius: '4px',
                                     backgroundColor: 'transparent',
-                                    color: '#9CA3AF',
+                                    color: 'var(--rr-text3)',
                                     cursor: 'pointer',
                                     padding: 0,
                                     flexShrink: 0,
@@ -467,7 +467,7 @@ const OutcomesTab: React.FC<OutcomesTabProps> = ({ outcomes, onChange, maxWeekNu
                           })}
                         </div>
                       ) : (
-                        <div style={{ fontSize: '12px', color: '#9CA3AF', fontStyle: 'italic' }}>
+                        <div style={{ fontSize: '12px', color: 'var(--rr-text3)', fontStyle: 'italic' }}>
                           No qualifications added yet
                         </div>
                       )}

@@ -21,7 +21,7 @@ const DEFAULT_CHIP = { bg: '#64748B', fg: '#FFFFFF' };
 const DossierKillsTab: React.FC<DossierKillsTabProps> = ({ kills, loading }) => {
   if (loading) {
     return (
-      <div style={{ color: '#64748B', fontSize: '14px', textAlign: 'center', padding: '24px 0' }}>
+      <div style={{ color: 'var(--rr-text2)', fontSize: '14px', textAlign: 'center', padding: '24px 0' }}>
         Loading kill records...
       </div>
     );
@@ -36,12 +36,12 @@ const DossierKillsTab: React.FC<DossierKillsTabProps> = ({ kills, loading }) => 
         alignItems: 'center',
         justifyContent: 'center',
         gap: '8px',
-        color: '#94A3B8',
+        color: 'var(--rr-text3)',
         textAlign: 'center'
       }}>
-        <Crosshair size={40} style={{ color: '#D1D5DB' }} />
-        <div style={{ fontSize: '14px', color: '#64748B' }}>No kills recorded in the selected scope</div>
-        <div style={{ fontSize: '12px', color: '#94A3B8', maxWidth: '360px' }}>
+        <Crosshair size={40} style={{ color: 'var(--rr-text3)' }} />
+        <div style={{ fontSize: '14px', color: 'var(--rr-text2)' }}>No kills recorded in the selected scope</div>
+        <div style={{ fontSize: '12px', color: 'var(--rr-text3)', maxWidth: '360px' }}>
           Kills recorded in mission debriefs will appear here.
         </div>
       </div>
@@ -53,16 +53,16 @@ const DossierKillsTab: React.FC<DossierKillsTabProps> = ({ kills, loading }) => 
       {kills.map(mission => (
         <div
           key={mission.missionId}
-          style={{ padding: '10px 0', borderBottom: '1px solid #F1F5F9' }}
+          style={{ padding: '10px 0', borderBottom: '1px solid var(--rr-border)' }}
         >
           <div style={{ display: 'flex', alignItems: 'baseline', gap: '12px' }}>
-            <span style={{ fontSize: '12px', color: '#94A3B8', width: '90px', flexShrink: 0 }}>
+            <span style={{ fontSize: '12px', color: 'var(--rr-text3)', width: '90px', flexShrink: 0 }}>
               {formatDossierDate(mission.date)}
             </span>
             <span style={{
               fontSize: '13px',
               fontWeight: 500,
-              color: '#0F172A',
+              color: 'var(--rr-text)',
               whiteSpace: 'nowrap',
               overflow: 'hidden',
               textOverflow: 'ellipsis'
@@ -72,7 +72,7 @@ const DossierKillsTab: React.FC<DossierKillsTabProps> = ({ kills, loading }) => 
             {mission.eventName && mission.eventName !== mission.missionName && (
               <span style={{
                 fontSize: '12px',
-                color: '#94A3B8',
+                color: 'var(--rr-text3)',
                 whiteSpace: 'nowrap',
                 overflow: 'hidden',
                 textOverflow: 'ellipsis'
@@ -103,9 +103,9 @@ const DossierKillsTab: React.FC<DossierKillsTabProps> = ({ kills, loading }) => 
                       borderRadius: '6px',
                       fontSize: '12px',
                       fontWeight: 600,
-                      backgroundColor: '#EFF6FF',
-                      border: '1px solid #93C5FD',
-                      color: '#2563EB'
+                      backgroundColor: 'var(--rr-accent-weak)',
+                      border: '1px solid var(--rr-accent)',
+                      color: 'var(--rr-accent-text)'
                     }}
                   >
                     {kill.count} × {kill.label}

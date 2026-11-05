@@ -59,8 +59,8 @@ export const IssueItem: React.FC<IssueItemProps> = ({
         alignItems: 'flex-start',
         gap: '12px',
         padding: '12px 16px',
-        backgroundColor: isHovered ? '#F9FAFB' : 'white',
-        borderBottom: '1px solid #E5E7EB',
+        backgroundColor: isHovered ? 'var(--rr-panel2)' : 'var(--rr-panel)',
+        borderBottom: '1px solid var(--rr-border)',
         cursor: 'pointer',
         transition: 'background-color 0.15s ease',
       }}
@@ -75,7 +75,7 @@ export const IssueItem: React.FC<IssueItemProps> = ({
             width: '20px',
             height: '20px',
             borderRadius: '50%',
-            border: `2px solid ${issue.status === 'open' ? '#047857' : '#9CA3AF'}`,
+            border: `2px solid ${issue.status === 'open' ? '#047857' : 'var(--rr-border2)'}`,
             backgroundColor: issue.status === 'closed' ? '#9CA3AF' : 'transparent',
             cursor: isToggling ? 'wait' : 'pointer',
             display: 'flex',
@@ -102,7 +102,7 @@ export const IssueItem: React.FC<IssueItemProps> = ({
             style={{
               fontSize: '14px',
               fontWeight: 500,
-              color: issue.status === 'closed' ? '#6B7280' : '#1F2937',
+              color: issue.status === 'closed' ? 'var(--rr-text2)' : 'var(--rr-text)',
               textDecoration: issue.status === 'closed' ? 'line-through' : 'none',
             }}
           >
@@ -120,11 +120,11 @@ export const IssueItem: React.FC<IssueItemProps> = ({
             gap: '12px',
             marginTop: '4px',
             fontSize: '12px',
-            color: '#6B7280',
+            color: 'var(--rr-text2)',
           }}
         >
           {showMissionName && issue.mission_name && (
-            <span style={{ fontWeight: 500, color: '#4B5563' }}>{issue.mission_name}</span>
+            <span style={{ fontWeight: 500, color: 'var(--rr-text2)' }}>{issue.mission_name}</span>
           )}
           <span>by {getCreatorName()}</span>
           <span>{formatDate(issue.created_at)}</span>

@@ -174,12 +174,12 @@ const CriteriaBlockEditor: React.FC<CriteriaBlockEditorProps> = ({
           fontSize: '14px',
           fontWeight: 600,
           marginBottom: '8px',
-          color: '#6B7280',
+          color: 'var(--rr-text2)',
           textTransform: 'uppercase'
         }}>
           {title}
         </h3>
-        <p style={{ fontSize: '13px', color: '#6B7280', margin: 0 }}>
+        <p style={{ fontSize: '13px', color: 'var(--rr-text2)', margin: 0 }}>
           {description}
         </p>
       </div>
@@ -200,9 +200,9 @@ const CriteriaBlockEditor: React.FC<CriteriaBlockEditorProps> = ({
                   alignSelf: 'center',
                   fontSize: '12px',
                   fontWeight: 600,
-                  color: '#9CA3AF',
+                  color: 'var(--rr-text3)',
                   padding: '4px 10px',
-                  backgroundColor: '#F3F4F6',
+                  backgroundColor: 'var(--rr-panel2)',
                   borderRadius: '12px',
                   flexShrink: 0
                 }}>
@@ -215,26 +215,26 @@ const CriteriaBlockEditor: React.FC<CriteriaBlockEditorProps> = ({
                   gap: '12px',
                   marginBottom: '16px'
                 }}>
-                  <div style={{ flex: 1, height: '1px', backgroundColor: '#E5E7EB' }} />
+                  <div style={{ flex: 1, height: '1px', backgroundColor: 'var(--rr-panel3)' }} />
                   <span style={{
                     fontSize: '12px',
                     fontWeight: 600,
-                    color: '#9CA3AF',
+                    color: 'var(--rr-text3)',
                     padding: '4px 12px',
-                    backgroundColor: '#F3F4F6',
+                    backgroundColor: 'var(--rr-panel2)',
                     borderRadius: '12px'
                   }}>
                     OR
                   </span>
-                  <div style={{ flex: 1, height: '1px', backgroundColor: '#E5E7EB' }} />
+                  <div style={{ flex: 1, height: '1px', backgroundColor: 'var(--rr-panel3)' }} />
                 </div>
               ))}
 
               {/* Block container */}
               <div style={{
                 ...(compact ? { flex: '1 1 280px', minWidth: '250px', maxWidth: '380px', boxSizing: 'border-box' as const } : {}),
-                backgroundColor: '#F9FAFB',
-                border: '1px solid #E5E7EB',
+                backgroundColor: 'var(--rr-panel2)',
+                border: '1px solid var(--rr-border)',
                 borderRadius: '8px',
                 // Compact mode reserves right padding for the corner remove-X
                 padding: compact ? '12px 36px 12px 12px' : '16px',
@@ -272,7 +272,7 @@ const CriteriaBlockEditor: React.FC<CriteriaBlockEditorProps> = ({
                   <span style={{
                     fontSize: '13px',
                     fontWeight: 500,
-                    color: '#374151'
+                    color: 'var(--rr-text)'
                   }}>
                     {blockLabel} {blockIndex + 1}
                   </span>
@@ -281,7 +281,7 @@ const CriteriaBlockEditor: React.FC<CriteriaBlockEditorProps> = ({
                     style={{
                       padding: '4px 8px',
                       backgroundColor: 'transparent',
-                      color: '#9CA3AF',
+                      color: 'var(--rr-text3)',
                       border: 'none',
                       borderRadius: '4px',
                       cursor: 'pointer',
@@ -291,11 +291,11 @@ const CriteriaBlockEditor: React.FC<CriteriaBlockEditorProps> = ({
                       gap: '4px'
                     }}
                     onMouseEnter={(e) => {
-                      e.currentTarget.style.color = '#DC2626';
-                      e.currentTarget.style.backgroundColor = '#FEE2E2';
+                      e.currentTarget.style.color = 'var(--rr-bad)';
+                      e.currentTarget.style.backgroundColor = 'rgba(224,82,78,.12)';
                     }}
                     onMouseLeave={(e) => {
-                      e.currentTarget.style.color = '#9CA3AF';
+                      e.currentTarget.style.color = 'var(--rr-text3)';
                       e.currentTarget.style.backgroundColor = 'transparent';
                     }}
                     title="Remove block"
@@ -321,9 +321,9 @@ const CriteriaBlockEditor: React.FC<CriteriaBlockEditorProps> = ({
                           <span style={{ 
                             fontSize: '11px', 
                             fontWeight: 600, 
-                            color: '#2563EB',
+                            color: 'var(--rr-accent-text)',
                             padding: '2px 8px',
-                            backgroundColor: '#EFF6FF',
+                            backgroundColor: 'var(--rr-accent-weak)',
                             borderRadius: '8px'
                           }}>
                             AND
@@ -343,10 +343,10 @@ const CriteriaBlockEditor: React.FC<CriteriaBlockEditorProps> = ({
                           onChange={(e) => handleTypeChange(blockIndex, criterionIndex, e.target.value as CriterionType)}
                           style={{
                             padding: compact ? '8px 6px' : '8px 12px',
-                            border: '1px solid #D1D5DB',
+                            border: '1px solid var(--rr-border2)',
                             borderRadius: '6px',
                             fontSize: compact ? '13px' : '14px',
-                            backgroundColor: 'white',
+                            backgroundColor: 'var(--rr-panel)',
                             width: compact ? '104px' : '140px',
                             flexShrink: 0,
                             cursor: 'pointer'
@@ -366,10 +366,10 @@ const CriteriaBlockEditor: React.FC<CriteriaBlockEditorProps> = ({
                         {criterion.type === 'squadron' ? (
                           <div style={{
                             flex: 1,
-                            border: '1px solid #E5E7EB',
+                            border: '1px solid var(--rr-border)',
                             borderRadius: '4px',
                             padding: '4px',
-                            backgroundColor: '#FAFAFA'
+                            backgroundColor: 'var(--rr-panel2)'
                           }}>
                             {(squadrons || []).map(squadron => {
                               const selectedIds = criterion.values ?? (criterion.value ? [criterion.value] : []);
@@ -384,14 +384,14 @@ const CriteriaBlockEditor: React.FC<CriteriaBlockEditorProps> = ({
                                     display: 'flex',
                                     alignItems: 'center',
                                     gap: '8px',
-                                    backgroundColor: isSelected ? '#EFF6FF' : 'transparent',
+                                    backgroundColor: isSelected ? 'var(--rr-accent-weak)' : 'transparent',
                                     borderRadius: '3px',
                                     transition: 'background-color 0.2s',
                                     marginBottom: '2px'
                                   }}
                                   onMouseEnter={e => {
                                     if (!isSelected) {
-                                      e.currentTarget.style.backgroundColor = '#F8FAFC';
+                                      e.currentTarget.style.backgroundColor = 'var(--rr-panel2)';
                                     }
                                   }}
                                   onMouseLeave={e => {
@@ -403,9 +403,9 @@ const CriteriaBlockEditor: React.FC<CriteriaBlockEditorProps> = ({
                                   <div style={{
                                     width: '14px',
                                     height: '14px',
-                                    border: '1px solid #CBD5E1',
+                                    border: '1px solid var(--rr-border2)',
                                     borderRadius: '3px',
-                                    backgroundColor: isSelected ? '#3B82F6' : '#FFFFFF',
+                                    backgroundColor: isSelected ? 'var(--rr-accent)' : 'var(--rr-panel)',
                                     display: 'flex',
                                     alignItems: 'center',
                                     justifyContent: 'center',
@@ -432,23 +432,23 @@ const CriteriaBlockEditor: React.FC<CriteriaBlockEditorProps> = ({
                                     <div style={{
                                       width: '20px',
                                       height: '20px',
-                                      backgroundColor: '#E5E7EB',
+                                      backgroundColor: 'var(--rr-panel3)',
                                       borderRadius: '3px',
                                       display: 'flex',
                                       alignItems: 'center',
                                       justifyContent: 'center',
                                       flexShrink: 0
                                     }}>
-                                      <span style={{ fontSize: '10px', color: '#6B7280' }}>?</span>
+                                      <span style={{ fontSize: '10px', color: 'var(--rr-text2)' }}>?</span>
                                     </div>
                                   )}
 
                                   <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, flex: 1 }}>
-                                    <span style={{ fontSize: '12px', fontWeight: 500, fontFamily: 'Inter' }}>
+                                    <span style={{ fontSize: '12px', fontWeight: 500, fontFamily: 'inherit' }}>
                                       {squadron.designation || squadron.name}
                                     </span>
                                     {squadron.designation && (
-                                      <span style={{ fontSize: '10px', color: '#64748B', fontFamily: 'Inter' }}>
+                                      <span style={{ fontSize: '10px', color: 'var(--rr-text2)', fontFamily: 'inherit' }}>
                                         {squadron.name}
                                       </span>
                                     )}
@@ -463,10 +463,10 @@ const CriteriaBlockEditor: React.FC<CriteriaBlockEditorProps> = ({
                           onChange={(e) => handleValueChange(blockIndex, criterionIndex, e.target.value)}
                           style={{
                             padding: '8px 12px',
-                            border: '1px solid #D1D5DB',
+                            border: '1px solid var(--rr-border2)',
                             borderRadius: '6px',
                             fontSize: '14px',
-                            backgroundColor: 'white',
+                            backgroundColor: 'var(--rr-panel)',
                             flex: 1,
                             cursor: 'pointer'
                           }}
@@ -485,9 +485,9 @@ const CriteriaBlockEditor: React.FC<CriteriaBlockEditorProps> = ({
                           onClick={() => handleRemoveCriterion(blockIndex, criterionIndex)}
                           style={{
                             padding: '8px',
-                            backgroundColor: 'white',
-                            color: '#9CA3AF',
-                            border: '1px solid #E5E7EB',
+                            backgroundColor: 'var(--rr-panel)',
+                            color: 'var(--rr-text3)',
+                            border: '1px solid var(--rr-border)',
                             borderRadius: '6px',
                             cursor: 'pointer',
                             display: 'flex',
@@ -495,14 +495,14 @@ const CriteriaBlockEditor: React.FC<CriteriaBlockEditorProps> = ({
                             justifyContent: 'center'
                           }}
                           onMouseEnter={(e) => {
-                            e.currentTarget.style.backgroundColor = '#FEE2E2';
-                            e.currentTarget.style.color = '#DC2626';
-                            e.currentTarget.style.borderColor = '#FECACA';
+                            e.currentTarget.style.backgroundColor = 'rgba(224,82,78,.12)';
+                            e.currentTarget.style.color = 'var(--rr-bad)';
+                            e.currentTarget.style.borderColor = 'var(--rr-bad)';
                           }}
                           onMouseLeave={(e) => {
-                            e.currentTarget.style.backgroundColor = 'white';
-                            e.currentTarget.style.color = '#9CA3AF';
-                            e.currentTarget.style.borderColor = '#E5E7EB';
+                            e.currentTarget.style.backgroundColor = 'var(--rr-panel)';
+                            e.currentTarget.style.color = 'var(--rr-text3)';
+                            e.currentTarget.style.borderColor = 'var(--rr-border)';
                           }}
                           title="Remove criterion"
                         >
@@ -517,9 +517,9 @@ const CriteriaBlockEditor: React.FC<CriteriaBlockEditorProps> = ({
                     onClick={() => handleAddCriterion(blockIndex)}
                     style={{
                       padding: '6px 12px',
-                      backgroundColor: 'white',
-                      color: '#2563EB',
-                      border: '1px dashed #BFDBFE',
+                      backgroundColor: 'var(--rr-panel)',
+                      color: 'var(--rr-accent-text)',
+                      border: '1px dashed var(--rr-accent)',
                       borderRadius: '6px',
                       cursor: 'pointer',
                       fontSize: '13px',
@@ -529,10 +529,10 @@ const CriteriaBlockEditor: React.FC<CriteriaBlockEditorProps> = ({
                       marginTop: '8px'
                     }}
                     onMouseEnter={(e) => {
-                      e.currentTarget.style.backgroundColor = '#EFF6FF';
+                      e.currentTarget.style.backgroundColor = 'var(--rr-accent-weak)';
                     }}
                     onMouseLeave={(e) => {
-                      e.currentTarget.style.backgroundColor = 'white';
+                      e.currentTarget.style.backgroundColor = 'var(--rr-panel)';
                     }}
                   >
                     <Plus size={14} />
@@ -550,9 +550,9 @@ const CriteriaBlockEditor: React.FC<CriteriaBlockEditorProps> = ({
         onClick={handleAddBlock}
         style={{
           padding: '10px 16px',
-          backgroundColor: '#EFF6FF',
-          color: '#2563EB',
-          border: '1px solid #BFDBFE',
+          backgroundColor: 'var(--rr-accent-weak)',
+          color: 'var(--rr-accent-text)',
+          border: '1px solid var(--rr-accent)',
           borderRadius: '6px',
           cursor: 'pointer',
           fontSize: '14px',
@@ -562,10 +562,10 @@ const CriteriaBlockEditor: React.FC<CriteriaBlockEditorProps> = ({
           gap: '8px'
         }}
         onMouseEnter={(e) => {
-          e.currentTarget.style.backgroundColor = '#DBEAFE';
+          e.currentTarget.style.backgroundColor = 'var(--rr-accent-weak)';
         }}
         onMouseLeave={(e) => {
-          e.currentTarget.style.backgroundColor = '#EFF6FF';
+          e.currentTarget.style.backgroundColor = 'var(--rr-accent-weak)';
         }}
       >
         <Plus size={16} />
@@ -577,13 +577,13 @@ const CriteriaBlockEditor: React.FC<CriteriaBlockEditorProps> = ({
         <div style={{ 
           marginTop: '16px', 
           padding: '12px', 
-          backgroundColor: '#F9FAFB', 
+          backgroundColor: 'var(--rr-panel2)', 
           borderRadius: '6px',
-          border: '1px solid #E5E7EB'
+          border: '1px solid var(--rr-border)'
         }}>
           <p style={{ 
             fontSize: '12px', 
-            color: '#6B7280', 
+            color: 'var(--rr-text2)', 
             margin: 0,
             fontStyle: 'italic'
           }}>

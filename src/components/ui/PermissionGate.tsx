@@ -96,7 +96,7 @@ export const PermissionGate: React.FC<PermissionGateProps> = ({
 
   // Wait for loading to complete if requested
   if (waitForLoad && loading) {
-    return <div className="animate-pulse bg-gray-200 rounded h-8 w-24"></div>;
+    return <div className="animate-pulse bg-panel3 rounded h-8 w-24"></div>;
   }
 
   const hasPermission = isVisible(permission, context);
@@ -252,7 +252,7 @@ export const AnyPermissionGate: React.FC<AnyPermissionGateProps> = ({
   const { hasAnyPermission, loading } = useComponentPermissions();
 
   if (loading) {
-    return <div className="animate-pulse bg-gray-200 rounded h-8 w-24"></div>;
+    return <div className="animate-pulse bg-panel3 rounded h-8 w-24"></div>;
   }
 
   const hasAccess = hasAnyPermission(permissions, context);
@@ -309,7 +309,7 @@ export const AllPermissionGate: React.FC<AllPermissionGateProps> = ({
   const { hasAnyPermission, loading } = useComponentPermissions();
 
   if (loading) {
-    return <div className="animate-pulse bg-gray-200 rounded h-8 w-24"></div>;
+    return <div className="animate-pulse bg-panel3 rounded h-8 w-24"></div>;
   }
 
   const hasAccess = hasAnyPermission(permissions, context);
