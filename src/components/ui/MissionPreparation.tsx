@@ -647,7 +647,7 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
               className="absolute inset-0 p-[14px] gap-[14px] min-h-0 max-[760px]:static"
               style={{ display: activeTab === 'flights' || activeTab === 'support' ? 'flex' : 'none' }}
             >
-              <div className="flex-none w-[440px] min-h-0 flex flex-col">
+              <div className="flex-none w-[440px] min-h-0 flex flex-col max-[760px]:h-[70dvh]">
                 <AvailablePilots
                   width="100%"
                   pilots={activePilots}
@@ -666,7 +666,7 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
                   qualifications={qualificationsData}
                 />
               </div>
-              <div className="flex-1 min-w-0 min-h-0 flex-col" style={{ display: activeTab === 'flights' ? 'flex' : 'none' }}>
+              <div className="flex-1 min-w-0 min-h-0 flex-col max-[760px]:h-[80dvh]" style={{ display: activeTab === 'flights' ? 'flex' : 'none' }}>
                 <FlightAssignments
                   width="100%"
                   assignedPilots={assignedPilots}
@@ -683,7 +683,7 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
                   isLoading={isLoading}
                 />
               </div>
-              <div className="flex-1 min-w-0 min-h-0 flex-col" style={{ display: activeTab === 'support' ? 'flex' : 'none' }}>
+              <div className="flex-1 min-w-0 min-h-0 flex-col max-[760px]:h-[80dvh]" style={{ display: activeTab === 'support' ? 'flex' : 'none' }}>
                 <MissionSupportAssignments
                   width="100%"
                   assignedPilots={assignedPilots}
