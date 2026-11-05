@@ -445,36 +445,36 @@ const DCSReferenceSettings: React.FC<DCSReferenceSettingsProps> = ({ setError })
   const getCategoryBadgeColor = (category: string) => {
     switch (category) {
       case 'AIRPLANE':
-        return { bg: '#DBEAFE', text: '#1D4ED8', border: 'var(--rr-accent)' };
+        return { bg: 'var(--rr-accent-weak)', text: '#1D4ED8', border: 'var(--rr-accent)' };
       case 'HELICOPTER':
-        return { bg: '#E0E7FF', text: '#3730A3', border: '#6366F1' };
+        return { bg: 'var(--rr-accent-weak)', text: '#3730A3', border: '#6366F1' };
       case 'GROUND_UNIT':
-        return { bg: '#D1FAE5', text: '#065F46', border: 'var(--rr-good)' };
+        return { bg: 'rgba(64,168,91,.14)', text: '#065F46', border: 'var(--rr-good)' };
       case 'SHIP':
         return { bg: '#CCFBF1', text: '#115E59', border: '#14B8A6' };
       case 'STRUCTURE':
-        return { bg: '#FEE2E2', text: '#991B1B', border: 'var(--rr-bad)' };
+        return { bg: 'rgba(224,82,78,.12)', text: '#991B1B', border: 'var(--rr-bad)' };
       case 'HELIPORT':
-        return { bg: '#FEF3C7', text: '#92400E', border: 'var(--rr-warn)' };
+        return { bg: 'rgba(222,154,31,.14)', text: '#92400E', border: 'var(--rr-warn)' };
       case 'CARGO':
         return { bg: '#FBCFE8', text: '#831843', border: '#EC4899' };
       case 'UNKNOWN':
         return { bg: '#F3E8FF', text: '#6B21A8', border: '#A855F7' };
       default:
-        return { bg: '#F3F4F6', text: '#374151', border: 'var(--rr-border2)' };
+        return { bg: 'var(--rr-panel2)', text: '#374151', border: 'var(--rr-border2)' };
     }
   };
 
   const getKillCategoryBadgeColor = (killCategory: string) => {
     switch (killCategory) {
       case 'A2A':
-        return { bg: '#DBEAFE', text: '#1D4ED8', border: 'var(--rr-accent)' };
+        return { bg: 'var(--rr-accent-weak)', text: '#1D4ED8', border: 'var(--rr-accent)' };
       case 'A2G':
-        return { bg: '#D1FAE5', text: '#065F46', border: 'var(--rr-good)' };
+        return { bg: 'rgba(64,168,91,.14)', text: '#065F46', border: 'var(--rr-good)' };
       case 'A2S':
         return { bg: '#CCFBF1', text: '#115E59', border: '#14B8A6' };
       default:
-        return { bg: '#F3F4F6', text: '#374151', border: 'var(--rr-border2)' };
+        return { bg: 'var(--rr-panel2)', text: '#374151', border: 'var(--rr-border2)' };
     }
   };
 

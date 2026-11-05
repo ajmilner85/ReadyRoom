@@ -29,11 +29,11 @@ const UnitBadge: React.FC<UnitBadgeProps> = ({
   const getCategoryColor = () => {
     switch (killCategory) {
       case 'A2A':
-        return { bg: '#DBEAFE', text: '#1E40AF', border: 'var(--rr-accent)' };
+        return { bg: 'var(--rr-accent-weak)', text: '#1E40AF', border: 'var(--rr-accent)' };
       case 'A2G':
-        return { bg: '#FEE2E2', text: '#991B1B', border: 'var(--rr-bad)' };
+        return { bg: 'rgba(224,82,78,.12)', text: '#991B1B', border: 'var(--rr-bad)' };
       case 'A2S':
-        return { bg: '#D1FAE5', text: '#065F46', border: '#6EE7B7' };
+        return { bg: 'rgba(64,168,91,.14)', text: '#065F46', border: '#6EE7B7' };
     }
   };
 

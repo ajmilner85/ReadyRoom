@@ -8,9 +8,9 @@ interface DossierAttendanceTabProps {
 }
 
 const RESPONSE_CHIP: Record<string, { label: string; bg: string; fg: string }> = {
-  'present': { label: 'Present', bg: '#D1FAE5', fg: '#065F46' },
-  'absent': { label: 'Absent', bg: '#FEE2E2', fg: '#DC2626' },
-  'unknown': { label: 'Unknown', bg: '#F3F4F6', fg: '#4B5563' }
+  'present': { label: 'Present', bg: 'rgba(64,168,91,.16)', fg: 'var(--rr-good)' },
+  'absent': { label: 'Absent', bg: 'rgba(224,82,78,.16)', fg: 'var(--rr-bad)' },
+  'unknown': { label: 'Unknown', bg: 'var(--rr-panel3)', fg: 'var(--rr-text2)' }
 };
 
 const summaryStyle: React.CSSProperties = {

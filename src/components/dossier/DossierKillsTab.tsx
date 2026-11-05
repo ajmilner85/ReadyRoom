@@ -11,8 +11,8 @@ interface DossierKillsTabProps {
 // Kill category colors copied from the AAR category headers
 // (debriefing/EnhancedKillTrackingCard.tsx categoryColors)
 const CATEGORY_CHIP: Record<string, { bg: string; fg: string }> = {
-  'A2A': { bg: '#3B82F6', fg: '#FFFFFF' },
-  'A2G': { bg: '#10B981', fg: '#FFFFFF' },
+  'A2A': { bg: 'var(--rr-accent)', fg: '#FFFFFF' },
+  'A2G': { bg: 'var(--rr-good)', fg: '#FFFFFF' },
   'A2S': { bg: '#222A35', fg: '#FFFFFF' }
 };
 

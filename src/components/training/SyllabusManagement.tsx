@@ -23,9 +23,9 @@ const KIND_SECTIONS: Array<{ kind: 'linear' | 'pool' | 'module' | 'advanced_qual
 ];
 
 const KIND_BADGE_COLORS: Record<string, { bg: string; fg: string }> = {
-  pool: { bg: '#EFF6FF', fg: '#2563EB' },
+  pool: { bg: 'var(--rr-accent-weak)', fg: 'var(--rr-accent-text)' },
   module: { bg: '#F5F3FF', fg: '#7C3AED' },
-  advanced_qualification: { bg: '#FEF3C7', fg: '#D97706' }
+  advanced_qualification: { bg: 'rgba(222,154,31,.14)', fg: 'var(--rr-warn)' }
 };
 
 const KIND_BADGE_LABELS: Record<string, string> = {

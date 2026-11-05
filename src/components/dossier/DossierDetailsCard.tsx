@@ -62,12 +62,12 @@ const DossierDetailsCard: React.FC<DossierDetailsCardProps> = ({
 
   const enrollmentStatusChip = (status: string | null) => {
     const colors: Record<string, { bg: string; fg: string }> = {
-      active: { bg: '#DBEAFE', fg: '#1D4ED8' },
-      graduated: { bg: '#D1FAE5', fg: '#065F46' },
-      completed: { bg: '#D1FAE5', fg: '#065F46' },
-      withdrawn: { bg: '#F3F4F6', fg: '#4B5563' }
+      active: { bg: 'var(--rr-accent-weak)', fg: 'var(--rr-accent-text)' },
+      graduated: { bg: 'rgba(64,168,91,.14)', fg: 'var(--rr-good)' },
+      completed: { bg: 'rgba(64,168,91,.14)', fg: 'var(--rr-good)' },
+      withdrawn: { bg: 'var(--rr-panel2)', fg: 'var(--rr-text2)' }
     };
-    const style = colors[(status || '').toLowerCase()] || { bg: '#F3F4F6', fg: '#4B5563' };
+    const style = colors[(status || '').toLowerCase()] || { bg: 'var(--rr-panel2)', fg: 'var(--rr-text2)' };
     return (
       <span style={{
         display: 'inline-flex',
