@@ -103,7 +103,7 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
     }
     
     .md-code {
-      background-color: #F3F4F6;
+      background-color: var(--rr-panel2);
       color: #DB2777;
       padding: 2px 6px;
       border-radius: 3px;
@@ -112,8 +112,8 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
     }
     
     .md-code-block {
-      background-color: #F8FAFC;
-      border: 1px solid #E2E8F0;
+      background-color: var(--rr-panel2);
+      border: 1px solid var(--rr-border);
       border-radius: 6px;
       padding: 12px 16px;
       margin: 12px 0;
@@ -123,7 +123,7 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
     .md-code-block code {
       font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;
       font-size: 13px;
-      color: #374151;
+      color: var(--rr-text);
       white-space: pre;
     }
     
@@ -150,23 +150,23 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
     
     .md-blockquote {
       border-left: 3px solid ${primaryColor};
-      background-color: #F8FAFC;
+      background-color: var(--rr-panel2);
       padding: 8px 16px;
       margin: 12px 0;
       font-style: italic;
-      color: #6B7280;
+      color: var(--rr-text2);
     }
     
     .md-hr {
       border: none;
       height: 1px;
-      background-color: #E5E7EB;
+      background-color: var(--rr-panel3);
       margin: 20px 0;
     }
     
     strong {
       font-weight: 600;
-      color: #1F2937;
+      color: var(--rr-text);
     }
     
     em {

@@ -24,14 +24,14 @@ const ChangeLogCard: React.FC<ChangeLogCardProps> = () => {
 
   // Squadron color theming
   const useSquadronColors = settings.interfaceThemeUsesSquadronColors;
-  const primaryColor = useSquadronColors ? '#3B82F6' : '#3B82F6'; // TODO: Get actual squadron color
+  const primaryColor = useSquadronColors ? 'var(--rr-accent)' : 'var(--rr-accent)';
 
   const cardStyle: React.CSSProperties = {
     backgroundColor: 'var(--rr-panel)',
     borderRadius: '10px',
     border: '1px solid var(--rr-border)',
-    height: 'calc(100vh - 48px)',
-    maxHeight: 'calc(100vh - 48px)',
+    height: '560px',
+    maxHeight: '70vh',
     display: 'flex',
     flexDirection: 'column',
     boxShadow: 'var(--rr-shadow)',
@@ -42,17 +42,18 @@ const ChangeLogCard: React.FC<ChangeLogCardProps> = () => {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: '16px 24px 0 24px',
-    marginBottom: '16px',
+    padding: '10px 16px',
+    marginBottom: '12px',
+    borderBottom: '1px solid var(--rr-border)',
   };
 
   const titleStyle: React.CSSProperties = {
-    fontSize: '20px',
-    fontWeight: 300,
+    fontSize: '12px',
+    fontWeight: 600,
     color: 'var(--rr-text2)',
     textTransform: 'uppercase',
-    letterSpacing: '0.5px',
-    textAlign: 'center',
+    letterSpacing: '.14em',
+    textAlign: 'left',
     flex: 1,
   };
 
@@ -65,8 +66,8 @@ const ChangeLogCard: React.FC<ChangeLogCardProps> = () => {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    width: '32px',
-    height: '32px',
+    width: '28px',
+    height: '28px',
     borderRadius: '6px',
     border: '1px solid var(--rr-border2)',
     backgroundColor: 'var(--rr-panel)',

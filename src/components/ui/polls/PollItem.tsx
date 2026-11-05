@@ -98,7 +98,7 @@ const PollItem: React.FC<PollItemProps> = ({
             padding: '12px 16px',
             border: `1px solid ${isSelected ? primaryColor : 'var(--rr-border2)'}`,
             borderRadius: '6px',
-            backgroundColor: isSelected ? `${primaryColor}10` : '#FFFFFF',
+            backgroundColor: isSelected ? `color-mix(in srgb, ${primaryColor} 6%, transparent)` : 'var(--rr-panel2)',
             cursor: canVote ? 'pointer' : 'default',
             transition: 'all 0.2s ease',
             position: 'relative',
@@ -111,7 +111,7 @@ const PollItem: React.FC<PollItemProps> = ({
             left: 0,
             height: '100%',
             width: `${result?.percentage || 0}%`,
-            backgroundColor: isSelected ? `${primaryColor}20` : `${primaryColor}15`,
+            backgroundColor: isSelected ? `color-mix(in srgb, ${primaryColor} 13%, transparent)` : `color-mix(in srgb, ${primaryColor} 8%, transparent)`,
             transition: 'width 0.3s ease',
             zIndex: 0,
           };
@@ -128,7 +128,7 @@ const PollItem: React.FC<PollItemProps> = ({
           const textStyle: React.CSSProperties = {
             fontSize: '14px',
             fontWeight: 500,
-            color: isSelected ? primaryColor : 'var(--rr-text)',
+            color: isSelected ? 'var(--rr-accent-text)' : 'var(--rr-text)',
             display: 'flex',
             alignItems: 'center',
             gap: '8px',
@@ -154,7 +154,7 @@ const PollItem: React.FC<PollItemProps> = ({
               }}
               onMouseLeave={e => {
                 if (canVote) {
-                  e.currentTarget.style.borderColor = isSelected ? primaryColor : '#D1D5DB';
+                  e.currentTarget.style.borderColor = isSelected ? primaryColor : 'var(--rr-border2)';
                 }
               }}
             >
@@ -183,7 +183,7 @@ const PollItem: React.FC<PollItemProps> = ({
                       <div style={{
                         width: '16px',
                         height: '16px',
-                        border: `2px solid ${primaryColor}40`,
+                        border: `2px solid color-mix(in srgb, ${primaryColor} 25%, transparent)`,
                         borderTopColor: primaryColor,
                         borderRadius: '50%',
                         animation: 'spin 1s linear infinite',
@@ -195,7 +195,7 @@ const PollItem: React.FC<PollItemProps> = ({
                       <div style={{ 
                         fontWeight: 500,
                         fontSize: '14px',
-                        color: isSelected ? primaryColor : 'var(--rr-text)'
+                        color: isSelected ? 'var(--rr-accent-text)' : 'var(--rr-text)'
                       }}>
                         {(option as any).title || (option as any).text || ''}
                       </div>
