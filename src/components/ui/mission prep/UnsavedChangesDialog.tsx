@@ -52,9 +52,10 @@ const UnsavedChangesDialog: React.FC<UnsavedChangesDialogProps> = ({
         left: '50%',
         transform: 'translate(-50%, -50%)',
         backgroundColor: 'var(--rr-panel)',
-        borderRadius: '8px',
+        borderRadius: '10px',
         padding: '24px',
         boxShadow: 'var(--rr-shadow)',
+          border: '1px solid var(--rr-border)',
         zIndex: 1001,
         minWidth: '420px',
         maxWidth: '500px'

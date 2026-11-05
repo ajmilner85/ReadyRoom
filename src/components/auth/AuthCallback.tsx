@@ -78,7 +78,8 @@ const AuthCallback: React.FC = () => {
           width: '300px',
           backgroundColor: 'var(--rr-panel)',
           boxShadow: 'var(--rr-shadow)',
-          borderRadius: '8px',
+          border: '1px solid var(--rr-border)',
+          borderRadius: '10px',
           padding: '32px 24px',
           textAlign: 'center'
         }}>
@@ -129,7 +130,8 @@ const AuthCallback: React.FC = () => {
           width: '400px',
           backgroundColor: 'var(--rr-panel)',
           boxShadow: 'var(--rr-shadow)',
-          borderRadius: '8px',
+          border: '1px solid var(--rr-border)',
+          borderRadius: '10px',
           padding: '24px',
           textAlign: 'center'
         }}>

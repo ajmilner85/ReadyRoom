@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import aircraftIcon from '../../../assets/Aircraft Icon.svg';
+import aircraftMask from '../../../assets/aircraft-mask.png';
 import flightDeckPersonnelIcon from '../../../assets/Flight Deck Personnel Icon.png';
 import { useDraggable } from '@dnd-kit/core';
-import { X, HelpCircle, MessageCircleOff } from 'lucide-react';
+import { Icon, legibleColor } from '../primitives';
 
 interface AircraftTileProps {
   boardNumber: string;
@@ -50,17 +50,6 @@ const AircraftTile: React.FC<AircraftTileProps> = ({
   // Track local drag state
   const [localDragging, setLocalDragging] = useState(false);
 
-  // Component styling constants
-  const PURPLE = '#5B4E61';
-  const LIGHT_PURPLE = '#82728C'; // For the 1-3 accent
-  const LIGHT_SLATE_GREY = '#F9FAFB';
-  const PURE_BLACK = '#000000';
-  const TEXT_GRAY = '#646F7E';
-  const PURE_WHITE = '#FFFFFF';
-  const FADED_PURPLE = 'rgba(91, 78, 97, 0.5)'; // Faded version of PURPLE
-  const FADED_LIGHT_PURPLE = 'rgba(130, 114, 140, 0.5)'; // Faded version of LIGHT_PURPLE
-  const MISSION_COMMANDER_COLOR = '#F24607'; // Orange color for mission commander
-
   // Check if this is a cross-squadron assignment
   // The flight callsign should be in the pilot's squadron's callsign list
   const pilotSquadron = pilot?.currentSquadron || pilot?.squadronAssignment?.org_squadrons;
@@ -71,26 +60,6 @@ const AircraftTile: React.FC<AircraftTileProps> = ({
     squadronCallsigns &&
     Array.isArray(squadronCallsigns) &&
     !squadronCallsigns.some((cs: string) => cs.toUpperCase() === flightCallsignUpper);
-
-  // Determine tile height based on position
-  const tileHeight = (isFlightLead || isWingPair) ? 102 : 92;
-  
-  // Determine accent color with fading when empty
-  const getAccentColor = () => {
-    if (isEmpty) {
-      return isFlightLead ? FADED_PURPLE : isWingPair ? FADED_LIGHT_PURPLE : '';
-    }
-    
-    // If this is the mission commander, use the mission commander color
-    if (isMissionCommander) {
-      return MISSION_COMMANDER_COLOR;
-    }
-    
-    // Otherwise use standard colors
-    return isFlightLead ? PURPLE : isWingPair ? LIGHT_PURPLE : '';
-  };
-  
-  const accentColor = getAccentColor();
 
   // Make the tile draggable if it has a pilot assigned
   // CRITICAL: Include flightId and dashNumber in the draggable ID to ensure uniqueness.
@@ -118,23 +87,6 @@ const AircraftTile: React.FC<AircraftTileProps> = ({
     }
   }, [isDragging, localDragging]);
 
-  // Get indicator content (dots or star)
-  const getIndicatorContent = () => {
-    if (isMissionCommander) {
-      // Unicode character for a five-pointed star (★)
-      return '★';
-    }
-    return isFlightLead ? '••••' : '••';
-  };
-
-  // Determine font size for indicator based on mission commander status
-  const getIndicatorFontSize = () => {
-    if (isMissionCommander) {
-      return '10px'; // Even smaller font size for the star
-    }
-    return '10px';
-  };
-
   // IMPORTANT: Force re-render when attendanceStatus changes
   const [renderKey, setRenderKey] = useState(Date.now());
   useEffect(() => {
@@ -144,320 +96,138 @@ const AircraftTile: React.FC<AircraftTileProps> = ({
     }
   }, [attendanceStatus, rollCallStatus, isEmpty]);
 
+  // ---- UI Kit aircraft tile (62px): MIDS A/B bare numbers, masked aircraft tinted to the
+  // pilot's squadron colour, board number in squadron colour, callsign. Click-free drag source.
+  const tileColor = legibleColor(pilotSquadronColor, 'var(--rr-accent-text)');
+  const isDeclinedDiscord = attendanceStatus === 'declined';
+  const isAbsentRollCall = rollCallStatus === 'Absent';
+  const isTentativeDiscord = attendanceStatus === 'tentative';
+  const isTentativeRollCall = rollCallStatus === 'Tentative';
+  const isRollCallOverriding = rollCallStatus === 'Present' || rollCallStatus === 'Absent' || rollCallStatus === 'Tentative';
+  const showAbsent = !isEmpty && (isAbsentRollCall || (isDeclinedDiscord && !isRollCallOverriding));
+  const showTentative = !showAbsent && !isEmpty && (isTentativeRollCall || (isTentativeDiscord && !isRollCallOverriding));
+  const showNoResponse = !showAbsent && !showTentative && !isEmpty && !attendanceStatus && !rollCallStatus;
+  const statusTitle = showAbsent ? 'Declined / absent' : showTentative ? 'Tentative' : showNoResponse ? 'No response' : undefined;
+
+  const positionLabel = iconType === 'personnel'
+    ? flightCallsign
+    : isFlightLead
+      ? `${flightNumber}-${dashNumber}`
+      : `${flightNumber}-${dashNumber}`;
+
   return (
-    <div 
+    <div
       className="aircraft-tile-container"
       key={`tile-${boardNumber}-${callsign}-${attendanceStatus}-${rollCallStatus}-${renderKey}`}
       style={{
         position: 'relative',
-        width: '92px', // All tiles should be 92px wide
+        width: iconType === 'personnel' ? '74px' : '62px',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        marginTop: `${verticalOffset}px`, // Apply vertical offset
-        marginBottom: '0px', // Remove the margin bottom since spacing is handled by parent
-        pointerEvents: 'auto', // Ensure pointer events are always enabled
-        isolation: 'isolate', // Isolate this component to prevent style leakage
-        transform: 'translateZ(0)' // Force GPU acceleration for consistent rendering
+        marginTop: `${verticalOffset}px`,
+        pointerEvents: 'auto',
+        isolation: 'isolate',
       }}
     >
-      {/* Flight number and dash number label above the tile */}
+      {/* Position label above the tile; the lead gets an accent dot (or MC star) */}
       <div
-        className="aircraft-tile-label"
+        className="aircraft-tile-label font-mono"
         style={{
-          fontFamily: 'inherit',
-          fontWeight: 400, // Changed to regular weight
-          fontSize: '12px', // Changed to size 12
-          lineHeight: '15px',
+          fontSize: '9.5px',
+          lineHeight: '12px',
+          letterSpacing: '.04em',
           textAlign: 'center',
-          color: TEXT_GRAY, // Changed color to match spec
-          marginBottom: '8px', // Restored from 6px back to 8px
-          width: '100%'
-        }}      >
-        {/* Display logic based on iconType */}
-        {iconType === 'personnel' 
-          ? flightCallsign // For personnel, show the position name (AIR BOSS, MINI BOSS, etc.)
-          : isFlightLead 
-            ? `${flightCallsign} ${flightNumber}-${dashNumber}` // For flight lead aircraft
-            : `${flightNumber}-${dashNumber}` // For other aircraft
-        }
+          marginBottom: '4px',
+          width: '100%',
+          whiteSpace: 'nowrap',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          color: isFlightLead || isMissionCommander ? 'var(--rr-accent-text)' : 'var(--rr-text2)',
+          fontWeight: isFlightLead ? 600 : 400,
+        }}
+        title={isFlightLead ? `${flightCallsign} ${flightNumber}-${dashNumber}` : undefined}
+      >
+        {isMissionCommander ? <span title="Mission Commander">★ </span> : isFlightLead ? '• ' : ''}
+        {positionLabel}
       </div>
 
-      {/* Main tile background with shadow wrapper */}
       <div
         ref={setNodeRef}
         className="aircraft-tile-wrapper"
         {...(!isEmpty ? { ...attributes, ...listeners } : {})}
+        title={isEmpty ? undefined : [boardNumber, callsign, statusTitle].filter(Boolean).join(' · ')}
         style={{
           position: 'relative',
-          width: '92px',
-          boxShadow: !isEmpty ? '0px 4px 6px rgba(0, 0, 0, 0.1)' : 'none',
+          width: '100%',
+          padding: '6px 5px 7px',
           borderRadius: '8px',
+          background: 'var(--rr-panel)',
+          border: isEmpty
+            ? '1.5px dashed var(--rr-border2)'
+            : isCrossSquadronAssignment && pilotSquadronColor
+              ? `1.5px solid ${tileColor}`
+              : isMissionCommander
+                ? '1.5px solid var(--rr-accent)'
+                : '1px solid var(--rr-border2)',
           cursor: isEmpty ? 'default' : 'grab',
-          willChange: 'transform' // Optimize for animations
+          lineHeight: 1,
+          opacity: localDragging ? 0.4 : 1,
+          transition: 'transform .15s ease, border-color .15s ease',
+          willChange: 'transform',
         }}
+        onMouseEnter={(e) => { if (!isEmpty) e.currentTarget.style.transform = 'translateY(-3px)'; }}
+        onMouseLeave={(e) => { e.currentTarget.style.transform = 'none'; }}
       >
-        <div
-          className="aircraft-tile-main"
-          style={{
-            position: 'relative',
-            width: '92px', // All tiles are 92px wide
-            height: `${tileHeight}px`, // Height varies based on position
-            background: LIGHT_SLATE_GREY,
-            borderRadius: '8px',
-            overflow: 'hidden', // Changed to hidden to show drop shadow below accent strip
-            padding: '10px', // Reduced padding
-            boxSizing: 'border-box',
-            // Add border for cross-squadron assignments - using box-shadow inside the tile
-            boxShadow: isCrossSquadronAssignment ? `inset 0 0 0 2px ${pilotSquadronColor}` : 'none'
-          }}
-        >
-          {/* Bottom accent strip (for flight lead 1-1 and wing pair 1-3) */}
-          {(isFlightLead || isWingPair) && (
-            <div
-              style={{
-                position: 'absolute',
-                left: 0,
-                bottom: 0,
-                width: '100%',
-                height: '10px',
-                background: accentColor,
-                zIndex: 0,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                borderBottomLeftRadius: '8px',
-                borderBottomRightRadius: '8px'
-              }}
-            >
-              {/* Flight lead or section lead indicator dots */}
-              <div
-                className="indicator-dots"
-                style={{
-                  fontFamily: 'inherit',
-                  fontWeight: 700,
-                  fontSize: getIndicatorFontSize(),
-                  lineHeight: '10px',
-                  color: LIGHT_SLATE_GREY,
-                  position: 'absolute',
-                  left: '50%', 
-                  top: '50%',
-                  // Replace transform with explicit positioning
-                  marginLeft: '-50%', // Center horizontally (equivalent to translateX(-50%))
-                  marginTop: '-6px',  // Move up by 6px instead of 3px to position higher
-                  textAlign: 'center',
-                  width: '100%',      // Ensure the text container spans the full width
-                  height: '10px'      // Match the height of the accent strip
-                }}
-              >
-                {getIndicatorContent()}
-              </div>
-            </div>
-          )}
-
-          {/* Aircraft information - centered in the tile */}
-          <div
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'flex-start',
-              height: '100%',
-              paddingTop: '0px', // Removed padding to allow manual positioning
-              paddingLeft: '5px',
-              paddingRight: '5px',
-              boxSizing: 'border-box',
-              position: 'relative', // Added for absolute positioning of children
-              marginTop: '-5px' // Pull everything up slightly
-            }}
-          >            {/* Aircraft/Personnel icon - faded when empty */}            <img
-              src={iconType === 'personnel' ? flightDeckPersonnelIcon : aircraftIcon}
-              alt=""
-              style={{
-                width: '34px',
-                height: iconType === 'personnel' ? '34px' : '46px', // Make personnel icon square
-                filter: isEmpty 
-                  ? 'drop-shadow(0px 4px 4px rgba(0, 0, 0, 0.1)) opacity(0.5)' 
-                  : 'drop-shadow(0px 4px 4px rgba(0, 0, 0, 0.1))',
-                opacity: isEmpty ? 0.5 : 1,
-                marginTop: '6px', // Increased from 5px to shift down by 1px
-                marginBottom: iconType === 'personnel' ? '8px' : '2px' // Add more bottom margin for personnel icon
-              }}
-            />
-
-            {/* Board number */}
-            <div
-              style={{
-                fontFamily: 'inherit',
-                fontWeight: 400,
-                fontSize: '16px',
-                lineHeight: '19px',
-                textAlign: 'center',
-                color: isEmpty ? TEXT_GRAY : 'var(--rr-text2)',
-                marginTop: '-2px' // Shift down by 4px from previous position
-              }}
-            >
-              {isEmpty ? '' : boardNumber} {/* Removed '-' placeholder */}
-            </div>
-            
-            {/* Pilot callsign with tentative badge if applicable */}
-            <div
-              style={{
-                fontFamily: 'inherit',
-                fontWeight: 700,
-                fontSize: '14px',
-                lineHeight: '17px',
-                textAlign: 'center',
-                color: isEmpty ? TEXT_GRAY : (isCrossSquadronAssignment && pilotSquadronColor ? pilotSquadronColor : PURE_BLACK),
-                marginTop: '-1px', // Adjusted from 1px to -1px to move up 2px more
-                display: 'flex',
-                justifyContent: 'center',
-                alignItems: 'center',
-                gap: '4px'
-              }}
-            >              {isEmpty ? '' : (
-                <>                  {/* Show status badge - prioritizing Absent/Declined over Tentative over No Response */}
-                  {(() => {
-                    // Calculate badge conditions
-                    const isDeclinedDiscord = attendanceStatus === 'declined';
-                    const isAbsentRollCall = rollCallStatus === 'Absent';
-                    const isTentativeDiscord = attendanceStatus === 'tentative';
-                    const isTentativeRollCall = rollCallStatus === 'Tentative';
-
-                    // Roll call status overrides Discord status if it's Present, Absent, or Tentative
-                    const isRollCallOverriding = rollCallStatus === 'Present' || rollCallStatus === 'Absent' || rollCallStatus === 'Tentative';
-
-                    const shouldShowAbsentDeclinedBadge = !isEmpty && (isAbsentRollCall || (isDeclinedDiscord && !isRollCallOverriding));
-                    const shouldShowTentativeBadge = !isEmpty && (isTentativeRollCall || (isTentativeDiscord && !isRollCallOverriding));
-
-                    // Show "no response" badge if no Discord attendance and no roll call response
-                    const hasNoResponse = !isEmpty && !attendanceStatus && !rollCallStatus;
-
-                    // Debug log
-                    if (!isEmpty && (rollCallStatus || attendanceStatus) && (callsign === 'MIRAGE' || callsign === 'VIKING')) {
-                       // console.log(`[BADGE-DEBUG] AircraftTile ${callsign}: RollCall=${rollCallStatus || 'none'}, Discord=${attendanceStatus || 'none'}, ShowAbsent=${shouldShowAbsentDeclinedBadge}, ShowTentative=${shouldShowTentativeBadge}`);
-                    }
-
-                    // Render Absent/Declined badge if needed
-                    if (shouldShowAbsentDeclinedBadge) {
-                      return (
-                        <X
-                          key={`tile-badge-absent-${boardNumber}-${rollCallStatus || ''}-${attendanceStatus || ''}`}
-                          size={14}
-                          strokeWidth={3}
-                          style={{
-                            color: 'var(--rr-bad)',
-                            flexShrink: 0,
-                            marginTop: '2px',
-                          }}
-                        />
-                      );
-                    }
-
-                    // Render Tentative badge if needed (and Absent/Declined isn't shown)
-                    if (shouldShowTentativeBadge) {
-                      return (
-                        <HelpCircle
-                          key={`tile-badge-tentative-${boardNumber}-${rollCallStatus || ''}-${attendanceStatus || ''}`}
-                          size={14}
-                          strokeWidth={2.5}
-                          style={{
-                            color: '#5865F2',
-                            flexShrink: 0,
-                            marginTop: '2px',
-                          }}
-                        />
-                      );
-                    }
-
-                    // Render No Response badge if needed (and other badges aren't shown)
-                    if (hasNoResponse) {
-                      return (
-                        <MessageCircleOff
-                          key={`tile-badge-no-response-${boardNumber}`}
-                          size={14}
-                          strokeWidth={2}
-                          style={{
-                            color: 'var(--rr-text3)',
-                            flexShrink: 0,
-                            marginTop: '2px',
-                          }}
-                        />
-                      );
-                    }
-
-                    // No badge needed
-                    return null;
-                  })()}
-                  <span>{callsign}</span>
-                </>
-              )}
-            </div>
-          </div>
-
-          {/* MIDS assignment sections - positioned within the tile */}
-          {/* MIDS A - top left */}
-          {!isEmpty && !hideMidsBackground && (
-            <div
-              style={{
-                position: 'absolute',
-                top: '5px',
-                left: '5px',
-                width: '24px',
-                height: '24px',
-                background: PURE_WHITE,
-                borderRadius: '8px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                zIndex: 3
-              }}
-            >
-              <span
-                style={{
-                  fontFamily: 'inherit',
-                  fontWeight: 400,
-                  fontSize: '10px',
-                  lineHeight: '12px',
-                  color: TEXT_GRAY
-                }}
-              >
-                {midsA}
-              </span>
-            </div>
-          )}
-
-          {/* MIDS B - top right */}
-          {!isEmpty && !hideMidsBackground && (
-            <div
-              style={{
-                position: 'absolute',
-                top: '5px',
-                right: '5px',
-                width: '24px',
-                height: '24px',
-                background: PURE_WHITE,
-                borderRadius: '8px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                zIndex: 3
-              }}
-            >
-              <span
-                style={{
-                  fontFamily: 'inherit',
-                  fontWeight: 400,
-                  fontSize: '10px',
-                  lineHeight: '12px',
-                  color: TEXT_GRAY
-                }}
-              >
-                {midsB}
-              </span>
-            </div>
-          )}
+        {/* MIDS A (top-left) / MIDS B (top-right) */}
+        <div className="flex items-center justify-between font-mono text-[8px] leading-[10px] h-[10px] px-[1px] text-text3">
+          <span>{!isEmpty && !hideMidsBackground ? midsA : (isEmpty ? midsA : '')}</span>
+          <span>{!isEmpty && !hideMidsBackground ? midsB : (isEmpty ? midsB : '')}</span>
         </div>
+
+        {/* Aircraft / personnel silhouette as a CSS mask tinted to squadron colour */}
+        <span
+          aria-hidden
+          style={{
+            display: 'block',
+            width: iconType === 'personnel' ? '22px' : '20px',
+            height: iconType === 'personnel' ? '22px' : '26px',
+            margin: '1px auto 0',
+            background: isEmpty ? 'var(--rr-border2)' : tileColor,
+            WebkitMask: `url("${iconType === 'personnel' ? flightDeckPersonnelIcon : aircraftMask}") center/contain no-repeat`,
+            mask: `url("${iconType === 'personnel' ? flightDeckPersonnelIcon : aircraftMask}") center/contain no-repeat`,
+          }}
+        />
+
+        {/* Board number (squadron colour) */}
+        <div
+          className="font-mono text-center"
+          style={{ fontSize: '11px', lineHeight: '14px', fontWeight: 700, color: isEmpty ? 'var(--rr-text3)' : tileColor }}
+        >
+          {isEmpty ? '' : boardNumber}
+        </div>
+
+        {/* Callsign with attendance badge */}
+        <div
+          className="flex items-center justify-center gap-[2px] text-center"
+          style={{ fontSize: '10px', lineHeight: '15px', height: '15px', fontWeight: 600, color: 'var(--rr-text)' }}
+        >
+          {!isEmpty && showAbsent ? <Icon name="close" size={10} stroke={3} style={{ color: 'var(--rr-bad)' }} /> : null}
+          {!isEmpty && showTentative ? <Icon name="help" size={10} stroke={2.4} style={{ color: 'var(--rr-info)' }} /> : null}
+          {!isEmpty && showNoResponse ? <Icon name="messageOff" size={10} stroke={2} style={{ color: 'var(--rr-text3)' }} /> : null}
+          <span className="truncate" style={{ maxWidth: '100%' }}>{isEmpty ? '' : callsign}</span>
+        </div>
+
+        {/* Lead (1-1) / section lead (1-3) bar */}
+        {(isFlightLead || isWingPair) && !isEmpty ? (
+          <span
+            aria-hidden
+            style={{
+              position: 'absolute', left: '10px', right: '10px', bottom: '-1px', height: '2px', borderRadius: '2px',
+              background: isMissionCommander ? 'var(--rr-accent)' : isFlightLead ? 'var(--rr-text2)' : 'var(--rr-border2)',
+            }}
+          />
+        ) : null}
       </div>
     </div>
   );

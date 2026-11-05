@@ -1947,7 +1947,8 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
         width: activitiesEnabled ? 'min(96vw, 1800px)' : '663px',
         backgroundColor: 'var(--rr-panel)',
         boxShadow: 'var(--rr-shadow)',
-        borderRadius: '8px',
+          border: '1px solid var(--rr-border)',
+        borderRadius: '10px',
         zIndex: 1001
       }}>
         {/* Show loading state until enrollment data is loaded */}
@@ -2959,7 +2960,7 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
                     overflowY: 'auto',
                     backgroundColor: 'var(--rr-panel)',
                     border: '1px solid var(--rr-border)',
-                    borderRadius: '8px',
+                    borderRadius: '10px',
                     boxShadow: 'var(--rr-shadow)',
                     padding: '8px',
                     zIndex: 3000

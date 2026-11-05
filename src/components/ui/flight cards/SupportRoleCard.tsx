@@ -28,9 +28,10 @@ const SupportRoleCard: React.FC<SupportRoleCardProps> = ({
     <div 
       style={{
         backgroundColor: 'var(--rr-panel)',
-        borderRadius: '8px',
+        borderRadius: '10px',
         padding: '16px',
         boxShadow: 'var(--rr-shadow)',
+          border: '1px solid var(--rr-border)',
         marginBottom: '12px',
         position: 'relative',
         display: 'flex',

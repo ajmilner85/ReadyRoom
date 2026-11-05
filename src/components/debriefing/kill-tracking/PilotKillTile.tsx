@@ -115,7 +115,8 @@ const PilotKillTile: React.FC<PilotKillTileProps> = ({
           position: 'relative',
           width: '92px',
           boxShadow: 'var(--rr-shadow)',
-          borderRadius: '8px'
+          border: '1px solid var(--rr-border)',
+          borderRadius: '10px'
         }}
       >
         <div

@@ -31,7 +31,7 @@ const AircraftStatusMenu: React.FC<AircraftStatusMenuProps> = ({
         left: position.left,
         backgroundColor: 'var(--rr-panel)',
         border: '1px solid var(--rr-border)',
-        borderRadius: '8px',
+        borderRadius: '10px',
         boxShadow: 'var(--rr-shadow)',
         padding: '4px',
         zIndex: 1000,

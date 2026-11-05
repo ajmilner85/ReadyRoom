@@ -1730,7 +1730,8 @@ export const EventDialog: React.FC<EventDialogProps> = ({
         height: '1000px',
         backgroundColor: 'var(--rr-panel)',
         boxShadow: 'var(--rr-shadow)',
-        borderRadius: '8px',
+          border: '1px solid var(--rr-border)',
+        borderRadius: '10px',
         zIndex: 1001,
         display: 'flex',
         flexDirection: 'column'

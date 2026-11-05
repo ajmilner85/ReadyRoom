@@ -18,7 +18,9 @@ import { getMissionCommanderCandidatesWithFlightInfo } from '../../utils/mission
 import { useMissionPrepData } from '../../hooks/useMissionPrepData';
 import { useMissionPrepState } from '../../hooks/useMissionPrepState';
 import { useMissionPrepDataPersistence } from '../../hooks/useMissionPrepDataPersistence';
-import MissionPresenceBanner from './mission prep/MissionPresenceBanner';
+import { EmptyState, Icon, Tabs } from './primitives';
+import { usePageHeader, usePagePresence } from '../../context/ShellContext';
+import { useSearchParams } from 'react-router-dom';
 import UnsavedChangesDialog from './mission prep/UnsavedChangesDialog';
 import type { AssignedPilot, AssignedPilotsRecord } from '../../types/MissionPrepTypes';
 import AutoAssignConfigModal, { type AutoAssignConfig } from './mission prep/AutoAssignConfig';
@@ -49,10 +51,8 @@ interface MissionPreparationProps {
   onPrepFlightsChange?: (flights: any[]) => void;
 }
 
-const CARD_WIDTH = '605px';
-const MISSION_DETAILS_WIDTH = '530px';
-const AVAILABLE_PILOTS_WIDTH = '551px';
-const FLIGHT_ASSIGNMENTS_WIDTH = '551px';
+
+type MissionPrepTab = 'details' | 'flights' | 'support' | 'comms';
 
 const MissionPreparation: React.FC<MissionPreparationProps> = ({ 
   onTransferToMission,
@@ -569,62 +569,64 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
   }, [realtimeAttendanceData, assignedPilots, setAssignedPilots]);
   // --- END EFFECT TO UPDATE ASSIGNED PILOTS ---
 
+  // Sub-page tab (kept in the URL so other pages can deep-link, e.g. ?tab=comms)
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tabParam = searchParams.get('tab');
+  const activeTab: MissionPrepTab = (['details', 'flights', 'support', 'comms'] as const).includes(tabParam as MissionPrepTab)
+    ? (tabParam as MissionPrepTab)
+    : 'flights';
+  const setActiveTab = (t: MissionPrepTab) => {
+    const next = new URLSearchParams(searchParams);
+    next.set('tab', t);
+    setSearchParams(next, { replace: true });
+  };
+
+  // Context strip: MISSION PREP / <event> · <date>
+  const headerDate = selectedEvent?.datetime ? new Date(selectedEvent.datetime) : null;
+  usePageHeader({
+    code: 'MISSION PREP',
+    title: selectedEvent?.title || 'Mission Preparation',
+    meta: headerDate && !isNaN(headerDate.getTime())
+      ? `· ${headerDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' }).toUpperCase()} · ${headerDate.toISOString().slice(11, 16).replace(':', '')}Z`
+      : undefined,
+  });
+  usePagePresence(isConnected ? activeUsers.map(u => ({ id: u.user_id, name: u.user_name, active: !!u.editing_field })) : []);
+
   return (
     <DndContext
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
       modifiers={[restrictToWindowEdges]} 
     >
-      <div style={{
-          backgroundColor: 'var(--rr-panel2)',
-          height: '100vh',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          padding: '20px',
-          boxSizing: 'border-box',
-          overflow: 'hidden'
-        }}>
-        {/* Mission Status Indicator - Only show errors */}
-        {(missionError) && (
-          <div style={{
-            position: 'fixed',
-            top: '20px',
-            right: '20px',
-            padding: '8px 16px',
-            borderRadius: '6px',
-            fontSize: '14px',
-            zIndex: 1000,
-            backgroundColor: 'rgba(224,82,78,.12)',
-            color: 'var(--rr-bad)',
-            border: '1px solid var(--rr-bad)'
-          }}>
-            Mission Error: {missionError}
-          </div>
-        )}
+      <div className="flex-1 min-h-0 flex flex-col">
+        <Tabs
+          value={activeTab}
+          onChange={setActiveTab}
+          items={[
+            { value: 'details', label: 'Mission Details' },
+            { value: 'flights', label: 'Flight Assignments' },
+            { value: 'support', label: 'Mission Support' },
+            { value: 'comms', label: 'Communications' },
+          ]}
+          right={missionError ? (
+            <span className="flex items-center gap-[6px] text-[12px] text-bad">
+              <Icon name="alertCircle" size={14} /> Mission error: {missionError}
+            </span>
+          ) : undefined}
+        />
 
-        <div style={{
-            display: 'flex',
-            gap: '20px',
-            height: 'calc(100vh - 40px)',
-            position: 'relative',
-            zIndex: 1,
-            maxWidth: '2240px',
-            width: 'min(100%, 2240px)',
-            boxSizing: 'border-box',
-            justifyContent: 'center',
-            overflow: 'visible'
-          }}>
-          {isLoading ? (
-            <StandardPageLoader message="Loading pilots data..." />
-          ) : loadError ? (
-            <div className="flex items-center justify-center w-full">
-              <p className="text-bad">{loadError}</p>
-            </div>
-          ) : (
-            <>
+        {isLoading ? (
+          <StandardPageLoader message="Loading pilots data..." />
+        ) : loadError ? (
+          <div className="flex-1 flex items-center justify-center">
+            <EmptyState icon="alertTriangle" title="Could not load mission data" message={loadError} />
+          </div>
+        ) : (
+          <div className="flex-1 min-h-0 relative">
+            {/* All tabs stay mounted (they hold local state and realtime subscriptions); inactive ones are hidden. */}
+            <div className="absolute inset-0 p-[14px] flex min-h-0 max-[760px]:static max-[760px]:p-0" style={{ display: activeTab === 'details' ? 'flex' : 'none' }}>
               <MissionDetails
-                width={MISSION_DETAILS_WIDTH}
+                width="100%"
                 events={events}
                 selectedEvent={selectedEvent}
                 onEventSelect={handleEventSelect}
@@ -638,46 +640,52 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
                 prepFlights={prepFlights}
                 onClearAssignments={handleClearAssignments}
               />
-              <AvailablePilots
-                width={AVAILABLE_PILOTS_WIDTH}
-                pilots={activePilots}
-                selectedEvent={selectedEvent}
-                assignedPilots={assignedPilots}
-                setAssignedPilots={setAssignedPilotsWrapper}
-                onAutoAssign={handleAutoAssign}
-                onAutoAssignSettings={handleAutoAssignSettings}
-                onClearAssignments={handleClearAssignments}
-                pilotQualifications={allPilotQualifications}
-                realtimeAttendanceData={realtimeAttendanceData}
-                squadrons={squadrons as any}
-                statuses={statuses}
-                standings={standings}
-                roles={roles}
-                qualifications={qualificationsData}
-              />
-              <FlightAssignments
-                width={FLIGHT_ASSIGNMENTS_WIDTH}
-                assignedPilots={assignedPilots}
-                missionCommander={missionCommander}
-                extractedFlights={extractedFlights}
-                onFlightsChange={handleFlightsChange}
-                initialFlights={prepFlights}
-                onClearAssignments={handleClearAssignments}
-                onClearFlightAssignments={handleClearFlightAssignments}
-                mission={mission}
-                selectedEvent={selectedEvent}
-                squadrons={squadrons}
-                participatingSquadrons={participatingSquadrons}
-                isLoading={isLoading}
-              />              <div style={{
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '20px',
-                width: CARD_WIDTH,
-                height: '100%'
-              }}>
+            </div>
+
+            <div
+              data-m="row"
+              className="absolute inset-0 p-[14px] gap-[14px] min-h-0 max-[760px]:static"
+              style={{ display: activeTab === 'flights' || activeTab === 'support' ? 'flex' : 'none' }}
+            >
+              <div className="flex-none w-[440px] min-h-0 flex flex-col">
+                <AvailablePilots
+                  width="100%"
+                  pilots={activePilots}
+                  selectedEvent={selectedEvent}
+                  assignedPilots={assignedPilots}
+                  setAssignedPilots={setAssignedPilotsWrapper}
+                  onAutoAssign={handleAutoAssign}
+                  onAutoAssignSettings={handleAutoAssignSettings}
+                  onClearAssignments={handleClearAssignments}
+                  pilotQualifications={allPilotQualifications}
+                  realtimeAttendanceData={realtimeAttendanceData}
+                  squadrons={squadrons as any}
+                  statuses={statuses}
+                  standings={standings}
+                  roles={roles}
+                  qualifications={qualificationsData}
+                />
+              </div>
+              <div className="flex-1 min-w-0 min-h-0 flex-col" style={{ display: activeTab === 'flights' ? 'flex' : 'none' }}>
+                <FlightAssignments
+                  width="100%"
+                  assignedPilots={assignedPilots}
+                  missionCommander={missionCommander}
+                  extractedFlights={extractedFlights}
+                  onFlightsChange={handleFlightsChange}
+                  initialFlights={prepFlights}
+                  onClearAssignments={handleClearAssignments}
+                  onClearFlightAssignments={handleClearFlightAssignments}
+                  mission={mission}
+                  selectedEvent={selectedEvent}
+                  squadrons={squadrons}
+                  participatingSquadrons={participatingSquadrons}
+                  isLoading={isLoading}
+                />
+              </div>
+              <div className="flex-1 min-w-0 min-h-0 flex-col" style={{ display: activeTab === 'support' ? 'flex' : 'none' }}>
                 <MissionSupportAssignments
-                  width={CARD_WIDTH}
+                  width="100%"
                   assignedPilots={assignedPilots}
                   setAssignedPilots={setAssignedPilotsWrapper}
                   mission={mission}
@@ -687,20 +695,23 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
                   realtimeAttendanceData={realtimeAttendanceData}
                   remoteUpdateTrigger={remoteSupportRolesRevision}
                 />
-                <Communications
-                  width={CARD_WIDTH}
-                  assignedPilots={assignedPilots}
-                  onTransferToMission={onTransferToMission}
-                  flights={prepFlights}
-                  extractedFlights={extractedFlights}
-                  squadrons={squadrons as any}
-                  updateMissionSettings={updateMissionSettings}
-                  mission={mission}
-                />
               </div>
-            </>
-          )}
-        </div>
+            </div>
+
+            <div className="absolute inset-0 p-[14px] min-h-0 flex-col max-[760px]:static" style={{ display: activeTab === 'comms' ? 'flex' : 'none' }}>
+              <Communications
+                width="100%"
+                assignedPilots={assignedPilots}
+                onTransferToMission={onTransferToMission}
+                flights={prepFlights}
+                extractedFlights={extractedFlights}
+                squadrons={squadrons as any}
+                updateMissionSettings={updateMissionSettings}
+                mission={mission}
+              />
+            </div>
+          </div>
+        )}
       </div>
 
       <DragOverlay 
@@ -715,7 +726,6 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
       </DragOverlay>
 
       {/* Real-time Collaboration UI */}
-      <MissionPresenceBanner activeUsers={activeUsers} isConnected={isConnected} />
       <UnsavedChangesDialog
         isOpen={showUnsavedDialog}
         onSaveAndSwitch={handleSaveAndSwitch}

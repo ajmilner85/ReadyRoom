@@ -230,8 +230,9 @@ const UnitBrowserModal: React.FC<UnitBrowserModalProps> = ({
           maxWidth: '900px',
           maxHeight: '85vh',
           backgroundColor: 'var(--rr-panel)',
-          borderRadius: '8px',
+          borderRadius: '10px',
           boxShadow: 'var(--rr-shadow)',
+          border: '1px solid var(--rr-border)',
           display: 'flex',
           flexDirection: 'column',
           overflow: 'hidden'

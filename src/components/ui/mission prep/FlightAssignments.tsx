@@ -6,6 +6,7 @@ import FlightPostOptionsDialog from '../dialogs/FlightPostOptionsDialog';
 import type { AssignedPilot } from '../../../types/MissionPrepTypes';
 import type { Mission } from '../../../types/MissionTypes';
 import { Trash2, Settings } from 'lucide-react';
+import { Button, EmptyState, Icon } from '../primitives';
 import { useAppSettings } from '../../../context/AppSettingsContext';
 import type { Squadron } from '../../../types/OrganizationTypes';
 import { authFetch } from '../../../utils/authFetch';
@@ -2001,6 +2002,37 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
   }, [flights, checkExistingPosts, performPublishAction]);
 
 
+  // Group flights into one column per owning squadron (by squadron callsign list, keyed by
+  // squadron id - never tail code). Flights whose callsign no squadron claims go to "Other".
+  const flightColumns = React.useMemo(() => {
+    const sorted = [...flights].sort((a, b) => {
+      if (a.callsign !== b.callsign) return a.callsign.localeCompare(b.callsign);
+      return parseInt(a.flightNumber) - parseInt(b.flightNumber);
+    });
+    const sqList: any[] = (squadrons as any[]) || [];
+    const owner = (cs: string) => {
+      const up = (cs || '').toUpperCase();
+      return sqList.find(sq => Array.isArray(sq?.callsigns) && sq.callsigns.some((c: string) => String(c).toUpperCase() === up));
+    };
+    const groups = new Map<string, { key: string; title: string; subtitle?: string; insignia?: string | null; color?: string; flights: typeof sorted }>();
+    sorted.forEach(f => {
+      const sq = owner(f.callsign);
+      const key = sq?.id || 'other';
+      if (!groups.has(key)) {
+        groups.set(key, {
+          key,
+          title: sq?.designation || 'Other flights',
+          subtitle: sq?.name,
+          insignia: sq?.insignia_url,
+          color: sq?.color_palette?.primary,
+          flights: [],
+        });
+      }
+      groups.get(key)!.flights.push(f);
+    });
+    return Array.from(groups.values()).sort((a, b) => (a.key === 'other' ? 1 : b.key === 'other' ? -1 : a.title.localeCompare(b.title)));
+  }, [flights, squadrons]);
+
   return (
     <div style={{
       width,
@@ -2017,7 +2049,8 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
           width: '100%',
           height: '100%', // Ensures card takes full height of container
           boxShadow: 'var(--rr-shadow)',
-          borderRadius: '8px',
+          border: '1px solid var(--rr-border)',
+          borderRadius: '10px',
           padding: '24px',
           display: 'flex',
           flexDirection: 'column',
@@ -2028,49 +2061,54 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
           backgroundColor: 'var(--rr-panel)'
         }}
       >
-        <div style={{
-          width: '100%',
-          textAlign: 'center',
-          marginBottom: '16px'
-        }}>
-          <span style={{
-            fontFamily: 'inherit',
-            fontStyle: 'normal',
-            fontWeight: 300,
-            fontSize: '20px',
-            lineHeight: '24px',
-            color: 'var(--rr-text2)',
-            textTransform: 'uppercase'
-          }}>
-            Flight Assignments
-          </span>
+        <div className="flex items-center gap-3 mb-3">
+          <span className="rr-pane-title">Flight Assignments</span>
+          <span className="font-mono text-[11px] text-text3">{flights.length}</span>
+          <span className="flex-1" />
+          <Button size="sm" variant="secondary" icon="plus" onClick={() => setShowAddFlightDialog(true)}>Add Flight</Button>
         </div>
-        <div className="flex-1" style={{ overflowY: 'auto' }}>
-          <div className="space-y-4">
-            {[...flights].sort((a, b) => {
-              // Primary sort: by callsign alphabetically
-              if (a.callsign !== b.callsign) {
-                return a.callsign.localeCompare(b.callsign);
-              }
-              // Secondary sort: by flight number numerically
-              return parseInt(a.flightNumber) - parseInt(b.flightNumber);
-            }).map((flight) => (
-              <FlightAssignmentCard
-                key={flight.id}
-                id={flight.id}
-                callsign={flight.callsign}
-                flightNumber={flight.flightNumber}
-                pilots={getUpdatedFlightPilots(flight)}
-                midsA={flight.midsA}
-                midsB={flight.midsB}
-                stepTime={flight.stepTime || 0}
-                onDeleteFlight={handleDeleteFlight}
-                onEditFlight={handleEditFlight}
-                onStepTimeChange={handleStepTimeChange}
-                missionCommander={missionCommander}
-              />
-            ))}
-          </div>
+        <div className="flex-1 min-h-0 overflow-auto">
+          {flights.length === 0 ? (
+            <EmptyState
+              title="No flights yet"
+              message="Import a .miz on the Mission Details tab, or add a flight."
+              action={{ label: 'Add Flight', onClick: () => setShowAddFlightDialog(true) }}
+            />
+          ) : (
+            <div className="flex gap-[10px] items-start min-w-min h-full">
+              {flightColumns.map(col => (
+                <div key={col.key} className="flex-1 min-w-[330px] flex flex-col min-h-0 bg-panel border border-border rounded-rr-lg">
+                  <div className="flex items-center gap-[9px] px-3 py-[8px] border-b border-border bg-panel2 rounded-t-rr-lg sticky top-0 z-[2]">
+                    {col.insignia ? <img src={col.insignia} alt="" className="w-5 h-5 object-contain flex-none" /> : <Icon name="layers" size={16} className="text-text3" />}
+                    <div className="min-w-0 leading-tight">
+                      <div className="text-[12.5px] font-semibold truncate">{col.title}</div>
+                      {col.subtitle ? <div className="font-mono text-[9.5px] text-text3 truncate">{col.subtitle}</div> : null}
+                    </div>
+                    <span className="ml-auto font-mono text-[10px] text-text3">{col.flights.length} FLT</span>
+                  </div>
+                  <div className="p-[8px] flex flex-col gap-[8px]">
+                    {col.flights.map((flight) => (
+                      <FlightAssignmentCard
+                        key={flight.id}
+                        id={flight.id}
+                        callsign={flight.callsign}
+                        flightNumber={flight.flightNumber}
+                        pilots={getUpdatedFlightPilots(flight)}
+                        midsA={flight.midsA}
+                        midsB={flight.midsB}
+                        stepTime={flight.stepTime || 0}
+                        onDeleteFlight={handleDeleteFlight}
+                        onEditFlight={handleEditFlight}
+                        onStepTimeChange={handleStepTimeChange}
+                        missionCommander={missionCommander}
+                        squadronColor={col.color}
+                      />
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
         <div style={{
           display: 'flex',
@@ -2107,35 +2145,6 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
           >
             <Trash2 size={16} />
             Remove All
-          </button>
-          <button
-            onClick={() => setShowAddFlightDialog(true)}
-            style={{
-              width: '119px',
-              height: '30px',
-              background: 'var(--rr-panel)',
-              borderRadius: '8px',
-              border: 'none',
-              cursor: 'pointer',
-              transition: 'box-shadow 0.2s ease-in-out',
-              fontFamily: 'inherit',
-              fontStyle: 'normal',
-              fontWeight: 400,
-              fontSize: '20px',
-              lineHeight: '24px',
-              color: 'var(--rr-text2)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center'
-            }}
-            onMouseEnter={e => {
-              e.currentTarget.style.boxShadow = '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)';
-            }}
-            onMouseLeave={e => {
-              e.currentTarget.style.boxShadow = 'none';
-            }}
-          >
-            +
           </button>
           {/* Split Publish Button */}
           <div style={{
@@ -2271,9 +2280,10 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
             left: '50%',
             transform: 'translate(-50%, -50%)',
             backgroundColor: 'var(--rr-panel)',
-            borderRadius: '8px',
+            borderRadius: '10px',
             padding: '24px',
             boxShadow: 'var(--rr-shadow)',
+          border: '1px solid var(--rr-border)',
             zIndex: 1001,
             minWidth: '400px'
           }}>
@@ -2359,9 +2369,10 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
             left: '50%',
             transform: 'translate(-50%, -50%)',
             backgroundColor: 'var(--rr-panel)',
-            borderRadius: '8px',
+            borderRadius: '10px',
             padding: '24px',
             boxShadow: 'var(--rr-shadow)',
+          border: '1px solid var(--rr-border)',
             zIndex: 1001,
             minWidth: '400px'
           }}>
@@ -2498,9 +2509,10 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
             left: '50%',
             transform: 'translate(-50%, -50%)',
             backgroundColor: 'var(--rr-panel)',
-            borderRadius: '8px',
+            borderRadius: '10px',
             padding: '24px',
             boxShadow: 'var(--rr-shadow)',
+          border: '1px solid var(--rr-border)',
             zIndex: 1001,
             minWidth: '400px'
           }}>

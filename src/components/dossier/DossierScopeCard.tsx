@@ -50,9 +50,10 @@ const DossierScopeCard: React.FC<DossierScopeCardProps> = ({
         <span style={{
           fontFamily: 'inherit',
           fontStyle: 'normal',
-          fontWeight: 300,
-          fontSize: '20px',
-          lineHeight: '24px',
+          fontWeight: 600,
+          fontSize: '12px',
+          letterSpacing: '.14em',
+          lineHeight: '16px',
           color: 'var(--rr-text2)',
           textTransform: 'uppercase',
           whiteSpace: 'nowrap',

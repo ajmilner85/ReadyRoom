@@ -913,7 +913,7 @@ const CycleActivitiesBuilder: React.FC<CycleActivitiesBuilderProps> = ({
           transform: hoveredEventPopup.openUpward ? 'translate(-50%, -100%)' : 'translateX(-50%)',
           backgroundColor: 'var(--rr-panel)',
           border: '1px solid var(--rr-border)',
-          borderRadius: '8px',
+          borderRadius: '10px',
           boxShadow: 'var(--rr-shadow)',
           padding: '10px 12px',
           minWidth: 'max-content',

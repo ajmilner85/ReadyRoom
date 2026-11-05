@@ -821,8 +821,9 @@ const GradingDialog: React.FC<GradingDialogProps> = ({
           display: 'flex',
           flexDirection: 'column',
           backgroundColor: 'var(--rr-panel)',
-          borderRadius: '8px',
+          borderRadius: '10px',
           boxShadow: 'var(--rr-shadow)',
+          border: '1px solid var(--rr-border)',
           overflow: 'hidden'
         }}
         onClick={(e) => e.stopPropagation()}

@@ -137,8 +137,9 @@ const AddEditUnitDialog: React.FC<AddEditUnitDialogProps> = ({ unit, onClose, on
           width: '100%',
           maxWidth: '600px',
           backgroundColor: 'var(--rr-panel)',
-          borderRadius: '8px',
+          borderRadius: '10px',
           boxShadow: 'var(--rr-shadow)',
+          border: '1px solid var(--rr-border)',
           display: 'flex',
           flexDirection: 'column',
           maxHeight: '90vh'

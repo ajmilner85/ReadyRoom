@@ -90,7 +90,7 @@ const PTRCellTooltip: React.FC<PTRCellTooltipProps> = ({
     transform: adjustedPosition.showBelow ? 'translate(-50%, 0)' : 'translate(-50%, -100%)',
     backgroundColor: 'var(--rr-panel)',
     border: '1px solid var(--rr-border)',
-    borderRadius: '8px',
+    borderRadius: '10px',
     boxShadow: 'var(--rr-shadow)',
     padding: '16px',
     zIndex: 9999,

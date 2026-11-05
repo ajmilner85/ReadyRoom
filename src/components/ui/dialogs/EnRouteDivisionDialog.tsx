@@ -93,8 +93,9 @@ export const EnRouteDivisionDialog: React.FC<EnRouteDivisionDialogProps> = ({
       transform: 'translate(-50%, -50%)',
       backgroundColor: 'var(--rr-panel)',
       padding: '20px',
-      borderRadius: '8px',
+      borderRadius: '10px',
       boxShadow: 'var(--rr-shadow)',
+          border: '1px solid var(--rr-border)',
       width: '300px',
       zIndex: 1001,
       pointerEvents: 'auto'

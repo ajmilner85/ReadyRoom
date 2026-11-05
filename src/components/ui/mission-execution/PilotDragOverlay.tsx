@@ -18,8 +18,9 @@ const PilotDragOverlay: React.FC<PilotDragOverlayProps> = ({ draggedPilot, dragS
         flexDirection: 'column',
         alignItems: 'center',
         backgroundColor: 'var(--rr-panel2)', // LIGHT_SLATE_GREY
-        borderRadius: '8px',
+        borderRadius: '10px',
         boxShadow: 'var(--rr-shadow)',
+          border: '1px solid var(--rr-border)',
         padding: '6px',
         pointerEvents: 'none',
         cursor: 'grabbing',
@@ -67,8 +68,9 @@ const PilotDragOverlay: React.FC<PilotDragOverlayProps> = ({ draggedPilot, dragS
         height: '24px',
         padding: '0 10px',
         backgroundColor: 'var(--rr-panel)',
-        borderRadius: '8px',
+        borderRadius: '10px',
         boxShadow: 'var(--rr-shadow)',
+          border: '1px solid var(--rr-border)',
         opacity: 0.9,
         cursor: 'grabbing',
         pointerEvents: 'none', // Prevent the overlay from interfering with drops

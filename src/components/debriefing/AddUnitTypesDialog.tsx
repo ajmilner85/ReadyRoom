@@ -143,8 +143,9 @@ const AddUnitTypesDialog: React.FC<AddUnitTypesDialogProps> = ({
           maxWidth: '600px',
           maxHeight: '80vh',
           backgroundColor: 'var(--rr-panel)',
-          borderRadius: '8px',
+          borderRadius: '10px',
           boxShadow: 'var(--rr-shadow)',
+          border: '1px solid var(--rr-border)',
           display: 'flex',
           flexDirection: 'column',
           overflow: 'hidden'
