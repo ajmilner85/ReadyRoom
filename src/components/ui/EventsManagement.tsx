@@ -17,6 +17,7 @@ import { supabase, fetchCycles, createCycle, updateCycle, deleteCycle, softDelet
 import { deleteMultiChannelEvent, updateMultiChannelEvent } from '../../utils/discordService';
 import { uploadMultipleEventImages, deleteEventImageFiles } from '../../utils/eventImageService';
 import LoadingSpinner from './LoadingSpinner';
+import { Button, EmptyState, Icon, Pane, SegmentedControl, StatTile, Toast } from './primitives';
 import { useWebSocket } from '../../context/WebSocketContext';
 import { getAllSquadrons } from '../../utils/organizationService';
 import { Squadron } from '../../types/OrganizationTypes';
@@ -29,9 +30,9 @@ import { getAllQualifications, Qualification } from '../../utils/qualificationSe
 import { enrollPilots } from '../../utils/trainingEnrollmentService';
 
 // Standard card width matching MissionPreparation component
-const CARD_WIDTH = '550px';
 
 const EventsManagement: React.FC = () => {
+  const [mainTab, setMainTab] = useState<'builder' | 'details' | 'attendance'>('details');
   const { setPageLoading } = usePageLoading();
   const { settings } = useAppSettings();
   
@@ -1952,130 +1953,29 @@ const EventsManagement: React.FC = () => {
     }
   }, [events, selectedCycle, loading.initial]);
 
+  const isUpcomingEvent = !!selectedEvent && new Date(selectedEvent.datetime) > new Date();
+  const missionBusy = !!(selectedEvent?.id && missionLoading[selectedEvent.id]);
+  const eventDate = selectedEvent ? new Date(selectedEvent.datetime) : null;
+
   return (
-    <div 
-      style={{ 
-        backgroundColor: 'var(--rr-panel2)', 
-        minHeight: '100vh',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        boxSizing: 'border-box',
-        padding: '20px',
-        overflow: 'visible'
-      }}
-    >
-      {/* Error notification */}
+    <div className="flex-1 min-h-0 flex flex-col">
       {error && (
-        <div style={{
-          position: 'fixed',
-          top: '20px',
-          right: '20px',
-          backgroundColor: 'rgba(224,82,78,.12)',
-          color: 'var(--rr-bad)',
-          padding: '12px 16px',
-          borderRadius: '4px',
-          boxShadow: 'var(--rr-shadow)',
-          zIndex: 1000
-        }}>
-          {error}
+        <div className="fixed top-16 right-5 z-[1000] max-w-[420px]">
+          <Toast tone="bad">{error}</Toast>
         </div>
       )}
 
       {loading.initial ? (
-        /* Display a single loading spinner during initial data fetch */
-        <div 
-          style={{
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'center',
-            height: 'calc(100vh - 40px)',
-            width: '100%',
-          }}
-        >
-          <div style={{
-            backgroundColor: 'var(--rr-panel)',
-            boxShadow: 'var(--rr-shadow)',
-          border: '1px solid var(--rr-border)',
-            borderRadius: '10px',
-            padding: '40px 80px',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            gap: '20px'
-          }}>
-            <StandardPageLoader message="Loading events data..." />
-          </div>
-        </div>
+        <StandardPageLoader message="Loading events data..." />
       ) : (
-        /* Only render the main content when initial loading is complete */
-        <div 
-          style={{
-            display: 'flex',
-            gap: '20px',
-            justifyContent: 'center',
-            minHeight: 'calc(100vh - 40px)',
-            position: 'relative',
-            zIndex: 1,
-            maxWidth: '2240px',
-            width: 'min(100%, 2240px)',
-            boxSizing: 'border-box',
-            overflow: 'visible',
-            padding: '15px',
-            margin: '-15px',
-          }}
-        >
-          {/* Cycles List */}
-          <div style={{ 
-            width: CARD_WIDTH, 
-            minWidth: '350px', 
-            height: 'calc(100vh - 40px)',
-            boxSizing: 'border-box',
-            overflowY: 'visible'
-          }}>
-            {loading.cycles ? (
-              <div style={{
-                display: 'flex',
-                justifyContent: 'center',
-                alignItems: 'center',
-                height: '100%',
-                backgroundColor: 'var(--rr-panel)',
-                boxShadow: 'var(--rr-shadow)',
-          border: '1px solid var(--rr-border)',
-                borderRadius: '10px'
-              }}>
-                <LoadingSpinner />
-              </div>
-            ) : (
-              <div style={{
-                backgroundColor: 'var(--rr-panel)',
-                boxShadow: 'var(--rr-shadow)',
-          border: '1px solid var(--rr-border)',
-                borderRadius: '10px',
-                height: '100%',
-                display: 'flex',
-                flexDirection: 'column',
-                overflow: 'hidden'
-              }}>
-                {/* Header */}
-                <div style={{
-                  padding: '16px 24px 8px'
-                }}>
-                  <span style={{
-                    fontFamily: 'inherit',
-                    fontStyle: 'normal',
-                    fontWeight: 600,
-                    fontSize: '12px',
-                    letterSpacing: '.14em',
-                    lineHeight: '16px',
-                    color: 'var(--rr-text2)',
-                    textTransform: 'uppercase',
-                    display: 'block',
-                    textAlign: 'center'
-                  }}>Cycles</span>
-                </div>
-                {/* Content */}
-                <div style={{ flex: 1, overflow: 'hidden' }}>
+        <div data-m="row" className="flex-1 min-h-0 flex gap-[14px] p-[14px]">
+          {/* ---- Left pane: cycles, then the selected cycle's events ---- */}
+          <div className="flex-none w-[340px] min-h-0 flex flex-col gap-[14px]">
+            <Pane title="Cycles" className="flex-[0_1_42%] min-h-[200px]" flush scroll={false} bodyClassName="flex flex-col min-h-0">
+              {loading.cycles ? (
+                <div className="flex-1 flex items-center justify-center"><LoadingSpinner /></div>
+              ) : (
+                <div className="flex-1 min-h-0 overflow-hidden">
                   <CyclesList
                     cycles={cycles}
                     selectedCycle={selectedCycle}
@@ -2088,70 +1988,28 @@ const EventsManagement: React.FC = () => {
                     onDeleteCycle={handleDeleteCycle}
                   />
                 </div>
-              </div>
-            )}
-          </div>
-          
-          {/* Events List */}
-          <div style={{ 
-            width: CARD_WIDTH, 
-            minWidth: '350px', 
-            height: 'calc(100vh - 40px)',
-            boxSizing: 'border-box',
-            overflowY: 'visible'
-          }}>
-            {loading.events ? (
-              <div style={{
-                display: 'flex',
-                justifyContent: 'center',
-                alignItems: 'center',
-                height: '100%',
-                backgroundColor: 'var(--rr-panel)',
-                boxShadow: 'var(--rr-shadow)',
-          border: '1px solid var(--rr-border)',
-                borderRadius: '10px'
-              }}>
-                <LoadingSpinner />
-              </div>
-            ) : (
-              <div style={{
-                backgroundColor: 'var(--rr-panel)',
-                boxShadow: 'var(--rr-shadow)',
-          border: '1px solid var(--rr-border)',
-                borderRadius: '10px',
-                height: '100%',
-                display: 'flex',
-                flexDirection: 'column',
-                overflow: 'hidden'
-              }}>
-                {/* Header */}
-                <div style={{
-                  padding: '16px 24px 8px'
-                }}>
-                  <span style={{
-                    fontFamily: 'inherit',
-                    fontStyle: 'normal',
-                    fontWeight: 600,
-                    fontSize: '12px',
-                    letterSpacing: '.14em',
-                    lineHeight: '16px',
-                    color: 'var(--rr-text2)',
-                    textTransform: 'uppercase',
-                    display: 'block',
-                    textAlign: 'center'
-                  }}>
-                    {selectedCycle
-                      ? selectedCycle.name
-                      : filteredEvents.length === 0
-                        ? 'Events'
-                        : filteredEvents.every(e => !e.cycleId)
-                          ? 'Standalone Events'
-                          : 'All Events'
-                    }
-                  </span>
-                </div>
-                {/* Content */}
-                <div style={{ flex: 1, overflow: 'hidden' }}>
+              )}
+            </Pane>
+            <Pane
+              title="Events"
+              meta={<span className="truncate max-w-[180px]">
+                {selectedCycle
+                  ? selectedCycle.name
+                  : filteredEvents.length === 0
+                    ? ''
+                    : filteredEvents.every(e => !e.cycleId)
+                      ? 'Standalone'
+                      : 'All'}
+              </span>}
+              className="flex-1 min-h-[220px]"
+              flush
+              scroll={false}
+              bodyClassName="flex flex-col min-h-0"
+            >
+              {loading.events ? (
+                <div className="flex-1 flex items-center justify-center"><LoadingSpinner /></div>
+              ) : (
+                <div className="flex-1 min-h-0 overflow-hidden">
                   <EventsList
                     events={filteredEvents}
                     cycles={cycles}
@@ -2168,221 +2026,106 @@ const EventsManagement: React.FC = () => {
                     showCycleIndicator={selectedCycle === null}
                   />
                 </div>
-              </div>
-            )}
+              )}
+            </Pane>
           </div>
-          
-          {/* Event Details */}
-          <div style={{ 
-            width: CARD_WIDTH, 
-            minWidth: '350px', 
-            height: 'calc(100vh - 40px)',
-            boxSizing: 'border-box',
-            overflowY: 'visible'
-          }}>
-            <div style={{
-              backgroundColor: 'var(--rr-panel)',
-              boxShadow: 'var(--rr-shadow)',
-          border: '1px solid var(--rr-border)',
-              borderRadius: '10px',
-              height: '100%',
-              display: 'flex',
-              flexDirection: 'column',
-              overflow: 'hidden'
-            }}>
-              {/* Header */}
-              <div style={{
-                padding: '16px 24px 8px'
-              }}>
-                <span style={{
-                  fontFamily: 'inherit',
-                  fontStyle: 'normal',
-                  fontWeight: 600,
-                  fontSize: '12px',
-                  letterSpacing: '.14em',
-                  lineHeight: '16px',
-                  color: 'var(--rr-text2)',
-                  textTransform: 'uppercase',
-                  display: 'block',
-                  textAlign: 'center'
-                }}>{selectedEvent && selectedCycle?.type === 'Training' ? 'Training Event Details' : 'Event Details'}</span>
+
+          {/* ---- Main pane: Event Details / Attendance / Cycle Builder ---- */}
+          <div className="flex-1 min-w-0 min-h-0 flex flex-col bg-panel border border-border rounded-rr-xl shadow-rr overflow-hidden">
+            <div className="flex-none flex items-center gap-3 px-4 pt-3 pb-2 flex-wrap">
+              <div className="min-w-0 flex-1">
+                <div className="text-[17px] font-semibold truncate">
+                  {mainTab === 'builder'
+                    ? (selectedCycle?.name || 'No cycle selected')
+                    : (selectedEvent?.title || 'No event selected')}
+                </div>
+                <div className="text-[12px] text-text2 truncate">
+                  {mainTab === 'builder'
+                    ? (selectedCycle ? `${selectedCycle.type || 'Cycle'} · ${new Date(selectedCycle.startDate).toLocaleDateString()} – ${new Date(selectedCycle.endDate).toLocaleDateString()}` : 'Select a cycle on the left')
+                    : selectedEvent
+                      ? [selectedCycle?.name, eventDate && !isNaN(eventDate.getTime()) ? eventDate.toLocaleString(undefined, { weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : null].filter(Boolean).join(' · ')
+                      : 'Select an event on the left'}
+                </div>
               </div>
-              {/* Content */}
-              <div style={{ flex: 1, overflow: 'hidden' }}>
-                <EventDetails 
-                  event={selectedEvent} 
-                  onEventUpdated={() => loadEvents(selectedCycle?.id)}
-                />
-              </div>
+              {selectedEvent && mainTab !== 'builder' ? (
+                <Button
+                  size="sm"
+                  variant={eventMissions[selectedEvent.id] ? 'secondary' : 'primary'}
+                  icon="mission"
+                  loading={missionBusy}
+                  onClick={() => handlePlanMission(selectedEvent)}
+                >
+                  {eventMissions[selectedEvent.id] ? 'Go to Mission' : 'Plan Mission'}
+                </Button>
+              ) : null}
+              <SegmentedControl
+                value={mainTab}
+                onChange={setMainTab}
+                options={[
+                  { value: 'builder', label: 'Cycle Builder', disabled: !selectedCycle },
+                  { value: 'details', label: selectedCycle?.type === 'Training' ? 'Training Details' : 'Event Details' },
+                  { value: 'attendance', label: isUpcomingEvent ? 'Registration' : 'Attendance' },
+                ]}
+              />
             </div>
-          </div>
-          
-          {/* Right Side Container - Attendance and Mission Cards */}
-          <div style={{
-            width: CARD_WIDTH,
-            minWidth: '350px',
-            height: 'calc(100vh - 40px)',
-            boxSizing: 'border-box',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '20px',
-            overflowY: 'visible'
-          }}>
-            {/* Event Attendance */}
-            <div style={{
-              backgroundColor: 'var(--rr-panel)',
-              boxShadow: 'var(--rr-shadow)',
-          border: '1px solid var(--rr-border)',
-              borderRadius: '10px',
-              flex: 1,
-              display: 'flex',
-              flexDirection: 'column',
-              overflow: 'hidden'
-            }}>
-              {/* Header */}
-              <div style={{
-                padding: '16px 24px 8px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                position: 'relative'
-              }}>
-                <span style={{
-                  fontFamily: 'inherit',
-                  fontStyle: 'normal',
-                  fontWeight: 600,
-                  fontSize: '12px',
-                  letterSpacing: '.14em',
-                  lineHeight: '16px',
-                  color: 'var(--rr-text2)',
-                  textTransform: 'uppercase'
-                }}>{selectedEvent && new Date(selectedEvent.datetime) > new Date() ? 'Registration' : 'Attendance'}</span>
-                
-                {/* Loading spinner positioned to the right */}
-                <div style={{
-                  position: 'absolute',
-                  right: '24px',
-                  display: 'flex',
-                  alignItems: 'center'
-                }}>
-                  <div 
-                    id="attendance-loading-spinner"
-                    style={{ 
-                      width: '16px', 
-                      height: '16px', 
-                      border: '2px solid var(--rr-border)', 
-                      borderTopColor: 'var(--rr-accent)', 
-                      borderRadius: '50%',
-                      animation: 'spin 1s linear infinite',
-                      opacity: 0
-                    }} 
+            <div className="h-px bg-border flex-none" />
+
+            <div className="flex-1 min-h-0 relative">
+              {/* Keep both event views mounted so attendance polling/state is not reset on tab switches */}
+              <div className="absolute inset-0 flex flex-col min-h-0" style={{ display: mainTab === 'details' ? 'flex' : 'none' }}>
+                <div className="flex-1 min-h-0 overflow-hidden">
+                  <EventDetails
+                    event={selectedEvent}
+                    onEventUpdated={() => loadEvents(selectedCycle?.id)}
                   />
                 </div>
               </div>
-              {/* Content */}
-              <div style={{ flex: 1, overflow: 'hidden' }}>
-                <EventAttendance event={selectedEvent} />
-              </div>
-            </div>
-
-            {/* Mission Card */}
-            <div style={{
-              backgroundColor: 'var(--rr-panel)',
-              boxShadow: 'var(--rr-shadow)',
-          border: '1px solid var(--rr-border)',
-              borderRadius: '10px',
-              height: 'auto',
-              display: 'flex',
-              flexDirection: 'column',
-              padding: '24px',
-              boxSizing: 'border-box'
-            }}>
-              {/* Header */}
-              <div style={{
-                textAlign: 'center',
-                marginBottom: '16px'
-              }}>
-                <span style={{
-                  fontFamily: 'inherit',
-                  fontStyle: 'normal',
-                  fontWeight: 600,
-                  fontSize: '12px',
-                  letterSpacing: '.14em',
-                  lineHeight: '16px',
-                  color: 'var(--rr-text2)',
-                  textTransform: 'uppercase'
-                }}>Mission</span>
-              </div>
-              {/* Content */}
-              <div style={{
-                display: 'flex',
-                justifyContent: 'space-around',
-                padding: '16px'
-              }}>
-                {selectedEvent ? (
-                  <button
-                    onClick={() => handlePlanMission(selectedEvent)}
-                    disabled={selectedEvent?.id ? missionLoading[selectedEvent.id] : false}
+              <div className="absolute inset-0 flex flex-col min-h-0" style={{ display: mainTab === 'attendance' ? 'flex' : 'none' }}>
+                <div className="flex-none flex items-center justify-end px-4 pt-2 h-6">
+                  <div
+                    id="attendance-loading-spinner"
                     style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '8px',
-                      padding: '12px 24px',
-                      border: '1px solid var(--rr-border2)',
-                      borderRadius: '6px',
-                      backgroundColor: 'transparent',
-                      color: 'var(--rr-text2)',
-                      fontFamily: 'inherit',
-                      fontSize: '14px',
-                      fontWeight: 500,
-                      cursor: selectedEvent?.id && missionLoading[selectedEvent.id] ? 'not-allowed' : 'pointer',
-                      opacity: selectedEvent?.id && missionLoading[selectedEvent.id] ? 0.5 : 1,
-                      transition: 'all 0.2s ease'
+                      width: '14px',
+                      height: '14px',
+                      border: '2px solid var(--rr-border)',
+                      borderTopColor: 'var(--rr-accent)',
+                      borderRadius: '50%',
+                      animation: 'spin 1s linear infinite',
+                      opacity: 0
                     }}
-                    onMouseOver={(e) => {
-                      if (!(selectedEvent?.id && missionLoading[selectedEvent.id])) {
-                        e.currentTarget.style.borderColor = 'var(--rr-border2)';
-                        e.currentTarget.style.backgroundColor = 'var(--rr-panel2)';
-                      }
-                    }}
-                    onMouseOut={(e) => {
-                      e.currentTarget.style.borderColor = 'var(--rr-border2)';
-                      e.currentTarget.style.backgroundColor = 'transparent';
-                    }}
-                  >
-                    {/* Compass Icon */}
-                    <svg 
-                      width="18" 
-                      height="18" 
-                      viewBox="0 0 24 24" 
-                      fill="none" 
-                      stroke="currentColor" 
-                      strokeWidth="2" 
-                      strokeLinecap="round" 
-                      strokeLinejoin="round"
-                    >
-                      <circle cx="12" cy="12" r="10"/>
-                      <polygon points="16.24,7.76 14.12,14.12 7.76,16.24 9.88,9.88"/>
-                    </svg>
-                    {selectedEvent?.id && missionLoading[selectedEvent.id] ? (
-                      'Loading...'
-                    ) : selectedEvent?.id && eventMissions[selectedEvent.id] ? (
-                      'Go to Mission'
-                    ) : (
-                      'Plan Mission'
-                    )}
-                  </button>
-                ) : (
-                  <div style={{
-                    color: 'var(--rr-text3)',
-                    fontFamily: 'inherit',
-                    fontSize: '14px',
-                    textAlign: 'center'
-                  }}>
-                    Select an event to plan mission
-                  </div>
-                )}
+                  />
+                </div>
+                <div className="flex-1 min-h-0 overflow-hidden">
+                  <EventAttendance event={selectedEvent} />
+                </div>
               </div>
+              {mainTab === 'builder' ? (
+                <div className="absolute inset-0 overflow-auto p-5">
+                  {selectedCycle ? (
+                    <div className="max-w-[760px]">
+                      <div className="grid gap-[10px] mb-5" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))' }}>
+                        <StatTile value={filteredEvents.length} label="Events" />
+                        <StatTile value={new Date(selectedCycle.startDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} label="Start" />
+                        <StatTile value={new Date(selectedCycle.endDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} label="End" />
+                        <StatTile value={Math.max(1, Math.round((new Date(selectedCycle.endDate).getTime() - new Date(selectedCycle.startDate).getTime()) / (7 * 864e5)))} label="Weeks" />
+                      </div>
+                      {selectedCycle.description ? (
+                        <p className="text-[13px] text-text2 leading-[1.55] mb-5 whitespace-pre-wrap">{selectedCycle.description}</p>
+                      ) : null}
+                      <div className="rounded-rr-lg border border-border bg-panel2 p-4 flex items-center gap-4">
+                        <span className="w-10 h-10 rounded-rr-lg bg-accent-weak text-accent flex items-center justify-center flex-none"><Icon name="layers" size={20} /></span>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-[13.5px] font-semibold">Activities, participants and week plan</div>
+                          <div className="text-[12px] text-text2">The cycle builder (participant groups × weeks, activity bars and generated events) opens in the full-screen cycle editor.</div>
+                        </div>
+                        <Button variant="primary" icon="edit" onClick={() => handleEditCycleClick(selectedCycle)}>Open Cycle Builder</Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <EmptyState icon="layers" title="No cycle selected" message="Pick a cycle on the left to see its plan." />
+                  )}
+                </div>
+              ) : null}
             </div>
           </div>
         </div>
