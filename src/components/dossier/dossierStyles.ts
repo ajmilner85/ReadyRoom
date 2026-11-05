@@ -3,36 +3,35 @@
 
 export const dossierStyles = {
   container: {
-    backgroundColor: 'var(--rr-panel2)',
-    height: '100vh',
+    flex: 1,
+    minHeight: 0,
     display: 'flex',
     flexDirection: 'column' as const,
-    alignItems: 'center',
-    padding: '20px 20px 20px 20px',
+    padding: '14px',
     boxSizing: 'border-box' as const,
     overflowY: 'hidden' as const
   },
   contentWrapper: {
     display: 'flex',
     flexDirection: 'column' as const,
-    height: 'calc(100vh - 40px)',
+    flex: 1,
+    minHeight: 0,
     position: 'relative' as const,
     zIndex: 1,
-    maxWidth: '2009px',
-    margin: '0 auto',
     width: '100%'
   },
   columnsContainer: {
     display: 'flex',
-    gap: '20px',
+    gap: '14px',
     flex: 1,
-    height: 'calc(100vh - 40px)',
+    minHeight: 0,
     overflow: 'visible'
   },
   card: {
     backgroundColor: 'var(--rr-panel)',
     boxShadow: 'var(--rr-shadow)',
-    borderRadius: '8px',
+    border: '1px solid var(--rr-border)',
+    borderRadius: '10px',
     display: 'flex',
     flexDirection: 'column' as const,
     position: 'relative' as const,
@@ -40,23 +39,25 @@ export const dossierStyles = {
     boxSizing: 'border-box' as const
   },
   cardHeader: {
-    padding: '16px 24px 8px'
+    padding: '12px 14px',
+    borderBottom: '1px solid var(--rr-border)'
   },
   cardHeaderText: {
     fontFamily: 'inherit',
     fontStyle: 'normal' as const,
-    fontWeight: 300,
-    fontSize: '20px',
-    lineHeight: '24px',
+    fontWeight: 600,
+    fontSize: '12px',
+    letterSpacing: '.14em',
+    lineHeight: '16px',
     color: 'var(--rr-text2)',
     textTransform: 'uppercase' as const,
     display: 'block',
-    textAlign: 'center' as const
+    textAlign: 'left' as const
   },
   cardContent: {
     flex: 1,
     overflowY: 'auto' as const,
-    padding: '16px 24px 24px'
+    padding: '14px'
   },
   fieldLabel: {
     display: 'block',
@@ -70,9 +71,10 @@ export const dossierStyles = {
     color: 'var(--rr-text)'
   },
   sectionLabel: {
-    fontSize: '12px',
-    fontFamily: 'inherit',
-    fontWeight: 300,
+    fontSize: '10px',
+    fontFamily: 'var(--rr-font-mono)',
+    letterSpacing: '.14em',
+    fontWeight: 400,
     textTransform: 'uppercase' as const,
     color: 'var(--rr-text2)',
     borderBottom: '1px solid var(--rr-border)',

@@ -35,7 +35,7 @@ const getStatusInfo = (
       status: 'no_debrief',
       label: 'Not Started',
       color: 'var(--rr-text2)',
-      bgColor: '#F1F5F9',
+      bgColor: 'var(--rr-panel2)',
       icon: <FileText size={14} />
     };
   }
@@ -47,7 +47,7 @@ const getStatusInfo = (
       status: 'no_debrief',
       label: 'Not Started',
       color: 'var(--rr-text2)',
-      bgColor: '#F1F5F9',
+      bgColor: 'var(--rr-panel2)',
       icon: <Clock size={14} />
     };
   }
@@ -58,7 +58,7 @@ const getStatusInfo = (
         status: 'finalized',
         label: 'Finalized',
         color: 'var(--rr-good)',
-        bgColor: '#ECFDF5',
+        bgColor: 'rgba(64,168,91,.14)',
         icon: <CheckCircle size={14} />
       };
     case 'submitted':
@@ -67,7 +67,7 @@ const getStatusInfo = (
         status: 'in_progress',
         label: 'In Progress',
         color: 'var(--rr-warn)',
-        bgColor: '#FEF3C7',
+        bgColor: 'rgba(222,154,31,.14)',
         icon: <Clock size={14} />
       };
     default:
@@ -75,7 +75,7 @@ const getStatusInfo = (
         status: 'pending',
         label: 'Pending',
         color: 'var(--rr-text2)',
-        bgColor: '#F1F5F9',
+        bgColor: 'var(--rr-panel2)',
         icon: <FileText size={14} />
       };
   }

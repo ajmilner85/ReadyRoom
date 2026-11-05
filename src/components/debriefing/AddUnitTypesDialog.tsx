@@ -110,11 +110,11 @@ const AddUnitTypesDialog: React.FC<AddUnitTypesDialogProps> = ({
   const getCategoryBadgeColor = () => {
     switch (killCategory) {
       case 'A2A':
-        return { bg: '#DBEAFE', text: '#1E40AF' }; // Blue
+        return { bg: 'var(--rr-accent-weak)', text: '#1E40AF' }; // Blue
       case 'A2G':
-        return { bg: '#FEE2E2', text: '#991B1B' }; // Red
+        return { bg: 'rgba(224,82,78,.12)', text: '#991B1B' }; // Red
       case 'A2S':
-        return { bg: '#D1FAE5', text: '#065F46' }; // Green
+        return { bg: 'rgba(64,168,91,.14)', text: '#065F46' }; // Green
     }
   };
 
