@@ -1,159 +1,147 @@
 import React from 'react';
-import { useAppSettings } from '../../context/AppSettingsContext';
+import { useAppSettings, NavLayout, ThemeMode } from '../../context/AppSettingsContext';
+import { useAuth } from '../../context/AuthContext';
+import { Icon } from '../ui/primitives/Icon';
+import { SectionLabel } from '../ui/primitives/Display';
+import { Toggle } from '../ui/primitives/Controls';
+import { SettingsSection } from './SettingsSection';
 
 interface AppearanceProps {
   error?: string | null;
   setError?: (error: string | null) => void;
 }
 
+/* Theme preview colours are literal on purpose: each card previews the *other* theme too. */
+const THEME_PREVIEW: Record<ThemeMode, { bg: string; panel: string; border: string; label: string }> = {
+  dark: { bg: '#0E1116', panel: '#151A21', border: '#262F3A', label: 'Dark' },
+  light: { bg: '#E6EBF0', panel: '#FFFFFF', border: '#DBE2EA', label: 'Light' },
+};
+
+const NAV_OPTIONS: { value: NavLayout; label: string; description: string }[] = [
+  { value: 'rail', label: 'Labeled Rail', description: 'Grouped sidebar with icons and labels' },
+  { value: 'compact', label: 'Compact Rail', description: 'Icon-only sidebar, labels on hover' },
+  { value: 'bar', label: 'Command Bar', description: 'Horizontal top bar' },
+];
+
+const ACCENT_SWATCHES = ['#F15822', '#005774', '#E3A008', '#8B5CF6', '#40A85B'];
+
+const NavPreview: React.FC<{ layout: NavLayout }> = ({ layout }) => (
+  <div className="h-[70px] bg-bg flex" style={{ flexDirection: layout === 'bar' ? 'column' : 'row' }}>
+    {layout === 'bar' ? (
+      <div className="h-[14px] bg-panel border-b border-border flex items-center gap-[5px] px-2">
+        {[0, 1, 2, 3].map(i => <span key={i} className="h-[3px] w-[16px] rounded-full" style={{ background: i === 1 ? 'var(--rr-accent)' : 'var(--rr-border2)' }} />)}
+      </div>
+    ) : (
+      <div className="bg-panel border-r border-border flex flex-col gap-[5px] p-[6px]" style={{ width: layout === 'rail' ? 58 : 20 }}>
+        {[0, 1, 2, 3].map(i => (
+          <div key={i} className="flex items-center gap-1">
+            <span className="w-2 h-2 rounded-[2px] flex-none" style={{ background: i === 1 ? 'var(--rr-accent)' : 'var(--rr-panel3)' }} />
+            {layout === 'rail' ? <span className="h-[3px] flex-1 rounded-full bg-border2" /> : null}
+          </div>
+        ))}
+      </div>
+    )}
+    <div className="flex-1 p-[7px]"><div className="h-full rounded-[4px] bg-panel border border-border" /></div>
+  </div>
+);
+
+const PreviewCard: React.FC<{ selected: boolean; onClick: () => void; label: string; description?: string; children: React.ReactNode }> = ({ selected, onClick, label, description, children }) => (
+  <button
+    type="button"
+    onClick={onClick}
+    aria-pressed={selected}
+    className="flex-1 min-w-[150px] max-w-[220px] rounded-rr-xl overflow-hidden cursor-pointer text-left bg-panel p-0 transition-[border-color,box-shadow] duration-150"
+    style={{ border: `2px solid ${selected ? 'var(--rr-accent)' : 'var(--rr-border2)'}`, boxShadow: selected ? '0 0 0 3px var(--rr-accent-weak)' : undefined }}
+  >
+    {children}
+    <div className="px-3 py-[9px] flex items-start gap-2">
+      <div className="flex-1 min-w-0">
+        <div className="text-[13px] font-semibold text-text">{label}</div>
+        {description ? <div className="text-[11px] text-text2 mt-[1px]">{description}</div> : null}
+      </div>
+      {selected ? <span className="text-accent flex mt-[1px]"><Icon name="check" size={15} stroke={2.2} /></span> : null}
+    </div>
+  </button>
+);
+
 const Appearance: React.FC<AppearanceProps> = () => {
   const { settings, updateSetting } = useAppSettings();
-
-  const firstSectionStyle = {
-    paddingTop: '0',
-    paddingBottom: '32px',
-    marginTop: '0',
-    borderTop: 'none'
-  };
-
-  const fieldLabelStyle = {
-    fontSize: '14px',
-    fontWeight: 500,
-    color: '#374151',
-    marginBottom: '8px',
-    fontFamily: 'Inter'
-  };
-
-  const toggleContainerStyle = {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: '16px 0'
-  };
+  const { userProfile } = useAuth();
+  const sq = userProfile?.pilot?.currentSquadron;
+  const squadronPrimary = (sq?.color_palette as { primary?: string } | null | undefined)?.primary;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', backgroundColor: '#FFFFFF' }}>
-      {/* Fixed Header */}
-      <div style={{ padding: '40px 40px 0 40px', flexShrink: 0 }}>
-        <div style={{ maxWidth: '800px', margin: '0 auto', borderBottom: '1px solid #E2E8F0', paddingBottom: '24px' }}>
-          <h2 style={{ fontSize: '24px', fontWeight: 600, margin: 0, color: '#0F172A' }}>
-            Appearance
-          </h2>
-          <p style={{ fontSize: '14px', color: '#64748B', margin: '8px 0 0 0', fontFamily: 'Inter' }}>
-            Configure visual appearance and color themes.
-          </p>
-        </div>
+    <SettingsSection title="Appearance" description="Your personal display preferences.">
+      <SectionLabel>Theme</SectionLabel>
+      <div className="flex flex-wrap gap-3 mb-[26px]">
+        {(['dark', 'light'] as ThemeMode[]).map(t => {
+          const p = THEME_PREVIEW[t];
+          return (
+            <PreviewCard key={t} selected={settings.theme === t} onClick={() => updateSetting('theme', t)} label={p.label}>
+              <div className="h-[70px] flex items-center justify-center" style={{ background: p.bg }}>
+                <div className="w-3/5 h-9 rounded-rr-md" style={{ background: p.panel, border: `1px solid ${p.border}` }} />
+              </div>
+            </PreviewCard>
+          );
+        })}
       </div>
 
-      {/* Scrollable Content */}
-      <div style={{ flex: 1, overflow: 'auto', padding: '24px 40px 40px 40px' }}>
-        <div style={{ maxWidth: '800px', margin: '0 auto' }}>
-          {/* Color Themes Section */}
-          <div style={firstSectionStyle}>
-          <h3 style={{ fontSize: '18px', fontWeight: 600, color: '#0F172A', margin: '0 0 16px 0' }}>
-            Color Themes
-          </h3>
-          <p style={{ fontSize: '14px', color: '#64748B', margin: '0 0 24px 0', fontFamily: 'Inter' }}>
-            Control how colors are used throughout the application.
-          </p>
-          
-          <div style={toggleContainerStyle}>
-            <div style={{ flex: 1 }}>
-              <div style={fieldLabelStyle}>
-                Display pilots with squadron colors
-              </div>
-              <p style={{ 
-                fontSize: '12px', 
-                color: '#94A3B8', 
-                margin: 0, 
-                fontFamily: 'Inter',
-                lineHeight: '1.4'
-              }}>
-                When enabled, pilots are displayed using their squadron's primary color. Unassigned pilots always display in dark grey.
-              </p>
-            </div>
-            <button
-              onClick={() => updateSetting('displayPilotsWithSquadronColors', !settings.displayPilotsWithSquadronColors)}
-              style={{
-                position: 'relative',
-                display: 'inline-flex',
-                height: '20px',
-                width: '36px',
-                alignItems: 'center',
-                borderRadius: '10px',
-                transition: 'background-color 0.2s ease',
-                border: 'none',
-                cursor: 'pointer',
-                outline: 'none',
-                marginLeft: '24px',
-                backgroundColor: settings.displayPilotsWithSquadronColors ? '#3B82F6' : '#D1D5DB',
-                padding: '2px'
-              }}
-            >
-              <div
-                style={{
-                  height: '16px',
-                  width: '16px',
-                  borderRadius: '50%',
-                  backgroundColor: '#FFFFFF',
-                  transition: 'transform 0.15s ease-in-out',
-                  transform: settings.displayPilotsWithSquadronColors ? 'translateX(16px)' : 'translateX(0px)',
-                  boxShadow: '0 1px 2px rgba(0, 0, 0, 0.2)'
-                }}
-              />
-            </button>
-          </div>
-
-          <div style={toggleContainerStyle}>
-            <div style={{ flex: 1 }}>
-              <div style={fieldLabelStyle}>
-                Interface theme uses squadron colors
-              </div>
-              <p style={{ 
-                fontSize: '12px', 
-                color: '#94A3B8', 
-                margin: 0, 
-                fontFamily: 'Inter',
-                lineHeight: '1.4'
-              }}>
-                When enabled, interface elements like navbar active states use your squadron's accent color instead of default colors.
-              </p>
-            </div>
-            <button
-              onClick={() => updateSetting('interfaceThemeUsesSquadronColors', !settings.interfaceThemeUsesSquadronColors)}
-              style={{
-                position: 'relative',
-                display: 'inline-flex',
-                height: '20px',
-                width: '36px',
-                alignItems: 'center',
-                borderRadius: '10px',
-                transition: 'background-color 0.2s ease',
-                border: 'none',
-                cursor: 'pointer',
-                outline: 'none',
-                marginLeft: '24px',
-                backgroundColor: settings.interfaceThemeUsesSquadronColors ? '#3B82F6' : '#D1D5DB',
-                padding: '2px'
-              }}
-            >
-              <div
-                style={{
-                  height: '16px',
-                  width: '16px',
-                  borderRadius: '50%',
-                  backgroundColor: '#FFFFFF',
-                  transition: 'transform 0.15s ease-in-out',
-                  transform: settings.interfaceThemeUsesSquadronColors ? 'translateX(16px)' : 'translateX(0px)',
-                  boxShadow: '0 1px 2px rgba(0, 0, 0, 0.2)'
-                }}
-              />
-            </button>
-          </div>
-          </div>
-        </div>
+      <SectionLabel>Navigation layout</SectionLabel>
+      <div className="flex flex-wrap gap-3 mb-[26px]">
+        {NAV_OPTIONS.map(o => (
+          <PreviewCard key={o.value} selected={settings.navLayout === o.value} onClick={() => updateSetting('navLayout', o.value)} label={o.label} description={o.description}>
+            <NavPreview layout={o.value} />
+          </PreviewCard>
+        ))}
       </div>
-    </div>
+
+      <SectionLabel>Accent (defaults to squadron colour)</SectionLabel>
+      <div className="flex flex-wrap items-center gap-3 mb-[26px]">
+        <button
+          type="button"
+          title={sq?.designation ? `${sq.designation} colour` : 'Squadron colour'}
+          onClick={() => updateSetting('accentColor', null)}
+          className="h-10 px-3 rounded-[9px] flex items-center gap-2 cursor-pointer bg-panel2 text-[12px] font-semibold text-text2"
+          style={{
+            border: `1px solid ${!settings.accentColor ? 'var(--rr-accent)' : 'var(--rr-border2)'}`,
+            boxShadow: !settings.accentColor ? '0 0 0 3px var(--rr-accent-weak)' : undefined,
+          }}
+        >
+          <span className="w-[18px] h-[18px] rounded-[5px]" style={{ background: squadronPrimary || 'var(--rr-accent)' }} />
+          Squadron
+        </button>
+        {ACCENT_SWATCHES.map(c => {
+          const sel = settings.accentColor?.toLowerCase() === c.toLowerCase();
+          return (
+            <button
+              key={c}
+              type="button"
+              aria-label={`Accent ${c}`}
+              title={c}
+              onClick={() => updateSetting('accentColor', c)}
+              className="w-10 h-10 rounded-[9px] cursor-pointer"
+              style={{ background: c, border: `1px solid ${sel ? 'var(--rr-accent)' : 'var(--rr-border2)'}`, boxShadow: sel ? '0 0 0 3px var(--rr-accent-weak)' : undefined }}
+            />
+          );
+        })}
+      </div>
+
+      <SectionLabel>Squadron colours</SectionLabel>
+      <div className="flex flex-col gap-4 max-w-[560px]">
+        <Toggle
+          checked={settings.displayPilotsWithSquadronColors}
+          onChange={v => updateSetting('displayPilotsWithSquadronColors', v)}
+          label="Display pilots with squadron colours"
+          description="Board numbers and aircraft use each pilot's squadron primary colour. Unassigned pilots display in grey."
+        />
+        <Toggle
+          checked={settings.interfaceThemeUsesSquadronColors}
+          onChange={v => updateSetting('interfaceThemeUsesSquadronColors', v)}
+          label="Interface accent uses my squadron colour"
+          description="When no personal accent is chosen above, active states, tabs and buttons use your squadron's primary colour."
+        />
+      </div>
+    </SettingsSection>
   );
 };
 
