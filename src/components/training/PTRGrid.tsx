@@ -1,4 +1,5 @@
 // @ts-nocheck
+import { legibleColor } from '../ui/primitives/color';
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../utils/supabaseClient';
 import { Download, BookOpen, CheckCircle2, ExternalLink, FileText, GraduationCap } from 'lucide-react';
@@ -167,7 +168,7 @@ const PTRGrid: React.FC<PTRGridProps> = ({ syllabusId, cycleId, onCellClick, onG
           squadronMap.set(assignment.pilot_id, {
             tail_code: assignment.org_squadrons.tail_code,
             insignia_url: assignment.org_squadrons.insignia_url,
-            primary_color: assignment.org_squadrons.color_palette?.primary || '#000000'
+            primary_color: assignment.org_squadrons.color_palette?.primary || 'var(--rr-text)'
           });
         }
       });
@@ -1105,7 +1106,7 @@ const PTRGrid: React.FC<PTRGridProps> = ({ syllabusId, cycleId, onCellClick, onG
                       <span style={{
                         fontSize: '16px',
                         fontWeight: 700,
-                        color: row.student.squadron?.primary_color || 'var(--rr-text)'
+                        color: legibleColor(row.student.squadron?.primary_color, 'var(--rr-text)')
                       }}>
                         {row.student.callsign}
                       </span>
@@ -1119,53 +1120,53 @@ const PTRGrid: React.FC<PTRGridProps> = ({ syllabusId, cycleId, onCellClick, onG
                     const isCellHovered = hoveredRow === row.student.id && hoveredCol === week.weekNumber;
 
                     // Determine background color
-                    let backgroundColor = 'white';
+                    let backgroundColor = 'var(--rr-panel)';
                     if (cellData.hasGrade) {
                       if (cellData.latestGrade === 'UNSAT') {
-                        backgroundColor = '#FEF3C7'; // Yellow for UNSAT
+                        backgroundColor = 'rgba(222,154,31,.14)'; // Yellow for UNSAT
                       } else if (cellData.latestGrade === 'SAT') {
                         // SAT with attendance = green, SAT without attendance = white
-                        backgroundColor = cellData.wasPresent ? '#ECFDF5' : 'white';
+                        backgroundColor = cellData.wasPresent ? 'rgba(64,168,91,.14)' : 'var(--rr-panel)';
                       }
                     } else if (cellData.wasPresent) {
-                      backgroundColor = '#ECFDF5'; // Light green for present
+                      backgroundColor = 'rgba(64,168,91,.14)'; // Light green for present
                     }
 
                     // Hover effects
                     if (isCellHovered) {
                       if (cellData.hasGrade && cellData.latestGrade === 'UNSAT') {
-                        backgroundColor = '#FDE68A'; // Darker yellow
+                        backgroundColor = 'rgba(222,154,31,.26)'; // Darker yellow
                       } else if (cellData.hasGrade && cellData.latestGrade === 'SAT') {
-                        backgroundColor = cellData.wasPresent ? '#D1FAE5' : '#E5E7EB';
+                        backgroundColor = cellData.wasPresent ? 'rgba(64,168,91,.14)' : 'var(--rr-panel3)';
                       } else if (cellData.wasPresent) {
-                        backgroundColor = '#D1FAE5'; // Darker green on hover
+                        backgroundColor = 'rgba(64,168,91,.14)'; // Darker green on hover
                       } else {
-                        backgroundColor = '#E5E7EB'; // Darker gray
+                        backgroundColor = 'var(--rr-panel3)'; // Darker gray
                       }
                     } else if (isHovered) {
                       if (cellData.hasGrade && cellData.latestGrade === 'UNSAT') {
-                        backgroundColor = '#FEF3C7';
+                        backgroundColor = 'rgba(222,154,31,.14)';
                       } else if (cellData.hasGrade && cellData.latestGrade === 'SAT') {
-                        backgroundColor = cellData.wasPresent ? '#ECFDF5' : '#F9FAFB';
+                        backgroundColor = cellData.wasPresent ? 'rgba(64,168,91,.14)' : 'var(--rr-panel2)';
                       } else if (cellData.wasPresent) {
-                        backgroundColor = '#ECFDF5';
+                        backgroundColor = 'rgba(64,168,91,.14)';
                       } else {
-                        backgroundColor = '#F9FAFB';
+                        backgroundColor = 'var(--rr-panel2)';
                       }
                     }
 
                     // Determine text color and content
-                    let textColor = '#9CA3AF';
+                    let textColor = 'var(--rr-text3)';
                     let content = '-';
                     let fontWeight = 400;
 
                     if (cellData.hasGrade) {
                       if (cellData.latestGrade === 'SAT') {
-                        textColor = '#065F46'; // Green
+                        textColor = 'var(--rr-good)'; // Green
                         content = 'SAT';
                         fontWeight = 600;
                       } else if (cellData.latestGrade === 'UNSAT') {
-                        textColor = '#92400E'; // Darker yellow
+                        textColor = 'var(--rr-warn)'; // Darker yellow
                         content = 'UNSAT';
                         fontWeight = 600;
                       }
@@ -1215,8 +1216,8 @@ const PTRGrid: React.FC<PTRGridProps> = ({ syllabusId, cycleId, onCellClick, onG
                         width: '48px',
                         minWidth: '48px',
                         backgroundColor: row.student.enrollment_status === 'graduated'
-                          ? '#DCFCE7'
-                          : hoveredRow === row.student.id ? '#F9FAFB' : 'white',
+                          ? 'rgba(64,168,91,.14)'
+                          : hoveredRow === row.student.id ? 'var(--rr-panel2)' : 'var(--rr-panel)',
                         transition: 'background-color 0.1s',
                       }}
                       onMouseEnter={() => { if (row.student.enrollment_status !== 'graduated') setHoveredRow(row.student.id); }}

@@ -916,10 +916,10 @@ export const DiscordPilotsDialog: React.FC<DiscordPilotsDialogProps> = ({
                                 let icon = null;
                                 
                                 if (mode === 'include') {
-                                  backgroundColor = '#EFF6FF';
+                                  backgroundColor = 'var(--rr-accent-weak)';
                                   icon = <Eye size={12} style={{ color: 'var(--rr-accent-text)' }} />;
                                 } else if (mode === 'exclude') {
-                                  backgroundColor = '#FEF2F2';
+                                  backgroundColor = 'rgba(224,82,78,.12)';
                                   icon = <EyeOff size={12} style={{ color: 'var(--rr-bad)' }} />;
                                 }
                                 
