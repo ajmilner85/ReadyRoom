@@ -2,7 +2,7 @@
 import { legibleColor } from '../ui/primitives/color';
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../utils/supabaseClient';
-import { Download, BookOpen, CheckCircle2, ExternalLink, FileText, GraduationCap } from 'lucide-react';
+import { Icon } from '../ui/primitives';
 import PilotIDBadgeSm from '../ui/PilotIDBadgeSm';
 import { PTRCellData, TrainingGrade } from '../../types/TrainingTypes';
 import type { ReferenceMaterial } from '../../types/EventTypes';
@@ -709,7 +709,7 @@ const PTRGrid: React.FC<PTRGridProps> = ({ syllabusId, cycleId, onCellClick, onG
             gap: '8px'
           }}
         >
-          <Download size={14} />
+          <Icon name="download" size={14} />
           Export CSV
         </button>
       </div>
@@ -859,7 +859,7 @@ const PTRGrid: React.FC<PTRGridProps> = ({ syllabusId, cycleId, onCellClick, onG
                                     }}
                                     title="Go to Event"
                                   >
-                                    <ExternalLink size={16} />
+                                    <Icon name="externalLink" size={16} />
                                   </button>
                                 )}
                               </div>
@@ -889,7 +889,7 @@ const PTRGrid: React.FC<PTRGridProps> = ({ syllabusId, cycleId, onCellClick, onG
                                     }}
                                     title="Go to Mission Preparation"
                                   >
-                                    <FileText size={16} />
+                                    <Icon name="dossier" size={16} />
                                   </button>
                                 )}
                               </div>
@@ -925,7 +925,7 @@ const PTRGrid: React.FC<PTRGridProps> = ({ syllabusId, cycleId, onCellClick, onG
                                     alignItems: 'flex-start',
                                     gap: '8px'
                                   }}>
-                                    <CheckCircle2 size={16} style={{ color: 'var(--rr-text3)', marginTop: '2px', flexShrink: 0 }} />
+                                    <Icon name="checkCircle" size={16} style={{ color: 'var(--rr-text3)', marginTop: '2px', flexShrink: 0 }} />
                                     <span style={{
                                       fontSize: '13px',
                                       color: 'var(--rr-text2)',
@@ -954,7 +954,7 @@ const PTRGrid: React.FC<PTRGridProps> = ({ syllabusId, cycleId, onCellClick, onG
                                   <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                     <div style={{ flexShrink: 0, width: '16px' }}>
                                       {item.isInherited && (
-                                        <BookOpen size={16} style={{ color: 'var(--rr-text2)' }} />
+                                        <Icon name="bookOpen" size={16} style={{ color: 'var(--rr-text2)' }} />
                                       )}
                                     </div>
                                     <div style={{ flex: 1, minWidth: 0 }}>
@@ -1005,7 +1005,7 @@ const PTRGrid: React.FC<PTRGridProps> = ({ syllabusId, cycleId, onCellClick, onG
                     top: 0,
                     zIndex: 10,
                   }}>
-                    <GraduationCap size={16} style={{ color: 'var(--rr-text2)' }} />
+                    <Icon name="training" size={16} style={{ color: 'var(--rr-text2)' }} />
                   </th>
                 )}
               </tr>
@@ -1224,7 +1224,7 @@ const PTRGrid: React.FC<PTRGridProps> = ({ syllabusId, cycleId, onCellClick, onG
                       onMouseLeave={() => setHoveredRow(null)}
                     >
                       {row.student.enrollment_status === 'graduated' ? (
-                        <CheckCircle2
+                        <Icon name="checkCircle"
                           size={16}
                           style={{ color: 'var(--rr-good)', display: 'block', margin: '0 auto' }}
                         />
@@ -1252,7 +1252,7 @@ const PTRGrid: React.FC<PTRGridProps> = ({ syllabusId, cycleId, onCellClick, onG
                           onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--rr-accent-weak)')}
                           onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
                         >
-                          <GraduationCap size={16} style={{ color: 'var(--rr-accent-text)' }} />
+                          <Icon name="training" size={16} style={{ color: 'var(--rr-accent-text)' }} />
                         </button>
                       )}
                     </td>

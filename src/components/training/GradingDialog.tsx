@@ -1,6 +1,6 @@
 // @ts-nocheck
 import React, { useState, useEffect } from 'react';
-import { X, AlertTriangle, Edit2, Trash2, Plus, ChevronRight, ArrowUpDown, BookOpen } from 'lucide-react';
+import { Icon } from '../ui/primitives';
 import { supabase } from '../../utils/supabaseClient';
 import { GradingDialogData, TrainingGrade, DLOGrade, PTRCellData } from '../../types/TrainingTypes';
 import PilotIDBadgeSm from '../ui/PilotIDBadgeSm';
@@ -881,7 +881,7 @@ const GradingDialog: React.FC<GradingDialogProps> = ({
                   padding: 0
                 }}
               >
-                <BookOpen size={18} />
+                <Icon name="bookOpen" size={18} />
               </button>
 
               {/* Hover area extension to popup */}
@@ -924,7 +924,7 @@ const GradingDialog: React.FC<GradingDialogProps> = ({
                     <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: idx < referenceMaterials.length - 1 ? '8px' : '0' }}>
                       {item.isInherited && (
                         <div style={{ flexShrink: 0 }}>
-                          <BookOpen size={16} style={{ color: 'var(--rr-text2)' }} />
+                          <Icon name="bookOpen" size={16} style={{ color: 'var(--rr-text2)' }} />
                         </div>
                       )}
                       {!item.isInherited && (
@@ -982,7 +982,7 @@ const GradingDialog: React.FC<GradingDialogProps> = ({
                     <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: idx < referenceMaterials.length - 1 ? '8px' : '0' }}>
                       {item.isInherited && (
                         <div style={{ flexShrink: 0 }}>
-                          <BookOpen size={16} style={{ color: 'var(--rr-text2)' }} />
+                          <Icon name="bookOpen" size={16} style={{ color: 'var(--rr-text2)' }} />
                         </div>
                       )}
                       {!item.isInherited && (
@@ -1035,7 +1035,7 @@ const GradingDialog: React.FC<GradingDialogProps> = ({
               flexShrink: 0
             }}
           >
-            <X size={18} />
+            <Icon name="close" size={18} />
           </button>
         </div>
 
@@ -1086,7 +1086,7 @@ const GradingDialog: React.FC<GradingDialogProps> = ({
                             : 'Trainee was marked present but was not assigned to a flight.'
                         }
                       >
-                        <AlertTriangle
+                        <Icon name="alertTriangle"
                           size={16}
                           style={{ color: 'var(--rr-warn)' }}
                         />
@@ -1170,7 +1170,7 @@ const GradingDialog: React.FC<GradingDialogProps> = ({
                     e.currentTarget.style.borderColor = 'var(--rr-border)';
                   }}
                 >
-                  <Edit2 size={14} style={{ color: 'var(--rr-text2)' }} />
+                  <Icon name="edit" size={14} style={{ color: 'var(--rr-text2)' }} />
                 </button>
               </div>
             </div>
@@ -1247,7 +1247,7 @@ const GradingDialog: React.FC<GradingDialogProps> = ({
                             }}
                             title="Delete"
                           >
-                            <Trash2 size={14} />
+                            <Icon name="trash" size={14} />
                           </button>
                         )}
                       </div>
@@ -1264,13 +1264,13 @@ const GradingDialog: React.FC<GradingDialogProps> = ({
                       </div>
                     </div>
                     {index < dialogData.existingAttempts.length - 1 && (
-                      <ChevronRight size={16} style={{ color: 'var(--rr-text3)', flexShrink: 0 }} />
+                      <Icon name="chevronRight" size={16} style={{ color: 'var(--rr-text3)', flexShrink: 0 }} />
                     )}
                   </React.Fragment>
                 );
               })}
               {canCreateNewAttempt && dialogData.existingAttempts.length > 0 && (
-                <ChevronRight size={16} style={{ color: 'var(--rr-text3)', flexShrink: 0 }} />
+                <Icon name="chevronRight" size={16} style={{ color: 'var(--rr-text3)', flexShrink: 0 }} />
               )}
               {selectedAttemptIndex === -1 ? (
                 <div
@@ -1333,7 +1333,7 @@ const GradingDialog: React.FC<GradingDialogProps> = ({
                     boxSizing: 'border-box'
                   }}
                 >
-                  <Plus size={24} style={{ color: 'var(--rr-text3)' }} />
+                  <Icon name="plus" size={24} style={{ color: 'var(--rr-text3)' }} />
                 </div>
               )}
             </div>
@@ -1548,7 +1548,7 @@ const GradingDialog: React.FC<GradingDialogProps> = ({
                           gap: '8px',
                           marginTop: '12px'
                         }}>
-                          <AlertTriangle size={16} style={{ color: 'var(--rr-warn)', marginTop: '2px', flexShrink: 0 }} />
+                          <Icon name="alertTriangle" size={16} style={{ color: 'var(--rr-warn)', marginTop: '2px', flexShrink: 0 }} />
                           <div style={{ fontSize: '14px', color: 'var(--rr-warn)' }}>
                             Overall grade is SAT but some DLOs have not been graded.
                           </div>
@@ -1566,7 +1566,7 @@ const GradingDialog: React.FC<GradingDialogProps> = ({
                           gap: '8px',
                           marginTop: '12px'
                         }}>
-                          <AlertTriangle size={16} style={{ color: 'var(--rr-warn)', marginTop: '2px', flexShrink: 0 }} />
+                          <Icon name="alertTriangle" size={16} style={{ color: 'var(--rr-warn)', marginTop: '2px', flexShrink: 0 }} />
                           <div style={{ fontSize: '14px', color: 'var(--rr-warn)' }}>
                             Overall grade is SAT but some DLOs are UNSAT.
                           </div>
@@ -1669,7 +1669,7 @@ const GradingDialog: React.FC<GradingDialogProps> = ({
                 height: '40px',
                 boxSizing: 'border-box'
               }}>
-                <AlertTriangle size={16} style={{ color: 'var(--rr-warn)', flexShrink: 0 }} />
+                <Icon name="alertTriangle" size={16} style={{ color: 'var(--rr-warn)', flexShrink: 0 }} />
                 <div style={{ fontSize: '13px', color: 'var(--rr-warn)', lineHeight: '1.4' }}>
                   You were not the assigned IP for this trainee. Please verify you have selected the correct trainee before submitting this form.
                 </div>
@@ -1789,7 +1789,7 @@ const GradingDialog: React.FC<GradingDialogProps> = ({
                   justifyContent: 'center'
                 }}
               >
-                <X size={20} style={{ color: 'var(--rr-text2)' }} />
+                <Icon name="close" size={20} style={{ color: 'var(--rr-text2)' }} />
               </button>
             </div>
 
@@ -1819,7 +1819,7 @@ const GradingDialog: React.FC<GradingDialogProps> = ({
                   transition: 'all 0.2s ease'
                 }}
               >
-                <ArrowUpDown size={12} />
+                <Icon name="arrowUpDown" size={12} />
                 Squadron
               </button>
               <button

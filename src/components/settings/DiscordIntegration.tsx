@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { AlertCircle, Check, X } from 'lucide-react';
+import { Icon } from '../ui/primitives';
 import { DiscordServer, getAvailableDiscordServers, getServerChannels } from '../../utils/discordService';
 
 // Discord SVG icon component
@@ -225,7 +225,7 @@ const DiscordIntegration: React.FC<DiscordIntegrationProps> = ({ error: parentEr
             fontFamily: 'inherit',
             fontSize: '14px'
           }} role="alert">
-            <AlertCircle size={18} style={{ marginRight: '8px' }} />
+            <Icon name="alertCircle" size={18} style={{ marginRight: '8px' }} />
             <span>{parentError || localError}</span>
             <button onClick={() => setErrorMessage(null)} style={{
               marginLeft: 'auto',
@@ -234,7 +234,7 @@ const DiscordIntegration: React.FC<DiscordIntegrationProps> = ({ error: parentEr
               cursor: 'pointer',
               padding: '4px'
             }}>
-              <X size={16} />
+              <Icon name="close" size={16} />
             </button>
           </div>
         )}
@@ -252,7 +252,7 @@ const DiscordIntegration: React.FC<DiscordIntegrationProps> = ({ error: parentEr
             fontFamily: 'inherit',
             fontSize: '14px'
           }} role="alert">
-            <Check size={18} style={{ marginRight: '8px' }} />
+            <Icon name="check" size={18} style={{ marginRight: '8px' }} />
             <span>Discord settings saved successfully.</span>
           </div>
         )}
@@ -430,7 +430,7 @@ const DiscordIntegration: React.FC<DiscordIntegrationProps> = ({ error: parentEr
           <div className="space-y-2">
             <div className="flex items-center p-3 border border-border rounded-md bg-panel2">
               <div className="w-6 h-6 rounded-full bg-green-100 text-good flex items-center justify-center mr-3">
-                <Check size={14} />
+                <Icon name="check" size={14} />
               </div>
               <div>
                 <div className="font-medium">#events</div>
@@ -439,7 +439,7 @@ const DiscordIntegration: React.FC<DiscordIntegrationProps> = ({ error: parentEr
             </div>
             <div className="flex items-center p-3 border border-border rounded-md">
               <div className="w-6 h-6 rounded-full bg-panel2 text-text2 flex items-center justify-center mr-3">
-                <Check size={14} />
+                <Icon name="check" size={14} />
               </div>
               <div>
                 <div className="font-medium">#roster</div>
@@ -448,7 +448,7 @@ const DiscordIntegration: React.FC<DiscordIntegrationProps> = ({ error: parentEr
             </div>
             <div className="flex items-center p-3 border border-border rounded-md">
               <div className="w-6 h-6 rounded-full bg-panel2 text-text2 flex items-center justify-center mr-3">
-                <Check size={14} />
+                <Icon name="check" size={14} />
               </div>
               <div>
                 <div className="font-medium">#mission-prep</div>

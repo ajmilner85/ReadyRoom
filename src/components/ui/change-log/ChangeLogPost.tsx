@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ThumbsUp, ThumbsDown, Calendar, User } from 'lucide-react';
+import { Icon } from '../primitives';
 import type { ChangeLogPostWithStats } from '../../../types/ChangeLogTypes';
 import MarkdownRenderer from './MarkdownRenderer';
 
@@ -144,12 +144,12 @@ const ChangeLogPost: React.FC<ChangeLogPostProps> = ({
         <h2 style={titleStyle}>{post.title}</h2>
         <div style={metaStyle}>
           <div style={metaItemStyle}>
-            <Calendar size={12} />
+            <Icon name="events" size={12} />
             <span>{formatDate(post.created_at)}</span>
           </div>
           {post.author_name && (
             <div style={metaItemStyle}>
-              <User size={12} />
+              <Icon name="user" size={12} />
               <span>{post.author_name}</span>
             </div>
           )}
@@ -196,7 +196,7 @@ const ChangeLogPost: React.FC<ChangeLogPostProps> = ({
                 animation: 'spin 1s linear infinite',
               }} />
             ) : (
-              <ThumbsUp size={12} />
+              <Icon name="thumbsUp" size={12} />
             )}
             <span>{post.stats.thumbs_up_count}</span>
           </button>
@@ -228,7 +228,7 @@ const ChangeLogPost: React.FC<ChangeLogPostProps> = ({
                 animation: 'spin 1s linear infinite',
               }} />
             ) : (
-              <ThumbsDown size={12} />
+              <Icon name="thumbsDown" size={12} />
             )}
             <span>{post.stats.thumbs_down_count}</span>
           </button>

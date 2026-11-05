@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Trash2, CheckCircle, AlertCircle, Home } from 'lucide-react';
+import { Icon } from '../components/ui/primitives';
 import { permissionCache } from '../utils/permissionCache';
 
 /**
@@ -62,7 +62,7 @@ const ClearCache: React.FC = () => {
             borderRadius: '50%',
             marginBottom: '16px'
           }}>
-            <Trash2 size={32} style={{ color: 'var(--rr-bad)' }} />
+            <Icon name="trash" size={32} style={{ color: 'var(--rr-bad)' }} />
           </div>
           <h1 style={{
             fontSize: '24px',
@@ -94,7 +94,7 @@ const ClearCache: React.FC = () => {
             borderRadius: '8px',
             marginBottom: '24px'
           }}>
-            <CheckCircle size={20} style={{ color: 'var(--rr-good)', flexShrink: 0 }} />
+            <Icon name="checkCircle" size={20} style={{ color: 'var(--rr-good)', flexShrink: 0 }} />
             <div>
               <div style={{ fontSize: '14px', fontWeight: 500, color: 'var(--rr-good)' }}>
                 Cache cleared successfully!
@@ -117,7 +117,7 @@ const ClearCache: React.FC = () => {
             borderRadius: '8px',
             marginBottom: '24px'
           }}>
-            <AlertCircle size={20} style={{ color: 'var(--rr-bad)', flexShrink: 0, marginTop: '2px' }} />
+            <Icon name="alertCircle" size={20} style={{ color: 'var(--rr-bad)', flexShrink: 0, marginTop: '2px' }} />
             <div>
               <div style={{ fontSize: '14px', fontWeight: 500, color: 'var(--rr-bad)' }}>
                 Failed to clear cache
@@ -157,7 +157,7 @@ const ClearCache: React.FC = () => {
               opacity: (clearing || status === 'success') ? 0.6 : 1
             }}
           >
-            <Trash2 size={16} />
+            <Icon name="trash" size={16} />
             {clearing ? 'Clearing Cache...' : 'Clear Permission Cache'}
           </button>
 
@@ -180,7 +180,7 @@ const ClearCache: React.FC = () => {
               transition: 'all 0.2s ease'
             }}
           >
-            <Home size={16} />
+            <Icon name="home" size={16} />
             Return to Home
           </a>
         </div>

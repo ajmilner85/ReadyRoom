@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Bell, X } from 'lucide-react';
+import { Icon } from '../primitives';
 
 export interface ReminderRecipientTypes {
   accepted: boolean;
@@ -265,7 +265,7 @@ export const SendReminderDialog: React.FC<SendReminderDialogProps> = ({
       <div style={dialogStyle} onClick={e => e.stopPropagation()}>
         <div style={headerStyle}>
           <div style={headerTitleStyle}>
-            <Bell size={20} color="#3B82F6" />
+            <Icon name="bell" size={20} color="#3B82F6" />
             <h2 style={titleStyle}>Send Reminder Now</h2>
           </div>
           <button
@@ -278,7 +278,7 @@ export const SendReminderDialog: React.FC<SendReminderDialogProps> = ({
               e.currentTarget.style.color = 'var(--rr-text2)';
             }}
           >
-            <X size={20} />
+            <Icon name="close" size={20} />
           </button>
         </div>
 

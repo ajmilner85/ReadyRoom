@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Plus, Trash2 } from 'lucide-react';
+import { Icon } from '../primitives';
 import { supabase } from '../../../utils/supabaseClient';
 import { CollapsibleSection } from './EventActivitiesEditor';
 import type { CycleActivity, AdHocObjective } from '../../../types/EventTypes';
@@ -204,7 +204,7 @@ const CycleActivityConfigPanel: React.FC<CycleActivityConfigPanelProps> = ({
                   }}
                   title="Remove objective"
                 >
-                  <Trash2 size={16} />
+                  <Icon name="trash" size={16} />
                 </button>
               </div>
             ))}
@@ -226,7 +226,7 @@ const CycleActivityConfigPanel: React.FC<CycleActivityConfigPanelProps> = ({
                 gap: '4px'
               }}
             >
-              <Plus size={14} />
+              <Icon name="plus" size={14} />
               Add Objective
             </button>
           </CollapsibleSection>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, ExternalLink, Medal, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Icon } from '../ui/primitives';
 import { formatDossierDate } from './dossierStyles';
 import {
   pilotAwardVariantImage,
@@ -149,7 +149,7 @@ const AwardViewerDialog: React.FC<AwardViewerDialogProps> = ({ pilotAward, repea
               }}
             />
           ) : (
-            <Medal size={96} style={{ color: 'var(--rr-text3)', margin: '32px' }} />
+            <Icon name="award" size={96} style={{ color: 'var(--rr-text3)', margin: '32px' }} />
           )}
 
           {/* Certificate/image inset — click to swap with the main view */}
@@ -199,7 +199,7 @@ const AwardViewerDialog: React.FC<AwardViewerDialogProps> = ({ pilotAward, repea
                     onMouseEnter={(e) => { if (onPrevious) e.currentTarget.style.backgroundColor = 'var(--rr-panel2)'; }}
                     onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'var(--rr-panel)'; }}
                   >
-                    <ChevronLeft size={16} />
+                    <Icon name="chevronLeft" size={16} />
                   </button>
                   <button
                     onClick={() => onNext?.()}
@@ -209,7 +209,7 @@ const AwardViewerDialog: React.FC<AwardViewerDialogProps> = ({ pilotAward, repea
                     onMouseEnter={(e) => { if (onNext) e.currentTarget.style.backgroundColor = 'var(--rr-panel2)'; }}
                     onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'var(--rr-panel)'; }}
                   >
-                    <ChevronRight size={16} />
+                    <Icon name="chevronRight" size={16} />
                   </button>
                 </>
               )}
@@ -223,7 +223,7 @@ const AwardViewerDialog: React.FC<AwardViewerDialogProps> = ({ pilotAward, repea
                 onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'var(--rr-panel2)'; }}
                 onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'var(--rr-panel)'; }}
               >
-                <ExternalLink size={16} />
+                <Icon name="externalLink" size={16} />
               </button>
             )}
             <button
@@ -233,7 +233,7 @@ const AwardViewerDialog: React.FC<AwardViewerDialogProps> = ({ pilotAward, repea
               onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'var(--rr-panel2)'; }}
               onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'var(--rr-panel)'; }}
             >
-              <X size={16} />
+              <Icon name="close" size={16} />
             </button>
             </div>
           </div>

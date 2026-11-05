@@ -1,5 +1,6 @@
 import React from 'react';
-import { User, UserSearch, Skull, HelpCircle, PlaneLanding, Wrench, Flame, ThumbsDown } from 'lucide-react';
+import { PlaneLanding } from 'lucide-react';
+import { Icon } from '../ui/primitives';
 
 interface MissionSummaryData {
   pilotStatus: {
@@ -135,25 +136,25 @@ export const PilotStatusCard: React.FC<PilotStatusCardProps> = ({ data, onRowCli
   return (
     <CategoryCard title="Pilot Status">
       <StatusRow
-        icon={<User size={16} style={{ color: 'var(--rr-good)', flexShrink: 0 }} />}
+        icon={<Icon name="user" size={16} style={{ color: 'var(--rr-good)', flexShrink: 0 }} />}
         label="Alive"
         value={data.alive}
         onClick={onRowClick ? (e) => onRowClick('alive', e) : undefined}
       />
       <StatusRow
-        icon={<UserSearch size={16} style={{ color: 'var(--rr-warn)', flexShrink: 0 }} />}
+        icon={<Icon name="userSearch" size={16} style={{ color: 'var(--rr-warn)', flexShrink: 0 }} />}
         label="MIA"
         value={data.mia}
         onClick={onRowClick ? (e) => onRowClick('mia', e) : undefined}
       />
       <StatusRow
-        icon={<Skull size={16} style={{ color: 'var(--rr-bad)', flexShrink: 0 }} />}
+        icon={<Icon name="skull" size={16} style={{ color: 'var(--rr-bad)', flexShrink: 0 }} />}
         label="KIA"
         value={data.kia}
         onClick={onRowClick ? (e) => onRowClick('kia', e) : undefined}
       />
       <StatusRow
-        icon={<HelpCircle size={16} style={{ color: 'var(--rr-text3)', flexShrink: 0 }} />}
+        icon={<Icon name="help" size={16} style={{ color: 'var(--rr-text3)', flexShrink: 0 }} />}
         label="Unaccounted"
         value={data.unaccounted}
         onClick={onRowClick ? (e) => onRowClick('unaccounted', e) : undefined}
@@ -177,25 +178,25 @@ export const AircraftStatusCard: React.FC<AircraftStatusCardProps> = ({ data, on
         onClick={onRowClick ? (e) => onRowClick('recovered', e) : undefined}
       />
       <StatusRow
-        icon={<Wrench size={16} style={{ color: 'var(--rr-warn)', flexShrink: 0 }} />}
+        icon={<Icon name="wrench" size={16} style={{ color: 'var(--rr-warn)', flexShrink: 0 }} />}
         label="Damaged"
         value={data.damaged}
         onClick={onRowClick ? (e) => onRowClick('damaged', e) : undefined}
       />
       <StatusRow
-        icon={<Flame size={16} style={{ color: 'var(--rr-bad)', flexShrink: 0 }} />}
+        icon={<Icon name="flame" size={16} style={{ color: 'var(--rr-bad)', flexShrink: 0 }} />}
         label="Destroyed"
         value={data.destroyed}
         onClick={onRowClick ? (e) => onRowClick('destroyed', e) : undefined}
       />
       <StatusRow
-        icon={<ThumbsDown size={16} style={{ color: 'var(--rr-text2)', flexShrink: 0 }} />}
+        icon={<Icon name="thumbsDown" size={16} style={{ color: 'var(--rr-text2)', flexShrink: 0 }} />}
         label="Down"
         value={data.down}
         onClick={onRowClick ? (e) => onRowClick('down', e) : undefined}
       />
       <StatusRow
-        icon={<HelpCircle size={16} style={{ color: 'var(--rr-text3)', flexShrink: 0 }} />}
+        icon={<Icon name="help" size={16} style={{ color: 'var(--rr-text3)', flexShrink: 0 }} />}
         label="Unaccounted"
         value={data.unaccounted}
         onClick={onRowClick ? (e) => onRowClick('unaccounted', e) : undefined}
@@ -351,7 +352,7 @@ const MissionSummaryCard: React.FC<MissionSummaryCardProps> = ({ data }) => {
             backgroundColor: 'var(--rr-panel2)',
             borderRadius: '6px'
           }}>
-            <User size={16} style={{ color: 'var(--rr-good)', flexShrink: 0 }} />
+            <Icon name="user" size={16} style={{ color: 'var(--rr-good)', flexShrink: 0 }} />
             <span style={{
               fontSize: '13px',
               fontWeight: 500,
@@ -375,7 +376,7 @@ const MissionSummaryCard: React.FC<MissionSummaryCardProps> = ({ data }) => {
             backgroundColor: 'var(--rr-panel2)',
             borderRadius: '6px'
           }}>
-            <UserSearch size={16} style={{ color: 'var(--rr-warn)', flexShrink: 0 }} />
+            <Icon name="userSearch" size={16} style={{ color: 'var(--rr-warn)', flexShrink: 0 }} />
             <span style={{
               fontSize: '13px',
               fontWeight: 500,
@@ -399,7 +400,7 @@ const MissionSummaryCard: React.FC<MissionSummaryCardProps> = ({ data }) => {
             backgroundColor: 'var(--rr-panel2)',
             borderRadius: '6px'
           }}>
-            <Skull size={16} style={{ color: 'var(--rr-bad)', flexShrink: 0 }} />
+            <Icon name="skull" size={16} style={{ color: 'var(--rr-bad)', flexShrink: 0 }} />
             <span style={{
               fontSize: '13px',
               fontWeight: 500,
@@ -423,7 +424,7 @@ const MissionSummaryCard: React.FC<MissionSummaryCardProps> = ({ data }) => {
             backgroundColor: 'var(--rr-panel2)',
             borderRadius: '6px'
           }}>
-            <HelpCircle size={16} style={{ color: 'var(--rr-text3)', flexShrink: 0 }} />
+            <Icon name="help" size={16} style={{ color: 'var(--rr-text3)', flexShrink: 0 }} />
             <span style={{
               fontSize: '13px',
               fontWeight: 500,
@@ -492,7 +493,7 @@ const MissionSummaryCard: React.FC<MissionSummaryCardProps> = ({ data }) => {
             backgroundColor: 'var(--rr-panel2)',
             borderRadius: '6px'
           }}>
-            <Wrench size={16} style={{ color: 'var(--rr-warn)', flexShrink: 0 }} />
+            <Icon name="wrench" size={16} style={{ color: 'var(--rr-warn)', flexShrink: 0 }} />
             <span style={{
               fontSize: '13px',
               fontWeight: 500,
@@ -516,7 +517,7 @@ const MissionSummaryCard: React.FC<MissionSummaryCardProps> = ({ data }) => {
             backgroundColor: 'var(--rr-panel2)',
             borderRadius: '6px'
           }}>
-            <Flame size={16} style={{ color: 'var(--rr-bad)', flexShrink: 0 }} />
+            <Icon name="flame" size={16} style={{ color: 'var(--rr-bad)', flexShrink: 0 }} />
             <span style={{
               fontSize: '13px',
               fontWeight: 500,
@@ -540,7 +541,7 @@ const MissionSummaryCard: React.FC<MissionSummaryCardProps> = ({ data }) => {
             backgroundColor: 'var(--rr-panel2)',
             borderRadius: '6px'
           }}>
-            <HelpCircle size={16} style={{ color: 'var(--rr-text3)', flexShrink: 0 }} />
+            <Icon name="help" size={16} style={{ color: 'var(--rr-text3)', flexShrink: 0 }} />
             <span style={{
               fontSize: '13px',
               fontWeight: 500,

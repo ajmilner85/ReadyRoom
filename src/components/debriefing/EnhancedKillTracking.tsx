@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus } from 'lucide-react';
+import { Icon } from '../ui/primitives';
 import UnitBadge from './UnitBadge';
 import AddUnitTypesDialog from './AddUnitTypesDialog';
 import PilotIDBadgeSm from '../ui/PilotIDBadgeSm';
@@ -248,7 +248,7 @@ const EnhancedKillTracking: React.FC<EnhancedKillTrackingProps> = ({
                   opacity: disabled ? 0.5 : 1
                 }}
               >
-                <Plus size={12} />
+                <Icon name="plus" size={12} />
                 Add
               </button>
             </div>
@@ -304,7 +304,7 @@ const EnhancedKillTracking: React.FC<EnhancedKillTrackingProps> = ({
                   opacity: disabled ? 0.5 : 1
                 }}
               >
-                <Plus size={12} />
+                <Icon name="plus" size={12} />
                 Add
               </button>
             </div>
@@ -360,7 +360,7 @@ const EnhancedKillTracking: React.FC<EnhancedKillTrackingProps> = ({
                   opacity: disabled ? 0.5 : 1
                 }}
               >
-                <Plus size={12} />
+                <Icon name="plus" size={12} />
                 Add
               </button>
             </div>

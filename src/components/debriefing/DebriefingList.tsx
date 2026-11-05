@@ -1,5 +1,5 @@
 import React from 'react';
-import { Calendar, ChevronRight, CheckCircle, Clock, FileText } from 'lucide-react';
+import { Icon } from '../ui/primitives';
 import { Card } from '../ui/card';
 import type { DebriefStatus } from '../../types/DebriefingTypes';
 
@@ -36,7 +36,7 @@ const getStatusInfo = (
       label: 'Not Started',
       color: 'var(--rr-text2)',
       bgColor: 'var(--rr-panel2)',
-      icon: <FileText size={14} />
+      icon: <Icon name="dossier" size={14} />
     };
   }
 
@@ -48,7 +48,7 @@ const getStatusInfo = (
       label: 'Not Started',
       color: 'var(--rr-text2)',
       bgColor: 'var(--rr-panel2)',
-      icon: <Clock size={14} />
+      icon: <Icon name="clock" size={14} />
     };
   }
 
@@ -59,7 +59,7 @@ const getStatusInfo = (
         label: 'Finalized',
         color: 'var(--rr-good)',
         bgColor: 'rgba(64,168,91,.14)',
-        icon: <CheckCircle size={14} />
+        icon: <Icon name="checkCircle" size={14} />
       };
     case 'submitted':
     case 'in_progress':
@@ -68,7 +68,7 @@ const getStatusInfo = (
         label: 'In Progress',
         color: 'var(--rr-warn)',
         bgColor: 'rgba(222,154,31,.14)',
-        icon: <Clock size={14} />
+        icon: <Icon name="clock" size={14} />
       };
     default:
       return {
@@ -76,7 +76,7 @@ const getStatusInfo = (
         label: 'Pending',
         color: 'var(--rr-text2)',
         bgColor: 'var(--rr-panel2)',
-        icon: <FileText size={14} />
+        icon: <Icon name="dossier" size={14} />
       };
   }
 };
@@ -127,7 +127,7 @@ const DebriefingList: React.FC<DebriefingListProps> = ({
             gap: '12px'
           }}
         >
-          <FileText size={40} style={{ color: 'var(--rr-text3)' }} />
+          <Icon name="dossier" size={40} style={{ color: 'var(--rr-text3)' }} />
           <h3
             style={{
               fontSize: '18px',
@@ -192,7 +192,7 @@ const DebriefingList: React.FC<DebriefingListProps> = ({
                     color: 'var(--rr-text2)'
                   }}
                 >
-                  <Calendar size={14} />
+                  <Icon name="events" size={14} />
                   {formatDate(mission.scheduled_time)}
                 </div>
               </div>
@@ -216,7 +216,7 @@ const DebriefingList: React.FC<DebriefingListProps> = ({
               </div>
 
               {/* Arrow */}
-              <ChevronRight size={20} style={{ color: 'var(--rr-text3)' }} />
+              <Icon name="chevronRight" size={20} style={{ color: 'var(--rr-text3)' }} />
             </div>
           </Card>
         );

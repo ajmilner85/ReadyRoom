@@ -1,5 +1,5 @@
 ﻿import React, { useEffect, useState } from 'react';
-import { ChevronUp, ChevronDown, ChevronRight, CheckCircle2, Plus, X, Trash2, Info } from 'lucide-react';
+import { Icon } from '../primitives';
 import { supabase } from '../../../utils/supabaseClient';
 import { getActiveQualifications, Qualification } from '../../../utils/qualificationService';
 import SupportRoleRequirementsEditor from './SupportRoleRequirementsEditor';
@@ -163,7 +163,7 @@ export const CollapsibleSection: React.FC<{
         textAlign: 'left'
       }}
     >
-      <ChevronRight
+      <Icon name="chevronRight"
         size={14}
         style={{ color: 'var(--rr-text3)', flexShrink: 0, transform: expanded ? 'rotate(90deg)' : 'none', transition: 'transform 0.15s ease' }}
       />
@@ -544,7 +544,7 @@ const ActivityCard: React.FC<{
             style={{ ...arrowButtonStyle(index === 0), borderRadius: '4px 4px 0 0', borderBottom: 'none' }}
             title="Move up"
           >
-            <ChevronUp size={12} />
+            <Icon name="chevronUp" size={12} />
           </button>
           <button type="button"
             onClick={() => onMove(1)}
@@ -552,7 +552,7 @@ const ActivityCard: React.FC<{
             style={{ ...arrowButtonStyle(index === total - 1), borderRadius: '0 0 4px 4px' }}
             title="Move down"
           >
-            <ChevronDown size={12} />
+            <Icon name="chevronDown" size={12} />
           </button>
         </div>
         <div style={{
@@ -595,7 +595,7 @@ const ActivityCard: React.FC<{
             justifyContent: 'center'
           }}
         >
-          <X size={20} color="#64748B" />
+          <Icon name="close" size={20} color="#64748B" />
         </button>
       </div>
 
@@ -683,7 +683,7 @@ const ActivityCard: React.FC<{
                     }}
                     title="Remove objective"
                   >
-                    <Trash2 size={16} />
+                    <Icon name="trash" size={16} />
                   </button>
                 </div>
               ))}
@@ -704,7 +704,7 @@ const ActivityCard: React.FC<{
                   gap: '4px'
                 }}
               >
-                <Plus size={14} />
+                <Icon name="plus" size={14} />
                 Add Objective
               </button>
             </div>
@@ -715,7 +715,7 @@ const ActivityCard: React.FC<{
                   key={objective.id}
                   style={{ display: 'flex', alignItems: 'flex-start', gap: '6px' }}
                 >
-                  <CheckCircle2
+                  <Icon name="checkCircle"
                     size={13}
                     style={{ color: 'var(--rr-text3)', flexShrink: 0, marginTop: '3px' }}
                   />
@@ -791,7 +791,7 @@ const ActivityCard: React.FC<{
                 onMouseEnter={() => setShowAarTooltip(true)}
                 onMouseLeave={() => setShowAarTooltip(false)}
               >
-                <Info size={14} style={{ color: 'var(--rr-text3)', cursor: 'help' }} />
+                <Icon name="info" size={14} style={{ color: 'var(--rr-text3)', cursor: 'help' }} />
                 {showAarTooltip && (
                   <div style={{
                     position: 'absolute',

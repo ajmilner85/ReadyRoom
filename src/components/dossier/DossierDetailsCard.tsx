@@ -1,5 +1,5 @@
 import React from 'react';
-import { ChevronDown } from 'lucide-react';
+import { Icon } from '../ui/primitives';
 import QualificationBadge from '../ui/QualificationBadge';
 import { dossierStyles, formatDossierDate } from './dossierStyles';
 import type { DossierProfile, DossierPilotOption } from '../../utils/dossierService';
@@ -116,7 +116,7 @@ const DossierDetailsCard: React.FC<DossierDetailsCardProps> = ({
               transform: 'translateY(-50%)',
               pointerEvents: 'none'
             }}>
-              <ChevronDown size={16} color="#64748B" />
+              <Icon name="chevronDown" size={16} color="#64748B" />
             </div>
           </div>
         )}

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Card } from '../card';
-import { Check, Send, Users, Bell, Clock, CheckCircle2, Layers, Link2, ClipboardList } from 'lucide-react';
+import { Icon } from '../primitives';
 import type { Event, EventActivity, EventActivityParticipantBlock, ReferenceMaterial } from '../../../types/EventTypes';
 import { publishEventFromCycle, updateEventMultipleDiscordIds } from '../../../utils/discordService';
 import { fetchEvents, supabase, getEventActivities } from '../../../utils/supabaseClient';
@@ -782,7 +782,7 @@ const EventDetails: React.FC<EventDetailsProps> = ({
     <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
       {objectives.map(objective => (
         <div key={objective.id} style={{ display: 'flex', alignItems: 'flex-start', gap: '6px' }}>
-          <CheckCircle2 size={13} style={{ color: 'var(--rr-text3)', flexShrink: 0, marginTop: '3px' }} />
+          <Icon name="checkCircle" size={13} style={{ color: 'var(--rr-text3)', flexShrink: 0, marginTop: '3px' }} />
           <span style={{ fontSize: '13px', color: 'var(--rr-text)', lineHeight: 1.5 }}>{objective.text}</span>
         </div>
       ))}
@@ -848,7 +848,7 @@ const EventDetails: React.FC<EventDetailsProps> = ({
             color: 'var(--rr-text2)',
             fontFamily: 'monospace'
           }}>
-            <Clock size={12} />
+            <Icon name="clock" size={12} />
             <span>{getTimezoneDisplay(event.eventSettings.timezone)}</span>
           </div>
         )}
@@ -872,7 +872,7 @@ const EventDetails: React.FC<EventDetailsProps> = ({
       {event.description && (
         <Card className="p-4" style={{ marginBottom: '10px' }}>
           <div style={sectionLabelStyle}>
-            <ClipboardList size={14} />
+            <Icon name="clipboard" size={14} />
             Description
           </div>
           <div style={{
@@ -891,7 +891,7 @@ const EventDetails: React.FC<EventDetailsProps> = ({
       {activityDisplays.length > 0 && (
         <Card className="p-4" style={{ marginBottom: '10px' }}>
           <div style={sectionLabelStyle}>
-            <Layers size={14} />
+            <Icon name="layers" size={14} />
             Activities
             <span style={{ fontWeight: 400, color: 'var(--rr-text3)', textTransform: 'none', letterSpacing: 0 }}>
               ({activityDisplays.length})
@@ -978,7 +978,7 @@ const EventDetails: React.FC<EventDetailsProps> = ({
 
                   {display.supportRoles.length > 0 && (
                     <div style={{ display: 'flex', alignItems: 'flex-start', gap: '6px' }}>
-                      <Users size={13} style={{ color: 'var(--rr-text3)', flexShrink: 0, marginTop: '2px' }} />
+                      <Icon name="roster" size={13} style={{ color: 'var(--rr-text3)', flexShrink: 0, marginTop: '2px' }} />
                       <span style={{ fontSize: '12px', color: 'var(--rr-text2)', lineHeight: 1.5 }}>
                         Support:{' '}
                         {display.supportRoles
@@ -1011,7 +1011,7 @@ const EventDetails: React.FC<EventDetailsProps> = ({
                             maxWidth: '220px'
                           }}
                         >
-                          <Link2 size={10} style={{ flexShrink: 0 }} />
+                          <Icon name="link" size={10} style={{ flexShrink: 0 }} />
                           <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                             {ref.name || ref.url}
                           </span>
@@ -1046,7 +1046,7 @@ const EventDetails: React.FC<EventDetailsProps> = ({
       {activityDisplays.length === 0 && trainingObjectives.length > 0 && (
         <Card className="p-4" style={{ marginBottom: '10px' }}>
           <div style={sectionLabelStyle}>
-            <CheckCircle2 size={14} />
+            <Icon name="checkCircle" size={14} />
             Training Objectives (DLOs)
           </div>
           {renderObjectives(trainingObjectives.map(o => ({ id: o.id, text: o.objective_text })))}
@@ -1063,7 +1063,7 @@ const EventDetails: React.FC<EventDetailsProps> = ({
           {/* Publication status */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             {isScheduled ? (
-              <Clock size={14} style={{ color: '#5865F2', flexShrink: 0 }} />
+              <Icon name="clock" size={14} style={{ color: '#5865F2', flexShrink: 0 }} />
             ) : (
               <div style={{
                 width: '8px',
@@ -1123,13 +1123,13 @@ const EventDetails: React.FC<EventDetailsProps> = ({
           {event.eventSettings && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <Bell size={12} style={{ color: 'var(--rr-text3)', flexShrink: 0 }} />
+                <Icon name="bell" size={12} style={{ color: 'var(--rr-text3)', flexShrink: 0 }} />
                 <span style={{ fontSize: '12px', color: 'var(--rr-text2)' }}>
                   First reminder · {reminderSummary(event.eventSettings.firstReminderEnabled, event.eventSettings.firstReminderTime)}
                 </span>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <Bell size={12} style={{ color: 'var(--rr-text3)', flexShrink: 0 }} />
+                <Icon name="bell" size={12} style={{ color: 'var(--rr-text3)', flexShrink: 0 }} />
                 <span style={{ fontSize: '12px', color: 'var(--rr-text2)' }}>
                   Second reminder · {reminderSummary(event.eventSettings.secondReminderEnabled, event.eventSettings.secondReminderTime)}
                 </span>
@@ -1150,7 +1150,7 @@ const EventDetails: React.FC<EventDetailsProps> = ({
               padding: '6px 10px'
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0 }}>
-                <Clock size={12} style={{ color: 'var(--rr-text3)', flexShrink: 0 }} />
+                <Icon name="clock" size={12} style={{ color: 'var(--rr-text3)', flexShrink: 0 }} />
                 <span style={{ fontSize: '12px', color: 'var(--rr-text2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   Next reminder: {new Date(scheduledReminders[0].scheduled_time).toLocaleString('en-US', {
                     weekday: 'short',
@@ -1200,7 +1200,7 @@ const EventDetails: React.FC<EventDetailsProps> = ({
                   </>
                 ) : (
                   <>
-                    <Bell size={12} />
+                    <Icon name="bell" size={12} />
                     <span>Send Now</span>
                   </>
                 )}
@@ -1349,7 +1349,7 @@ const EventDetails: React.FC<EventDetailsProps> = ({
               justifyContent: 'center',
               opacity: 0.7
             }}>
-              <Clock size={18} />
+              <Icon name="clock" size={18} />
               <span>Scheduled for Publication</span>
             </div>
 
@@ -1415,7 +1415,7 @@ const EventDetails: React.FC<EventDetailsProps> = ({
                      style={{ borderColor: 'var(--rr-panel)', borderTopColor: 'transparent' }} />
               ) : (
                 <>
-                  <Send size={16} />
+                  <Icon name="send" size={16} />
                   <span>Publish Now</span>
                 </>
               )}
@@ -1462,12 +1462,12 @@ const EventDetails: React.FC<EventDetailsProps> = ({
               </>
             ) : isPublished ? (
               <>
-                <Check size={18} />
+                <Icon name="check" size={18} />
                 <span>Published to Discord</span>
               </>
             ) : (
               <>
-                <Send size={18} />
+                <Icon name="send" size={18} />
                 <span>Publish to Discord</span>
               </>
             )}

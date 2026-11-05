@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { ChevronDown } from 'lucide-react';
+import { Icon } from '../ui/primitives';
 import { dossierStyles, formatDossierDate } from './dossierStyles';
 import type { TrapRecord } from '../../utils/dossierService';
 
@@ -140,7 +140,7 @@ const DossierTrapSheetTab: React.FC<DossierTrapSheetTabProps> = ({ traps, loadin
               transform: 'translateY(-50%)',
               pointerEvents: 'none'
             }}>
-              <ChevronDown size={16} color="#64748B" />
+              <Icon name="chevronDown" size={16} color="#64748B" />
             </div>
           </div>
         ))}

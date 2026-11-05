@@ -1,5 +1,5 @@
 import React from 'react';
-import { Minus, Plus } from 'lucide-react';
+import { Icon } from '../ui/primitives';
 
 export interface KillCounts {
   a2a: number;
@@ -75,7 +75,7 @@ const KillTracker: React.FC<KillTrackerProps> = ({
           padding: 0
         }}
       >
-        <Minus size={14} strokeWidth={2} />
+        <Icon name="minus" size={14} strokeWidth={2} />
       </button>
       <input
         type="number"
@@ -120,7 +120,7 @@ const KillTracker: React.FC<KillTrackerProps> = ({
           padding: 0
         }}
       >
-        <Plus size={14} strokeWidth={2} />
+        <Icon name="plus" size={14} strokeWidth={2} />
       </button>
     </div>
   );

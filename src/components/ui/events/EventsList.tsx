@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Edit2, Trash2, CornerDownRight } from 'lucide-react';
+import { Icon } from '../primitives';
 import type { Event, Cycle } from '../../../types/EventTypes';
 
 interface EventsListProps {
@@ -141,7 +141,7 @@ const EventsList: React.FC<EventsListProps> = ({
                 return cycle ? (
                   <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                     {showCycleIndicator && (
-                      <CornerDownRight size={14} style={{ color: 'var(--rr-text3)', flexShrink: 0 }} />
+                      <Icon name="cornerDownRight" size={14} style={{ color: 'var(--rr-text3)', flexShrink: 0 }} />
                     )}
                     <span style={{ fontSize: '12px', color: 'var(--rr-text3)', fontWeight: 400 }}>
                       {cycle.name}
@@ -198,7 +198,7 @@ const EventsList: React.FC<EventsListProps> = ({
                       e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
                     }}
                   >
-                    <Edit2 size={16} />
+                    <Icon name="edit" size={16} />
                   </button>
                 )}
                 {onDeleteEvent && (
@@ -226,7 +226,7 @@ const EventsList: React.FC<EventsListProps> = ({
                       e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
                     }}
                   >
-                    <Trash2 size={16} />
+                    <Icon name="trash" size={16} />
                   </button>
                 )}
               </div>
@@ -295,7 +295,7 @@ const EventsList: React.FC<EventsListProps> = ({
               e.currentTarget.style.borderColor = 'var(--rr-border)';
             }}
           >
-            <Trash2 size={16} />
+            <Icon name="trash" size={16} />
             <span>Remove All</span>
           </button>
         )}

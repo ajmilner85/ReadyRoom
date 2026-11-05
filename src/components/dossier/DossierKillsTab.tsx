@@ -1,5 +1,5 @@
 import React from 'react';
-import { Crosshair } from 'lucide-react';
+import { Icon } from '../ui/primitives';
 import { formatDossierDate } from './dossierStyles';
 import type { DossierMissionKills } from '../../utils/dossierService';
 
@@ -39,7 +39,7 @@ const DossierKillsTab: React.FC<DossierKillsTabProps> = ({ kills, loading }) => 
         color: 'var(--rr-text3)',
         textAlign: 'center'
       }}>
-        <Crosshair size={40} style={{ color: 'var(--rr-text3)' }} />
+        <Icon name="crosshair" size={40} style={{ color: 'var(--rr-text3)' }} />
         <div style={{ fontSize: '14px', color: 'var(--rr-text2)' }}>No kills recorded in the selected scope</div>
         <div style={{ fontSize: '12px', color: 'var(--rr-text3)', maxWidth: '360px' }}>
           Kills recorded in mission debriefs will appear here.

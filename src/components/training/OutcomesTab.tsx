@@ -1,7 +1,7 @@
 // @ts-nocheck
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../utils/supabaseClient';
-import { GraduationCap, Check, X, ChevronDown } from 'lucide-react';
+import { Icon } from '../ui/primitives';
 import type { GraduationOutcome, GraduationOutcomeType, GraduationEffectiveDate, GraduationQualEntry } from '../../types/TrainingTypes';
 import QualificationBadge from '../ui/QualificationBadge';
 
@@ -196,7 +196,7 @@ const OutcomesTab: React.FC<OutcomesTabProps> = ({ outcomes, onChange, maxWeekNu
       {/* Header */}
       <div style={{ marginBottom: '20px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-          <GraduationCap size={20} style={{ color: 'var(--rr-accent-text)' }} />
+          <Icon name="training" size={20} style={{ color: 'var(--rr-accent-text)' }} />
           <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 600, color: 'var(--rr-text)' }}>
             Graduation Outcomes
           </h3>
@@ -250,7 +250,7 @@ const OutcomesTab: React.FC<OutcomesTabProps> = ({ outcomes, onChange, maxWeekNu
                       flexShrink: 0,
                     }}
                   >
-                    {outcome.enabled && <Check size={14} color="white" strokeWidth={3} />}
+                    {outcome.enabled && <Icon name="check" size={14} color="white" strokeWidth={3} />}
                   </div>
                   <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--rr-text)' }}>{label}</span>
                 </div>
@@ -364,7 +364,7 @@ const OutcomesTab: React.FC<OutcomesTabProps> = ({ outcomes, onChange, maxWeekNu
                             }}
                           >
                             <span>Add a qualification...</span>
-                            <ChevronDown size={14} />
+                            <Icon name="chevronDown" size={14} />
                           </button>
                           {qualDropdownOpen && (
                             <div style={{
@@ -460,7 +460,7 @@ const OutcomesTab: React.FC<OutcomesTabProps> = ({ outcomes, onChange, maxWeekNu
                                     flexShrink: 0,
                                   }}
                                 >
-                                  <X size={14} />
+                                  <Icon name="close" size={14} />
                                 </button>
                               </div>
                             );

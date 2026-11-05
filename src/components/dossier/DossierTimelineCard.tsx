@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Users, Award, Star, Anchor, GraduationCap, Activity, Briefcase, Pencil, Trash2, X, Medal } from 'lucide-react';
+import { Icon } from '../ui/primitives';
 import { dossierStyles, formatDossierDate } from './dossierStyles';
 import type { TimelineEvent, TimelineEventType } from '../../utils/dossierService';
 
@@ -22,14 +22,14 @@ interface DossierTimelineCardProps {
 }
 
 const EVENT_ICONS: Record<TimelineEventType, React.ReactNode> = {
-  squadron: <Users size={12} />,
-  billet: <Briefcase size={12} />,
-  qualification: <Award size={12} />,
-  standing: <Star size={12} />,
-  status: <Activity size={12} />,
-  graduation: <GraduationCap size={12} />,
-  cruise: <Anchor size={12} />,
-  award: <Medal size={12} />
+  squadron: <Icon name="roster" size={12} />,
+  billet: <Icon name="briefcase" size={12} />,
+  qualification: <Icon name="award" size={12} />,
+  standing: <Icon name="star" size={12} />,
+  status: <Icon name="activity" size={12} />,
+  graduation: <Icon name="training" size={12} />,
+  cruise: <Icon name="anchor" size={12} />,
+  award: <Icon name="award" size={12} />
 };
 
 const DEFAULT_EVENT_COLORS: Record<TimelineEventType, string> = {
@@ -151,7 +151,7 @@ const DossierTimelineCard: React.FC<DossierTimelineCardProps> = ({
               cursor: 'pointer'
             }}
           >
-            {editMode ? <X size={14} /> : <Pencil size={14} />}
+            {editMode ? <Icon name="close" size={14} /> : <Icon name="edit" size={14} />}
           </button>
         )}
       </div>
@@ -285,7 +285,7 @@ const DossierTimelineCard: React.FC<DossierTimelineCardProps> = ({
                         onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'rgba(224,82,78,.12)'; }}
                         onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
                       >
-                        <Trash2 size={14} />
+                        <Icon name="trash" size={14} />
                       </button>
                     )}
                   </div>

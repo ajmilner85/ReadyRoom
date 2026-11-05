@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { AlertCircle, Edit, Trash, X, Eye, EyeOff } from 'lucide-react';
+import { Icon } from '../ui/primitives';
 import {
   Command,
   Group,
@@ -420,7 +420,7 @@ const OrganizationSettings: React.FC<OrganizationSettingsProps> = ({ error, setE
               onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--rr-panel2)'}
               onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'var(--rr-panel)'}
             >
-              {showInactive ? <EyeOff size={16} /> : <Eye size={16} />}
+              {showInactive ? <Icon name="eyeOff" size={16} /> : <Icon name="eye" size={16} />}
               <span>
                 {showInactive ? 'Hide Inactive' : 'Show Inactive'}
               </span>
@@ -445,7 +445,7 @@ const OrganizationSettings: React.FC<OrganizationSettingsProps> = ({ error, setE
               fontFamily: 'inherit',
               fontSize: '14px'
             }} role="alert">
-              <AlertCircle size={18} style={{ marginRight: '8px' }} />
+              <Icon name="alertCircle" size={18} style={{ marginRight: '8px' }} />
               <span>{error || localError}</span>
               <button onClick={() => setErrorMessage(null)} style={{
                 marginLeft: 'auto',
@@ -454,7 +454,7 @@ const OrganizationSettings: React.FC<OrganizationSettingsProps> = ({ error, setE
                 cursor: 'pointer',
                 padding: '4px'
               }}>
-                <X size={16} />
+                <Icon name="close" size={16} />
               </button>
             </div>
           )}
@@ -550,7 +550,7 @@ const OrganizationSettings: React.FC<OrganizationSettingsProps> = ({ error, setE
                               e.currentTarget.style.background = 'var(--rr-panel)';
                             }}
                           >
-                            <Edit size={14} />
+                            <Icon name="edit" size={14} />
                           </button>
                           <button
                             onClick={() => handleDeleteEntity(command, 'command')}
@@ -581,7 +581,7 @@ const OrganizationSettings: React.FC<OrganizationSettingsProps> = ({ error, setE
                               e.currentTarget.style.color = 'var(--rr-text2)';
                             }}
                           >
-                            <Trash size={14} />
+                            <Icon name="trash" size={14} />
                           </button>
                         </div>
                       </div>
@@ -692,7 +692,7 @@ const OrganizationSettings: React.FC<OrganizationSettingsProps> = ({ error, setE
                               e.currentTarget.style.background = 'var(--rr-panel)';
                             }}
                           >
-                            <Edit size={14} />
+                            <Icon name="edit" size={14} />
                           </button>
                           <button
                             onClick={() => handleDeleteEntity(group, 'group')}
@@ -723,7 +723,7 @@ const OrganizationSettings: React.FC<OrganizationSettingsProps> = ({ error, setE
                               e.currentTarget.style.color = 'var(--rr-text2)';
                             }}
                           >
-                            <Trash size={14} />
+                            <Icon name="trash" size={14} />
                           </button>
                         </div>
                       </div>
@@ -892,7 +892,7 @@ const OrganizationSettings: React.FC<OrganizationSettingsProps> = ({ error, setE
                             e.currentTarget.style.background = 'var(--rr-panel)';
                           }}
                         >
-                          <Edit size={14} />
+                          <Icon name="edit" size={14} />
                         </button>
                         <button
                           onClick={() => handleDeleteEntity(wing, 'wing')}
@@ -923,7 +923,7 @@ const OrganizationSettings: React.FC<OrganizationSettingsProps> = ({ error, setE
                             e.currentTarget.style.color = 'var(--rr-text2)';
                           }}
                         >
-                          <Trash size={14} />
+                          <Icon name="trash" size={14} />
                         </button>
                       </div>
                     </div>
@@ -1077,7 +1077,7 @@ const OrganizationSettings: React.FC<OrganizationSettingsProps> = ({ error, setE
                             e.currentTarget.style.background = 'var(--rr-panel)';
                           }}
                         >
-                          <Edit size={14} />
+                          <Icon name="edit" size={14} />
                         </button>
                         <button
                           onClick={() => handleDeleteEntity(squadron, 'squadron')}
@@ -1108,7 +1108,7 @@ const OrganizationSettings: React.FC<OrganizationSettingsProps> = ({ error, setE
                             e.currentTarget.style.color = 'var(--rr-text2)';
                           }}
                         >
-                          <Trash size={14} />
+                          <Icon name="trash" size={14} />
                         </button>
                       </div>
                     </div>
@@ -1209,7 +1209,7 @@ const OrganizationSettings: React.FC<OrganizationSettingsProps> = ({ error, setE
                               e.currentTarget.style.background = 'var(--rr-panel)';
                             }}
                           >
-                            <Edit size={14} />
+                            <Icon name="edit" size={14} />
                           </button>
                           <button
                             onClick={() => handleDeleteEntity(team, 'team')}
@@ -1240,7 +1240,7 @@ const OrganizationSettings: React.FC<OrganizationSettingsProps> = ({ error, setE
                               e.currentTarget.style.color = 'var(--rr-text2)';
                             }}
                           >
-                            <Trash size={14} />
+                            <Icon name="trash" size={14} />
                           </button>
                         </div>
                       </div>

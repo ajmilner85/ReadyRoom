@@ -1,5 +1,5 @@
 import React from 'react';
-import { FileUp, Merge, Info } from 'lucide-react';
+import { Icon } from '../primitives';
 
 export type MizImportMode = 'clear' | 'merge' | 'dataOnly' | 'cancel';
 
@@ -143,7 +143,7 @@ export const MizImportOptionsDialog: React.FC<MizImportOptionsDialogProps> = ({
             }}
           >
             <div style={{ ...optionIconStyle, color: 'var(--rr-bad)' }}>
-              <FileUp size={20} />
+              <Icon name="fileUp" size={20} />
             </div>
             <div style={optionTextContainerStyle}>
               <h3 style={optionTitleStyle}>Clear Existing Flights</h3>
@@ -167,7 +167,7 @@ export const MizImportOptionsDialog: React.FC<MizImportOptionsDialogProps> = ({
             }}
           >
             <div style={optionIconStyle}>
-              <Merge size={20} />
+              <Icon name="merge" size={20} />
             </div>
             <div style={optionTextContainerStyle}>
               <h3 style={optionTitleStyle}>Merge Flights</h3>
@@ -191,7 +191,7 @@ export const MizImportOptionsDialog: React.FC<MizImportOptionsDialogProps> = ({
             }}
           >
             <div style={{ ...optionIconStyle, color: 'var(--rr-good)' }}>
-              <Info size={20} />
+              <Icon name="info" size={20} />
             </div>
             <div style={optionTextContainerStyle}>
               <h3 style={optionTitleStyle}>Import Mission Data Only</h3>

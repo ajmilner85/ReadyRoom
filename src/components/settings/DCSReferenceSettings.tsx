@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Upload, Eye, EyeOff, Plus, Edit2, Filter, ChevronDown, ChevronUp, Search } from 'lucide-react';
+import { Icon } from '../ui/primitives';
 import { supabase } from '../../utils/supabaseClient';
 import { parseLuaUnitDump } from '../../utils/luaParser';
 import AddEditUnitDialog from './AddEditUnitDialog';
@@ -566,7 +566,7 @@ const DCSReferenceSettings: React.FC<DCSReferenceSettingsProps> = ({ setError })
                 ) : (
                   <>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                      <Upload size={16} style={{ color: 'var(--rr-text2)' }} />
+                      <Icon name="upload" size={16} style={{ color: 'var(--rr-text2)' }} />
                       <span style={{ fontSize: '14px', color: 'var(--rr-text)', fontWeight: 500 }}>
                         Upload unit_dump.lua
                       </span>
@@ -595,7 +595,7 @@ const DCSReferenceSettings: React.FC<DCSReferenceSettingsProps> = ({ setError })
                   Unit Type Browser
                 </h3>
                 <div style={{ position: 'relative', width: '250px' }}>
-                  <Search
+                  <Icon name="search"
                     size={16}
                     style={{
                       position: 'absolute',
@@ -646,7 +646,7 @@ const DCSReferenceSettings: React.FC<DCSReferenceSettingsProps> = ({ setError })
                   whiteSpace: 'nowrap'
                 }}
               >
-                <Plus size={16} />
+                <Icon name="plus" size={16} />
                 Add Unit
               </button>
             </div>
@@ -675,7 +675,7 @@ const DCSReferenceSettings: React.FC<DCSReferenceSettingsProps> = ({ setError })
                                 color: statusFilter.length > 0 ? 'var(--rr-accent-text)' : 'var(--rr-text2)'
                               }}
                             >
-                              <Filter size={12} />
+                              <Icon name="filter" size={12} />
                             </button>
                           </div>
                           {showStatusFilter && (
@@ -763,7 +763,7 @@ const DCSReferenceSettings: React.FC<DCSReferenceSettingsProps> = ({ setError })
                           >
                             Display Name
                             {sortColumn === 'display_name' && (
-                              sortDirection === 'asc' ? <ChevronUp size={12} /> : <ChevronDown size={12} />
+                              sortDirection === 'asc' ? <Icon name="chevronUp" size={12} /> : <Icon name="chevronDown" size={12} />
                             )}
                           </div>
                         </th>
@@ -776,7 +776,7 @@ const DCSReferenceSettings: React.FC<DCSReferenceSettingsProps> = ({ setError })
                           >
                             Type Name
                             {sortColumn === 'type_name' && (
-                              sortDirection === 'asc' ? <ChevronUp size={12} /> : <ChevronDown size={12} />
+                              sortDirection === 'asc' ? <Icon name="chevronUp" size={12} /> : <Icon name="chevronDown" size={12} />
                             )}
                           </div>
                         </th>
@@ -795,7 +795,7 @@ const DCSReferenceSettings: React.FC<DCSReferenceSettingsProps> = ({ setError })
                                 color: categoryFilter.length > 0 ? 'var(--rr-accent-text)' : 'var(--rr-text2)'
                               }}
                             >
-                              <Filter size={12} />
+                              <Icon name="filter" size={12} />
                             </button>
                           </div>
                           {showCategoryFilter && (
@@ -889,7 +889,7 @@ const DCSReferenceSettings: React.FC<DCSReferenceSettingsProps> = ({ setError })
                                 color: subCategoryFilter.length > 0 ? 'var(--rr-accent-text)' : 'var(--rr-text2)'
                               }}
                             >
-                              <Filter size={12} />
+                              <Icon name="filter" size={12} />
                             </button>
                           </div>
                           {showSubCategoryFilter && (
@@ -1003,7 +1003,7 @@ const DCSReferenceSettings: React.FC<DCSReferenceSettingsProps> = ({ setError })
                                 color: killCategoryFilter.length > 0 ? 'var(--rr-accent-text)' : 'var(--rr-text2)'
                               }}
                             >
-                              <Filter size={12} />
+                              <Icon name="filter" size={12} />
                             </button>
                           </div>
                           {showKillCategoryFilter && (
@@ -1096,7 +1096,7 @@ const DCSReferenceSettings: React.FC<DCSReferenceSettingsProps> = ({ setError })
                                 color: sourceFilter.length > 0 ? 'var(--rr-accent-text)' : 'var(--rr-text2)'
                               }}
                             >
-                              <Filter size={12} />
+                              <Icon name="filter" size={12} />
                             </button>
                           </div>
                           {showSourceFilter && (
@@ -1215,7 +1215,7 @@ const DCSReferenceSettings: React.FC<DCSReferenceSettingsProps> = ({ setError })
                                     color: unit.is_active ? 'var(--rr-accent-text)' : 'var(--rr-text3)'
                                   }}
                                 >
-                                  {unit.is_active ? <Eye size={16} /> : <EyeOff size={16} />}
+                                  {unit.is_active ? <Icon name="eye" size={16} /> : <Icon name="eyeOff" size={16} />}
                                 </button>
                               </td>
                               <td style={{ padding: '10px 12px', fontSize: '13px', color: 'var(--rr-text)', fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={unit.display_name}>
@@ -1275,7 +1275,7 @@ const DCSReferenceSettings: React.FC<DCSReferenceSettingsProps> = ({ setError })
                                       fontWeight: 500
                                     }}
                                   >
-                                    <Edit2 size={14} />
+                                    <Icon name="edit" size={14} />
                                     Edit
                                   </button>
                                 )}

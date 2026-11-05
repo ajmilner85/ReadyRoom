@@ -1,7 +1,7 @@
 import React, { useState, memo, useMemo } from 'react';
 import { useDroppable } from '@dnd-kit/core';
 import AircraftTile from './AircraftTile';
-import { Edit2, Trash2 } from 'lucide-react';
+import { Icon } from '../primitives';
 
 interface SupportRoleAssignmentCardProps {
   id: string;
@@ -197,7 +197,7 @@ const SupportRoleAssignmentCard: React.FC<SupportRoleAssignmentCardProps> = ({
               e.currentTarget.style.background = 'var(--rr-panel)';
             }}
           >
-            <Edit2 size={14} color="#64748B" />          </button>
+            <Icon name="edit" size={14} color="#64748B" />          </button>
           
           {/* Delete button - Only show when explicitly approved by parent component with onDeleteRole */}
           {onDeleteRole && (
@@ -233,7 +233,7 @@ const SupportRoleAssignmentCard: React.FC<SupportRoleAssignmentCardProps> = ({
               }}
               disabled={hasAssignedPilots}
             >
-              <Trash2 size={14} color={hasAssignedPilots ? "#CBD5E1" : "#64748B"} />
+              <Icon name="trash" size={14} color={hasAssignedPilots ? "#CBD5E1" : "#64748B"} />
             </button>
           )}
         </div>

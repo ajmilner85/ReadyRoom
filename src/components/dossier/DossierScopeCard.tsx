@@ -1,5 +1,5 @@
 import React from 'react';
-import { ChevronDown, Crosshair } from 'lucide-react';
+import { Icon } from '../ui/primitives';
 import { dossierStyles } from './dossierStyles';
 import type { DossierCycle, DossierEventOption, DossierScope } from '../../utils/dossierService';
 
@@ -77,7 +77,7 @@ const DossierScopeCard: React.FC<DossierScopeCardProps> = ({
             ))}
           </select>
           <div style={chevronStyle}>
-            <ChevronDown size={16} color="#64748B" />
+            <Icon name="chevronDown" size={16} color="#64748B" />
           </div>
         </div>
 
@@ -110,7 +110,7 @@ const DossierScopeCard: React.FC<DossierScopeCardProps> = ({
             ))}
           </select>
           <div style={chevronStyle}>
-            <ChevronDown size={16} color="#64748B" />
+            <Icon name="chevronDown" size={16} color="#64748B" />
           </div>
         </div>
 
@@ -140,7 +140,7 @@ const DossierScopeCard: React.FC<DossierScopeCardProps> = ({
           onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'var(--rr-panel2)'; }}
           onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'var(--rr-panel)'; }}
         >
-          <Crosshair size={16} />
+          <Icon name="crosshair" size={16} />
           {findingLastMission ? 'Finding...' : 'Last Mission'}
         </button>
 

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Save, X, AlertCircle } from 'lucide-react';
+import { Icon } from '../ui/primitives';
 import PerformanceCategories from './PerformanceCategories';
 // import KillTracker, { type KillCounts } from './KillTracker';
 import EnhancedKillTrackingCard, { type EnhancedKillTrackingCardRef } from './EnhancedKillTrackingCard';
@@ -463,7 +463,7 @@ const FlightDebriefForm: React.FC<FlightDebriefFormProps> = ({
               flexShrink: 0
             }}
           >
-            <X size={18} />
+            <Icon name="close" size={18} />
           </button>
         </div>
 
@@ -585,7 +585,7 @@ const FlightDebriefForm: React.FC<FlightDebriefFormProps> = ({
                   fontSize: '14px'
                 }}
               >
-                <AlertCircle size={16} />
+                <Icon name="alertCircle" size={16} />
                 {error}
               </div>
             )}
@@ -628,7 +628,7 @@ const FlightDebriefForm: React.FC<FlightDebriefFormProps> = ({
                     opacity: saving ? 0.5 : 1
                   }}
                 >
-                  <Save size={16} />
+                  <Icon name="save" size={16} />
                   {saving ? 'Saving...' : existingDebrief ? 'Update Debrief' : 'Submit Debrief'}
                 </button>
               )}

@@ -2,7 +2,8 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../../utils/supabaseClient';
-import { ArrowLeft, Save, Plus, Trash2, GripVertical, Edit2, Image as ImageIcon, X } from 'lucide-react';
+import { Save } from 'lucide-react';
+import { Icon } from '../ui/primitives';
 import ReferenceMaterialsInput from '../ui/events/ReferenceMaterialsInput';
 import CriteriaBlockEditor, { CriteriaBlock } from './CriteriaBlockEditor';
 import type { ReferenceMaterial } from '../../types/EventTypes';
@@ -812,7 +813,7 @@ const SyllabusEditor: React.FC<SyllabusEditorProps> = ({ syllabusId: propSyllabu
               flexShrink: 0
             }}
           >
-            <ArrowLeft size={20} />
+            <Icon name="arrowLeft" size={20} />
           </button>
           <div style={{ flex: 1 }}>
             <h1 style={{ fontSize: '24px', fontWeight: 600, marginBottom: '4px' }}>
@@ -840,7 +841,7 @@ const SyllabusEditor: React.FC<SyllabusEditorProps> = ({ syllabusId: propSyllabu
               flexShrink: 0
             }}
           >
-            <Save size={16} />
+            <Icon name="save" size={16} />
             {saving ? 'Saving...' : 'Save Syllabus'}
           </button>
         </div>
@@ -1090,7 +1091,7 @@ const SyllabusEditor: React.FC<SyllabusEditorProps> = ({ syllabusId: propSyllabu
               gap: '6px'
             }}
           >
-            <Plus size={14} />
+            <Icon name="plus" size={14} />
             Add Event
           </button>
         </div>
@@ -1132,7 +1133,7 @@ const SyllabusEditor: React.FC<SyllabusEditorProps> = ({ syllabusId: propSyllabu
                   cursor: 'grab'
                 }}
               >
-                <GripVertical size={16} style={{ color: 'var(--rr-text3)', cursor: 'grab' }} />
+                <Icon name="grip" size={16} style={{ color: 'var(--rr-text3)', cursor: 'grab' }} />
                 
                 {/* Thumbnail */}
                 <div style={{
@@ -1158,7 +1159,7 @@ const SyllabusEditor: React.FC<SyllabusEditorProps> = ({ syllabusId: propSyllabu
                       }}
                     />
                   ) : (
-                    <ImageIcon size={12} style={{ color: 'var(--rr-text3)' }} />
+                    <Icon name="image" size={12} style={{ color: 'var(--rr-text3)' }} />
                   )}
                 </div>
 
@@ -1189,7 +1190,7 @@ const SyllabusEditor: React.FC<SyllabusEditorProps> = ({ syllabusId: propSyllabu
                     color: 'var(--rr-accent-text)'
                   }}
                 >
-                  <Edit2 size={14} />
+                  <Icon name="edit" size={14} />
                 </button>
                 <button
                   onClick={(e) => {
@@ -1205,7 +1206,7 @@ const SyllabusEditor: React.FC<SyllabusEditorProps> = ({ syllabusId: propSyllabu
                     color: 'var(--rr-bad)'
                   }}
                 >
-                  <Trash2 size={14} />
+                  <Icon name="trash" size={14} />
                 </button>
               </div>
             );
@@ -1229,7 +1230,7 @@ const SyllabusEditor: React.FC<SyllabusEditorProps> = ({ syllabusId: propSyllabu
                   gap: '6px'
                 }}
               >
-                <Plus size={14} />
+                <Icon name="plus" size={14} />
                 Add Your First Event
               </button>
             </div>
@@ -1441,7 +1442,7 @@ const SyllabusEditor: React.FC<SyllabusEditorProps> = ({ syllabusId: propSyllabu
                                   justifyContent: 'center'
                                 }}
                               >
-                                <X size={14} />
+                                <Icon name="close" size={14} />
                               </button>
                             </>
                           ) : (
@@ -1458,7 +1459,7 @@ const SyllabusEditor: React.FC<SyllabusEditorProps> = ({ syllabusId: propSyllabu
                                 }}
                               />
                               <div style={{ textAlign: 'center', pointerEvents: 'none' }}>
-                                <ImageIcon size={24} style={{ color: 'var(--rr-text3)', marginBottom: '8px' }} />
+                                <Icon name="image" size={24} style={{ color: 'var(--rr-text3)', marginBottom: '8px' }} />
                                 <div style={{ fontSize: '12px', color: 'var(--rr-text2)' }}>
                                   {imageIndex === 0 ? 'Header' : `Image ${imageIndex + 1}`}
                                 </div>
@@ -1511,7 +1512,7 @@ const SyllabusEditor: React.FC<SyllabusEditorProps> = ({ syllabusId: propSyllabu
                         gap: '4px'
                       }}
                     >
-                      <Plus size={14} />
+                      <Icon name="plus" size={14} />
                       Add Objective
                     </button>
                   </div>
@@ -1588,7 +1589,7 @@ const SyllabusEditor: React.FC<SyllabusEditorProps> = ({ syllabusId: propSyllabu
                             color: 'var(--rr-bad)'
                           }}
                         >
-                          <Trash2 size={14} />
+                          <Icon name="trash" size={14} />
                         </button>
                       </div>
                     </div>

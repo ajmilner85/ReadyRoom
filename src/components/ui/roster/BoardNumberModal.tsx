@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X } from 'lucide-react';
+import { Icon } from '../primitives';
 import { supabase } from '../../../utils/supabaseClient';
 
 interface BoardNumberModalProps {
@@ -260,7 +260,7 @@ const BoardNumberModal: React.FC<BoardNumberModalProps> = ({ isOpen, onClose, on
         <div style={headerStyle}>
           <h2 style={titleStyle}>Select Board Number</h2>
           <button style={closeButtonStyle} onClick={onClose}>
-            <X size={20} />
+            <Icon name="close" size={20} />
           </button>
         </div>
 

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Save } from 'lucide-react';
+import { Icon } from '../ui/primitives';
 import { supabase } from '../../utils/supabaseClient';
 
 interface DCSUnitType {
@@ -174,7 +174,7 @@ const AddEditUnitDialog: React.FC<AddEditUnitDialogProps> = ({ unit, onClose, on
               color: 'var(--rr-text2)'
             }}
           >
-            <X size={18} />
+            <Icon name="close" size={18} />
           </button>
         </div>
 
@@ -350,7 +350,7 @@ const AddEditUnitDialog: React.FC<AddEditUnitDialogProps> = ({ unit, onClose, on
               gap: '8px'
             }}
           >
-            <Save size={16} />
+            <Icon name="save" size={16} />
             {saving ? 'Saving...' : 'Save Unit'}
           </button>
         </div>

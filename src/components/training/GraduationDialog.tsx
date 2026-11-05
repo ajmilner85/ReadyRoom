@@ -1,6 +1,6 @@
 // @ts-nocheck
 import React, { useState, useEffect, useMemo } from 'react';
-import { X, GraduationCap, AlertCircle, ChevronDown } from 'lucide-react';
+import { Icon } from '../ui/primitives';
 import { supabase } from '../../utils/supabaseClient';
 import QualificationBadge from '../ui/QualificationBadge';
 import type { GraduationOutcome, AppliedOutcome } from '../../types/TrainingTypes';
@@ -276,7 +276,7 @@ const GraduationDialog: React.FC<GraduationDialogProps> = ({
             onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--rr-panel2)'}
             onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
           >
-            <X size={20} />
+            <Icon name="close" size={20} />
           </button>
         </div>
 
@@ -517,7 +517,7 @@ const GraduationDialog: React.FC<GraduationDialogProps> = ({
                             }}
                           >
                             <span>Add a qualification...</span>
-                            <ChevronDown size={14} />
+                            <Icon name="chevronDown" size={14} />
                           </button>
                           {qualDropdownOpen && (
                             <div style={{
@@ -599,7 +599,7 @@ const GraduationDialog: React.FC<GraduationDialogProps> = ({
                                 backgroundColor: 'transparent', color: 'var(--rr-text3)', cursor: 'pointer', padding: 0, flexShrink: 0,
                               }}
                             >
-                              <X size={13} />
+                              <Icon name="close" size={13} />
                             </button>
                           </div>
                         );
@@ -629,7 +629,7 @@ const GraduationDialog: React.FC<GraduationDialogProps> = ({
               alignItems: 'flex-start',
               gap: '8px',
             }}>
-              <AlertCircle size={16} style={{ color: 'var(--rr-bad)', marginTop: '1px', flexShrink: 0 }} />
+              <Icon name="alertCircle" size={16} style={{ color: 'var(--rr-bad)', marginTop: '1px', flexShrink: 0 }} />
               <div>
                 {validationErrors.map((err, i) => (
                   <div key={i} style={{ fontSize: '13px', color: 'var(--rr-bad)' }}>{err}</div>
@@ -678,7 +678,7 @@ const GraduationDialog: React.FC<GraduationDialogProps> = ({
               gap: '6px',
             }}
           >
-            <GraduationCap size={16} />
+            <Icon name="training" size={16} />
             {saving ? 'Graduating...' : isBatch ? `Graduate ${studentIds.length} Students` : 'Graduate'}
           </button>
         </div>

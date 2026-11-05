@@ -6,7 +6,7 @@ import MissionSummaryWithPopups from './MissionSummaryWithPopups';
 import type { PilotAssignment } from '../../types/MissionTypes';
 import type { FlightDebrief } from '../../types/DebriefingTypes';
 import type { Squadron } from '../../utils/squadronService';
-import { ChevronDown } from 'lucide-react';
+import { Icon } from '../ui/primitives';
 import { debriefingService } from '../../services/debriefingService';
 import { killTrackingService } from '../../services/killTrackingService';
 
@@ -228,7 +228,7 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
             }}
           >
             <span>{outcomeOptions.find(o => o.value === missionOutcome)?.label || 'Pending'}</span>
-            <ChevronDown size={16} style={{ color: 'var(--rr-text2)' }} />
+            <Icon name="chevronDown" size={16} style={{ color: 'var(--rr-text2)' }} />
           </div>
 
           {outcomeDropdownOpen && (

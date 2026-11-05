@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, Minus, Trash2 } from 'lucide-react';
+import { Icon } from '../../ui/primitives';
 
 interface KillCellProps {
   killCount: number;
@@ -53,7 +53,7 @@ const KillCell: React.FC<KillCellProps> = ({
             padding: 0
           }}
         >
-          {killCount === 1 ? <Trash2 size={14} strokeWidth={2} /> : <Minus size={14} strokeWidth={2.5} />}
+          {killCount === 1 ? <Icon name="trash" size={14} strokeWidth={2} /> : <Icon name="minus" size={14} strokeWidth={2.5} />}
         </button>
       )}
 
@@ -122,7 +122,7 @@ const KillCell: React.FC<KillCellProps> = ({
             padding: 0
           }}
         >
-          <Plus size={14} strokeWidth={2.5} />
+          <Icon name="plus" size={14} strokeWidth={2.5} />
         </button>
       )}
     </div>

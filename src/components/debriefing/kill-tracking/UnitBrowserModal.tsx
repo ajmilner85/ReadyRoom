@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Search, Filter, ChevronDown, ChevronUp } from 'lucide-react';
+import { Icon } from '../../ui/primitives';
 import { supabase } from '../../../utils/supabaseClient';
 
 interface DCSUnitType {
@@ -282,7 +282,7 @@ const UnitBrowserModal: React.FC<UnitBrowserModalProps> = ({
               e.currentTarget.style.backgroundColor = 'transparent';
             }}
           >
-            <X size={20} />
+            <Icon name="close" size={20} />
           </button>
         </div>
 
@@ -294,7 +294,7 @@ const UnitBrowserModal: React.FC<UnitBrowserModalProps> = ({
           }}
         >
           <div style={{ position: 'relative' }}>
-            <Search
+            <Icon name="search"
               size={16}
               style={{
                 position: 'absolute',
@@ -357,7 +357,7 @@ const UnitBrowserModal: React.FC<UnitBrowserModalProps> = ({
                     >
                       Display Name
                       {sortColumn === 'display_name' && (
-                        sortDirection === 'asc' ? <ChevronUp size={12} /> : <ChevronDown size={12} />
+                        sortDirection === 'asc' ? <Icon name="chevronUp" size={12} /> : <Icon name="chevronDown" size={12} />
                       )}
                     </div>
                   </th>
@@ -370,7 +370,7 @@ const UnitBrowserModal: React.FC<UnitBrowserModalProps> = ({
                     >
                       Type Name
                       {sortColumn === 'type_name' && (
-                        sortDirection === 'asc' ? <ChevronUp size={12} /> : <ChevronDown size={12} />
+                        sortDirection === 'asc' ? <Icon name="chevronUp" size={12} /> : <Icon name="chevronDown" size={12} />
                       )}
                     </div>
                   </th>
@@ -389,7 +389,7 @@ const UnitBrowserModal: React.FC<UnitBrowserModalProps> = ({
                           color: categoryFilter.length > 0 ? 'var(--rr-accent-text)' : 'var(--rr-text2)'
                         }}
                       >
-                        <Filter size={12} />
+                        <Icon name="filter" size={12} />
                       </button>
                     </div>
                     {showCategoryFilter && (
@@ -448,7 +448,7 @@ const UnitBrowserModal: React.FC<UnitBrowserModalProps> = ({
                           color: subCategoryFilter.length > 0 ? 'var(--rr-accent-text)' : 'var(--rr-text2)'
                         }}
                       >
-                        <Filter size={12} />
+                        <Icon name="filter" size={12} />
                       </button>
                     </div>
                     {showSubCategoryFilter && (
@@ -526,7 +526,7 @@ const UnitBrowserModal: React.FC<UnitBrowserModalProps> = ({
                           color: sourceFilter.length > 0 ? 'var(--rr-accent-text)' : 'var(--rr-text2)'
                         }}
                       >
-                        <Filter size={12} />
+                        <Icon name="filter" size={12} />
                       </button>
                     </div>
                     {showSourceFilter && (

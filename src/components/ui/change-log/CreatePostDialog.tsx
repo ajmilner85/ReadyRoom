@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X } from 'lucide-react';
+import { Icon } from '../primitives';
 import { createPost } from '../../../utils/changeLogService';
 import type { CreatePostRequest } from '../../../types/ChangeLogTypes';
 
@@ -220,7 +220,7 @@ const CreatePostDialog: React.FC<CreatePostDialogProps> = ({
               e.currentTarget.style.backgroundColor = 'transparent';
             }}
           >
-            <X size={18} />
+            <Icon name="close" size={18} />
           </button>
         </div>
 

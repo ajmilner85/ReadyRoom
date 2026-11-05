@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { BookUser } from 'lucide-react';
+import { Icon } from '../ui/primitives';
 import { useAuth } from '../../context/AuthContext';
 import { usePermissions } from '../../hooks/usePermissions';
 import { usePageLoading } from '../../context/PageLoadingContext';
@@ -412,7 +412,7 @@ const PilotDossier: React.FC = () => {
         <div style={{ ...dossierStyles.contentWrapper, alignItems: 'center', justifyContent: 'center' }}>
           <div style={{ textAlign: 'center', maxWidth: '400px' }}>
             <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '24px' }}>
-              <BookUser size={96} style={{ color: 'var(--rr-text3)' }} />
+              <Icon name="dossier" size={96} style={{ color: 'var(--rr-text3)' }} />
             </div>
             <h2 style={{ fontSize: '20px', fontWeight: 600, color: 'var(--rr-text)', marginBottom: '12px' }}>
               No Pilot Record Linked

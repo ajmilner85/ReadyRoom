@@ -12,7 +12,7 @@ import { useSections } from './SectionContext';
 import type { Flight } from '../../types/FlightData';
 import FlightCard from '../ui/flight cards/FlightCard';
 import SingleFlightCard from '../ui/flight cards/SingleFlightCard';
-import { ChevronUp } from 'lucide-react';
+import { Icon } from '../ui/primitives';
 
 interface GridLayoutProps {
   flights?: Flight[];
@@ -240,7 +240,7 @@ const GridLayout: React.FC<GridLayoutProps> = ({ flights = [], onUpdateMemberFue
           <span className="font-mono text-[11px] text-text3">{unassignedFlights.length}</span>
           <span className="flex-1" />
           <span className="flex text-text2 transition-transform duration-200" style={{ transform: isDrawerOpen ? 'rotate(180deg)' : 'none' }}>
-            <ChevronUp size={16} />
+            <Icon name="chevronUp" size={16} />
           </span>
         </button>
         <div

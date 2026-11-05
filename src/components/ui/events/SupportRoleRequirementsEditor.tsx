@@ -1,5 +1,5 @@
 ﻿import React, { useEffect, useState } from 'react';
-import { ChevronUp, ChevronDown, Trash2 } from 'lucide-react';
+import { Icon } from '../primitives';
 import { getSupportRoleQualifications, Qualification } from '../../../utils/qualificationService';
 import type { SupportRoleRequirement } from '../../../utils/supabaseClient';
 
@@ -104,7 +104,7 @@ const SupportRoleRequirementsEditor: React.FC<SupportRoleRequirementsEditorProps
                 style={{ ...arrowButtonStyle(index === 0), borderRadius: '4px 4px 0 0', borderBottom: 'none' }}
                 title="Move up"
               >
-                <ChevronUp size={12} />
+                <Icon name="chevronUp" size={12} />
               </button>
               <button type="button"
                 onClick={() => moveRequirement(index, 1)}
@@ -112,7 +112,7 @@ const SupportRoleRequirementsEditor: React.FC<SupportRoleRequirementsEditorProps
                 style={{ ...arrowButtonStyle(index === requirements.length - 1), borderRadius: '0 0 4px 4px' }}
                 title="Move down"
               >
-                <ChevronDown size={12} />
+                <Icon name="chevronDown" size={12} />
               </button>
             </div>
             <select
@@ -183,7 +183,7 @@ const SupportRoleRequirementsEditor: React.FC<SupportRoleRequirementsEditorProps
               }}
               title="Remove role"
             >
-              <Trash2 size={16} />
+              <Icon name="trash" size={16} />
             </button>
           </div>
         );

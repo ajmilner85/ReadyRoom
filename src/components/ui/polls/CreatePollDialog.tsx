@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Plus, Trash2, GripVertical } from 'lucide-react';
+import { Icon } from '../primitives';
 import { pollService } from '../../../utils/pollService';
 import type { CreatePollRequest } from '../../../types/PollTypes';
 
@@ -371,7 +371,7 @@ const CreatePollDialog: React.FC<CreatePollDialogProps> = ({
               e.currentTarget.style.backgroundColor = 'transparent';
             }}
           >
-            <X size={18} />
+            <Icon name="close" size={18} />
           </button>
         </div>
 
@@ -507,7 +507,7 @@ const CreatePollDialog: React.FC<CreatePollDialogProps> = ({
                     e.currentTarget.style.cursor = 'grab';
                   }}
                 >
-                  <GripVertical size={16} />
+                  <Icon name="grip" size={16} />
                 </div>
                 
                 <div style={optionFieldsStyle}>
@@ -542,7 +542,7 @@ const CreatePollDialog: React.FC<CreatePollDialogProps> = ({
                       e.currentTarget.style.borderColor = 'var(--rr-border)';
                     }}
                   >
-                    <Trash2 size={14} />
+                    <Icon name="trash" size={14} />
                   </button>
                 )}
               </div>
@@ -561,7 +561,7 @@ const CreatePollDialog: React.FC<CreatePollDialogProps> = ({
                 e.currentTarget.style.borderColor = 'var(--rr-border2)';
               }}
             >
-              <Plus size={16} />
+              <Icon name="plus" size={16} />
               Add Option
             </button>
           </div>

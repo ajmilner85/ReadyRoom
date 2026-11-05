@@ -1,5 +1,5 @@
 import React from 'react';
-import { Plus, X } from 'lucide-react';
+import { Icon } from '../primitives';
 import type { EventActivityParticipantBlock, EventActivityParticipantRule } from '../../../types/EventTypes';
 
 interface NamedOption {
@@ -327,7 +327,7 @@ const ParticipantBlocksEditor: React.FC<ParticipantBlocksEditorProps> = ({
                     zIndex: 1
                   }}
                 >
-                  <X size={16} color="#64748B" />
+                  <Icon name="close" size={16} color="#64748B" />
                 </button>
               )}
               {/* Status is deliberately absent - On Leave/Retired/AWOL/Removed
@@ -361,7 +361,7 @@ const ParticipantBlocksEditor: React.FC<ParticipantBlocksEditorProps> = ({
           gap: '6px'
         }}
       >
-        <Plus size={14} />
+        <Icon name="plus" size={14} />
         OR
       </button>
     </div>

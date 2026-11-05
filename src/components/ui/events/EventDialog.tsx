@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Clock, Image as ImageIcon, ChevronLeft, ChevronRight, Check, Plus, CheckCircle2 } from 'lucide-react';
+import { Icon } from '../primitives';
 import { useAppSettings } from '../../../context/AppSettingsContext';
 import { fetchDiscordGuildRoles } from '../../../utils/discordService';
 import { supabase, getEventActivities, getCycleActivities } from '../../../utils/supabaseClient';
@@ -1669,7 +1669,7 @@ export const EventDialog: React.FC<EventDialogProps> = ({
                         boxSizing: 'content-box'
                       }}
                     >
-                      {isCompleted ? <Check size={16} /> : index + 1}
+                      {isCompleted ? <Icon name="check" size={16} /> : index + 1}
                     </div>
 
                     {/* Title below */}
@@ -1767,7 +1767,7 @@ export const EventDialog: React.FC<EventDialogProps> = ({
               justifyContent: 'center'
             }}
           >
-            <X size={20} color="#64748B" />
+            <Icon name="close" size={20} color="#64748B" />
           </button>
         </div>
 
@@ -1913,7 +1913,7 @@ export const EventDialog: React.FC<EventDialogProps> = ({
                   Duration
                 </label>
                 <div style={{ display: 'flex', alignItems: 'center' }}>
-                  <Clock size={16} color="#64748B" style={{ marginRight: '8px' }} />
+                  <Icon name="clock" size={16} color="#64748B" style={{ marginRight: '8px' }} />
                   <input
                     type="number"
                     min="0"
@@ -2051,12 +2051,12 @@ export const EventDialog: React.FC<EventDialogProps> = ({
                                 justifyContent: 'center'
                               }}
                             >
-                              <X size={10} />
+                              <Icon name="close" size={10} />
                             </button>
                           </div>
                         ) : (
                           <div>
-                            <ImageIcon size={20} color="#94A3B8" style={{ margin: '0 auto 4px' }} />
+                            <Icon name="image" size={20} color="#94A3B8" style={{ margin: '0 auto 4px' }} />
                             <p style={{ color: 'var(--rr-text3)', fontSize: '10px', margin: '0' }}>
                               Drop image or click
                             </p>
@@ -2158,7 +2158,7 @@ export const EventDialog: React.FC<EventDialogProps> = ({
                         key={objective.id}
                         style={{ display: 'flex', alignItems: 'flex-start', gap: '6px' }}
                       >
-                        <CheckCircle2
+                        <Icon name="checkCircle"
                           size={13}
                           style={{ color: 'var(--rr-text3)', flexShrink: 0, marginTop: '3px' }}
                         />
@@ -2954,7 +2954,7 @@ export const EventDialog: React.FC<EventDialogProps> = ({
                       gap: '4px'
                     }}
                   >
-                    <Plus size={16} />
+                    <Icon name="plus" size={16} />
                     Add
                   </button>
                 </div>
@@ -3006,7 +3006,7 @@ export const EventDialog: React.FC<EventDialogProps> = ({
                           }}
                           title="Remove role"
                         >
-                          <X size={12} strokeWidth={2.5} />
+                          <Icon name="close" size={12} strokeWidth={2.5} />
                         </button>
                       </div>
                     ))}
@@ -3201,7 +3201,7 @@ export const EventDialog: React.FC<EventDialogProps> = ({
                   gap: '8px'
                 }}
               >
-                <ChevronLeft size={16} />
+                <Icon name="chevronLeft" size={16} />
                 Previous
               </button>
             )}
@@ -3224,7 +3224,7 @@ export const EventDialog: React.FC<EventDialogProps> = ({
                 }}
               >
                 Next
-                <ChevronRight size={16} />
+                <Icon name="chevronRight" size={16} />
               </button>
             ) : (
               <div style={{ display: 'flex', gap: '8px' }}>

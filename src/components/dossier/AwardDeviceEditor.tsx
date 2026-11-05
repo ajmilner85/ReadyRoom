@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { Plus, Trash2, Upload, X } from 'lucide-react';
+import { Icon } from '../ui/primitives';
 import AwardRuleBuilder from './AwardRuleBuilder';
 import StyledSelect from './StyledSelect';
 import {
@@ -187,7 +187,7 @@ export const DecorationPicker: React.FC<DecorationPickerProps> = ({
                   padding: 0
                 }}
               >
-                <X size={10} />
+                <Icon name="close" size={10} />
               </button>
             )}
           </div>
@@ -221,7 +221,7 @@ export const DecorationPicker: React.FC<DecorationPickerProps> = ({
                 cursor: uploading ? 'wait' : 'pointer'
               }}
             >
-              <Upload size={16} />
+              <Icon name="upload" size={16} />
             </button>
           </>
         )}
@@ -364,7 +364,7 @@ const AwardDeviceEditor: React.FC<AwardDeviceEditorProps> = ({
                   title="Remove tier"
                   style={{ ...smallButtonStyle, padding: '8px', color: 'var(--rr-bad)', borderColor: 'var(--rr-bad)' }}
                 >
-                  <Trash2 size={14} />
+                  <Icon name="trash" size={14} />
                 </button>
               </div>
               <div style={{ marginBottom: '10px' }}>
@@ -391,7 +391,7 @@ const AwardDeviceEditor: React.FC<AwardDeviceEditorProps> = ({
             onClick={() => onChange({ ...config, tiers: [...config.tiers!, newTier()] })}
             style={{ ...smallButtonStyle, alignSelf: 'flex-start' }}
           >
-            <Plus size={12} /> Add tier
+            <Icon name="plus" size={12} /> Add tier
           </button>
         </div>
       )}

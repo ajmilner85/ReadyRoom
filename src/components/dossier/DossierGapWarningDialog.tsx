@@ -1,5 +1,5 @@
 import React from 'react';
-import { AlertTriangle } from 'lucide-react';
+import { Icon } from '../ui/primitives';
 import { formatDossierDate } from './dossierStyles';
 
 interface DossierGapWarningDialogProps {
@@ -85,7 +85,7 @@ const DossierGapWarningDialog: React.FC<DossierGapWarningDialogProps> = ({
       >
         <div style={{ padding: '24px 24px 16px 24px', textAlign: 'center' }}>
           <div style={{ color: 'var(--rr-warn)', marginBottom: '16px' }}>
-            <AlertTriangle size={20} style={{ margin: '0 auto' }} />
+            <Icon name="alertTriangle" size={20} style={{ margin: '0 auto' }} />
           </div>
           <h2 style={{ fontSize: '18px', fontWeight: 600, color: 'var(--rr-text)', margin: '0 0 12px 0' }}>
             {canExtendOpenEnded

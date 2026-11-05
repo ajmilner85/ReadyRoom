@@ -16,7 +16,7 @@ import QualificationsManager from './QualificationsManager';
 import TeamsManager from './TeamsManager';
 import TrainingEnrollmentsManager from '../../training/TrainingEnrollmentsManager';
 import QualificationBadge from '../QualificationBadge';
-import { Save, X, Trash2, Wrench, List } from 'lucide-react';
+import { Icon } from '../primitives';
 import type { Team, PilotTeam } from '../../../types/TeamTypes';
 import { fetchDiscordGuildMember, fetchDiscordGuildRoles } from '../../../utils/discordService';
 import { fetchDiscordGuildMembers, DiscordMember } from '../../../utils/discordPilotService';
@@ -833,7 +833,7 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
                 e.currentTarget.style.backgroundColor = 'var(--rr-panel)';
               }}
             >
-              <List size={16} />
+              <Icon name="list" size={16} />
             </button>
           </div>
           <div style={{ marginTop: '4px', fontSize: '12px', color: 'var(--rr-text3)' }}>
@@ -1305,7 +1305,7 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
             }}
             title={`Quick Add Qualification: ${mapping.qualificationName}`}
           >
-            <Wrench size={12} />
+            <Icon name="wrench" size={12} />
           </button>
         );
       }
@@ -1338,7 +1338,7 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
             }}
             title={`Quick Add to Team: ${mapping.teamName}`}
           >
-            <Wrench size={12} />
+            <Icon name="wrench" size={12} />
           </button>
         );
       }
@@ -1694,7 +1694,7 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
                 e.currentTarget.style.backgroundColor = 'rgba(224,82,78,.12)';
               }}
             >
-              <Trash2 size={16} style={{ marginRight: '4px' }} />
+              <Icon name="trash" size={16} style={{ marginRight: '4px' }} />
               Delete Pilot
             </button>
           )}
@@ -1723,7 +1723,7 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
                   }
                 }}
               >
-                <X size={16} style={{ marginRight: '4px' }} />
+                <Icon name="close" size={16} style={{ marginRight: '4px' }} />
                 Cancel
               </button>
               <button
@@ -1782,7 +1782,7 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
                   }
                 }}
               >
-                <Save size={16} style={{ marginRight: '4px' }} />
+                <Icon name="save" size={16} style={{ marginRight: '4px' }} />
                 {isSavingNewPilot ? 'Saving...' : 'Save'}
               </button>
             </>
@@ -1807,7 +1807,7 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
                   }
                 }}
               >
-                <X size={16} style={{ marginRight: '4px' }} />
+                <Icon name="close" size={16} style={{ marginRight: '4px' }} />
                 Cancel
               </button>
               <button
@@ -1829,7 +1829,7 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
                   }
                 }}
               >
-                <Save size={16} style={{ marginRight: '4px' }} />
+                <Icon name="save" size={16} style={{ marginRight: '4px' }} />
                 {isSaving ? 'Saving...' : 'Save Changes'}
               </button>
             </>

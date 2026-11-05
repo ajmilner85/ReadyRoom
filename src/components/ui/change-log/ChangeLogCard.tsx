@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, FileText, Settings } from 'lucide-react';
+import { Icon } from '../primitives';
 import { useChangeLog } from '../../../hooks/useChangeLog';
 import { usePermissions } from '../../../hooks/usePermissions';
 import { useAppSettings } from '../../../context/AppSettingsContext';
@@ -148,7 +148,7 @@ const ChangeLogCard: React.FC<ChangeLogCardProps> = () => {
               }}
               title="Manage Posts"
             >
-              <Settings size={16} />
+              <Icon name="settings" size={16} />
             </button>
             <button
               onClick={() => setShowCreateDialog(true)}
@@ -161,7 +161,7 @@ const ChangeLogCard: React.FC<ChangeLogCardProps> = () => {
               }}
               title="Create Post"
             >
-              <Plus size={16} />
+              <Icon name="plus" size={16} />
             </button>
           </div>
         )}
@@ -175,7 +175,7 @@ const ChangeLogCard: React.FC<ChangeLogCardProps> = () => {
           </div>
         ) : posts.length === 0 ? (
           <div style={emptyStateStyle}>
-            <FileText size={48} color="#D1D5DB" style={{ marginBottom: '16px' }} />
+            <Icon name="dossier" size={48} color="#D1D5DB" style={{ marginBottom: '16px' }} />
             <h3 style={{ margin: '0 0 8px 0', fontSize: '16px', fontWeight: 500 }}>
               No Posts Yet
             </h3>

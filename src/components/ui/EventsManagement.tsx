@@ -9,7 +9,6 @@ import EventDialog from './events/EventDialog';
 import CyclesList from './events/CyclesList';
 import CycleDialog from './events/CycleDialog';
 import { DeleteDivisionDialog } from './dialogs/DeleteDivisionDialog';
-import { Trash2 } from 'lucide-react';
 import type { Event, Cycle, CycleType, ReferenceMaterial, CycleActivity, CycleSettings, EventActivity } from '../../types/EventTypes';
 import { supabase, fetchCycles, createCycle, updateCycle, deleteCycle, softDeleteCycle,
          fetchEvents, createEvent, updateEvent, deleteEvent, softDeleteEvent, isEventHistorical,
@@ -2297,7 +2296,7 @@ const EventsManagement: React.FC = () => {
               gap: '12px',
               marginBottom: '16px'
             }}>
-              <Trash2 size={24} style={{ color: 'var(--rr-bad)' }} />
+              <Icon name="trash" size={24} style={{ color: 'var(--rr-bad)' }} />
               <h2 style={{
                 fontSize: '20px',
                 fontWeight: 600,

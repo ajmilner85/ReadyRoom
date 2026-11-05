@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { GripVertical, Edit, Trash } from 'lucide-react';
+import { Icon } from '../../ui/primitives';
 import { Standing } from '../../../utils/standingService';
 
 interface SortableStandingRowProps {
@@ -56,7 +56,7 @@ export const SortableStandingRow: React.FC<SortableStandingRowProps> = ({
         {...attributes}
         {...listeners}
       >
-        <GripVertical size={16} style={{ color: 'var(--rr-text2)' }} />
+        <Icon name="grip" size={16} style={{ color: 'var(--rr-text2)' }} />
       </div>
 
       {/* Standing Name Column */}
@@ -111,7 +111,7 @@ export const SortableStandingRow: React.FC<SortableStandingRowProps> = ({
                 e.currentTarget.style.background = 'var(--rr-panel)';
               }}
             >
-              <Edit size={14} color="#64748B" />
+              <Icon name="edit" size={14} color="#64748B" />
             </button>
             <button
               onClick={onDeleteClick}
@@ -146,7 +146,7 @@ export const SortableStandingRow: React.FC<SortableStandingRowProps> = ({
                 }
               }}
             >
-              <Trash size={14} color={standingUsage[standing.id] > 0 ? "#9CA3AF" : "#64748B"} />
+              <Icon name="trash" size={14} color={standingUsage[standing.id] > 0 ? "#9CA3AF" : "#64748B"} />
             </button>
           </>
         )}
