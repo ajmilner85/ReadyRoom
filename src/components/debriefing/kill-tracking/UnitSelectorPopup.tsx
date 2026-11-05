@@ -132,7 +132,7 @@ const UnitSelectorPopup: React.FC<UnitSelectorPopupProps> = ({
               gap: '2px'
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = friendlyMode ? '#EFF6FF' : '#F8FAFC';
+              e.currentTarget.style.backgroundColor = friendlyMode ? 'var(--rr-accent-weak)' : 'var(--rr-panel2)';
             }}
             onMouseLeave={(e) => {
               e.currentTarget.style.backgroundColor = 'transparent';
@@ -211,7 +211,7 @@ const UnitSelectorPopup: React.FC<UnitSelectorPopupProps> = ({
             e.currentTarget.style.backgroundColor = 'var(--rr-accent)';
           }}
           onMouseLeave={(e) => {
-            e.currentTarget.style.backgroundColor = friendlyMode ? '#1D4ED8' : '#3B82F6';
+            e.currentTarget.style.backgroundColor = friendlyMode ? 'var(--rr-accent)' : 'var(--rr-accent)';
           }}
         >
           {friendlyMode ? 'CANCEL FRIENDLY FIRE' : 'FRIENDLY FIRE'}

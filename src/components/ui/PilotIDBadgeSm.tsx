@@ -1,104 +1,47 @@
 import React from 'react';
 
 interface PilotIDBadgeSmProps {
+  /** Display only (never an identifier). Retained for API compatibility. */
   squadronTailCode?: string;
   boardNumber?: string;
   squadronInsigniaUrl?: string;
+  /** Optional colour for the board number (e.g. squadron primary). */
+  color?: string;
 }
 
+/**
+ * Compact pilot ID: squadron insignia + board number in IBM Plex Mono.
+ * Fixed width so lists stay aligned whether or not a squadron is assigned.
+ */
 const PilotIDBadgeSm: React.FC<PilotIDBadgeSmProps> = ({
   squadronTailCode,
   boardNumber = '00',
-  squadronInsigniaUrl
+  squadronInsigniaUrl,
+  color,
 }) => {
-  // Only show squadron info if pilot is assigned to a squadron
-  const hasSquadronAssignment = squadronTailCode && squadronTailCode.trim() !== '';
-  
-  // Ensure squadron tail code is max 2 characters for display
-  const displaySquadron = hasSquadronAssignment 
-    ? (squadronTailCode.length > 2 
-        ? squadronTailCode.substring(0, 2).toUpperCase()
-        : squadronTailCode.toUpperCase())
-    : '';
-
-  // Display full board number without truncation
-  const displayBoardNumber = boardNumber;
-
+  const hasSquadron = !!(squadronTailCode && squadronTailCode.trim()) || !!squadronInsigniaUrl;
   return (
-    <div style={{
-      position: 'relative',
-      width: hasSquadronAssignment ? '104px' : '44px',
-      height: '24px',
-      marginLeft: hasSquadronAssignment ? '0px' : '60px' // 104px - 44px = 60px offset for right alignment
-    }}>
-      {/* Background pill */}
-      <div style={{
-        position: 'absolute',
-        left: hasSquadronAssignment ? '13.45%' : '0%',
-        right: '0%',
-        top: '0%',
-        bottom: '0%',
-        background: '#9DA6AA',
-        borderRadius: '8px'
-      }} />
-      
-      {/* Squadron tail code text (left) - only show if pilot has squadron assignment */}
-      {hasSquadronAssignment && (
-        <div style={{
-          position: 'absolute',
-          left: '34.45%',
-          right: '44.54%',
-          top: '0px',
-          bottom: '2px',
-          fontFamily: 'USN Stencil',
-          fontStyle: 'normal',
-          fontWeight: 400,
-          fontSize: '20px',
-          lineHeight: '20px',
-          display: 'flex',
-          alignItems: 'center',
-          textAlign: 'center',
-          color: 'var(--rr-text2)'
-        }}>
-          {displaySquadron}
-        </div>
+    <span
+      style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', width: '72px', flex: 'none' }}
+      title={squadronTailCode ? `${squadronTailCode} ${boardNumber}` : boardNumber}
+    >
+      {hasSquadron && squadronInsigniaUrl ? (
+        <img src={squadronInsigniaUrl} alt="" style={{ width: '18px', height: '18px', objectFit: 'contain', flex: 'none' }} />
+      ) : (
+        <span style={{ width: '18px', height: '18px', flex: 'none' }} />
       )}
-
-      {/* Board number text (right) */}
-      <div style={{
-        position: 'absolute',
-        left: hasSquadronAssignment ? '68.07%' : '0%',
-        right: hasSquadronAssignment ? '6.72%' : '0%',
-        top: '0px',
-        bottom: '2px',
-        fontFamily: 'USN Stencil',
-        fontStyle: 'normal',
-        fontWeight: 400,
-        fontSize: '20px',
-        lineHeight: '20px',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        color: 'var(--rr-text2)'
-      }}>
-        {displayBoardNumber}
-      </div>
-
-      {/* Squadron insignia (left side) - only show if pilot has squadron assignment */}
-      {hasSquadronAssignment && squadronInsigniaUrl && (
-        <div style={{
-          position: 'absolute',
-          height: '24px',
-          left: '15.13%',
-          right: '72.27%',
-          top: '0px',
-          backgroundImage: `url(${squadronInsigniaUrl})`,
-          backgroundSize: 'contain',
-          backgroundRepeat: 'no-repeat',
-          backgroundPosition: 'center'
-        }} />
-      )}
-    </div>
+      <span
+        style={{
+          fontFamily: 'var(--rr-font-mono)',
+          fontSize: '12.5px',
+          fontWeight: 600,
+          color: color || 'var(--rr-text2)',
+          letterSpacing: '.02em',
+        }}
+      >
+        {boardNumber}
+      </span>
+    </span>
   );
 };
 
