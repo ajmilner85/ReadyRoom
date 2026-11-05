@@ -637,7 +637,7 @@ export const RolesSection: React.FC<RolesSectionProps> = ({
                 disabled={!editingRoleName.trim()}
                 style={{
                   padding: '8px 16px',
-                  backgroundColor: !editingRoleName.trim() ? '#9CA3AF' : 'var(--rr-accent)',
+                  backgroundColor: !editingRoleName.trim() ? 'var(--rr-text3)' : 'var(--rr-accent)',
                   color: '#FFFFFF',
                   border: 'none',
                   borderRadius: '6px',

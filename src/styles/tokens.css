@@ -86,6 +86,7 @@ a:hover { opacity: .8; }
 ::-webkit-scrollbar-track { background: var(--rr-track); }
 ::-webkit-scrollbar-thumb { background: var(--rr-border2); border-radius: 6px; border: 2px solid transparent; background-clip: padding-box; }
 ::-webkit-scrollbar-thumb:hover { background: var(--rr-text3); background-clip: padding-box; }
+::-webkit-scrollbar-corner { background: transparent; }
 
 @keyframes rrPulse { 0%,100% { opacity: 1 } 50% { opacity: .35 } }
 @keyframes rrCaret { 0%,100% { opacity: 1 } 50% { opacity: 0 } }
@@ -136,3 +137,8 @@ svg.lucide { stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 :where(select) option { background-color: var(--rr-panel); color: var(--rr-text); }
 :where(input, textarea)::placeholder { color: var(--rr-text3); }
 :where(button) { font-family: inherit; }
+
+/* Roster table: drop the billet column when the list pane (not the window) is narrow. */
+@container (max-width: 760px) {
+  .rr-col-billet { display: none !important; }
+}

@@ -147,7 +147,9 @@ const QualificationsManager: React.FC<QualificationsManagerProps> = ({
         <>
           {/* Qualifications Table and Add Button Container */}
           <div style={{
-            width: 'fit-content'
+            width: 'fit-content',
+          maxWidth: '100%',
+          overflowX: 'auto'
           }}>
             {/* Qualifications Table */}
             <div style={{
@@ -318,13 +320,23 @@ const QualificationsManager: React.FC<QualificationsManagerProps> = ({
                         const daysUntil = getDaysUntilExpiry(expiryDate);
                         const isExpired = daysUntil !== null && daysUntil < 0;
 
+                        // "MM/DD/YYYY (n days ago)" → date on one line, relative note below
+                        const text = formatExpiryDisplay(expiryDate);
+                        const cut = text.indexOf(' (');
+                        const datePart = cut >= 0 ? text.slice(0, cut) : text;
+                        const notePart = cut >= 0 ? text.slice(cut + 2, -1) : '';
                         return (
                           <span style={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            lineHeight: 1.2,
                             fontSize: '13px',
                             color: isExpired ? 'var(--rr-bad)' : isExpiringSoon ? 'var(--rr-warn)' : 'var(--rr-text2)',
                             fontWeight: isExpired || isExpiringSoon ? '500' : 'normal'
                           }}>
-                            {formatExpiryDisplay(expiryDate)}
+                            <span>{datePart}</span>
+                            {notePart ? <span style={{ fontSize: '10.5px', opacity: 0.85 }}>{notePart}</span> : null}
                           </span>
                         );
                       })()}
@@ -622,7 +634,7 @@ const QualificationsManager: React.FC<QualificationsManagerProps> = ({
                 disabled={!selectedQualification || isAddingQualification}
                 style={{
                   padding: '8px 16px',
-                  backgroundColor: !selectedQualification || isAddingQualification ? '#9CA3AF' : 'var(--rr-accent)',
+                  backgroundColor: !selectedQualification || isAddingQualification ? 'var(--rr-text3)' : 'var(--rr-accent)',
                   color: '#FFFFFF',
                   border: 'none',
                   borderRadius: '6px',

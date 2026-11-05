@@ -551,7 +551,7 @@ const CycleActivitiesBuilder: React.FC<CycleActivitiesBuilderProps> = ({
                     alignSelf: 'stretch',
                     width: `${weekCount * weekColWidth}px`,
                     flexShrink: 0,
-                    backgroundImage: 'linear-gradient(to right, #E2E8F0 1px, transparent 1px)',
+                    backgroundImage: 'linear-gradient(to right, var(--rr-border) 1px, transparent 1px)',
                     backgroundSize: `${weekColWidth}px 100%`,
                     cursor: 'copy'
                   }}
@@ -896,7 +896,7 @@ const CycleActivitiesBuilder: React.FC<CycleActivitiesBuilderProps> = ({
             <div style={{
               width: `${weekCount * weekColWidth}px`,
               flexShrink: 0,
-              backgroundImage: 'linear-gradient(to right, #E2E8F0 1px, transparent 1px)',
+              backgroundImage: 'linear-gradient(to right, var(--rr-border) 1px, transparent 1px)',
               backgroundSize: `${weekColWidth}px 100%`
             }} />
           </div>

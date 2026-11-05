@@ -2006,7 +2006,7 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
                         disabled={!teamFormData.name.trim()}
                         style={{
                           padding: '8px 16px',
-                          backgroundColor: !teamFormData.name.trim() ? '#9CA3AF' : 'var(--rr-accent)',
+                          backgroundColor: !teamFormData.name.trim() ? 'var(--rr-text3)' : 'var(--rr-accent)',
                           color: '#FFFFFF',
                           border: 'none',
                           borderRadius: '6px',

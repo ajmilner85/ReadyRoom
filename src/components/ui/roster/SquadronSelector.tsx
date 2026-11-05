@@ -23,12 +23,12 @@ const SquadronSelector: React.FC<SquadronSelectorProps> = ({
       <label style={pilotDetailsStyles.fieldLabel}>
         Squadron
       </label>
-      <div style={{...pilotDetailsStyles.selectorContainer, width: '450px'}}>
+      <div style={{...pilotDetailsStyles.selectorContainer, width: '100%', maxWidth: '450px'}}>
         <select
           value={selectedSquadronId || ''}
           onChange={(e) => handleSquadronChange(e.target.value)}
           disabled={updatingSquadron}
-          style={{...pilotDetailsStyles.selector, width: '450px', appearance: 'none' as any}}
+          style={{...pilotDetailsStyles.selector, width: '100%', appearance: 'none' as any}}
         >
           <option value="">{placeholder || '-- Unassigned --'}</option>
           {squadrons

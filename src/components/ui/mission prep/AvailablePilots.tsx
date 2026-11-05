@@ -197,7 +197,7 @@ interface PilotEntryProps {
         >
           <div
             style={{
-              backgroundColor: '#9CA3AF',
+              backgroundColor: 'var(--rr-text3)',
               borderRadius: '8px',
               width: '37px',
               height: '24px',

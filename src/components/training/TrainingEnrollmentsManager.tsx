@@ -138,7 +138,9 @@ const TrainingEnrollmentsManager: React.FC<TrainingEnrollmentsManagerProps> = ({
     <div>
       {/* Table and Add Button Container */}
       <div style={{
-        width: 'fit-content'
+        width: 'fit-content',
+      maxWidth: '100%',
+      overflowX: 'auto'
       }}>
         {/* Enrollments Table */}
         <div style={{
@@ -455,7 +457,7 @@ const TrainingEnrollmentsManager: React.FC<TrainingEnrollmentsManagerProps> = ({
                 disabled={!selectedCycleId || isAdding}
                 style={{
                   padding: '8px 16px',
-                  backgroundColor: !selectedCycleId || isAdding ? '#9CA3AF' : 'var(--rr-accent)',
+                  backgroundColor: !selectedCycleId || isAdding ? 'var(--rr-text3)' : 'var(--rr-accent)',
                   border: 'none',
                   borderRadius: '6px',
                   color: '#FFFFFF',

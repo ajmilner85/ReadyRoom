@@ -25,7 +25,7 @@ const KIND_SECTIONS: Array<{ kind: 'linear' | 'pool' | 'module' | 'advanced_qual
 
 const KIND_BADGE_COLORS: Record<string, { bg: string; fg: string }> = {
   pool: { bg: 'var(--rr-accent-weak)', fg: 'var(--rr-accent-text)' },
-  module: { bg: '#F5F3FF', fg: '#7C3AED' },
+  module: { bg: 'color-mix(in srgb, var(--rr-purple) 14%, transparent)', fg: 'color-mix(in srgb, var(--rr-purple) 60%, var(--rr-text))' },
   advanced_qualification: { bg: 'rgba(222,154,31,.14)', fg: 'var(--rr-warn)' }
 };
 

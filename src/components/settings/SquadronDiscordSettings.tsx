@@ -835,7 +835,7 @@ const SquadronDiscordSettings: React.FC<SquadronDiscordSettingsProps> = ({
                   disabled={!newChannel.id || !newChannel.name}
                   style={{
                     padding: '4px 8px',
-                    backgroundColor: (!newChannel.id || !newChannel.name) ? '#9CA3AF' : 'var(--rr-accent)',
+                    backgroundColor: (!newChannel.id || !newChannel.name) ? 'var(--rr-text3)' : 'var(--rr-accent)',
                     color: '#FFFFFF',
                     border: 'none',
                     borderRadius: '4px',
@@ -1416,7 +1416,7 @@ const SquadronDiscordSettings: React.FC<SquadronDiscordSettingsProps> = ({
                   disabled={!newRoleMapping.discordRoleId || (!newRoleMapping.qualificationId && newRoleMapping.mappingType !== 'ignore' && !newRoleMapping.appPermission && !newRoleMapping.squadronId && !newRoleMapping.teamId)}
                   style={{
                     padding: '4px 8px',
-                    backgroundColor: (!newRoleMapping.discordRoleId || (!newRoleMapping.qualificationId && newRoleMapping.mappingType !== 'ignore' && !newRoleMapping.appPermission && !newRoleMapping.squadronId && !newRoleMapping.teamId)) ? '#9CA3AF' : '#8B5CF6',
+                    backgroundColor: (!newRoleMapping.discordRoleId || (!newRoleMapping.qualificationId && newRoleMapping.mappingType !== 'ignore' && !newRoleMapping.appPermission && !newRoleMapping.squadronId && !newRoleMapping.teamId)) ? 'var(--rr-text3)' : '#8B5CF6',
                     color: '#FFFFFF',
                     border: 'none',
                     borderRadius: '4px',

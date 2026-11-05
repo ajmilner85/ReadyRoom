@@ -43,12 +43,12 @@ const RoleSelector: React.FC<RoleSelectorProps> = ({
       <label style={pilotDetailsStyles.fieldLabel}>
         Role
       </label>
-      <div style={{...pilotDetailsStyles.selectorContainer, width: '450px'}}>
+      <div style={{...pilotDetailsStyles.selectorContainer, width: '100%', maxWidth: '450px'}}>
         <select
           value={selectedRoleId}
           onChange={handleChange}
           disabled={updatingRoles || loadingRoles}
-          style={{...pilotDetailsStyles.selector, width: '450px', appearance: 'none' as const}}
+          style={{...pilotDetailsStyles.selector, width: '100%', appearance: 'none' as const}}
         >
           <option value="">No Role</option>
           {roles

@@ -237,7 +237,7 @@ export const PermissionMatrix: React.FC<PermissionMatrixProps> = ({
           case 'own_squadron':
             return { color: 'var(--rr-accent-text)', backgroundColor: 'var(--rr-accent-weak)', hoverColor: '#1D4ED8' };
           case 'own_wing':
-            return { color: '#7C3AED', backgroundColor: '#F5F3FF', hoverColor: '#6D28D9' };
+            return { color: 'color-mix(in srgb, var(--rr-purple) 60%, var(--rr-text))', backgroundColor: 'color-mix(in srgb, var(--rr-purple) 14%, transparent)', hoverColor: 'var(--rr-purple)' };
           case 'global':
             return { color: 'var(--rr-bad)', backgroundColor: 'rgba(224,82,78,.12)', hoverColor: '#B91C1C' };
           case 'own_students':

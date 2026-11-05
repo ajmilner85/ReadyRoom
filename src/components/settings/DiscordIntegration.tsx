@@ -328,7 +328,7 @@ const DiscordIntegration: React.FC<DiscordIntegrationProps> = ({ error: parentEr
                 <select
                   value={selectedServerId || ''}
                   onChange={handleServerChange}
-                  className="w-full p-2 border border-border2 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                  className="w-full p-2 border border-border2 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-accent"
                 >
                   <option value="" disabled>Select a Discord server</option>
                   {availableServers.map(server => (
@@ -374,7 +374,7 @@ const DiscordIntegration: React.FC<DiscordIntegrationProps> = ({ error: parentEr
                       <select
                         value={selectedChannelId || ''}
                         onChange={handleChannelChange}
-                        className="w-full p-2 border border-border2 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                        className="w-full p-2 border border-border2 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-accent"
                       >
                         <option value="" disabled>Select an events channel</option>
                         {availableChannels.map(channel => (
