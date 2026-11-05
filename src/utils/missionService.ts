@@ -10,6 +10,7 @@ import type {
   FlightImportFilter
 } from '../types/MissionTypes';
 import type { Database } from '../types/supabase';
+import { resolveNewMissionCommsPlan } from './commsTemplateService';
 
 type MissionRow = Database['public']['Tables']['missions']['Row'];
 type MissionInsert = Database['public']['Tables']['missions']['Insert'];
@@ -99,7 +100,10 @@ export const createMission = async (
   return await sb(async (supabase) => {
     const userId = await getCurrentUserProfileId(); // user_profiles.id for created_by/updated_by
     const authUserId = await getCurrentAuthUserId(); // auth.users.id for last_modified_by
-    
+
+    // Seed the comms card per the org Mission Preparation setting (previous mission in cycle / default template)
+    const commsPlan = await resolveNewMissionCommsPlan(missionData.event_id);
+
     const insertData: MissionInsert = {
       name: missionData.name,
       description: missionData.description || null,
@@ -113,7 +117,7 @@ export const createMission = async (
       pilot_assignments: {},
       support_role_assignments: [],
       miz_file_data: {},
-      mission_settings: {},
+      mission_settings: { comms_plan: commsPlan } as any,
       ...(authUserId ? { last_modified_by: authUserId } as any : {}), // FK to auth.users.id (new column)
       ...({ last_modified_session: tabSessionId } as any)
     };
@@ -125,15 +129,46 @@ export const createMission = async (
       .single();
 
     if (error) {
+      // UNIQUE(event_id): someone else (another tab/user, or Events Management) created this
+      // event's mission first — return theirs instead of failing.
+      if (error.code === '23505' && missionData.event_id) {
+        console.log('Mission already exists for event, using existing:', missionData.event_id);
+        return await getMissionByEventId(missionData.event_id);
+      }
       console.error('Error creating mission:', error);
       return { mission: {} as Mission, error: error.message };
     }
 
-    return { 
+    return {
       mission: convertRowToMission(data),
-      error: undefined 
+      error: undefined
     };
   });
+};
+
+/**
+ * Get the mission for an event, creating it if it doesn't exist yet.
+ * Safe to call concurrently: a losing insert falls back to the existing mission.
+ * Returns the mission with its `event` metadata populated.
+ */
+export const getOrCreateMissionForEvent = async (event: {
+  id: string;
+  title: string;
+  participants?: string[];
+}): Promise<MissionResponse> => {
+  const existing = await getMissionByEventId(event.id);
+  if (existing.error || existing.mission) return existing;
+
+  const created = await createMission({
+    event_id: event.id,
+    name: `${event.title} Mission`,
+    description: `Mission planning for ${event.title}`,
+    selected_squadrons: event.participants || []
+  });
+  if (created.error) return created;
+
+  // Re-read so the returned mission includes the joined event (cycleId etc.)
+  return await getMissionByEventId(event.id);
 };
 
 /**

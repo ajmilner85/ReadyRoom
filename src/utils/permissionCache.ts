@@ -496,6 +496,7 @@ export class PermissionCacheService {
       canEditFlightAssignments: [],
       canAssignMissionRoles: [],
       canPublishToDiscord: [],
+      manage_comms_templates: false,
 
       view_debriefs: [],
       edit_debriefs: [],

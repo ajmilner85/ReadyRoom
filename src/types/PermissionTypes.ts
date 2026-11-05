@@ -120,6 +120,7 @@ export interface UserPermissions {
   canEditFlightAssignments: PermissionScopeContext[];
   canAssignMissionRoles: PermissionScopeContext[];
   canPublishToDiscord: PermissionScopeContext[];
+  manage_comms_templates: boolean;               // Global only
 
   // Mission Debriefing (scope-aware)
   view_debriefs: PermissionScopeContext[];

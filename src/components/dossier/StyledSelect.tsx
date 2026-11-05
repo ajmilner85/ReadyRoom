@@ -98,6 +98,7 @@ const StyledSelect: React.FC<StyledSelectProps> = ({ value, options, onChange, d
       {isOpen && triggerRect && createPortal(
         <div
           ref={listRef}
+          data-styled-select-list=""
           style={{
             position: 'fixed',
             ...(openUp
