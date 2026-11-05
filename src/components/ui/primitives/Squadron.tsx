@@ -2,6 +2,9 @@ import React from 'react';
 import clsx from 'clsx';
 import { AircraftIcon } from './Display';
 import { StatusDot } from './Chip';
+import { legibleColor } from './color';
+
+export { legibleColor };
 
 /**
  * Squadron-aware display primitives. Squadron colour always comes from the squadron's
@@ -17,8 +20,8 @@ export interface SquadronLike {
   color_palette?: { primary?: string; secondary?: string; accent?: string; neutral_light?: string; neutral_dark?: string } | null;
 }
 
-/** Squadron primary colour, or the given fallback. */
-export const squadronColor = (sq?: SquadronLike | null, fallback = 'var(--rr-text2)') => sq?.color_palette?.primary || fallback;
+/** Squadron primary colour (made legible), or the given fallback. */
+export const squadronColor = (sq?: SquadronLike | null, fallback = 'var(--rr-text2)') => legibleColor(sq?.color_palette?.primary, fallback);
 
 export const SquadronInsignia: React.FC<{ squadron?: SquadronLike | null; url?: string | null; size?: number; className?: string; grayscale?: boolean; title?: string }> = ({
   squadron, url, size = 20, className, grayscale, title,
@@ -40,7 +43,7 @@ export const SquadronInsignia: React.FC<{ squadron?: SquadronLike | null; url?: 
 export const BoardNumber: React.FC<{ value?: string | number | null; color?: string; size?: number; className?: string; width?: number }> = ({
   value, color = 'var(--rr-text2)', size = 12, className, width,
 }) => (
-  <span className={clsx('font-mono font-semibold flex-none', className)} style={{ fontSize: size, color, width }}>
+  <span className={clsx('font-mono font-semibold flex-none', className)} style={{ fontSize: size, color: legibleColor(color), width }}>
     {value ?? '—'}
   </span>
 );
@@ -104,12 +107,14 @@ export const AircraftTile = React.forwardRef<HTMLDivElement, {
   badge?: React.ReactNode;
 } & React.HTMLAttributes<HTMLDivElement>>(({
   boardNumber, callsign, color = 'var(--rr-text2)', midsA, midsB, selected, empty, dropActive, onClick, label, className, style, badge, ...rest
-}, ref) => (
+}, ref) => {
+  const c = legibleColor(color);
+  return (
   <div
     ref={ref}
     onClick={onClick}
     className={clsx(
-      'relative w-[62px] px-[5px] pt-[6px] pb-[7px] rounded-rr-lg bg-panel transition-[transform,box-shadow,border-color] duration-150 select-none',
+      'relative w-[62px] px-[5px] pt-[6px] pb-[7px] leading-none rounded-rr-lg bg-panel transition-[transform,box-shadow,border-color] duration-150 select-none',
       !empty && 'cursor-grab hover:-translate-y-[3px] hover:!border-accent',
       empty && 'cursor-pointer',
       className,
@@ -122,16 +127,17 @@ export const AircraftTile = React.forwardRef<HTMLDivElement, {
     }}
     {...rest}
   >
-    <div className="flex items-center justify-between font-mono text-[8px] text-text3 px-[1px] h-[10px]">
+    <div className="flex items-center justify-between font-mono text-[8px] leading-[10px] text-text3 px-[1px] h-[10px]">
       <span>{midsA ?? ''}</span>
       <span>{midsB ?? ''}</span>
     </div>
-    <AircraftIcon width={20} height={26} color={empty ? 'var(--rr-border2)' : color} className="block mx-auto mt-[1px]" />
-    <div className="text-center font-mono text-[11px] font-bold truncate" style={{ color: empty ? 'var(--rr-text3)' : color }}>
+    <AircraftIcon block width={20} height={26} color={empty ? 'var(--rr-border2)' : c} className="mx-auto mt-[1px]" />
+    <div className="text-center font-mono text-[11px] leading-[14px] font-bold truncate" style={{ color: empty ? 'var(--rr-text3)' : c }}>
       {empty ? (label ?? '—') : boardNumber}
     </div>
-    <div className="text-center text-[10px] font-semibold truncate text-text min-h-[13px]">{empty ? '' : callsign}</div>
+    <div className="text-center text-[10px] leading-[15px] font-semibold truncate text-text h-[15px]">{empty ? '' : callsign}</div>
     {badge}
   </div>
-));
+  );
+});
 AircraftTile.displayName = 'AircraftTile';

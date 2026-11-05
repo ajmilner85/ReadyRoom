@@ -23,6 +23,9 @@
   --rr-purple: #8B5CF6;
   /* brand (defaults = VFA-161; overridden by squadron branding config) */
   --rr-accent: #F15822;
+  /* accent used as text / underline / icon colour; lifted at runtime when the squadron
+     colour is too dark (or light) to read on panels */
+  --rr-accent-text: var(--rr-accent);
   --rr-accent-weak-alpha: 15%;
   --rr-accent-weak: color-mix(in srgb, var(--rr-accent) var(--rr-accent-weak-alpha), transparent);
   --rr-blue: #005774;

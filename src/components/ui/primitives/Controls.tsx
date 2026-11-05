@@ -137,8 +137,8 @@ export function Tabs<V extends string>({
         })}
         {rect ? (
           <div
-            className="absolute bottom-0 h-[2px] bg-accent"
-            style={{ left: rect.left, width: rect.width, transition: 'left .26s var(--rr-ease-pop), width .26s ease' }}
+            className="absolute bottom-0 h-[2px]"
+            style={{ background: 'var(--rr-accent-text)', left: rect.left, width: rect.width, transition: 'left .26s var(--rr-ease-pop), width .26s ease' }}
           />
         ) : null}
       </div>
@@ -300,7 +300,7 @@ export const Stepper: React.FC<{
               className="w-7 h-7 rounded-full flex items-center justify-center text-[12px] font-bold"
               style={{
                 background: done ? 'var(--rr-accent)' : active ? 'var(--rr-accent-weak)' : 'transparent',
-                color: done ? '#fff' : active ? 'var(--rr-accent)' : 'var(--rr-text3)',
+                color: done ? '#fff' : active ? 'var(--rr-accent-text)' : 'var(--rr-text3)',
                 border: `1.5px solid ${done || active ? 'var(--rr-accent)' : 'var(--rr-border2)'}`,
                 transition: 'background .25s ease, color .25s ease',
               }}

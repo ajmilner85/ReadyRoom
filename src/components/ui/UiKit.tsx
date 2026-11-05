@@ -1,11 +1,15 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import {
   Accordion, AircraftTile, AvatarStack, BulkBar, Button, Checkbox, Chip, Column, CountBadge, DataTable, Dialog, Drawer,
   EmptyState, FacetPill, Field, ICON_PATHS, Icon, IconButton, IconName, NumberStepper, Pane, PilotRow, PopoverMenu,
   ProgressBar, RadioGroup, SearchInput, SectionLabel, SegmentedControl, Select, SignalBars, StatTile, StatusChip, Stepper,
   Tabs, TextInput, Textarea, Toggle, ToolbarButton, ToolbarGroup, Tooltip, useToast,
+  OptionList, MultiSelect, SquadronMark, QualTag, Swatch, TriMode, PickerOption, squadronColor,
 } from './primitives';
+import { getAllSquadrons, Squadron } from '../../utils/squadronService';
+import { getAllQualifications, Qualification } from '../../utils/qualificationService';
+import { getAllStatuses, Status } from '../../utils/statusService';
 import QualificationBadge from './QualificationBadge';
 
 /** Living reference for the shared UI Kit (mirrors the prototype's UI Kit page). */
@@ -42,6 +46,32 @@ const UiKit: React.FC = () => {
   const [dialog, setDialog] = useState(false);
   const [drawer, setDrawer] = useState(false);
   const [facets, setFacets] = useState<string[]>(['Active']);
+  // Real reference data for the pickers section
+  const [squadrons, setSquadrons] = useState<Squadron[]>([]);
+  const [quals, setQuals] = useState<Qualification[]>([]);
+  const [statuses, setStatuses] = useState<Status[]>([]);
+  const [sqSel, setSqSel] = useState<string[]>([]);
+  const [qualSel, setQualSel] = useState<Record<string, TriMode>>({});
+  const [statusSel, setStatusSel] = useState<string[]>([]);
+  const [oneSq, setOneSq] = useState<string>('');
+  useEffect(() => {
+    getAllSquadrons().then(r => setSquadrons(r.data ?? []));
+    getAllQualifications().then(r => setQuals((r.data ?? []).filter(q => q.active)));
+    getAllStatuses().then(r => setStatuses(r.data ?? []));
+  }, []);
+  const squadronOptions: PickerOption[] = [
+    ...squadrons.map(sq => ({
+      id: sq.id, label: sq.designation, sublabel: sq.name, searchText: `${sq.designation} ${sq.name}`,
+      leading: <SquadronMark url={sq.insignia_url} title={sq.designation} />,
+    })),
+    { id: 'unassigned', label: 'Unassigned', sublabel: 'Pilots without squadron assignment', leading: <SquadronMark /> },
+  ];
+  const qualOptions: PickerOption[] = quals.map(q => ({
+    id: q.id, label: q.name, searchText: `${q.code} ${q.name}`, leading: <QualTag code={q.code} color={q.color} size="sm" minWidth={36} />,
+  }));
+  const statusOptions: PickerOption[] = statuses.map(st => ({
+    id: st.id, label: st.name, leading: <Swatch color={st.isActive ? 'var(--rr-good)' : 'var(--rr-bad)'} />,
+  }));
 
   const cols: Column<DemoRow>[] = [
     { key: 'board', header: 'Board', width: 60, sortable: true, render: r => <span className="font-mono text-[12px] font-semibold" style={{ color: sqColor }}>{r.board}</span> },
@@ -227,6 +257,42 @@ const UiKit: React.FC = () => {
             <Pane title="Available Pilots" meta={<span className="font-mono">12</span>} actions={<IconButton icon="sliders" label="Settings" />} className="h-[150px]">
               <div className="text-[12.5px] text-text2">Pane body scrolls internally (min-height:0; overflow:auto).</div>
             </Pane>
+          </Card>
+
+          <Card title="Pickers & filters · squadron and qualification lists (live data)" wide>
+            <div className="text-[12px] text-text2 mb-4">
+              Carried over from the roster FilterDrawer, MultiSelectDropdown and StyledSelect. Rows lead with a squadron insignia,
+              qualification tag, status dot or role swatch. Qualification lists cycle off, include, exclude.
+            </div>
+            <div className="grid gap-5" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))' }}>
+              <OptionList title="Squadron" options={squadronOptions} selected={sqSel} onChange={setSqSel} />
+              <OptionList title="Qualification" mode="tri" options={qualOptions} selected={qualSel} onChange={setQualSel} maxHeight={260} />
+              <div className="flex flex-col gap-4">
+                <MultiSelect label="Status" options={statusOptions} selected={statusSel} onChange={setStatusSel} />
+                <MultiSelect label="Squadrons (dropdown)" options={squadronOptions} selected={sqSel} onChange={setSqSel} nameOf={o => String(o.label)} />
+                <Field label="Squadron (single select)">
+                  <Select
+                    value={oneSq}
+                    onChange={setOneSq}
+                    placeholder="Choose squadron"
+                    options={squadrons.map(sq => ({ value: sq.id, label: sq.designation, description: sq.name, searchText: `${sq.designation} ${sq.name}`, icon: <SquadronMark url={sq.insignia_url} size={18} /> }))}
+                  />
+                </Field>
+                <div>
+                  <div className="rr-label mb-[6px]">Qualification tags · squadron colours</div>
+                  <div className="flex flex-wrap gap-[5px] mb-2">
+                    {quals.slice(0, 12).map(q => <QualTag key={q.id} code={q.code} color={q.color} title={q.name} />)}
+                  </div>
+                  <div className="flex flex-wrap gap-3">
+                    {squadrons.map(sq => (
+                      <span key={sq.id} className="flex items-center gap-[6px] text-[12px] font-semibold" style={{ color: squadronColor(sq) }}>
+                        <SquadronMark url={sq.insignia_url} size={18} />{sq.designation}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
           </Card>
 
           <Card title="Table · bulk select" wide>

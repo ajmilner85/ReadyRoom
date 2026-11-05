@@ -46,13 +46,17 @@ function useSquadronBranding() {
     const rgb = primary ? hexToRgb(primary) : null;
     if (!primary || !rgb) {
       root.style.removeProperty('--rr-accent');
+      root.style.removeProperty('--rr-accent-text');
       return;
     }
+    // Fills keep the true squadron colour; text/underline/icon uses get a lifted variant
+    // when the colour is too dark (dark theme) or too light (light theme) to read.
     const L = luminance(rgb);
-    let accent = primary;
-    if (settings.theme === 'dark' && L < 0.08) accent = `color-mix(in oklab, ${primary} 62%, white)`;
-    else if (settings.theme === 'light' && L > 0.55) accent = `color-mix(in oklab, ${primary} 60%, black)`;
-    root.style.setProperty('--rr-accent', accent);
+    let text = primary;
+    if (settings.theme === 'dark' && L < 0.12) text = `color-mix(in oklab, ${primary} 55%, white)`;
+    else if (settings.theme === 'light' && L > 0.55) text = `color-mix(in oklab, ${primary} 60%, black)`;
+    root.style.setProperty('--rr-accent', primary);
+    root.style.setProperty('--rr-accent-text', text);
   }, [primary, settings.theme]);
   useEffect(() => {
     const root = document.documentElement;
@@ -246,7 +250,7 @@ const LabeledRail: React.FC<NavProps> = ({ modules, active, loadingId, go }) => 
                     'w-full flex items-center gap-[11px] px-[9px] py-[7px] mb-[2px] rounded-rr-ctl cursor-pointer border-0 text-left transition-colors duration-150',
                     a ? 'bg-accent-weak' : 'bg-transparent hover:bg-panel2',
                   )}
-                  style={{ borderLeft: `3px solid ${a ? 'var(--rr-accent)' : 'transparent'}`, animation: loadingId === m.id ? 'rrPulse 1.5s ease-in-out infinite' : undefined }}
+                  style={{ borderLeft: `3px solid ${a ? 'var(--rr-accent-text)' : 'transparent'}`, animation: loadingId === m.id ? 'rrPulse 1.5s ease-in-out infinite' : undefined }}
                 >
                   <span
                     className="flex-none w-7 h-7 rounded-rr-md flex items-center justify-center transition-colors duration-150"
@@ -317,8 +321,8 @@ const CommandBar: React.FC<NavProps> = ({ modules, active, loadingId, go }) => (
             onClick={() => go(m)}
             className="flex items-center h-full px-[13px] whitespace-nowrap cursor-pointer bg-transparent border-0 font-semibold text-[12.5px] tracking-[.04em] uppercase transition-colors duration-150 hover:text-text"
             style={{
-              color: a ? 'var(--rr-accent)' : 'var(--rr-text2)',
-              borderBottom: `2px solid ${a ? 'var(--rr-accent)' : 'transparent'}`,
+              color: a ? 'var(--rr-accent-text)' : 'var(--rr-text2)',
+              borderBottom: `2px solid ${a ? 'var(--rr-accent-text)' : 'transparent'}`,
               borderTop: '2px solid transparent',
               animation: loadingId === m.id ? 'rrPulse 1.5s ease-in-out infinite' : undefined,
             }}
@@ -346,7 +350,7 @@ const MobileNav: React.FC<NavProps> = ({ modules, active, go }) => (
           type="button"
           onClick={() => go(m)}
           className="flex-none min-w-[72px] flex flex-col items-center justify-center gap-[3px] px-[6px] py-2 cursor-pointer bg-transparent border-0"
-          style={{ color: a ? 'var(--rr-accent)' : 'var(--rr-text2)', borderTop: `2px solid ${a ? 'var(--rr-accent)' : 'transparent'}` }}
+          style={{ color: a ? 'var(--rr-accent-text)' : 'var(--rr-text2)', borderTop: `2px solid ${a ? 'var(--rr-accent-text)' : 'transparent'}` }}
         >
           <Icon name={m.icon} size={19} />
           <span className="text-[10.5px] font-semibold whitespace-nowrap">{m.short ?? m.label}</span>
