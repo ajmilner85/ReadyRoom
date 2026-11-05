@@ -86,15 +86,15 @@ const PermissionsSettings: React.FC = () => {
       <div style={{ display: 'flex', flexDirection: 'column', height: '100%', backgroundColor: 'var(--rr-panel)' }}>
         <div style={{ padding: '40px 40px 24px 40px', borderBottom: '1px solid var(--rr-border)' }}>
           <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
-            <h2 style={{ fontSize: '24px', fontWeight: 600, margin: 0, color: 'var(--rr-text)' }}>
+            <h2 style={{ fontSize: '16px', fontWeight: 700, margin: 0, color: 'var(--rr-text)' }}>
               Permissions Management
             </h2>
-            <p style={{ fontSize: '14px', color: 'var(--rr-text2)', margin: '8px 0 0 0', fontFamily: 'inherit' }}>
+            <p style={{ fontSize: '12px', color: 'var(--rr-text2)', margin: '1px 0 0 0', fontFamily: 'inherit' }}>
               Manage user permissions and access control for your squadron.
             </p>
           </div>
         </div>
-        <div style={{ flex: 1, overflow: 'auto', padding: '24px 40px 40px 40px' }}>
+        <div style={{ flex: 1, overflow: 'auto', padding: '20px' }}>
           <div style={{
             maxWidth: '1200px',
             margin: '0 auto',
@@ -117,14 +117,14 @@ const PermissionsSettings: React.FC = () => {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', backgroundColor: 'var(--rr-panel)' }}>
       {/* Fixed Header */}
-      <div style={{ padding: '40px 40px 0 40px', flexShrink: 0 }}>
+      <div style={{ padding: 0, flexShrink: 0 }}>
         <div style={{ maxWidth: '1200px', margin: '0 auto', borderBottom: '1px solid var(--rr-border)', paddingBottom: '24px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <div>
-              <h2 style={{ fontSize: '24px', fontWeight: 600, margin: 0, color: 'var(--rr-text)' }}>
+              <h2 style={{ fontSize: '16px', fontWeight: 700, margin: 0, color: 'var(--rr-text)' }}>
                 Permissions Management
               </h2>
-              <p style={{ fontSize: '14px', color: 'var(--rr-text2)', margin: '8px 0 0 0', fontFamily: 'inherit' }}>
+              <p style={{ fontSize: '12px', color: 'var(--rr-text2)', margin: '1px 0 0 0', fontFamily: 'inherit' }}>
                 Manage user permissions and access control for your squadron.
               </p>
             </div>
@@ -135,7 +135,7 @@ const PermissionsSettings: React.FC = () => {
       </div>
 
       {/* Content - scrolling happens inside the matrix so its headers stay frozen */}
-      <div style={{ flex: 1, minHeight: 0, overflow: 'hidden', padding: '24px 40px 40px 40px', display: 'flex', flexDirection: 'column' }}>
+      <div style={{ flex: 1, minHeight: 0, overflow: 'hidden', padding: '20px', display: 'flex', flexDirection: 'column' }}>
         <div style={{ maxWidth: '1200px', margin: '0 auto', width: '100%', flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
           <PermissionMatrix
             permissions={permissions}

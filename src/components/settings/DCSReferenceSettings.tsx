@@ -481,12 +481,12 @@ const DCSReferenceSettings: React.FC<DCSReferenceSettingsProps> = ({ setError })
   return (
     <div ref={componentRef} style={{ display: 'flex', flexDirection: 'column', height: '100%', backgroundColor: 'var(--rr-panel)' }}>
       {/* Fixed Header */}
-      <div style={{ padding: '40px 40px 0 40px', flexShrink: 0 }}>
+      <div style={{ padding: 0, flexShrink: 0 }}>
         <div style={{ maxWidth: '1200px', margin: '0 auto', borderBottom: '1px solid var(--rr-border)', paddingBottom: '24px' }}>
-          <h2 style={{ fontSize: '24px', fontWeight: 600, margin: 0, color: 'var(--rr-text)' }}>
+          <h2 style={{ fontSize: '16px', fontWeight: 700, margin: 0, color: 'var(--rr-text)' }}>
             DCS Reference Data
           </h2>
-          <p style={{ fontSize: '14px', color: 'var(--rr-text2)', margin: '8px 0 0 0', fontFamily: 'inherit' }}>
+          <p style={{ fontSize: '12px', color: 'var(--rr-text2)', margin: '1px 0 0 0', fontFamily: 'inherit' }}>
             Manage DCS World unit database for detailed kill tracking
           </p>
         </div>

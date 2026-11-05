@@ -204,10 +204,10 @@ const DiscordIntegration: React.FC<DiscordIntegrationProps> = ({ error: parentEr
       <div style={contentWrapperStyle}>
         {/* Header */}
         <div style={headerStyle}>
-          <h2 style={{ fontSize: '24px', fontWeight: 600, margin: 0, color: 'var(--rr-text)' }}>
+          <h2 style={{ fontSize: '16px', fontWeight: 700, margin: 0, color: 'var(--rr-text)' }}>
             Discord Integration
           </h2>
-          <p style={{ fontSize: '14px', color: 'var(--rr-text2)', margin: '8px 0 0 0', fontFamily: 'inherit' }}>
+          <p style={{ fontSize: '12px', color: 'var(--rr-text2)', margin: '1px 0 0 0', fontFamily: 'inherit' }}>
             Configure Discord integration settings to connect with your squadron's Discord server.
           </p>
         </div>

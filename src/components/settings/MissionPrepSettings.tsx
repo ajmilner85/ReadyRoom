@@ -415,12 +415,12 @@ const MissionPrepSettings: React.FC<MissionPrepSettingsProps> = ({ setError }) =
   ];
 
   const header = (
-    <div style={{ padding: '40px 40px 0 40px', flexShrink: 0 }}>
-      <div style={{ maxWidth: '800px', margin: '0 auto', borderBottom: '1px solid var(--rr-border)', paddingBottom: '24px' }}>
-        <h2 style={{ fontSize: '24px', fontWeight: 600, margin: 0, color: 'var(--rr-text)' }}>
+    <div style={{ padding: 0, flexShrink: 0 }}>
+      <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--rr-border)' }}>
+        <h2 style={{ fontSize: '16px', fontWeight: 700, margin: 0, color: 'var(--rr-text)' }}>
           Mission Preparation
         </h2>
-        <p style={{ fontSize: '14px', color: 'var(--rr-text2)', margin: '8px 0 0 0', fontFamily: 'inherit' }}>
+        <p style={{ fontSize: '12px', color: 'var(--rr-text2)', margin: '1px 0 0 0', fontFamily: 'inherit' }}>
           Manage comms card templates and how new missions get their comms card
         </p>
       </div>
@@ -431,8 +431,8 @@ const MissionPrepSettings: React.FC<MissionPrepSettingsProps> = ({ setError }) =
     return (
       <div style={{ display: 'flex', flexDirection: 'column', height: '100%', backgroundColor: 'var(--rr-panel)' }}>
         {header}
-        <div style={{ flex: 1, overflow: 'auto', padding: '24px 40px 40px 40px' }}>
-          <div style={{ maxWidth: '800px', margin: '0 auto', textAlign: 'center', color: 'var(--rr-text2)' }}>
+        <div style={{ flex: 1, overflow: 'auto', padding: '20px' }}>
+          <div style={{ maxWidth: '960px', textAlign: 'center', color: 'var(--rr-text2)' }}>
             Loading settings...
           </div>
         </div>
@@ -444,8 +444,8 @@ const MissionPrepSettings: React.FC<MissionPrepSettingsProps> = ({ setError }) =
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', backgroundColor: 'var(--rr-panel)' }}>
       {header}
 
-      <div style={{ flex: 1, overflow: 'auto', padding: '24px 40px 40px 40px' }}>
-        <div style={{ maxWidth: '800px', margin: '0 auto' }}>
+      <div style={{ flex: 1, overflow: 'auto', padding: '20px' }}>
+        <div style={{ maxWidth: '960px' }}>
 
           {!canManage && (
             <div style={{ padding: '12px 16px', backgroundColor: 'rgba(222,154,31,.14)', border: '1px solid var(--rr-warn)', borderRadius: '6px', fontSize: '13px', color: 'var(--rr-warn)', marginBottom: '24px' }}>
