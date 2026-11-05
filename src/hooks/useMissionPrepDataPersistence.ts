@@ -3,6 +3,7 @@ import { useMission } from './useMission';
 import { useMissionRealtime } from './useMissionRealtime';
 import { supabase } from '../utils/supabaseClient';
 import { tabSessionId } from '../utils/tabSessionId';
+import { getOrCreateMissionForEvent } from '../utils/missionService';
 import type { AssignedPilotsRecord } from '../types/MissionPrepTypes';
 import type { MissionCommanderInfo } from '../types/MissionCommanderTypes';
 import type { Event } from '../types/EventTypes';
@@ -625,19 +626,48 @@ export const useMissionPrepDataPersistence = (
     }
   }, [mission?.id, selectedEvent?.id, activePilots?.length, missionLoading, isSyncing, remoteUpdateTrigger]);
 
-  // Auto-create mission when event is selected but no mission exists
-  // Removed auto-creation to prevent duplicate missions when navigating from Events Management
-  // Mission creation is now handled explicitly from the Events Management page
-  // useEffect(() => {
-  //   if (selectedEvent && !mission && !missionLoading && !missionError) {
-  //     createNewMission({
-  //       event_id: selectedEvent.id,
-  //       name: `${selectedEvent.title} Mission`,
-  //       description: `Mission planning for ${selectedEvent.title}`,
-  //       selected_squadrons: selectedEvent.participants || []
-  //     });
-  //   }
-  // }, [selectedEvent, mission, missionLoading, missionError, createNewMission]);
+  // Auto-create the mission as soon as an event without one is selected.
+  // Originally disabled because it raced Events Management's own creation and produced
+  // duplicate missions. That's now impossible: missions has UNIQUE(event_id), and
+  // getOrCreateMissionForEvent re-checks first and falls back to the existing mission
+  // if a concurrent insert wins.
+  const autoCreateAttemptedRef = useRef<Set<string>>(new Set());
+  // Missions we've ensured, by event ID. If useMission's own (slower) "not found" load
+  // resolves after our creation and resets mission to null, we restore it from here.
+  const ensuredMissionsRef = useRef<Map<string, Mission>>(new Map());
+  const selectedEventIdRef = useRef<string | undefined>(selectedEvent?.id);
+  selectedEventIdRef.current = selectedEvent?.id;
+
+  useEffect(() => {
+    const event = selectedEvent;
+    if (!event?.id || mission || missionLoading || missionError) return;
+
+    const ensuredEarlier = ensuredMissionsRef.current.get(event.id);
+    if (ensuredEarlier) {
+      setMissionDirect(ensuredEarlier);
+      return;
+    }
+
+    // One attempt per event per page session (avoids retry loops, e.g. on RLS denial)
+    if (autoCreateAttemptedRef.current.has(event.id)) return;
+    autoCreateAttemptedRef.current.add(event.id);
+
+    getOrCreateMissionForEvent({
+      id: event.id,
+      title: event.title,
+      participants: event.participants || []
+    }).then(({ mission: ensured, error }) => {
+      if (error || !ensured) {
+        console.error('❌ Failed to auto-create mission for event', event.id, error);
+        return;
+      }
+      ensuredMissionsRef.current.set(event.id, ensured);
+      // Ignore if the user has moved on to another event meanwhile
+      if (selectedEventIdRef.current !== event.id) return;
+      console.log('✅ Mission ready for event', event.id, ensured.id);
+      setMissionDirect(ensured);
+    });
+  }, [selectedEvent?.id, mission, missionLoading, missionError, setMissionDirect]);
 
   // Debounced save function to avoid too many database calls
   const [saveTimeout, setSaveTimeout] = useState<NodeJS.Timeout | null>(null);

@@ -1,3 +1,5 @@
+export type CommsRadio = 'PRI' | 'AUX';
+
 export interface CommsPlanEntry {
     chan: string;
     name: string;
@@ -5,7 +7,23 @@ export interface CommsPlanEntry {
     tacan: string;
     ils: string;
     kyFill: string;
+    /** Radio head the channel is programmed on. Missing on legacy data = 'PRI'. */
+    radio?: CommsRadio;
   }
+
+  /** Deep-copies entries and fills in defaults (radio = 'PRI') for legacy/partial data. */
+  export const normalizeCommsEntries = (entries: unknown): CommsPlanEntry[] => {
+    if (!Array.isArray(entries)) return [];
+    return entries.map((e: any) => ({
+      chan: String(e?.chan ?? ''),
+      name: String(e?.name ?? '——'),
+      freq: String(e?.freq ?? '——'),
+      tacan: String(e?.tacan ?? '——'),
+      ils: String(e?.ils ?? '——'),
+      kyFill: String(e?.kyFill ?? '——'),
+      radio: e?.radio === 'AUX' ? 'AUX' : 'PRI'
+    }));
+  };
   
   // Generate initial comms plan data
   export const generateInitialCommsData = (): CommsPlanEntry[] => {
@@ -32,5 +50,5 @@ export interface CommsPlanEntry {
       baseData.push({ chan: i.toString(), name: "——", freq: "——", tacan: "——", ils: "——", kyFill: "——" });
     }
   
-    return baseData;
+    return baseData.map(entry => ({ ...entry, radio: 'PRI' as CommsRadio }));
   };

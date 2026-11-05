@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Card } from '../card';
-import { FileDown, Edit2, Check, X, Send } from 'lucide-react';
+import { FileDown, Edit2, Check, X, Send, Copy, BookmarkPlus } from 'lucide-react';
 import { styles } from '../../../styles/commsStyles';
 import { 
   isValidFrequency, 
@@ -11,10 +11,14 @@ import {
 } from '../../../utils/commsUtils';
 import { 
   CommsPlanEntry, 
-  generateInitialCommsData 
+  generateInitialCommsData,
+  normalizeCommsEntries
 } from '../../../types/CommsTypes';
 import { Flight, FlightMember } from '../../../types/FlightData';
-import { saveToLocalStorage, loadFromLocalStorage, STORAGE_KEYS } from '../../../utils/localStorageUtils';
+import { resolveNewMissionCommsPlan } from '../../../utils/commsTemplateService';
+import { usePermissions } from '../../../hooks/usePermissions';
+import CopyCommsPopover from './CopyCommsPopover';
+import SaveCommsTemplatePopover from './SaveCommsTemplatePopover';
 
 interface CommunicationsProps {
   width: string;
@@ -50,54 +54,81 @@ const Communications: React.FC<CommunicationsProps> = ({
   squadrons = [],
   updateMissionSettings,
   mission
-}) => {  // Initialize state from mission database if available, otherwise use default
-  const [commsData, setCommsData] = useState<CommsPlanEntry[]>(() => {
-    // Try to load from mission settings first
-    if (mission?.mission_settings?.comms_plan && Array.isArray(mission.mission_settings.comms_plan)) {
-      console.log('[COMMS] Loading from database:', mission.mission_settings.comms_plan.length, 'entries');
-      return mission.mission_settings.comms_plan;
-    }
-    // Fallback to localStorage for backward compatibility
-    const cached = loadFromLocalStorage<CommsPlanEntry[]>(STORAGE_KEYS.COMMS_PLAN, []);
-    if (cached && cached.length > 0) {
-      console.log('[COMMS] Loading from localStorage (fallback)');
-      return cached;
-    }
-    // Final fallback to default
-    console.log('[COMMS] Using default comms plan');
-    return generateInitialCommsData();
-  });
-  
+}) => {
+  const hasMissionComms = (m: any) =>
+    Array.isArray(m?.mission_settings?.comms_plan) && m.mission_settings.comms_plan.length > 0;
+
+  // Initialize from the mission's saved comms plan; otherwise the built-in card until the
+  // org-configured initial plan is resolved (see effect below).
+  const [commsData, setCommsData] = useState<CommsPlanEntry[]>(() =>
+    hasMissionComms(mission)
+      ? normalizeCommsEntries(mission.mission_settings.comms_plan)
+      : generateInitialCommsData()
+  );
+
   const [isEditing, setIsEditing] = useState(false);
   const [editedData, setEditedData] = useState<CommsPlanEntry[]>([]);
   const [hoveredRow, setHoveredRow] = useState<number | null>(null);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
-  // Tracks the JSON of the last comms plan loaded from DB so we only call setCommsData
-  // when the content actually changed (prevents re-save loops when other mission fields save).
-  const lastLoadedCommsJsonRef = useRef<string>('');
+  const [openPopover, setOpenPopover] = useState<'copy' | 'save' | null>(null);
+  const copyButtonRef = useRef<HTMLButtonElement>(null);
+  const saveTemplateButtonRef = useRef<HTMLButtonElement>(null);
+  const { hasPermission } = usePermissions();
+  const canManageTemplates = hasPermission('manage_comms_templates');
 
-  // Load comms plan from mission when it changes (including remote collaborator changes)
+  // Tracks the JSON of the last comms plan loaded from / written to the DB so we only call
+  // setCommsData when the content actually changed.
+  const lastLoadedCommsJsonRef = useRef<string>('');
+  // Mission IDs we've already seeded with an initial comms plan (prevents duplicate seeding)
+  const seededMissionIdsRef = useRef<Set<string>>(new Set());
+  // Latest mission, so persistComms can merge into the current mission_settings
+  const missionRef = useRef<any>(mission);
+  missionRef.current = mission;
+
+  // Persist an explicit local change (edit, copy, initial seed) to the mission.
+  // Only called for local actions — remote changes arrive via the mission prop and are
+  // never re-saved, which keeps collaborators from ping-ponging saves.
+  const persistComms = useCallback((entries: CommsPlanEntry[]) => {
+    const normalized = normalizeCommsEntries(entries);
+    lastLoadedCommsJsonRef.current = JSON.stringify(normalized);
+    setCommsData(normalized);
+    if (updateMissionSettings && missionRef.current?.id) {
+      updateMissionSettings({
+        ...(missionRef.current.mission_settings || {}),
+        comms_plan: normalized
+      });
+    }
+  }, [updateMissionSettings]);
+
+  // Load comms plan from mission when it changes (including remote collaborator changes).
+  // Missions with no comms plan are seeded once per the org Mission Preparation setting.
   useEffect(() => {
-    if (mission?.mission_settings?.comms_plan && Array.isArray(mission.mission_settings.comms_plan)) {
-      const incomingJson = JSON.stringify(mission.mission_settings.comms_plan);
+    if (!mission?.id) return;
+
+    if (hasMissionComms(mission)) {
+      const incoming = normalizeCommsEntries(mission.mission_settings.comms_plan);
+      const incomingJson = JSON.stringify(incoming);
       if (incomingJson !== lastLoadedCommsJsonRef.current) {
         console.log('[COMMS] Mission comms plan changed, reloading from database');
         lastLoadedCommsJsonRef.current = incomingJson;
-        setCommsData(mission.mission_settings.comms_plan);
+        setCommsData(incoming);
       }
+      return;
     }
-  }, [mission?.id, mission?.mission_settings]);
 
-  // Save comms plan to localStorage and database whenever it changes
-  useEffect(() => {
-    saveToLocalStorage(STORAGE_KEYS.COMMS_PLAN, commsData);
+    if (seededMissionIdsRef.current.has(mission.id)) return;
+    seededMissionIdsRef.current.add(mission.id);
 
-    // Also save to database if updateMissionSettings is provided
-    if (updateMissionSettings) {
-      updateMissionSettings({ comms_plan: commsData });
-    }
+    const missionId = mission.id;
+    resolveNewMissionCommsPlan(mission.event_id).then(plan => {
+      // Bail if the user switched missions, or a collaborator seeded it first
+      if (missionRef.current?.id !== missionId || hasMissionComms(missionRef.current)) return;
+      console.log('[COMMS] Seeding empty mission comms plan');
+      persistComms(plan);
+    });
+    // Only re-run when the mission or its settings change, not on every mission field update
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [commsData]);
+  }, [mission?.id, mission?.mission_settings, persistComms]);
 
   const startEditing = () => {
     setIsEditing(true);
@@ -110,9 +141,15 @@ const Communications: React.FC<CommunicationsProps> = ({
   };
 
   const saveChanges = () => {
-    setCommsData(editedData);
+    persistComms(editedData);
     setIsEditing(false);
-    // No need to explicitly save to localStorage here as the useEffect will handle it
+  };
+
+  const applyCopiedComms = (entries: CommsPlanEntry[]) => {
+    persistComms(entries);
+    setIsEditing(false);
+    setEditedData([]);
+    setOpenPopover(null);
   };
 
   const handleCellEdit = (index: number, field: keyof CommsPlanEntry, value: string) => {
@@ -467,25 +504,81 @@ const Communications: React.FC<CommunicationsProps> = ({
         }}>
           <span style={styles.headerLabel}>Comms Plan</span>
           {!isEditing ? (
-            <button
-              onClick={startEditing}
-              style={{
-                ...styles.editButton,
-                position: 'absolute',
-                right: '24px',
-                top: '24px'
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.15)';
-                e.currentTarget.style.background = '#F8FAFC';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
-                e.currentTarget.style.background = 'white';
-              }}
-            >
-              <Edit2 size={14} color="#64748B" />
-            </button>
+            <div style={{
+              position: 'absolute',
+              right: '24px',
+              top: '24px',
+              display: 'flex',
+              gap: '8px'
+            }}>
+              {mission?.id && (
+                <button
+                  ref={copyButtonRef}
+                  onClick={() => setOpenPopover(openPopover === 'copy' ? null : 'copy')}
+                  title="Copy comms card from a previous mission or template"
+                  style={styles.editButton}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.15)';
+                    e.currentTarget.style.background = '#F8FAFC';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
+                    e.currentTarget.style.background = 'white';
+                  }}
+                >
+                  <Copy size={14} color="#64748B" />
+                </button>
+              )}
+              {canManageTemplates && (
+                <button
+                  ref={saveTemplateButtonRef}
+                  onClick={() => setOpenPopover(openPopover === 'save' ? null : 'save')}
+                  title="Save comms card as template"
+                  style={styles.editButton}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.15)';
+                    e.currentTarget.style.background = '#F8FAFC';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
+                    e.currentTarget.style.background = 'white';
+                  }}
+                >
+                  <BookmarkPlus size={14} color="#64748B" />
+                </button>
+              )}
+              <button
+                onClick={() => { setOpenPopover(null); startEditing(); }}
+                title="Edit comms card"
+                style={styles.editButton}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.15)';
+                  e.currentTarget.style.background = '#F8FAFC';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
+                  e.currentTarget.style.background = 'white';
+                }}
+              >
+                <Edit2 size={14} color="#64748B" />
+              </button>
+              {openPopover === 'copy' && (
+                <CopyCommsPopover
+                  anchorRef={copyButtonRef}
+                  currentEventId={mission?.event_id}
+                  currentCycleId={mission?.event?.cycleId}
+                  onConfirm={applyCopiedComms}
+                  onClose={() => setOpenPopover(null)}
+                />
+              )}
+              {openPopover === 'save' && (
+                <SaveCommsTemplatePopover
+                  anchorRef={saveTemplateButtonRef}
+                  entries={commsData}
+                  onClose={() => setOpenPopover(null)}
+                />
+              )}
+            </div>
           ) : (
             <div style={{ 
               position: 'absolute',
