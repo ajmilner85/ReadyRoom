@@ -223,20 +223,20 @@ const EventSettings: React.FC<EventSettingsProps> = ({ error, setError }) => {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', backgroundColor: 'var(--rr-panel)' }}>
       {/* Fixed Header */}
-      <div style={{ padding: '40px 40px 0 40px', flexShrink: 0 }}>
-        <div style={{ maxWidth: '800px', margin: '0 auto', borderBottom: '1px solid var(--rr-border)', paddingBottom: '24px' }}>
-          <h2 style={{ fontSize: '24px', fontWeight: 600, margin: 0, color: 'var(--rr-text)' }}>
+      <div style={{ padding: 0, flexShrink: 0 }}>
+        <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--rr-border)' }}>
+          <h2 style={{ fontSize: '16px', fontWeight: 700, margin: 0, color: 'var(--rr-text)' }}>
             Events
           </h2>
-          <p style={{ fontSize: '14px', color: 'var(--rr-text2)', margin: '8px 0 0 0', fontFamily: 'inherit' }}>
+          <p style={{ fontSize: '12px', color: 'var(--rr-text2)', margin: '1px 0 0 0', fontFamily: 'inherit' }}>
             Configure default event timing, reminders, and response grouping settings.
           </p>
         </div>
       </div>
 
       {/* Scrollable Content */}
-      <div style={{ flex: 1, overflow: 'auto', padding: '24px 40px 40px 40px' }}>
-        <div style={{ maxWidth: '800px', margin: '0 auto' }}>
+      <div style={{ flex: 1, overflow: 'auto', padding: '20px' }}>
+        <div style={{ maxWidth: '960px' }}>
 
         {/* Timing and Duration Section */}
         <div style={firstSectionStyle}>
