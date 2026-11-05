@@ -52,56 +52,47 @@ export const RecoveryToggleSwitch: React.FC = () => {
   // Determine current state (default to 0 if not set)
   const currentMode = recoverySection?.mode || 0;
 
-  const handleToggle = () => {
-    // Cycle through modes: 0 (Case I) -> 1 (Case II) -> 2 (Case III) -> 0
-    const newMode = (currentMode + 1) % 3;
-    
-    // Update the mode
+  const setMode = (newMode: number) => {
+    if (newMode === currentMode) return;
     updateSectionProperty('Recovery', 'mode', newMode);
-    
-    // Update the divisions based on the new mode
-    const newDivisions = newMode === 0 
-      ? generateCaseIDivisions() 
-      : generateCaseIIIIIDivisions(); // Same for both Case II and III for now
-    
+    // Case I has its own divisions; Case II and III share the marshal stack
+    const newDivisions = newMode === 0 ? generateCaseIDivisions() : generateCaseIIIIIDivisions();
     updateSectionProperty('Recovery', 'divisions', newDivisions);
   };
 
-  // Define labels and styles for each mode
+  // Compact I / II / III selector (design: lives in the Recovery column header row)
   const modes = [
-    { label: 'CASE I', color: 'var(--rr-good)', hover: '#059669' },
-    { label: 'CASE II', color: 'var(--rr-warn)', hover: '#D97706' },
-    { label: 'CASE III', color: 'var(--rr-bad)', hover: '#DC2626' }
+    { label: 'I', title: 'Case I', color: 'var(--rr-good)' },
+    { label: 'II', title: 'Case II', color: 'var(--rr-warn)' },
+    { label: 'III', title: 'Case III', color: 'var(--rr-bad)' },
   ];
 
   return (
-    <button
-      onClick={handleToggle}
-      style={{
-        minWidth: '80px',
-        height: '30px',
-        padding: '0 16px',
-        background: modes[currentMode].color,
-        borderRadius: '8px',
-        border: 'none',
-        cursor: 'pointer',
-        color: 'white',
-        fontFamily: 'inherit',
-        fontStyle: 'normal',
-        fontWeight: 400,
-        fontSize: '14px',
-        transition: 'all 0.2s ease'
-      }}
-      onMouseEnter={(e) => {
-        e.currentTarget.style.background = modes[currentMode].hover;
-        e.currentTarget.style.transform = 'translateY(-1px)';
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.background = modes[currentMode].color;
-        e.currentTarget.style.transform = 'translateY(0)';
-      }}
-    >
-      {modes[currentMode].label}
-    </button>
+    <div className="inline-flex items-center gap-[6px]">
+      <span className="font-mono text-[9px] tracking-[.14em] text-text3">CASE</span>
+      <div className="inline-flex rounded-rr-md border border-border2 overflow-hidden" role="radiogroup" aria-label="Recovery case">
+        {modes.map((m, i) => {
+          const active = currentMode === i;
+          return (
+            <button
+              key={m.label}
+              type="button"
+              role="radio"
+              aria-checked={active}
+              title={m.title}
+              onClick={() => setMode(i)}
+              className="h-[22px] min-w-[26px] px-[7px] text-[11px] font-bold border-0 cursor-pointer transition-colors"
+              style={{
+                background: active ? m.color : 'transparent',
+                color: active ? '#fff' : 'var(--rr-text3)',
+                borderLeft: i > 0 ? '1px solid var(--rr-border2)' : undefined,
+              }}
+            >
+              {m.label}
+            </button>
+          );
+        })}
+      </div>
+    </div>
   );
 };

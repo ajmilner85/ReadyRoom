@@ -131,115 +131,78 @@ const DroppableZone: React.FC<DroppableZoneProps> = ({
 
   const contentHeight = getContentHeight();
 
+  // Division label (64px column): recovery angels render as a large number; Case II/III
+  // adds DME and the EAT (warn colour, double-click to edit). Other labels are small mono text.
   const renderLabel = () => {
-    if (!isCaseIIorIII || !altitude || altitude < 6) {
-      return label.toUpperCase();
+    if (isRecoveryZone && altitude !== null) {
+      const parts = label.split('\n');
+      const eat = isCaseIIorIII && altitude >= 6 ? parts[2] : null;
+      return (
+        <div className="flex flex-col items-start leading-none gap-[3px]">
+          <span className="text-[20px] font-bold text-text">{altitude}</span>
+          {isCaseIIorIII && altitude >= 6 ? (
+            <>
+              <span className="font-mono text-[9px] tracking-[.08em] text-text2">DME {altitude + 15}</span>
+              {isEditingEAT ? (
+                <input
+                  type="text"
+                  value={editedEAT}
+                  onChange={handleEATChange}
+                  onBlur={handleEATBlur}
+                  onKeyDown={handleKeyDown}
+                  onFocus={(e) => e.target.select()}
+                  className="w-[30px] h-4 px-1 font-mono text-[10px] rounded-rr-sm bg-panel border border-accent text-warn focus:outline-none"
+                  autoFocus
+                />
+              ) : (
+                <span className="font-mono text-[10px] font-semibold text-warn">{eat}</span>
+              )}
+            </>
+          ) : null}
+        </div>
+      );
     }
-
-    const parts = label.split('\n');
     return (
-      <>
-        {parts[0]?.toUpperCase()}<br />
-        {parts[1]?.toUpperCase()}<br />
-        {isEditingEAT ? (
-          <input
-            type="text"
-            value={editedEAT}
-            onChange={handleEATChange}
-            onBlur={handleEATBlur}
-            onKeyDown={handleKeyDown}
-            onFocus={(e) => e.target.select()}
-            style={{
-              width: '20px',
-              height: '14px',
-              background: 'rgba(148, 163, 184, 0.1)',
-              border: 'none',
-              color: 'var(--rr-text2)',
-              fontSize: '12px',
-              fontFamily: 'inherit',
-              textAlign: 'center',
-              padding: 0,
-              margin: 0,
-              outline: 'none',
-              borderRadius: '2px'
-            }}
-            autoFocus
-          />
-        ) : (
-          parts[2]
-        )}
-      </>
+      <span className="font-mono text-[9.5px] leading-[1.25] tracking-[.08em] text-text2 whitespace-pre-line break-normal">
+        {label.toUpperCase()}
+      </span>
     );
   };
 
+  void contentHeight;
+  void getMinHeight;
+
   return (
-    <div style={{
-      position: 'relative',
-      width: '100%',
-      minHeight: getMinHeight(),
-      height: `${contentHeight}px`,
-      borderBottom: '1px dotted var(--rr-border2)',
-      transition: 'height 0.2s ease-in-out',
-    }}>
+    <div
+      className="relative w-full flex border-b border-border"
+      style={{ minHeight: isRecoveryZone && isCaseIIorIII ? 52 : 74 }}
+    >
+      {/* Label column */}
       <div
-        ref={setNodeRef}
+        onDoubleClick={handleDoubleClick}
         onMouseEnter={() => setIsHovering(true)}
         onMouseLeave={() => setIsHovering(false)}
-        style={{
-          height: '100%',
-          backgroundColor: isOver ? 'rgba(100, 116, 139, 0.1)' : 'transparent',
-          transition: 'background-color 0.2s',
-          padding: '8px',
-          position: 'relative'
-        }}
+        className="flex-none w-[78px] px-2 py-[7px] bg-panel2 border-r border-border flex flex-col justify-end relative"
+        style={{ cursor: isCaseIIorIII && altitude && altitude >= 6 ? 'pointer' : 'default' }}
       >
-        {/* Label container at the top */}
-        <div 
-          onDoubleClick={handleDoubleClick}
-          style={{
-            position: 'absolute',
-            top: '8px',
-            left: '8px',
-            fontSize: '12px',
-            fontFamily: 'inherit',
-            fontWeight: 300,
-            color: 'var(--rr-text2)',
-            whiteSpace: 'pre-line',
-            lineHeight: '1.2',
-            cursor: isCaseIIorIII && altitude && altitude >= 6 ? 'pointer' : 'default'
-          }}
-        >
-          {renderLabel()}
-          
-          <TimeAdjuster 
-            isVisible={showTimeAdjuster && isHovering && !isEditingEAT}
-            onAdjust={handleTimeAdjust}
-          />
-        </div>
+        {renderLabel()}
+        <TimeAdjuster
+          isVisible={showTimeAdjuster && isHovering && !isEditingEAT}
+          onAdjust={handleTimeAdjust}
+        />
+      </div>
 
-        {/* Flight cards container */}
-        <div style={{
-          marginLeft: 'auto',
-          width: '442px',
-          marginRight: '4px',
-          paddingTop: isCaseIIorIII ? '0px' : '10px', // Reduced padding for CASE II/III
-          paddingBottom: isCaseIIorIII ? '4px' : '10px', // Reduced padding for tighter layout
-          paddingLeft: '10px', // Add padding on sides to prevent drop shadow cutoff
-          paddingRight: '10px'
-        }}>
-          {sortedFlights.map((flight, index) => (
-            <div
-              key={flight.id}
-              style={{
-                position: 'relative',
-                marginBottom: index === sortedFlights.length - 1 ? 0 : (isCaseIIorIII ? '4px' : '10px'), // Reduced spacing for CASE II/III
-                display: 'block'
-              }}
-            >
-              {renderFlightCard(flight)}
-            </div>
-          ))}
-        </div>
+      {/* Strips: stack bottom-up like a physical strip board */}
+      <div
+        ref={setNodeRef}
+        className="flex-1 min-w-0 flex flex-col-reverse justify-start gap-1 p-1 transition-colors duration-150"
+        style={{ background: isOver ? 'var(--rr-accent-weak)' : 'transparent', outline: isOver ? '1.5px dashed var(--rr-accent)' : undefined, outlineOffset: -3 }}
+      >
+        {[...sortedFlights].reverse().map((flight) => (
+          <div key={flight.id} className="relative">
+            {renderFlightCard(flight)}
+          </div>
+        ))}
       </div>
     </div>
   );

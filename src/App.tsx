@@ -612,8 +612,10 @@ const App: React.FC = () => {
                       setHoveredFlightId(null);
                     }}
                     style={{
-                      backgroundColor: 'var(--rr-panel2)',
-                      height: '100%',
+                      flex: 1,
+                      minHeight: 0,
+                      display: 'flex',
+                      flexDirection: 'column',
                       width: '100%'
                     }}
                   >

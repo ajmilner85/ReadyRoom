@@ -11,7 +11,7 @@ import { useSections } from './SectionContext';
 import type { Flight } from '../../types/FlightData';
 import FlightCard from '../ui/flight cards/FlightCard';
 import SingleFlightCard from '../ui/flight cards/SingleFlightCard';
-import { ChevronUp, ChevronDown } from 'lucide-react';
+import { ChevronUp } from 'lucide-react';
 
 interface GridLayoutProps {
   flights?: Flight[];
@@ -167,207 +167,79 @@ const GridLayout: React.FC<GridLayoutProps> = ({ flights = [], onUpdateMemberFue
     );
   };
 
+  const sortedInactive = [...unassignedFlights].sort((a, b) => {
+    if (a.callsign !== b.callsign) return a.callsign.localeCompare(b.callsign);
+    return (parseInt(a.flightNumber) || 0) - (parseInt(b.flightNumber) || 0);
+  });
+
   return (
-    <div style={{
-      backgroundColor: 'var(--rr-panel2)',
-      minHeight: '100vh',
-      height: '100%',
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center',
-      padding: '0',
-      boxSizing: 'border-box',
-      width: '100%',
-      overflowX: 'hidden',
-      overflowY: 'hidden'
-    }}>
-      <div style={{
-        display: 'flex',
-        gap: '20px',
-        padding: '20px 15px 15px 15px',
-        height: '100vh',
-        overflowX: 'hidden',
-        overflowY: 'hidden',
-        position: 'relative',
-        justifyContent: 'center',
-        width: '100%',
-        maxWidth: '100%',
-        boxSizing: 'border-box'
-      }}>
+    <div className="flex-1 min-h-0 flex flex-col w-full">
+      {/* 4-column strip board; columns swipe on mobile (scroll-snap) */}
+      <div data-m="board" className="flex-1 min-h-0 flex gap-[10px] p-[10px] overflow-x-auto">
         {sections.map((section, index) => (
           <div
             key={section.title}
             ref={(el: HTMLDivElement | null) => { sectionRefs.current[index] = el }}
-            style={{
-              flex: '1 0 550px',
-              minWidth: '550px',
-              maxWidth: '550px',
-              display: 'flex',
-              flexDirection: 'column',
-              position: 'relative',
-              backgroundColor: 'var(--rr-panel)',
-              borderRadius: '10px',
-              boxShadow: 'var(--rr-shadow)',
-          border: '1px solid var(--rr-border)',
-              padding: '24px',
-              margin: '0 0 20px 0'
-            }}
+            className="flex-1 min-w-[320px] flex flex-col min-h-0 relative bg-panel border border-border rounded-rr-xl shadow-rr overflow-hidden"
           >
-            {/* Header with section label */}
-            <div style={{
-              width: '100%',
-              textAlign: 'left',
-              marginBottom: '12px',
-              position: 'relative'
-            }}>
-              <span style={{
-                fontFamily: 'inherit',
-                fontStyle: 'normal',
-                fontWeight: 600,
-                fontSize: '12px',
-                letterSpacing: '.14em',
-                lineHeight: '16px',
-                color: 'var(--rr-text2)',
-                textTransform: 'uppercase'
-              }}>
-                {section.title}
-              </span>
+            {/* Column header (Recovery carries the compact Case I/II/III toggle) */}
+            <div className="flex-none flex items-center gap-2 px-3 h-[42px] border-b border-border">
+              <span className="rr-pane-title">{section.title}</span>
+              <span className="flex-1" />
+              {section.title === 'Recovery' ? <RecoveryToggleSwitch /> : null}
             </div>
 
-            {/* Divisions content area */}
-            <div style={{
-              flex: 1,
-              display: 'flex',
-              flexDirection: 'column',
-              justifyContent: 'flex-end',
-              position: 'relative',
-              minHeight: 0,
-              overflowY: 'auto',
-              paddingBottom: '20px'
-            }}>
+            {/* Divisions */}
+            <div className="flex-1 min-h-0 overflow-y-auto flex flex-col justify-end">
               {renderSectionDivisions(section, index)}
             </div>
 
-            {/* Footer with add button */}
-            <div style={{
-              display: 'flex',
-              justifyContent: 'center',
-              alignItems: 'center',
-              borderTop: '1px solid var(--rr-border)',
-              paddingTop: '18px',
-              minHeight: '48px'
-            }}>
-              {section.type === 'launch' ? (
-                <LaunchDivisionButton sectionTitle={section.title} position="bottom" />
-              ) : section.title === "En Route/Tasking" ? (
-                <EnRouteDivisionButton sectionTitle={section.title} position="bottom" />
-              ) : section.type === 'tanker' ? (
-                <TankerDivisionButton sectionTitle={section.title} position="bottom" />
-              ) : section.title === "Recovery" ? (
-                <RecoveryToggleSwitch />
-              ) : (
-                <AddDivisionButton sectionTitle={section.title} position="bottom" />
-              )}
-            </div>
+            {/* Add division */}
+            {section.title !== 'Recovery' ? (
+              <div className="flex-none flex items-center justify-center border-t border-border min-h-[40px] py-1">
+                {section.type === 'launch' ? (
+                  <LaunchDivisionButton sectionTitle={section.title} position="bottom" />
+                ) : section.title === 'En Route/Tasking' ? (
+                  <EnRouteDivisionButton sectionTitle={section.title} position="bottom" />
+                ) : section.type === 'tanker' ? (
+                  <TankerDivisionButton sectionTitle={section.title} position="bottom" />
+                ) : (
+                  <AddDivisionButton sectionTitle={section.title} position="bottom" />
+                )}
+              </div>
+            ) : null}
           </div>
         ))}
       </div>
 
-      {/* Drawer for inactive flights */}
-      <div style={{
-        position: 'fixed',
-        bottom: 0,
-        left: '50%',
-        transform: isDrawerOpen 
-          ? 'translateX(-50%) translateY(0)' 
-          : 'translateX(-50%) translateY(calc(100% - 38px))',
-        width: '1828px', // 4 cards (442px each) + 3 gaps (10px) + padding (30px)
-        maxWidth: 'calc(100vw - 120px)', // Don't exceed viewport minus nav bar margin
-        zIndex: 1000,
-        transition: 'transform 0.3s ease-in-out',
-        backgroundColor: 'var(--rr-panel)',
-        boxShadow: 'var(--rr-shadow)',
-        borderTopLeftRadius: '12px',
-        borderTopRightRadius: '12px',
-        pointerEvents: 'auto'
-      }}>
-        {/* Drawer Handle */}
+      {/* Inactive flights drawer (drop target) */}
+      <div
+        className="flex-none border-t border-border bg-panel"
+        style={{ maxHeight: isDrawerOpen ? '45vh' : 36, transition: 'max-height .25s ease', overflow: 'hidden' }}
+      >
         <button
+          type="button"
           onClick={() => setIsDrawerOpen(!isDrawerOpen)}
-          style={{
-            width: '100%',
-            height: '38px', // Reduced from 48px
-            backgroundColor: 'var(--rr-panel2)',
-            border: 'none',
-            borderTopLeftRadius: '12px',
-            borderTopRightRadius: '12px',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '8px',
-            fontFamily: 'inherit',
-            fontSize: '14px',
-            fontWeight: 500,
-            color: 'var(--rr-text2)',
-            transition: 'background-color 0.2s ease',
-            pointerEvents: 'auto',
-            position: 'relative',
-            zIndex: 1
-          }}
-          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--rr-panel3)'}
-          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'var(--rr-panel2)'}
+          className="w-full h-9 flex items-center gap-2 px-4 bg-panel2 hover:bg-panel3 border-0 cursor-pointer text-left"
         >
-          {isDrawerOpen ? (
-            <>
-              <ChevronDown size={20} />
-              Hide Inactive Flights ({unassignedFlights.length})
-            </>
-          ) : (
-            <>
-              <ChevronUp size={20} />
-              Show Inactive Flights ({unassignedFlights.length})
-            </>
-          )}
+          <span className="rr-pane-title">Inactive</span>
+          <span className="font-mono text-[11px] text-text3">{unassignedFlights.length}</span>
+          <span className="flex-1" />
+          <span className="flex text-text2 transition-transform duration-200" style={{ transform: isDrawerOpen ? 'rotate(180deg)' : 'none' }}>
+            <ChevronUp size={16} />
+          </span>
         </button>
-
-        {/* Drawer Content */}
         <div
           ref={setDrawerRef}
+          className="overflow-y-auto p-3 grid gap-2 transition-colors"
           style={{
-            maxHeight: '60vh',
-            overflowY: 'auto',
-            backgroundColor: isDrawerOver ? 'var(--rr-accent-weak)' : 'var(--rr-panel2)',
-            borderTop: '1px solid var(--rr-border)',
-            display: 'flex',
-            flexWrap: 'wrap',
-            gap: '10px',
-            justifyContent: 'center',
-            padding: '20px 15px',
-            boxSizing: 'border-box',
-            transition: 'background-color 0.2s ease'
-          }}>
-          {unassignedFlights.length > 0 ? (
-            [...unassignedFlights].sort((a, b) => {
-              // Primary sort: by callsign alphabetically
-              if (a.callsign !== b.callsign) {
-                return a.callsign.localeCompare(b.callsign);
-              }
-              // Secondary sort: by flightNumber numerically
-              const aNum = parseInt(a.flightNumber) || 0;
-              const bNum = parseInt(b.flightNumber) || 0;
-              return aNum - bNum;
-            }).map(renderFlightCard)
-          ) : (
-            <div style={{
-              padding: '40px',
-              textAlign: 'center',
-              color: 'var(--rr-text3)',
-              fontFamily: 'inherit',
-              fontSize: '14px'
-            }}>
-              No inactive flights
-            </div>
+            maxHeight: 'calc(45vh - 36px)',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
+            background: isDrawerOver ? 'var(--rr-accent-weak)' : 'transparent',
+          }}
+        >
+          {sortedInactive.length > 0 ? sortedInactive.map(renderFlightCard) : (
+            <div className="col-span-full py-6 text-center text-[12.5px] text-text3">No inactive flights</div>
           )}
         </div>
       </div>
