@@ -1,7 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Card } from '../card';
-import { FileDown, Edit2, Check, X, Send, Copy, BookmarkPlus } from 'lucide-react';
-import { styles } from '../../../styles/commsStyles';
+import { Button, EmptyState, Pane, ToolbarButton, ToolbarGroup } from '../primitives';
 import { 
   isValidFrequency, 
   isValidTACAN, 
@@ -357,211 +355,143 @@ const Communications: React.FC<CommunicationsProps> = ({
     setShowConfirmDialog(false);
   };
 
-  const renderCommsPlanTable = () => (
-    <table className="w-full" style={{ tableLayout: 'auto' }}>
-      <colgroup>
-        <col style={{ width: '50px' }} />
-        <col />
-        <col style={{ width: '80px' }} />
-        <col style={{ width: '70px' }} />
-        <col style={{ width: '45px' }} />
-        <col style={{ width: '75px' }} />
-      </colgroup>
-      <thead>
-        <tr>
-          <th style={{ ...styles.tableHeader, textAlign: 'center' }}>Chan</th>
-          <th style={{ ...styles.tableHeader, textAlign: 'left' }}>Name</th>
-          <th style={{ ...styles.tableHeader, textAlign: 'left' }}>Freq</th>
-          <th style={{ ...styles.tableHeader, textAlign: 'center' }}>TACAN</th>
-          <th style={{ ...styles.tableHeader, textAlign: 'center' }}>ILS</th>
-          <th style={{ ...styles.tableHeader, textAlign: 'center' }}>KY Fill</th>
-        </tr>
-      </thead>
-      <tbody>
-        {(isEditing ? editedData : commsData).map((row, index) => (
-          <tr 
-            key={index}
-            style={{
-              backgroundColor: hoveredRow === index ? 'rgba(100, 116, 139, 0.1)' : 
-                             index % 2 === 0 ? '#F8FAFC' : 'transparent',
-              transition: 'background-color 0.2s ease'
-            }}
-            onMouseEnter={() => setHoveredRow(index)}
-            onMouseLeave={() => setHoveredRow(null)}
-          >
-            <td style={{ ...styles.tableCell, textAlign: 'center' }}>
-              {row.chan}
-            </td>
-            <td style={styles.tableCell}>
-              {isEditing ? (
-                <input
-                  type="text"
-                  value={row.name === '——' ? '' : row.name}
-                  onChange={(e) => handleCellEdit(index, 'name', e.target.value)}
-                  style={styles.tableInput}
-                />
-              ) : (
-                <span style={row.name === '——' ? styles.tableCellPlaceholder : undefined}>
-                  {row.name}
-                </span>
-              )}
-            </td>
-            <td style={{
-              ...styles.tableCell,
-              color: isEditing ? 
-                (!isValidFrequency(row.freq) ? '#DC2626' : 
-                 hasFrequencyConflict(row.freq, editedData, index) ? '#DC2626' : 'inherit') :
-                (hasFrequencyConflict(row.freq, commsData, index) ? '#DC2626' : 
-                 row.freq === '——' ? '#94A3B8' : 'inherit')
-            }}>
-              {isEditing ? (
-                <input
-                  type="text"
-                  value={row.freq === '——' ? '' : row.freq}
-                  onChange={(e) => handleCellEdit(index, 'freq', e.target.value)}
-                  onBlur={() => handleFrequencyBlur(index)}
-                  style={styles.tableInput}
-                />
-              ) : (
-                <span style={row.freq === '——' ? styles.tableCellPlaceholder : undefined}>
-                  {row.freq}
-                </span>
-              )}
-            </td>
-            <td style={{
-              ...styles.tableCell,
-              textAlign: 'center',
-              color: isEditing && !isValidTACAN(row.tacan) ? 'var(--rr-bad)' : 
-                     row.tacan === '——' ? '#94A3B8' : 'inherit'
-            }}>
-              {isEditing ? (
-                <input
-                  type="text"
-                  value={row.tacan === '——' ? '' : row.tacan}
-                  onChange={(e) => handleCellEdit(index, 'tacan', e.target.value.toUpperCase())}
-                  style={{...styles.tableInput, textAlign: 'center'}}
-                />
-              ) : (
-                <span style={row.tacan === '——' ? styles.tableCellPlaceholder : undefined}>
-                  {row.tacan}
-                </span>
-              )}
-            </td>
-            <td style={{
-              ...styles.tableCell,
-              textAlign: 'center',
-              color: isEditing && !isValidILS(row.ils) ? 'var(--rr-bad)' : 
-                     row.ils === '——' ? '#94A3B8' : 'inherit'
-            }}>
-              {isEditing ? (
-                <input
-                  type="text"
-                  value={row.ils === '——' ? '' : row.ils}
-                  onChange={(e) => handleCellEdit(index, 'ils', e.target.value)}
-                  style={{...styles.tableInput, textAlign: 'center'}}
-                />
-              ) : (
-                <span style={row.ils === '——' ? styles.tableCellPlaceholder : undefined}>
-                  {row.ils}
-                </span>
-              )}
-            </td>
-            <td style={{
-              ...styles.tableCell,
-              textAlign: 'center',
-              color: isEditing && !isValidKYFill(row.kyFill) ? 'var(--rr-bad)' : 
-                     row.kyFill === '——' ? '#94A3B8' : 'inherit'
-            }}>
-              {isEditing ? (
-                <input
-                  type="text"
-                  value={row.kyFill === '——' ? '' : row.kyFill}
-                  onChange={(e) => handleCellEdit(index, 'kyFill', e.target.value)}
-                  style={{...styles.tableInput, textAlign: 'center'}}
-                />
-              ) : (
-                <span style={row.kyFill === '——' ? styles.tableCellPlaceholder : undefined}>
-                  {row.kyFill}
-                </span>
-              )}
-            </td>
+  // ---- Channel table: CH 1–20 in the centre, PRI preset fields to the left, AUX to the right.
+  // Entries carry radio: 'PRI' | 'AUX' (legacy data = PRI); each row shows its fields on that side.
+  type CommsField = 'name' | 'freq' | 'tacan' | 'ils' | 'kyFill';
+  const isBlank = (v: string) => !v || v === '——';
+  const renderCommsCell = (row: any, index: number, field: CommsField, align: 'left' | 'right' | 'center') => {
+    const raw = row[field] as string;
+    const invalid = isEditing && (
+      (field === 'freq' && (!isValidFrequency(raw) || hasFrequencyConflict(raw, editedData, index))) ||
+      (field === 'tacan' && !isValidTACAN(raw)) ||
+      (field === 'ils' && !isValidILS(raw)) ||
+      (field === 'kyFill' && !isValidKYFill(raw))
+    );
+    const conflict = !isEditing && field === 'freq' && hasFrequencyConflict(raw, commsData, index);
+    if (isEditing) {
+      return (
+        <input
+          type="text"
+          value={isBlank(raw) ? '' : raw}
+          onChange={(e) => handleCellEdit(index, field, field === 'tacan' ? e.target.value.toUpperCase() : e.target.value)}
+          onBlur={field === 'freq' ? () => handleFrequencyBlur(index) : undefined}
+          className={`w-full h-[22px] px-1 rounded-rr-sm bg-panel2 border text-[12px] focus:outline-none focus:border-accent ${field === 'name' ? '' : 'font-mono'} ${invalid ? 'border-bad text-bad' : 'border-border2 text-text'}`}
+          style={{ textAlign: align }}
+        />
+      );
+    }
+    if (isBlank(raw)) return <span className="text-text3">—</span>;
+    if (field === 'kyFill') return <span className="font-mono font-semibold text-good">{raw}</span>;
+    return (
+      <span className={field === 'name' ? 'font-semibold text-text' : `font-mono ${conflict ? 'text-bad' : field === 'freq' ? 'text-text' : 'text-text2'}`}>
+        {raw}
+      </span>
+    );
+  };
+
+  const renderCommsPlanTable = () => {
+    const rows = isEditing ? editedData : commsData;
+    const side = (row: any, radio: 'PRI' | 'AUX', index: number) => {
+      const on = (row.radio === 'AUX' ? 'AUX' : 'PRI') === radio;
+      const cells: { f: CommsField; w?: string; align: 'left' | 'right' | 'center' }[] = radio === 'PRI'
+        ? [{ f: 'name', align: 'left' }, { f: 'freq', w: '78px', align: 'right' }, { f: 'tacan', w: '52px', align: 'center' }, { f: 'ils', w: '38px', align: 'center' }, { f: 'kyFill', w: '34px', align: 'center' }]
+        : [{ f: 'kyFill', w: '34px', align: 'center' }, { f: 'ils', w: '38px', align: 'center' }, { f: 'tacan', w: '52px', align: 'center' }, { f: 'freq', w: '78px', align: 'left' }, { f: 'name', align: 'right' }];
+      return cells.map(c => (
+        <td key={`${radio}-${c.f}`} className="px-2 py-[5px] text-[12.5px] whitespace-nowrap" style={{ width: c.w, textAlign: c.align }}>
+          {on ? renderCommsCell(row, index, c.f, c.align) : <span className="text-text3">—</span>}
+        </td>
+      ));
+    };
+    const th = 'px-2 py-[6px] font-mono text-[9.5px] tracking-[.1em] text-text3 font-normal';
+    return (
+      <table className="w-full border-collapse" style={{ tableLayout: 'auto' }}>
+        <thead className="sticky top-0 z-[1] bg-panel2">
+          <tr className="border-b border-border">
+            <th colSpan={5} className="py-[6px] font-mono text-[10px] tracking-[.14em] text-accent text-center font-semibold">PRIMARY · PRI</th>
+            <th className="py-[6px] font-mono text-[10px] tracking-[.14em] text-text3 text-center border-x border-border font-normal">CH</th>
+            <th colSpan={5} className="py-[6px] font-mono text-[10px] tracking-[.14em] text-text3 text-center font-normal">AUXILIARY · AUX</th>
           </tr>
-        ))}
-      </tbody>
-    </table>
-  );  return (
-    <div style={{
-      display: 'flex',
-      flexDirection: 'column',
-      gap: '20px',
-      width
-    }}>
-      <Card style={{...styles.cardBase, flex: '1 1 auto'}}>
-        <div style={{
-          width: '100%',
-          textAlign: 'left',
-          marginBottom: '12px'
-        }}>
-          <span style={styles.headerLabel}>Comms Plan</span>
-          {!isEditing ? (
-            <div style={{
-              position: 'absolute',
-              right: '24px',
-              top: '24px',
-              display: 'flex',
-              gap: '8px'
-            }}>
-              {mission?.id && (
-                <button
-                  ref={copyButtonRef}
-                  onClick={() => setOpenPopover(openPopover === 'copy' ? null : 'copy')}
-                  title="Copy comms card from a previous mission or template"
-                  style={styles.editButton}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.15)';
-                    e.currentTarget.style.background = 'var(--rr-panel2)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
-                    e.currentTarget.style.background = 'var(--rr-panel)';
-                  }}
-                >
-                  <Copy size={14} color="#64748B" />
-                </button>
-              )}
-              {canManageTemplates && (
-                <button
-                  ref={saveTemplateButtonRef}
-                  onClick={() => setOpenPopover(openPopover === 'save' ? null : 'save')}
-                  title="Save comms card as template"
-                  style={styles.editButton}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.15)';
-                    e.currentTarget.style.background = 'var(--rr-panel2)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
-                    e.currentTarget.style.background = 'var(--rr-panel)';
-                  }}
-                >
-                  <BookmarkPlus size={14} color="#64748B" />
-                </button>
-              )}
-              <button
-                onClick={() => { setOpenPopover(null); startEditing(); }}
-                title="Edit comms card"
-                style={styles.editButton}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.15)';
-                  e.currentTarget.style.background = 'var(--rr-panel2)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
-                  e.currentTarget.style.background = 'var(--rr-panel)';
-                }}
-              >
-                <Edit2 size={14} color="#64748B" />
-              </button>
+          <tr className="border-b border-border">
+            <th className={th} style={{ textAlign: 'left' }}>NAME</th>
+            <th className={th} style={{ textAlign: 'right' }}>FREQ</th>
+            <th className={th}>TACAN</th>
+            <th className={th}>ILS</th>
+            <th className={th}>KY</th>
+            <th className={`${th} text-text border-x border-border`}>CH</th>
+            <th className={th}>KY</th>
+            <th className={th}>ILS</th>
+            <th className={th}>TACAN</th>
+            <th className={th} style={{ textAlign: 'left' }}>FREQ</th>
+            <th className={th} style={{ textAlign: 'right' }}>NAME</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row, index) => (
+            <tr
+              key={index}
+              className="border-b border-border transition-colors"
+              style={{ backgroundColor: hoveredRow === index ? 'var(--rr-panel2)' : 'transparent' }}
+              onMouseEnter={() => setHoveredRow(index)}
+              onMouseLeave={() => setHoveredRow(null)}
+            >
+              {side(row, 'PRI', index)}
+              <td className="px-2 py-[5px] text-center border-x border-border" style={{ width: '44px' }}>
+                <span className="inline-flex items-center justify-center min-w-[22px] h-[18px] px-1 rounded-rr-sm bg-panel3 font-mono text-[11px] font-semibold text-text">{row.chan}</span>
+              </td>
+              {side(row, 'AUX', index)}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    );
+  };
+
+  // MIDS: B = one channel per flight (inter-flight); A = one channel per two-ship section.
+  const midsRows = [...(flights || [])]
+    .filter((f: any) => f && (f.midsA || f.midsB))
+    .sort((a: any, b: any) => (a.callsign === b.callsign ? parseInt(a.flightNumber) - parseInt(b.flightNumber) : String(a.callsign).localeCompare(String(b.callsign))))
+    .map((f: any) => {
+      const a1 = parseInt(f.midsA) || 0;
+      return {
+        id: f.id,
+        name: `${f.callsign} ${f.flightNumber}`,
+        b: f.midsB,
+        sections: [
+          { label: `${f.flightNumber}-1 / ${f.flightNumber}-2`, a: f.midsA },
+          { label: `${f.flightNumber}-3 / ${f.flightNumber}-4`, a: a1 > 0 ? String(a1 + 1) : '' },
+        ],
+      };
+    });
+  return (
+    <div data-m="row" className="flex-1 min-h-0 flex gap-[14px]" data-width={width}>
+      <Pane
+        title="Comms Presets"
+        className="flex-1 min-w-0"
+        flush
+        actions={
+          !isEditing ? (
+            <>
+              <ToolbarGroup>
+                {mission?.id ? (
+                  <ToolbarButton
+                    ref={copyButtonRef as React.Ref<HTMLButtonElement>}
+                    icon="copy"
+                    label="Copy comms card from a previous mission or template"
+                    active={openPopover === 'copy'}
+                    onClick={() => setOpenPopover(openPopover === 'copy' ? null : 'copy')}
+                  />
+                ) : null}
+                {canManageTemplates ? (
+                  <ToolbarButton
+                    ref={saveTemplateButtonRef as React.Ref<HTMLButtonElement>}
+                    icon="save"
+                    label="Save comms card as template"
+                    active={openPopover === 'save'}
+                    onClick={() => setOpenPopover(openPopover === 'save' ? null : 'save')}
+                  />
+                ) : null}
+                <ToolbarButton icon="edit" label="Edit comms card" onClick={() => { setOpenPopover(null); startEditing(); }} />
+              </ToolbarGroup>
               {openPopover === 'copy' && (
                 <CopyCommsPopover
                   anchorRef={copyButtonRef}
@@ -578,99 +508,59 @@ const Communications: React.FC<CommunicationsProps> = ({
                   onClose={() => setOpenPopover(null)}
                 />
               )}
-            </div>
+            </>
           ) : (
-            <div style={{ 
-              position: 'absolute',
-              right: '24px',
-              top: '24px',
-              display: 'flex',
-              gap: '8px'
-            }}>
-              <button
-                onClick={saveChanges}
-                style={styles.editButton}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.15)';
-                  e.currentTarget.style.background = 'var(--rr-panel2)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
-                  e.currentTarget.style.background = 'var(--rr-panel)';
-                }}
-              >
-                <Check size={14} color="#64748B" />
-              </button>
-              <button
-                onClick={cancelEditing}
-                style={styles.editButton}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.15)';
-                  e.currentTarget.style.background = 'var(--rr-panel2)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
-                  e.currentTarget.style.background = 'var(--rr-panel)';
-                }}
-              >
-                <X size={14} color="#64748B" />
-              </button>
+            <>
+              <Button size="sm" variant="ghost" onClick={cancelEditing}>Cancel</Button>
+              <Button size="sm" variant="primary" icon="check" onClick={saveChanges}>Save</Button>
+            </>
+          )
+        }
+      >
+        <div className="min-w-[760px]">{renderCommsPlanTable()}</div>
+        <div className="px-3 py-2 text-[11px] text-text2 border-t border-border">
+          KY = cypher number (green); unencrypted shows —. Channels are assigned to PRI or AUX in Settings › Mission Preparation templates.
+        </div>
+      </Pane>
+
+      <div className="flex-none w-[360px] flex flex-col gap-[14px] min-h-0">
+        <Pane
+          title="MIDS Channels"
+          className="flex-1"
+          meta={<span className="font-mono text-[10px] text-text3">B = FLIGHT · A = SECTION</span>}
+        >
+          {midsRows.length === 0 ? (
+            <EmptyState compact title="No MIDS assignments" message="Flights with MIDS channels appear here." />
+          ) : (
+            <div className="flex flex-col gap-2">
+              {midsRows.map(r => (
+                <div key={r.id} className="rounded-rr-lg bg-panel2 border border-border">
+                  <div className="flex items-center gap-2 px-3 py-[7px] border-b border-border">
+                    <span className="w-[3px] h-[13px] rounded-[2px] bg-accent" />
+                    <span className="text-[12.5px] font-bold">{r.name}</span>
+                    <span className="ml-auto font-mono text-[9.5px] tracking-[.1em] text-text3">MIDS B</span>
+                    <span className="font-mono text-[15px] font-bold text-text">{r.b || '—'}</span>
+                  </div>
+                  {r.sections.map(sec => (
+                    <div key={sec.label} className="flex items-center gap-2 px-3 py-[4px] font-mono text-[11px] text-text2">
+                      <span>SECTION {sec.label}</span>
+                      <span className="ml-auto text-[9.5px] tracking-[.1em] text-text3">MIDS A</span>
+                      <span className="w-6 text-right text-[13px] font-bold text-accent">{sec.a || '—'}</span>
+                    </div>
+                  ))}
+                </div>
+              ))}
             </div>
           )}
-        </div>
-        <div className="space-y-4" style={{ overflowX: 'hidden' }}>
-          {renderCommsPlanTable()}
-        </div>
-      </Card>
+        </Pane>
 
-      <Card style={{...styles.cardBase, flex: '0 0 auto'}}>
-        <div style={styles.sectionHeader}>
-          <span style={styles.headerLabel}>Export</span>
-        </div>
-        <div style={{
-          display: 'flex',
-          justifyContent: 'space-around',
-          padding: '18px 0 0 0'
-        }}>
-          <button 
-            style={{
-              ...styles.exportButton,
-              flex: '1', // Changed from fixed percentage to flexible width
-              margin: '0 16px',
-              whiteSpace: 'nowrap', // Prevent text wrapping
-              minWidth: '150px' // Add minimum width to ensure buttons have enough space
-            }}
-            onMouseEnter={e => {
-              e.currentTarget.style.backgroundColor = 'var(--rr-panel2)';
-            }}
-            onMouseLeave={e => {
-              e.currentTarget.style.backgroundColor = 'var(--rr-panel)';
-            }}
-          >
-            <FileDown size={16} />
-            Export Kneeboards
-          </button>
-          <button 
-            style={{
-              ...styles.exportButton,
-              flex: '1', // Changed from fixed percentage to flexible width
-              margin: '0 16px',
-              whiteSpace: 'nowrap', // Prevent text wrapping
-              minWidth: '150px' // Add minimum width to ensure buttons have enough space
-            }}
-            onClick={handleTransferToMission}
-            onMouseEnter={e => {
-              e.currentTarget.style.backgroundColor = 'var(--rr-panel2)';
-            }}
-            onMouseLeave={e => {
-              e.currentTarget.style.backgroundColor = 'var(--rr-panel)';
-            }}
-          >
-            <Send size={16} />
-            Transfer to Mission
-          </button>
-        </div>
-      </Card>
+        <Pane title="Export" className="flex-none" scroll={false}>
+          <div className="flex flex-col gap-2">
+            <Button variant="secondary" icon="fileDown" block>Export Kneeboards</Button>
+            <Button variant="primary" icon="send" block onClick={handleTransferToMission}>Transfer to Mission</Button>
+          </div>
+        </Pane>
+      </div>
 
       {/* Confirmation Dialog */}
       {showConfirmDialog && (
