@@ -35,6 +35,9 @@ ChartJS.register(
   Tooltip,
   Legend
 );
+// Charts render on canvas (no CSS vars): use the UI font explicitly
+ChartJS.defaults.font.family = 'Saira, system-ui, sans-serif';
+
 
 interface CycleAttendanceReportProps {
   error: string | null;
@@ -1025,11 +1028,11 @@ const CycleAttendanceReport: React.FC<CycleAttendanceReportProps> = ({ error, se
       tooltip: {
         backgroundColor: 'rgba(0, 0, 0, 0.8)',
         titleFont: {
-          family: 'Inter',
+          family: 'Saira',
           size: 13
         },
         bodyFont: {
-          family: 'Inter',
+          family: 'Saira',
           size: 12
         },
         callbacks: {
@@ -1051,13 +1054,13 @@ const CycleAttendanceReport: React.FC<CycleAttendanceReportProps> = ({ error, se
           display: true,
           text: 'Event',
           font: {
-            family: 'Inter',
+            family: 'Saira',
             size: 12
           }
         },
         ticks: {
           font: {
-            family: 'Inter',
+            family: 'Saira',
             size: 10
           },
           callback: function(value, index) {
@@ -1088,7 +1091,7 @@ const CycleAttendanceReport: React.FC<CycleAttendanceReportProps> = ({ error, se
           display: true,
           text: 'Percentage (%)',
           font: {
-            family: 'Inter',
+            family: 'Saira',
             size: 12
           }
         },
@@ -1096,7 +1099,7 @@ const CycleAttendanceReport: React.FC<CycleAttendanceReportProps> = ({ error, se
         max: 100,
         ticks: {
           font: {
-            family: 'Inter',
+            family: 'Saira',
             size: 11
           }
         }
@@ -1110,7 +1113,7 @@ const CycleAttendanceReport: React.FC<CycleAttendanceReportProps> = ({ error, se
           display: true,
           text: 'Count',
           font: {
-            family: 'Inter',
+            family: 'Saira',
             size: 12
           }
         },
@@ -1119,7 +1122,7 @@ const CycleAttendanceReport: React.FC<CycleAttendanceReportProps> = ({ error, se
         },
         ticks: {
           font: {
-            family: 'Inter',
+            family: 'Saira',
             size: 11
           },
           stepSize: 1,

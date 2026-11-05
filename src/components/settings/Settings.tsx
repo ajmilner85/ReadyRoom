@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { usePageLoading } from '../../context/PageLoadingContext';
-import { Card } from '../ui/card';
+import { useSearchParams } from 'react-router-dom';
+import { usePageHeader } from '../../context/ShellContext';
+import { EmptyState, Icon, IconName, Toast } from '../ui/primitives';
 import { PermissionGate } from '../ui/PermissionGate';
-import { User, Users, PaintBucket, Calendar, Network, Shield, Code, Database, Radio } from 'lucide-react';
 
 // Import settings subpages
 import Appearance from './Appearance';
@@ -21,7 +22,7 @@ type SettingsPage = 'roster' | 'organization' | 'events' | 'mission-prep' | 'mis
 
 interface SettingsNavItem {
   id: SettingsPage;
-  icon: React.ReactNode;
+  icon: IconName;
   label: string;
 }
 
@@ -37,57 +38,57 @@ const settingsNavSections: SettingsNavSection[] = [
     items: [
       {
         id: 'appearance',
-        icon: <PaintBucket size={20} />,
+        icon: 'appearance',
         label: 'Appearance'
       },
       {
         id: 'accounts',
-        icon: <User size={20} />,
+        icon: 'user',
         label: 'Account'
       },
       {
         id: 'developer',
-        icon: <Code size={20} />,
+        icon: 'code',
         label: 'Developer Settings'
       }
     ]
   },
   {
-    title: 'Organization Settings',
+    title: 'Organization',
     items: [
       {
         id: 'permissions',
-        icon: <Shield size={20} />,
+        icon: 'shieldCheck',
         label: 'Permissions'
       },
       {
         id: 'organization',
-        icon: <Network size={20} />,
+        icon: 'orgStructure',
         label: 'Organization Structure'
       },
       {
         id: 'roster',
-        icon: <Users size={20} />,
+        icon: 'userSingle',
         label: 'Roster'
       },
       {
         id: 'events',
-        icon: <Calendar size={20} />,
+        icon: 'events',
         label: 'Events'
       },
       {
         id: 'mission-prep',
-        icon: <Radio size={20} />,
+        icon: 'radio',
         label: 'Mission Preparation'
       },
       {
         id: 'mission-debriefing',
-        icon: <Calendar size={20} />,
+        icon: 'message',
         label: 'Mission Debriefing'
       },
       {
         id: 'dcs-reference',
-        icon: <Database size={20} />,
+        icon: 'table',
         label: 'DCS Reference Data'
       }
     ]
@@ -96,7 +97,12 @@ const settingsNavSections: SettingsNavSection[] = [
 
 const Settings: React.FC = () => {
   const { setPageLoading } = usePageLoading();
-  const [activeSettingsPage, setActiveSettingsPage] = useState<SettingsPage | null>(null);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const ALL_PAGES = settingsNavSections.flatMap(sec => sec.items);
+  const sectionParam = searchParams.get('section') as SettingsPage | null;
+  const activeSettingsPage: SettingsPage | null = ALL_PAGES.some(i => i.id === sectionParam) ? sectionParam : null;
+  const activeItem = ALL_PAGES.find(i => i.id === activeSettingsPage);
+  usePageHeader({ code: 'ADMIN', title: 'Settings', meta: activeItem ? `· ${activeItem.label}` : undefined });
   const [error, setError] = useState<string | null>(null);
 
   // Clear page loading immediately since settings load fast
@@ -106,23 +112,17 @@ const Settings: React.FC = () => {
 
   // Navigate between settings pages
   const handleSettingsNavigate = (page: SettingsPage) => {
-    setActiveSettingsPage(page);
+    const next = new URLSearchParams(searchParams);
+    next.set('section', page);
+    setSearchParams(next, { replace: true });
   };
 
   // Render content based on active settings page
   const renderSettingsContent = () => {
     if (!activeSettingsPage) {
       return (
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          height: '100%',
-          color: 'var(--rr-text3)',
-          fontSize: '14px',
-          fontFamily: 'inherit'
-        }}>
-          Select a settings page from the sidebar
+        <div className="h-full flex items-center justify-center">
+          <EmptyState icon="settings" title="Settings" message="Choose a section on the left." />
         </div>
       );
     }
@@ -153,147 +153,56 @@ const Settings: React.FC = () => {
     }
   };
 
-  // Settings navigation item
-  const SettingsNavItem: React.FC<{ item: SettingsNavItem; active: boolean; onClick: () => void }> = ({
-    item,
-    active,
-    onClick
-  }) => {
-    const [isHovered, setIsHovered] = React.useState(false);
-
-    return (
-      <div
-        onClick={onClick}
-        onMouseEnter={() => setIsHovered(true)}
-        onMouseLeave={() => setIsHovered(false)}
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          paddingLeft: '16px',
-          paddingRight: '16px',
-          cursor: 'pointer',
-          fontFamily: 'inherit',
-          fontSize: '14px',
-          fontWeight: active ? 500 : 400,
-          transition: 'all 0.2s ease',
-          borderRadius: '6px',
-          marginBottom: '5px',
-          height: '32px',
-          gap: '5px',
-          backgroundColor: active ? '#82728C' : isHovered ? 'var(--rr-panel2)' : 'transparent',
-          color: active ? 'white' : 'var(--rr-text2)'
-        }}
-      >
-        <div>{item.icon}</div>
-        <div>{item.label}</div>
-      </div>
-    );
-  };
+  // Settings navigation item (kit rail row: icon + label, active = accent-weak + 3px accent border)
+  const SettingsNavItem: React.FC<{ item: SettingsNavItem; active: boolean; onClick: () => void }> = ({ item, active, onClick }) => (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`w-full flex items-center gap-[10px] px-[9px] py-2 mb-[2px] rounded-rr-ctl border-0 cursor-pointer text-left transition-colors ${active ? 'bg-accent-weak' : 'bg-transparent hover:bg-panel2'}`}
+      style={{ borderLeft: `3px solid ${active ? 'var(--rr-accent-text)' : 'transparent'}` }}
+    >
+      <span className="w-5 h-5 flex items-center justify-center flex-none" style={{ color: active ? 'var(--rr-accent-text)' : 'var(--rr-text3)' }}>
+        <Icon name={item.icon} size={17} />
+      </span>
+      <span className="text-[13px]" style={{ fontWeight: active ? 600 : 500, color: active ? 'var(--rr-text)' : 'var(--rr-text2)' }}>{item.label}</span>
+    </button>
+  );
 
   return (
-    <div
-      style={{
-        backgroundColor: 'var(--rr-panel2)',
-        height: '100%',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        padding: '20px 20px 20px 20px',
-        boxSizing: 'border-box',
-        fontFamily: 'inherit',
-      }}
-    >
-      <div style={{
-        maxWidth: '1350px',
-        width: '100%',
-        margin: '0 auto',
-        height: '100%',
-        display: 'flex',
-        flexDirection: 'column'
-      }}>
-        {/* Main settings card with navigation and content */}
-        <Card
-          className="bg-panel rounded-lg shadow-rr overflow-hidden"
-          style={{
-            boxShadow: 'var(--rr-shadow)',
-          border: '1px solid var(--rr-border)',
-            borderRadius: '10px',
-            backgroundColor: 'var(--rr-panel)',
-            height: '100%',
-            display: 'flex',
-            flexDirection: 'column',
-            overflow: 'hidden'
-          }}
-        >
-          <div className="flex" style={{ flex: 1, overflow: 'hidden' }}>
-            {/* Settings navigation sidebar */}
-            <div
-              className="w-64"
-              style={{
-                backgroundColor: 'var(--rr-panel)',
-                padding: '40px 24px 24px 24px',
-                display: 'flex',
-                flexDirection: 'column'
-              }}
-            >
-              <div style={{ overflowY: 'auto', flex: 1 }}>
-                {settingsNavSections.map((section) => (
-                  <div key={section.title} style={{ marginBottom: '32px' }}>
-                    {/* Section Title */}
-                    <h3 style={{
-                      fontSize: '12px',
-                      fontWeight: 600,
-                      color: 'var(--rr-text3)',
-                      textTransform: 'uppercase',
-                      letterSpacing: '0.05em',
-                      marginBottom: '12px',
-                      fontFamily: 'inherit'
-                    }}>
-                      {section.title}
-                    </h3>
-
-                    {/* Section Items */}
-                    {section.items.map((item) => {
-                      // Apply permission guard for developer settings
-                      if (item.id === 'developer') {
-                        return (
-                          <PermissionGate key={item.id} permission="access_developer_settings" mode="hide">
-                            <SettingsNavItem
-                              item={item}
-                              active={activeSettingsPage === item.id}
-                              onClick={() => handleSettingsNavigate(item.id)}
-                            />
-                          </PermissionGate>
-                        );
-                      }
-
-                      // Render other items normally
-                      return (
-                        <SettingsNavItem
-                          key={item.id}
-                          item={item}
-                          active={activeSettingsPage === item.id}
-                          onClick={() => handleSettingsNavigate(item.id)}
-                        />
-                      );
-                    })}
-                  </div>
-                ))}
-              </div>
+    <div data-m="row" className="flex-1 min-h-0 flex gap-[14px] p-[14px]">
+      {error ? (
+        <div className="fixed top-16 right-5 z-[1000] max-w-[420px]">
+          <Toast tone="bad" onDismiss={() => setError(null)}>{error}</Toast>
+        </div>
+      ) : null}
+      <aside className="flex-none w-[230px] bg-panel border border-border rounded-rr-xl shadow-rr flex flex-col overflow-hidden">
+        <div className="flex-1 overflow-y-auto p-[10px]">
+          {settingsNavSections.map((section) => (
+            <div key={section.title}>
+              <div className="px-2 pt-3 pb-[6px] font-mono text-[9.5px] tracking-[.14em] uppercase text-text3">{section.title}</div>
+              {section.items.map((item) => {
+                const row = (
+                  <SettingsNavItem
+                    key={item.id}
+                    item={item}
+                    active={activeSettingsPage === item.id}
+                    onClick={() => handleSettingsNavigate(item.id)}
+                  />
+                );
+                // Developer settings stay permission-gated
+                return item.id === 'developer' ? (
+                  <PermissionGate key={item.id} permission="access_developer_settings" mode="hide">{row}</PermissionGate>
+                ) : row;
+              })}
             </div>
-
-            {/* Main content area */}
-            <div
-              className="flex-1 overflow-auto"
-              style={{
-                fontFamily: 'inherit'
-              }}
-            >
-              {renderSettingsContent()}
-            </div>
-          </div>
-        </Card>
-      </div>
+          ))}
+        </div>
+      </aside>
+      <section className="flex-1 min-w-0 bg-panel border border-border rounded-rr-xl shadow-rr flex flex-col overflow-hidden">
+        <div className="flex-1 min-h-0 overflow-auto">
+          {renderSettingsContent()}
+        </div>
+      </section>
     </div>
   );
 };
