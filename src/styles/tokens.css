@@ -123,3 +123,16 @@ a:hover { opacity: .8; }
 /* Remaining lucide-react icons adopt the kit's line grammar (1.8 stroke, round caps) until
    they are replaced with primitives/Icon. */
 svg.lucide { stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+
+/* Legacy native form controls: inherit the UI font and theme colours (inline styles still win). */
+:where(input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]), select, textarea) {
+  font-family: inherit;
+  color: var(--rr-text);
+  background-color: var(--rr-panel2);
+  border-color: var(--rr-border2);
+  border-radius: 7px;
+}
+:where(input, select, textarea):focus-visible { outline: 2px solid var(--rr-accent-weak); outline-offset: 0; border-color: var(--rr-accent); }
+:where(select) option { background-color: var(--rr-panel); color: var(--rr-text); }
+:where(input, textarea)::placeholder { color: var(--rr-text3); }
+:where(button) { font-family: inherit; }
